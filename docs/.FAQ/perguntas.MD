@@ -1,4 +1,4 @@
-            **PERGUNTAS PROJETO SANDROSIL FITNESS - Planning the Website**
+            **PERGUNTAS PROJETO RYZE FITNESS - Planning the Website**
 
                                     **Perguntas gerais**
 

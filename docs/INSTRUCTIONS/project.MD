@@ -1,6 +1,10 @@
 Purpose & context
 
-Edgar is building RYZE (ryzecoaching.com), a fully online platform for automated sale of training and nutrition packs. The central value proposition is automation: clients get a plan quickly and without needing to wait for availability from a gym or professional.
+Edgar is building RYZE (ryzecoaching.com), a fully online platform
+for automated sale of training and nutrition packs.
+The central value proposition is automation:
+clients get a plan quickly and without needing to wait
+for availability from a gym or professional.
 
 Team:
 
