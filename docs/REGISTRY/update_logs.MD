@@ -1,3 +1,29 @@
+# Version 2.2.2
+
+Title: Rounded pill navbar and larger brand mark
+
+Date: 2026-08-04
+
+Summary:
+
+Changed the navbar from a rectangular strip to a floating pill bar and enlarged
+the navigation brand mark.
+
+Files modified:
+
+- `main/src/frontend/src/components/navbar/navbar.module.css`
+- `main/src/frontend/src/components/brand_mark/brand_mark.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The rectangular navbar felt too rigid; a rounded capsule and a stronger icon
+match the premium SaaS navigation pattern.
+
+---
+
 # Version 2.2.1
 
 Title: Full visual consistency pass

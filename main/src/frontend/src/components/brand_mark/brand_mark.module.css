@@ -15,8 +15,8 @@
 }
 
 .navigation {
-  width: 30px;
-  height: 30px;
+  width: 46px;
+  height: 46px;
 }
 
 .footer {
@@ -31,8 +31,8 @@
 
 @media (max-width: 520px) {
   .navigation {
-    width: 30px;
-    height: 30px;
+    width: 42px;
+    height: 42px;
   }
 
   .loading {

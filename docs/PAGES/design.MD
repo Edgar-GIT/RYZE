@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.1
+Version: 2.2.2
 
 ---
 
@@ -172,12 +172,11 @@ Secondary
 
 ## Navbar
 
-- Transparent / nearly invisible at the top of the page
-- Thin bar with generous horizontal spacing
+- Floating pill shape (`border-radius: 999px`), never a full-width rectangle
+- Soft glass fill that becomes more opaque on scroll
 - Light refined nav text; hover brightens to white
 - Enough top padding so the bar is never clipped
-- Compact brand mark
-- After scrolling: more opaque, background blur, thin bottom border
+- Larger brand mark in the nav
 - Active page indicated only by a glowing cyan underline
 - Never use boxed active navigation items
 
