@@ -3,6 +3,7 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  overflow: visible;
 }
 
 .mark img {
@@ -14,8 +15,8 @@
 }
 
 .navigation {
-  width: 96px;
-  height: 64px;
+  width: 42px;
+  height: 42px;
 }
 
 .footer {
@@ -30,8 +31,8 @@
 
 @media (max-width: 520px) {
   .navigation {
-    width: 76px;
-    height: 52px;
+    width: 36px;
+    height: 36px;
   }
 
   .loading {

@@ -2,45 +2,46 @@
   color-scheme: dark;
   font-family: "Google Sans", Inter, Roboto, Arial, sans-serif;
   color: #ffffff;
-  background: #020617;
+  background: #070a0f;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --color-primary-950: #020617;
-  --color-primary-900: #0a1224;
-  --color-primary-800: #111827;
-  --color-primary-700: #155e75;
-  --color-accent-500: #06b6d4;
-  --color-accent-400: #22d3ee;
-  --color-accent-300: #67e8f9;
-  --color-accent-glow: rgba(34, 211, 238, 0.45);
+  --color-primary-950: #070a0f;
+  --color-primary-900: #090d14;
+  --color-primary-800: #0b1018;
+  --color-primary-700: #162130;
+  --color-surface-card: #101722;
+  --color-surface-elevated: #111b27;
+  --color-accent-500: #1e8cff;
+  --color-accent-400: #1fcbff;
+  --color-accent-300: #32d7ff;
+  --color-accent-glow: rgba(31, 203, 255, 0.4);
   --color-neutral-100: #f8fafc;
-  --color-neutral-200: #cbd5e1;
-  --color-neutral-500: #64748b;
+  --color-neutral-200: #b8c3d1;
+  --color-neutral-500: #8794a8;
   --color-white: #ffffff;
   --color-success: #2f8f69;
-  --color-surface-dark: rgba(10, 18, 36, 0.78);
-  --color-surface-strong: rgba(2, 6, 23, 0.9);
-  --color-surface-elevated: rgba(15, 23, 42, 0.88);
-  --color-text-muted: #94a3b8;
-  --color-text-soft: #e2e8f0;
+  --color-surface-dark: rgba(16, 23, 34, 0.82);
+  --color-surface-strong: rgba(7, 10, 15, 0.92);
+  --color-text-muted: #8794a8;
+  --color-text-soft: #b8c3d1;
 
-  --shadow-soft: 0 28px 80px rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 20px 56px rgba(0, 0, 0, 0.42);
-  --shadow-glow: 0 0 40px rgba(34, 211, 238, 0.22);
-  --border-subtle: 1px solid rgba(148, 163, 184, 0.16);
-  --border-accent: 1px solid rgba(34, 211, 238, 0.4);
+  --shadow-soft: 0 28px 80px rgba(8, 20, 40, 0.55);
+  --shadow-card: 0 20px 56px rgba(8, 20, 40, 0.45);
+  --shadow-glow: 0 0 36px rgba(31, 203, 255, 0.2);
+  --border-subtle: 1px solid rgba(255, 255, 255, 0.08);
+  --border-accent: 1px solid rgba(31, 203, 255, 0.35);
 
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --space-page-x: 1.25rem;
   --container-width: 1200px;
-  --transition-fast: 180ms ease;
+  --transition-fast: 200ms ease;
   --transition-medium: 280ms ease;
-  --transition-slow: 420ms ease;
+  --transition-slow: 320ms ease;
 }
 
 * {
@@ -89,7 +90,7 @@ img {
 }
 
 :focus-visible {
-  outline: 2px solid rgba(34, 211, 238, 0.85);
+  outline: 2px solid rgba(31, 203, 255, 0.85);
   outline-offset: 3px;
 }
 
