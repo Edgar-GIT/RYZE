@@ -1,0 +1,92 @@
+.section {
+  padding: 5rem 0;
+}
+
+.inner {
+  display: grid;
+  gap: 2rem;
+}
+
+.compactTitle {
+  max-width: 760px;
+}
+
+.contactGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.contactItem,
+.whatsappItem {
+  display: grid;
+  min-height: 210px;
+  align-content: space-between;
+  gap: 1rem;
+  padding: 1.3rem;
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow-card);
+  transition:
+    transform var(--transition-medium),
+    border-color var(--transition-medium);
+}
+
+.contactItem {
+  cursor: pointer;
+}
+
+.contactItem:hover {
+  transform: translateY(-3px);
+  border-color: rgba(16, 87, 115, 0.28);
+}
+
+.icon {
+  display: inline-grid;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: var(--color-white);
+  background: var(--color-primary-900);
+}
+
+.icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.contactItem span:last-child,
+.whatsappItem > span:nth-child(2) {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.contactItem strong,
+.whatsappItem strong {
+  color: var(--color-primary-900);
+  font-size: 1.05rem;
+}
+
+.contactItem small,
+.whatsappItem small {
+  color: var(--color-neutral-500);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.whatsappItem {
+  cursor: default;
+}
+
+@media (max-width: 900px) {
+  .contactGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .contactItem,
+  .whatsappItem {
+    min-height: 0;
+  }
+}

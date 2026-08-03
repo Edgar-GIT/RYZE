@@ -1,0 +1,89 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1.25rem;
+  background: rgba(255, 255, 255, 0.74);
+  backdrop-filter: blur(22px);
+}
+
+.loader {
+  position: relative;
+  width: 138px;
+  height: 138px;
+  display: grid;
+  place-items: center;
+}
+
+.logo {
+  width: 74px;
+  height: 74px;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 22px rgba(9, 41, 54, 0.16));
+}
+
+.arrowOuter,
+.arrowInner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.arrowOuter {
+  border-top: 3px solid var(--color-primary-700);
+  border-right: 3px solid transparent;
+  animation: rotateClockwise 1.2s linear infinite;
+}
+
+.arrowInner {
+  inset: 16px;
+  border-bottom: 3px solid var(--color-accent-500);
+  border-left: 3px solid transparent;
+  animation: rotateCounterClockwise 1.55s linear infinite;
+}
+
+.arrowOuter::after,
+.arrowInner::after {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  content: "";
+  border-top: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.arrowOuter::after {
+  top: 8px;
+  right: 13px;
+  color: var(--color-primary-700);
+  transform: rotate(38deg);
+}
+
+.arrowInner::after {
+  bottom: 4px;
+  left: 13px;
+  color: var(--color-accent-500);
+  transform: rotate(218deg);
+}
+
+.label {
+  margin: 0;
+  color: var(--color-primary-900);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+@keyframes rotateClockwise {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rotateCounterClockwise {
+  to {
+    transform: rotate(-360deg);
+  }
+}

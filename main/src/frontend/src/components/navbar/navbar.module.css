@@ -1,0 +1,159 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding: 0.75rem var(--space-page-x) 0;
+}
+
+.navbar {
+  display: flex;
+  width: min(100%, var(--container-width));
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-inline: auto;
+  padding: 0.6rem 0.75rem 0.6rem 1rem;
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 18px 46px rgba(9, 41, 54, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.brand {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--color-primary-900);
+  font-weight: 900;
+}
+
+.brand img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.desktopLinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.navLink,
+.profileLink,
+.menuButton,
+.mobileLink {
+  cursor: pointer;
+}
+
+.navLink {
+  min-height: 44px;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-md);
+  color: rgba(9, 41, 54, 0.7);
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.navLink:hover,
+.activeLink {
+  color: var(--color-primary-900);
+  background: rgba(89, 157, 177, 0.11);
+}
+
+.profileLink,
+.menuButton {
+  display: inline-flex;
+  width: 46px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--color-primary-900);
+  background: rgba(89, 157, 177, 0.1);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.profileLink:hover,
+.activeProfile,
+.menuButton:hover {
+  color: var(--color-white);
+  background: var(--color-primary-900);
+}
+
+.profileLink svg,
+.menuButton svg,
+.mobileProfile svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.menuButton {
+  display: none;
+}
+
+.mobilePanel {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .desktopLinks,
+  .profileLink {
+    display: none;
+  }
+
+  .menuButton {
+    display: inline-flex;
+  }
+
+  .mobilePanel {
+    display: grid;
+    width: min(100%, var(--container-width));
+    max-height: 0;
+    gap: 0.35rem;
+    margin: 0.45rem auto 0;
+    padding: 0 0.5rem;
+    overflow: hidden;
+    border: var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: var(--shadow-soft);
+    opacity: 0;
+    backdrop-filter: blur(18px);
+    transition:
+      max-height var(--transition-medium),
+      padding var(--transition-medium),
+      opacity var(--transition-medium);
+  }
+
+  .mobilePanelOpen {
+    max-height: 360px;
+    padding-block: 0.5rem;
+    opacity: 1;
+  }
+
+  .mobileLink {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.85rem 0.9rem;
+    border-radius: var(--radius-md);
+    color: var(--color-primary-900);
+    font-weight: 800;
+  }
+
+  .mobileLink:hover,
+  .activeMobileLink {
+    background: rgba(89, 157, 177, 0.12);
+  }
+}

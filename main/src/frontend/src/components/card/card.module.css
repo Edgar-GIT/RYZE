@@ -1,0 +1,7 @@
+.card {
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
+}

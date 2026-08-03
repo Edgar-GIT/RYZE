@@ -1,0 +1,79 @@
+.card {
+  display: grid;
+  min-height: 100%;
+  gap: 1.35rem;
+  padding: 1.4rem;
+  transition:
+    transform var(--transition-medium),
+    border-color var(--transition-medium),
+    box-shadow var(--transition-medium);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(16, 87, 115, 0.26);
+  box-shadow: 0 26px 58px rgba(9, 41, 54, 0.15);
+}
+
+.iconWrap {
+  display: inline-grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: var(--color-white);
+  background: linear-gradient(135deg, var(--color-primary-900), var(--color-accent-500));
+}
+
+.iconWrap svg {
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
+.content {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.content h3 {
+  margin: 0;
+  color: var(--color-primary-900);
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.content p {
+  margin: 0;
+  color: var(--color-neutral-500);
+  line-height: 1.65;
+}
+
+.features {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.features li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-primary-900);
+  font-size: 0.94rem;
+  font-weight: 700;
+}
+
+.features li::before {
+  width: 8px;
+  height: 8px;
+  content: "";
+  border-radius: 50%;
+  background: var(--color-accent-500);
+}
+
+.button {
+  width: 100%;
+  align-self: end;
+}

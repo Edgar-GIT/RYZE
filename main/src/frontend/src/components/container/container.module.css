@@ -1,0 +1,12 @@
+.container {
+  width: min(100% - (var(--space-page-x) * 2), var(--container-width));
+  margin-inline: auto;
+}
+
+.default {
+  --container-width: 1180px;
+}
+
+.narrow {
+  --container-width: 880px;
+}

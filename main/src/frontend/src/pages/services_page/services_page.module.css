@@ -1,0 +1,81 @@
+.hero {
+  padding: 5rem 0 2.5rem;
+}
+
+.heroInner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2rem;
+  align-items: end;
+  padding: 2.2rem;
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(135deg, rgba(89, 157, 177, 0.18), transparent 46%),
+    rgba(255, 255, 255, 0.84);
+  box-shadow: var(--shadow-soft);
+}
+
+.copy {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 720px;
+}
+
+.copy p,
+.copy h1,
+.copy span {
+  margin: 0;
+}
+
+.copy p {
+  color: var(--color-primary-700);
+  font-weight: 900;
+}
+
+.copy h1 {
+  color: var(--color-primary-900);
+  font-size: 3rem;
+  line-height: 1.04;
+}
+
+.copy span {
+  color: var(--color-neutral-500);
+  line-height: 1.7;
+}
+
+.plans {
+  padding: 2.5rem 0 5rem;
+}
+
+.planInner {
+  display: grid;
+  gap: 2rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 960px) {
+  .heroInner,
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .copy h1 {
+    font-size: 2.35rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero {
+    padding-top: 3rem;
+  }
+
+  .heroInner {
+    padding: 1.35rem;
+  }
+}
