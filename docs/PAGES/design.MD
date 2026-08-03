@@ -217,10 +217,11 @@ Get Started
 
 Footer
 
-Contains links to:
+Contains:
 
-- WhatsApp
-- Instagram
+- RYZE logo
+- Circular icon links for email, Instagram and WhatsApp
+- Copyright
 
 ---
 

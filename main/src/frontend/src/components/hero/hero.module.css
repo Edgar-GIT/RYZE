@@ -1,7 +1,7 @@
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 1.2rem 0 4.75rem;
+  padding: 0.75rem 0 5rem;
 }
 
 .hero::before {
@@ -10,8 +10,9 @@
   z-index: -1;
   content: "";
   background:
-    linear-gradient(135deg, rgba(89, 157, 177, 0.18), transparent 42%),
-    linear-gradient(225deg, rgba(16, 87, 115, 0.1), transparent 36%);
+    radial-gradient(circle at 18% 22%, rgba(89, 157, 177, 0.18), transparent 25rem),
+    linear-gradient(135deg, rgba(89, 157, 177, 0.1), transparent 42%),
+    linear-gradient(225deg, rgba(16, 87, 115, 0.06), transparent 36%);
 }
 
 .inner {
@@ -49,10 +50,10 @@
 }
 
 .copy h1 {
-  max-width: 12ch;
+  max-width: 12.5ch;
   margin: 0;
   color: var(--color-primary-900);
-  font-size: 4.2rem;
+  font-size: clamp(3.25rem, 5.35vw, 5.35rem);
   line-height: 0.98;
 }
 
@@ -99,7 +100,7 @@
 .visualFrame {
   position: relative;
   display: grid;
-  width: min(100%, 520px);
+  width: min(100%, 560px);
   aspect-ratio: 1 / 0.82;
   place-items: center;
 }
@@ -108,7 +109,7 @@
 .visualFrame::after {
   position: absolute;
   content: "";
-  border: 1px solid rgba(16, 87, 115, 0.16);
+  border: 1px solid rgba(16, 87, 115, 0.13);
   border-radius: var(--radius-md);
 }
 
@@ -125,7 +126,7 @@
 .visualFrame img {
   position: relative;
   z-index: 1;
-  width: min(100%, 460px);
+  width: min(100%, 500px);
   height: auto;
   filter: drop-shadow(0 34px 42px rgba(9, 41, 54, 0.18));
 }

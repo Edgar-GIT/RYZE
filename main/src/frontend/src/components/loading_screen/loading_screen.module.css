@@ -18,13 +18,6 @@
   place-items: center;
 }
 
-.logo {
-  width: 112px;
-  height: 112px;
-  object-fit: contain;
-  filter: drop-shadow(0 16px 22px rgba(9, 41, 54, 0.16));
-}
-
 .arrowOuter,
 .arrowInner {
   position: absolute;

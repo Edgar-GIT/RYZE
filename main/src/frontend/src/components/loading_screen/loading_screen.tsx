@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 
-import { BRAND_ASSETS } from "@/constants/brand_assets";
+import { BrandMark } from "@/components/brand_mark/brand_mark";
 
 import styles from "./loading_screen.module.css";
 
@@ -17,7 +17,7 @@ export const LoadingScreen = () => (
     <div className={styles.loader}>
       <span className={styles.arrowOuter} aria-hidden="true" />
       <span className={styles.arrowInner} aria-hidden="true" />
-      <img className={styles.logo} src={BRAND_ASSETS.icon} alt="RYZE" />
+      <BrandMark size="loading" />
     </div>
     <p className={styles.label}>Preparing RYZE</p>
   </motion.div>

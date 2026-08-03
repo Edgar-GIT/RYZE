@@ -1,3 +1,105 @@
+# Version 1.1.3
+
+Title: Logo rendering and footer simplification
+
+Date: 2026-08-03
+
+Summary:
+
+Adjusted the brand logo rendering and simplified the footer layout according to
+the latest visual direction.
+
+Files modified:
+
+- `package.json`
+- `package-lock.json`
+- `main/src/frontend/src/components/brand_mark/brand_mark.module.css`
+- `main/src/frontend/src/components/footer/footer.tsx`
+- `main/src/frontend/src/components/footer/footer.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Changes made:
+
+- Removed the visual wrapper, background, border, shadow and crop from the RYZE
+  logo component.
+- Rendered the original logo asset directly in the navbar, footer and loading
+  screen.
+- Simplified the footer to a logo plus three small circular social/contact icon
+  buttons.
+- Removed the footer contact cards and future social links label.
+- Updated the design documentation footer specification.
+- Aligned package metadata with patch version `1.1.3`.
+
+Reason:
+
+The RYZE logo asset should be displayed directly without an artificial container,
+and the footer needed a cleaner minimal structure with only the brand and social
+icons.
+
+Additional notes:
+
+- No backend logic was implemented.
+- `npm run build` succeeds.
+- `npm audit --json` reports zero vulnerabilities.
+
+---
+
+# Version 1.1.2
+
+Title: Navbar and footer visual correction
+
+Date: 2026-08-03
+
+Summary:
+
+Corrected the navbar, hero first viewport and footer layout after visual review,
+with a much larger rendered RYZE logo and a cleaner footer structure.
+
+Files modified:
+
+- `package.json`
+- `package-lock.json`
+- `main/src/frontend/src/components/brand_mark/**`
+- `main/src/frontend/src/components/contact_section/contact_section.module.css`
+- `main/src/frontend/src/components/footer/footer.tsx`
+- `main/src/frontend/src/components/footer/footer.module.css`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `main/src/frontend/src/components/loading_screen/loading_screen.tsx`
+- `main/src/frontend/src/components/loading_screen/loading_screen.module.css`
+- `main/src/frontend/src/components/navbar/navbar.tsx`
+- `main/src/frontend/src/components/navbar/navbar.module.css`
+- `docs/REGISTRY/update_logs.MD`
+
+Changes made:
+
+- Added a reusable `BrandMark` component that crops and zooms the original
+  `ryze_icon.png` asset so the logo is visibly large instead of appearing tiny.
+- Applied the enlarged brand mark to the navbar, footer and loading screen.
+- Rebuilt the navbar layout with a cleaner full-width header, larger brand
+  area, stronger navigation pill and larger profile button.
+- Refined the hero first viewport spacing and visual balance below the navbar.
+- Rebuilt the footer into a two-column brand/contact layout with structured
+  contact rows and subtle future social placeholders.
+- Increased footer contact icon sizes and improved footer alignment on desktop
+  and mobile.
+- Aligned package metadata with patch version `1.1.2`.
+
+Reason:
+
+The previous navbar and footer still looked visually weak because the logo asset
+was rendered with too much surrounding image area and the footer contact/social
+layout felt unbalanced. This change improves brand visibility, hierarchy and
+overall polish while preserving the documented RYZE visual identity.
+
+Additional notes:
+
+- No backend logic was implemented.
+- `npm run build` succeeds.
+- `npm audit --json` reports zero vulnerabilities.
+
+---
+
 # Version 1.1.1
 
 Title: Frontend visual refinement
