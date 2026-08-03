@@ -1,3 +1,29 @@
+# Version 2.2.5
+
+Title: Point image imports to hero and plan_cards
+
+Date: 2026-08-04
+
+Summary:
+
+Updated hero and service plan image imports after removing `img/testing` and
+moving assets to `img/hero` and `img/plan_cards`.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.tsx`
+- `main/src/frontend/src/constants/services.ts`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Asset paths broke after the testing folder was deleted and images were renamed
+and relocated.
+
+---
+
 # Version 2.2.4
 
 Title: Premium embedded Contact experience

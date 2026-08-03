@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.4
+Version: 2.2.5
 
 ---
 
@@ -310,8 +310,9 @@ Simple full-bleed layout:
 - Soft bottom fade into the following page sections
 - Headline, description, CTAs and trust indicators
 
-The artwork asset already contains the left empty space and right visual
-composition, so no special masking or split-column image tricks are required.
+The artwork asset (`main/src/resources/img/hero/hero.png`) already contains the
+left empty space and right visual composition, so no special masking or
+split-column image tricks are required.
 
 ### Product showcase sections
 

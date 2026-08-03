@@ -2,7 +2,7 @@ import { ArrowRight, Brain, Lock, Users } from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
-import heroShowcase from "@resources/img/testing/test4.png";
+import heroShowcase from "@resources/img/hero/hero.png";
 
 import styles from "./hero.module.css";
 
