@@ -10,11 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@react-three/fiber": "^9.7.0",
+    "@types/three": "^0.185.3",
     "framer-motion": "^12.43.0",
     "lucide-react": "^1.28.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^5.3.4"
+    "react-router-dom": "^5.3.4",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
