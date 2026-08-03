@@ -1,15 +1,15 @@
 .panel {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(77, 184, 216, 0.18);
+  border: 1px solid rgba(34, 211, 238, 0.16);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(160deg, rgba(47, 159, 196, 0.12), transparent 40%),
-    rgba(7, 24, 36, 0.72);
+    linear-gradient(160deg, rgba(34, 211, 238, 0.08), transparent 42%),
+    rgba(10, 18, 36, 0.78);
   box-shadow:
     var(--shadow-card),
-    0 0 32px rgba(47, 159, 196, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 0 32px rgba(34, 211, 238, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(18px);
 }
 

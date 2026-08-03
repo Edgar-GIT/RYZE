@@ -5,8 +5,8 @@
   padding: 5.5rem 0 2.3rem;
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   background:
-    radial-gradient(circle at 36% 16%, rgba(16, 87, 115, 0.18), transparent 30rem),
-    linear-gradient(180deg, rgba(4, 14, 20, 0.98), rgba(3, 12, 17, 0.98));
+    radial-gradient(circle at 36% 16%, rgba(34, 211, 238, 0.08), transparent 30rem),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(10, 18, 36, 0.98));
   color: var(--color-white);
 }
 

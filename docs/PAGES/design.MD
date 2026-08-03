@@ -45,27 +45,26 @@ The logo should always be used consistently across the platform.
 
 Base Surfaces
 
-- `#050A10` — page background
-- `#0A121C` — primary surface
-- `#101C28` — elevated surface
-- `#145F7A` — deep accent surface
+- `#020617` — page background
+- `#0A1224` — primary surface
+- `#111827` — elevated surface
+- `#155E75` — deep accent surface
 
 Accent
 
-- `#1FB6DE` — primary highlight
-- `#3EC8EA` — interactive highlight
-- `#7ADCF2` — soft accent text / glow
+- `#06B6D4` — primary highlight
+- `#22D3EE` — interactive highlight / CTAs
+- `#67E8F9` — soft accent text / glow
 
-Neutral
+Neutral / Text
 
-- `#EEF3F5`
-- `#C5CED3`
-- `#5A6F78`
-- `#FFFFFF`
+- `#FFFFFF` — primary text
+- `#E2E8F0` — soft text
+- `#94A3B8` — muted text
+- `#64748B` — secondary neutral
 
-The public visual identity is dark by default and should stay continuous with the
-hero artwork. Page surfaces after the hero must dissolve into the same deep navy
-family so there is no hard visual seam.
+The public visual identity is near-black navy with high-contrast white text and
+electric cyan accents on interactive elements.
 
 ---
 
@@ -186,24 +185,21 @@ The logo always redirects to the Home page.
 
 At the very top of the page:
 
-- Nearly transparent
-- Very subtle background
-- Minimal border
-- Almost invisible against the page
+- Fully integrated / nearly transparent
+- No heavy border or opaque pill
+- Clean logo + links + profile layout
 
 As the user scrolls:
 
-- Opacity increases
-- Blur increases
-- Glass effect becomes stronger
-- Background becomes darker
+- Background opacity increases
+- Soft blur / glass appears
 - Transition remains smooth
 
 ## Active page indicator
 
 Do not use boxed / pill active states for desktop navigation items.
 
-The active page is indicated by a thin accent underline beneath the item.
+The active page is indicated by a thin cyan underline beneath the item.
 
 The underline should animate smoothly between navigation items.
 

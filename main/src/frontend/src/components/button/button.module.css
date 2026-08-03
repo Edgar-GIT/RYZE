@@ -39,35 +39,35 @@
 
 .large {
   min-height: 52px;
-  padding: 0.95rem 1.4rem;
+  padding: 0.95rem 1.45rem;
   font-size: 0.98rem;
 }
 
 .primary {
-  color: var(--color-white);
-  background: linear-gradient(135deg, var(--color-accent-400), var(--color-accent-500));
-  border-color: rgba(127, 208, 230, 0.4);
+  color: #020617;
+  background: linear-gradient(135deg, #67e8f9, #22d3ee 45%, #06b6d4);
+  border-color: rgba(103, 232, 249, 0.55);
   box-shadow:
-    0 12px 36px rgba(47, 159, 196, 0.35),
-    0 0 24px rgba(47, 159, 196, 0.18);
+    0 12px 36px rgba(34, 211, 238, 0.35),
+    0 0 28px rgba(34, 211, 238, 0.22);
 }
 
 .primary:hover {
-  background: linear-gradient(135deg, var(--color-accent-300), var(--color-accent-400));
+  background: linear-gradient(135deg, #a5f3fc, #22d3ee 40%, #06b6d4);
   box-shadow:
-    0 16px 42px rgba(47, 159, 196, 0.42),
-    0 0 28px rgba(47, 159, 196, 0.22);
+    0 16px 42px rgba(34, 211, 238, 0.42),
+    0 0 34px rgba(34, 211, 238, 0.28);
 }
 
 .secondary {
   color: var(--color-white);
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: transparent;
+  border-color: rgba(226, 232, 240, 0.35);
 }
 
 .secondary:hover {
-  border-color: rgba(77, 184, 216, 0.5);
-  background: rgba(47, 159, 196, 0.14);
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(34, 211, 238, 0.1);
 }
 
 .ghost {
@@ -84,11 +84,11 @@
 .dark {
   color: var(--color-white);
   background: var(--color-primary-900);
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(148, 163, 184, 0.18);
 }
 
 .light {
-  color: var(--color-primary-950);
+  color: #020617;
   background: var(--color-white);
 }
 
@@ -99,12 +99,12 @@
 .outlineLight {
   color: var(--color-white);
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.28);
+  border-color: rgba(226, 232, 240, 0.35);
 }
 
 .outlineLight:hover {
-  border-color: rgba(126, 191, 208, 0.55);
-  background: rgba(61, 143, 168, 0.12);
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(34, 211, 238, 0.1);
 }
 
 .disabled {

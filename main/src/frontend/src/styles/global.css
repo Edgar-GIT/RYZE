@@ -1,37 +1,37 @@
 :root {
   color-scheme: dark;
   font-family: "Google Sans", Inter, Roboto, Arial, sans-serif;
-  color: #eef4f7;
-  background: #050a10;
+  color: #ffffff;
+  background: #020617;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --color-primary-950: #050a10;
-  --color-primary-900: #0a121c;
-  --color-primary-800: #101c28;
-  --color-primary-700: #145f7a;
-  --color-accent-500: #1fb6de;
-  --color-accent-400: #3ec8ea;
-  --color-accent-300: #7adcf2;
-  --color-accent-glow: rgba(31, 182, 222, 0.42);
-  --color-neutral-100: #eef3f5;
-  --color-neutral-200: #c5ced3;
-  --color-neutral-500: #5a6f78;
+  --color-primary-950: #020617;
+  --color-primary-900: #0a1224;
+  --color-primary-800: #111827;
+  --color-primary-700: #155e75;
+  --color-accent-500: #06b6d4;
+  --color-accent-400: #22d3ee;
+  --color-accent-300: #67e8f9;
+  --color-accent-glow: rgba(34, 211, 238, 0.45);
+  --color-neutral-100: #f8fafc;
+  --color-neutral-200: #cbd5e1;
+  --color-neutral-500: #64748b;
   --color-white: #ffffff;
   --color-success: #2f8f69;
-  --color-surface-dark: rgba(10, 18, 28, 0.78);
-  --color-surface-strong: rgba(5, 10, 16, 0.9);
-  --color-surface-elevated: rgba(16, 28, 40, 0.88);
-  --color-text-muted: rgba(190, 204, 214, 0.76);
-  --color-text-soft: rgba(238, 244, 247, 0.92);
+  --color-surface-dark: rgba(10, 18, 36, 0.78);
+  --color-surface-strong: rgba(2, 6, 23, 0.9);
+  --color-surface-elevated: rgba(15, 23, 42, 0.88);
+  --color-text-muted: #94a3b8;
+  --color-text-soft: #e2e8f0;
 
-  --shadow-soft: 0 28px 80px rgba(0, 0, 0, 0.45);
-  --shadow-card: 0 20px 56px rgba(0, 0, 0, 0.38);
-  --shadow-glow: 0 0 40px rgba(31, 182, 222, 0.2);
-  --border-subtle: 1px solid rgba(255, 255, 255, 0.1);
-  --border-accent: 1px solid rgba(62, 200, 234, 0.38);
+  --shadow-soft: 0 28px 80px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 20px 56px rgba(0, 0, 0, 0.42);
+  --shadow-glow: 0 0 40px rgba(34, 211, 238, 0.22);
+  --border-subtle: 1px solid rgba(148, 163, 184, 0.16);
+  --border-accent: 1px solid rgba(34, 211, 238, 0.4);
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -89,7 +89,7 @@ img {
 }
 
 :focus-visible {
-  outline: 2px solid rgba(62, 200, 234, 0.85);
+  outline: 2px solid rgba(34, 211, 238, 0.85);
   outline-offset: 3px;
 }
 

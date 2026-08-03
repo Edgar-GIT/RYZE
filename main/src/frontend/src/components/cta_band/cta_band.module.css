@@ -8,11 +8,15 @@
   gap: 2rem;
   align-items: center;
   padding: 2.1rem 2.2rem;
-  border: 1px solid rgba(61, 143, 168, 0.28);
+  border: 1px solid rgba(34, 211, 238, 0.28);
   border-radius: var(--radius-lg);
   color: var(--color-white);
-  background: rgba(10, 31, 42, 0.88);
-  box-shadow: var(--shadow-card);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.1), transparent 45%),
+    rgba(10, 18, 36, 0.92);
+  box-shadow:
+    var(--shadow-card),
+    0 0 40px rgba(34, 211, 238, 0.08);
 }
 
 .copy {
