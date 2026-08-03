@@ -1,0 +1,83 @@
+.section {
+  position: relative;
+  padding: 6.5rem 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 60% 50% at 75% 40%, rgba(31, 203, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse 45% 40% at 10% 70%, rgba(30, 140, 255, 0.06), transparent 50%),
+    linear-gradient(180deg, rgba(7, 10, 15, 0.55), rgba(7, 10, 15, 0.72));
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+  gap: 2.5rem;
+  align-items: center;
+}
+
+.copy {
+  display: grid;
+  gap: 1rem;
+  max-width: 400px;
+  justify-items: start;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #1fcbff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.copy h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(2.1rem, 4vw, 3.1rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.description {
+  margin: 0 0 0.35rem;
+  color: #8794a8;
+  font-size: 1.02rem;
+  line-height: 1.7;
+  max-width: 34ch;
+}
+
+.visual {
+  min-width: 0;
+  min-height: 560px;
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 2rem;
+  }
+
+  .visual {
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 960px) {
+  .section {
+    padding: 4.5rem 0;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 2.25rem;
+  }
+
+  .copy {
+    max-width: none;
+  }
+
+  .visual {
+    min-height: 0;
+  }
+}
