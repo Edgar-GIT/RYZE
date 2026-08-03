@@ -2,7 +2,7 @@ import { ContactPreview } from "@/components/contact_preview/contact_preview";
 import { CtaBand } from "@/components/cta_band/cta_band";
 import { Hero } from "@/components/hero/hero";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
-import { DashboardDemo } from "@/components/product_demos/dashboard_demo";
+import { PlatformSection } from "@/components/platform_section/platform_section";
 import { NutritionDemo } from "@/components/product_demos/nutrition_demo";
 import { ProgressDemo } from "@/components/product_demos/progress_demo";
 import { TrainingDemo } from "@/components/product_demos/training_demo";
@@ -19,14 +19,7 @@ export const HomePage = () => (
   <PageWrapper>
     <Hero />
 
-    <ShowcaseSection
-      eyebrow="Platform"
-      title="Your fitness operating system."
-      description="One dashboard for training, nutrition and recovery — built to feel like a product, not a brochure."
-      tone="deep"
-    >
-      <DashboardDemo />
-    </ShowcaseSection>
+    <PlatformSection />
 
     <ShowcaseSection
       eyebrow="Training"

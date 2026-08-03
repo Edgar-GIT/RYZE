@@ -1,3 +1,31 @@
+# Version 2.2.6
+
+Title: Platform ecosystem visualization redesign
+
+Date: 2026-08-04
+
+Summary:
+
+Replaced the generic Platform dashboard demo with a premium ecosystem
+visualization: floating phone, glass orbit cards, connection lines, parallax and
+slow motion. Updated Platform messaging and removed DashboardDemo.
+
+Files modified:
+
+- `main/src/frontend/src/components/platform_section/**` (new)
+- `main/src/frontend/src/components/product_demos/dashboard_demo.tsx` (removed)
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The previous Platform section read like an AI-generated admin dashboard and
+failed to communicate that RYZE is a connected fitness operating system.
+
+---
+
 # Version 2.2.5
 
 Title: Point image imports to hero and plan_cards

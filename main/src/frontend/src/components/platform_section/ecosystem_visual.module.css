@@ -1,0 +1,619 @@
+.stage {
+  position: relative;
+  width: 100%;
+  min-height: 560px;
+  isolation: isolate;
+  perspective: 1200px;
+}
+
+.glowCore {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(31, 203, 255, 0.28), transparent 68%);
+  filter: blur(28px);
+  transform: translate(-50%, -50%);
+  animation: corePulse 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.particle {
+  --i: 0;
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(50, 215, 255, 0.65);
+  box-shadow: 0 0 10px rgba(31, 203, 255, 0.55);
+  left: calc(8% + (var(--i) * 6.4%));
+  top: calc(12% + (var(--i) * 5.2%));
+  animation: particleDrift calc(10s + var(--i) * 0.35s) ease-in-out infinite alternate;
+  opacity: 0.45;
+}
+
+.links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.linkPath {
+  stroke: rgba(31, 203, 255, 0.28);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 8;
+  animation: linkFlow 10s linear infinite;
+}
+
+.phoneAnchor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+}
+
+.phoneWrap {
+  display: block;
+}
+
+.phone {
+  width: min(220px, 42vw);
+  padding: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 28px;
+  background:
+    linear-gradient(160deg, rgba(31, 203, 255, 0.12), transparent 40%),
+    rgba(10, 14, 22, 0.92);
+  box-shadow:
+    0 30px 80px rgba(8, 20, 40, 0.55),
+    0 0 48px rgba(31, 203, 255, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.phoneNotch {
+  width: 42%;
+  height: 8px;
+  margin: 0.2rem auto 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.phoneScreen {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.55rem 0.55rem 0.7rem;
+  border-radius: 20px;
+  background: rgba(7, 10, 15, 0.72);
+}
+
+.phoneHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.phoneHeader span {
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.phoneHeader em {
+  color: #8794a8;
+  font-size: 0.7rem;
+  font-style: normal;
+}
+
+.phoneSession p,
+.phoneStats span,
+.card header span {
+  margin: 0;
+  color: #8794a8;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.phoneSession strong,
+.phoneStats strong,
+.card strong {
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.phoneSession {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.phoneSession strong {
+  font-size: 0.92rem;
+}
+
+.phoneProgress {
+  height: 5px;
+  margin-top: 0.35rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.phoneProgressFill {
+  display: block;
+  width: 72%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #32d7ff, #1e8cff);
+  transform-origin: left center;
+  animation: fillBar 1.4s ease forwards;
+}
+
+.phoneStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+
+.phoneStats div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.45rem 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: center;
+}
+
+.phoneStats strong {
+  font-size: 0.82rem;
+}
+
+.phoneNext {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.55rem;
+  border-radius: 10px;
+  color: #b8c3d1;
+  background: rgba(31, 203, 255, 0.08);
+  font-size: 0.72rem;
+}
+
+.phoneNext svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: #1fcbff;
+  flex: 0 0 auto;
+}
+
+.card {
+  position: absolute;
+  z-index: 4;
+  width: min(180px, 38vw);
+  pointer-events: none;
+}
+
+.card > div {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background:
+    linear-gradient(160deg, rgba(31, 203, 255, 0.1), transparent 42%),
+    rgba(16, 23, 34, 0.78);
+  box-shadow:
+    0 18px 48px rgba(8, 20, 40, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.card header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.card header svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: #1fcbff;
+}
+
+.card p {
+  margin: 0;
+  color: #b8c3d1;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.cardWorkout {
+  top: 6%;
+  left: 2%;
+  width: min(200px, 42vw);
+}
+
+.cardNutrition {
+  top: 4%;
+  right: 2%;
+  width: min(168px, 36vw);
+}
+
+.cardAi {
+  top: 34%;
+  left: 0;
+  width: min(190px, 40vw);
+}
+
+.cardProgress {
+  top: 30%;
+  right: 0;
+  width: min(176px, 38vw);
+}
+
+.cardRecovery {
+  bottom: 18%;
+  left: 2%;
+  width: min(200px, 42vw);
+}
+
+.cardPr {
+  bottom: 14%;
+  right: 4%;
+  width: min(160px, 34vw);
+}
+
+.cardCoach {
+  bottom: 2%;
+  left: 28%;
+  width: min(188px, 40vw);
+}
+
+.cardGoals {
+  top: 58%;
+  right: 18%;
+  width: min(150px, 32vw);
+  z-index: 6;
+}
+
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.28rem;
+}
+
+.heatCell {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: center;
+}
+
+.heatCell span {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 5px;
+}
+
+.heatDone {
+  background: rgba(31, 203, 255, 0.55);
+  box-shadow: 0 0 10px rgba(31, 203, 255, 0.25);
+}
+
+.heatActive {
+  background: #32d7ff;
+  box-shadow: 0 0 14px rgba(31, 203, 255, 0.45);
+}
+
+.heatIdle {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.heatCell em {
+  color: #8794a8;
+  font-size: 0.58rem;
+  font-style: normal;
+}
+
+.macroRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.macroRing {
+  position: relative;
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+.macroRing svg,
+.scoreRing svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ringTrack {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 3.5;
+}
+
+.ringValue {
+  fill: none;
+  stroke: #1fcbff;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transition: stroke-dasharray 1.4s ease;
+}
+
+.macroRing strong {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.68rem;
+}
+
+.curve {
+  width: 100%;
+  height: 42px;
+}
+
+.curveArea {
+  fill: rgba(31, 203, 255, 0.12);
+}
+
+.curveLine {
+  fill: none;
+  stroke: #32d7ff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 220;
+  stroke-dashoffset: 220;
+}
+
+.curveLineActive {
+  animation: drawLine 1.6s ease forwards;
+}
+
+.cardProgress strong {
+  font-size: 0.82rem;
+}
+
+.scoreRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.scoreRing {
+  position: relative;
+  width: 3.4rem;
+  height: 3.4rem;
+}
+
+.scoreValue {
+  fill: none;
+  stroke: #32d7ff;
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke-dasharray 1.5s ease;
+}
+
+.scoreRing strong {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+}
+
+.scoreRow ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #b8c3d1;
+  font-size: 0.7rem;
+}
+
+.scoreRow li {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.scoreRow svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: #1fcbff;
+}
+
+.prBadge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid rgba(31, 203, 255, 0.35);
+  border-radius: 999px;
+  color: #32d7ff !important;
+  background: rgba(31, 203, 255, 0.1);
+  font-size: 0.65rem !important;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cardCoach em {
+  color: #32d7ff;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.goalTrack {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.goalFill {
+  display: block;
+  width: 80%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #32d7ff, #1e8cff);
+  transform-origin: left center;
+  animation: fillBar 1.5s ease forwards;
+}
+
+.cardGoals strong {
+  font-size: 0.8rem;
+}
+
+@keyframes corePulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+}
+
+@keyframes particleDrift {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.25;
+  }
+
+  to {
+    transform: translate3d(8px, -16px, 0);
+    opacity: 0.7;
+  }
+}
+
+@keyframes linkFlow {
+  to {
+    stroke-dashoffset: -80;
+  }
+}
+
+@keyframes fillBar {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes drawLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (max-width: 960px) {
+  .stage {
+    min-height: 0;
+    display: grid;
+    gap: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .glowCore {
+    top: 18%;
+    width: 14rem;
+    height: 14rem;
+  }
+
+  .links {
+    display: none;
+  }
+
+  .phoneAnchor {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    justify-self: center;
+    grid-column: 1 / -1;
+    margin-bottom: 0.5rem;
+  }
+
+  .phone {
+    width: min(240px, 70vw);
+  }
+
+  .card {
+    position: relative;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    z-index: 1;
+  }
+
+  .card > div {
+    transform: none !important;
+  }
+
+  .stage {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .particles {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .stage {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glowCore,
+  .particle,
+  .linkPath,
+  .phoneProgressFill,
+  .goalFill,
+  .curveLineActive {
+    animation: none;
+  }
+
+  .phoneProgressFill,
+  .goalFill {
+    transform: none;
+  }
+
+  .curveLine {
+    stroke-dashoffset: 0;
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
@@ -46,7 +46,7 @@ export const EcosystemVisual = () => {
     return () => observer.disconnect();
   }, []);
 
-  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = (event: MouseEvent<HTMLDivElement>) => {
     if (reduceMotion || !stageRef.current) {
       return;
     }
@@ -80,7 +80,7 @@ export const EcosystemVisual = () => {
       <div className={styles.glowCore} />
       <div className={styles.particles}>
         {Array.from({ length: 14 }, (_, index) => (
-          <span key={index} className={styles.particle} style={{ "--i": index } as React.CSSProperties} />
+          <span key={index} className={styles.particle} style={{ "--i": index } as CSSProperties} />
         ))}
       </div>
 
@@ -95,50 +95,52 @@ export const EcosystemVisual = () => {
         <path className={styles.linkPath} d="M320 280 C420 260, 510 250, 590 240" />
       </svg>
 
-      <motion.div
-        className={styles.phoneWrap}
-        animate={layer(18)}
-        transition={{ type: "spring", stiffness: 60, damping: 18 }}
-      >
+      <div className={styles.phoneAnchor}>
         <motion.div
-          className={styles.phone}
-          animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
-          transition={floatTransition(0)}
+          className={styles.phoneWrap}
+          animate={layer(18)}
+          transition={{ type: "spring", stiffness: 60, damping: 18 }}
         >
-          <div className={styles.phoneNotch} />
-          <div className={styles.phoneScreen}>
-            <div className={styles.phoneHeader}>
-              <span>RYZE</span>
-              <em>Today</em>
-            </div>
-            <div className={styles.phoneSession}>
-              <p>Upper strength</p>
-              <strong>4 exercises · 62 min</strong>
-              <div className={styles.phoneProgress}>
-                <span className={isVisible ? styles.phoneProgressFill : undefined} />
+          <motion.div
+            className={styles.phone}
+            animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
+            transition={floatTransition(0)}
+          >
+            <div className={styles.phoneNotch} />
+            <div className={styles.phoneScreen}>
+              <div className={styles.phoneHeader}>
+                <span>RYZE</span>
+                <em>Today</em>
+              </div>
+              <div className={styles.phoneSession}>
+                <p>Upper strength</p>
+                <strong>4 exercises · 62 min</strong>
+                <div className={styles.phoneProgress}>
+                  <span className={isVisible ? styles.phoneProgressFill : undefined} />
+                </div>
+              </div>
+              <div className={styles.phoneStats}>
+                <div>
+                  <span>Streak</span>
+                  <strong>12</strong>
+                </div>
+                <div>
+                  <span>Ready</span>
+                  <strong>86%</strong>
+                </div>
+                <div>
+                  <span>Phase</span>
+                  <strong>Build</strong>
+                </div>
+              </div>
+              <div className={styles.phoneNext}>
+                <Zap aria-hidden="true" />
+                <span>Next · Legs · tomorrow 18:00</span>
               </div>
             </div>
-            <div className={styles.phoneStats}>
-              <div>
-                <span>Streak</span>
-                <strong>12</strong>
-              </div>
-              <div>
-                <span>Ready</span>
-                <strong>86%</strong>
-              </div>
-              <div>
-                <span>Phase</span>
-                <strong>Build</strong>
-              </div>
-            </div>
-            <div className={styles.phoneNext}>
-              <Zap aria-hidden="true" />
-              <span>Next · Legs · tomorrow 18:00</span>
-            </div>
-          </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      </div>
 
       <motion.article
         className={`${styles.card} ${styles.cardWorkout}`}

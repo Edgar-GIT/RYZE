@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.5
+Version: 2.2.6
 
 ---
 
@@ -291,7 +291,7 @@ The homepage should feel like a guided product tour, not a marketing brochure.
 Sections
 
 1. Hero
-2. Platform Dashboard
+2. Platform ecosystem
 3. Training Tracking
 4. Nutrition Intelligence
 5. Progress Analytics
@@ -316,7 +316,20 @@ split-column image tricks are required.
 
 ### Product showcase sections
 
-Each major section after the hero should:
+The Platform section is a dedicated visual moment after the hero.
+
+It uses:
+
+- Left column copy with headline, ecosystem description and CTA
+- Right column interactive ecosystem visualization
+- Central floating phone mockup
+- Surrounding glass cards (workout, nutrition, AI, progress, recovery, PRs,
+  coach feedback, weekly goals)
+- Soft glowing connection lines, parallax, slow float motion and meaningful
+  product signals (rings, heatmaps, streaks, curves) instead of generic KPI
+  dashboards
+
+Other major sections after Platform should:
 
 - Use a small title
 - Use a strong headline
@@ -325,7 +338,6 @@ Each major section after the hero should:
 
 Preferred demo surfaces include:
 
-- Glass dashboards
 - Weekly activity charts
 - Workout calendars
 - Nutrition rings and macros
@@ -333,6 +345,7 @@ Preferred demo surfaces include:
 - Floating UI windows
 
 Do not use generic multi-card "Why RYZE" feature grids.
+Do not use generic admin-dashboard placeholder layouts for Platform.
 
 ### Plans
 
