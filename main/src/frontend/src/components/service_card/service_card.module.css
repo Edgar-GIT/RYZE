@@ -12,8 +12,10 @@
 
 .card:hover {
   transform: translateY(-4px);
-  border-color: rgba(61, 143, 168, 0.4);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  border-color: rgba(31, 203, 255, 0.35);
+  box-shadow:
+    0 24px 64px rgba(8, 20, 40, 0.45),
+    0 0 28px rgba(31, 203, 255, 0.08);
 }
 
 .media {

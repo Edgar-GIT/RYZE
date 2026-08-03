@@ -1,31 +1,29 @@
 # RYZE
 # Design Specification
 
-Version: 2.1.1
+Version: 2.2.0
 
 ---
 
 # Design Philosophy
 
-RYZE follows a modern, dark, technology-first design language with a controlled
-galactic atmosphere.
+RYZE follows a premium AI-powered SaaS design language.
 
 The platform should always feel:
 
+- Elegant
 - Premium
-- Alive
-- Precise
+- Futuristic
+- Dark
+- Minimal
+- High contrast
+- Technology-first
 - Clean
-- Fast
-- Professional
-- Accessible
-- Mobile First
+- Apple + Linear + Vercel quality
 
-The interface must avoid generic marketing templates and text-heavy brochure
-layouts, while still allowing intentional cyan glow, nebula depth and glass
-product surfaces.
+This is not a generic fitness website aesthetic.
 
-Every public page should sell the product by showing the product.
+It is a dark technology product interface with athletic purpose.
 
 ---
 
@@ -33,9 +31,8 @@ Every public page should sell the product by showing the product.
 
 The RYZE brand represents progress, discipline and innovation.
 
-Its visual identity combines dark surfaces, restrained blue accents and
-glass interfaces. The experience should feel closer to a premium software
-product than a fitness brochure.
+Its visual identity combines near-black blue-tinted surfaces, electric cyan
+accents and dark glass panels.
 
 The logo should always be used consistently across the platform.
 
@@ -43,28 +40,63 @@ The logo should always be used consistently across the platform.
 
 # Color Palette
 
-Base Surfaces
+Primary Background
 
-- `#020617` — page background
-- `#0A1224` — primary surface
-- `#111827` — elevated surface
-- `#155E75` — deep accent surface
+- `#070A0F`
+- `#090D14`
+- `#0B1018`
 
-Accent
+Secondary Surfaces / Cards
 
-- `#06B6D4` — primary highlight
-- `#22D3EE` — interactive highlight / CTAs
-- `#67E8F9` — soft accent text / glow
+- `#101722`
+- `#111B27`
+- `#162130`
 
-Neutral / Text
+Cards should be only slightly brighter than the page.
 
-- `#FFFFFF` — primary text
-- `#E2E8F0` — soft text
-- `#94A3B8` — muted text
-- `#64748B` — secondary neutral
+Avoid grey backgrounds.
 
-The public visual identity is near-black navy with high-contrast white text and
-electric cyan accents on interactive elements.
+Everything should keep a subtle blue atmosphere.
+
+Primary Accent
+
+- `#1FCBFF`
+- `#2EBEFF`
+- `#27B6FF`
+- `#00C8FF`
+
+Accent Gradient
+
+- `#32D7FF` → `#1E8CFF`
+
+Text
+
+- Primary: `#FFFFFF`
+- Secondary: `#B8C3D1`
+- Muted: `#8794A8`
+
+Borders
+
+- `rgba(255, 255, 255, 0.08)`
+
+Hover
+
+- Increase brightness
+- Soft cyan glow on interactive elements only
+
+Never use saturated colors other than the blue / cyan accent.
+
+---
+
+# Visual Style
+
+- Darker overall surfaces
+- Subtle radial gradients behind important sections
+- Soft cyan glows only around interactive elements
+- Premium lighting on buttons
+- Cards as dark glass panels
+- Blue-tinted shadows instead of flat black shadows
+- Spacing defines sections more than hard separators
 
 ---
 
@@ -110,8 +142,6 @@ throughout the entire application.
 
 Every screen should have one primary objective.
 
-Avoid unnecessary components or information overload.
-
 ## Accessibility
 
 The interface should provide sufficient color contrast, large clickable areas
@@ -126,45 +156,78 @@ performance.
 
 # Components
 
-The interface is primarily composed of reusable components.
+## Buttons
 
-These include:
+Primary
 
-- Buttons
-- Cards
-- Glass panels
-- Inputs
-- Navigation bars
-- Product showcase sections
-- Product demo surfaces
-- Statistics cards
-- Charts
-- Badges
-- Notifications
-- Dialogs
-- Tooltips
+- Cyan / blue gradient (`#32D7FF` → `#1E8CFF`)
+- Soft cyan glow
+- High contrast text
 
-Every component should maintain the same dark, restrained visual language.
+Secondary
+
+- Transparent
+- Thin light border
+- Cyan hover border / soft fill
+
+## Navbar
+
+- Transparent / fully integrated at the top of the page
+- Enough top padding so the bar is never clipped
+- Compact brand mark
+- After scrolling: more opaque, background blur, thin bottom border
+- Active page indicated only by a glowing cyan underline
+- Never use boxed active navigation items
+
+## Cards
+
+- Rounded corners
+- Dark glass effect
+- Soft `rgba(255,255,255,0.08)` border
+- Soft cyan glow on hover
+- Slight lift on hover
+
+## Inputs
+
+- Dark surfaces
+- Thin borders
+- Cyan focus ring
+
+## Icons
+
+- White by default
+- Accent icons use cyan
 
 ---
 
 # Animations
 
-Animations should feel subtle and intentional.
+- Smooth transitions: 200–300ms
+- Buttons gently glow
+- Cards slightly lift
+- No exaggerated motion
 
-Examples include:
+---
 
-- Fade In
-- Slide Up
-- Soft hover elevation
-- Progressive navbar glass transition
-- Animated navigation underline
-- Chart / progress entrance
-- Smooth page transitions
+# Section Backgrounds
 
-Animations should never delay user interaction.
+Alternate between:
 
-Avoid flashy looping shine effects and heavy glow animations.
+- Very dark background (`#070A0F` / `#090D14`)
+- Slightly lighter surface (`#0B1018` / `#101722`)
+
+Do not use obvious separators.
+
+Spacing should define sections.
+
+---
+
+# Footer
+
+The current footer visual treatment is intentionally preserved.
+
+Do not redesign the footer as part of general palette updates unless explicitly
+requested.
 
 ---
 
@@ -181,27 +244,7 @@ The public navigation bar contains:
 
 The logo always redirects to the Home page.
 
-## Navbar behaviour
-
-At the very top of the page:
-
-- Fully integrated / nearly transparent
-- No heavy border or opaque pill
-- Clean logo + links + profile layout
-
-As the user scrolls:
-
-- Background opacity increases
-- Soft blur / glass appears
-- Transition remains smooth
-
-## Active page indicator
-
-Do not use boxed / pill active states for desktop navigation items.
-
-The active page is indicated by a thin cyan underline beneath the item.
-
-The underline should animate smoothly between navigation items.
+Navbar behaviour is defined in the Components section above and must be followed.
 
 ---
 

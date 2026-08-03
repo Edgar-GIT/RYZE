@@ -27,7 +27,7 @@
   padding: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
-  background: rgba(6, 20, 27, 0.82);
+  background: #101722;
   box-shadow:
     var(--shadow-card),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -50,8 +50,10 @@
 
 .contactItem:hover {
   transform: translateY(-2px);
-  border-color: rgba(61, 143, 168, 0.4);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  border-color: rgba(31, 203, 255, 0.35);
+  box-shadow:
+    0 24px 64px rgba(8, 20, 40, 0.45),
+    0 0 28px rgba(31, 203, 255, 0.08);
 }
 
 .icon {

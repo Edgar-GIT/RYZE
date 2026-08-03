@@ -56,10 +56,10 @@
   gap: 0.55rem;
   margin: 0;
   padding: 0.45rem 0.85rem;
-  border: 1px solid rgba(62, 200, 234, 0.35);
+  border: 1px solid rgba(31, 203, 255, 0.35);
   border-radius: 999px;
-  color: var(--color-accent-300);
-  background: rgba(31, 182, 222, 0.1);
+  color: #32d7ff;
+  background: rgba(31, 203, 255, 0.08);
   font-size: 0.72rem;
   font-weight: 750;
   letter-spacing: 0.14em;
@@ -70,21 +70,21 @@
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
-  background: var(--color-accent-400);
-  box-shadow: 0 0 12px var(--color-accent-400);
+  background: #1fcbff;
+  box-shadow: 0 0 12px rgba(31, 203, 255, 0.7);
 }
 
 .copy h1 {
   margin: 0;
-  color: var(--color-white);
+  color: #ffffff;
   font-size: clamp(2.6rem, 5vw, 4.5rem);
   line-height: 1.02;
   letter-spacing: -0.035em;
 }
 
 .accentLine {
-  color: var(--color-accent-400);
-  text-shadow: 0 0 28px rgba(31, 182, 222, 0.4);
+  color: #1fcbff;
+  text-shadow: 0 0 28px rgba(31, 203, 255, 0.4);
 }
 
 .description {

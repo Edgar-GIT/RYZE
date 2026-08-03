@@ -1,15 +1,33 @@
 .card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
-  background: rgba(10, 18, 36, 0.86);
+  background: #101722;
   box-shadow:
     var(--shadow-card),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition:
+    border-color var(--transition-medium),
+    box-shadow var(--transition-medium),
+    transform var(--transition-medium);
+}
+
+.card:hover {
+  border-color: rgba(31, 203, 255, 0.22);
+  box-shadow:
+    var(--shadow-card),
+    0 0 28px rgba(31, 203, 255, 0.08);
+  transform: translateY(-2px);
 }
 
 .card > * {
   position: relative;
   z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card:hover {
+    transform: none;
+  }
 }

@@ -8,15 +8,13 @@
   gap: 2rem;
   align-items: center;
   padding: 2.1rem 2.2rem;
-  border: 1px solid rgba(34, 211, 238, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
-  color: var(--color-white);
+  color: #ffffff;
   background:
-    linear-gradient(135deg, rgba(34, 211, 238, 0.1), transparent 45%),
-    rgba(10, 18, 36, 0.92);
-  box-shadow:
-    var(--shadow-card),
-    0 0 40px rgba(34, 211, 238, 0.08);
+    radial-gradient(circle at 88% 20%, rgba(31, 203, 255, 0.12), transparent 18rem),
+    #111b27;
+  box-shadow: var(--shadow-card);
 }
 
 .copy {
@@ -31,7 +29,7 @@
 }
 
 .copy p {
-  color: var(--color-accent-300);
+  color: #1fcbff;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -47,7 +45,7 @@
 
 .copy span {
   max-width: 48ch;
-  color: var(--color-text-muted);
+  color: #8794a8;
   line-height: 1.65;
 }
 

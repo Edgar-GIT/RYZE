@@ -1,3 +1,43 @@
+# Version 2.2.0
+
+Title: Official dark cyan SaaS visual identity
+
+Date: 2026-08-03
+
+Summary:
+
+Fixed the clipped navbar, reduced the brand mark size, and adopted the official
+near-black / electric cyan design system across the product UI while preserving
+the existing footer.
+
+Files modified:
+
+- `main/src/frontend/src/styles/global.css`
+- `main/src/frontend/src/components/navbar/navbar.module.css`
+- `main/src/frontend/src/components/brand_mark/brand_mark.module.css`
+- `main/src/frontend/src/components/button/button.module.css`
+- `main/src/frontend/src/components/animated_background/**`
+- `main/src/frontend/src/components/glass_panel/glass_panel.module.css`
+- `main/src/frontend/src/components/card/card.module.css`
+- `main/src/frontend/src/components/cta_band/cta_band.module.css`
+- `main/src/frontend/src/components/testimonials_section/testimonials_section.module.css`
+- `main/src/frontend/src/components/service_card/service_card.module.css`
+- `main/src/frontend/src/components/contact_section/contact_section.module.css`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `main/src/frontend/src/components/footer/footer.module.css` (restored)
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+- `package-lock.json`
+
+Reason:
+
+The hero established the official RYZE SaaS look. The rest of the product needed
+to match that darker high-contrast cyan system, and the navbar needed room so it
+is no longer cut off at the top.
+
+---
+
 # Version 2.1.9
 
 Title: Dark contrast palette and navbar polish

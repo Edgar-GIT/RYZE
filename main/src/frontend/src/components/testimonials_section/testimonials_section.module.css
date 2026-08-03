@@ -15,7 +15,7 @@
 
 .eyebrow {
   margin: 0;
-  color: var(--color-accent-400);
+  color: #1fcbff;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -24,7 +24,7 @@
 
 .header h2 {
   margin: 0;
-  color: var(--color-white);
+  color: #ffffff;
   font-size: clamp(2rem, 4vw, 2.9rem);
   line-height: 1.08;
   letter-spacing: -0.025em;
@@ -42,14 +42,12 @@
   align-content: space-between;
   min-height: 190px;
   padding: 1.35rem 1.3rem;
-  border: 1px solid rgba(34, 211, 238, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(160deg, rgba(34, 211, 238, 0.08), transparent 42%),
-    rgba(10, 18, 36, 0.72);
-  box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    linear-gradient(160deg, rgba(31, 203, 255, 0.05), transparent 42%),
+    #101722;
+  box-shadow: var(--shadow-card);
   backdrop-filter: blur(16px);
   transition:
     transform var(--transition-medium),
@@ -59,15 +57,15 @@
 
 .item:hover {
   transform: translateY(-3px);
-  border-color: rgba(34, 211, 238, 0.4);
+  border-color: rgba(31, 203, 255, 0.28);
   box-shadow:
-    0 22px 56px rgba(0, 0, 0, 0.38),
-    0 0 28px rgba(34, 211, 238, 0.1);
+    var(--shadow-card),
+    0 0 28px rgba(31, 203, 255, 0.08);
 }
 
 .item blockquote {
   margin: 0;
-  color: var(--color-text-soft);
+  color: #b8c3d1;
   font-size: 1.08rem;
   font-weight: 550;
   line-height: 1.45;
@@ -80,12 +78,12 @@
 }
 
 .person strong {
-  color: var(--color-white);
+  color: #ffffff;
   font-size: 0.92rem;
 }
 
 .person span {
-  color: var(--color-accent-300);
+  color: #1fcbff;
   font-size: 0.82rem;
   font-weight: 650;
 }

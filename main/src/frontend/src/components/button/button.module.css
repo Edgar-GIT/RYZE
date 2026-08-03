@@ -44,67 +44,67 @@
 }
 
 .primary {
-  color: #020617;
-  background: linear-gradient(135deg, #67e8f9, #22d3ee 45%, #06b6d4);
-  border-color: rgba(103, 232, 249, 0.55);
+  color: #070a0f;
+  background: linear-gradient(135deg, #32d7ff, #1fcbff 48%, #1e8cff);
+  border-color: rgba(50, 215, 255, 0.45);
   box-shadow:
-    0 12px 36px rgba(34, 211, 238, 0.35),
-    0 0 28px rgba(34, 211, 238, 0.22);
+    0 12px 36px rgba(31, 203, 255, 0.28),
+    0 0 28px rgba(31, 203, 255, 0.18);
 }
 
 .primary:hover {
-  background: linear-gradient(135deg, #a5f3fc, #22d3ee 40%, #06b6d4);
+  background: linear-gradient(135deg, #67e8f9, #1fcbff 42%, #1e8cff);
   box-shadow:
-    0 16px 42px rgba(34, 211, 238, 0.42),
-    0 0 34px rgba(34, 211, 238, 0.28);
+    0 16px 42px rgba(31, 203, 255, 0.36),
+    0 0 34px rgba(31, 203, 255, 0.24);
 }
 
 .secondary {
-  color: var(--color-white);
+  color: #ffffff;
   background: transparent;
-  border-color: rgba(226, 232, 240, 0.35);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .secondary:hover {
-  border-color: rgba(34, 211, 238, 0.55);
-  background: rgba(34, 211, 238, 0.1);
+  border-color: rgba(31, 203, 255, 0.45);
+  background: rgba(31, 203, 255, 0.08);
 }
 
 .ghost {
-  color: var(--color-text-soft);
+  color: #b8c3d1;
   background: transparent;
   border-color: transparent;
 }
 
 .ghost:hover {
-  color: var(--color-white);
+  color: #ffffff;
   background: rgba(255, 255, 255, 0.05);
 }
 
 .dark {
-  color: var(--color-white);
-  background: var(--color-primary-900);
-  border-color: rgba(148, 163, 184, 0.18);
+  color: #ffffff;
+  background: #101722;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .light {
-  color: #020617;
-  background: var(--color-white);
+  color: #070a0f;
+  background: #ffffff;
 }
 
 .light:hover {
-  background: var(--color-neutral-100);
+  background: #f8fafc;
 }
 
 .outlineLight {
-  color: var(--color-white);
+  color: #ffffff;
   background: transparent;
-  border-color: rgba(226, 232, 240, 0.35);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .outlineLight:hover {
-  border-color: rgba(34, 211, 238, 0.55);
-  background: rgba(34, 211, 238, 0.1);
+  border-color: rgba(31, 203, 255, 0.45);
+  background: rgba(31, 203, 255, 0.08);
 }
 
 .disabled {

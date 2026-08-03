@@ -5,9 +5,9 @@
   overflow: hidden;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 48% at 72% 6%, rgba(34, 211, 238, 0.1), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 12% 70%, rgba(14, 116, 144, 0.16), transparent 55%),
-    linear-gradient(180deg, #020617 0%, #0a1224 48%, #020617 100%);
+    radial-gradient(ellipse 70% 42% at 78% 8%, rgba(31, 203, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse 55% 38% at 12% 72%, rgba(30, 140, 255, 0.07), transparent 55%),
+    linear-gradient(180deg, #070a0f 0%, #090d14 48%, #070a0f 100%);
 }
 
 .nebulaOne,
@@ -29,68 +29,66 @@
 }
 
 .nebulaOne {
-  top: -12%;
-  right: 6%;
-  width: 32rem;
-  height: 20rem;
-  background: rgba(34, 211, 238, 0.14);
+  top: -14%;
+  right: 8%;
+  width: 28rem;
+  height: 18rem;
+  background: rgba(31, 203, 255, 0.1);
   animation: drift 18s ease-in-out infinite alternate;
 }
 
 .nebulaTwo {
   left: -12%;
-  bottom: 12%;
-  width: 24rem;
-  height: 18rem;
-  background: rgba(14, 116, 144, 0.22);
+  bottom: 14%;
+  width: 22rem;
+  height: 16rem;
+  background: rgba(30, 140, 255, 0.12);
   animation: drift 22s ease-in-out infinite alternate-reverse;
 }
 
 .nebulaThree {
-  top: 44%;
-  left: 42%;
-  width: 14rem;
-  height: 10rem;
-  background: rgba(103, 232, 249, 0.06);
+  top: 46%;
+  left: 40%;
+  width: 12rem;
+  height: 9rem;
+  background: rgba(50, 215, 255, 0.05);
   animation: drift 16s ease-in-out infinite alternate;
 }
 
 .beam {
-  top: 12%;
-  left: 60%;
-  width: 2px;
-  height: 32%;
-  background: linear-gradient(180deg, transparent, rgba(34, 211, 238, 0.22), transparent);
-  filter: blur(1px);
-  opacity: 0.28;
+  top: 14%;
+  left: 62%;
+  width: 1px;
+  height: 28%;
+  background: linear-gradient(180deg, transparent, rgba(31, 203, 255, 0.18), transparent);
+  opacity: 0.25;
   rotate: 18deg;
 }
 
 .stars {
   inset: 0;
-  opacity: 0.35;
+  opacity: 0.28;
   background-image:
-    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255, 255, 255, 0.5), transparent),
-    radial-gradient(1.5px 1.5px at 28% 42%, rgba(103, 232, 249, 0.45), transparent),
-    radial-gradient(1px 1px at 48% 22%, rgba(255, 255, 255, 0.35), transparent),
-    radial-gradient(1.5px 1.5px at 66% 58%, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(1px 1px at 78% 14%, rgba(103, 232, 249, 0.4), transparent),
-    radial-gradient(1.5px 1.5px at 88% 46%, rgba(255, 255, 255, 0.3), transparent);
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1.5px 1.5px at 28% 42%, rgba(50, 215, 255, 0.35), transparent),
+    radial-gradient(1px 1px at 48% 22%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1.5px 1.5px at 66% 58%, rgba(255, 255, 255, 0.32), transparent),
+    radial-gradient(1px 1px at 78% 14%, rgba(50, 215, 255, 0.3), transparent);
 }
 
 .grid {
   inset: 0;
   background:
-    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
-  background-size: 72px 72px;
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 72%, transparent 100%);
-  opacity: 0.5;
+    linear-gradient(rgba(31, 203, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 203, 255, 0.025) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
+  opacity: 0.45;
 }
 
 .noise {
   inset: 0;
-  opacity: 0.07;
+  opacity: 0.06;
   mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
   background-size: 180px 180px;
@@ -102,7 +100,7 @@
   }
 
   to {
-    transform: translate3d(1.2rem, 0.8rem, 0) scale(1.04);
+    transform: translate3d(1rem, 0.7rem, 0) scale(1.03);
   }
 }
 
