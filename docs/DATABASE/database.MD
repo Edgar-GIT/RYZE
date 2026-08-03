@@ -1,0 +1,611 @@
+# RYZE FITNESS
+# DATABASE.MD
+
+Version: 1.0.0
+
+---
+
+# PURPOSE
+
+This document defines the complete database architecture of the RYZE platform.
+
+It is the single source of truth regarding every entity, relationship,
+business rule and persistence decision.
+
+No table should be created without following this document.
+
+The database is expected to evolve during development.
+
+Whenever a better design is identified, this document should be updated before implementation.
+
+# DATABASE PHILOSOPHY
+
+The database is designed around long-term maintainability rather than short-term simplicity.
+
+Historical data should be preserved whenever possible.
+
+Data loss should be avoided.
+
+Entities should remain extensible, allowing new functionality without requiring major structural changes.
+
+Whenever there is uncertainty between deleting data or preserving it, preserving data should be preferred.
+
+The database should be treated as one of the project's most valuable assets.
+
+# FLEXIBILITY
+
+This document defines the current architecture, not a limitation.
+
+AI assistants are encouraged to improve:
+
+- Table design
+- Relationships
+- Indexes
+- Constraints
+- Normalization
+- Performance
+- Security
+
+...whenever those improvements are justified.
+
+Additional tables, columns or relationships may be introduced whenever they improve the overall architecture.
+
+Every modification must be documented inside update_logs.MD.
+
+# COMMON COLUMNS
+
+Whenever applicable, entities should include:
+
+id
+
+created_at
+
+updated_at
+
+deleted_at
+
+is_active
+
+created_by
+
+updated_by
+
+deleted_by
+
+version
+
+The exact set of columns depends on the entity.
+
+Not every table requires every column.
+
+The AI should determine the most appropriate structure for each case.
+
+# FILE STORAGE
+
+Binary files should never be stored inside the database.
+
+The database stores only metadata.
+
+Examples:
+
+- File path
+- File name
+- MIME type
+- Size
+- Owner
+- Upload date
+
+Physical files remain inside the uploads directory.
+
+# INDEXING
+
+Indexes should be created whenever they improve performance.
+
+Typical indexed columns include:
+
+- email
+- username
+- slug
+- created_at
+- trainer_id
+- pack_id
+- is_active
+
+Avoid unnecessary indexes.
+
+Indexes should be evaluated according to real usage.
+
+# CONSTRAINTS
+
+Use database constraints whenever possible.
+
+Examples:
+
+- UNIQUE
+- NOT NULL
+- FOREIGN KEY
+- CHECK
+- DEFAULT
+
+Business rules should not rely solely on backend validation.
+
+# TRANSACTIONS
+
+Critical operations should use database transactions.
+
+Examples:
+
+- Purchases
+- Refunds
+- Trainer approval
+- Account deletion
+- Payment confirmation
+
+Transactions should guarantee data consistency.
+
+# AI GENERATED DATA
+
+Artificial Intelligence may generate:
+
+- Training plans
+
+- Nutrition plans
+
+- Recommendations
+
+- Notifications
+
+- Suggestions
+
+AI-generated content should remain identifiable inside the database whenever possible.
+
+Future versions may store metadata such as:
+
+- AI provider
+
+- Model version
+
+- Prompt version
+
+- Generation timestamp
+
+# DATA RETENTION
+
+Historical information should be preserved whenever possible.
+
+Temporary data may be removed automatically.
+
+Examples:
+
+- Temporary uploads
+
+- Expired notifications
+
+- Cache
+
+Critical business information should never be deleted automatically.
+
+# MIGRATIONS
+
+Every database modification must be performed through migrations.
+
+The schema should never be manually modified in production.
+
+Migration history must remain consistent across environments.
+
+---
+
+# DESIGN PRINCIPLES
+
+The database prioritizes:
+
+- Scalability
+- Maintainability
+- Performance
+- Security
+- Auditability
+- Future expansion
+
+The database should always favor normalization unless a justified optimization exists.
+
+Soft deletion is preferred over permanent deletion whenever possible.
+
+Historical information should be preserved.
+
+Whenever business data changes over time, versioning should be considered.
+
+---
+
+# GENERAL RULES
+
+## IDs
+
+Every table uses:
+
+UUID
+
+Never sequential IDs.
+
+---
+
+## Dates
+
+Every table should contain, whenever applicable:
+
+created_at
+
+updated_at
+
+deleted_at
+
+---
+
+## Soft Delete
+
+User information is never permanently removed.
+
+Records should be marked as inactive instead.
+
+Example:
+
+is_active
+
+deleted_at
+
+deleted_reason
+
+---
+
+## Auditability
+
+Administrative actions should always be traceable.
+
+Critical modifications must generate audit records.
+
+---
+
+## Naming
+
+Tables:
+
+snake_case
+
+Columns:
+
+snake_case
+
+Foreign Keys:
+
+entity_id
+
+Example:
+
+user_id
+
+trainer_id
+
+pack_id
+
+---
+
+## Relationships
+
+Prefer explicit foreign keys.
+
+Avoid duplicated information.
+
+Whenever a many-to-many relationship exists,
+create an intermediate table.
+
+---
+
+# MAIN ENTITIES
+
+## Users
+
+Stores authentication and account information.
+
+Includes:
+
+- Authentication
+- Roles
+- Profile
+- Preferences
+- Security
+- Status
+
+---
+
+## User Profiles
+
+Stores public profile information.
+
+Examples:
+
+- Name
+- Biography
+- Avatar
+- Banner
+- Links
+- Visibility
+- Location
+
+---
+
+## Roles
+
+Supported roles:
+
+- Client
+- Trainer
+- Technical Administrator
+- Management Administrator
+
+Each account has exactly one role.
+
+Administrators and trainers can also purchase plans as regular users.
+
+---
+## Packs
+
+Represents every commercial product available on the platform.
+
+Each pack contains one or more training and nutrition resources depending on its type.
+
+Packs are immutable once purchased.
+
+Future updates create new versions instead of modifying historical purchases.
+
+Types:
+
+- Generic
+- Premium Level 1
+- Premium Level 2
+
+Supports:
+
+- Categories
+- Tags
+- Versioning
+- Search
+- Difficulty
+- Equipment
+- Duration
+
+---
+
+## Purchases
+
+Stores every purchase.
+
+Historical data never changes even if the pack changes later.
+
+Includes:
+
+- Purchase price
+- Currency
+- Discounts
+- Payment status
+- Invoice
+- Refunds
+
+---
+
+## Exercises
+
+Central exercise library.
+
+Every exercise exists only once.
+
+Stores:
+
+- Name
+- Description
+- Video
+- Images
+- Target muscles
+- Equipment
+- Difficulty
+
+Exercises are reused by multiple packs.
+
+---
+
+## Nutrition
+
+Stores nutrition plans associated with Premium plans.
+
+Premium Level 1:
+
+Generated automatically by AI.
+
+Premium Level 2:
+
+Created manually by trainers.
+
+Future versions may also become AI assisted.
+
+---
+
+## Questionnaires
+
+Stores every questionnaire submitted by users.
+
+Questionnaires are versioned.
+
+Responses should never be lost.
+
+---
+
+## Measurements
+
+Stores body measurements.
+
+Examples:
+
+- Weight
+- Body fat
+- Waist
+- Chest
+- Arms
+- Legs
+
+Historical evolution is preserved.
+
+---
+
+## Workout History
+
+Stores completed workouts.
+
+Includes:
+
+- Date
+- Duration
+- Exercises
+- Weights
+- Repetitions
+- Completion
+
+Used for statistics.
+
+---
+
+## Personal Records
+
+Stores automatically detected PRs.
+
+Examples:
+
+- Bench Press
+- Squat
+- Deadlift
+
+---
+
+## Achievements
+
+Stores:
+
+- Badges
+- Medals
+- Missions
+- Events
+- Streaks
+
+---
+
+## Notifications
+
+Stores notifications generated by the system.
+
+Notifications disappear from the interface after 24 hours.
+
+Database records remain available until scheduled cleanup.
+
+Supported categories include:
+
+- Pack
+- Purchase
+- Badge
+- Mission
+- Message
+- System
+- Account
+- Administration
+
+---
+
+## Conversations
+
+Stores messaging between:
+
+- Client ↔ Trainer
+- Client ↔ Support
+
+Messages use soft deletion.
+
+---
+
+## Feedback
+
+Stores:
+
+- Ratings
+- Reviews
+- Images
+- Likes
+- Comments
+
+---
+
+## Trainers
+
+Stores trainer-specific information.
+
+Examples:
+
+- Biography
+- Certificates
+- Approval status
+- Revenue
+- Statistics
+
+---
+
+## Audit Logs
+
+Stores every critical administrative action.
+
+Examples:
+
+- User modifications
+- Pack changes
+- Permission changes
+- Trainer approvals
+
+---
+
+## Scheduler
+
+Several automated background jobs interact with the database.
+
+Examples:
+
+- Expired notifications
+- Temporary uploads
+- Statistics
+- Rankings
+- Event activation
+- Pack expiration
+- Email queue
+- Backups
+
+---
+
+# FUTURE EXPANSION
+
+The database should always be designed to support future features without requiring major structural changes.
+
+Possible future features include:
+
+- Marketplace expansion
+- Native mobile applications
+- AI-generated training plans
+- AI-generated nutrition
+- Additional payment providers
+- Public API
+- Multi-language support
+- International taxation
+- Analytics improvements
+
+Whenever possible,
+new features should extend the existing architecture rather than replacing it.
+
+---
+
+The database architecture is expected to evolve throughout the project's lifetime.
+
+AI assistants are encouraged to improve the design whenever a better, more secure or more scalable solution is identified.
+
+Every architectural modification must be documented inside update_logs.MD before implementation.
