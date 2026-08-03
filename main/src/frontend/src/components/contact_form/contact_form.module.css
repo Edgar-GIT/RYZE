@@ -1,0 +1,201 @@
+.form {
+  display: grid;
+  gap: 1.35rem;
+  padding: 1.5rem 1.45rem 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background:
+    radial-gradient(ellipse 80% 55% at 12% 0%, rgba(31, 203, 255, 0.14), transparent 55%),
+    linear-gradient(160deg, rgba(17, 27, 39, 0.94), rgba(10, 14, 22, 0.92));
+  box-shadow:
+    0 28px 70px rgba(8, 20, 40, 0.45),
+    0 0 40px rgba(31, 203, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.header h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.35rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.fields label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.fields label span,
+.uploadCopy span {
+  color: #b8c3d1;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fields input,
+.fields textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #ffffff;
+  background: rgba(7, 10, 15, 0.55);
+  font: inherit;
+  outline: none;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background 200ms ease;
+}
+
+.fields input {
+  min-height: 46px;
+  padding: 0 0.9rem;
+}
+
+.fields textarea {
+  min-height: 120px;
+  resize: vertical;
+  padding: 0.8rem 0.9rem;
+  line-height: 1.6;
+}
+
+.fields input::placeholder,
+.fields textarea::placeholder {
+  color: rgba(135, 148, 168, 0.75);
+}
+
+.fields input:focus,
+.fields textarea:focus {
+  border-color: rgba(31, 203, 255, 0.5);
+  background: rgba(7, 10, 15, 0.72);
+  box-shadow: 0 0 0 3px rgba(31, 203, 255, 0.12);
+}
+
+.fullWidth,
+.uploadArea {
+  grid-column: 1 / -1;
+}
+
+.uploadArea {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px dashed rgba(31, 203, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.uploadArea input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.uploadCopy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.uploadCopy svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  color: #32d7ff;
+}
+
+.uploadCopy div {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.uploadCopy small {
+  overflow: hidden;
+  color: #8794a8;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uploadButton {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition:
+    border-color 200ms ease,
+    background 200ms ease;
+}
+
+.uploadButton:hover {
+  border-color: rgba(31, 203, 255, 0.4);
+  background: rgba(31, 203, 255, 0.1);
+}
+
+.uploadButton svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.footer {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.submit {
+  width: 100%;
+}
+
+.note {
+  margin: 0;
+  color: #8794a8;
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .form {
+    padding: 1.25rem 1.1rem 1.2rem;
+  }
+
+  .fields {
+    grid-template-columns: 1fr;
+  }
+
+  .uploadArea {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .uploadButton {
+    width: 100%;
+  }
+}
