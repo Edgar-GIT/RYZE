@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 
 import { BrandIcon } from "@/components/brand_icon/brand_icon";
-import { BrandMark } from "@/components/brand_mark/brand_mark";
 import {
   CONTACT_EMAIL,
   CONTACT_INSTAGRAM_URL
 } from "@/constants/contact";
+import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { Container } from "@/components/container/container";
 
 import styles from "./footer.module.css";
@@ -17,8 +17,7 @@ export const Footer = () => (
     <Container className={styles.inner}>
       <div className={styles.footerTop}>
         <Link className={styles.brand} to="/" aria-label="RYZE home">
-          <BrandMark size="footer" />
-          <span>RYZE</span>
+          <img className={styles.footerLogo} src={BRAND_ASSETS.slogan} alt="RYZE" />
         </Link>
 
         <div className={styles.socialLinks} aria-label="Social links">

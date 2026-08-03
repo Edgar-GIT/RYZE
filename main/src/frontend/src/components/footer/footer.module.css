@@ -22,11 +22,16 @@
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 1.1rem;
   width: fit-content;
   color: var(--color-white);
-  font-size: 1.65rem;
-  font-weight: 900;
+}
+
+.footerLogo {
+  display: block;
+  width: min(52vw, 300px);
+  height: auto;
+  object-fit: contain;
+  filter: saturate(1.05) contrast(1.04);
 }
 
 .socialLinks {
@@ -88,9 +93,8 @@
 }
 
 @media (max-width: 520px) {
-  .brand {
-    gap: 0.75rem;
-    font-size: 1.3rem;
+  .footerLogo {
+    width: min(76vw, 260px);
   }
 
   .socialButton {

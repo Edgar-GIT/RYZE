@@ -12,8 +12,8 @@
 
 .loader {
   position: relative;
-  width: 184px;
-  height: 184px;
+  width: 318px;
+  height: 318px;
   display: grid;
   place-items: center;
 }
@@ -32,7 +32,7 @@
 }
 
 .arrowInner {
-  inset: 20px;
+  inset: 30px;
   border-bottom: 3px solid var(--color-accent-500);
   border-left: 3px solid transparent;
   animation: rotateCounterClockwise 1.55s linear infinite;
@@ -46,6 +46,17 @@
   content: "";
   border-top: 3px solid currentColor;
   border-right: 3px solid currentColor;
+}
+
+@media (max-width: 520px) {
+  .loader {
+    width: 270px;
+    height: 270px;
+  }
+
+  .arrowInner {
+    inset: 26px;
+  }
 }
 
 .arrowOuter::after {

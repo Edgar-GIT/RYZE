@@ -219,7 +219,7 @@ Footer
 
 Contains:
 
-- RYZE logo
+- RYZE slogan logo
 - Circular icon links for email, Instagram and WhatsApp
 - Copyright
 
@@ -302,6 +302,10 @@ Official complaint submission page.
 Contains the platform's contact form.
 
 The form should remain simple and easy to complete.
+
+The email contact card opens a focused overlay panel with background blur and a
+direct-message form. At the current frontend stage this interaction remains
+visual only and does not send data.
 
 ---
 

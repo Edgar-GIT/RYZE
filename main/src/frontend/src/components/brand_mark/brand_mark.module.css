@@ -24,6 +24,13 @@
 }
 
 .loading {
-  width: 142px;
-  height: 142px;
+  width: 300px;
+  height: 200px;
+}
+
+@media (max-width: 520px) {
+  .loading {
+    width: 260px;
+    height: 174px;
+  }
 }

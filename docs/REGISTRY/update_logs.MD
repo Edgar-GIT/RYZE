@@ -1,3 +1,55 @@
+# Version 1.1.4
+
+Title: Footer slogan and email contact panel
+
+Date: 2026-08-03
+
+Summary:
+
+Refined footer branding, enlarged the loading screen logo and added a visual
+email contact panel.
+
+Files modified:
+
+- `package.json`
+- `package-lock.json`
+- `main/src/frontend/src/constants/brand_assets.ts`
+- `main/src/frontend/src/components/brand_mark/brand_mark.module.css`
+- `main/src/frontend/src/components/loading_screen/loading_screen.module.css`
+- `main/src/frontend/src/components/footer/footer.tsx`
+- `main/src/frontend/src/components/footer/footer.module.css`
+- `main/src/frontend/src/components/contact_section/contact_section.tsx`
+- `main/src/frontend/src/components/contact_section/contact_section.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Changes made:
+
+- Added the existing `ryze_slogan.png` asset to the shared brand asset registry.
+- Changed the footer brand image from the icon mark to the RYZE slogan logo.
+- Kept footer social actions as three compact circular icon-only controls.
+- Increased the loading screen brand mark and adjusted the rotating arrows to
+  match the larger scale.
+- Changed the email contact card to open a centered overlay panel with blurred
+  backdrop, close controls and a structured visual form.
+- Added Escape-key and backdrop-close behavior for the email panel.
+- Updated design documentation to match the footer and contact interaction.
+- Aligned package metadata with patch version `1.1.4`.
+
+Reason:
+
+The footer needed to use the full slogan asset, the loading screen logo was
+still too small, and the contact email action needed to behave like a polished
+frontend form interaction without introducing backend logic.
+
+Additional notes:
+
+- No backend logic was implemented.
+- `npm run build` succeeds.
+- `npm audit --json` reports zero vulnerabilities.
+
+---
+
 # Version 1.1.3
 
 Title: Logo rendering and footer simplification
