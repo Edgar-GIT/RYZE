@@ -1,3 +1,38 @@
+# Version 2.1.9
+
+Title: Dark contrast palette and navbar polish
+
+Date: 2026-08-03
+
+Summary:
+
+Aligned the global palette to a deeper navy / electric cyan system and cleaned
+the navbar into a transparent integrated bar with stronger text and button
+contrast.
+
+Files modified:
+
+- `main/src/frontend/src/styles/global.css`
+- `main/src/frontend/src/components/navbar/navbar.module.css`
+- `main/src/frontend/src/components/button/button.module.css`
+- `main/src/frontend/src/components/animated_background/animated_background.module.css`
+- `main/src/frontend/src/components/glass_panel/glass_panel.module.css`
+- `main/src/frontend/src/components/cta_band/cta_band.module.css`
+- `main/src/frontend/src/components/footer/footer.module.css`
+- `main/src/frontend/src/components/testimonials_section/testimonials_section.module.css`
+- `main/src/frontend/src/components/card/card.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+- `package-lock.json`
+
+Reason:
+
+The reference hero look depends on near-black surfaces, white text and cyan CTAs.
+The navbar also needed to feel integrated instead of heavily framed.
+
+---
+
 # Version 2.1.8
 
 Title: Rebuild hero as background artwork
