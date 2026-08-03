@@ -18,33 +18,33 @@ export const SERVICE_PLANS: ServicePlan[] = [
     title: "Generic Plan",
     description:
       "Structured training packs for users who want a clear starting point without personalization.",
-    ctaLabel: "Explore Generic",
+    ctaLabel: "FREE",
     to: "/services/generic-plan",
     imageSrc: testImageOne,
     imageAlt: "Dumbbells prepared for a structured workout",
-    badge: "Start clear",
+    badge: "Base plan",
     features: ["Pre-built workouts", "Exercise guidance", "Fast start"]
   },
   {
     title: "Premium Level 1",
     description:
       "A guided plan with a personalized training pack and automatically assigned nutrition plan.",
-    ctaLabel: "View Premium 1",
+    ctaLabel: "14,49€",
     to: "/services/premium-level-1",
     imageSrc: testImageTwo,
     imageAlt: "Athlete training under modern gym lighting",
-    badge: "Train + fuel",
+    badge: "Train + Nutrition",
     features: ["Questionnaire-based", "Nutrition included", "Immediate delivery"]
   },
   {
     title: "Premium Level 2",
     description:
       "Fully personalized training and nutrition with individual preparation and trainer review.",
-    ctaLabel: "View Premium 2",
+    ctaLabel: "19,99€",
     to: "/services/premium-level-2",
     imageSrc: testImageThree,
     imageAlt: "Athlete holding dumbbells in a gym",
-    badge: "Coach reviewed",
+    badge: "Coach reviewed full plan",
     features: ["Trainer reviewed", "Deep personalization", "Highest detail"]
   }
 ];

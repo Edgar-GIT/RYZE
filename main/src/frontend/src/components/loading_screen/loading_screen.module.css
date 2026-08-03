@@ -7,8 +7,8 @@
   align-content: center;
   gap: 1.25rem;
   background:
-    radial-gradient(circle at 50% 34%, rgba(89, 157, 177, 0.28), transparent 25rem),
-    rgba(4, 21, 29, 0.78);
+    radial-gradient(circle at 50% 34%, rgba(61, 143, 168, 0.18), transparent 25rem),
+    rgba(3, 11, 16, 0.88);
   backdrop-filter: blur(28px);
 }
 
@@ -18,7 +18,7 @@
   height: 318px;
   display: grid;
   place-items: center;
-  filter: drop-shadow(0 0 38px rgba(89, 157, 177, 0.22));
+  filter: drop-shadow(0 0 28px rgba(61, 143, 168, 0.18));
 }
 
 .arrowOuter,

@@ -1,26 +1,31 @@
 # RYZE
 # Design Specification
 
-Version: 1.0.0
+Version: 2.1.1
 
 ---
 
 # Design Philosophy
 
-RYZE follows a modern, futuristic and minimalist design language.
+RYZE follows a modern, dark, technology-first design language with a controlled
+galactic atmosphere.
 
 The platform should always feel:
 
-- Modern
+- Premium
+- Alive
+- Precise
 - Clean
 - Fast
 - Professional
 - Accessible
 - Mobile First
 
-The interface must avoid unnecessary visual noise while maintaining a premium appearance.
+The interface must avoid generic marketing templates and text-heavy brochure
+layouts, while still allowing intentional cyan glow, nebula depth and glass
+product surfaces.
 
-Every page should prioritize readability, simplicity and ease of navigation.
+Every public page should sell the product by showing the product.
 
 ---
 
@@ -28,7 +33,9 @@ Every page should prioritize readability, simplicity and ease of navigation.
 
 The RYZE brand represents progress, discipline and innovation.
 
-Its visual identity combines futuristic aesthetics with accessibility, creating a platform that feels both professional and welcoming.
+Its visual identity combines dark surfaces, restrained blue accents and
+glass interfaces. The experience should feel closer to a premium software
+product than a fitness brochure.
 
 The logo should always be used consistently across the platform.
 
@@ -36,29 +43,29 @@ The logo should always be used consistently across the platform.
 
 # Color Palette
 
-Primary Colors
+Base Surfaces
 
-- #092936
-- #105773
+- `#050A10` — page background
+- `#0A121C` — primary surface
+- `#101C28` — elevated surface
+- `#145F7A` — deep accent surface
 
-Secondary Colors
+Accent
 
-- #599DB1
-- #5699A1
+- `#1FB6DE` — primary highlight
+- `#3EC8EA` — interactive highlight
+- `#7ADCF2` — soft accent text / glow
 
-Neutral Colors
+Neutral
 
-- #DEDEDE
-- #FFFFFF
+- `#EEF3F5`
+- `#C5CED3`
+- `#5A6F78`
+- `#FFFFFF`
 
-The primary public visual identity uses dark blue environments combined with
-glassmorphism, restrained white surfaces and blue accent lighting.
-
-White surfaces may still be used for high-contrast content areas, forms or
-dashboard interfaces, but the landing experience should present RYZE as a
-premium dark technology and fitness platform.
-
-Green may occasionally be used for success states or highlights but should never become the dominant color.
+The public visual identity is dark by default and should stay continuous with the
+hero artwork. Page surfaces after the hero must dissolve into the same deep navy
+family so there is no hard visual seam.
 
 ---
 
@@ -75,27 +82,30 @@ Fallback
 - Arial
 - sans-serif
 
-Typography should remain clean, highly readable and consistent throughout the platform.
+Hierarchy rules:
+
+- Small uppercase eyebrows with wide tracking
+- Strong short headlines
+- Short supporting descriptions
+- Prefer visual product demos over long paragraphs
 
 ---
 
 # Design Principles
 
-The platform follows several core design principles.
-
 ## Mobile First
 
 Every interface must be designed for mobile devices before desktop.
 
-Desktop layouts should be adaptations of the mobile experience rather than the opposite.
+## Product Over Brochure
 
----
+Major homepage sections should demonstrate the platform through UI previews,
+dashboards, charts and interactive product surfaces.
 
 ## Consistency
 
-Buttons, cards, forms, spacing and typography should behave consistently throughout the entire application.
-
----
+Buttons, cards, forms, spacing and typography should behave consistently
+throughout the entire application.
 
 ## Simplicity
 
@@ -103,17 +113,15 @@ Every screen should have one primary objective.
 
 Avoid unnecessary components or information overload.
 
----
-
 ## Accessibility
 
-The interface should provide sufficient color contrast, large clickable areas and clear navigation.
-
----
+The interface should provide sufficient color contrast, large clickable areas
+and clear navigation.
 
 ## Performance
 
-Animations should enhance the experience without negatively affecting performance.
+Animations should enhance the experience without negatively affecting
+performance.
 
 ---
 
@@ -125,39 +133,39 @@ These include:
 
 - Buttons
 - Cards
+- Glass panels
 - Inputs
-- Dropdowns
-- Search Bars
-- Navigation Bars
-- Profile Cards
-- Statistics Cards
+- Navigation bars
+- Product showcase sections
+- Product demo surfaces
+- Statistics cards
 - Charts
 - Badges
 - Notifications
 - Dialogs
 - Tooltips
 
-Every component should maintain a consistent visual language.
+Every component should maintain the same dark, restrained visual language.
 
 ---
 
 # Animations
 
-Animations should feel smooth and modern.
+Animations should feel subtle and intentional.
 
 Examples include:
 
 - Fade In
-- Fade Out
 - Slide Up
-- Slide Down
-- Scale
-- Hover Elevation
-- Card Expansion
-- Loading Skeletons
-- Smooth Page Transitions
+- Soft hover elevation
+- Progressive navbar glass transition
+- Animated navigation underline
+- Chart / progress entrance
+- Smooth page transitions
 
 Animations should never delay user interaction.
+
+Avoid flashy looping shine effects and heavy glow animations.
 
 ---
 
@@ -173,6 +181,31 @@ The public navigation bar contains:
 - Profile
 
 The logo always redirects to the Home page.
+
+## Navbar behaviour
+
+At the very top of the page:
+
+- Nearly transparent
+- Very subtle background
+- Minimal border
+- Almost invisible against the page
+
+As the user scrolls:
+
+- Opacity increases
+- Blur increases
+- Glass effect becomes stronger
+- Background becomes darker
+- Transition remains smooth
+
+## Active page indicator
+
+Do not use boxed / pill active states for desktop navigation items.
+
+The active page is indicated by a thin accent underline beneath the item.
+
+The underline should animate smoothly between navigation items.
 
 ---
 
@@ -198,31 +231,69 @@ Available for every authenticated user.
 
 Purpose
 
-Present the platform and encourage users to begin their fitness journey.
+Present the platform by showing the product and encouraging users to begin.
+
+The homepage should feel like a guided product tour, not a marketing brochure.
 
 Sections
 
-- Hero Section
-- Services
-- Why Choose RYZE
-- Contact
-- Footer
+1. Hero
+2. Platform Dashboard
+3. Training Tracking
+4. Nutrition Intelligence
+5. Progress Analytics
+6. Choose Your Plan
+7. Testimonials
+8. Final CTA
+9. Contact
+10. Footer
 
-Hero
+### Hero
 
-Contains a strong headline, concise value description, two primary actions,
-trust indicators and a product showcase that immediately communicates training,
-nutrition, progress and automation.
+Simple full-bleed layout:
 
-Primary Button
+- Hero image covers the full hero width and height (`object-fit: cover`)
+- Text content overlays the left side
+- Soft bottom fade into the following page sections
+- Headline, description, CTAs and trust indicators
 
-Join for Free
+The artwork asset already contains the left empty space and right visual
+composition, so no special masking or split-column image tricks are required.
 
-Secondary Button
+### Product showcase sections
 
-Get Started
+Each major section after the hero should:
 
-Footer
+- Use a small title
+- Use a strong headline
+- Use a very short description
+- Immediately show a visual product demo
+
+Preferred demo surfaces include:
+
+- Glass dashboards
+- Weekly activity charts
+- Workout calendars
+- Nutrition rings and macros
+- Progress trend charts
+- Floating UI windows
+
+Do not use generic multi-card "Why RYZE" feature grids.
+
+### Plans
+
+Three product cards for Free, Premium and Elite.
+
+### Testimonials
+
+Short quotes with concrete outcomes, presented inside compact glass boxes with
+subtle accent borders.
+
+### Final CTA
+
+Compact dark band with clear next actions.
+
+### Footer
 
 Contains:
 
@@ -278,7 +349,8 @@ Includes:
 
 Displays the personalization questionnaire.
 
-After submission, the user receives a preparation status page before being redirected to the client dashboard.
+After submission, the user receives a preparation status page before being
+redirected to the client dashboard.
 
 ---
 
@@ -372,7 +444,8 @@ Account information and management (ex: changing password or email).
 
 Profile Sharing
 
-Allows the user to generate and copy a public profile link or share it directly through supported applications.
+Allows the user to generate and copy a public profile link or share it directly
+through supported applications.
 
 ---
 
@@ -433,7 +506,6 @@ Layouts should adapt naturally without changing the overall user experience.
 
 Future versions may introduce:
 
-- Dark Mode
 - Additional themes
 - Accessibility improvements
 - Custom dashboards
@@ -442,6 +514,24 @@ Future versions may introduce:
 # Inspiration
 
 The following products should be used as design references.
+
+## Linear
+
+Reference for:
+
+- Dark denseness done calmly
+- Navigation
+- Minimalism
+- Product surfaces
+
+## Raycast / Arc / Vercel / Nothing
+
+Reference for:
+
+- Premium technology branding
+- Restraint
+- Strong hierarchy
+- Product-led presentation
 
 ## Lyfta
 
@@ -456,38 +546,13 @@ Reference for:
 
 Reference for:
 
+- Showing the product instead of explaining it
 - Simplicity
-- White space
-- 3d Animations and normal animations
+- Intentional spacing
 
 ## Stripe
 
 Reference for:
 
-- Landing pages
-- Pricing
-- Documentation layout
-
-## Linear
-
-Reference for:
-
-- Dashboard design
-- Navigation
-- Minimalism
-
-## Notion
-
-Reference for:
-
-- Content organization
-- Spacing
-- Typography
-
-## Vercel
-
-Reference for:
-
-- Modern landing pages
-- Smooth interactions
-- Hero sections
+- Landing clarity
+- Pricing structure

@@ -1,25 +1,12 @@
 .card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045)),
-    rgba(9, 41, 54, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(6, 20, 27, 0.82);
   box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(24px);
-}
-
-.card::before {
-  position: absolute;
-  inset: 0;
-  content: "";
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(89, 157, 177, 0.22), transparent 16rem),
-    linear-gradient(120deg, rgba(255, 255, 255, 0.09), transparent 32%);
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .card > * {

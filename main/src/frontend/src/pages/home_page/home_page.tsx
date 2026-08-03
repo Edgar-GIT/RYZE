@@ -1,13 +1,16 @@
-import { CoachesSection } from "@/components/coaches_section/coaches_section";
 import { ContactSection } from "@/components/contact_section/contact_section";
-import { FaqSection } from "@/components/faq_section/faq_section";
+import { CtaBand } from "@/components/cta_band/cta_band";
 import { Hero } from "@/components/hero/hero";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { DashboardDemo } from "@/components/product_demos/dashboard_demo";
+import { NutritionDemo } from "@/components/product_demos/nutrition_demo";
+import { ProgressDemo } from "@/components/product_demos/progress_demo";
+import { TrainingDemo } from "@/components/product_demos/training_demo";
 import { SectionTitle } from "@/components/section_title/section_title";
 import { SectionWrapper } from "@/components/section_wrapper/section_wrapper";
 import { ServiceCard } from "@/components/service_card/service_card";
+import { ShowcaseSection } from "@/components/showcase_section/showcase_section";
 import { TestimonialsSection } from "@/components/testimonials_section/testimonials_section";
-import { WhyChooseRyze } from "@/components/why_choose_ryze/why_choose_ryze";
 import { SERVICE_PLANS } from "@/constants/services";
 
 import styles from "./home_page.module.css";
@@ -16,14 +19,48 @@ export const HomePage = () => (
   <PageWrapper>
     <Hero />
 
+    <ShowcaseSection
+      eyebrow="Platform"
+      title="Your fitness operating system."
+      description="One dashboard for training, nutrition and recovery — built to feel like a product, not a brochure."
+    >
+      <DashboardDemo />
+    </ShowcaseSection>
+
+    <ShowcaseSection
+      eyebrow="Training"
+      title="Sessions you can actually follow."
+      description="Weekly structure, live lifts and clear next steps without digging through spreadsheets."
+      reverse
+    >
+      <TrainingDemo />
+    </ShowcaseSection>
+
+    <ShowcaseSection
+      eyebrow="Nutrition"
+      title="Fuel that moves with the plan."
+      description="Macros, timing and guidance that adapt to the training week — not a static PDF."
+    >
+      <NutritionDemo />
+    </ShowcaseSection>
+
+    <ShowcaseSection
+      eyebrow="Progress"
+      title="Proof, not motivation posters."
+      description="Strength trends, body metrics and PRs in one calm analytics surface."
+      reverse
+    >
+      <ProgressDemo />
+    </ShowcaseSection>
+
     <SectionWrapper
       className={styles.servicesPreview}
       containerClassName={styles.servicesContainer}
     >
       <SectionTitle
-        eyebrow="Services"
-        title="Three ways to begin with structure."
-        description="Start simple, add automatic nutrition guidance or move into a fully personalized plan prepared with trainer oversight."
+        eyebrow="Plans"
+        title="Choose how far you want to go."
+        description="Start free, add automatic nutrition, or move into a fully personalized Elite plan."
         align="center"
       />
       <div className={styles.serviceGrid}>
@@ -33,10 +70,18 @@ export const HomePage = () => (
       </div>
     </SectionWrapper>
 
-    <WhyChooseRyze />
-    <CoachesSection />
     <TestimonialsSection />
-    <FaqSection />
+
+    <CtaBand
+      eyebrow="Start"
+      title="Begin with structure."
+      description="Pick a plan and experience how RYZE turns training into a clear weekly system."
+      primaryLabel="Join for Free"
+      primaryTo="/services/generic-plan"
+      secondaryLabel="View plans"
+      secondaryTo="/services"
+    />
+
     <ContactSection />
   </PageWrapper>
 );

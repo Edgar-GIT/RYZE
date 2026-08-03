@@ -1,3 +1,319 @@
+# Version 2.1.8
+
+Title: Rebuild hero as background artwork
+
+Date: 2026-08-03
+
+Summary:
+
+Rebuilt the hero from scratch with a single container, left-side content only,
+and an absolute oversized artwork background layer starting mid-viewport with a
+left fade mask.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.tsx`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Previous approaches kept treating the illustration as layout content. The
+intended design is immersive background artwork like Linear / Apple / Vercel.
+
+---
+
+# Version 2.1.7
+
+Title: Oversized hero background artwork
+
+Date: 2026-08-03
+
+Summary:
+
+Reworked the hero illustration into an oversized CSS background layer using the
+premium SaaS pattern: absolute right-anchored artwork with `background-size:
+cover`, intentional overflow and left-edge masking.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.tsx`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+- `package-lock.json`
+
+Reason:
+
+Fitting the full image inside a container made the artwork look embedded. The
+hero needs immersive oversized background artwork like Linear / Raycast /
+Vercel landing pages.
+
+---
+
+# Version 2.1.6
+
+Title: Atmospheric hero illustration blend
+
+Date: 2026-08-03
+
+Summary:
+
+Converted the hero artwork into an absolute right-side atmospheric layer with
+left-edge CSS masking so it blends into the page instead of appearing as an
+embedded image.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.tsx`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+The illustration was still reading as a separate image block. It needs to feel
+like integrated SaaS landing artwork that never pushes the text column.
+
+---
+
+# Version 2.1.5
+
+Title: Hero split layout for illustration
+
+Date: 2026-08-03
+
+Summary:
+
+Rebuilt the hero as a balanced 45/55 content/illustration grid so the artwork
+stays on the right, scales with `object-fit: contain`, and never overlaps text.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.tsx`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+- `package-lock.json`
+
+Reason:
+
+Treating the illustration as a full-bleed cover background caused cropping and
+overlap. The artwork needs a dedicated right column that grows wider on large
+screens while preserving the full composition.
+
+---
+
+# Version 2.1.4
+
+Title: Right-aligned contained hero artwork
+
+Date: 2026-08-03
+
+Summary:
+
+Scaled the hero artwork down, locked it to the right side with full visibility,
+kept the left side as atmosphere only, and cleared the navbar overlap zone.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.tsx`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+- `package-lock.json`
+
+Reason:
+
+Cover-cropping was hiding the right composition and pushing important artwork
+under the navbar. The visual needs to stay fully visible, upright and smaller.
+
+---
+
+# Version 2.1.3
+
+Title: Smaller hero image and seamless page blend
+
+Date: 2026-08-03
+
+Summary:
+
+Reduced the hero image scale/height and faded it into a deeper navy page
+atmosphere so the cut into the sections below is no longer abrupt.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `main/src/frontend/src/styles/global.css`
+- `main/src/frontend/src/components/animated_background/animated_background.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+- `package-lock.json`
+
+Reason:
+
+The hero artwork ended in a hard horizontal seam against the rest of the site.
+The page needed a smaller hero treatment and a continuous galactic surface.
+
+---
+
+# Version 2.1.2
+
+Title: Full-bleed hero image layout
+
+Date: 2026-08-03
+
+Summary:
+
+Corrected the hero so `test4.png` spans the full hero width, with copy on the
+left and the image subject visible on the right, and removed the floating cards.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.tsx`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+- `package-lock.json`
+
+Reason:
+
+The hero image already contains the composed product visual. It should act as a
+full-bleed canvas, not as a cropped card with extra floating UI overlays.
+
+---
+
+# Version 2.1.1
+
+Title: Galactic hero composition and richer atmosphere
+
+Date: 2026-08-03
+
+Summary:
+
+Rebuilt the hero into a free-floating brand composition with orbiting glass
+cards, enriched the galactic background atmosphere and boxed the athlete
+testimonials.
+
+Files modified:
+
+- `package.json`
+- `package-lock.json`
+- `main/src/frontend/src/styles/global.css`
+- `main/src/frontend/src/components/animated_background/**`
+- `main/src/frontend/src/components/hero/**`
+- `main/src/frontend/src/components/button/button.module.css`
+- `main/src/frontend/src/components/glass_panel/glass_panel.module.css`
+- `main/src/frontend/src/components/testimonials_section/testimonials_section.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Changes made:
+
+- Removed the rectangular frame around the hero image and treated `test4.png`
+  as a free-floating brand centerpiece.
+- Added floating glass product cards for training, volume, readiness, nutrition
+  and recovery around the hero mark.
+- Updated hero copy, CTA labels and trust indicators to match the product-led
+  galactic direction.
+- Increased cyan/blue atmospheric depth in the global palette and background.
+- Added boxed glass testimonial cards.
+- Updated design documentation for the hero composition and richer atmosphere.
+
+Reason:
+
+The previous hero still looked boxed and flat. The site needed more life,
+color and a technological / galactic product presence without leaving the RYZE
+blue palette.
+
+Additional notes:
+
+- No backend logic was implemented.
+- `npm run build` succeeds.
+
+---
+
+# Version 2.1.0
+
+Title: Darker product-led homepage redesign
+
+Date: 2026-08-03
+
+Summary:
+
+Moved the public visual identity to a darker premium technology language,
+redesigned navbar behaviour and replaced the generic "Why RYZE" feature cards
+with product-demo showcase sections.
+
+Files modified:
+
+- `package.json`
+- `package-lock.json`
+- `main/src/frontend/src/styles/global.css`
+- `main/src/frontend/src/components/animated_background/**`
+- `main/src/frontend/src/components/navbar/**`
+- `main/src/frontend/src/components/hero/**`
+- `main/src/frontend/src/components/showcase_section/**`
+- `main/src/frontend/src/components/product_demos/**`
+- `main/src/frontend/src/components/button/button.module.css`
+- `main/src/frontend/src/components/card/card.module.css`
+- `main/src/frontend/src/components/glass_panel/glass_panel.module.css`
+- `main/src/frontend/src/components/service_card/service_card.module.css`
+- `main/src/frontend/src/components/section_title/section_title.module.css`
+- `main/src/frontend/src/components/cta_band/cta_band.module.css`
+- `main/src/frontend/src/components/testimonials_section/**`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/INSTRUCTIONS/project.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Removed:
+
+- `main/src/frontend/src/components/why_choose_ryze/**`
+- `main/src/frontend/src/components/coaches_section/**`
+- `main/src/frontend/src/components/faq_section/**`
+- empty `main/src/frontend/src/components/hero_scene/`
+- empty `main/src/core/`
+
+Changes made:
+
+- Updated global tokens to a darker surface system with blue as the primary
+  accent.
+- Softened the animated background and reduced flashy gradient treatment.
+- Redesigned the navbar so it is nearly transparent at the top and gradually
+  gains opacity, blur and darker glass while scrolling.
+- Replaced boxed active navigation states with an animated accent underline.
+- Rebuilt the homepage flow as a product tour: dashboard, training, nutrition,
+  progress, plans, testimonials, CTA and contact.
+- Added reusable showcase and product-demo components that visually demonstrate
+  the platform instead of explaining it with feature cards.
+- Tightened hero copy, buttons, cards, glass panels and testimonials for a
+  calmer premium look.
+- Synchronized design, architecture and project status documentation.
+- Aligned package metadata with version `2.1.0`.
+
+Reason:
+
+The previous landing still felt like a generic AI marketing page. RYZE needed a
+recognizable darker product identity and a homepage that sells through the
+interface itself.
+
+Additional notes:
+
+- No backend logic was implemented.
+- `npm run build` succeeds.
+- Temporary hero testing imagery remains until final brand assets are chosen.
+
+---
+
 # Version 1.1.4
 
 Title: Footer slogan and email contact panel

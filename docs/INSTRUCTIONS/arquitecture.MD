@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # ARCHITECTURE.MD
 
-Version: 1.1.0
+Version: 2.1.0
 
 ---
 
@@ -235,6 +235,13 @@ frontend
     └── styles
 ```
 
+Important public UI building blocks currently include:
+
+- layout / navbar / footer / loading screen
+- hero / showcase sections / product demos
+- service cards / CTA band / contact panel
+- glass panels and shared primitives
+
 Frontend tooling files live at the repository root:
 
 ```
@@ -247,6 +254,10 @@ vite.config.ts
 
 The frontend uses React, TypeScript, Vite, React Router, CSS Modules,
 Lucide React and Framer Motion as defined in the project stack.
+
+The public visual system is dark-first, with blue as the primary accent.
+Homepage sections prioritize product demos over text-heavy feature grids.
+Detailed UI rules live in `docs/PAGES/design.MD`.
 
 ---
 

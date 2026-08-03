@@ -4,22 +4,19 @@ import styles from "./testimonials_section.module.css";
 
 const testimonials = [
   {
-    quote:
-      "I stopped guessing. The plan changes before I notice I need it to and there is a real coach signing off on it.",
+    quote: "I stopped guessing. The plan changes before I notice I need it to.",
     name: "Tomas R.",
-    result: "Deadlift 180 -> 232 kg in 9 months"
+    result: "Deadlift 180 → 232 kg"
   },
   {
-    quote:
-      "The nutrition side is the difference. It moves with my training week instead of punishing me for it.",
+    quote: "Nutrition moves with my training week instead of fighting it.",
     name: "Hanna L.",
-    result: "-11% body fat, strength maintained"
+    result: "−11% body fat"
   },
   {
-    quote:
-      "It feels like software built by people who actually lift. Everything is where it should be.",
+    quote: "It feels like software built by people who actually lift.",
     name: "Dan M.",
-    result: "Third year on the platform"
+    result: "Third year on RYZE"
   }
 ] as const;
 
@@ -32,9 +29,8 @@ export const TestimonialsSection = () => (
 
     <div className={styles.grid}>
       {testimonials.map((testimonial) => (
-        <article className={styles.card} key={testimonial.name}>
-          <blockquote>"{testimonial.quote}"</blockquote>
-          <div className={styles.divider} />
+        <article className={styles.item} key={testimonial.name}>
+          <blockquote>{testimonial.quote}</blockquote>
           <div className={styles.person}>
             <strong>{testimonial.name}</strong>
             <span>{testimonial.result}</span>

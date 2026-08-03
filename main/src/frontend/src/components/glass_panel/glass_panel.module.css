@@ -1,25 +1,16 @@
 .panel {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: var(--radius-md);
+  border: 1px solid rgba(77, 184, 216, 0.18);
+  border-radius: var(--radius-lg);
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.045)),
-    rgba(9, 41, 54, 0.42);
+    linear-gradient(160deg, rgba(47, 159, 196, 0.12), transparent 40%),
+    rgba(7, 24, 36, 0.72);
   box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(24px);
-}
-
-.panel::before {
-  position: absolute;
-  inset: 0;
-  content: "";
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(89, 157, 177, 0.22), transparent 18rem),
-    linear-gradient(120deg, rgba(255, 255, 255, 0.1), transparent 34%);
+    var(--shadow-card),
+    0 0 32px rgba(47, 159, 196, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
 }
 
 .panel > * {

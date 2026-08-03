@@ -36,11 +36,10 @@ Artificial Intelligence will progressively automate repetitive tasks, allowing t
 
 # Current Status
 
-The project is currently in the planning phase.
+The project has moved from planning into active frontend implementation.
 
-Every major aspect of the platform is being documented before development begins, including the business model, user experience, system architecture and design language.
-
-No production code has been written yet.
+The public visual frontend is under development first. Backend, authentication,
+database migrations and purchase flows are documented but not implemented yet.
 
 ---
 

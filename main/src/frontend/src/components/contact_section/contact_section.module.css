@@ -25,15 +25,13 @@
   align-content: space-between;
   gap: 1.15rem;
   padding: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045)),
-    rgba(9, 41, 54, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(6, 20, 27, 0.82);
   box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(22px);
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px);
   transition:
     transform var(--transition-medium),
     border-color var(--transition-medium),
@@ -51,23 +49,19 @@
 }
 
 .contactItem:hover {
-  transform: translateY(-3px);
-  border-color: rgba(89, 157, 177, 0.48);
-  box-shadow:
-    0 28px 90px rgba(0, 0, 0, 0.31),
-    0 0 42px rgba(89, 157, 177, 0.12);
+  transform: translateY(-2px);
+  border-color: rgba(61, 143, 168, 0.4);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
 }
 
 .icon {
   display: inline-grid;
-  width: 70px;
-  height: 70px;
+  width: 64px;
+  height: 64px;
   place-items: center;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.94);
-  box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.22),
-    0 0 34px rgba(89, 157, 177, 0.14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
 .icon svg {

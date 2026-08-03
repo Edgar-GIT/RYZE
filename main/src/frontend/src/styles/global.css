@@ -1,39 +1,46 @@
 :root {
   color-scheme: dark;
   font-family: "Google Sans", Inter, Roboto, Arial, sans-serif;
-  color: #ffffff;
-  background: #061a22;
+  color: #eef4f7;
+  background: #050a10;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --color-primary-900: #092936;
-  --color-primary-700: #105773;
-  --color-accent-500: #599db1;
-  --color-accent-400: #5699a1;
-  --color-accent-300: #8fc6d4;
-  --color-neutral-100: #f6fafb;
-  --color-neutral-200: #dedede;
-  --color-neutral-500: #4d646d;
+  --color-primary-950: #050a10;
+  --color-primary-900: #0a121c;
+  --color-primary-800: #101c28;
+  --color-primary-700: #145f7a;
+  --color-accent-500: #1fb6de;
+  --color-accent-400: #3ec8ea;
+  --color-accent-300: #7adcf2;
+  --color-accent-glow: rgba(31, 182, 222, 0.42);
+  --color-neutral-100: #eef3f5;
+  --color-neutral-200: #c5ced3;
+  --color-neutral-500: #5a6f78;
   --color-white: #ffffff;
   --color-success: #2f8f69;
-  --color-surface-dark: rgba(9, 41, 54, 0.58);
-  --color-surface-strong: rgba(5, 22, 30, 0.82);
-  --color-text-muted: rgba(222, 222, 222, 0.74);
-  --color-text-soft: rgba(255, 255, 255, 0.88);
+  --color-surface-dark: rgba(10, 18, 28, 0.78);
+  --color-surface-strong: rgba(5, 10, 16, 0.9);
+  --color-surface-elevated: rgba(16, 28, 40, 0.88);
+  --color-text-muted: rgba(190, 204, 214, 0.76);
+  --color-text-soft: rgba(238, 244, 247, 0.92);
 
-  --shadow-soft: 0 28px 100px rgba(0, 0, 0, 0.32);
-  --shadow-card: 0 24px 80px rgba(0, 0, 0, 0.26);
-  --border-subtle: 1px solid rgba(255, 255, 255, 0.14);
+  --shadow-soft: 0 28px 80px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 20px 56px rgba(0, 0, 0, 0.38);
+  --shadow-glow: 0 0 40px rgba(31, 182, 222, 0.2);
+  --border-subtle: 1px solid rgba(255, 255, 255, 0.1);
+  --border-accent: 1px solid rgba(62, 200, 234, 0.38);
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 8px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --space-page-x: 1.25rem;
   --container-width: 1200px;
   --transition-fast: 180ms ease;
-  --transition-medium: 260ms ease;
+  --transition-medium: 280ms ease;
+  --transition-slow: 420ms ease;
 }
 
 * {
@@ -49,7 +56,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background: #061a22;
+  background: var(--color-primary-950);
 }
 
 #root {
@@ -77,12 +84,12 @@ img {
 }
 
 ::selection {
-  color: var(--color-primary-900);
+  color: var(--color-primary-950);
   background: var(--color-accent-300);
 }
 
 :focus-visible {
-  outline: 3px solid rgba(89, 157, 177, 0.72);
+  outline: 2px solid rgba(62, 200, 234, 0.85);
   outline-offset: 3px;
 }
 

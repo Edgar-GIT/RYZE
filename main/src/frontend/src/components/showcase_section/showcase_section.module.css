@@ -1,0 +1,78 @@
+.section {
+  padding-block: 5rem;
+}
+
+.inner {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 3.5rem;
+  align-items: center;
+}
+
+.reverse {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+}
+
+.reverse .copy {
+  order: 2;
+}
+
+.reverse .visual {
+  order: 1;
+}
+
+.copy {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 420px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-accent-400);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.copy h2 {
+  margin: 0;
+  color: var(--color-white);
+  font-size: clamp(2rem, 3.6vw, 2.85rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.description {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.65;
+  max-width: 36ch;
+}
+
+.visual {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .section {
+    padding-block: 3.75rem;
+  }
+
+  .inner,
+  .reverse {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .reverse .copy,
+  .reverse .visual {
+    order: initial;
+  }
+
+  .copy {
+    max-width: none;
+  }
+}
