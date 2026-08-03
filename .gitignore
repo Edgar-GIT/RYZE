@@ -2,3 +2,4 @@ docs/
 .aider*
 CLAUDE.md
 AGENTS.md
+.env
