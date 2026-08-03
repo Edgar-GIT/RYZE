@@ -2,7 +2,7 @@ import { ArrowRight, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
-import { BRAND_ASSETS } from "@/constants/brand_assets";
+import { HeroScene } from "@/components/hero_scene/hero_scene";
 
 import styles from "./hero.module.css";
 
@@ -12,13 +12,13 @@ export const Hero = () => (
       <div className={styles.copy}>
         <p className={styles.eyebrow}>
           <Sparkles aria-hidden="true" />
-          Online fitness guidance
+          Premium online fitness guidance
         </p>
-        <h1>Professional training starts with a clear plan.</h1>
+        <h1>Fitness guidance with the precision of modern software.</h1>
         <p className={styles.description}>
-          RYZE brings structured training and nutrition guidance into a clean
-          digital experience built for beginners, intermediate users and future
-          trainer-led growth.
+          RYZE turns training and nutrition into a structured digital
+          experience, built for people who want clarity, momentum and a premium
+          path into professional fitness.
         </p>
         <div className={styles.actions}>
           <Button to="/services/generic-plan" size="large" icon={<ArrowRight />}>
@@ -29,21 +29,14 @@ export const Hero = () => (
           </Button>
         </div>
         <div className={styles.signals} aria-label="RYZE platform strengths">
-          <span>Mobile first</span>
-          <span>Structured plans</span>
-          <span>Nutrition ready</span>
+          <span>Mobile-first plans</span>
+          <span>Trainer-ready platform</span>
+          <span>Automation foundation</span>
         </div>
       </div>
 
-      <div className={styles.visual} aria-label="RYZE brand preview">
-        <div className={styles.visualFrame}>
-          <img src={BRAND_ASSETS.set} alt="RYZE brand set" />
-        </div>
-        <div className={styles.visualRail} aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
+      <div className={styles.visual}>
+        <HeroScene />
       </div>
     </Container>
   </section>

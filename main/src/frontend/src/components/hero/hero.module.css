@@ -1,30 +1,31 @@
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 0.75rem 0 5rem;
+  padding: 8.8rem 0 5.2rem;
 }
 
 .hero::before {
   position: absolute;
-  inset: 0;
+  inset: 0 0 auto;
   z-index: -1;
+  height: 78%;
   content: "";
   background:
-    radial-gradient(circle at 18% 22%, rgba(89, 157, 177, 0.18), transparent 25rem),
-    linear-gradient(135deg, rgba(89, 157, 177, 0.1), transparent 42%),
-    linear-gradient(225deg, rgba(16, 87, 115, 0.06), transparent 36%);
+    radial-gradient(circle at 22% 18%, rgba(89, 157, 177, 0.28), transparent 28rem),
+    linear-gradient(135deg, rgba(89, 157, 177, 0.12), transparent 42%),
+    linear-gradient(225deg, rgba(222, 222, 222, 0.05), transparent 36%);
 }
 
 .inner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.86fr);
-  gap: 4rem;
+  grid-template-columns: minmax(0, 0.9fr) minmax(390px, 1fr);
+  gap: 4.8rem;
   align-items: center;
 }
 
 .copy {
   display: grid;
-  gap: 1.4rem;
+  gap: 1.45rem;
   max-width: 680px;
 }
 
@@ -34,14 +35,16 @@
   min-height: 40px;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.55rem 0.75rem;
+  padding: 0.58rem 0.78rem;
   margin: 0;
-  border: var(--border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--color-primary-700);
-  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(89, 157, 177, 0.36);
+  border-radius: 999px;
+  color: var(--color-accent-300);
+  background: rgba(89, 157, 177, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   font-size: 0.92rem;
   font-weight: 800;
+  backdrop-filter: blur(18px);
 }
 
 .eyebrow svg {
@@ -50,18 +53,19 @@
 }
 
 .copy h1 {
-  max-width: 12.5ch;
+  max-width: 12.2ch;
   margin: 0;
-  color: var(--color-primary-900);
-  font-size: clamp(3.25rem, 5.35vw, 5.35rem);
-  line-height: 0.98;
+  color: var(--color-white);
+  font-size: clamp(3.25rem, 6.35vw, 6.25rem);
+  line-height: 0.92;
+  text-wrap: balance;
 }
 
 .description {
   max-width: 62ch;
   margin: 0;
-  color: var(--color-neutral-500);
-  font-size: 1.08rem;
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
   line-height: 1.75;
 }
 
@@ -81,80 +85,21 @@
   display: inline-flex;
   min-height: 36px;
   align-items: center;
-  padding: 0.45rem 0.7rem;
-  border: 1px solid rgba(16, 87, 115, 0.12);
-  border-radius: var(--radius-md);
-  color: var(--color-primary-900);
-  background: rgba(255, 255, 255, 0.7);
+  padding: 0.48rem 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: var(--color-text-soft);
+  background: rgba(255, 255, 255, 0.07);
   font-size: 0.9rem;
   font-weight: 800;
+  backdrop-filter: blur(16px);
 }
 
 .visual {
   position: relative;
-  min-height: 520px;
   display: grid;
   place-items: center;
-}
-
-.visualFrame {
-  position: relative;
-  display: grid;
-  width: min(100%, 560px);
-  aspect-ratio: 1 / 0.82;
-  place-items: center;
-}
-
-.visualFrame::before,
-.visualFrame::after {
-  position: absolute;
-  content: "";
-  border: 1px solid rgba(16, 87, 115, 0.13);
-  border-radius: var(--radius-md);
-}
-
-.visualFrame::before {
-  inset: 8%;
-  transform: rotate(-6deg);
-}
-
-.visualFrame::after {
-  inset: 16%;
-  transform: rotate(6deg);
-}
-
-.visualFrame img {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 500px);
-  height: auto;
-  filter: drop-shadow(0 34px 42px rgba(9, 41, 54, 0.18));
-}
-
-.visualRail {
-  position: absolute;
-  right: 0;
-  bottom: 8%;
-  left: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.55rem;
-  width: min(82%, 420px);
-  margin-inline: auto;
-}
-
-.visualRail span {
-  height: 5px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(90deg, var(--color-primary-700), var(--color-accent-500));
-}
-
-.visualRail span:nth-child(2) {
-  opacity: 0.58;
-}
-
-.visualRail span:nth-child(3) {
-  opacity: 0.3;
+  min-width: 0;
 }
 
 @media (max-width: 980px) {
@@ -164,28 +109,24 @@
   }
 
   .copy h1 {
-    font-size: 3.2rem;
-  }
-
-  .visual {
-    min-height: 380px;
+    font-size: 4.1rem;
   }
 }
 
 @media (max-width: 560px) {
   .hero {
-    padding-top: 1rem;
+    padding: 7.2rem 0 4rem;
   }
 
   .copy h1 {
-    font-size: 2.55rem;
+    font-size: 3rem;
   }
 
   .actions {
     display: grid;
   }
 
-  .visual {
-    min-height: 300px;
+  .description {
+    font-size: 1rem;
   }
 }
