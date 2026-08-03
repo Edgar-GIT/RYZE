@@ -1,10 +1,16 @@
+import { lazy, Suspense } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
-import { HeroScene } from "@/components/hero_scene/hero_scene";
 
 import styles from "./hero.module.css";
+
+const HeroScene = lazy(() =>
+  import("@/components/hero_scene/hero_scene").then((module) => ({
+    default: module.HeroScene
+  }))
+);
 
 export const Hero = () => (
   <section className={styles.hero}>
@@ -36,7 +42,9 @@ export const Hero = () => (
       </div>
 
       <div className={styles.visual}>
-        <HeroScene />
+        <Suspense fallback={<div className={styles.sceneFallback} />}>
+          <HeroScene />
+        </Suspense>
       </div>
     </Container>
   </section>

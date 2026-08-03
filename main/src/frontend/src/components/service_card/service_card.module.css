@@ -2,7 +2,7 @@
   display: grid;
   min-height: 100%;
   gap: 1.35rem;
-  padding: 1.4rem;
+  padding: 1.45rem;
   transition:
     transform var(--transition-medium),
     border-color var(--transition-medium),
@@ -10,24 +10,31 @@
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(16, 87, 115, 0.26);
-  box-shadow: 0 26px 58px rgba(9, 41, 54, 0.15);
+  transform: translateY(-6px);
+  border-color: rgba(89, 157, 177, 0.48);
+  box-shadow:
+    0 30px 100px rgba(0, 0, 0, 0.34),
+    0 0 46px rgba(89, 157, 177, 0.13);
 }
 
 .iconWrap {
   display: inline-grid;
-  width: 68px;
-  height: 68px;
+  width: 60px;
+  height: 60px;
   place-items: center;
   border-radius: var(--radius-md);
   color: var(--color-white);
-  background: linear-gradient(135deg, var(--color-primary-900), var(--color-accent-500));
+  background:
+    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.28), transparent 38%),
+    linear-gradient(135deg, var(--color-primary-700), var(--color-accent-500));
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.24),
+    0 0 32px rgba(89, 157, 177, 0.16);
 }
 
 .iconWrap svg {
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 .content {
@@ -37,14 +44,14 @@
 
 .content h3 {
   margin: 0;
-  color: var(--color-primary-900);
+  color: var(--color-white);
   font-size: 1.35rem;
   line-height: 1.15;
 }
 
 .content p {
   margin: 0;
-  color: var(--color-neutral-500);
+  color: var(--color-text-muted);
   line-height: 1.65;
 }
 
@@ -60,7 +67,7 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  color: var(--color-primary-900);
+  color: var(--color-text-soft);
   font-size: 0.94rem;
   font-weight: 700;
 }
@@ -71,6 +78,7 @@
   content: "";
   border-radius: 50%;
   background: var(--color-accent-500);
+  box-shadow: 0 0 16px rgba(89, 157, 177, 0.6);
 }
 
 .button {

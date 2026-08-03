@@ -1,22 +1,25 @@
 .footer {
-  padding: 3.5rem 0 1.65rem;
+  position: relative;
+  z-index: 1;
+  padding: 5rem 0 2rem;
   background:
-    radial-gradient(circle at 10% 8%, rgba(89, 157, 177, 0.22), transparent 24rem),
-    radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.1), transparent 18rem),
-    linear-gradient(135deg, var(--color-primary-900), #123f50);
+    linear-gradient(180deg, transparent, rgba(4, 21, 29, 0.8) 28%),
+    rgba(4, 21, 29, 0.94);
   color: var(--color-white);
 }
 
 .inner {
   display: grid;
-  gap: 2rem;
+  gap: 2.1rem;
 }
 
 .footerTop {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .brand {
@@ -28,26 +31,55 @@
 
 .footerLogo {
   display: block;
-  width: min(52vw, 300px);
+  width: min(56vw, 330px);
   height: auto;
   object-fit: contain;
   filter: saturate(1.05) contrast(1.04);
 }
 
+.footerContact {
+  display: grid;
+  justify-items: end;
+  gap: 0.55rem;
+  color: var(--color-text-muted);
+  font-weight: 800;
+}
+
+.footerContact a {
+  transition: color var(--transition-fast);
+}
+
+.footerContact a:hover {
+  color: var(--color-white);
+}
+
+.footerBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.4rem;
+}
+
+.socialArea {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .socialLinks {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.6rem;
 }
 
 .socialButton {
   display: inline-grid;
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
   transition:
@@ -58,7 +90,7 @@
 
 .socialButton:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.52);
+  border-color: rgba(89, 157, 177, 0.72);
   background: var(--color-white);
 }
 
@@ -72,15 +104,29 @@
 }
 
 .iconSvg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
+}
+
+.futureLinks {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-left: 0.15rem;
+}
+
+.futureLinks span {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .copyright {
   margin: 0;
-  padding-top: 1.3rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--color-text-muted);
   font-size: 0.92rem;
   line-height: 1.7;
 }
@@ -90,20 +136,29 @@
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .footerContact {
+    justify-items: start;
+  }
+
+  .footerBottom {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 520px) {
   .footerLogo {
-    width: min(76vw, 260px);
+    width: min(78vw, 280px);
+  }
+
+  .socialArea {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .socialButton {
-    width: 42px;
-    height: 42px;
-  }
-
-  .iconSvg {
-    width: 22px;
-    height: 22px;
+    width: 40px;
+    height: 40px;
   }
 }

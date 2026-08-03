@@ -1,13 +1,15 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 100;
   display: grid;
   place-items: center;
   align-content: center;
   gap: 1.25rem;
-  background: rgba(255, 255, 255, 0.74);
-  backdrop-filter: blur(22px);
+  background:
+    radial-gradient(circle at 50% 34%, rgba(89, 157, 177, 0.28), transparent 25rem),
+    rgba(4, 21, 29, 0.78);
+  backdrop-filter: blur(28px);
 }
 
 .loader {
@@ -16,6 +18,7 @@
   height: 318px;
   display: grid;
   place-items: center;
+  filter: drop-shadow(0 0 38px rgba(89, 157, 177, 0.22));
 }
 
 .arrowOuter,
@@ -26,7 +29,7 @@
 }
 
 .arrowOuter {
-  border-top: 3px solid var(--color-primary-700);
+  border-top: 3px solid var(--color-white);
   border-right: 3px solid transparent;
   animation: rotateClockwise 1.2s linear infinite;
 }
@@ -62,7 +65,7 @@
 .arrowOuter::after {
   top: 8px;
   right: 13px;
-  color: var(--color-primary-700);
+  color: var(--color-white);
   transform: rotate(38deg);
 }
 
@@ -75,7 +78,7 @@
 
 .label {
   margin: 0;
-  color: var(--color-primary-900);
+  color: var(--color-text-soft);
   font-size: 0.95rem;
   font-weight: 800;
 }

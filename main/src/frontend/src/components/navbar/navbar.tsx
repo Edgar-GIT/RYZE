@@ -79,11 +79,7 @@ export const Navbar = () => {
 
       <div
         id="mobile-navigation"
-        className={joinClassNames(
-          styles.mobilePanel,
-          isScrolled && styles.mobilePanelScrolled,
-          isMenuOpen && styles.mobilePanelOpen
-        )}
+        className={joinClassNames(styles.mobilePanel, isMenuOpen && styles.mobilePanelOpen)}
       >
         {PUBLIC_NAVIGATION_ITEMS.map((item) => (
           <NavLink

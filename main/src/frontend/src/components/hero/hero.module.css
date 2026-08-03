@@ -102,6 +102,20 @@
   min-width: 0;
 }
 
+.sceneFallback {
+  width: min(100%, 620px);
+  aspect-ratio: 1 / 0.94;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at 50% 34%, rgba(89, 157, 177, 0.22), transparent 18rem),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.1), rgba(9, 41, 54, 0.18));
+  box-shadow:
+    0 34px 100px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(22px);
+}
+
 @media (max-width: 980px) {
   .inner {
     grid-template-columns: 1fr;

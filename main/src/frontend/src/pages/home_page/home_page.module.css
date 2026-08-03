@@ -1,5 +1,6 @@
 .servicesPreview {
-  padding: 5rem 0 3rem;
+  padding-top: 4rem;
+  padding-bottom: 4.5rem;
 }
 
 .servicesContainer {
@@ -21,6 +22,6 @@
 
 @media (max-width: 560px) {
   .servicesPreview {
-    padding-top: 3rem;
+    padding-top: 3.2rem;
   }
 }
