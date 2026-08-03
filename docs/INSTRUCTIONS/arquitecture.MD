@@ -239,7 +239,7 @@ Important public UI building blocks currently include:
 
 - layout / navbar / footer / loading screen
 - hero / showcase sections / product demos
-- service cards / CTA band / contact panel
+- service cards / CTA band / contact experience
 - glass panels and shared primitives
 
 Frontend tooling files live at the repository root:

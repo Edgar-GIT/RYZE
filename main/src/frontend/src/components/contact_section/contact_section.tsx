@@ -1,82 +1,81 @@
-import { useCallback, useState } from "react";
+import { ArrowUpRight } from "lucide-react";
 
 import { BrandIcon } from "@/components/brand_icon/brand_icon";
-import { Button } from "@/components/button/button";
+import { ContactForm } from "@/components/contact_form/contact_form";
 import { Container } from "@/components/container/container";
-import { EmailContactPanel } from "@/components/email_contact_panel/email_contact_panel";
-import { SectionTitle } from "@/components/section_title/section_title";
 import {
   CONTACT_EMAIL,
   CONTACT_INSTAGRAM_HANDLE,
   CONTACT_INSTAGRAM_URL
 } from "@/constants/contact";
+import { joinClassNames } from "@utils/class_names";
 
 import styles from "./contact_section.module.css";
 
-interface ContactSectionProps {
-  compact?: boolean;
-}
+const mailtoHref = `mailto:${CONTACT_EMAIL}`;
 
-export const ContactSection = ({ compact = false }: ContactSectionProps) => {
-  const [isEmailPanelOpen, setIsEmailPanelOpen] = useState(false);
-  const closeEmailPanel = useCallback(() => setIsEmailPanelOpen(false), []);
+export const ContactSection = () => (
+  <section className={styles.section} id="contact" aria-labelledby="contact-heading">
+    <Container className={styles.layout}>
+      <div className={styles.copy}>
+        <p className={styles.eyebrow}>Contact</p>
+        <h1 id="contact-heading" className={styles.title}>
+          Talk to RYZE.
+        </h1>
+        <p className={styles.description}>
+          We&apos;re always available to answer questions, discuss partnerships or help you start
+          your fitness journey with a clear plan.
+        </p>
 
-  return (
-    <section className={styles.section} id="contact">
-      <Container className={styles.inner}>
-        <SectionTitle
-          eyebrow="Contact"
-          title="Talk to RYZE."
-          description="Use the official channels or open the direct email panel to draft a message with an attachment ready for future delivery."
-          className={compact ? styles.compactTitle : undefined}
-        />
-
-        <div className={styles.contactGrid}>
-          <button
-            className={styles.contactItem}
-            type="button"
-            onClick={() => setIsEmailPanelOpen(true)}
-          >
-            <span className={styles.icon}>
+        <div className={styles.channels} role="list">
+          <a className={styles.row} href={mailtoHref} role="listitem">
+            <span className={styles.rowIcon}>
               <BrandIcon name="gmail" />
             </span>
-            <span>
+            <span className={styles.rowCopy}>
               <strong>Email</strong>
               <small>{CONTACT_EMAIL}</small>
             </span>
-          </button>
+            <ArrowUpRight className={styles.rowArrow} aria-hidden="true" />
+          </a>
 
           <a
-            className={styles.contactItem}
+            className={styles.row}
             href={CONTACT_INSTAGRAM_URL}
             target="_blank"
             rel="noreferrer"
+            role="listitem"
           >
-            <span className={styles.icon}>
+            <span className={styles.rowIcon}>
               <BrandIcon name="instagram" />
             </span>
-            <span>
+            <span className={styles.rowCopy}>
               <strong>Instagram</strong>
               <small>{CONTACT_INSTAGRAM_HANDLE}</small>
             </span>
+            <ArrowUpRight className={styles.rowArrow} aria-hidden="true" />
           </a>
 
-          <div className={styles.whatsappItem}>
-            <span className={styles.icon}>
+          <div
+            className={joinClassNames(styles.row, styles.rowDisabled)}
+            role="listitem"
+            aria-disabled="true"
+          >
+            <span className={styles.rowIcon}>
               <BrandIcon name="whatsapp" />
             </span>
-            <span>
+            <span className={styles.rowCopy}>
               <strong>WhatsApp</strong>
-              <small>Channel prepared for activation.</small>
+              <small>Coming soon</small>
             </span>
-            <Button disabled variant="secondary" icon={<BrandIcon name="whatsapp" />}>
-              WhatsApp
-            </Button>
+            <ArrowUpRight className={styles.rowArrow} aria-hidden="true" />
           </div>
         </div>
-      </Container>
+      </div>
 
-      {isEmailPanelOpen ? <EmailContactPanel onClose={closeEmailPanel} /> : null}
-    </section>
-  );
-};
+      <div className={styles.formColumn}>
+        <ContactForm />
+      </div>
+    </Container>
+  </section>
+);

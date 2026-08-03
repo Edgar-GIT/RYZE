@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.3
+Version: 2.2.4
 
 ---
 
@@ -298,7 +298,7 @@ Sections
 6. Choose Your Plan
 7. Testimonials
 8. Final CTA
-9. Contact
+9. Contact preview
 10. Footer
 
 ### Hero
@@ -431,17 +431,33 @@ Official complaint submission page.
 
 ## Contact
 
-Contains the platform's contact form.
+The Contact page is a single elegant two-column experience.
 
-The form should remain simple and easy to complete.
+Left column:
 
-The email contact card opens a focused overlay panel with background blur and a
-direct-message form. At the current frontend stage this interaction remains
-visual only and does not send data.
+- Large heading (`Talk to RYZE.`)
+- Short supporting description
+- Compact interactive contact rows (Email, Instagram, WhatsApp)
+- Email opens the mail client
+- Instagram opens the official profile
+- WhatsApp stays disabled with `Coming soon`
 
-The email panel includes a visual file upload control. File validation and
-delivery remain backend responsibilities and are not implemented in the initial
-frontend-only stage.
+Right column:
+
+- Embedded contact form inside a premium dark glass panel
+- Title: `Write to RYZE`
+- Fields: Name, Email, Subject, Message, Attachment
+- Primary CTA: `Send Message`
+- Helper text: `We usually reply within 24 hours.`
+
+There is no modal, popup or background blur overlay for contact.
+
+At the current frontend stage the form remains visual only and does not send
+data. File validation and delivery remain backend responsibilities.
+
+The Home page must not duplicate the full Contact page. It uses a compact
+`Get in touch` preview with short copy, three compact channel buttons and a
+`Contact us` CTA that navigates to `/contact`.
 
 ---
 

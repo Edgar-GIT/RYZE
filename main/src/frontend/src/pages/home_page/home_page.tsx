@@ -1,4 +1,4 @@
-import { ContactSection } from "@/components/contact_section/contact_section";
+import { ContactPreview } from "@/components/contact_preview/contact_preview";
 import { CtaBand } from "@/components/cta_band/cta_band";
 import { Hero } from "@/components/hero/hero";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
@@ -87,6 +87,6 @@ export const HomePage = () => (
       secondaryTo="/services"
     />
 
-    <ContactSection />
+    <ContactPreview />
   </PageWrapper>
 );

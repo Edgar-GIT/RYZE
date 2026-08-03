@@ -1,3 +1,34 @@
+# Version 2.2.4
+
+Title: Premium embedded Contact experience
+
+Date: 2026-08-04
+
+Summary:
+
+Rebuilt Contact as a dense two-column SaaS layout with compact channel rows and
+an embedded glass form (no modal). Home now uses a compact Get in touch preview.
+Fixed the mismatched top strip on `/contact`.
+
+Files modified:
+
+- `main/src/frontend/src/components/contact_section/**`
+- `main/src/frontend/src/components/contact_form/**` (new)
+- `main/src/frontend/src/components/contact_preview/**` (new)
+- `main/src/frontend/src/components/email_contact_panel/**` (removed)
+- `main/src/frontend/src/pages/contact_page/**`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The previous contact cards + modal felt like a generic template and created a
+visible top color seam on the Contact page.
+
+---
+
 # Version 2.2.3
 
 Title: Living dark atmospheric background
