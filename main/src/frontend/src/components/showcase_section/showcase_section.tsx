@@ -12,6 +12,7 @@ interface ShowcaseSectionProps {
   children: ReactNode;
   reverse?: boolean;
   className?: string;
+  tone?: "deep" | "surface" | "card";
 }
 
 export const ShowcaseSection = ({
@@ -20,9 +21,11 @@ export const ShowcaseSection = ({
   description,
   children,
   reverse = false,
-  className
+  className,
+  tone = "deep"
 }: ShowcaseSectionProps) => (
   <SectionWrapper
+    tone={tone}
     className={joinClassNames(styles.section, className)}
     containerClassName={joinClassNames(styles.inner, reverse && styles.reverse)}
   >

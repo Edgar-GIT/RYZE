@@ -24,11 +24,11 @@
 }
 
 .windowChrome span:nth-child(2) {
-  background: rgba(61, 143, 168, 0.55);
+  background: rgba(31, 203, 255, 0.55);
 }
 
 .windowChrome span:nth-child(3) {
-  background: rgba(61, 143, 168, 0.3);
+  background: rgba(31, 203, 255, 0.3);
 }
 
 .windowChrome p {
@@ -54,7 +54,7 @@
 .aiCard {
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: var(--radius-md);
-  background: rgba(2, 8, 12, 0.55);
+  background: rgba(7, 10, 15, 0.55);
 }
 
 .statCard {
@@ -188,7 +188,7 @@
   padding: 0.65rem 0.35rem;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: var(--radius-sm);
-  background: rgba(2, 8, 12, 0.45);
+  background: rgba(7, 10, 15, 0.45);
   text-align: center;
 }
 
@@ -207,13 +207,13 @@
 }
 
 .dayDone {
-  border-color: rgba(61, 143, 168, 0.35);
-  background: rgba(61, 143, 168, 0.12);
+  border-color: rgba(31, 203, 255, 0.35);
+  background: rgba(31, 203, 255, 0.12);
 }
 
 .dayActive {
-  border-color: rgba(126, 191, 208, 0.55);
-  box-shadow: inset 0 0 0 1px rgba(126, 191, 208, 0.2);
+  border-color: rgba(50, 215, 255, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(50, 215, 255, 0.2);
 }
 
 .dayRest {
@@ -371,7 +371,7 @@
 }
 
 .trendArea {
-  fill: rgba(61, 143, 168, 0.12);
+  fill: rgba(31, 203, 255, 0.12);
   stroke: none;
 }
 

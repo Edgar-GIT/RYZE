@@ -1,6 +1,9 @@
 .section {
   position: relative;
   padding: 6rem 0;
+  background:
+    radial-gradient(ellipse 55% 45% at 20% 0%, rgba(31, 203, 255, 0.05), transparent 55%),
+    #070a0f;
 }
 
 .inner {

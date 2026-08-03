@@ -1,10 +1,44 @@
 .section {
   position: relative;
-  padding: 6.75rem 0;
+  padding: 6.5rem 0;
+  overflow: hidden;
+}
+
+.section::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(31, 203, 255, 0.05), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(30, 140, 255, 0.04), transparent 50%);
+  opacity: 0.9;
+}
+
+.toneDeep {
+  background: #070a0f;
+}
+
+.toneSurface {
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(31, 203, 255, 0.04), transparent 50%),
+    #090d14;
+}
+
+.toneCard {
+  background:
+    radial-gradient(ellipse 55% 45% at 70% 30%, rgba(31, 203, 255, 0.05), transparent 55%),
+    #0b1018;
+}
+
+.section > * {
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 760px) {
   .section {
-    padding: 4.75rem 0;
+    padding: 4.5rem 0;
   }
 }

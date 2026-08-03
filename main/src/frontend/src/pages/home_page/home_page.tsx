@@ -23,6 +23,7 @@ export const HomePage = () => (
       eyebrow="Platform"
       title="Your fitness operating system."
       description="One dashboard for training, nutrition and recovery — built to feel like a product, not a brochure."
+      tone="deep"
     >
       <DashboardDemo />
     </ShowcaseSection>
@@ -32,6 +33,7 @@ export const HomePage = () => (
       title="Sessions you can actually follow."
       description="Weekly structure, live lifts and clear next steps without digging through spreadsheets."
       reverse
+      tone="surface"
     >
       <TrainingDemo />
     </ShowcaseSection>
@@ -40,6 +42,7 @@ export const HomePage = () => (
       eyebrow="Nutrition"
       title="Fuel that moves with the plan."
       description="Macros, timing and guidance that adapt to the training week — not a static PDF."
+      tone="card"
     >
       <NutritionDemo />
     </ShowcaseSection>
@@ -49,11 +52,13 @@ export const HomePage = () => (
       title="Proof, not motivation posters."
       description="Strength trends, body metrics and PRs in one calm analytics surface."
       reverse
+      tone="surface"
     >
       <ProgressDemo />
     </ShowcaseSection>
 
     <SectionWrapper
+      tone="card"
       className={styles.servicesPreview}
       containerClassName={styles.servicesContainer}
     >

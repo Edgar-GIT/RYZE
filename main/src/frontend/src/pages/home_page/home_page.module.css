@@ -1,27 +1,29 @@
 .servicesPreview {
-  padding-top: 4rem;
-  padding-bottom: 4.5rem;
+  padding-top: 5.5rem;
+  padding-bottom: 5.5rem;
 }
 
 .servicesContainer {
   display: grid;
-  gap: 2.2rem;
+  gap: 2.75rem;
 }
 
 .serviceGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 @media (max-width: 960px) {
   .serviceGrid {
     grid-template-columns: 1fr;
+    gap: 1.1rem;
   }
 }
 
 @media (max-width: 560px) {
   .servicesPreview {
-    padding-top: 3.2rem;
+    padding-top: 4rem;
+    padding-bottom: 4rem;
   }
 }

@@ -21,7 +21,7 @@ const testimonials = [
 ] as const;
 
 export const TestimonialsSection = () => (
-  <SectionWrapper className={styles.section} containerClassName={styles.inner}>
+  <SectionWrapper tone="deep" className={styles.section} containerClassName={styles.inner}>
     <div className={styles.header}>
       <p className={styles.eyebrow}>Athletes</p>
       <h2>Progress, on record.</h2>

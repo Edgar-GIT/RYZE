@@ -11,6 +11,7 @@ interface SectionWrapperProps {
   className?: string;
   containerClassName?: string;
   size?: "default" | "narrow";
+  tone?: "deep" | "surface" | "card";
 }
 
 export const SectionWrapper = ({
@@ -18,9 +19,19 @@ export const SectionWrapper = ({
   id,
   className,
   containerClassName,
-  size = "default"
+  size = "default",
+  tone = "deep"
 }: SectionWrapperProps) => (
-  <section id={id} className={joinClassNames(styles.section, className)}>
+  <section
+    id={id}
+    className={joinClassNames(
+      styles.section,
+      tone === "deep" && styles.toneDeep,
+      tone === "surface" && styles.toneSurface,
+      tone === "card" && styles.toneCard,
+      className
+    )}
+  >
     <Container size={size} className={containerClassName}>
       {children}
     </Container>

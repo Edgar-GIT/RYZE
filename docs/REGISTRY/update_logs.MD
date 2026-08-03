@@ -1,3 +1,42 @@
+# Version 2.2.1
+
+Title: Full visual consistency pass
+
+Date: 2026-08-04
+
+Summary:
+
+Finished the SaaS consistency pass: thinner navbar, soft section tone blends,
+premium service cards, and purged remaining teal/grey-blue accents from demos,
+panels and secondary pages. Footer left unchanged.
+
+Files modified:
+
+- `main/src/frontend/src/components/navbar/navbar.module.css`
+- `main/src/frontend/src/components/brand_mark/brand_mark.module.css`
+- `main/src/frontend/src/components/section_wrapper/**`
+- `main/src/frontend/src/components/showcase_section/**`
+- `main/src/frontend/src/components/service_card/**`
+- `main/src/frontend/src/components/product_demos/product_demos.module.css`
+- `main/src/frontend/src/components/email_contact_panel/email_contact_panel.module.css`
+- `main/src/frontend/src/components/loading_screen/loading_screen.module.css`
+- `main/src/frontend/src/components/testimonials_section/testimonials_section.tsx`
+- `main/src/frontend/src/components/contact_section/contact_section.module.css`
+- `main/src/frontend/src/components/cta_band/cta_band.module.css`
+- `main/src/frontend/src/pages/home_page/**`
+- `main/src/frontend/src/pages/services_page/services_page.module.css`
+- `main/src/frontend/src/pages/under_development_page/under_development_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+After adopting the official dark cyan identity, leftover teal accents and
+inconsistent section/card treatments still broke the Linear/Apple/Vercel feel.
+
+---
+
 # Version 2.2.0
 
 Title: Official dark cyan SaaS visual identity

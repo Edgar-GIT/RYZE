@@ -5,45 +5,45 @@
   right: 0;
   left: 0;
   z-index: 50;
-  padding-top: max(1.1rem, env(safe-area-inset-top));
+  padding-top: max(0.85rem, env(safe-area-inset-top));
   pointer-events: none;
 }
 
 .navbar {
   display: flex;
   width: min(100% - (var(--space-page-x) * 2), var(--container-width));
-  min-height: 58px;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
-  gap: 1.25rem;
+  gap: 2.5rem;
   margin-inline: auto;
-  padding: 0.35rem 0.25rem;
+  padding: 0.15rem 0;
   border: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, calc(var(--nav-scroll) * 0.08));
-  border-radius: 0;
-  background: rgba(7, 10, 15, calc(var(--nav-scroll) * 0.78));
-  box-shadow: none;
+  border-bottom: 1px solid rgba(255, 255, 255, calc(var(--nav-scroll) * 0.07));
+  background: rgba(7, 10, 15, calc(var(--nav-scroll) * 0.72));
   backdrop-filter: blur(calc(var(--nav-scroll) * 18px));
   -webkit-backdrop-filter: blur(calc(var(--nav-scroll) * 18px));
   pointer-events: auto;
   transition:
-    background var(--transition-medium),
-    border-color var(--transition-medium),
-    backdrop-filter var(--transition-medium);
+    background 280ms ease,
+    border-color 280ms ease,
+    backdrop-filter 280ms ease,
+    min-height 280ms ease;
 }
 
 .brand {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 40px;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.55rem;
+  padding-right: 0.5rem;
   color: #ffffff;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .brand span {
-  font-size: 1.08rem;
+  font-size: 0.98rem;
   color: #ffffff;
 }
 
@@ -52,7 +52,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.1rem;
+  gap: 0.65rem;
   margin-left: auto;
 }
 
@@ -66,33 +66,39 @@
 .navLink {
   position: relative;
   z-index: 1;
-  min-height: 40px;
-  padding: 0.65rem 0.9rem;
-  color: #8794a8;
-  font-size: 0.92rem;
-  font-weight: 600;
-  transition: color var(--transition-fast);
+  min-height: 34px;
+  padding: 0.45rem 0.7rem;
+  color: rgba(184, 195, 209, 0.58);
+  font-size: 0.84rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition:
+    color 220ms ease,
+    opacity 220ms ease;
 }
 
-.navLink:hover,
+.navLink:hover {
+  color: #ffffff;
+}
+
 .activeLink {
   color: #ffffff;
 }
 
 .activeIndicator {
   position: absolute;
-  bottom: 0.1rem;
+  bottom: 0;
   left: 0;
-  height: 2px;
+  height: 1.5px;
   border-radius: 999px;
   background: #1fcbff;
-  box-shadow: 0 0 14px rgba(31, 203, 255, 0.65);
+  box-shadow: 0 0 12px rgba(31, 203, 255, 0.75);
   opacity: 0;
   pointer-events: none;
   transition:
-    transform var(--transition-medium),
-    width var(--transition-medium),
-    opacity var(--transition-fast);
+    transform 280ms ease,
+    width 280ms ease,
+    opacity 220ms ease;
 }
 
 .activeIndicatorVisible {
@@ -102,18 +108,19 @@
 .profileLink,
 .menuButton {
   display: inline-flex;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
   color: #b8c3d1;
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
   transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast);
+    background 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    box-shadow 220ms ease;
 }
 
 .profileLink:hover,
@@ -121,14 +128,15 @@
 .menuButton:hover {
   color: #ffffff;
   border-color: rgba(31, 203, 255, 0.4);
-  background: rgba(31, 203, 255, 0.1);
+  background: rgba(31, 203, 255, 0.08);
+  box-shadow: 0 0 18px rgba(31, 203, 255, 0.12);
 }
 
 .profileLink svg,
 .menuButton svg,
 .mobileProfile svg {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
 .menuButton {
@@ -153,54 +161,53 @@
     display: grid;
     width: min(100% - (var(--space-page-x) * 2), var(--container-width));
     max-height: 0;
-    gap: 0.2rem;
+    gap: 0.15rem;
     margin: 0.55rem auto 0;
-    padding: 0 0.7rem;
+    padding: 0 0.55rem;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
     background: rgba(7, 10, 15, 0.94);
-    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.4);
     opacity: 0;
     pointer-events: auto;
     backdrop-filter: blur(20px);
     transition:
-      max-height var(--transition-medium),
-      padding var(--transition-medium),
-      opacity var(--transition-medium);
+      max-height 280ms ease,
+      padding 280ms ease,
+      opacity 280ms ease;
   }
 
   .mobilePanelOpen {
     max-height: 360px;
-    padding-block: 0.5rem;
+    padding-block: 0.45rem;
     opacity: 1;
   }
 
   .mobileLink {
     display: flex;
-    min-height: 48px;
+    min-height: 44px;
     align-items: center;
     gap: 0.65rem;
-    padding: 0.85rem 0.9rem;
+    padding: 0.75rem 0.85rem;
     border-radius: 8px;
     color: #8794a8;
-    font-weight: 650;
+    font-weight: 500;
   }
 
   .mobileLink:hover,
   .activeMobileLink {
     color: #ffffff;
-    background: rgba(31, 203, 255, 0.08);
-    box-shadow: inset 0 -2px 0 #1fcbff;
+    background: rgba(31, 203, 255, 0.06);
+    box-shadow: inset 0 -1.5px 0 #1fcbff;
   }
 }
 
 @media (max-width: 560px) {
   .header {
-    padding-top: max(0.9rem, env(safe-area-inset-top));
+    padding-top: max(0.75rem, env(safe-area-inset-top));
   }
 
   .brand span {
-    font-size: 1rem;
+    font-size: 0.92rem;
   }
 }

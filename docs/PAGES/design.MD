@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.0
+Version: 2.2.1
 
 ---
 
@@ -172,7 +172,9 @@ Secondary
 
 ## Navbar
 
-- Transparent / fully integrated at the top of the page
+- Transparent / nearly invisible at the top of the page
+- Thin bar with generous horizontal spacing
+- Light refined nav text; hover brightens to white
 - Enough top padding so the bar is never clipped
 - Compact brand mark
 - After scrolling: more opaque, background blur, thin bottom border
@@ -186,6 +188,12 @@ Secondary
 - Soft `rgba(255,255,255,0.08)` border
 - Soft cyan glow on hover
 - Slight lift on hover
+
+## Service cards
+
+- Tall glass panels with image media, cyan badge, feature list and full-width CTA
+- Hover: lift + cyan border glow
+- Same card language on homepage preview and `/services`
 
 ## Inputs
 
@@ -216,9 +224,11 @@ Alternate between:
 - Very dark background (`#070A0F` / `#090D14`)
 - Slightly lighter surface (`#0B1018` / `#101722`)
 
+Use soft radial cyan washes for atmosphere.
+
 Do not use obvious separators.
 
-Spacing should define sections.
+Spacing and tone shifts should define sections.
 
 ---
 
