@@ -1,3 +1,31 @@
+# Version 2.2.3
+
+Title: Living dark atmospheric background
+
+Date: 2026-08-04
+
+Summary:
+
+Added stronger cyan nebulae, soft vignette shadows, breathing glow and translucent
+section washes so the dark UI feels alive instead of flat/static. Footer unchanged.
+
+Files modified:
+
+- `main/src/frontend/src/components/animated_background/**`
+- `main/src/frontend/src/components/section_wrapper/section_wrapper.module.css`
+- `main/src/frontend/src/components/contact_section/contact_section.module.css`
+- `main/src/frontend/src/components/cta_band/cta_band.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Solid opaque section fills were covering the animated atmosphere and making the
+page feel dead.
+
+---
+
 # Version 2.2.2
 
 Title: Rounded pill navbar and larger brand mark

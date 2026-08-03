@@ -5,7 +5,11 @@ export const AnimatedBackground = () => (
     <span className={styles.nebulaOne} />
     <span className={styles.nebulaTwo} />
     <span className={styles.nebulaThree} />
+    <span className={styles.nebulaFour} />
+    <span className={styles.glowPulse} />
     <span className={styles.beam} />
+    <span className={styles.beamTwo} />
+    <span className={styles.vignette} />
     <span className={styles.stars} />
     <span className={styles.grid} />
     <span className={styles.noise} />

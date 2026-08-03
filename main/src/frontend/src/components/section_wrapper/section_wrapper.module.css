@@ -11,25 +11,27 @@
   content: "";
   pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(31, 203, 255, 0.05), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(30, 140, 255, 0.04), transparent 50%);
-  opacity: 0.9;
+    radial-gradient(ellipse 65% 55% at 82% 18%, rgba(31, 203, 255, 0.1), transparent 58%),
+    radial-gradient(ellipse 55% 45% at 8% 82%, rgba(30, 140, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse 40% 35% at 50% 50%, rgba(50, 215, 255, 0.04), transparent 60%);
 }
 
 .toneDeep {
-  background: #070a0f;
+  background:
+    linear-gradient(180deg, rgba(7, 10, 15, 0.72), rgba(7, 10, 15, 0.55)),
+    transparent;
 }
 
 .toneSurface {
   background:
-    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(31, 203, 255, 0.04), transparent 50%),
-    #090d14;
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(31, 203, 255, 0.08), transparent 52%),
+    linear-gradient(180deg, rgba(9, 13, 20, 0.7), rgba(9, 13, 20, 0.52));
 }
 
 .toneCard {
   background:
-    radial-gradient(ellipse 55% 45% at 70% 30%, rgba(31, 203, 255, 0.05), transparent 55%),
-    #0b1018;
+    radial-gradient(ellipse 55% 45% at 70% 30%, rgba(31, 203, 255, 0.1), transparent 55%),
+    linear-gradient(180deg, rgba(11, 16, 24, 0.72), rgba(11, 16, 24, 0.55));
 }
 
 .section > * {

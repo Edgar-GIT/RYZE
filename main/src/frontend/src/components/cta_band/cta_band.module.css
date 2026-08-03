@@ -1,8 +1,9 @@
 .section {
   padding: 1.5rem 0 4rem;
   background:
-    radial-gradient(ellipse 50% 80% at 80% 50%, rgba(31, 203, 255, 0.04), transparent 55%),
-    #090d14;
+    radial-gradient(ellipse 50% 80% at 80% 50%, rgba(31, 203, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse 40% 50% at 10% 40%, rgba(30, 140, 255, 0.05), transparent 50%),
+    linear-gradient(180deg, rgba(9, 13, 20, 0.65), rgba(9, 13, 20, 0.48));
 }
 
 .band {

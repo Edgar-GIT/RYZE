@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.2
+Version: 2.2.3
 
 ---
 
@@ -91,12 +91,14 @@ Never use saturated colors other than the blue / cyan accent.
 # Visual Style
 
 - Darker overall surfaces
-- Subtle radial gradients behind important sections
-- Soft cyan glows only around interactive elements
+- Living atmospheric background (soft cyan nebulae, vignette, subtle motion)
+- Sections use translucent washes so atmosphere shows through
+- Soft cyan glows only around interactive elements and ambient washes
 - Premium lighting on buttons
 - Cards as dark glass panels
 - Blue-tinted shadows instead of flat black shadows
 - Spacing defines sections more than hard separators
+- Never use a flat, static single-color page fill
 
 ---
 
@@ -224,6 +226,9 @@ Alternate between:
 - Slightly lighter surface (`#0B1018` / `#101722`)
 
 Use soft radial cyan washes for atmosphere.
+
+Section fills should stay translucent enough for the global animated background
+to read through.
 
 Do not use obvious separators.
 
