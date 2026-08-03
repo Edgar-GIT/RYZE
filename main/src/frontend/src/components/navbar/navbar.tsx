@@ -2,7 +2,7 @@ import { Menu, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 
-import { BRAND_ASSETS } from "@/constants/brand_assets";
+import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { PUBLIC_NAVIGATION_ITEMS } from "@/constants/navigation";
 import { joinClassNames } from "@utils/class_names";
 
@@ -24,7 +24,7 @@ export const Navbar = () => {
     <header className={styles.header}>
       <nav className={styles.navbar} aria-label="Primary navigation">
         <Link className={styles.brand} to="/" aria-label="RYZE home">
-          <img src={BRAND_ASSETS.icon} alt="" aria-hidden="true" />
+          <BrandMark size="navigation" />
           <span>RYZE</span>
         </Link>
 

@@ -32,11 +32,11 @@ export const CtaBand = ({
         <span>{description}</span>
       </div>
       <div className={styles.actions}>
-        <Button to={primaryTo} variant="dark" icon={<ArrowRight />}>
+        <Button to={primaryTo} variant="light" icon={<ArrowRight />}>
           {primaryLabel}
         </Button>
         {secondaryLabel && secondaryTo ? (
-          <Button to={secondaryTo} variant="ghost">
+          <Button to={secondaryTo} variant="outlineLight">
             {secondaryLabel}
           </Button>
         ) : null}

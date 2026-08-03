@@ -3,7 +3,7 @@ CLAUDE.md
 AGENTS.md
 .env
 .codex*
-how_to_run.MD
+/how_to_run.MD
 node_modules/
 dist/
 main/src/frontend/dist/

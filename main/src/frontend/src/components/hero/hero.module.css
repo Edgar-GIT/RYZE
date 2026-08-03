@@ -1,7 +1,7 @@
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 5.5rem 0 4rem;
+  padding: 1.2rem 0 4.75rem;
 }
 
 .hero::before {
@@ -173,7 +173,7 @@
 
 @media (max-width: 560px) {
   .hero {
-    padding-top: 3.5rem;
+    padding-top: 1rem;
   }
 
   .copy h1 {

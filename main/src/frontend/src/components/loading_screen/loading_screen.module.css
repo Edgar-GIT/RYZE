@@ -12,15 +12,15 @@
 
 .loader {
   position: relative;
-  width: 138px;
-  height: 138px;
+  width: 184px;
+  height: 184px;
   display: grid;
   place-items: center;
 }
 
 .logo {
-  width: 74px;
-  height: 74px;
+  width: 112px;
+  height: 112px;
   object-fit: contain;
   filter: drop-shadow(0 16px 22px rgba(9, 41, 54, 0.16));
 }
@@ -39,7 +39,7 @@
 }
 
 .arrowInner {
-  inset: 16px;
+  inset: 20px;
   border-bottom: 3px solid var(--color-accent-500);
   border-left: 3px solid transparent;
   animation: rotateCounterClockwise 1.55s linear infinite;
@@ -48,8 +48,8 @@
 .arrowOuter::after,
 .arrowInner::after {
   position: absolute;
-  width: 9px;
-  height: 9px;
+  width: 12px;
+  height: 12px;
   content: "";
   border-top: 3px solid currentColor;
   border-right: 3px solid currentColor;

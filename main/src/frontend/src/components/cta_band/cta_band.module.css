@@ -1,20 +1,21 @@
 .section {
-  padding: 2rem 0;
+  padding: 1.35rem 0;
 }
 
 .band {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2rem;
+  gap: 2.5rem;
   align-items: center;
-  padding: 2rem;
+  padding: 2.35rem;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--radius-md);
   color: var(--color-white);
   background:
-    linear-gradient(135deg, rgba(89, 157, 177, 0.24), transparent 40%),
-    var(--color-primary-900);
-  box-shadow: var(--shadow-soft);
+    radial-gradient(circle at 88% 20%, rgba(89, 157, 177, 0.28), transparent 18rem),
+    linear-gradient(135deg, rgba(89, 157, 177, 0.22), transparent 42%),
+    linear-gradient(135deg, var(--color-primary-900), #123f50);
+  box-shadow: 0 24px 70px rgba(9, 41, 54, 0.2);
 }
 
 .copy {
@@ -29,7 +30,7 @@
 }
 
 .copy p {
-  color: rgba(255, 255, 255, 0.76);
+  color: rgba(255, 255, 255, 0.82);
   font-size: 0.9rem;
   font-weight: 900;
 }
@@ -42,7 +43,7 @@
 
 .copy span {
   max-width: 58ch;
-  color: rgba(255, 255, 255, 0.76);
+  color: rgba(255, 255, 255, 0.86);
   line-height: 1.7;
 }
 

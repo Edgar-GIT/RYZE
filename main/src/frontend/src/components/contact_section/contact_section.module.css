@@ -1,5 +1,5 @@
 .section {
-  padding: 5rem 0;
+  padding: 5.5rem 0;
 }
 
 .inner {
@@ -20,13 +20,15 @@
 .contactItem,
 .whatsappItem {
   display: grid;
-  min-height: 210px;
+  min-height: 230px;
   align-content: space-between;
-  gap: 1rem;
-  padding: 1.3rem;
-  border: var(--border-subtle);
+  gap: 1.15rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(16, 87, 115, 0.15);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.86);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 251, 0.9)),
+    var(--color-white);
   box-shadow: var(--shadow-card);
   transition:
     transform var(--transition-medium),
@@ -39,22 +41,24 @@
 
 .contactItem:hover {
   transform: translateY(-3px);
-  border-color: rgba(16, 87, 115, 0.28);
+  border-color: rgba(16, 87, 115, 0.34);
 }
 
 .icon {
   display: inline-grid;
-  width: 50px;
-  height: 50px;
+  width: 78px;
+  height: 78px;
   place-items: center;
   border-radius: var(--radius-md);
-  color: var(--color-white);
-  background: var(--color-primary-900);
+  background: var(--color-white);
+  box-shadow:
+    0 16px 32px rgba(9, 41, 54, 0.12),
+    inset 0 0 0 1px rgba(16, 87, 115, 0.08);
 }
 
 .icon svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 42px;
+  height: 42px;
 }
 
 .contactItem span:last-child,
@@ -66,7 +70,7 @@
 .contactItem strong,
 .whatsappItem strong {
   color: var(--color-primary-900);
-  font-size: 1.05rem;
+  font-size: 1.18rem;
 }
 
 .contactItem small,
@@ -78,6 +82,10 @@
 
 .whatsappItem {
   cursor: default;
+}
+
+.whatsappItem button {
+  width: 100%;
 }
 
 @media (max-width: 900px) {

@@ -14,12 +14,12 @@
   --color-accent-400: #5699a1;
   --color-neutral-100: #f6fafb;
   --color-neutral-200: #dedede;
-  --color-neutral-500: #6d7f86;
+  --color-neutral-500: #4d646d;
   --color-white: #ffffff;
   --color-success: #2f8f69;
 
   --shadow-soft: 0 24px 80px rgba(9, 41, 54, 0.12);
-  --shadow-card: 0 18px 44px rgba(9, 41, 54, 0.1);
+  --shadow-card: 0 18px 44px rgba(9, 41, 54, 0.11);
   --border-subtle: 1px solid rgba(16, 87, 115, 0.14);
 
   --radius-sm: 6px;
@@ -44,10 +44,12 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    linear-gradient(rgba(89, 157, 177, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(89, 157, 177, 0.08) 1px, transparent 1px),
-    linear-gradient(180deg, #ffffff 0%, #f7fbfc 48%, #ffffff 100%);
-  background-size: 48px 48px, 48px 48px, auto;
+    radial-gradient(circle at 12% 8%, rgba(89, 157, 177, 0.18), transparent 28rem),
+    radial-gradient(circle at 88% 16%, rgba(16, 87, 115, 0.1), transparent 24rem),
+    linear-gradient(rgba(89, 157, 177, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(89, 157, 177, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, #ffffff 0%, #f8fcfd 52%, #ffffff 100%);
+  background-size: auto, auto, 56px 56px, 56px 56px, auto;
 }
 
 button,

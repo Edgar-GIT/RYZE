@@ -5,7 +5,13 @@ import { joinClassNames } from "@utils/class_names";
 
 import styles from "./button.module.css";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "dark";
+type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "dark"
+  | "light"
+  | "outlineLight";
 type ButtonSize = "small" | "medium" | "large";
 type ButtonType = "button" | "submit" | "reset";
 

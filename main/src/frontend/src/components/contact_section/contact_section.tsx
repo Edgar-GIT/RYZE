@@ -1,5 +1,4 @@
-import { Camera, Mail, MessageCircle } from "lucide-react";
-
+import { BrandIcon } from "@/components/brand_icon/brand_icon";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { SectionTitle } from "@/components/section_title/section_title";
@@ -28,7 +27,7 @@ export const ContactSection = ({ compact = false }: ContactSectionProps) => (
       <div className={styles.contactGrid}>
         <a className={styles.contactItem} href={`mailto:${CONTACT_EMAIL}`}>
           <span className={styles.icon}>
-            <Mail aria-hidden="true" />
+            <BrandIcon name="gmail" />
           </span>
           <span>
             <strong>Email</strong>
@@ -43,7 +42,7 @@ export const ContactSection = ({ compact = false }: ContactSectionProps) => (
           rel="noreferrer"
         >
           <span className={styles.icon}>
-            <Camera aria-hidden="true" />
+            <BrandIcon name="instagram" />
           </span>
           <span>
             <strong>Instagram</strong>
@@ -53,13 +52,13 @@ export const ContactSection = ({ compact = false }: ContactSectionProps) => (
 
         <div className={styles.whatsappItem}>
           <span className={styles.icon}>
-            <MessageCircle aria-hidden="true" />
+            <BrandIcon name="whatsapp" />
           </span>
           <span>
             <strong>WhatsApp</strong>
             <small>Channel prepared for activation.</small>
           </span>
-          <Button disabled variant="secondary" icon={<MessageCircle />}>
+          <Button disabled variant="secondary" icon={<BrandIcon name="whatsapp" />}>
             WhatsApp
           </Button>
         </div>
