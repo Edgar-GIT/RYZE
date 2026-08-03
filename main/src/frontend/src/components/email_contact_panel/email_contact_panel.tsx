@@ -17,6 +17,8 @@ export const EmailContactPanel = ({ onClose }: EmailContactPanelProps) => {
 
   useEffect(() => {
     nameInputRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -28,6 +30,7 @@ export const EmailContactPanel = ({ onClose }: EmailContactPanelProps) => {
 
     return () => {
       window.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousOverflow;
     };
   }, [onClose]);
 
