@@ -1,16 +1,17 @@
-import { lazy, Suspense } from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  BrainCircuit,
+  CheckCircle2,
+  Sparkles,
+  TrendingUp,
+  Utensils
+} from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 
 import styles from "./hero.module.css";
-
-const HeroScene = lazy(() =>
-  import("@/components/hero_scene/hero_scene").then((module) => ({
-    default: module.HeroScene
-  }))
-);
 
 export const Hero = () => (
   <section className={styles.hero}>
@@ -18,13 +19,13 @@ export const Hero = () => (
       <div className={styles.copy}>
         <p className={styles.eyebrow}>
           <Sparkles aria-hidden="true" />
-          Premium online fitness guidance
+          AI powered coaching platform
         </p>
-        <h1>Fitness guidance with the precision of modern software.</h1>
+        <h1>Train smarter. Evolve every week.</h1>
         <p className={styles.description}>
-          RYZE turns training and nutrition into a structured digital
-          experience, built for people who want clarity, momentum and a premium
-          path into professional fitness.
+          RYZE combines professional training, nutrition guidance and progress
+          intelligence in one premium fitness experience built for real
+          consistency.
         </p>
         <div className={styles.actions}>
           <Button to="/services/generic-plan" size="large" icon={<ArrowRight />}>
@@ -35,16 +36,61 @@ export const Hero = () => (
           </Button>
         </div>
         <div className={styles.signals} aria-label="RYZE platform strengths">
-          <span>Mobile-first plans</span>
-          <span>Trainer-ready platform</span>
-          <span>Automation foundation</span>
+          <span>Training plans</span>
+          <span>Nutrition guidance</span>
+          <span>Progress tracking</span>
         </div>
       </div>
 
       <div className={styles.visual}>
-        <Suspense fallback={<div className={styles.sceneFallback} />}>
-          <HeroScene />
-        </Suspense>
+        <div className={styles.productStage} aria-label="RYZE product preview">
+          <div className={styles.phoneMockup}>
+            <div className={styles.phoneHeader}>
+              <span>Today</span>
+              <strong>Upper Body</strong>
+            </div>
+            <div className={styles.workoutProgress}>
+              <span />
+              <span />
+              <span />
+            </div>
+            <div className={styles.exerciseList}>
+              <div>
+                <CheckCircle2 aria-hidden="true" />
+                <span>Dumbbell press</span>
+                <strong>4 x 10</strong>
+              </div>
+              <div>
+                <CheckCircle2 aria-hidden="true" />
+                <span>Row variation</span>
+                <strong>3 x 12</strong>
+              </div>
+              <div>
+                <Activity aria-hidden="true" />
+                <span>Core finisher</span>
+                <strong>8 min</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.panelProgress}>
+            <TrendingUp aria-hidden="true" />
+            <span>Weekly progress</span>
+            <strong>+18%</strong>
+          </div>
+
+          <div className={styles.panelNutrition}>
+            <Utensils aria-hidden="true" />
+            <span>Nutrition target</span>
+            <strong>Ready for today</strong>
+          </div>
+
+          <div className={styles.panelAi}>
+            <BrainCircuit aria-hidden="true" />
+            <span>AI plan match</span>
+            <strong>Goal aligned</strong>
+          </div>
+        </div>
       </div>
     </Container>
   </section>

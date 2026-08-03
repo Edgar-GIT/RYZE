@@ -1,11 +1,15 @@
-export type ServiceIcon = "training" | "nutrition" | "personalized";
+import testImageOne from "@resources/img/testing/test1.jpg";
+import testImageTwo from "@resources/img/testing/test2.jpg";
+import testImageThree from "@resources/img/testing/teste3.jpg";
 
 export interface ServicePlan {
   title: string;
   description: string;
   ctaLabel: string;
   to: string;
-  icon: ServiceIcon;
+  imageSrc: string;
+  imageAlt: string;
+  badge: string;
   features: string[];
 }
 
@@ -16,7 +20,9 @@ export const SERVICE_PLANS: ServicePlan[] = [
       "Structured training packs for users who want a clear starting point without personalization.",
     ctaLabel: "Explore Generic",
     to: "/services/generic-plan",
-    icon: "training",
+    imageSrc: testImageOne,
+    imageAlt: "Dumbbells prepared for a structured workout",
+    badge: "Start clear",
     features: ["Pre-built workouts", "Exercise guidance", "Fast start"]
   },
   {
@@ -25,7 +31,9 @@ export const SERVICE_PLANS: ServicePlan[] = [
       "A guided plan with a personalized training pack and automatically assigned nutrition plan.",
     ctaLabel: "View Premium 1",
     to: "/services/premium-level-1",
-    icon: "nutrition",
+    imageSrc: testImageTwo,
+    imageAlt: "Athlete training under modern gym lighting",
+    badge: "Train + fuel",
     features: ["Questionnaire-based", "Nutrition included", "Immediate delivery"]
   },
   {
@@ -34,7 +42,9 @@ export const SERVICE_PLANS: ServicePlan[] = [
       "Fully personalized training and nutrition with individual preparation and trainer review.",
     ctaLabel: "View Premium 2",
     to: "/services/premium-level-2",
-    icon: "personalized",
+    imageSrc: testImageThree,
+    imageAlt: "Athlete holding dumbbells in a gym",
+    badge: "Coach reviewed",
     features: ["Trainer reviewed", "Deep personalization", "Highest detail"]
   }
 ];

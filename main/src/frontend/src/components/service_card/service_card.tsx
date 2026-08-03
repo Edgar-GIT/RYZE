@@ -1,37 +1,31 @@
-import { ArrowRight, Dumbbell, ShieldCheck, Utensils } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import { Card } from "@/components/card/card";
-import type { ServiceIcon, ServicePlan } from "@/constants/services";
+import type { ServicePlan } from "@/constants/services";
 
 import styles from "./service_card.module.css";
-
-const serviceIcons: Record<ServiceIcon, LucideIcon> = {
-  training: Dumbbell,
-  nutrition: Utensils,
-  personalized: ShieldCheck
-};
 
 interface ServiceCardProps {
   service: ServicePlan;
 }
 
-export const ServiceCard = ({ service }: ServiceCardProps) => {
-  const Icon = serviceIcons[service.icon];
-
-  return (
-    <Card className={styles.card}>
-      <div className={styles.iconWrap}>
-        <Icon aria-hidden="true" />
-      </div>
+export const ServiceCard = ({ service }: ServiceCardProps) => (
+  <Card className={styles.card}>
+    <div className={styles.media}>
+      <img src={service.imageSrc} alt={service.imageAlt} loading="lazy" />
+      <span>{service.badge}</span>
+    </div>
       <div className={styles.content}>
         <h3>{service.title}</h3>
         <p>{service.description}</p>
       </div>
       <ul className={styles.features} aria-label={`${service.title} features`}>
         {service.features.map((feature) => (
-          <li key={feature}>{feature}</li>
+          <li key={feature}>
+            <CheckCircle2 aria-hidden="true" />
+            <span>{feature}</span>
+          </li>
         ))}
       </ul>
       <Button
@@ -42,6 +36,5 @@ export const ServiceCard = ({ service }: ServiceCardProps) => {
       >
         {service.ctaLabel}
       </Button>
-    </Card>
-  );
-};
+  </Card>
+);

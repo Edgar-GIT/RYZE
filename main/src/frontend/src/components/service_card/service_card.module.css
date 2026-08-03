@@ -1,8 +1,9 @@
 .card {
   display: grid;
   min-height: 100%;
-  gap: 1.35rem;
-  padding: 1.45rem;
+  grid-template-rows: auto 1fr auto auto;
+  gap: 1.15rem;
+  padding: 0.75rem;
   transition:
     transform var(--transition-medium),
     border-color var(--transition-medium),
@@ -17,29 +18,62 @@
     0 0 46px rgba(89, 157, 177, 0.13);
 }
 
-.iconWrap {
-  display: inline-grid;
-  width: 60px;
-  height: 60px;
-  place-items: center;
+.media {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1.38 / 1;
   border-radius: var(--radius-md);
-  color: var(--color-white);
-  background:
-    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.28), transparent 38%),
-    linear-gradient(135deg, var(--color-primary-700), var(--color-accent-500));
-  box-shadow:
-    0 20px 44px rgba(0, 0, 0, 0.24),
-    0 0 32px rgba(89, 157, 177, 0.16);
+  background: var(--color-primary-900);
 }
 
-.iconWrap svg {
-  width: 1.75rem;
-  height: 1.75rem;
+.media::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(180deg, transparent 35%, rgba(5, 22, 30, 0.86) 100%),
+    linear-gradient(135deg, rgba(89, 157, 177, 0.16), transparent 44%);
+}
+
+.media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.88) contrast(1.08);
+  transform: scale(1.02);
+  transition:
+    transform var(--transition-medium),
+    filter var(--transition-medium);
+}
+
+.card:hover .media img {
+  filter: saturate(1.04) contrast(1.08);
+  transform: scale(1.07);
+}
+
+.media span {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.8rem;
+  z-index: 1;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.62rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  color: var(--color-white);
+  background: rgba(5, 22, 30, 0.58);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  backdrop-filter: blur(18px);
 }
 
 .content {
   display: grid;
   gap: 0.7rem;
+  padding: 0 0.55rem;
 }
 
 .content h3 {
@@ -58,7 +92,7 @@
 .features {
   display: grid;
   gap: 0.55rem;
-  padding: 0;
+  padding: 0 0.55rem;
   margin: 0;
   list-style: none;
 }
@@ -72,16 +106,15 @@
   font-weight: 700;
 }
 
-.features li::before {
-  width: 8px;
-  height: 8px;
-  content: "";
-  border-radius: 50%;
-  background: var(--color-accent-500);
-  box-shadow: 0 0 16px rgba(89, 157, 177, 0.6);
+.features svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  color: var(--color-accent-300);
 }
 
 .button {
-  width: 100%;
+  width: calc(100% - 1.1rem);
   align-self: end;
+  margin: 0 0.55rem 0.55rem;
 }

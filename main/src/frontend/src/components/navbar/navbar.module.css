@@ -11,12 +11,12 @@
 .navbar {
   display: flex;
   width: min(100%, var(--container-width));
-  min-height: 82px;
+  min-height: 78px;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   margin-inline: auto;
-  padding: 0.35rem 0.55rem 0.35rem 0.35rem;
+  padding: 0.28rem 0.5rem 0.28rem 0.28rem;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 999px;
   background:
@@ -36,7 +36,7 @@
 }
 
 .headerScrolled .navbar {
-  min-height: 72px;
+  min-height: 70px;
   border-color: rgba(89, 157, 177, 0.28);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.035)),
@@ -49,16 +49,24 @@
 
 .brand {
   display: inline-flex;
-  min-height: 66px;
+  min-height: 64px;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.38rem;
   color: var(--color-white);
   font-weight: 900;
   letter-spacing: 0;
 }
 
 .brand span {
-  font-size: 1.22rem;
+  color: transparent;
+  background:
+    linear-gradient(90deg, #ffffff 0%, #ffffff 32%, #8fc6d4 48%, #22d7ff 56%, #ffffff 72%),
+    var(--color-white);
+  background-size: 240% 100%;
+  background-clip: text;
+  font-size: 1.34rem;
+  text-shadow: 0 0 28px rgba(89, 157, 177, 0.3);
+  animation: brandShine 5.2s ease-in-out infinite;
 }
 
 .desktopLinks {
@@ -219,11 +227,29 @@
   }
 
   .brand span {
-    font-size: 1.05rem;
+    font-size: 1.1rem;
   }
 
   .menuButton {
     width: 52px;
     height: 52px;
+  }
+}
+
+@keyframes brandShine {
+  0%,
+  38% {
+    background-position: 0% 50%;
+  }
+
+  72%,
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand span {
+    animation: none;
   }
 }

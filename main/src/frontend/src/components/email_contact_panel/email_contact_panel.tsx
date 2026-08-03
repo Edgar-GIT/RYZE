@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Paperclip, SendHorizontal, Upload, X } from "lucide-react";
 
 import { Button } from "@/components/button/button";
@@ -34,7 +35,7 @@ export const EmailContactPanel = ({ onClose }: EmailContactPanelProps) => {
     };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className={styles.overlay} role="presentation" onMouseDown={onClose}>
       <div
         className={styles.panel}
@@ -108,6 +109,7 @@ export const EmailContactPanel = ({ onClose }: EmailContactPanelProps) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
