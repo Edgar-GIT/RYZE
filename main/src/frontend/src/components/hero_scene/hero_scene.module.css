@@ -1,0 +1,44 @@
+.scene {
+  position: relative;
+  width: min(100%, 620px);
+  aspect-ratio: 1 / 0.94;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 50% 34%, rgba(89, 157, 177, 0.2), transparent 18rem),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.1), rgba(9, 41, 54, 0.18));
+  box-shadow:
+    0 34px 100px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(22px);
+}
+
+.scene::before,
+.scene::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+}
+
+.scene::before {
+  inset: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+}
+
+.scene::after {
+  right: 12%;
+  bottom: 11%;
+  width: 52%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(89, 157, 177, 0.78), transparent);
+  box-shadow: 0 0 28px rgba(89, 157, 177, 0.62);
+}
+
+@media (max-width: 980px) {
+  .scene {
+    width: min(100%, 560px);
+    margin-inline: auto;
+  }
+}

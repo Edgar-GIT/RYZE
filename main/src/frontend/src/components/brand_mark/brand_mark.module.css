@@ -14,8 +14,8 @@
 }
 
 .navigation {
-  width: 132px;
-  height: 88px;
+  width: 104px;
+  height: 70px;
 }
 
 .footer {
@@ -29,6 +29,11 @@
 }
 
 @media (max-width: 520px) {
+  .navigation {
+    width: 86px;
+    height: 58px;
+  }
+
   .loading {
     width: 260px;
     height: 174px;

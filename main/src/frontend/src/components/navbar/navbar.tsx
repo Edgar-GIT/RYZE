@@ -10,18 +10,32 @@ import styles from "./navbar.module.css";
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
     setIsMenuOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    const updateScrollState = () => {
+      setIsScrolled(window.scrollY > 18);
+    };
+
+    updateScrollState();
+    window.addEventListener("scroll", updateScrollState, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", updateScrollState);
+    };
+  }, []);
+
   const toggleMenu = () => {
     setIsMenuOpen((currentValue) => !currentValue);
   };
 
   return (
-    <header className={styles.header}>
+    <header className={joinClassNames(styles.header, isScrolled && styles.headerScrolled)}>
       <nav className={styles.navbar} aria-label="Primary navigation">
         <Link className={styles.brand} to="/" aria-label="RYZE home">
           <BrandMark size="navigation" />
@@ -65,7 +79,11 @@ export const Navbar = () => {
 
       <div
         id="mobile-navigation"
-        className={joinClassNames(styles.mobilePanel, isMenuOpen && styles.mobilePanelOpen)}
+        className={joinClassNames(
+          styles.mobilePanel,
+          isScrolled && styles.mobilePanelScrolled,
+          isMenuOpen && styles.mobilePanelOpen
+        )}
       >
         {PUBLIC_NAVIGATION_ITEMS.map((item) => (
           <NavLink

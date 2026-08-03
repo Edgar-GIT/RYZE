@@ -1,8 +1,8 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   font-family: "Google Sans", Inter, Roboto, Arial, sans-serif;
-  color: #092936;
-  background: #ffffff;
+  color: #ffffff;
+  background: #061a22;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -12,20 +12,26 @@
   --color-primary-700: #105773;
   --color-accent-500: #599db1;
   --color-accent-400: #5699a1;
+  --color-accent-300: #8fc6d4;
   --color-neutral-100: #f6fafb;
   --color-neutral-200: #dedede;
   --color-neutral-500: #4d646d;
   --color-white: #ffffff;
   --color-success: #2f8f69;
+  --color-surface-dark: rgba(9, 41, 54, 0.58);
+  --color-surface-strong: rgba(5, 22, 30, 0.82);
+  --color-text-muted: rgba(222, 222, 222, 0.74);
+  --color-text-soft: rgba(255, 255, 255, 0.88);
 
-  --shadow-soft: 0 24px 80px rgba(9, 41, 54, 0.12);
-  --shadow-card: 0 18px 44px rgba(9, 41, 54, 0.11);
-  --border-subtle: 1px solid rgba(16, 87, 115, 0.14);
+  --shadow-soft: 0 28px 100px rgba(0, 0, 0, 0.32);
+  --shadow-card: 0 24px 80px rgba(0, 0, 0, 0.26);
+  --border-subtle: 1px solid rgba(255, 255, 255, 0.14);
 
   --radius-sm: 6px;
   --radius-md: 8px;
+  --radius-lg: 8px;
   --space-page-x: 1.25rem;
-  --container-width: 1180px;
+  --container-width: 1200px;
   --transition-fast: 180ms ease;
   --transition-medium: 260ms ease;
 }
@@ -43,13 +49,12 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background:
-    radial-gradient(circle at 12% 8%, rgba(89, 157, 177, 0.18), transparent 28rem),
-    radial-gradient(circle at 88% 16%, rgba(16, 87, 115, 0.1), transparent 24rem),
-    linear-gradient(rgba(89, 157, 177, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(89, 157, 177, 0.04) 1px, transparent 1px),
-    linear-gradient(180deg, #ffffff 0%, #f8fcfd 52%, #ffffff 100%);
-  background-size: auto, auto, 56px 56px, 56px 56px, auto;
+  background: #061a22;
+}
+
+#root {
+  min-height: 100vh;
+  isolation: isolate;
 }
 
 button,
@@ -72,8 +77,8 @@ img {
 }
 
 ::selection {
-  color: var(--color-white);
-  background: var(--color-primary-700);
+  color: var(--color-primary-900);
+  background: var(--color-accent-300);
 }
 
 :focus-visible {

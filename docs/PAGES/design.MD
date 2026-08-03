@@ -51,7 +51,12 @@ Neutral Colors
 - #DEDEDE
 - #FFFFFF
 
-The interface should mainly use white backgrounds combined with dark blue accents.
+The primary public visual identity uses dark blue environments combined with
+glassmorphism, restrained white surfaces and blue accent lighting.
+
+White surfaces may still be used for high-contrast content areas, forms or
+dashboard interfaces, but the landing experience should present RYZE as a
+premium dark technology and fitness platform.
 
 Green may occasionally be used for success states or highlights but should never become the dominant color.
 
@@ -198,14 +203,19 @@ Present the platform and encourage users to begin their fitness journey.
 Sections
 
 - Hero Section
-- Main CTA
 - Services
+- Why Choose RYZE
 - Contact
 - Footer
 
 Hero
 
-Contains a motivational message together with two primary buttons.
+Contains a strong headline, concise value description, two primary actions,
+trust indicators and an elegant procedural 3D scene.
+
+The public landing hero may use React Three Fiber and Three.js for lightweight
+procedural 3D composition. The scene should use geometry, lighting, subtle
+motion and brand integration without relying on external 3D models.
 
 Primary Button
 
@@ -306,6 +316,10 @@ The form should remain simple and easy to complete.
 The email contact card opens a focused overlay panel with background blur and a
 direct-message form. At the current frontend stage this interaction remains
 visual only and does not send data.
+
+The email panel includes a visual file upload control. File validation and
+delivery remain backend responsibilities and are not implemented in the initial
+frontend-only stage.
 
 ---
 

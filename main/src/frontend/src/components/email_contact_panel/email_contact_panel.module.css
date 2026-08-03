@@ -1,0 +1,251 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(2, 12, 17, 0.64);
+  backdrop-filter: blur(20px);
+}
+
+.panel {
+  width: min(100%, 660px);
+  max-height: calc(100vh - 2.5rem);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-md);
+  color: var(--color-white);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(89, 157, 177, 0.24), transparent 19rem),
+    linear-gradient(150deg, rgba(16, 87, 115, 0.94), rgba(5, 22, 30, 0.96));
+  box-shadow:
+    0 34px 110px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 1.5rem 1.1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 0.45rem;
+  color: var(--color-accent-300);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.header h3 {
+  margin: 0;
+  color: var(--color-white);
+  font-size: clamp(1.55rem, 4vw, 2.2rem);
+  line-height: 1.05;
+}
+
+.closeButton {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  color: var(--color-white);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.closeButton:hover {
+  transform: translateY(-1px);
+  border-color: rgba(89, 157, 177, 0.58);
+  background: rgba(89, 157, 177, 0.18);
+}
+
+.closeButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.form label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.form label span,
+.uploadCopy span {
+  color: var(--color-white);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.form input,
+.form textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: var(--radius-sm);
+  color: var(--color-white);
+  background: rgba(255, 255, 255, 0.075);
+  font: inherit;
+  outline: none;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.form input {
+  min-height: 50px;
+  padding: 0 0.95rem;
+}
+
+.form textarea {
+  min-height: 172px;
+  resize: vertical;
+  padding: 0.9rem 0.95rem;
+  line-height: 1.65;
+}
+
+.form input:focus,
+.form textarea:focus {
+  border-color: rgba(89, 157, 177, 0.68);
+  background: rgba(255, 255, 255, 0.11);
+  box-shadow: 0 0 0 4px rgba(89, 157, 177, 0.16);
+}
+
+.fullWidth,
+.uploadArea,
+.footer {
+  grid-column: 1 / -1;
+}
+
+.uploadArea {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem;
+  border: 1px dashed rgba(89, 157, 177, 0.42);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.uploadArea input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.uploadCopy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.uploadCopy svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  color: var(--color-accent-300);
+}
+
+.uploadCopy div {
+  display: grid;
+  min-width: 0;
+  gap: 0.22rem;
+}
+
+.uploadCopy small,
+.footer small {
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.uploadCopy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uploadButton {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  color: var(--color-white);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.uploadButton:hover {
+  transform: translateY(-1px);
+  border-color: rgba(89, 157, 177, 0.58);
+  background: rgba(89, 157, 177, 0.16);
+}
+
+.uploadButton svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.25rem;
+}
+
+@media (max-width: 640px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
+
+  .header,
+  .form {
+    padding-right: 1.1rem;
+    padding-left: 1.1rem;
+  }
+
+  .uploadArea,
+  .footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .uploadButton,
+  .footer button {
+    width: 100%;
+  }
+}
