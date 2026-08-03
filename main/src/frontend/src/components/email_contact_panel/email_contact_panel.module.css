@@ -4,14 +4,16 @@
   z-index: 120;
   display: grid;
   place-items: center;
-  padding: 6.5rem 1.25rem 1.25rem;
-  background: rgba(2, 12, 17, 0.82);
-  backdrop-filter: blur(24px);
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(89, 157, 177, 0.18), transparent 26rem),
+    rgba(2, 12, 17, 0.94);
+  backdrop-filter: blur(28px);
 }
 
 .panel {
   width: min(100%, 620px);
-  max-height: calc(100vh - 7.75rem);
+  max-height: calc(100vh - 2rem);
   overflow: auto;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-md);
@@ -238,12 +240,8 @@
     padding-left: 1.1rem;
   }
 
-  .overlay {
-    padding-top: 5.5rem;
-  }
-
   .panel {
-    max-height: calc(100vh - 6.75rem);
+    max-height: calc(100vh - 2rem);
   }
 
   .uploadArea,

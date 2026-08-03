@@ -104,200 +104,65 @@
   min-width: 0;
 }
 
-.productStage {
+.imageStage {
   position: relative;
-  width: min(100%, 560px);
-  min-height: 520px;
+  width: min(100%, 600px);
+  aspect-ratio: 1.08;
   display: grid;
   place-items: center;
+  isolation: isolate;
+  perspective: 1100px;
 }
 
-.productStage::before {
+.imageStage::before {
   position: absolute;
-  inset: 12% 4% 6%;
+  inset: 11% 4% 8%;
+  z-index: -2;
   content: "";
   border: 1px solid rgba(89, 157, 177, 0.22);
   border-radius: var(--radius-md);
   background:
-    linear-gradient(rgba(89, 157, 177, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(89, 157, 177, 0.08) 1px, transparent 1px);
-  background-size: 34px 34px;
-  transform: perspective(900px) rotateX(58deg) rotateZ(-8deg);
+    linear-gradient(rgba(89, 157, 177, 0.075) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(89, 157, 177, 0.075) 1px, transparent 1px);
+  background-size: 32px 32px;
+  box-shadow: inset 0 0 48px rgba(89, 157, 177, 0.08);
+  transform: rotateX(62deg) rotateZ(-9deg);
   transform-origin: center;
-  opacity: 0.55;
+  opacity: 0.62;
 }
 
-.phoneMockup,
-.panelProgress,
-.panelNutrition,
-.panelAi {
+.imageHalo {
   position: absolute;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: var(--radius-md);
+  inset: 10% 4%;
+  z-index: -1;
+  border-radius: 50%;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.055)),
-    rgba(5, 22, 30, 0.72);
-  box-shadow:
-    0 28px 90px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(24px);
+    radial-gradient(circle at 48% 45%, rgba(89, 157, 177, 0.44), transparent 36%),
+    radial-gradient(circle at 58% 60%, rgba(86, 153, 161, 0.18), transparent 56%);
+  filter: blur(24px);
+  opacity: 0.9;
 }
 
-.phoneMockup {
-  top: 4%;
-  left: 50%;
-  width: min(72%, 310px);
-  min-height: 440px;
-  display: grid;
-  align-content: start;
-  gap: 1.1rem;
-  padding: 1rem;
-  transform: translateX(-50%);
-  animation: productFloat 6.5s ease-in-out infinite;
+.heroImage {
+  width: min(100%, 570px);
+  height: auto;
+  max-height: min(70svh, 610px);
+  object-fit: contain;
+  filter:
+    drop-shadow(0 38px 76px rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 38px rgba(89, 157, 177, 0.2));
+  transform: translate3d(0, 0, 0) rotateX(3deg) rotateY(-5deg);
+  animation: showcaseFloat 7s ease-in-out infinite;
 }
 
-.phoneMockup::before {
-  width: 54px;
-  height: 5px;
-  justify-self: center;
-  content: "";
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.24);
-}
-
-.phoneHeader {
-  display: grid;
-  gap: 0.35rem;
-  padding: 1.1rem;
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(135deg, rgba(89, 157, 177, 0.26), rgba(255, 255, 255, 0.06)),
-    rgba(255, 255, 255, 0.06);
-}
-
-.phoneHeader span,
-.panelProgress span,
-.panelNutrition span,
-.panelAi span {
-  color: var(--color-accent-300);
-  font-size: 0.78rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.phoneHeader strong {
-  color: var(--color-white);
-  font-size: 1.35rem;
-}
-
-.workoutProgress {
-  display: grid;
-  grid-template-columns: 1fr 0.62fr 0.38fr;
-  gap: 0.42rem;
-}
-
-.workoutProgress span {
-  height: 7px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--color-white), var(--color-accent-500));
-}
-
-.workoutProgress span:nth-child(2) {
-  opacity: 0.7;
-}
-
-.workoutProgress span:nth-child(3) {
-  opacity: 0.42;
-}
-
-.exerciseList {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.exerciseList div {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 0.65rem;
-  align-items: center;
-  padding: 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.055);
-}
-
-.exerciseList svg {
-  width: 1rem;
-  height: 1rem;
-  color: var(--color-accent-300);
-}
-
-.exerciseList span {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-text-soft);
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.exerciseList strong {
-  color: var(--color-white);
-  font-size: 0.84rem;
-}
-
-.panelProgress,
-.panelNutrition,
-.panelAi {
-  display: grid;
-  gap: 0.3rem;
-  padding: 1rem;
-}
-
-.panelProgress svg,
-.panelNutrition svg,
-.panelAi svg {
-  width: 1.2rem;
-  height: 1.2rem;
-  color: var(--color-accent-300);
-}
-
-.panelProgress strong,
-.panelNutrition strong,
-.panelAi strong {
-  color: var(--color-white);
-  font-size: 1.05rem;
-}
-
-.panelProgress {
-  top: 16%;
-  right: 0;
-  width: 180px;
-  animation: productFloat 7.2s ease-in-out 800ms infinite;
-}
-
-.panelNutrition {
-  bottom: 13%;
-  left: 0;
-  width: 205px;
-  animation: productFloat 7.8s ease-in-out 400ms infinite;
-}
-
-.panelAi {
-  right: 7%;
-  bottom: 4%;
-  width: 190px;
-  animation: productFloat 7.4s ease-in-out 1.2s infinite;
-}
-
-@keyframes productFloat {
+@keyframes showcaseFloat {
   0%,
   100% {
     translate: 0 0;
   }
 
   50% {
-    translate: 0 -10px;
+    translate: 0 -12px;
   }
 }
 
@@ -311,8 +176,8 @@
     font-size: 4.1rem;
   }
 
-  .productStage {
-    min-height: 500px;
+  .imageStage {
+    width: min(100%, 560px);
   }
 }
 
@@ -334,37 +199,17 @@
     font-size: 1rem;
   }
 
-  .productStage {
-    width: 100%;
-    min-height: 470px;
+  .imageStage {
+    aspect-ratio: 0.95;
   }
 
-  .phoneMockup {
-    width: min(82%, 280px);
-    min-height: 390px;
-  }
-
-  .panelProgress,
-  .panelNutrition,
-  .panelAi {
-    width: 160px;
-    padding: 0.8rem;
-  }
-
-  .panelProgress {
-    right: 0;
-  }
-
-  .panelNutrition {
-    left: 0;
+  .heroImage {
+    max-height: 470px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .phoneMockup,
-  .panelProgress,
-  .panelNutrition,
-  .panelAi {
+  .heroImage {
     animation: none;
   }
 }

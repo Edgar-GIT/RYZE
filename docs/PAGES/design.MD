@@ -211,11 +211,8 @@ Sections
 Hero
 
 Contains a strong headline, concise value description, two primary actions,
-trust indicators and an elegant procedural 3D scene.
-
-The public landing hero may use React Three Fiber and Three.js for lightweight
-procedural 3D composition. The scene should use geometry, lighting, subtle
-motion and brand integration without relying on external 3D models.
+trust indicators and a product showcase that immediately communicates training,
+nutrition, progress and automation.
 
 Primary Button
 

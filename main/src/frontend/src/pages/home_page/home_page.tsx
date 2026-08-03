@@ -1,9 +1,12 @@
+import { CoachesSection } from "@/components/coaches_section/coaches_section";
 import { ContactSection } from "@/components/contact_section/contact_section";
+import { FaqSection } from "@/components/faq_section/faq_section";
 import { Hero } from "@/components/hero/hero";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { SectionTitle } from "@/components/section_title/section_title";
 import { SectionWrapper } from "@/components/section_wrapper/section_wrapper";
 import { ServiceCard } from "@/components/service_card/service_card";
+import { TestimonialsSection } from "@/components/testimonials_section/testimonials_section";
 import { WhyChooseRyze } from "@/components/why_choose_ryze/why_choose_ryze";
 import { SERVICE_PLANS } from "@/constants/services";
 
@@ -31,6 +34,9 @@ export const HomePage = () => (
     </SectionWrapper>
 
     <WhyChooseRyze />
+    <CoachesSection />
+    <TestimonialsSection />
+    <FaqSection />
     <ContactSection />
   </PageWrapper>
 );

@@ -1,15 +1,8 @@
-import {
-  Activity,
-  ArrowRight,
-  BrainCircuit,
-  CheckCircle2,
-  Sparkles,
-  TrendingUp,
-  Utensils
-} from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
+import heroShowcase from "@resources/img/testing/test4.png";
 
 import styles from "./hero.module.css";
 
@@ -43,53 +36,13 @@ export const Hero = () => (
       </div>
 
       <div className={styles.visual}>
-        <div className={styles.productStage} aria-label="RYZE product preview">
-          <div className={styles.phoneMockup}>
-            <div className={styles.phoneHeader}>
-              <span>Today</span>
-              <strong>Upper Body</strong>
-            </div>
-            <div className={styles.workoutProgress}>
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className={styles.exerciseList}>
-              <div>
-                <CheckCircle2 aria-hidden="true" />
-                <span>Dumbbell press</span>
-                <strong>4 x 10</strong>
-              </div>
-              <div>
-                <CheckCircle2 aria-hidden="true" />
-                <span>Row variation</span>
-                <strong>3 x 12</strong>
-              </div>
-              <div>
-                <Activity aria-hidden="true" />
-                <span>Core finisher</span>
-                <strong>8 min</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.panelProgress}>
-            <TrendingUp aria-hidden="true" />
-            <span>Weekly progress</span>
-            <strong>+18%</strong>
-          </div>
-
-          <div className={styles.panelNutrition}>
-            <Utensils aria-hidden="true" />
-            <span>Nutrition target</span>
-            <strong>Ready for today</strong>
-          </div>
-
-          <div className={styles.panelAi}>
-            <BrainCircuit aria-hidden="true" />
-            <span>AI plan match</span>
-            <strong>Goal aligned</strong>
-          </div>
+        <div className={styles.imageStage} aria-label="RYZE visual training showcase">
+          <div className={styles.imageHalo} aria-hidden="true" />
+          <img
+            className={styles.heroImage}
+            src={heroShowcase}
+            alt="RYZE training and fitness visual showcase"
+          />
         </div>
       </div>
     </Container>

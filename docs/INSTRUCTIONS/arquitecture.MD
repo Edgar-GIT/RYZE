@@ -51,8 +51,6 @@ Whenever multiple solutions exist, prefer the one that is easier to maintain.
 - CSS Modules
 - Lucide React
 - Framer Motion
-- React Three Fiber
-- Three.js
 - React Hook Form
 - Zod
 
@@ -248,13 +246,7 @@ vite.config.ts
 ```
 
 The frontend uses React, TypeScript, Vite, React Router, CSS Modules,
-Lucide React, Framer Motion, React Three Fiber and Three.js as defined in the
-project stack.
-
-React Three Fiber is used for lightweight procedural 3D interface moments on
-public landing experiences. These scenes should be built from geometry,
-lighting and optimized materials instead of external 3D models unless a future
-task explicitly approves model assets.
+Lucide React and Framer Motion as defined in the project stack.
 
 ---
 

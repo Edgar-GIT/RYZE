@@ -16,25 +16,20 @@ export const ServiceCard = ({ service }: ServiceCardProps) => (
       <img src={service.imageSrc} alt={service.imageAlt} loading="lazy" />
       <span>{service.badge}</span>
     </div>
-      <div className={styles.content}>
-        <h3>{service.title}</h3>
-        <p>{service.description}</p>
-      </div>
-      <ul className={styles.features} aria-label={`${service.title} features`}>
-        {service.features.map((feature) => (
-          <li key={feature}>
-            <CheckCircle2 aria-hidden="true" />
-            <span>{feature}</span>
-          </li>
-        ))}
-      </ul>
-      <Button
-        className={styles.button}
-        to={service.to}
-        variant="secondary"
-        icon={<ArrowRight />}
-      >
-        {service.ctaLabel}
-      </Button>
+    <div className={styles.content}>
+      <h3>{service.title}</h3>
+      <p>{service.description}</p>
+    </div>
+    <ul className={styles.features} aria-label={`${service.title} features`}>
+      {service.features.map((feature) => (
+        <li key={feature}>
+          <CheckCircle2 aria-hidden="true" />
+          <span>{feature}</span>
+        </li>
+      ))}
+    </ul>
+    <Button className={styles.button} to={service.to} variant="secondary" icon={<ArrowRight />}>
+      {service.ctaLabel}
+    </Button>
   </Card>
 );
