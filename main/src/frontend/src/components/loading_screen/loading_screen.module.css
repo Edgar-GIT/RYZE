@@ -29,14 +29,14 @@
 }
 
 .arrowOuter {
-  border-top: 3px solid var(--color-white);
+  border-top: 3px solid var(--text-primary);
   border-right: 3px solid transparent;
   animation: rotateClockwise 1.2s linear infinite;
 }
 
 .arrowInner {
   inset: 30px;
-  border-bottom: 3px solid var(--color-accent-500);
+  border-bottom: 3px solid var(--accent-secondary);
   border-left: 3px solid transparent;
   animation: rotateCounterClockwise 1.55s linear infinite;
 }
@@ -65,20 +65,20 @@
 .arrowOuter::after {
   top: 8px;
   right: 13px;
-  color: var(--color-white);
+  color: var(--text-primary);
   transform: rotate(38deg);
 }
 
 .arrowInner::after {
   bottom: 4px;
   left: 13px;
-  color: var(--color-accent-500);
+  color: var(--accent-secondary);
   transform: rotate(218deg);
 }
 
 .label {
   margin: 0;
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   font-size: 0.95rem;
   font-weight: 800;
 }

@@ -4,7 +4,7 @@
 
 .eyebrow {
   margin: 0;
-  color: var(--color-accent-500);
+  color: var(--accent-secondary);
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -15,7 +15,7 @@
   position: relative;
   padding: 7.5rem 0 5.5rem;
   background:
-    radial-gradient(ellipse 55% 55% at 78% 28%, rgba(31, 168, 255, 0.14), transparent 60%),
+    radial-gradient(ellipse 55% 55% at 78% 28%, rgba(26, 132, 255, 0.14), transparent 60%),
     radial-gradient(ellipse 40% 45% at 12% 70%, rgba(46, 216, 255, 0.06), transparent 55%),
     linear-gradient(180deg, rgba(5, 7, 12, 0.2), rgba(5, 7, 12, 0.55));
 }
@@ -37,7 +37,7 @@
 .heroCopy h1,
 .sectionIntro h2 {
   margin: 0;
-  color: var(--color-white);
+  color: var(--text-primary);
   letter-spacing: -0.035em;
   line-height: 1.02;
 }
@@ -50,7 +50,7 @@
 .lead,
 .sectionLead {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 1.05rem;
   line-height: 1.7;
   max-width: 36ch;
@@ -71,7 +71,7 @@
   position: absolute;
   inset: 18%;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(31, 168, 255, 0.28), transparent 68%);
+  background: radial-gradient(circle, rgba(26, 132, 255, 0.28), transparent 68%);
   filter: blur(28px);
   animation: glowPulse 5.5s ease-in-out infinite;
 }
@@ -91,10 +91,10 @@
   padding: 0.7rem 0.55rem;
   border: var(--border-subtle);
   border-radius: 1.1rem;
-  color: var(--color-white);
+  color: var(--text-primary);
   background:
     linear-gradient(160deg, rgba(46, 216, 255, 0.12), transparent 48%),
-    rgba(17, 24, 39, 0.82);
+    rgba(16, 24, 38, 0.82);
   box-shadow:
     0 18px 40px rgba(5, 7, 12, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -104,11 +104,11 @@
 .node svg {
   width: 1.15rem;
   height: 1.15rem;
-  color: var(--color-accent-400);
+  color: var(--accent);
 }
 
 .node em {
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   font-size: 0.62rem;
   font-style: normal;
   font-weight: 700;
@@ -123,7 +123,7 @@
   transform: translate(-50%, -50%);
   box-shadow:
     0 20px 48px rgba(5, 7, 12, 0.45),
-    0 0 36px rgba(31, 168, 255, 0.18);
+    0 0 36px rgba(26, 132, 255, 0.18);
 }
 
 .nodeTrain {
@@ -174,7 +174,7 @@
 .sectionWhy,
 .sectionEvolution {
   background:
-    radial-gradient(ellipse 50% 40% at 50% 0%, rgba(31, 168, 255, 0.07), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 0%, rgba(26, 132, 255, 0.07), transparent 55%),
     linear-gradient(180deg, rgba(5, 7, 12, 0.15), rgba(5, 7, 12, 0.35));
 }
 
@@ -208,7 +208,7 @@
   border-radius: 1.1rem;
   background:
     linear-gradient(160deg, rgba(46, 216, 255, 0.07), transparent 46%),
-    rgba(17, 24, 39, 0.72);
+    rgba(16, 24, 38, 0.72);
   box-shadow:
     0 18px 44px rgba(5, 7, 12, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -234,7 +234,7 @@
   border-color: rgba(46, 216, 255, 0.28);
   box-shadow:
     0 22px 48px rgba(5, 7, 12, 0.38),
-    0 0 28px rgba(31, 168, 255, 0.1);
+    0 0 28px rgba(26, 132, 255, 0.1);
 }
 
 .iconWrap,
@@ -244,9 +244,9 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 0.8rem;
-  color: var(--color-accent-400);
-  background: rgba(31, 168, 255, 0.12);
-  box-shadow: 0 0 18px rgba(31, 168, 255, 0.12);
+  color: var(--accent);
+  background: rgba(26, 132, 255, 0.12);
+  box-shadow: 0 0 18px rgba(26, 132, 255, 0.12);
 }
 
 .iconWrap svg,
@@ -260,7 +260,7 @@
 .evolutionCard h3,
 .personCard h3 {
   margin: 0;
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: 1.02rem;
   letter-spacing: -0.02em;
 }
@@ -269,7 +269,7 @@
 .whyCard p,
 .personCard p {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.55;
 }
@@ -323,12 +323,12 @@
   padding: 1rem 1.15rem;
   border: var(--border-subtle);
   border-radius: 1rem;
-  background: rgba(17, 24, 39, 0.62);
+  background: rgba(16, 24, 38, 0.62);
   backdrop-filter: blur(14px);
 }
 
 .roadmapIndex {
-  color: var(--color-accent-400);
+  color: var(--accent);
   font-size: 0.78rem;
   font-weight: 750;
   letter-spacing: 0.08em;
@@ -336,7 +336,7 @@
 
 .roadmapItem p {
   margin: 0 0 0.2rem;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -344,7 +344,7 @@
 }
 
 .roadmapItem strong {
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: 1.05rem;
   letter-spacing: -0.02em;
 }
@@ -366,7 +366,7 @@
 .evolutionCard svg {
   width: 1.2rem;
   height: 1.2rem;
-  color: var(--color-accent-400);
+  color: var(--accent);
   flex: 0 0 auto;
 }
 
@@ -383,7 +383,7 @@
   border: var(--border-subtle);
   border-radius: 1.5rem;
   background:
-    radial-gradient(circle at 50% 45%, rgba(31, 168, 255, 0.14), transparent 42%),
+    radial-gradient(circle at 50% 45%, rgba(26, 132, 255, 0.14), transparent 42%),
     rgba(5, 7, 12, 0.55);
   overflow: hidden;
 }
@@ -400,16 +400,16 @@
   padding: 1.1rem 0.8rem;
   border: 1px solid rgba(46, 216, 255, 0.28);
   border-radius: 1.2rem;
-  color: var(--color-white);
-  background: rgba(17, 24, 39, 0.88);
-  box-shadow: 0 0 40px rgba(31, 168, 255, 0.18);
+  color: var(--text-primary);
+  background: rgba(16, 24, 38, 0.88);
+  box-shadow: 0 0 40px rgba(26, 132, 255, 0.18);
   transform: translate(-50%, -50%);
 }
 
 .techCore svg {
   width: 1.35rem;
   height: 1.35rem;
-  color: var(--color-accent-400);
+  color: var(--accent);
 }
 
 .techCore strong {
@@ -426,8 +426,8 @@
   padding: 0.7rem 0.9rem;
   border: var(--border-subtle);
   border-radius: 999px;
-  color: var(--color-text-soft);
-  background: rgba(17, 24, 39, 0.78);
+  color: var(--text-secondary);
+  background: rgba(16, 24, 38, 0.78);
   backdrop-filter: blur(12px);
   font-size: 0.78rem;
   font-weight: 650;
@@ -437,7 +437,7 @@
 .techModule svg {
   width: 0.95rem;
   height: 0.95rem;
-  color: var(--color-accent-400);
+  color: var(--accent);
 }
 
 .techA {
@@ -491,15 +491,15 @@
   height: 3rem;
   border: 1px solid rgba(46, 216, 255, 0.24);
   border-radius: 999px;
-  color: var(--color-accent-400);
-  background: rgba(31, 168, 255, 0.12);
+  color: var(--accent);
+  background: rgba(26, 132, 255, 0.12);
   font-size: 0.9rem;
   font-weight: 750;
 }
 
 .personRole {
   margin: 0.2rem 0 0.55rem !important;
-  color: var(--color-accent-400) !important;
+  color: var(--accent) !important;
   font-size: 0.74rem !important;
   font-weight: 700;
   letter-spacing: 0.08em;

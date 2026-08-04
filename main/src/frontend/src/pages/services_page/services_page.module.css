@@ -39,13 +39,13 @@
 }
 
 .copy h1 {
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: 3rem;
   line-height: 1.04;
 }
 
 .copy span {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   line-height: 1.7;
 }
 

@@ -7,7 +7,7 @@
   border-radius: 18px;
   background:
     linear-gradient(165deg, rgba(46, 216, 255, 0.06), transparent 38%),
-    rgba(17, 24, 39, 0.92);
+    rgba(16, 24, 38, 0.92);
   box-shadow:
     0 24px 60px rgba(5, 7, 12, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -23,7 +23,7 @@
   border-color: rgba(46, 216, 255, 0.3);
   box-shadow:
     0 30px 70px rgba(5, 7, 12, 0.52),
-    0 0 36px rgba(31, 168, 255, 0.12),
+    0 0 36px rgba(26, 132, 255, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
@@ -31,7 +31,7 @@
   position: relative;
   overflow: hidden;
   aspect-ratio: 1.45 / 1;
-  background: #091223;
+  background: var(--bg-secondary);
 }
 
 .media img {
@@ -64,7 +64,7 @@
   padding: 0.4rem 0.7rem;
   border: 1px solid rgba(46, 216, 255, 0.28);
   border-radius: 999px;
-  color: #2ed8ff;
+  color: var(--accent);
   background: rgba(5, 7, 12, 0.72);
   font-size: 0.7rem;
   font-weight: 700;
@@ -87,7 +87,7 @@
 
 .copy h3 {
   margin: 0;
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: 1.35rem;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -95,7 +95,7 @@
 
 .copy p {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.94rem;
   line-height: 1.65;
 }
@@ -113,7 +113,7 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   font-size: 0.88rem;
   font-weight: 550;
 }
@@ -122,7 +122,7 @@
   width: 0.95rem;
   height: 0.95rem;
   flex: 0 0 auto;
-  color: var(--color-accent-500);
+  color: var(--accent-secondary);
 }
 
 .footer {
@@ -133,7 +133,7 @@
 .price {
   margin: 0;
   justify-self: end;
-  color: var(--color-accent-400);
+  color: var(--accent);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.04em;

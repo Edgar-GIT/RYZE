@@ -3,25 +3,9 @@
   padding: 5.5rem 0 5.25rem;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 58% 55% at 82% 40%, rgba(31, 168, 255, 0.12), transparent 58%),
-    radial-gradient(ellipse 42% 48% at 8% 70%, rgba(46, 216, 255, 0.06), transparent 52%),
-    linear-gradient(180deg, rgba(5, 7, 12, 0.2), rgba(5, 7, 12, 0.42));
-}
-
-.section::before {
-  position: absolute;
-  inset: 0;
-  content: "";
-  opacity: 0.035;
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(255, 255, 255, 0.35) 2px,
-      rgba(255, 255, 255, 0.35) 3px
-    );
-  pointer-events: none;
+    radial-gradient(ellipse 58% 55% at 82% 42%, rgba(46, 216, 255, 0.1), transparent 58%),
+    radial-gradient(ellipse 40% 45% at 10% 70%, rgba(26, 132, 255, 0.06), transparent 52%),
+    linear-gradient(180deg, rgba(5, 7, 12, 0.2), rgba(9, 17, 27, 0.35));
 }
 
 .layout {
@@ -38,7 +22,7 @@
 
 .eyebrow {
   margin: 0;
-  color: var(--color-accent-500);
+  color: var(--accent);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -47,7 +31,7 @@
 
 .copy h2 {
   margin: 0;
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: clamp(2.1rem, 9vw, 2.85rem);
   line-height: 1.02;
   letter-spacing: -0.035em;
@@ -56,7 +40,7 @@
 
 .description {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 1.02rem;
   line-height: 1.85;
   max-width: 28ch;
@@ -73,11 +57,13 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   font-size: 0.92rem;
   font-weight: 650;
   text-decoration: none;
-  transition: color 200ms ease, transform 200ms ease;
+  transition:
+    color 200ms ease,
+    transform 200ms ease;
 }
 
 .secondaryLink svg {
@@ -87,7 +73,7 @@
 }
 
 .secondaryLink:hover {
-  color: var(--color-accent-400);
+  color: var(--accent);
   transform: translateX(2px);
 }
 
@@ -139,10 +125,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .secondaryLink:hover {
-    transform: none;
-  }
-
+  .secondaryLink:hover,
   .secondaryLink:hover svg {
     transform: none;
   }

@@ -90,7 +90,9 @@ Only the documents relevant to the requested task are required, but this order s
 4. conventions.MD
 5. database.MD *(backend/database related tasks)*
 6. api.MD *(backend/API related tasks)*
-7. design.MD *(frontend/UI related tasks)*
+7. design.MD *(frontend/UI related tasks — prefer*
+   `docs/INSTRUCTIONS/design.MD` for palette/tokens, then
+   `docs/PAGES/design.MD` for page composition)*
 8. ai.MD *(AI-related functionality)*
 9. update_logs.MD *(to understand recent changes)*
 
@@ -193,11 +195,15 @@ Includes topics such as:
 - Responsive behavior
 - Accessibility
 
-Whenever UI or visual identity changes, update `docs/PAGES/design.MD` and keep
-`main/src/frontend/src/styles/global.css` tokens synchronized.
-- Visual consistency
+Whenever UI or visual identity changes, update:
 
-Every frontend implementation must remain consistent with this document.
+- `docs/INSTRUCTIONS/design.MD` (palette + token system)
+- `docs/PAGES/design.MD` (page composition + component behaviour)
+- `main/src/frontend/src/styles/global.css` (runtime tokens)
+
+Visual consistency is mandatory: the Hero palette is the only official palette.
+
+Every frontend implementation must remain consistent with these documents.
 
 ---
 

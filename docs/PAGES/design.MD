@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.17
+Version: 2.2.18
 
 ---
 
@@ -29,6 +29,9 @@ The Hero section is the single visual source of truth for the entire website.
 Every other page and section must match that language — never the other way
 around.
 
+Token rules and the official palette live in `docs/INSTRUCTIONS/design.MD`.
+This file focuses on page composition and component behaviour.
+
 ---
 
 # Brand Identity
@@ -48,42 +51,45 @@ Official palette. Do not invent alternate blues, teals or greys.
 
 Background
 
-- Primary Background: `#05070C`
-- Secondary Background: `#0A1018`
-- Surface: `#111827`
-- Elevated Surface: `#161F2D`
-- Navbar: `rgba(8, 12, 18, 0.78)` with `backdrop-filter: blur(20px)`
+- Primary Background: `#05070C` → `--bg-primary`
+- Secondary Background: `#09111B` → `--bg-secondary`
+- Surface: `#101826` → `--surface`
+- Elevated Surface: `#151F2E` → `--surface-elevated` / `--surface-hover`
+- Navbar: `rgba(8, 12, 18, 0.78)` with `backdrop-filter: blur(20px)` → `--navbar-bg`
 
 Primary Accent
 
-- Electric Cyan: `#2ED8FF`
-- Bright Blue: `#1FA8FF`
+- Electric Cyan: `#2ED8FF` → `--accent`
+- Bright Blue: `#1A84FF` → `--accent-secondary`
 
 Accent Gradient (primary CTAs)
 
-- `#39E3FF` → `#1A7BFF`
+- `#38E4FF` → `#187BFF` → `--accent-gradient`
 
 Glow
 
-- Blue Glow: `rgba(46, 216, 255, 0.45)`
-- Soft Glow: `rgba(46, 216, 255, 0.15)`
-- Hover Glow: `rgba(46, 216, 255, 0.25)`
+- Blue Glow: `rgba(46, 216, 255, 0.45)` → `--accent-glow-strong`
+- Soft Glow: `rgba(46, 216, 255, 0.15)` → `--accent-glow-soft`
+- Hover Glow: `rgba(46, 216, 255, 0.25)` → `--accent-glow`
 
 Text
 
-- Primary: `#F4F7FB`
-- Secondary: `#A4B1C5`
-- Muted: `#6D7B91`
-- Disabled: `#465264`
+- Primary: `#F4F7FB` → `--text-primary`
+- Secondary: `#A6B2C7` → `--text-secondary`
+- Muted: `#6F7C91` → `--text-muted`
+- Disabled: `#465264` → `--text-disabled`
 
 Borders
 
-- Default: `rgba(255, 255, 255, 0.08)`
-- Hover: `rgba(46, 216, 255, 0.35)`
-- Focused: `#2ED8FF`
+- Default: `rgba(255, 255, 255, 0.08)` → `--border` / `--border-color`
+- Hover: `rgba(46, 216, 255, 0.35)` → `--border-hover`
+- Focused: `#2ED8FF` → `--accent`
 
 CSS custom properties in `main/src/frontend/src/styles/global.css` are the
 runtime source of truth for these tokens.
+
+Every component must consume these variables. Hardcoded palette colors should
+disappear from UI CSS except documented exceptions.
 
 Never use:
 
@@ -91,6 +97,7 @@ Never use:
 - Rainbow graph colors
 - Hard grey cardboard surfaces
 - Harsh black-only shadows without ambient cyan glow
+- Random decorative circles, dotted curves, SVG lines or floating icon clutter
 
 Icons may use white, muted grey or electric cyan only (except official third-
 party brand marks such as Gmail / Instagram / WhatsApp).
@@ -109,6 +116,8 @@ party brand marks such as Gmail / Instagram / WhatsApp).
 - Spacing defines sections more than hard separators
 - Never use a flat, static single-color page fill
 - Section transitions must feel seamless — no obvious palette jumps
+- Empty space is filled with soft gradients, radial lighting, subtle particles,
+  ambient glow and depth — nothing else
 
 ---
 
@@ -150,6 +159,9 @@ dashboards, charts and interactive product surfaces.
 Buttons, cards, forms, spacing and typography should behave consistently
 throughout the entire application.
 
+When scrolling, the user should never feel that a section was built by another
+designer. The whole website must read as one coherent premium product.
+
 ## Simplicity
 
 Every screen should have one primary objective.
@@ -172,7 +184,7 @@ performance.
 
 Primary
 
-- Cyan / blue gradient (`#39E3FF` → `#1A7BFF`)
+- Cyan / blue gradient (`#38E4FF` → `#187BFF`)
 - Soft cyan glow
 - High contrast text
 
@@ -232,8 +244,8 @@ Secondary
 
 Alternate between:
 
-- Very dark background (`#05070C` / `#0A1018`)
-- Slightly lighter surface (`#111827` / `#161F2D`)
+- Very dark background (`#05070C` / `#09111B`)
+- Slightly lighter surface (`#101826` / `#151F2E`)
 
 Use soft radial cyan washes for atmosphere.
 
@@ -331,13 +343,14 @@ It uses:
 
 - Left column with a strong headline, short supporting line, primary CTA and a
   secondary text link (`See how it works →`)
-- Right column dominated by one larger almost-3D phone (`rotateY` about `-16deg`)
-  with soft blue glow, floating motion and subtle mouse parallax
+- Right column dominated by one large premium almost-3D phone
+  (`rotateY` about `-16deg`) with soft blue ambient glow, realistic reflection,
+  perspective depth and gentle floating motion
+- Full phone UI kept inside the screen — never cropped or simplified
 - No floating information cards
-- Atmospheric support only: soft grid, radial glows, holographic rings, data
-  trails, story-flow nodes (questions → AI → plan → progress) and tiny low-opacity
-  UI fragments
-- The visual story should communicate onboarding without explanatory text
+- Atmospheric support only: soft gradients, large radial lighting, subtle
+  particles, ambient glow and depth
+- No random circles, dotted curves, SVG lines or floating icons
 
 Other major sections after Platform should:
 

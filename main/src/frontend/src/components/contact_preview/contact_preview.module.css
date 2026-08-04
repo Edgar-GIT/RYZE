@@ -16,7 +16,7 @@
 
 .eyebrow {
   margin: 0;
-  color: var(--color-accent-500);
+  color: var(--accent-secondary);
   font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -25,7 +25,7 @@
 
 .copy h2 {
   margin: 0;
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: clamp(1.7rem, 3vw, 2.2rem);
   line-height: 1.1;
   letter-spacing: -0.025em;
@@ -34,7 +34,7 @@
 .description {
   margin: 0;
   max-width: 46ch;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.98rem;
   line-height: 1.6;
 }
@@ -53,8 +53,8 @@
   padding: 0.55rem 0.9rem;
   border: var(--border-subtle);
   border-radius: 999px;
-  color: var(--color-white);
-  background: rgba(17, 24, 39, 0.72);
+  color: var(--text-primary);
+  background: rgba(16, 24, 38, 0.72);
   font-size: 0.88rem;
   font-weight: 600;
   text-decoration: none;
@@ -68,7 +68,7 @@
 .chip:hover {
   transform: translateY(-2px);
   border-color: rgba(46, 216, 255, 0.3);
-  background: rgba(17, 24, 39, 0.9);
+  background: rgba(16, 24, 38, 0.9);
   box-shadow: 0 10px 28px rgba(5, 7, 12, 0.35);
 }
 

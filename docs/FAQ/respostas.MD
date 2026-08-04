@@ -219,12 +219,10 @@
 
 UI/UX
 
-->#092936 #105773 #599DB1 #5699A1 #DEDEDE #FFFFFF
--> site nivel médio (nao minimalista nem hardcore/premium)
-->Não, a érica
-->Futurista
-->genérico 
-->descontraído de pessoa para pessoa
-->fonte -> google sans
+-> Official palette (Hero source of truth): see docs/INSTRUCTIONS/design.MD
+-> `#05070C` `#09111B` `#101826` `#151F2E` `#2ED8FF` `#1A84FF` `#F4F7FB` `#A6B2C7`
+-> Premium dark technology product (not generic fitness brochure)
+-> Futurista
+-> fonte -> google sans
 
 96 - não é preciso blog

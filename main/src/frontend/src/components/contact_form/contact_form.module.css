@@ -5,18 +5,18 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   background:
-    radial-gradient(ellipse 80% 55% at 12% 0%, rgba(46, 216, 255, 0.14), transparent 55%),
-    linear-gradient(160deg, rgba(17, 27, 39, 0.94), rgba(10, 14, 22, 0.92));
+    radial-gradient(ellipse 80% 55% at 12% 0%, var(--accent-glow-soft), transparent 55%),
+    linear-gradient(160deg, rgba(16, 24, 38, 0.94), rgba(9, 17, 27, 0.92));
   box-shadow:
     0 28px 70px rgba(5, 7, 12, 0.45),
-    0 0 40px rgba(46, 216, 255, 0.08),
+    0 0 40px var(--accent-glow-soft),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(18px);
 }
 
 .header h2 {
   margin: 0;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 1.35rem;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -35,7 +35,7 @@
 
 .fields label span,
 .uploadCopy span {
-  color: #a4b1c5;
+  color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -47,7 +47,7 @@
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
-  color: #ffffff;
+  color: var(--text-primary);
   background: rgba(8, 12, 18, 0.55);
   font: inherit;
   outline: none;
@@ -118,7 +118,7 @@
   width: 1.15rem;
   height: 1.15rem;
   flex: 0 0 auto;
-  color: #39e3ff;
+  color: var(--color-accent-300);
 }
 
 .uploadCopy div {
@@ -129,7 +129,7 @@
 
 .uploadCopy small {
   overflow: hidden;
-  color: #6d7b91;
+  color: var(--text-muted);
   font-size: 0.82rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -145,7 +145,7 @@
   padding: 0.55rem 0.8rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  color: #ffffff;
+  color: var(--text-primary);
   background: rgba(255, 255, 255, 0.05);
   cursor: pointer;
   font-size: 0.86rem;
@@ -176,7 +176,7 @@
 
 .note {
   margin: 0;
-  color: #6d7b91;
+  color: var(--text-muted);
   font-size: 0.86rem;
   text-align: center;
 }

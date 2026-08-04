@@ -255,9 +255,11 @@ vite.config.ts
 The frontend uses React, TypeScript, Vite, React Router, CSS Modules,
 Lucide React and Framer Motion as defined in the project stack.
 
-The public visual system is dark-first, with blue as the primary accent.
+The public visual system is dark-first, with electric cyan (`#2ED8FF`) as the
+primary accent and the Hero as the visual source of truth.
 Homepage sections prioritize product demos over text-heavy feature grids.
-Detailed UI rules live in `docs/PAGES/design.MD`.
+Detailed UI rules live in `docs/INSTRUCTIONS/design.MD` and
+`docs/PAGES/design.MD`.
 
 ---
 

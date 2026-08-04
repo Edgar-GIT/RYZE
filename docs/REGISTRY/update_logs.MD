@@ -1,3 +1,38 @@
+# Version 2.2.18
+
+Title: Official Hero token system + restore premium Platform phone
+
+Date: 2026-08-04
+
+Summary:
+
+Restored the Start Faster phone as a large premium product mockup and removed
+the random decorative graphics. Introduced the official global CSS token system
+from the Hero palette and migrated shared UI surfaces to consume it. Updated
+design, project and procedure documentation so future work follows one palette.
+
+Files modified:
+
+- `main/src/frontend/src/styles/global.css`
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.tsx`
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.module.css`
+- `main/src/frontend/src/components/platform_section/platform_section.module.css`
+- Shared component/page CSS modules (token migration)
+- `docs/INSTRUCTIONS/design.MD`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/project.MD`
+- `docs/INSTRUCTIONS/procedure.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The previous Platform pass was a visual regression, and the site still felt like
+multiple palettes. Hero is now the only official design reference.
+
+---
+
 # Version 2.2.17
 
 Title: Unify global palette to Hero design system

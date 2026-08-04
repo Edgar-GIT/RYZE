@@ -33,7 +33,7 @@
 
 .windowChrome p {
   margin: 0 0 0 0.45rem;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -71,7 +71,7 @@
 .measureCard span,
 .aiCard span,
 .chartHeader em {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 650;
   letter-spacing: 0.06em;
@@ -83,7 +83,7 @@
 .sessionMeta strong,
 .measureCard strong,
 .ringLabel strong {
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: 1.35rem;
   font-weight: 750;
   letter-spacing: -0.02em;
@@ -137,12 +137,12 @@
 .barFill {
   width: 100%;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--color-accent-300), var(--color-accent-500));
+  background: linear-gradient(180deg, var(--color-accent-300), var(--accent-secondary));
   animation: riseIn 700ms ease both;
 }
 
 .barColumn span {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 650;
 }
@@ -166,7 +166,7 @@
 .progressFill {
   height: 100%;
   border-radius: inherit;
-  background: var(--color-accent-400);
+  background: var(--accent);
 }
 
 .trainingLayout,
@@ -193,7 +193,7 @@
 }
 
 .dayCell span {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.65rem;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -201,7 +201,7 @@
 }
 
 .dayCell strong {
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -251,13 +251,13 @@
 
 .liftList strong {
   display: block;
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: 0.9rem;
 }
 
 .liftList span,
 .liftList em {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.78rem;
   font-style: normal;
 }
@@ -295,7 +295,7 @@
 }
 
 .ringValue {
-  stroke: var(--color-accent-400);
+  stroke: var(--accent);
   stroke-linecap: round;
   stroke-dasharray: 301;
   stroke-dashoffset: 72;
@@ -310,7 +310,7 @@
 }
 
 .ringLabel span {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.7rem;
 }
 
@@ -332,12 +332,12 @@
 }
 
 .macroMeta strong {
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: 0.88rem;
 }
 
 .macroMeta em {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-style: normal;
   font-weight: 500;
 }
@@ -349,7 +349,7 @@
 
 .aiCard p {
   margin: 0.4rem 0 0;
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   line-height: 1.5;
 }

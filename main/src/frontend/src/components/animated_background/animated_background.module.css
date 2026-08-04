@@ -6,10 +6,10 @@
   pointer-events: none;
   background:
     radial-gradient(ellipse 90% 55% at 50% -10%, rgba(46, 216, 255, 0.08), transparent 58%),
-    radial-gradient(ellipse 55% 45% at 92% 18%, rgba(31, 168, 255, 0.09), transparent 52%),
+    radial-gradient(ellipse 55% 45% at 92% 18%, rgba(26, 132, 255, 0.09), transparent 52%),
     radial-gradient(ellipse 50% 40% at 6% 78%, rgba(46, 216, 255, 0.06), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(17, 24, 39, 0.5), transparent 60%),
-    linear-gradient(180deg, #05070c 0%, #05070c 42%, #0a1018 72%, #05070c 100%);
+    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(16, 24, 38, 0.5), transparent 60%),
+    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 42%, var(--bg-secondary) 72%, var(--bg-primary) 100%);
 }
 
 .nebulaOne,
@@ -50,7 +50,7 @@
   bottom: 8%;
   width: 30rem;
   height: 22rem;
-  background: rgba(31, 168, 255, 0.16);
+  background: rgba(26, 132, 255, 0.16);
   animation: drift 26s ease-in-out infinite alternate-reverse;
 }
 
@@ -68,7 +68,7 @@
   left: 8%;
   width: 20rem;
   height: 14rem;
-  background: rgba(31, 168, 255, 0.12);
+  background: rgba(26, 132, 255, 0.12);
   animation: drift 24s ease-in-out infinite alternate;
 }
 
@@ -78,7 +78,7 @@
   width: 22rem;
   height: 22rem;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(31, 168, 255, 0.14), transparent 68%);
+  background: radial-gradient(circle, rgba(26, 132, 255, 0.14), transparent 68%);
   filter: blur(40px);
   animation: breathe 10s ease-in-out infinite;
 }
@@ -88,7 +88,7 @@
   left: 64%;
   width: 1px;
   height: 34%;
-  background: linear-gradient(180deg, transparent, rgba(31, 168, 255, 0.24), transparent);
+  background: linear-gradient(180deg, transparent, rgba(26, 132, 255, 0.24), transparent);
   opacity: 0.35;
   rotate: 18deg;
   animation: beamFade 8s ease-in-out infinite alternate;
@@ -130,8 +130,8 @@
 .grid {
   inset: 0;
   background:
-    linear-gradient(rgba(31, 168, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(31, 168, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(26, 132, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 132, 255, 0.03) 1px, transparent 1px);
   background-size: 80px 80px;
   mask-image: linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
   opacity: 0.5;

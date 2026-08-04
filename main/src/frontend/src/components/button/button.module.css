@@ -44,51 +44,51 @@
 }
 
 .primary {
-  color: #05070c;
-  background: var(--gradient-accent);
+  color: var(--bg-primary);
+  background: var(--accent-gradient);
   border-color: rgba(46, 216, 255, 0.4);
   box-shadow:
-    0 12px 36px rgba(46, 216, 255, 0.28),
-    0 0 28px rgba(46, 216, 255, 0.18);
+    0 12px 36px var(--accent-glow),
+    0 0 28px var(--accent-glow-soft);
 }
 
 .primary:hover {
-  background: var(--gradient-accent-hover);
+  background: var(--accent-gradient-hover);
   box-shadow:
-    0 16px 42px rgba(46, 216, 255, 0.36),
-    0 0 34px rgba(46, 216, 255, 0.24);
+    0 16px 42px var(--accent-glow-strong),
+    0 0 34px var(--accent-glow);
 }
 
 .secondary {
-  color: var(--color-white);
+  color: var(--text-primary);
   background: transparent;
   border-color: rgba(255, 255, 255, 0.18);
 }
 
 .secondary:hover {
   border-color: var(--border-hover);
-  background: var(--color-accent-glow-soft);
+  background: var(--accent-glow-soft);
 }
 
 .ghost {
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   background: transparent;
   border-color: transparent;
 }
 
 .ghost:hover {
-  color: var(--color-white);
+  color: var(--text-primary);
   background: rgba(255, 255, 255, 0.05);
 }
 
 .dark {
-  color: var(--color-white);
-  background: var(--color-surface-card);
-  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  background: var(--surface);
+  border-color: var(--border-color);
 }
 
 .light {
-  color: #05070c;
+  color: var(--bg-primary);
   background: #ffffff;
 }
 
@@ -97,19 +97,19 @@
 }
 
 .outlineLight {
-  color: var(--color-white);
+  color: var(--text-primary);
   background: transparent;
   border-color: rgba(255, 255, 255, 0.2);
 }
 
 .outlineLight:hover {
   border-color: var(--border-hover);
-  background: var(--color-accent-glow-soft);
+  background: var(--accent-glow-soft);
 }
 
 .disabled {
   opacity: 0.5;
-  color: var(--color-neutral-600);
+  color: var(--text-disabled);
   pointer-events: none;
 }
 

@@ -1,9 +1,9 @@
 .card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: var(--border);
   border-radius: var(--radius-lg);
-  background: #111827;
+  background: var(--surface);
   box-shadow:
     var(--shadow-card),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -14,10 +14,10 @@
 }
 
 .card:hover {
-  border-color: rgba(46, 216, 255, 0.22);
+  border-color: var(--border-hover);
   box-shadow:
     var(--shadow-card),
-    0 0 28px rgba(46, 216, 255, 0.08);
+    0 0 28px var(--accent-glow-soft);
   transform: translateY(-2px);
 }
 

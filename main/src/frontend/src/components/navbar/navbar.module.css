@@ -40,14 +40,14 @@
   align-items: center;
   gap: 0.65rem;
   padding-right: 0.35rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .brand span {
   font-size: 0.98rem;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .desktopLinks {
@@ -81,11 +81,11 @@
 }
 
 .navLink:hover {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .activeLink {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .activeIndicator {
@@ -94,7 +94,7 @@
   left: 0;
   height: 1.5px;
   border-radius: 999px;
-  background: #2ed8ff;
+  background: var(--accent);
   box-shadow: 0 0 12px rgba(46, 216, 255, 0.75);
   opacity: 0;
   pointer-events: none;
@@ -117,7 +117,7 @@
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  color: #a4b1c5;
+  color: var(--text-secondary);
   background: transparent;
   transition:
     background 220ms ease,
@@ -129,7 +129,7 @@
 .profileLink:hover,
 .activeProfile,
 .menuButton:hover {
-  color: #ffffff;
+  color: var(--text-primary);
   border-color: rgba(46, 216, 255, 0.35);
   background: rgba(46, 216, 255, 0.15);
   box-shadow: 0 0 18px rgba(46, 216, 255, 0.2);
@@ -193,15 +193,15 @@
     gap: 0.65rem;
     padding: 0.75rem 0.85rem;
     border-radius: 8px;
-    color: #6d7b91;
+    color: var(--text-muted);
     font-weight: 500;
   }
 
   .mobileLink:hover,
   .activeMobileLink {
-    color: #ffffff;
+    color: var(--text-primary);
     background: rgba(46, 216, 255, 0.08);
-    box-shadow: inset 0 -1.5px 0 #2ed8ff;
+    box-shadow: inset 0 -1.5px 0 var(--accent);
   }
 }
 

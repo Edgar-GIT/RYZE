@@ -3,7 +3,7 @@
   padding: 7.5rem 0 5rem;
   background:
     radial-gradient(ellipse 55% 45% at 15% 10%, rgba(46, 216, 255, 0.08), transparent 55%),
-    radial-gradient(ellipse 45% 40% at 90% 70%, rgba(31, 168, 255, 0.06), transparent 50%),
+    radial-gradient(ellipse 45% 40% at 90% 70%, rgba(26, 132, 255, 0.06), transparent 50%),
     linear-gradient(180deg, rgba(8, 12, 18, 0.35), rgba(8, 12, 18, 0.55));
 }
 
@@ -22,7 +22,7 @@
 
 .eyebrow {
   margin: 0;
-  color: #2ed8ff;
+  color: var(--accent);
   font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -31,7 +31,7 @@
 
 .title {
   margin: 0;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: clamp(2.4rem, 4.5vw, 3.4rem);
   line-height: 1.05;
   letter-spacing: -0.03em;
@@ -40,7 +40,7 @@
 .description {
   margin: 0;
   max-width: 36ch;
-  color: #6d7b91;
+  color: var(--text-muted);
   font-size: 1.02rem;
   line-height: 1.65;
 }
@@ -78,7 +78,7 @@
 }
 
 .row:hover .rowArrow {
-  color: #2ed8ff;
+  color: var(--accent);
   transform: translate(2px, -2px);
 }
 
@@ -104,13 +104,13 @@
 }
 
 .rowCopy strong {
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 0.95rem;
   font-weight: 650;
 }
 
 .rowCopy small {
-  color: #6d7b91;
+  color: var(--text-muted);
   font-size: 0.86rem;
   line-height: 1.35;
 }
@@ -118,7 +118,7 @@
 .rowArrow {
   width: 1.05rem;
   height: 1.05rem;
-  color: #6d7b91;
+  color: var(--text-muted);
   transition:
     color 220ms ease,
     transform 220ms ease;

@@ -349,6 +349,10 @@ Additional languages may be introduced in future versions.
 
 RYZE follows a modern, clean and futuristic design language.
 
+The public website uses one official visual system. The Hero section is the
+source of truth. Every other section must share the same near-black / electric
+cyan palette and token set so the product feels coherent end to end.
+
 The platform prioritizes:
 
 - Simplicity
@@ -358,7 +362,10 @@ The platform prioritizes:
 - Consistency
 - Fast navigation
 
-All visual guidelines are documented in `design.MD`.
+All visual guidelines are documented in:
+
+- `docs/INSTRUCTIONS/design.MD` — palette, tokens and consistency rules
+- `docs/PAGES/design.MD` — page composition and component behaviour
 
 ---
 
@@ -369,7 +376,8 @@ This document intentionally focuses on the business and functional aspects of th
 All technical decisions are documented separately.
 
 - `architecture.MD` — Technologies, frameworks, project structure and infrastructure.
-- `design.MD` — User interface, branding, user experience and page specifications.
+- `docs/INSTRUCTIONS/design.MD` — Official palette, CSS tokens and visual rules.
+- `docs/PAGES/design.MD` — User interface, branding, user experience and page specifications.
 - `procedure.MD` — Development workflow, coding rules and AI instructions.
 - `update_logs.MD` — Complete history of project modifications.
 

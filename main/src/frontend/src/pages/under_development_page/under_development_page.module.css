@@ -29,10 +29,10 @@
   height: 68px;
   place-items: center;
   border-radius: var(--radius-md);
-  color: var(--color-white);
+  color: var(--text-primary);
   background:
     radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.18), transparent 42%),
-    linear-gradient(135deg, var(--color-primary-700), var(--color-accent-500));
+    linear-gradient(135deg, var(--surface-elevated), var(--accent-secondary));
   box-shadow: 0 0 36px rgba(46, 216, 255, 0.18);
 }
 
@@ -59,14 +59,14 @@
 }
 
 .copy h1 {
-  color: var(--color-white);
+  color: var(--text-primary);
   font-size: 2.55rem;
   line-height: 1.08;
 }
 
 .copy span {
   max-width: 62ch;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   line-height: 1.7;
 }
 

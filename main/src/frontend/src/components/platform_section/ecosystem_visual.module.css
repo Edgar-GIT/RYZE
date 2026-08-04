@@ -3,99 +3,42 @@
   display: grid;
   place-items: center;
   width: 100%;
-  min-height: 36rem;
-  padding: 1rem 0 1.5rem;
+  min-height: 38rem;
+  padding: 1rem 0 1.75rem;
   isolation: isolate;
   overflow: visible;
 }
 
-.atmosphere {
+.ambient {
   position: absolute;
-  inset: -8% -4%;
+  inset: -6% -2%;
   z-index: 0;
   pointer-events: none;
-  overflow: hidden;
 }
 
-.grid {
+.glowCore {
   position: absolute;
-  inset: 0;
-  opacity: 0.18;
-  background-image:
-    linear-gradient(rgba(46, 216, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(46, 216, 255, 0.08) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: radial-gradient(circle at 60% 45%, black 18%, transparent 72%);
-}
-
-.glowLarge {
-  position: absolute;
-  top: 12%;
-  right: 8%;
-  width: 26rem;
-  height: 26rem;
+  top: 18%;
+  left: 52%;
+  width: 24rem;
+  height: 24rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(31, 168, 255, 0.28), transparent 68%);
-  filter: blur(40px);
-  animation: glowPulse 7s ease-in-out infinite;
+  background: radial-gradient(circle, var(--accent-glow), transparent 68%);
+  filter: blur(42px);
+  transform: translateX(-50%);
+  opacity: 0.9;
 }
 
 .glowSoft {
   position: absolute;
-  bottom: 8%;
-  left: 18%;
+  bottom: 6%;
+  left: 40%;
   width: 18rem;
-  height: 18rem;
+  height: 10rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(46, 216, 255, 0.14), transparent 70%);
-  filter: blur(36px);
-}
-
-.beam,
-.beamTwo {
-  position: absolute;
-  width: 55%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(46, 216, 255, 0.35), transparent);
-  filter: blur(0.5px);
-  opacity: 0.45;
-  animation: beamDrift 9s ease-in-out infinite;
-}
-
-.beam {
-  top: 28%;
-  left: 10%;
-  transform: rotate(-18deg);
-}
-
-.beamTwo {
-  bottom: 30%;
-  right: 4%;
-  transform: rotate(14deg);
-  animation-delay: 1.4s;
-}
-
-.ring,
-.ringOuter {
-  position: absolute;
-  top: 46%;
-  left: 58%;
-  border: 1px solid rgba(46, 216, 255, 0.16);
-  border-radius: 999px;
-  transform: translate(-50%, -50%);
-  animation: ringPulse 8s ease-in-out infinite;
-}
-
-.ring {
-  width: 18rem;
-  height: 18rem;
-}
-
-.ringOuter {
-  width: 24rem;
-  height: 24rem;
-  opacity: 0.55;
-  animation-delay: 1s;
+  background: radial-gradient(ellipse, rgba(26, 132, 255, 0.18), transparent 70%);
+  filter: blur(28px);
+  transform: translateX(-50%);
 }
 
 .particles {
@@ -105,214 +48,36 @@
 
 .particles span {
   position: absolute;
-  width: 3px;
-  height: 3px;
+  width: 2px;
+  height: 2px;
   border-radius: 999px;
-  background: rgba(46, 216, 255, 0.55);
-  box-shadow: 0 0 10px rgba(46, 216, 255, 0.35);
-  top: calc(12% + (var(--i) * 5.5%));
-  left: calc(18% + (var(--i) * 4.8%));
-  opacity: 0.35;
-  animation: particleFloat 6.5s ease-in-out infinite;
-  animation-delay: calc(var(--i) * 0.28s);
-}
-
-.dataTrails,
-.storyFlow {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.dataTrails path,
-.storyFlow path {
-  fill: none;
-  stroke-linecap: round;
-}
-
-.dataTrails path {
-  stroke: rgba(46, 216, 255, 0.16);
-  stroke-width: 1.2;
-  stroke-dasharray: 4 10;
-  animation: trailFlow 7s linear infinite;
-}
-
-.storyFlow path {
-  stroke: rgba(31, 168, 255, 0.28);
-  stroke-width: 1.4;
-  stroke-dasharray: 5 9;
-  animation: trailFlow 5.5s linear infinite;
-}
-
-.storyNodes {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.storyNode {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 2.6rem;
-  height: 2.6rem;
-  border: 1px solid rgba(46, 216, 255, 0.18);
-  border-radius: 999px;
-  color: var(--color-accent-400);
-  background: rgba(17, 24, 39, 0.42);
-  backdrop-filter: blur(10px);
-  opacity: 0.55;
-  animation: fragmentFloat 6s ease-in-out infinite;
-}
-
-.storyNode svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.storyQ {
-  top: 18%;
-  left: 8%;
-}
-
-.storyAi {
-  top: 38%;
-  left: 16%;
-  animation-delay: 0.5s;
-}
-
-.storyPlan {
-  top: 58%;
-  left: 10%;
-  animation-delay: 1s;
-}
-
-.storyProgress {
-  top: 22%;
-  right: 8%;
-  animation-delay: 0.7s;
-}
-
-.fragments {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.fragment {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 4.4rem;
-  height: 4.4rem;
-  border: 1px solid rgba(46, 216, 255, 0.12);
-  border-radius: 1rem;
-  color: var(--color-accent-400);
-  background: rgba(17, 24, 39, 0.28);
-  backdrop-filter: blur(8px);
+  background: var(--accent);
   opacity: 0.28;
-  animation: fragmentFloat 7s ease-in-out infinite;
-}
-
-.fragment svg {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-
-.fragRing {
-  top: 12%;
-  right: 18%;
-}
-
-.fragRing svg {
-  width: 2.2rem;
-  height: 2.2rem;
-  transform: rotate(-90deg);
-}
-
-.fragRing circle {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.12);
-  stroke-width: 3;
-}
-
-.fragRingValue {
-  stroke: rgba(46, 216, 255, 0.7) !important;
-  stroke-dasharray: 55 88;
-  stroke-linecap: round;
-}
-
-.fragChart {
-  bottom: 18%;
-  right: 10%;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0.28rem;
-  padding-bottom: 0.9rem;
-  animation-delay: 0.8s;
-}
-
-.fragChart i {
-  width: 0.35rem;
-  border-radius: 999px;
-  background: rgba(46, 216, 255, 0.55);
-}
-
-.fragChart i:nth-child(1) {
-  height: 0.7rem;
-}
-
-.fragChart i:nth-child(2) {
-  height: 1.15rem;
-}
-
-.fragChart i:nth-child(3) {
-  height: 0.9rem;
-}
-
-.fragChart i:nth-child(4) {
-  height: 1.4rem;
-}
-
-.fragTrain {
-  bottom: 28%;
-  left: 6%;
-  animation-delay: 1.2s;
-}
-
-.fragFuel {
-  top: 48%;
-  right: 4%;
-  animation-delay: 0.4s;
+  top: calc(18% + (var(--i) * 6%));
+  left: calc(28% + (var(--i) * 5%));
+  box-shadow: 0 0 8px var(--accent-glow);
+  animation: particleFloat 7s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.25s);
 }
 
 .phoneScene {
   position: relative;
-  z-index: 5;
-  width: min(18.5rem, 72%);
+  z-index: 2;
+  width: min(22rem, 86%);
   justify-self: end;
-  margin-right: 4%;
-}
-
-.phoneParallax {
-  position: relative;
-  transition: transform 180ms ease-out;
-  transform-style: preserve-3d;
+  margin-right: 2%;
+  perspective: 1400px;
 }
 
 .phoneGlow {
   position: absolute;
-  top: 18%;
+  top: 14%;
   left: 50%;
   z-index: 0;
-  width: 16rem;
-  height: 16rem;
+  width: 20rem;
+  height: 20rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(31, 168, 255, 0.35), transparent 68%);
+  background: radial-gradient(circle, rgba(46, 216, 255, 0.34), transparent 70%);
   filter: blur(28px);
   transform: translateX(-50%);
   pointer-events: none;
@@ -322,8 +87,8 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  aspect-ratio: 9 / 19.2;
-  transform: rotateY(-16deg) rotateX(6deg) rotateZ(-2deg);
+  aspect-ratio: 9 / 19.4;
+  transform: rotateY(-16deg) rotateX(5deg) rotateZ(-1.5deg);
   transform-style: preserve-3d;
 }
 
@@ -333,51 +98,68 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 0.42rem;
+  padding: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 2.1rem;
+  border-radius: 2.2rem;
   background:
     linear-gradient(160deg, rgba(46, 216, 255, 0.1), transparent 42%),
-    linear-gradient(180deg, #121a28 0%, #0a101a 100%);
+    linear-gradient(180deg, var(--surface-elevated) 0%, var(--bg-secondary) 100%);
   box-shadow:
-    0 40px 90px rgba(5, 7, 12, 0.55),
-    0 0 48px rgba(31, 168, 255, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+    0 48px 100px rgba(5, 7, 12, 0.58),
+    0 0 48px rgba(46, 216, 255, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.38);
+}
+
+.phoneBezel::after {
+  position: absolute;
+  inset: 0.5rem;
+  z-index: 4;
+  border-radius: 1.55rem;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(
+    125deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.06) 18%,
+    transparent 36%,
+    transparent 72%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
 }
 
 .phoneSide {
   position: absolute;
   top: 2.5%;
-  right: -0.55rem;
+  right: -0.58rem;
   z-index: 1;
-  width: 0.7rem;
+  width: 0.72rem;
   height: 95%;
-  border-radius: 0 1.2rem 1.2rem 0;
-  background: linear-gradient(180deg, #1a2434, #0b111a);
-  box-shadow: 4px 10px 24px rgba(5, 7, 12, 0.35);
-  transform: skewY(-8deg);
+  border-radius: 0 1.15rem 1.15rem 0;
+  background: linear-gradient(180deg, #1a2536, var(--bg-secondary));
+  box-shadow: 4px 12px 24px rgba(5, 7, 12, 0.35);
+  transform: skewY(-7deg);
 }
 
 .phoneShadow {
   position: absolute;
-  left: 6%;
-  right: -2%;
-  bottom: -1.6rem;
+  left: 8%;
+  right: 0;
+  bottom: -1.55rem;
   z-index: 0;
-  height: 2.4rem;
+  height: 2.35rem;
   border-radius: 999px;
-  background: radial-gradient(ellipse, rgba(5, 7, 12, 0.62), transparent 72%);
+  background: radial-gradient(ellipse, rgba(5, 7, 12, 0.65), transparent 72%);
   filter: blur(12px);
-  transform: rotate(-6deg);
+  transform: rotate(-5deg);
 }
 
 .phoneNotch {
   width: 34%;
   height: 0.28rem;
-  margin: 0.1rem auto 0.28rem;
+  margin: 0.12rem auto 0.3rem;
   border-radius: 999px;
-  background: rgba(231, 236, 243, 0.14);
+  background: rgba(244, 247, 251, 0.14);
   flex: 0 0 auto;
 }
 
@@ -386,20 +168,29 @@
   flex: 1 1 auto;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 0.36rem;
+  gap: 0.32rem;
   min-height: 0;
-  padding: 0.5rem 0.52rem 0.5rem;
+  padding: 0.48rem 0.52rem 0.5rem;
   overflow: hidden;
-  border-radius: 1.45rem;
+  border-radius: 1.55rem;
   background:
-    radial-gradient(circle at 80% 0%, rgba(31, 168, 255, 0.16), transparent 42%),
-    rgba(5, 7, 12, 0.92);
+    radial-gradient(circle at 82% 0%, rgba(46, 216, 255, 0.14), transparent 42%),
+    var(--bg-primary);
 }
 
-.phoneStatus {
+.phoneStatus,
+.phoneProfile,
+.sessionMeta,
+.phoneNext {
   display: flex;
   align-items: center;
+}
+
+.phoneStatus,
+.phoneProfile,
+.sessionMeta {
   justify-content: space-between;
+  gap: 0.45rem;
 }
 
 .phoneStatus span,
@@ -409,7 +200,7 @@
 .phoneBanner p,
 .phoneGreeting p {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.64rem;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -417,7 +208,7 @@
 }
 
 .phoneStatus em {
-  color: var(--color-accent-400);
+  color: var(--accent);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -427,25 +218,25 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.45rem;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid rgba(31, 168, 255, 0.16);
+  padding: 0.42rem 0.5rem;
+  border: var(--border);
   border-radius: 0.75rem;
   background:
-    linear-gradient(135deg, rgba(31, 168, 255, 0.16), transparent 55%),
-    rgba(17, 24, 39, 0.7);
+    linear-gradient(135deg, rgba(46, 216, 255, 0.14), transparent 55%),
+    rgba(16, 24, 38, 0.78);
 }
 
 .phoneBanner strong,
 .phoneProfile strong,
 .phoneGreeting strong,
 .phoneStats strong {
-  color: var(--color-white);
+  color: var(--text-primary);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .phoneBanner strong {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   line-height: 1.15;
 }
 
@@ -454,21 +245,13 @@
   place-items: center;
   width: 1.85rem;
   height: 1.85rem;
-  border: 1px solid rgba(46, 216, 255, 0.28);
+  border: 1px solid rgba(46, 216, 255, 0.3);
   border-radius: 999px;
-  color: var(--color-accent-400);
-  background: rgba(31, 168, 255, 0.12);
+  color: var(--accent);
+  background: rgba(46, 216, 255, 0.12);
   font-size: 0.68rem;
   font-weight: 750;
   flex: 0 0 auto;
-}
-
-.phoneProfile {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem;
-  min-width: 0;
 }
 
 .phoneProfile strong {
@@ -480,12 +263,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.22rem;
-  min-width: 0;
   padding: 0.3rem 0.45rem;
-  border: 1px solid rgba(46, 216, 255, 0.2);
+  border: 1px solid rgba(46, 216, 255, 0.22);
   border-radius: 999px;
-  color: var(--color-accent-400);
-  background: rgba(31, 168, 255, 0.1);
+  color: var(--accent);
+  background: rgba(46, 216, 255, 0.1);
   font-size: 0.6rem;
   font-weight: 700;
   white-space: nowrap;
@@ -511,14 +293,14 @@
   place-items: center;
   min-height: 1.45rem;
   border-radius: 0.5rem;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.62rem;
   font-weight: 650;
 }
 
 .tabActive {
-  color: var(--color-white) !important;
-  background: rgba(31, 168, 255, 0.22);
+  color: var(--text-primary) !important;
+  background: rgba(46, 216, 255, 0.2);
 }
 
 .phoneGreeting {
@@ -541,7 +323,7 @@
   margin-top: 0.08rem;
   padding: 0.24rem 0.45rem;
   border-radius: 999px;
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.05);
   font-size: 0.6rem;
   font-weight: 650;
@@ -563,34 +345,28 @@
 }
 
 .miniDone {
-  color: var(--color-white);
-  background: rgba(31, 168, 255, 0.45);
+  color: var(--text-primary);
+  background: rgba(26, 132, 255, 0.45);
 }
 
 .miniActive {
-  color: #05070c;
-  background: var(--color-accent-400);
-  box-shadow: 0 0 10px rgba(46, 216, 255, 0.28);
+  color: var(--bg-primary);
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .miniIdle {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   background: rgba(255, 255, 255, 0.05);
 }
 
 .phoneSession {
   display: grid;
   gap: 0.38rem;
-  padding: 0.5rem 0.52rem;
-  border: 1px solid rgba(31, 168, 255, 0.14);
+  padding: 0.52rem;
+  border: var(--border);
   border-radius: 0.8rem;
-  background: rgba(17, 24, 39, 0.55);
-}
-
-.sessionMeta {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
+  background: rgba(16, 24, 38, 0.72);
 }
 
 .phoneProgress {
@@ -605,7 +381,7 @@
   width: 68%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--color-accent-400), var(--color-accent-500));
+  background: var(--accent-gradient);
   transform-origin: left center;
   animation: fillBar 1.4s ease forwards;
 }
@@ -625,7 +401,7 @@
 
 .sessionList span {
   overflow: hidden;
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   font-size: 0.7rem;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -633,7 +409,7 @@
 }
 
 .sessionList em {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.6rem;
   font-style: normal;
   font-weight: 650;
@@ -651,14 +427,14 @@
   gap: 0.08rem;
   min-width: 0;
   padding: 0.36rem 0.18rem;
-  border: 1px solid rgba(31, 168, 255, 0.12);
+  border: var(--border);
   border-radius: 0.6rem;
   background: rgba(255, 255, 255, 0.03);
   text-align: center;
 }
 
 .phoneStats span {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.56rem;
   font-weight: 650;
   letter-spacing: 0.05em;
@@ -672,28 +448,26 @@
 .phoneInsight {
   padding: 0.4rem 0.52rem;
   border-radius: 0.6rem;
-  color: var(--color-text-soft);
+  color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.04);
   font-size: 0.64rem;
   line-height: 1.3;
 }
 
 .phoneNext {
-  display: flex;
-  align-items: center;
   gap: 0.35rem;
   min-width: 0;
   padding: 0.5rem 0.55rem;
   border-radius: 0.7rem;
-  color: var(--color-text-soft);
-  background: rgba(31, 168, 255, 0.1);
+  color: var(--text-secondary);
+  background: rgba(46, 216, 255, 0.1);
   font-size: 0.7rem;
 }
 
 .phoneNext svg {
   width: 0.8rem;
   height: 0.8rem;
-  color: var(--color-accent-500);
+  color: var(--accent);
   flex: 0 0 auto;
 }
 
@@ -713,83 +487,29 @@
   }
 }
 
-@keyframes glowPulse {
-  0%,
-  100% {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-}
-
-@keyframes beamDrift {
-  0%,
-  100% {
-    opacity: 0.28;
-  }
-
-  50% {
-    opacity: 0.55;
-  }
-}
-
-@keyframes ringPulse {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: translate(-50%, -50%) scale(1);
-  }
-
-  50% {
-    opacity: 0.6;
-    transform: translate(-50%, -50%) scale(1.03);
-  }
-}
-
 @keyframes particleFloat {
   0%,
   100% {
     transform: translateY(0);
-    opacity: 0.25;
+    opacity: 0.2;
   }
 
   50% {
-    transform: translateY(-10px);
-    opacity: 0.55;
-  }
-}
-
-@keyframes trailFlow {
-  to {
-    stroke-dashoffset: -48;
-  }
-}
-
-@keyframes fragmentFloat {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-7px);
+    transform: translateY(-8px);
+    opacity: 0.45;
   }
 }
 
 @media (min-width: 961px) {
   .stage {
-    min-height: 40rem;
+    min-height: 46rem;
     justify-items: end;
-    padding: 0.5rem 0 1rem;
+    padding: 0.5rem 0 1.25rem;
   }
 
   .phoneScene {
-    width: 19rem;
-    margin-right: 6%;
+    width: 22.5rem;
+    margin-right: 4%;
   }
 }
 
@@ -797,57 +517,32 @@
   .stage {
     min-height: 0;
     justify-items: center;
-    padding: 0.5rem 0;
   }
 
   .phoneScene {
-    width: min(16rem, 68vw);
+    width: min(19.5rem, 80vw);
     margin-right: 0;
     justify-self: center;
   }
 
   .phone {
-    transform: rotateY(-12deg) rotateX(5deg) rotateZ(-1deg);
-  }
-
-  .storyNodes,
-  .fragments,
-  .storyFlow {
-    opacity: 0.7;
+    transform: rotateY(-12deg) rotateX(4deg);
   }
 }
 
 @media (max-width: 640px) {
   .phoneScene {
-    width: min(14.5rem, 74vw);
-  }
-
-  .storyNodes,
-  .fragments {
-    display: none;
+    width: min(17.5rem, 86vw);
   }
 
   .phone {
-    transform: rotateY(-10deg) rotateX(4deg);
+    transform: rotateY(-10deg) rotateX(3deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .glowLarge,
-  .beam,
-  .beamTwo,
-  .ring,
-  .ringOuter,
   .particles span,
-  .dataTrails path,
-  .storyFlow path,
-  .storyNode,
-  .fragment,
   .phoneProgressFill {
     animation: none;
-  }
-
-  .phoneParallax {
-    transition: none;
   }
 }

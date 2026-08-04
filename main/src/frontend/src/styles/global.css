@@ -1,47 +1,68 @@
 :root {
   color-scheme: dark;
   font-family: "Google Sans", Inter, Roboto, Arial, sans-serif;
-  color: #f4f7fb;
-  background: #05070c;
+  color: var(--text-primary);
+  background: var(--bg-primary);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --color-primary-950: #05070c;
-  --color-primary-900: #0a1018;
-  --color-primary-800: #111827;
-  --color-primary-700: #161f2d;
-  --color-surface-card: #111827;
-  --color-surface-elevated: #161f2d;
-  --color-accent-500: #1fa8ff;
-  --color-accent-400: #2ed8ff;
-  --color-accent-300: #39e3ff;
-  --color-accent-deep: #1a7bff;
-  --color-accent-glow: rgba(46, 216, 255, 0.45);
-  --color-accent-glow-soft: rgba(46, 216, 255, 0.15);
-  --color-accent-glow-hover: rgba(46, 216, 255, 0.25);
-  --color-neutral-100: #f4f7fb;
-  --color-neutral-200: #a4b1c5;
-  --color-neutral-500: #6d7b91;
-  --color-neutral-600: #465264;
-  --color-white: #f4f7fb;
+  /* Official design tokens — Hero is the source of truth */
+  --bg-primary: #05070c;
+  --bg-secondary: #09111b;
+  --surface: #101826;
+  --surface-hover: #151f2e;
+  --surface-elevated: #151f2e;
+  --border: 1px solid rgba(255, 255, 255, 0.08);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(46, 216, 255, 0.35);
+  --text-primary: #f4f7fb;
+  --text-secondary: #a6b2c7;
+  --text-muted: #6f7c91;
+  --text-disabled: #465264;
+  --accent: #2ed8ff;
+  --accent-secondary: #1a84ff;
+  --accent-gradient: linear-gradient(135deg, #38e4ff, #187bff);
+  --accent-gradient-hover: linear-gradient(135deg, #5aebff, #2ed8ff 42%, #187bff);
+  --accent-glow: rgba(46, 216, 255, 0.25);
+  --accent-glow-strong: rgba(46, 216, 255, 0.45);
+  --accent-glow-soft: rgba(46, 216, 255, 0.15);
+  --navbar-bg: rgba(8, 12, 18, 0.78);
+
+  /* Compatibility aliases used by existing components */
+  --color-primary-950: var(--bg-primary);
+  --color-primary-900: var(--bg-secondary);
+  --color-primary-800: var(--surface);
+  --color-primary-700: var(--surface-elevated);
+  --color-surface-card: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-accent-500: var(--accent-secondary);
+  --color-accent-400: var(--accent);
+  --color-accent-300: #38e4ff;
+  --color-accent-deep: #187bff;
+  --color-accent-glow: var(--accent-glow-strong);
+  --color-accent-glow-soft: var(--accent-glow-soft);
+  --color-accent-glow-hover: var(--accent-glow);
+  --color-neutral-100: var(--text-primary);
+  --color-neutral-200: var(--text-secondary);
+  --color-neutral-500: var(--text-muted);
+  --color-neutral-600: var(--text-disabled);
+  --color-white: var(--text-primary);
   --color-success: #2f8f69;
-  --color-surface-dark: rgba(17, 24, 39, 0.82);
+  --color-surface-dark: rgba(16, 24, 38, 0.82);
   --color-surface-strong: rgba(5, 7, 12, 0.94);
-  --color-text-muted: #6d7b91;
-  --color-text-soft: #a4b1c5;
-  --color-navbar: rgba(8, 12, 18, 0.78);
+  --color-text-muted: var(--text-muted);
+  --color-text-soft: var(--text-secondary);
+  --color-navbar: var(--navbar-bg);
 
   --shadow-soft: 0 28px 80px rgba(5, 7, 12, 0.56);
   --shadow-card: 0 20px 56px rgba(5, 7, 12, 0.46);
-  --shadow-glow: 0 0 36px rgba(46, 216, 255, 0.15);
-  --border-subtle: 1px solid rgba(255, 255, 255, 0.08);
-  --border-accent: 1px solid rgba(46, 216, 255, 0.35);
-  --border-hover: rgba(46, 216, 255, 0.35);
-
-  --gradient-accent: linear-gradient(135deg, #39e3ff, #1a7bff);
-  --gradient-accent-hover: linear-gradient(135deg, #5aebff, #2ed8ff 42%, #1a7bff);
+  --shadow-glow: 0 0 36px var(--accent-glow);
+  --border-subtle: var(--border);
+  --border-accent: 1px solid var(--border-hover);
+  --gradient-accent: var(--accent-gradient);
+  --gradient-accent-hover: var(--accent-gradient-hover);
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -66,7 +87,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background: var(--color-primary-950);
+  color: var(--text-primary);
+  background: var(--bg-primary);
 }
 
 #root {
@@ -94,12 +116,12 @@ img {
 }
 
 ::selection {
-  color: var(--color-primary-950);
-  background: var(--color-accent-400);
+  color: var(--bg-primary);
+  background: var(--accent);
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-accent-400);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
