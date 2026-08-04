@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
-import { EcosystemVisual } from "@/components/platform_section/ecosystem_visual";
 import { Reveal } from "@/components/reveal/reveal";
+import startSectionBackground from "@resources/img/hero/start_sec_bg.png";
 
 import styles from "./platform_section.module.css";
 
@@ -17,19 +17,12 @@ const processSteps = [
 
 export const PlatformSection = () => (
   <section className={styles.section} aria-labelledby="platform-heading">
-    <div className={styles.atmosphere} aria-hidden="true">
-      <div className={styles.nebula} />
-      <div className={styles.grid} />
-      <div className={styles.noise} />
-      <div className={styles.particles}>
-        {Array.from({ length: 18 }, (_, index) => (
-          <span key={index} style={{ ["--i" as string]: index }} />
-        ))}
-      </div>
-      <svg className={styles.planetArc} viewBox="0 0 1440 700" preserveAspectRatio="none">
-        <path d="M -40 560 C 280 220, 820 140, 1480 360" />
-      </svg>
-    </div>
+    <img
+      className={styles.backgroundImage}
+      src={startSectionBackground}
+      alt=""
+      aria-hidden="true"
+    />
 
     <Container className={styles.layout}>
       <Reveal className={styles.copy}>
@@ -78,10 +71,6 @@ export const PlatformSection = () => (
             );
           })}
         </ol>
-      </Reveal>
-
-      <Reveal className={styles.visual} delay={0.12} y={28}>
-        <EcosystemVisual />
       </Reveal>
     </Container>
   </section>

@@ -1,3 +1,29 @@
+# Version 2.2.22
+
+Title: Start Faster background image test without phone
+
+Date: 2026-08-04
+
+Summary:
+
+Temporarily removed the phone mockup from Start Faster. Section now uses
+`start_sec_bg.png` like the Hero full-bleed background. Kept copy, CTAs,
+process badges and reveal animations. Shifted left content inward from the edge.
+
+Files modified:
+
+- `main/src/frontend/src/components/platform_section/platform_section.tsx`
+- `main/src/frontend/src/components/platform_section/platform_section.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Layout/phone implementation was not matching the reference; this is a visual
+test with the provided background asset.
+
+---
+
 # Version 2.2.21
 
 Title: Fix Start Faster spacing, phone atmosphere and section palette continuity
