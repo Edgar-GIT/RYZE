@@ -1,3 +1,62 @@
+# Version 2.2.21
+
+Title: Fix Start Faster spacing, phone atmosphere and section palette continuity
+
+Date: 2026-08-04
+
+Summary:
+
+Increased page gutters so Start Faster copy and phone are no longer glued to the
+edges. Centered the phone in its column with cinematic glow, stars and planetary
+arc matching the phone reference. Enriched the phone status/nav chrome. Removed
+hard section tone jumps so the site scrolls as one continuous palette.
+
+Files modified:
+
+- `main/src/frontend/src/styles/global.css`
+- `main/src/frontend/src/components/platform_section/*`
+- `main/src/frontend/src/components/section_wrapper/section_wrapper.module.css`
+- Shared cards/CTA/contact/showcase CSS modules
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Layout spacing and inter-section contrast still broke visual continuity.
+
+---
+
+# Version 2.2.20
+
+Title: Pixel-match Start Faster + migrate official RYZE palette
+
+Date: 2026-08-04
+
+Summary:
+
+Rebuilt Start Faster to match the attached reference (~100vh, 45/55 grid,
+gradient headline, process steps, hero-like atmosphere). Restored the detailed
+phone screen UI at a correct non-oversized scale with premium glow and
+perspective. Migrated the global token system to the new Hero palette across the
+site (footer preserved).
+
+Files modified:
+
+- `main/src/frontend/src/styles/global.css`
+- `main/src/frontend/src/components/platform_section/*`
+- Shared component/page CSS modules (palette migration)
+- `docs/INSTRUCTIONS/design.MD`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The section diverged from the approved mockup, the phone was oversized, and the
+site still needed the final official palette applied consistently.
+
+---
+
 # Version 2.2.19
 
 Title: Match Start Faster section to reference mockup

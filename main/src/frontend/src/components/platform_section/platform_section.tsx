@@ -11,19 +11,23 @@ import styles from "./platform_section.module.css";
 const processSteps = [
   { icon: HelpCircle, label: "Answer a few questions" },
   { icon: Brain, label: "AI builds your plan" },
-  { icon: CalendarDays, label: "Training, nutrition & recovery synced" },
-  { icon: TrendingUp, label: "Track progress every week" }
+  { icon: CalendarDays, label: "Training, nutrition & recovery" },
+  { icon: TrendingUp, label: "Track progress" }
 ] as const;
 
 export const PlatformSection = () => (
   <section className={styles.section} aria-labelledby="platform-heading">
-    <div className={styles.arc} aria-hidden="true">
-      <svg viewBox="0 0 1200 520" preserveAspectRatio="none">
-        <path
-          className={styles.arcPath}
-          d="M 80 430 C 320 120, 760 40, 1120 210"
-          fill="none"
-        />
+    <div className={styles.atmosphere} aria-hidden="true">
+      <div className={styles.nebula} />
+      <div className={styles.grid} />
+      <div className={styles.noise} />
+      <div className={styles.particles}>
+        {Array.from({ length: 18 }, (_, index) => (
+          <span key={index} style={{ ["--i" as string]: index }} />
+        ))}
+      </div>
+      <svg className={styles.planetArc} viewBox="0 0 1440 700" preserveAspectRatio="none">
+        <path d="M -40 560 C 280 220, 820 140, 1480 360" />
       </svg>
     </div>
 
@@ -31,11 +35,18 @@ export const PlatformSection = () => (
       <Reveal className={styles.copy}>
         <p className={styles.eyebrow}>Start Faster</p>
         <h2 id="platform-heading">
-          Get a plan that fits your week,{" "}
+          Get a plan
+          <br />
+          that fits your week,
+          <br />
           <span className={styles.accentPhrase}>without waiting.</span>
         </h2>
         <p className={styles.description}>
-          Answer a few questions. RYZE builds your plan. Everything lands on your phone.
+          Answer a few questions.
+          <br />
+          RYZE builds your plan.
+          <br />
+          Everything lands on your phone.
         </p>
         <div className={styles.actions}>
           <Button to="/services" icon={<ArrowRight />}>
@@ -58,7 +69,10 @@ export const PlatformSection = () => (
                 </span>
                 <span className={styles.processLabel}>{step.label}</span>
                 {index < processSteps.length - 1 ? (
-                  <ArrowRight className={styles.processArrow} aria-hidden="true" />
+                  <span className={styles.processConnector} aria-hidden="true">
+                    <i />
+                    <ArrowRight />
+                  </span>
                 ) : null}
               </li>
             );
@@ -66,7 +80,7 @@ export const PlatformSection = () => (
         </ol>
       </Reveal>
 
-      <Reveal className={styles.visual} delay={0.12} y={36}>
+      <Reveal className={styles.visual} delay={0.12} y={28}>
         <EcosystemVisual />
       </Reveal>
     </Container>

@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.19
+Version: 2.2.20
 
 ---
 
@@ -51,39 +51,40 @@ Official palette. Do not invent alternate blues, teals or greys.
 
 Background
 
-- Primary Background: `#05070C` → `--bg-primary`
-- Secondary Background: `#09111B` → `--bg-secondary`
-- Surface: `#101826` → `--surface`
-- Elevated Surface: `#151F2E` → `--surface-elevated` / `--surface-hover`
+- Primary Background: `#05070B` → `--bg-primary`
+- Secondary Background: `#0A1018` → `--bg-secondary`
+- Elevated Surface: `#101826` → `--surface`
+- Cards: `#141F2D` → `--card`
+- Card Hover: `#182638` → `--card-hover` / `--surface-hover`
 - Navbar: `rgba(8, 12, 18, 0.78)` with `backdrop-filter: blur(20px)` → `--navbar-bg`
 
 Primary Accent
 
-- Electric Cyan: `#2ED8FF` → `--accent`
-- Bright Blue: `#1A84FF` → `--accent-secondary`
+- Primary Accent: `#18D8FF` → `--accent`
+- Secondary Accent: `#2A8CFF` → `--accent-secondary`
 
 Accent Gradient (primary CTAs)
 
-- `#38E4FF` → `#187BFF` → `--accent-gradient`
+- `linear-gradient(90deg, #18D8FF, #2A8CFF)` → `--accent-gradient`
 
 Glow
 
-- Blue Glow: `rgba(46, 216, 255, 0.45)` → `--accent-glow-strong`
-- Soft Glow: `rgba(46, 216, 255, 0.15)` → `--accent-glow-soft`
-- Hover Glow: `rgba(46, 216, 255, 0.25)` → `--accent-glow`
+- Glow: `rgba(24, 216, 255, 0.35)` → `--accent-glow`
+- Strong Glow: `rgba(24, 216, 255, 0.5)` → `--accent-glow-strong`
+- Soft Glow: `rgba(24, 216, 255, 0.16)` → `--accent-glow-soft`
 
 Text
 
-- Primary: `#F4F7FB` → `--text-primary`
-- Secondary: `#A6B2C7` → `--text-secondary`
-- Muted: `#6F7C91` → `--text-muted`
-- Disabled: `#465264` → `--text-disabled`
+- Primary: `#FFFFFF` → `--text-primary`
+- Secondary: `#B8C4D8` → `--text-secondary`
+- Muted: `#7F8EA3` → `--text-muted`
+- Disabled: `#4D5A6C` → `--text-disabled`
 
 Borders
 
 - Default: `rgba(255, 255, 255, 0.08)` → `--border` / `--border-color`
-- Hover: `rgba(46, 216, 255, 0.35)` → `--border-hover`
-- Focused: `#2ED8FF` → `--accent`
+- Hover: `rgba(24, 216, 255, 0.35)` → `--border-hover`
+- Focused: `#18D8FF` → `--accent`
 
 CSS custom properties in `main/src/frontend/src/styles/global.css` are the
 runtime source of truth for these tokens.
@@ -184,7 +185,7 @@ performance.
 
 Primary
 
-- Cyan / blue gradient (`#38E4FF` → `#187BFF`)
+- Cyan / blue gradient (`#18D8FF` → `#2A8CFF`)
 - Soft cyan glow
 - High contrast text
 
@@ -244,8 +245,8 @@ Secondary
 
 Alternate between:
 
-- Very dark background (`#05070C` / `#09111B`)
-- Slightly lighter surface (`#101826` / `#151F2E`)
+- Very dark background (`#05070B` / `#0A1018`)
+- Slightly lighter surface (`#101826` / `#141F2D`)
 
 Use soft radial cyan washes for atmosphere.
 
@@ -341,20 +342,18 @@ The Platform section is a dedicated visual moment after the hero.
 
 It uses:
 
-- Left column with a strong headline (`without waiting.` in accent gradient),
-  short supporting line, primary CTA and secondary text link
-  (`See how it works →`)
-- Horizontal process flow under the copy:
-  Answer questions → AI builds plan → synced training/nutrition/recovery →
-  weekly progress
-- One thin glowing arc connecting the process flow toward the phone
-- Right column dominated by one large premium almost-3D phone
-  (`rotateY` about `-10deg`) with soft blue ambient glow, realistic glass
-  reflection, perspective depth and gentle floating motion
-- Full phone UI kept inside the screen — never cropped or simplified
-- Ready score rendered as a circular ring gauge
-- No floating information cards around the phone
-- No random decorative circles, dotted curves or floating icons
+- Full-width section near `100vh` with a 45% / 55% two-column grid
+- Left column with eyebrow, multi-line heading (`without waiting.` in accent
+  gradient), short supporting paragraph, primary CTA and secondary link
+- Horizontal four-step process under the CTAs with glowing circular icons and
+  thin connectors
+- Right column with the detailed premium phone mockup (original dense screen UI)
+  sized to fit the section — not oversized — with soft blue glow and realistic
+  glass reflection
+- Atmosphere aligned with the Hero: deep black / navy, cyan nebula, tiny
+  particles, faint planetary arc and subtle grid/noise
+- No floating marketing cards around the phone
+- No random decorative blobs or abstract shapes
 
 Other major sections after Platform should:
 

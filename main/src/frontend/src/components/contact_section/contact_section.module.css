@@ -2,9 +2,9 @@
   position: relative;
   padding: 7.5rem 0 5rem;
   background:
-    radial-gradient(ellipse 55% 45% at 15% 10%, rgba(46, 216, 255, 0.08), transparent 55%),
-    radial-gradient(ellipse 45% 40% at 90% 70%, rgba(26, 132, 255, 0.06), transparent 50%),
-    linear-gradient(180deg, rgba(8, 12, 18, 0.35), rgba(8, 12, 18, 0.55));
+    radial-gradient(ellipse 55% 45% at 15% 10%, rgba(24, 216, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse 45% 40% at 90% 70%, rgba(42, 140, 255, 0.06), transparent 50%),
+    linear-gradient(180deg, rgba(8, 12, 18, 0.35), color-mix(in srgb, var(--bg-secondary) 55%, transparent));
 }
 
 .layout {
@@ -61,7 +61,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   color: inherit;
-  background: rgba(16, 23, 34, 0.55);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
   text-decoration: none;
   transition:
     transform 220ms ease,
@@ -72,9 +72,9 @@
 
 .row:hover {
   transform: translateX(4px);
-  border-color: rgba(46, 216, 255, 0.32);
-  background: rgba(17, 27, 39, 0.82);
-  box-shadow: 0 12px 36px rgba(5, 7, 12, 0.35);
+  border-color: rgba(24, 216, 255, 0.32);
+  background: rgba(20, 31, 45, 0.82);
+  box-shadow: 0 12px 36px rgba(5, 7, 11, 0.35);
 }
 
 .row:hover .rowArrow {

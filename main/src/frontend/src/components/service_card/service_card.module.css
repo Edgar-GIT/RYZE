@@ -6,24 +6,28 @@
   border: var(--border-subtle);
   border-radius: 18px;
   background:
-    linear-gradient(165deg, rgba(46, 216, 255, 0.06), transparent 38%),
-    rgba(16, 24, 38, 0.92);
+    linear-gradient(165deg, rgba(24, 216, 255, 0.06), transparent 38%),
+    var(--card);
   box-shadow:
-    0 24px 60px rgba(5, 7, 12, 0.42),
+    0 24px 60px rgba(5, 7, 11, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(18px);
   transition:
     transform 280ms ease,
     border-color 280ms ease,
-    box-shadow 280ms ease;
+    box-shadow 280ms ease,
+    background 280ms ease;
 }
 
 .card:hover {
   transform: translateY(-6px);
-  border-color: rgba(46, 216, 255, 0.3);
+  border-color: var(--border-hover);
+  background:
+    linear-gradient(165deg, rgba(24, 216, 255, 0.08), transparent 38%),
+    var(--card-hover);
   box-shadow:
-    0 30px 70px rgba(5, 7, 12, 0.52),
-    0 0 36px rgba(26, 132, 255, 0.12),
+    0 30px 70px rgba(5, 7, 11, 0.52),
+    0 0 36px var(--accent-glow-soft),
     inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
@@ -62,10 +66,10 @@
   min-height: 30px;
   align-items: center;
   padding: 0.4rem 0.7rem;
-  border: 1px solid rgba(46, 216, 255, 0.28);
+  border: 1px solid rgba(24, 216, 255, 0.28);
   border-radius: 999px;
   color: var(--accent);
-  background: rgba(5, 7, 12, 0.72);
+  background: rgba(5, 7, 11, 0.72);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;

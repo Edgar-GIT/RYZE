@@ -46,7 +46,7 @@
 .primary {
   color: var(--bg-primary);
   background: var(--accent-gradient);
-  border-color: rgba(46, 216, 255, 0.4);
+  border-color: rgba(24, 216, 255, 0.4);
   box-shadow:
     0 12px 36px var(--accent-glow),
     0 0 28px var(--accent-glow-soft);
@@ -83,7 +83,7 @@
 
 .dark {
   color: var(--text-primary);
-  background: var(--surface);
+  background: var(--card);
   border-color: var(--border-color);
 }
 

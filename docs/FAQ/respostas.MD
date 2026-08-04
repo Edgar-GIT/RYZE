@@ -220,7 +220,7 @@
 UI/UX
 
 -> Official palette (Hero source of truth): see docs/INSTRUCTIONS/design.MD
--> `#05070C` `#09111B` `#101826` `#151F2E` `#2ED8FF` `#1A84FF` `#F4F7FB` `#A6B2C7`
+-> `#05070B` `#0A1018` `#101826` `#141F2D` `#18D8FF` `#2A8CFF` `#FFFFFF` `#B8C4D8`
 -> Premium dark technology product (not generic fitness brochure)
 -> Futurista
 -> fonte -> google sans

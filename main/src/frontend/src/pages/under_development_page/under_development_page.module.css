@@ -14,11 +14,11 @@
   border-radius: var(--radius-md);
   text-align: center;
   background:
-    radial-gradient(circle at 50% 0%, rgba(46, 216, 255, 0.16), transparent 22rem),
+    radial-gradient(circle at 50% 0%, rgba(24, 216, 255, 0.16), transparent 22rem),
     linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    rgba(16, 23, 34, 0.88);
+    color-mix(in srgb, var(--card) 88%, transparent);
   box-shadow:
-    0 26px 90px rgba(5, 7, 12, 0.4),
+    0 26px 90px rgba(5, 7, 11, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(24px);
 }
@@ -33,7 +33,7 @@
   background:
     radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.18), transparent 42%),
     linear-gradient(135deg, var(--surface-elevated), var(--accent-secondary));
-  box-shadow: 0 0 36px rgba(46, 216, 255, 0.18);
+  box-shadow: 0 0 36px rgba(24, 216, 255, 0.18);
 }
 
 .iconWrap svg {

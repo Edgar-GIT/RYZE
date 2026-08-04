@@ -1,10 +1,10 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { Flame, Zap } from "lucide-react";
+import { BatteryFull, ChevronLeft, Flame, Signal, Wifi, Zap } from "lucide-react";
 
 import styles from "./ecosystem_visual.module.css";
 
 const floatTransition = {
-  duration: 5.8,
+  duration: 5.6,
   repeat: Infinity,
   repeatType: "mirror" as const,
   ease: "easeInOut" as const
@@ -15,19 +15,23 @@ export const EcosystemVisual = () => {
 
   return (
     <div className={styles.stage} aria-hidden="true">
-      <div className={styles.ambient}>
+      <div className={styles.atmosphere}>
         <div className={styles.glowCore} />
+        <div className={styles.glowSoft} />
         <div className={styles.glowFloor} />
-        <div className={styles.particles}>
-          {Array.from({ length: 12 }, (_, index) => (
+        <div className={styles.stars}>
+          {Array.from({ length: 22 }, (_, index) => (
             <span key={index} style={{ ["--i" as string]: index }} />
           ))}
         </div>
+        <svg className={styles.planetArc} viewBox="0 0 640 520" preserveAspectRatio="none">
+          <path d="M -20 430 C 160 250, 360 210, 680 360" />
+        </svg>
       </div>
 
       <motion.div
         className={styles.phoneScene}
-        animate={reduceMotion ? undefined : { y: [0, -7, 0] }}
+        animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
         transition={floatTransition}
       >
         <div className={styles.phoneGlow} />
@@ -37,6 +41,17 @@ export const EcosystemVisual = () => {
             <div className={styles.phoneScreen}>
               <div className={styles.phoneStatus}>
                 <span>9:41</span>
+                <div className={styles.statusIcons}>
+                  <Signal />
+                  <Wifi />
+                  <BatteryFull />
+                </div>
+              </div>
+
+              <div className={styles.phoneNav}>
+                <span className={styles.backChip}>
+                  <ChevronLeft />
+                </span>
                 <em>RYZE</em>
               </div>
 

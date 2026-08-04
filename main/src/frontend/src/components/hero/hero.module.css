@@ -56,10 +56,10 @@
   gap: 0.55rem;
   margin: 0;
   padding: 0.45rem 0.85rem;
-  border: 1px solid rgba(26, 132, 255, 0.24);
+  border: 1px solid rgba(42, 140, 255, 0.24);
   border-radius: 999px;
   color: var(--accent);
-  background: rgba(26, 132, 255, 0.1);
+  background: rgba(42, 140, 255, 0.1);
   font-size: 0.72rem;
   font-weight: 750;
   letter-spacing: 0.14em;
@@ -71,7 +71,7 @@
   height: 0.45rem;
   border-radius: 50%;
   background: var(--accent-secondary);
-  box-shadow: 0 0 12px rgba(26, 132, 255, 0.64);
+  box-shadow: 0 0 12px rgba(42, 140, 255, 0.64);
 }
 
 .copy h1 {
@@ -84,7 +84,7 @@
 
 .accentLine {
   color: var(--accent);
-  text-shadow: 0 0 28px rgba(46, 216, 255, 0.3);
+  text-shadow: 0 0 28px rgba(24, 216, 255, 0.3);
 }
 
 .description {

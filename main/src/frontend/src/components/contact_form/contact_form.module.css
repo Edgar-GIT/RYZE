@@ -6,9 +6,9 @@
   border-radius: 20px;
   background:
     radial-gradient(ellipse 80% 55% at 12% 0%, var(--accent-glow-soft), transparent 55%),
-    linear-gradient(160deg, rgba(16, 24, 38, 0.94), rgba(9, 17, 27, 0.92));
+    linear-gradient(160deg, rgba(16, 24, 38, 0.94), rgba(10, 16, 24, 0.92));
   box-shadow:
-    0 28px 70px rgba(5, 7, 12, 0.45),
+    0 28px 70px rgba(5, 7, 11, 0.45),
     0 0 40px var(--accent-glow-soft),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(18px);
@@ -48,7 +48,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   color: var(--text-primary);
-  background: rgba(8, 12, 18, 0.55);
+  background: color-mix(in srgb, var(--bg-secondary) 55%, transparent);
   font: inherit;
   outline: none;
   transition:
@@ -76,9 +76,9 @@
 
 .fields input:focus,
 .fields textarea:focus {
-  border-color: rgba(46, 216, 255, 0.5);
+  border-color: rgba(24, 216, 255, 0.5);
   background: rgba(8, 12, 18, 0.72);
-  box-shadow: 0 0 0 3px rgba(46, 216, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(24, 216, 255, 0.12);
 }
 
 .fullWidth,
@@ -93,7 +93,7 @@
   justify-content: space-between;
   gap: 0.85rem;
   padding: 0.7rem 0.8rem;
-  border: 1px dashed rgba(46, 216, 255, 0.28);
+  border: 1px dashed rgba(24, 216, 255, 0.28);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
 }
@@ -156,8 +156,8 @@
 }
 
 .uploadButton:hover {
-  border-color: rgba(46, 216, 255, 0.4);
-  background: rgba(46, 216, 255, 0.1);
+  border-color: rgba(24, 216, 255, 0.4);
+  background: rgba(24, 216, 255, 0.1);
 }
 
 .uploadButton svg {
