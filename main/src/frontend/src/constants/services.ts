@@ -5,6 +5,7 @@ import planPremiumTwo from "@resources/img/plan_cards/card_premium2.png";
 export interface ServicePlan {
   title: string;
   description: string;
+  price: string;
   ctaLabel: string;
   to: string;
   imageSrc: string;
@@ -17,34 +18,37 @@ export const SERVICE_PLANS: ServicePlan[] = [
   {
     title: "Generic Plan",
     description:
-      "Structured training packs for users who want a clear starting point without personalization.",
-    ctaLabel: "FREE",
+      "Ready-to-use training packs. No questionnaire, no waiting — start training today.",
+    price: "FREE",
+    ctaLabel: "Start now for FREE",
     to: "/services/generic-plan",
     imageSrc: planGeneric,
-    imageAlt: "Dumbbells prepared for a structured workout",
+    imageAlt: "RYZE basic badge",
     badge: "Base plan",
-    features: ["Pre-built workouts", "Exercise guidance", "Fast start"]
+    features: ["Ready-made workouts", "Exercise guidance", "Instant Access"]
   },
   {
     title: "Premium Level 1",
     description:
       "A guided plan with a personalized training pack and automatically assigned nutrition plan.",
-    ctaLabel: "14,49€",
+    price: "14,49€",
+    ctaLabel: "Get my plan",
     to: "/services/premium-level-1",
     imageSrc: planPremiumOne,
-    imageAlt: "Athlete training under modern gym lighting",
-    badge: "Train + Nutrition",
-    features: ["Questionnaire-based", "Nutrition included", "Immediate delivery"]
+    imageAlt: "RYZE premium level 1 badge",
+    badge: "Train & Nutrition",
+    features: ["Plan built around your goal", "Nutrition matched to your training", "Immediate delivery"]
   },
   {
     title: "Premium Level 2",
     description:
-      "Fully personalized training and nutrition with individual preparation and trainer review.",
-    ctaLabel: "19,99€",
+      "Your training and nutrition plan prepared and reviewed by a real coach. Exclusive to your needs.",
+    price: "19,49€",
+    ctaLabel: "Start now with a Coach",
     to: "/services/premium-level-2",
     imageSrc: planPremiumTwo,
-    imageAlt: "Athlete holding dumbbells in a gym",
+    imageAlt: "RYZE premium level 2 badge",
     badge: "Coach reviewed full plan",
-    features: ["Trainer reviewed", "Deep personalization", "Highest detail"]
+    features: ["Trainer reviewed", "Every detail accounted for", "Ongoing adjustments"]
   }
 ];

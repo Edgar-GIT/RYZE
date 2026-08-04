@@ -296,10 +296,9 @@ Sections
 4. Nutrition Intelligence
 5. Progress Analytics
 6. Choose Your Plan
-7. Testimonials
-8. Final CTA
-9. Contact preview
-10. Footer
+7. Final CTA
+8. Contact preview
+9. Footer
 
 ### Hero
 
@@ -352,11 +351,6 @@ Do not use generic admin-dashboard placeholder layouts for Platform.
 ### Plans
 
 Three product cards for Free, Premium and Elite.
-
-### Testimonials
-
-Short quotes with concrete outcomes, presented inside compact glass boxes with
-subtle accent borders.
 
 ### Final CTA
 

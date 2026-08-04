@@ -10,7 +10,6 @@ import { SectionTitle } from "@/components/section_title/section_title";
 import { SectionWrapper } from "@/components/section_wrapper/section_wrapper";
 import { ServiceCard } from "@/components/service_card/service_card";
 import { ShowcaseSection } from "@/components/showcase_section/showcase_section";
-import { TestimonialsSection } from "@/components/testimonials_section/testimonials_section";
 import { SERVICE_PLANS } from "@/constants/services";
 
 import styles from "./home_page.module.css";
@@ -67,8 +66,6 @@ export const HomePage = () => (
         ))}
       </div>
     </SectionWrapper>
-
-    <TestimonialsSection />
 
     <CtaBand
       eyebrow="Start"

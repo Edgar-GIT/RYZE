@@ -1,3 +1,29 @@
+# Version 2.2.9
+
+Title: Remove homepage Athletes testimonials section
+
+Date: 2026-08-04
+
+Summary:
+
+Removed the Athletes/testimonials section from the homepage and deleted the
+unused `testimonials_section` component. Updated Home page section order in
+design docs.
+
+Files modified:
+
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `main/src/frontend/src/components/testimonials_section/**` (removed)
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The testimonials block was no longer wanted on the homepage product tour.
+
+---
+
 # Version 2.2.8
 
 Title: Harmonize homepage palette after Platform redesign

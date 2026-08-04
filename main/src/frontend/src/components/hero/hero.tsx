@@ -8,8 +8,7 @@ import styles from "./hero.module.css";
 
 const trustItems = [
   { label: "Trusted by athletes", icon: Users },
-  { label: "AI adapts to you", icon: Brain },
-  { label: "Your data is private", icon: Lock }
+  { label: "AI adapts to you", icon: Brain }
 ] as const;
 
 export const Hero = () => (
@@ -24,7 +23,7 @@ export const Hero = () => (
       <div className={styles.copy}>
         <p className={styles.eyebrow}>
           <span className={styles.eyebrowDot} aria-hidden="true" />
-          AI-powered fitness platform
+          AI-powered training and nutrition platform
         </p>
         <h1>
           Train smarter.
