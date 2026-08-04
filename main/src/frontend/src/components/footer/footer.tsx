@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 import { Container } from "@/components/container/container";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
-import { CONTACT_EMAIL, CONTACT_INSTAGRAM_URL } from "@/constants/contact";
+import { CONTACT_EMAIL, CONTACT_INSTAGRAM_URL, CONTACT_WHATSAPP_URL } from "@/constants/contact";
 
 import styles from "./footer.module.css";
 
@@ -35,6 +35,7 @@ const footerColumns = [
       { label: "Method", to: "/services" },
       { label: "Science", to: "/services" },
       { label: "Instagram", href: CONTACT_INSTAGRAM_URL },
+      { label: "WhatsApp", href: CONTACT_WHATSAPP_URL },
       { label: "Help centre", to: "/contact" },
       { label: "Changelog", to: "/feedback" }
     ]

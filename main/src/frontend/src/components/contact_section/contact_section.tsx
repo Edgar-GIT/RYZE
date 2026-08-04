@@ -6,9 +6,10 @@ import { Container } from "@/components/container/container";
 import {
   CONTACT_EMAIL,
   CONTACT_INSTAGRAM_HANDLE,
-  CONTACT_INSTAGRAM_URL
+  CONTACT_INSTAGRAM_URL,
+  CONTACT_WHATSAPP_LABEL,
+  CONTACT_WHATSAPP_URL
 } from "@/constants/contact";
-import { joinClassNames } from "@utils/class_names";
 
 import styles from "./contact_section.module.css";
 
@@ -56,20 +57,22 @@ export const ContactSection = () => (
             <ArrowUpRight className={styles.rowArrow} aria-hidden="true" />
           </a>
 
-          <div
-            className={joinClassNames(styles.row, styles.rowDisabled)}
+          <a
+            className={styles.row}
+            href={CONTACT_WHATSAPP_URL}
+            target="_blank"
+            rel="noreferrer"
             role="listitem"
-            aria-disabled="true"
           >
             <span className={styles.rowIcon}>
               <BrandIcon name="whatsapp" />
             </span>
             <span className={styles.rowCopy}>
               <strong>WhatsApp</strong>
-              <small>Coming soon</small>
+              <small>{CONTACT_WHATSAPP_LABEL}</small>
             </span>
             <ArrowUpRight className={styles.rowArrow} aria-hidden="true" />
-          </div>
+          </a>
         </div>
       </div>
 

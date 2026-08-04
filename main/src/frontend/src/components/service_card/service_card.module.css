@@ -125,6 +125,21 @@
   color: var(--color-accent-500);
 }
 
+.footer {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.price {
+  margin: 0;
+  justify-self: end;
+  color: var(--color-accent-400);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
 .button {
   width: 100%;
 }

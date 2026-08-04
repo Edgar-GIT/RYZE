@@ -31,9 +31,12 @@ export const ServiceCard = ({ service }: ServiceCardProps) => (
         ))}
       </ul>
 
-      <Button className={styles.button} to={service.to} variant="secondary" icon={<ArrowRight />}>
-        {service.ctaLabel}
-      </Button>
+      <div className={styles.footer}>
+        <p className={styles.price}>{service.price}</p>
+        <Button className={styles.button} to={service.to} variant="secondary" icon={<ArrowRight />}>
+          {service.ctaLabel}
+        </Button>
+      </div>
     </div>
   </article>
 );

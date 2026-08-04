@@ -1,3 +1,60 @@
+# Version 2.2.11
+
+Title: Enable WhatsApp community contact link
+
+Date: 2026-08-04
+
+Summary:
+
+Activated WhatsApp across contact surfaces with the official community invite
+URL. Updated homepage preview chips, Contact page channel row and footer
+Resources link. Removed disabled/coming-soon states.
+
+Files modified:
+
+- `main/src/frontend/src/constants/contact.ts`
+- `main/src/frontend/src/components/contact_preview/contact_preview.tsx`
+- `main/src/frontend/src/components/contact_preview/contact_preview.module.css`
+- `main/src/frontend/src/components/contact_section/contact_section.tsx`
+- `main/src/frontend/src/components/contact_section/contact_section.module.css`
+- `main/src/frontend/src/components/footer/footer.tsx`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+WhatsApp community is live and should be reachable from every contact entry
+point.
+
+---
+
+# Version 2.2.10
+
+Title: Show plan price above service card CTA
+
+Date: 2026-08-04
+
+Summary:
+
+Added a compact right-aligned price above each service card CTA, using the
+existing `ServicePlan.price` field. Applies to both homepage plans preview and
+`/services`.
+
+Files modified:
+
+- `main/src/frontend/src/components/service_card/service_card.tsx`
+- `main/src/frontend/src/components/service_card/service_card.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Plan pricing needed to be visible on cards without competing with the CTA.
+
+---
+
 # Version 2.2.9
 
 Title: Remove homepage Athletes testimonials section

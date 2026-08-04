@@ -82,23 +82,6 @@
   transform: translate(2px, -2px);
 }
 
-.rowDisabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.rowDisabled:hover {
-  transform: none;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(16, 23, 34, 0.55);
-  box-shadow: none;
-}
-
-.rowDisabled:hover .rowArrow {
-  color: #8794a8;
-  transform: none;
-}
-
 .rowIcon {
   display: grid;
   width: 40px;

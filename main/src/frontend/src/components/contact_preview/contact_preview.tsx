@@ -6,7 +6,8 @@ import { SectionWrapper } from "@/components/section_wrapper/section_wrapper";
 import {
   CONTACT_EMAIL,
   CONTACT_INSTAGRAM_HANDLE,
-  CONTACT_INSTAGRAM_URL
+  CONTACT_INSTAGRAM_URL,
+  CONTACT_WHATSAPP_URL
 } from "@/constants/contact";
 
 import styles from "./contact_preview.module.css";
@@ -44,10 +45,16 @@ export const ContactPreview = () => (
         <BrandIcon name="instagram" />
         <span>Instagram</span>
       </a>
-      <span className={styles.chipDisabled} aria-disabled="true" title="Coming soon">
+      <a
+        className={styles.chip}
+        href={CONTACT_WHATSAPP_URL}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="WhatsApp community"
+      >
         <BrandIcon name="whatsapp" />
         <span>WhatsApp</span>
-      </span>
+      </a>
     </div>
 
     <Button className={styles.cta} to="/contact" icon={<ArrowRight />}>

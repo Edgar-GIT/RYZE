@@ -350,7 +350,8 @@ Do not use generic admin-dashboard placeholder layouts for Platform.
 
 ### Plans
 
-Three product cards for Free, Premium and Elite.
+Three product cards for Free, Premium and Elite. Each card shows a compact
+right-aligned price above its CTA.
 
 ### Final CTA
 
@@ -380,6 +381,7 @@ Each card contains:
 - Name
 - Description
 - Main Features
+- Compact right-aligned price above the CTA
 - Call To Action
 
 Each product redirects to its own page.
@@ -450,7 +452,7 @@ Left column:
 - Compact interactive contact rows (Email, Instagram, WhatsApp)
 - Email opens the mail client
 - Instagram opens the official profile
-- WhatsApp stays disabled with `Coming soon`
+- WhatsApp opens the official community invite
 
 Right column:
 
