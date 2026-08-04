@@ -1,3 +1,64 @@
+# Version 2.2.8
+
+Title: Harmonize homepage palette after Platform redesign
+
+Date: 2026-08-04
+
+Summary:
+
+Aligned the remaining homepage surfaces and interactive components with the new
+blue/cyan brand palette and deep background continuity. Kept footer structure
+and styling unchanged while improving cross-section visual cohesion.
+
+Files modified:
+
+- `main/src/frontend/src/components/button/button.module.css`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `main/src/frontend/src/components/showcase_section/showcase_section.module.css`
+- `main/src/frontend/src/components/cta_band/cta_band.module.css`
+- `main/src/frontend/src/components/contact_preview/contact_preview.module.css`
+- `main/src/frontend/src/components/testimonials_section/testimonials_section.module.css`
+- `main/src/frontend/src/components/service_card/service_card.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+After the Platform and global palette overhaul, several homepage blocks still
+used legacy hardcoded tones, creating visible inconsistency between sections.
+
+---
+
+# Version 2.2.7
+
+Title: Rebuild Platform into a hierarchical mobile-first system
+
+Date: 2026-08-04
+
+Summary:
+
+Reworked the homepage Platform section away from the decorative orbit/mind-map
+layout into a clearer mobile-first composition: goals bar, primary phone
+surface, and grouped support panels for training, nutrition, recovery,
+progress, PRs and coach feedback.
+
+Files modified:
+
+- `main/src/frontend/src/components/platform_section/platform_section.tsx`
+- `main/src/frontend/src/components/platform_section/platform_section.module.css`
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.tsx`
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The previous Platform section still behaved like a decorative mental map with
+weak hierarchy, fragile layout rules and poor mobile behavior.
+
+---
+
 # Version 2.2.6
 
 Title: Platform ecosystem visualization redesign

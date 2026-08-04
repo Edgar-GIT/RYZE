@@ -1,38 +1,38 @@
 :root {
   color-scheme: dark;
   font-family: "Google Sans", Inter, Roboto, Arial, sans-serif;
-  color: #ffffff;
-  background: #070a0f;
+  color: #e7ecf3;
+  background: #05070d;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --color-primary-950: #070a0f;
-  --color-primary-900: #090d14;
-  --color-primary-800: #0b1018;
-  --color-primary-700: #162130;
-  --color-surface-card: #101722;
-  --color-surface-elevated: #111b27;
-  --color-accent-500: #1e8cff;
-  --color-accent-400: #1fcbff;
-  --color-accent-300: #32d7ff;
-  --color-accent-glow: rgba(31, 203, 255, 0.4);
-  --color-neutral-100: #f8fafc;
-  --color-neutral-200: #b8c3d1;
-  --color-neutral-500: #8794a8;
-  --color-white: #ffffff;
+  --color-primary-950: #05070d;
+  --color-primary-900: #07111b;
+  --color-primary-800: #091321;
+  --color-primary-700: #0d1b2e;
+  --color-surface-card: #0d1b2e;
+  --color-surface-elevated: #11233b;
+  --color-accent-500: #2f8cff;
+  --color-accent-400: #38e1ff;
+  --color-accent-300: #7fefff;
+  --color-accent-glow: rgba(47, 140, 255, 0.34);
+  --color-neutral-100: #e7ecf3;
+  --color-neutral-200: #c6d2e1;
+  --color-neutral-500: #7c8aa0;
+  --color-white: #e7ecf3;
   --color-success: #2f8f69;
-  --color-surface-dark: rgba(16, 23, 34, 0.82);
-  --color-surface-strong: rgba(7, 10, 15, 0.92);
-  --color-text-muted: #8794a8;
-  --color-text-soft: #b8c3d1;
+  --color-surface-dark: rgba(13, 27, 46, 0.82);
+  --color-surface-strong: rgba(5, 7, 13, 0.94);
+  --color-text-muted: #7c8aa0;
+  --color-text-soft: #c6d2e1;
 
-  --shadow-soft: 0 28px 80px rgba(8, 20, 40, 0.55);
-  --shadow-card: 0 20px 56px rgba(8, 20, 40, 0.45);
-  --shadow-glow: 0 0 36px rgba(31, 203, 255, 0.2);
-  --border-subtle: 1px solid rgba(255, 255, 255, 0.08);
-  --border-accent: 1px solid rgba(31, 203, 255, 0.35);
+  --shadow-soft: 0 28px 80px rgba(4, 12, 26, 0.56);
+  --shadow-card: 0 20px 56px rgba(4, 12, 26, 0.46);
+  --shadow-glow: 0 0 36px rgba(47, 140, 255, 0.18);
+  --border-subtle: 1px solid rgba(56, 132, 255, 0.15);
+  --border-accent: 1px solid rgba(56, 225, 255, 0.32);
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -86,11 +86,11 @@ img {
 
 ::selection {
   color: var(--color-primary-950);
-  background: var(--color-accent-300);
+  background: var(--color-accent-400);
 }
 
 :focus-visible {
-  outline: 2px solid rgba(31, 203, 255, 0.85);
+  outline: 2px solid rgba(56, 225, 255, 0.82);
   outline-offset: 3px;
 }
 

@@ -1,9 +1,9 @@
 .section {
   padding: 1.5rem 0 4rem;
   background:
-    radial-gradient(ellipse 50% 80% at 80% 50%, rgba(31, 203, 255, 0.08), transparent 55%),
-    radial-gradient(ellipse 40% 50% at 10% 40%, rgba(30, 140, 255, 0.05), transparent 50%),
-    linear-gradient(180deg, rgba(9, 13, 20, 0.65), rgba(9, 13, 20, 0.48));
+    radial-gradient(ellipse 50% 80% at 80% 50%, rgba(47, 140, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse 40% 50% at 10% 40%, rgba(56, 225, 255, 0.05), transparent 50%),
+    linear-gradient(180deg, rgba(5, 7, 13, 0.3), rgba(5, 7, 13, 0.18));
 }
 
 .band {
@@ -12,12 +12,12 @@
   gap: 2rem;
   align-items: center;
   padding: 2.1rem 2.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: var(--border-subtle);
   border-radius: var(--radius-lg);
-  color: #ffffff;
+  color: var(--color-white);
   background:
-    radial-gradient(circle at 88% 20%, rgba(31, 203, 255, 0.12), transparent 18rem),
-    #111b27;
+    radial-gradient(circle at 88% 20%, rgba(56, 225, 255, 0.12), transparent 18rem),
+    #0d1b2e;
   box-shadow: var(--shadow-card);
 }
 
@@ -33,7 +33,7 @@
 }
 
 .copy p {
-  color: #1fcbff;
+  color: var(--color-accent-500);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -49,7 +49,7 @@
 
 .copy span {
   max-width: 48ch;
-  color: #8794a8;
+  color: var(--color-text-muted);
   line-height: 1.65;
 }
 

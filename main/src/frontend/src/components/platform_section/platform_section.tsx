@@ -10,14 +10,15 @@ export const PlatformSection = () => (
   <section className={styles.section} aria-labelledby="platform-heading">
     <Container className={styles.layout}>
       <div className={styles.copy}>
-        <p className={styles.eyebrow}>Platform</p>
-        <h2 id="platform-heading">Your fitness operating system.</h2>
+        <p className={styles.eyebrow}>Start Faster</p>
+        <h2 id="platform-heading">Get a plan that fits your week, without waiting.</h2>
         <p className={styles.description}>
-          One ecosystem. Training, nutrition, recovery, AI and coach — connected so every signal
-          shapes the next decision.
+          RYZE helps you start with structure right away. Answer a few questions, get a clear
+          training direction, follow it on your phone, and keep nutrition and recovery in sync
+          without depending on gym schedules or trainer availability.
         </p>
         <Button to="/services" icon={<ArrowRight />}>
-          See how it works
+          Choose your plan
         </Button>
       </div>
 

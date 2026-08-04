@@ -1,31 +1,29 @@
 .section {
   position: relative;
-  padding: 6.5rem 0;
+  padding: 5.25rem 0 5rem;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 60% 50% at 75% 40%, rgba(31, 203, 255, 0.08), transparent 55%),
-    radial-gradient(ellipse 45% 40% at 10% 70%, rgba(30, 140, 255, 0.06), transparent 50%),
-    linear-gradient(180deg, rgba(7, 10, 15, 0.55), rgba(7, 10, 15, 0.72));
+    radial-gradient(ellipse 60% 50% at 78% 34%, rgba(47, 140, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse 45% 40% at 8% 70%, rgba(56, 225, 255, 0.05), transparent 50%),
+    linear-gradient(180deg, rgba(5, 7, 13, 0.28), rgba(5, 7, 13, 0.18));
 }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
-  gap: 2.5rem;
-  align-items: center;
+  gap: 2rem;
+  align-items: start;
 }
 
 .copy {
   display: grid;
   gap: 1rem;
-  max-width: 400px;
   justify-items: start;
 }
 
 .eyebrow {
   margin: 0;
-  color: #1fcbff;
-  font-size: 0.76rem;
+  color: var(--color-accent-500);
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -33,17 +31,18 @@
 
 .copy h2 {
   margin: 0;
-  color: #ffffff;
-  font-size: clamp(2.1rem, 4vw, 3.1rem);
-  line-height: 1.05;
+  color: var(--color-white);
+  font-size: clamp(2rem, 9vw, 2.65rem);
+  line-height: 1.04;
   letter-spacing: -0.03em;
+  max-width: 12ch;
 }
 
 .description {
-  margin: 0 0 0.35rem;
-  color: #8794a8;
-  font-size: 1.02rem;
-  line-height: 1.7;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.98rem;
+  line-height: 1.72;
   max-width: 34ch;
 }
 
@@ -52,29 +51,44 @@
   width: 100%;
 }
 
-@media (max-width: 1100px) {
+@media (min-width: 961px) {
   .layout {
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-    gap: 2rem;
+    grid-template-columns: minmax(0, 0.74fr) minmax(0, 1.26fr);
+    gap: 2.75rem;
+    align-items: center;
   }
 
-  .visual {
-    min-height: 0;
+  .copy {
+    max-width: 430px;
+  }
+
+  .copy h2 {
+    font-size: clamp(2.5rem, 4.1vw, 3.4rem);
+  }
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    gap: 2rem;
   }
 }
 
 @media (max-width: 960px) {
   .section {
-    padding: 4.5rem 0;
+    padding: 4rem 0 4.25rem;
   }
 
   .layout {
     grid-template-columns: 1fr;
-    gap: 2.25rem;
+    gap: 1.75rem;
   }
 
   .copy {
     max-width: none;
+  }
+
+  .description {
+    max-width: 38ch;
   }
 
   .visual {

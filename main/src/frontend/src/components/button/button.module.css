@@ -44,19 +44,19 @@
 }
 
 .primary {
-  color: #070a0f;
-  background: linear-gradient(135deg, #32d7ff, #1fcbff 48%, #1e8cff);
-  border-color: rgba(50, 215, 255, 0.45);
+  color: #05070d;
+  background: linear-gradient(135deg, #38e1ff, #2f8cff 58%, #2f8cff);
+  border-color: rgba(56, 225, 255, 0.4);
   box-shadow:
-    0 12px 36px rgba(31, 203, 255, 0.28),
-    0 0 28px rgba(31, 203, 255, 0.18);
+    0 12px 36px rgba(47, 140, 255, 0.28),
+    0 0 28px rgba(47, 140, 255, 0.18);
 }
 
 .primary:hover {
-  background: linear-gradient(135deg, #67e8f9, #1fcbff 42%, #1e8cff);
+  background: linear-gradient(135deg, #66eaff, #38e1ff 42%, #2f8cff);
   box-shadow:
-    0 16px 42px rgba(31, 203, 255, 0.36),
-    0 0 34px rgba(31, 203, 255, 0.24);
+    0 16px 42px rgba(47, 140, 255, 0.36),
+    0 0 34px rgba(47, 140, 255, 0.24);
 }
 
 .secondary {
@@ -66,8 +66,8 @@
 }
 
 .secondary:hover {
-  border-color: rgba(31, 203, 255, 0.45);
-  background: rgba(31, 203, 255, 0.08);
+  border-color: rgba(56, 225, 255, 0.34);
+  background: rgba(47, 140, 255, 0.1);
 }
 
 .ghost {
@@ -83,12 +83,12 @@
 
 .dark {
   color: #ffffff;
-  background: #101722;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: #0d1b2e;
+  border-color: rgba(56, 132, 255, 0.15);
 }
 
 .light {
-  color: #070a0f;
+  color: #05070d;
   background: #ffffff;
 }
 
@@ -103,8 +103,8 @@
 }
 
 .outlineLight:hover {
-  border-color: rgba(31, 203, 255, 0.45);
-  background: rgba(31, 203, 255, 0.08);
+  border-color: rgba(56, 225, 255, 0.34);
+  background: rgba(47, 140, 255, 0.1);
 }
 
 .disabled {

@@ -29,7 +29,7 @@
 
 .eyebrow {
   margin: 0;
-  color: #1fcbff;
+  color: var(--color-accent-500);
   font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -38,7 +38,7 @@
 
 .copy h2 {
   margin: 0;
-  color: #ffffff;
+  color: var(--color-white);
   font-size: clamp(1.95rem, 3.5vw, 2.75rem);
   line-height: 1.08;
   letter-spacing: -0.025em;
@@ -46,7 +46,7 @@
 
 .description {
   margin: 0;
-  color: #8794a8;
+  color: var(--color-text-muted);
   font-size: 1rem;
   line-height: 1.7;
   max-width: 34ch;
