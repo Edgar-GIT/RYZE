@@ -19,9 +19,9 @@ export const EcosystemVisual = () => {
       <div className={styles.glowFloor} />
 
       <svg className={styles.links} viewBox="0 0 640 520" preserveAspectRatio="none">
-        <path className={styles.linkPath} d="M292 168 C340 150, 390 132, 458 118" />
-        <path className={styles.linkPath} d="M300 250 C360 238, 420 232, 472 248" />
-        <path className={styles.linkPath} d="M286 330 C350 350, 410 372, 464 388" />
+        <path className={styles.linkPath} d="M288 178 C338 148, 408 118, 478 108" />
+        <path className={styles.linkPath} d="M300 250 C360 228, 420 228, 482 246" />
+        <path className={styles.linkPath} d="M290 336 C348 358, 412 388, 478 402" />
       </svg>
 
       <motion.div
@@ -33,34 +33,70 @@ export const EcosystemVisual = () => {
           <div className={styles.phoneBezel}>
             <div className={styles.phoneNotch} />
             <div className={styles.phoneScreen}>
-              <div className={styles.phoneStatus}>
-                <span>9:41</span>
-                <em>RYZE</em>
+              <div className={styles.phoneTop}>
+                <div className={styles.phoneStatus}>
+                  <span>9:41</span>
+                  <em>RYZE</em>
+                </div>
+
+                <div className={styles.phoneGreeting}>
+                  <p>Today</p>
+                  <strong>Upper strength</strong>
+                </div>
+
+                <div className={styles.phoneSession}>
+                  <div className={styles.sessionMeta}>
+                    <span>4 exercises</span>
+                    <span>48 min</span>
+                  </div>
+                  <div className={styles.phoneProgress}>
+                    <span className={styles.phoneProgressFill} />
+                  </div>
+                  <div className={styles.sessionList}>
+                    <div>
+                      <span>Bench press</span>
+                      <em>4×8</em>
+                    </div>
+                    <div>
+                      <span>Barbell row</span>
+                      <em>4×8</em>
+                    </div>
+                    <div>
+                      <span>Shoulder press</span>
+                      <em>3×10</em>
+                    </div>
+                    <div>
+                      <span>Face pulls</span>
+                      <em>3×12</em>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className={styles.phoneGreeting}>
-                <p>Today</p>
-                <strong>Upper strength</strong>
-              </div>
+              <div className={styles.phoneBottom}>
+                <div className={styles.phoneStats}>
+                  <div>
+                    <span>Week</span>
+                    <strong>4/5</strong>
+                  </div>
+                  <div>
+                    <span>Load</span>
+                    <strong>+6%</strong>
+                  </div>
+                  <div>
+                    <span>Ready</span>
+                    <strong>86</strong>
+                  </div>
+                </div>
 
-              <div className={styles.phoneSession}>
-                <div className={styles.sessionMeta}>
-                  <span>4 exercises</span>
-                  <span>48 min</span>
+                <div className={styles.phoneInsight}>
+                  <span>Volume trimmed after late sleep</span>
                 </div>
-                <div className={styles.phoneProgress}>
-                  <span className={styles.phoneProgressFill} />
-                </div>
-                <div className={styles.sessionList}>
-                  <span>Bench press</span>
-                  <span>Row · 4×8</span>
-                  <span>Shoulder press</span>
-                </div>
-              </div>
 
-              <div className={styles.phoneNext}>
-                <Zap aria-hidden="true" />
-                <span>Legs tomorrow · 18:00</span>
+                <div className={styles.phoneNext}>
+                  <Zap aria-hidden="true" />
+                  <span>Legs tomorrow · 18:00</span>
+                </div>
               </div>
             </div>
           </div>
@@ -135,7 +171,7 @@ export const EcosystemVisual = () => {
         </header>
         <div className={styles.recoveryBody}>
           <div className={styles.scoreRing}>
-            <svg viewBox="0 0 64 64">
+            <svg viewBox="0 0 64 64" aria-hidden="true">
               <circle cx="32" cy="32" r="24" className={styles.ringTrack} />
               <circle
                 cx="32"
@@ -145,7 +181,7 @@ export const EcosystemVisual = () => {
                 style={{ strokeDasharray: "130 151" }}
               />
             </svg>
-            <strong>86</strong>
+            <span className={styles.scoreValueText}>86</span>
           </div>
           <ul>
             <li>

@@ -1,85 +1,181 @@
 .stage {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    "delivery"
-    "phone"
-    "left"
-    "right";
-  gap: 0.85rem;
-  align-items: start;
+  place-items: center;
   width: 100%;
-  padding: 0.35rem 0;
+  min-height: 34rem;
+  padding: 1rem 0.5rem 1.5rem;
   isolation: isolate;
+  overflow: visible;
 }
 
 .glowCore {
   position: absolute;
-  top: 18%;
-  left: 50%;
+  top: 42%;
+  left: 42%;
   z-index: 0;
-  width: 14rem;
-  height: 14rem;
+  width: 18rem;
+  height: 18rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(47, 140, 255, 0.18), transparent 70%);
-  filter: blur(34px);
+  background: radial-gradient(circle, rgba(47, 140, 255, 0.22), transparent 68%);
+  filter: blur(40px);
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
 
-.deliveryBar {
-  grid-area: delivery;
-  z-index: 4;
-  display: grid;
-  gap: 0.4rem;
-  padding: 0.8rem 0.9rem;
-  border: var(--border-subtle);
-  border-radius: 16px;
-  background:
-    linear-gradient(160deg, rgba(56, 225, 255, 0.08), transparent 45%),
-    rgba(13, 27, 46, 0.78);
-  box-shadow:
-    0 18px 48px rgba(4, 12, 26, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
+.glowFloor {
+  position: absolute;
+  bottom: 8%;
+  left: 40%;
+  z-index: 0;
+  width: 14rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgba(4, 12, 26, 0.7), transparent 70%);
+  filter: blur(18px);
+  pointer-events: none;
+  transform: translateX(-50%);
 }
 
-.deliveryBar header,
-.card header {
+.links {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.linkPath {
+  fill: none;
+  stroke: rgba(56, 225, 255, 0.28);
+  stroke-width: 1.4;
+  stroke-dasharray: 5 7;
+  stroke-linecap: round;
+  animation: linkFlow 4.5s linear infinite;
+}
+
+.phoneScene {
+  position: relative;
+  z-index: 4;
+  width: 15.5rem;
+  perspective: 1400px;
+  transform-style: preserve-3d;
+}
+
+.phone {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 19.2;
+  transform: rotateY(-26deg) rotateX(8deg) rotateZ(-4deg);
+  transform-style: preserve-3d;
+}
+
+.phoneBezel {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  height: 100%;
+  padding: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 2.1rem;
+  background:
+    linear-gradient(160deg, rgba(56, 225, 255, 0.1), transparent 42%),
+    linear-gradient(180deg, #121a28 0%, #0a101a 100%);
+  box-shadow:
+    0 40px 90px rgba(4, 12, 26, 0.55),
+    0 0 48px rgba(47, 140, 255, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.phoneSide {
+  position: absolute;
+  top: 3%;
+  right: -0.55rem;
+  z-index: 1;
+  width: 0.7rem;
+  height: 94%;
+  border-radius: 0 1.2rem 1.2rem 0;
+  background: linear-gradient(180deg, #1a2434, #0b111a);
+  box-shadow: 4px 10px 24px rgba(4, 12, 26, 0.35);
+  transform: skewY(-8deg);
+}
+
+.phoneShadow {
+  position: absolute;
+  left: 8%;
+  right: -4%;
+  bottom: -1.4rem;
+  z-index: 0;
+  height: 2.2rem;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgba(4, 12, 26, 0.55), transparent 72%);
+  filter: blur(10px);
+  transform: rotate(-8deg);
+}
+
+.phoneNotch {
+  width: 38%;
+  height: 0.42rem;
+  margin: 0.2rem auto 0.55rem;
+  border-radius: 999px;
+  background: rgba(231, 236, 243, 0.14);
+}
+
+.phoneScreen {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  height: calc(100% - 1.1rem);
+  padding: 0.7rem 0.65rem;
+  overflow: hidden;
+  border-radius: 1.45rem;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(47, 140, 255, 0.16), transparent 42%),
+    rgba(5, 7, 13, 0.92);
+}
+
+.phoneStatus {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
+  justify-content: space-between;
 }
 
-.deliveryBar header svg,
-.card header svg {
-  width: 0.9rem;
-  height: 0.9rem;
-  color: var(--color-accent-500);
-  flex: 0 0 auto;
+.phoneStatus span,
+.phoneStatus em,
+.sessionMeta span {
+  color: var(--color-text-muted);
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  font-style: normal;
 }
 
-.deliveryBar header span,
+.phoneStatus em {
+  color: var(--color-accent-400);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.phoneGreeting {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.phoneGreeting p,
 .card header span,
-.phoneSession p,
-.phoneStats span,
 .metaRow span {
   margin: 0;
-  overflow: hidden;
   color: var(--color-text-muted);
   font-size: 0.64rem;
   font-weight: 650;
-  letter-spacing: 0.06em;
-  text-overflow: ellipsis;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  white-space: nowrap;
 }
 
-.deliveryBar strong,
-.phoneSession strong,
-.phoneStats strong,
+.phoneGreeting strong,
 .card strong,
 .metaRow strong {
   color: var(--color-white);
@@ -87,71 +183,24 @@
   letter-spacing: -0.02em;
 }
 
-.deliveryBar strong {
-  font-size: 0.9rem;
-}
-
-.phone {
-  grid-area: phone;
-  z-index: 5;
-  width: 220px;
-  max-width: 100%;
-  justify-self: center;
-  padding: 0.6rem;
-  border: var(--border-subtle);
-  border-radius: 30px;
-  background:
-    linear-gradient(160deg, rgba(56, 225, 255, 0.08), transparent 40%),
-    rgba(13, 27, 46, 0.84);
-  box-shadow:
-    0 30px 80px rgba(4, 12, 26, 0.42),
-    0 0 46px rgba(47, 140, 255, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(18px);
-}
-
-.phoneNotch {
-  width: 42%;
-  height: 7px;
-  margin: 0.15rem auto 0.6rem;
-  border-radius: 999px;
-  background: rgba(231, 236, 243, 0.12);
-}
-
-.phoneScreen {
-  display: grid;
-  gap: 0.7rem;
-  padding: 0.6rem;
-  border-radius: 20px;
-  background: rgba(5, 7, 13, 0.74);
-}
-
-.phoneHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.phoneHeader span {
-  color: var(--color-white);
-  font-size: 0.76rem;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-}
-
-.phoneHeader em {
-  color: var(--color-text-muted);
-  font-size: 0.68rem;
-  font-style: normal;
+.phoneGreeting strong {
+  font-size: 1.05rem;
+  line-height: 1.15;
 }
 
 .phoneSession {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.55rem;
+  padding: 0.7rem 0.65rem;
+  border: 1px solid rgba(56, 132, 255, 0.14);
+  border-radius: 0.9rem;
+  background: rgba(13, 27, 46, 0.55);
 }
 
-.phoneSession strong {
-  font-size: 0.92rem;
+.sessionMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .phoneProgress {
@@ -163,7 +212,7 @@
 
 .phoneProgressFill {
   display: block;
-  width: 72%;
+  width: 68%;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--color-accent-400), var(--color-accent-500));
@@ -171,25 +220,15 @@
   animation: fillBar 1.4s ease forwards;
 }
 
-.phoneStats {
+.sessionList {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.35rem;
 }
 
-.phoneStats div {
-  display: grid;
-  gap: 0.14rem;
-  min-width: 0;
-  padding: 0.45rem 0.25rem;
-  border: 1px solid rgba(56, 132, 255, 0.1);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  text-align: center;
-}
-
-.phoneStats strong {
-  font-size: 0.8rem;
+.sessionList span {
+  color: var(--color-text-soft);
+  font-size: 0.7rem;
+  line-height: 1.3;
 }
 
 .phoneNext {
@@ -197,10 +236,10 @@
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
-  padding: 0.5rem 0.55rem;
-  border-radius: 10px;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.75rem;
   color: var(--color-text-soft);
-  background: rgba(47, 140, 255, 0.09);
+  background: rgba(47, 140, 255, 0.1);
   font-size: 0.68rem;
 }
 
@@ -217,61 +256,58 @@
   white-space: nowrap;
 }
 
-.railLeft,
-.railRight,
-.stackBottom {
-  position: relative;
-  z-index: 3;
-  display: grid;
-  gap: 0.85rem;
-  align-items: stretch;
-}
-
-.railLeft {
-  grid-area: left;
-}
-
-.railRight {
-  grid-area: right;
-}
-
 .card {
-  position: relative;
+  position: absolute;
+  z-index: 5;
   display: grid;
   gap: 0.55rem;
-  min-width: 0;
-  padding: 0.8rem 0.85rem;
-  overflow: hidden;
+  width: min(15.5rem, 72%);
+  padding: 0.85rem 0.9rem;
   border: var(--border-subtle);
   border-radius: 16px;
   background:
-    linear-gradient(160deg, rgba(56, 225, 255, 0.08), transparent 45%),
-    rgba(13, 27, 46, 0.78);
+    linear-gradient(160deg, rgba(56, 225, 255, 0.1), transparent 48%),
+    rgba(13, 27, 46, 0.82);
   box-shadow:
-    0 18px 44px rgba(4, 12, 26, 0.34),
+    0 22px 50px rgba(4, 12, 26, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  box-sizing: border-box;
+  backdrop-filter: blur(18px);
 }
 
-.cardPlan,
-.cardProgress {
-  min-height: 154px;
+.cardWeek {
+  top: 4%;
+  right: 0;
+  width: min(16.5rem, 74%);
 }
 
-.cardCompact {
-  min-height: 104px;
+.cardNutrition {
+  top: 42%;
+  right: 0;
+  width: min(13.5rem, 64%);
 }
 
-.card p {
-  margin: 0;
-  color: var(--color-text-soft);
-  font-size: 0.74rem;
-  line-height: 1.45;
+.cardRecovery {
+  bottom: 6%;
+  right: 2%;
+  width: min(15rem, 70%);
+}
+
+.card header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.card header svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--color-accent-500);
+  flex: 0 0 auto;
 }
 
 .cardLead {
-  font-size: 1rem;
+  font-size: 0.95rem;
   line-height: 1.3;
 }
 
@@ -283,7 +319,7 @@
 }
 
 .metaRow strong {
-  font-size: 0.86rem;
+  font-size: 0.84rem;
 }
 
 .heatmap {
@@ -357,6 +393,7 @@
   stroke: var(--color-accent-500);
   stroke-width: 3.5;
   stroke-linecap: round;
+  stroke-dasharray: 55 88;
 }
 
 .macroRing strong {
@@ -376,25 +413,6 @@
   font-size: 0.58rem;
   font-weight: 650;
   text-transform: uppercase;
-}
-
-.curve {
-  width: 100%;
-  height: 38px;
-}
-
-.curveArea {
-  fill: rgba(47, 140, 255, 0.12);
-}
-
-.curveLine {
-  fill: none;
-  stroke: var(--color-accent-400);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 220;
-  stroke-dashoffset: 220;
-  animation: drawLine 1.6s ease forwards;
 }
 
 .recoveryBody {
@@ -461,26 +479,6 @@
   flex: 0 0 auto;
 }
 
-.prBadge {
-  display: inline-flex;
-  width: fit-content;
-  padding: 0.2rem 0.42rem;
-  border: 1px solid rgba(56, 225, 255, 0.22);
-  border-radius: 999px;
-  color: var(--color-accent-400) !important;
-  background: rgba(47, 140, 255, 0.1);
-  font-size: 0.6rem !important;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.stackBottom em {
-  color: var(--color-accent-400);
-  font-style: normal;
-  font-weight: 700;
-}
-
 @keyframes fillBar {
   from {
     transform: scaleX(0);
@@ -491,57 +489,98 @@
   }
 }
 
-@keyframes drawLine {
+@keyframes linkFlow {
   to {
-    stroke-dashoffset: 0;
+    stroke-dashoffset: -48;
   }
 }
 
 @media (min-width: 961px) {
   .stage {
-    grid-template-columns: minmax(180px, 1fr) minmax(220px, 0.92fr) minmax(180px, 1fr);
-    grid-template-areas:
-      ". delivery ."
-      "left phone right";
-    gap: 1rem 1.15rem;
-    align-items: center;
-    min-height: 600px;
+    min-height: 36rem;
+    justify-items: start;
+    padding: 0.5rem 0 1rem 0.5rem;
   }
 
-  .deliveryBar {
-    width: min(240px, 100%);
-    justify-self: center;
+  .phoneScene {
+    margin-left: 4%;
+    width: 16rem;
+  }
+
+  .cardWeek {
+    top: 1.5%;
+    right: 0;
+    max-width: 17rem;
+  }
+
+  .cardNutrition {
+    top: 39%;
+    right: 0;
+    max-width: 14rem;
+  }
+
+  .cardRecovery {
+    bottom: 3%;
+    right: 1.5%;
+    max-width: 15.5rem;
   }
 }
 
 @media (max-width: 960px) {
   .stage {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "delivery delivery"
-      "phone phone"
-      "left right";
+    min-height: 0;
+    gap: 0.9rem;
+    padding: 0.25rem 0 0.5rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .links,
+  .glowFloor {
+    display: none;
+  }
+
+  .phoneScene {
+    width: min(14rem, 58vw);
+    margin: 0.5rem auto 0.25rem;
   }
 
   .phone {
-    width: min(230px, 72vw);
+    transform: rotateY(-18deg) rotateX(6deg) rotateZ(-2deg);
+  }
+
+  .card {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    width: min(22rem, 100%);
+  }
+
+  .cardWeek,
+  .cardNutrition,
+  .cardRecovery {
+    top: auto;
+    right: auto;
+    bottom: auto;
+    width: min(22rem, 100%);
   }
 }
 
 @media (max-width: 640px) {
-  .stage {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "delivery"
-      "phone"
-      "left"
-      "right";
+  .phoneScene {
+    width: min(13rem, 64vw);
+  }
+
+  .phone {
+    transform: rotateY(-12deg) rotateX(4deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .phoneProgressFill,
-  .curveLine {
+  .linkPath {
     animation: none;
   }
 }

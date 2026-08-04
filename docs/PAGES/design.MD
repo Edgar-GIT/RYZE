@@ -320,15 +320,12 @@ The Platform section is a dedicated visual moment after the hero.
 It uses:
 
 - Left column copy with headline, ecosystem description and CTA
-- Right column ecosystem composition with clear hierarchy
-- One primary device surface for today's plan
-- Secondary grouped panels for training, nutrition, recovery, progress, PRs and
-  coach feedback
-- A compact goals bar above the main device
-- Subtle supporting connectors and slow motion, without radial "mind map"
-  layouts
-- Meaningful product signals (rings, heatmaps, streaks, curves) instead of
-  generic KPI dashboards
+- Right column device composition:
+  - One almost-3D tilted phone with realistic proportions and RYZE UI inside
+  - A few glass panels emerging from the phone (This week, Nutrition, Recovery)
+  - Soft dashed connectors and slow float motion
+  - Meaningful product signals (weekly heatmap, macro rings, recovery score)
+  instead of crowded orbit layouts or generic KPI dashboards
 
 Other major sections after Platform should:
 

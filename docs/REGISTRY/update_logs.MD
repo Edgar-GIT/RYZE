@@ -1,3 +1,30 @@
+# Version 2.2.12
+
+Title: Rebuild Start Faster visual around a 3D phone
+
+Date: 2026-08-04
+
+Summary:
+
+Replaced the crowded Platform visual with a tilted almost-3D phone (realistic
+proportions and RYZE UI inside) and three emerging glass panels: This week,
+Nutrition and Recovery. Soft dashed connectors and slow float motion remain.
+
+Files modified:
+
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.tsx`
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The previous right-side composition still felt busy; the section needed a
+clearer product focal point with only the strongest supporting panels.
+
+---
+
 # Version 2.2.11
 
 Title: Enable WhatsApp community contact link
