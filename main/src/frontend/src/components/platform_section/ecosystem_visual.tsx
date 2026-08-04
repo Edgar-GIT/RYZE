@@ -4,8 +4,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
-  type MouseEvent,
   type ReactNode
 } from "react";
 import { motion, useReducedMotion } from "framer-motion";
@@ -32,15 +30,12 @@ type NodeId =
   | "pr"
   | "coach";
 
-interface OrbitNode {
+interface OrbitCard {
   id: NodeId;
-  x: number;
-  y: number;
-  rotate: number;
-  depth: number;
-  delay: number;
   label: string;
   icon: ReactNode;
+  slot: string;
+  delay: number;
 }
 
 interface LinkLine {
@@ -51,150 +46,93 @@ interface LinkLine {
   y2: number;
 }
 
-/** Card centers in % of the stage. */
-const ORBIT_NODES: OrbitNode[] = [
+const CARDS: OrbitCard[] = [
   {
     id: "goals",
-    x: 50,
-    y: 8,
-    rotate: 1,
-    depth: 16,
-    delay: 0.5,
     label: "Weekly Goals",
-    icon: <Zap aria-hidden="true" />
+    icon: <Zap aria-hidden="true" />,
+    slot: styles.slotGoals,
+    delay: 0.4
   },
   {
     id: "workout",
-    x: 14,
-    y: 24,
-    rotate: -2,
-    depth: 20,
-    delay: 0.3,
     label: "Workout Plan",
-    icon: <Activity aria-hidden="true" />
+    icon: <Activity aria-hidden="true" />,
+    slot: styles.slotWorkout,
+    delay: 0.2
   },
   {
     id: "nutrition",
-    x: 86,
-    y: 24,
-    rotate: 2,
-    depth: 20,
-    delay: 0.7,
     label: "Nutrition",
-    icon: <Flame aria-hidden="true" />
+    icon: <Flame aria-hidden="true" />,
+    slot: styles.slotNutrition,
+    delay: 0.6
   },
   {
     id: "ai",
-    x: 12,
-    y: 50,
-    rotate: -1.5,
-    depth: 18,
-    delay: 1.0,
     label: "AI Analysis",
-    icon: <Brain aria-hidden="true" />
+    icon: <Brain aria-hidden="true" />,
+    slot: styles.slotAi,
+    delay: 0.9
   },
   {
     id: "progress",
-    x: 88,
-    y: 50,
-    rotate: 1.5,
-    depth: 18,
-    delay: 0.6,
     label: "Progress",
-    icon: <Trophy aria-hidden="true" />
+    icon: <Trophy aria-hidden="true" />,
+    slot: styles.slotProgress,
+    delay: 0.5
   },
   {
     id: "recovery",
-    x: 16,
-    y: 76,
-    rotate: -2,
-    depth: 20,
-    delay: 1.2,
     label: "Recovery",
-    icon: <Moon aria-hidden="true" />
+    icon: <Moon aria-hidden="true" />,
+    slot: styles.slotRecovery,
+    delay: 1.1
   },
   {
     id: "pr",
-    x: 84,
-    y: 76,
-    rotate: 2,
-    depth: 20,
-    delay: 0.9,
     label: "Personal Records",
-    icon: <Trophy aria-hidden="true" />
+    icon: <Trophy aria-hidden="true" />,
+    slot: styles.slotPr,
+    delay: 0.8
   },
   {
     id: "coach",
-    x: 50,
-    y: 93,
-    rotate: 0,
-    depth: 14,
-    delay: 1.4,
     label: "Coach Feedback",
-    icon: <CheckCircle2 aria-hidden="true" />
+    icon: <CheckCircle2 aria-hidden="true" />,
+    slot: styles.slotCoach,
+    delay: 1.3
   }
 ];
 
-const PHONE_RADIUS_RATIO = 0.14;
-const CARD_INSET = 6;
-
 const floatTransition = (delay: number) => ({
-  duration: 6 + delay,
+  duration: 5.5 + delay,
   repeat: Infinity,
   repeatType: "mirror" as const,
   ease: "easeInOut" as const
 });
 
-const intersectRectEdge = (
-  originX: number,
-  originY: number,
-  targetX: number,
-  targetY: number,
-  left: number,
-  top: number,
-  right: number,
-  bottom: number
+const edgePoint = (
+  ox: number,
+  oy: number,
+  cx: number,
+  cy: number,
+  halfW: number,
+  halfH: number
 ) => {
-  const dx = targetX - originX;
-  const dy = targetY - originY;
-
-  if (dx === 0 && dy === 0) {
-    return { x: targetX, y: targetY };
-  }
-
-  let bestT = Number.POSITIVE_INFINITY;
-
-  if (dx !== 0) {
-    for (const edgeX of [left, right]) {
-      const t = (edgeX - originX) / dx;
-      if (t > 0.02 && t < bestT) {
-        const y = originY + t * dy;
-        if (y >= top - 0.5 && y <= bottom + 0.5) {
-          bestT = t;
-        }
-      }
-    }
-  }
-
-  if (dy !== 0) {
-    for (const edgeY of [top, bottom]) {
-      const t = (edgeY - originY) / dy;
-      if (t > 0.02 && t < bestT) {
-        const x = originX + t * dx;
-        if (x >= left - 0.5 && x <= right + 0.5) {
-          bestT = t;
-        }
-      }
-    }
-  }
-
-  if (!Number.isFinite(bestT)) {
-    return { x: targetX, y: targetY };
-  }
+  const dx = cx - ox;
+  const dy = cy - oy;
+  const distance = Math.hypot(dx, dy) || 1;
+  const nx = dx / distance;
+  const ny = dy / distance;
+  const inset = 8;
+  const tx = Math.abs(nx) < 0.001 ? Number.POSITIVE_INFINITY : (halfW - inset) / Math.abs(nx);
+  const ty = Math.abs(ny) < 0.001 ? Number.POSITIVE_INFINITY : (halfH - inset) / Math.abs(ny);
+  const t = Math.min(tx, ty);
 
   return {
-    x: originX + bestT * dx,
-    y: originY + bestT * dy
+    x: cx - nx * t,
+    y: cy - ny * t
   };
 };
 
@@ -203,80 +141,61 @@ export const EcosystemVisual = () => {
   const phoneRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Partial<Record<NodeId, HTMLElement | null>>>({});
   const reduceMotion = useReducedMotion();
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isVisible, setIsVisible] = useState(false);
   const [lines, setLines] = useState<LinkLine[]>([]);
-  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const [stageSize, setStageSize] = useState({ width: 1, height: 1 });
 
   const updateLines = useCallback(() => {
     const stage = stageRef.current;
     const phone = phoneRef.current;
 
-    if (!stage || !phone) {
+    if (!stage || !phone || window.matchMedia("(max-width: 960px)").matches) {
+      setLines([]);
       return;
     }
 
     const stageRect = stage.getBoundingClientRect();
-    const originX = stageRect.width / 2;
-    const originY = stageRect.height / 2;
-    const phoneRadius = Math.min(phone.offsetWidth, phone.offsetHeight) * PHONE_RADIUS_RATIO;
+    const phoneRect = phone.getBoundingClientRect();
+    const originX = phoneRect.left + phoneRect.width / 2 - stageRect.left;
+    const originY = phoneRect.top + phoneRect.height / 2 - stageRect.top;
+    const phoneRadius = Math.min(phoneRect.width, phoneRect.height) * 0.42;
 
     setStageSize({ width: stageRect.width, height: stageRect.height });
 
-    const nextLines: LinkLine[] = [];
+    const next: LinkLine[] = [];
 
-    for (const node of ORBIT_NODES) {
-      const card = cardRefs.current[node.id];
-      if (!card) {
+    for (const card of CARDS) {
+      const node = cardRefs.current[card.id];
+      if (!node) {
         continue;
       }
 
-      // Resting center from layout %, size from layout box (ignores float transform).
-      const targetX = (node.x / 100) * stageRect.width;
-      const targetY = (node.y / 100) * stageRect.height;
-      const halfW = card.offsetWidth / 2;
-      const halfH = card.offsetHeight / 2;
-      const distance = Math.hypot(targetX - originX, targetY - originY) || 1;
+      const rect = node.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2 - stageRect.left;
+      const cy = rect.top + rect.height / 2 - stageRect.top;
+      const distance = Math.hypot(cx - originX, cy - originY) || 1;
       const start = {
-        x: originX + ((targetX - originX) / distance) * phoneRadius,
-        y: originY + ((targetY - originY) / distance) * phoneRadius
+        x: originX + ((cx - originX) / distance) * phoneRadius,
+        y: originY + ((cy - originY) / distance) * phoneRadius
       };
-      const end = intersectRectEdge(
-        originX,
-        originY,
-        targetX,
-        targetY,
-        targetX - halfW + CARD_INSET,
-        targetY - halfH + CARD_INSET,
-        targetX + halfW - CARD_INSET,
-        targetY + halfH - CARD_INSET
-      );
+      const end = edgePoint(originX, originY, cx, cy, rect.width / 2, rect.height / 2);
 
-      nextLines.push({
-        id: node.id,
-        x1: start.x,
-        y1: start.y,
-        x2: end.x,
-        y2: end.y
-      });
+      next.push({ id: card.id, x1: start.x, y1: start.y, x2: end.x, y2: end.y });
     }
 
-    setLines(nextLines);
+    setLines(next);
   }, []);
 
   useLayoutEffect(() => {
     updateLines();
     const frame = window.requestAnimationFrame(() => updateLines());
-
     const stage = stageRef.current;
+
     if (!stage) {
       return () => window.cancelAnimationFrame(frame);
     }
 
-    const observer = new ResizeObserver(() => {
-      updateLines();
-    });
-
+    const observer = new ResizeObserver(() => updateLines());
     observer.observe(stage);
     window.addEventListener("resize", updateLines);
 
@@ -308,137 +227,80 @@ export const EcosystemVisual = () => {
     return () => observer.disconnect();
   }, [updateLines]);
 
-  const handleMouseMove = (event: MouseEvent<HTMLDivElement>) => {
-    if (reduceMotion || !stageRef.current) {
-      return;
-    }
-
-    const rect = stageRef.current.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width - 0.5;
-    const y = (event.clientY - rect.top) / rect.height - 0.5;
-    setOffset({ x, y });
-  };
-
-  const handleMouseLeave = () => {
-    setOffset({ x: 0, y: 0 });
-  };
-
-  const layer = (depth: number) =>
-    reduceMotion
-      ? undefined
-      : {
-          x: offset.x * depth * 0.3,
-          y: offset.y * depth * 0.3
-        };
-
   return (
-    <div
-      ref={stageRef}
-      className={styles.stage}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      aria-hidden="true"
-    >
+    <div ref={stageRef} className={styles.stage} aria-hidden="true">
       <div className={styles.glowCore} />
-      <div className={styles.particles}>
-        {Array.from({ length: 12 }, (_, index) => (
-          <span key={index} className={styles.particle} style={{ "--i": index } as CSSProperties} />
-        ))}
-      </div>
 
       <svg
         className={styles.links}
-        width={stageSize.width || "100%"}
-        height={stageSize.height || "100%"}
-        viewBox={`0 0 ${Math.max(stageSize.width, 1)} ${Math.max(stageSize.height, 1)}`}
+        width={stageSize.width}
+        height={stageSize.height}
+        viewBox={`0 0 ${stageSize.width} ${stageSize.height}`}
       >
         {lines.map((line) => (
           <g key={line.id}>
             <line className={styles.linkPath} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} />
-            <circle className={styles.linkDot} cx={line.x2} cy={line.y2} r="2.4" />
+            <circle className={styles.linkDot} cx={line.x2} cy={line.y2} r="2.5" />
           </g>
         ))}
       </svg>
 
-      <div className={styles.phoneAnchor}>
-        <motion.div
-          className={styles.phoneWrap}
-          animate={layer(10)}
-          transition={{ type: "spring", stiffness: 80, damping: 22 }}
-        >
-          <motion.div
-            ref={phoneRef}
-            className={styles.phone}
-            animate={reduceMotion ? undefined : { y: [0, -4, 0] }}
-            transition={floatTransition(0)}
-          >
-            <div className={styles.phoneNotch} />
-            <div className={styles.phoneScreen}>
-              <div className={styles.phoneHeader}>
-                <span>RYZE</span>
-                <em>Today</em>
-              </div>
-              <div className={styles.phoneSession}>
-                <p>Upper strength</p>
-                <strong>4 exercises · 62 min</strong>
-                <div className={styles.phoneProgress}>
-                  <span className={isVisible ? styles.phoneProgressFill : undefined} />
-                </div>
-              </div>
-              <div className={styles.phoneStats}>
-                <div>
-                  <span>Streak</span>
-                  <strong>12</strong>
-                </div>
-                <div>
-                  <span>Ready</span>
-                  <strong>86%</strong>
-                </div>
-                <div>
-                  <span>Phase</span>
-                  <strong>Build</strong>
-                </div>
-              </div>
-              <div className={styles.phoneNext}>
-                <Zap aria-hidden="true" />
-                <span>Next · Legs · tomorrow 18:00</span>
-              </div>
+      <motion.div
+        ref={phoneRef}
+        className={styles.phone}
+        animate={reduceMotion ? undefined : { y: [0, -6, 0] }}
+        transition={floatTransition(0)}
+      >
+        <div className={styles.phoneNotch} />
+        <div className={styles.phoneScreen}>
+          <div className={styles.phoneHeader}>
+            <span>RYZE</span>
+            <em>Today</em>
+          </div>
+          <div className={styles.phoneSession}>
+            <p>Upper strength</p>
+            <strong>4 exercises · 62 min</strong>
+            <div className={styles.phoneProgress}>
+              <span className={isVisible ? styles.phoneProgressFill : undefined} />
             </div>
-          </motion.div>
-        </motion.div>
-      </div>
-
-      {ORBIT_NODES.map((node) => (
-        <div
-          key={node.id}
-          className={styles.cardAnchor}
-          style={{ left: `${node.x}%`, top: `${node.y}%` }}
-        >
-          <motion.div
-            className={styles.cardParallax}
-            animate={layer(node.depth)}
-            transition={{ type: "spring", stiffness: 70, damping: 22 }}
-          >
-            <motion.article
-              ref={(element) => {
-                cardRefs.current[node.id] = element;
-              }}
-              className={`${styles.card} ${styles[`card_${node.id}`]}`}
-              animate={
-                reduceMotion
-                  ? undefined
-                  : { y: [0, -3, 0], rotate: [node.rotate, node.rotate + 0.6, node.rotate] }
-              }
-              transition={floatTransition(node.delay)}
-            >
-              <header>
-                {node.icon}
-                <span>{node.label}</span>
-              </header>
-              <NodeBody id={node.id} isVisible={isVisible} />
-            </motion.article>
-          </motion.div>
+          </div>
+          <div className={styles.phoneStats}>
+            <div>
+              <span>Streak</span>
+              <strong>12</strong>
+            </div>
+            <div>
+              <span>Ready</span>
+              <strong>86%</strong>
+            </div>
+            <div>
+              <span>Phase</span>
+              <strong>Build</strong>
+            </div>
+          </div>
+          <div className={styles.phoneNext}>
+            <Zap aria-hidden="true" />
+            <span>Next · Legs · tomorrow 18:00</span>
+          </div>
         </div>
+      </motion.div>
+
+      {CARDS.map((card) => (
+        <motion.article
+          key={card.id}
+          ref={(element) => {
+            cardRefs.current[card.id] = element;
+          }}
+          className={`${styles.card} ${card.slot}`}
+          animate={reduceMotion ? undefined : { y: [0, -5, 0] }}
+          transition={floatTransition(card.delay)}
+        >
+          <header>
+            {card.icon}
+            <span>{card.label}</span>
+          </header>
+          <NodeBody id={card.id} isVisible={isVisible} />
+        </motion.article>
       ))}
     </div>
   );

@@ -1,9 +1,19 @@
 .stage {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
+  grid-template-rows: auto auto auto auto;
+  grid-template-areas:
+    ". goals ."
+    "workout phone nutrition"
+    "ai phone progress"
+    "recovery coach pr";
+  gap: 0.85rem 1rem;
+  align-items: center;
+  justify-items: stretch;
   width: 100%;
-  min-height: 620px;
-  aspect-ratio: 1.12 / 1;
-  max-height: 680px;
+  min-height: 580px;
+  padding: 0.5rem 0;
   isolation: isolate;
 }
 
@@ -11,49 +21,28 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 16rem;
-  height: 16rem;
+  z-index: 0;
+  width: 15rem;
+  height: 15rem;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(31, 203, 255, 0.26), transparent 68%);
-  filter: blur(28px);
+  background: radial-gradient(circle, rgba(31, 203, 255, 0.24), transparent 70%);
+  filter: blur(30px);
   transform: translate(-50%, -50%);
   animation: corePulse 8s ease-in-out infinite;
   pointer-events: none;
 }
 
-.particles {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.particle {
-  --i: 0;
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: rgba(50, 215, 255, 0.65);
-  box-shadow: 0 0 10px rgba(31, 203, 255, 0.55);
-  left: calc(8% + (var(--i) * 7%));
-  top: calc(14% + (var(--i) * 5.5%));
-  animation: particleDrift calc(10s + var(--i) * 0.35s) ease-in-out infinite alternate;
-  opacity: 0.4;
-}
-
 .links {
   position: absolute;
   inset: 0;
+  z-index: 1;
   width: 100%;
   height: 100%;
-  overflow: visible;
   pointer-events: none;
-  z-index: 2;
 }
 
 .linkPath {
-  stroke: rgba(31, 203, 255, 0.42);
+  stroke: rgba(31, 203, 255, 0.4);
   stroke-width: 1.4;
   stroke-linecap: round;
   stroke-dasharray: 4 6;
@@ -62,33 +51,23 @@
 
 .linkDot {
   fill: #32d7ff;
-  filter: drop-shadow(0 0 4px rgba(31, 203, 255, 0.8));
-}
-
-.phoneAnchor {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 5;
-  transform: translate(-50%, -50%);
-}
-
-.phoneWrap {
-  display: block;
+  filter: drop-shadow(0 0 4px rgba(31, 203, 255, 0.85));
 }
 
 .phone {
-  width: min(200px, 34%);
-  min-width: 168px;
-  padding: 0.5rem;
+  grid-area: phone;
+  z-index: 5;
+  width: 200px;
+  justify-self: center;
+  padding: 0.55rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 26px;
+  border-radius: 28px;
   background:
     linear-gradient(160deg, rgba(31, 203, 255, 0.12), transparent 40%),
-    rgba(10, 14, 22, 0.94);
+    rgba(10, 14, 22, 0.96);
   box-shadow:
-    0 30px 80px rgba(8, 20, 40, 0.55),
-    0 0 48px rgba(31, 203, 255, 0.14),
+    0 28px 70px rgba(8, 20, 40, 0.55),
+    0 0 44px rgba(31, 203, 255, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(18px);
 }
@@ -104,9 +83,9 @@
 .phoneScreen {
   display: grid;
   gap: 0.65rem;
-  padding: 0.5rem 0.5rem 0.6rem;
-  border-radius: 18px;
-  background: rgba(7, 10, 15, 0.72);
+  padding: 0.55rem;
+  border-radius: 20px;
+  background: rgba(7, 10, 15, 0.75);
 }
 
 .phoneHeader {
@@ -153,7 +132,7 @@
 }
 
 .phoneSession strong {
-  font-size: 0.86rem;
+  font-size: 0.88rem;
 }
 
 .phoneProgress {
@@ -176,14 +155,15 @@
 
 .phoneStats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.3rem;
 }
 
 .phoneStats div {
   display: grid;
   gap: 0.12rem;
-  padding: 0.4rem 0.28rem;
+  min-width: 0;
+  padding: 0.4rem 0.25rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.03);
@@ -198,6 +178,7 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
   padding: 0.45rem 0.5rem;
   border-radius: 9px;
   color: #b8c3d1;
@@ -212,79 +193,99 @@
   flex: 0 0 auto;
 }
 
-.cardAnchor {
-  position: absolute;
-  z-index: 4;
-  width: 0;
-  height: 0;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.cardParallax {
-  display: block;
+.phoneNext span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card {
+  position: relative;
+  z-index: 4;
   display: grid;
   gap: 0.5rem;
-  width: 156px;
-  max-width: 100%;
-  padding: 0.7rem 0.75rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.75rem 0.8rem;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
   background:
     linear-gradient(160deg, rgba(31, 203, 255, 0.1), transparent 42%),
-    rgba(16, 23, 34, 0.9);
+    rgba(16, 23, 34, 0.92);
   box-shadow:
-    0 16px 40px rgba(8, 20, 40, 0.42),
+    0 16px 40px rgba(8, 20, 40, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(16px);
   box-sizing: border-box;
 }
 
-.card_workout,
-.card_recovery,
-.card_ai {
-  width: 172px;
+.slotGoals {
+  grid-area: goals;
+  width: min(100%, 180px);
+  justify-self: center;
 }
 
-.card_goals,
-.card_pr {
-  width: 150px;
+.slotWorkout {
+  grid-area: workout;
 }
 
-.card_coach {
-  width: 184px;
+.slotNutrition {
+  grid-area: nutrition;
 }
 
-.card_progress {
-  width: 160px;
+.slotAi {
+  grid-area: ai;
+}
+
+.slotProgress {
+  grid-area: progress;
+}
+
+.slotRecovery {
+  grid-area: recovery;
+}
+
+.slotPr {
+  grid-area: pr;
+}
+
+.slotCoach {
+  grid-area: coach;
+  width: min(100%, 200px);
+  justify-self: center;
 }
 
 .card header {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  min-width: 0;
 }
 
 .card header svg {
-  width: 0.85rem;
-  height: 0.85rem;
+  width: 0.9rem;
+  height: 0.9rem;
   color: #1fcbff;
+  flex: 0 0 auto;
+}
+
+.card header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card p {
   margin: 0;
   color: #b8c3d1;
-  font-size: 0.72rem;
-  line-height: 1.4;
+  font-size: 0.74rem;
+  line-height: 1.45;
 }
 
 .heatmap {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.22rem;
 }
 
@@ -292,6 +293,7 @@
   display: grid;
   gap: 0.15rem;
   justify-items: center;
+  min-width: 0;
 }
 
 .heatCell span {
@@ -323,13 +325,14 @@
 .macroRow {
   display: flex;
   justify-content: space-between;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .macroRing {
   position: relative;
-  width: 2.15rem;
-  height: 2.15rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: 0 0 auto;
 }
 
 .macroRing svg,
@@ -338,10 +341,6 @@
   height: 100%;
   overflow: visible;
   transform: rotate(-90deg);
-}
-
-.scoreRing .ringTrack {
-  stroke-width: 5;
 }
 
 .ringTrack {
@@ -388,10 +387,15 @@
   animation: drawLine 1.6s ease forwards;
 }
 
-.card_progress strong,
-.card_goals strong,
-.card_pr strong {
-  font-size: 0.78rem;
+.card strong {
+  font-size: 0.8rem;
+}
+
+.recoveryBody {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
 .scoreRing {
@@ -399,6 +403,10 @@
   width: 2.75rem;
   height: 2.75rem;
   flex: 0 0 auto;
+}
+
+.scoreRing .ringTrack {
+  stroke-width: 5;
 }
 
 .scoreValue {
@@ -415,13 +423,6 @@
   display: grid;
   place-items: center;
   font-size: 0.8rem;
-}
-
-.recoveryBody {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
 }
 
 .recoveryBody ul {
@@ -448,7 +449,7 @@
   white-space: nowrap;
 }
 
-.recoveryBody svg {
+.recoveryBody li > svg {
   width: 0.72rem;
   height: 0.72rem;
   color: #1fcbff;
@@ -469,7 +470,7 @@
   text-transform: uppercase;
 }
 
-.card_coach em {
+.slotCoach em {
   color: #32d7ff;
   font-style: normal;
   font-weight: 700;
@@ -501,25 +502,13 @@
 
   50% {
     opacity: 0.9;
-    transform: translate(-50%, -50%) scale(1.1);
-  }
-}
-
-@keyframes particleDrift {
-  from {
-    transform: translate3d(0, 0, 0);
-    opacity: 0.25;
-  }
-
-  to {
-    transform: translate3d(6px, -12px, 0);
-    opacity: 0.65;
+    transform: translate(-50%, -50%) scale(1.08);
   }
 }
 
 @keyframes linkFlow {
   to {
-    stroke-dashoffset: -12;
+    stroke-dashoffset: -16;
   }
 }
 
@@ -540,82 +529,63 @@
 }
 
 @media (max-width: 1100px) {
-  .card {
-    width: 142px;
-  }
-
-  .card_workout,
-  .card_recovery,
-  .card_ai,
-  .card_coach {
-    width: 150px;
+  .stage {
+    gap: 0.7rem 0.75rem;
+    min-height: 540px;
   }
 
   .phone {
-    min-width: 150px;
+    width: 180px;
   }
 }
 
 @media (max-width: 960px) {
   .stage {
-    min-height: 0;
-    aspect-ratio: auto;
-    max-height: none;
-    display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "phone phone"
+      "goals goals"
+      "workout nutrition"
+      "ai progress"
+      "recovery pr"
+      "coach coach";
     gap: 0.7rem;
-    padding-bottom: 0.25rem;
+    min-height: 0;
   }
 
-  .glowCore {
-    top: 12%;
-    width: 12rem;
-    height: 12rem;
-  }
-
-  .links,
-  .particles {
+  .links {
     display: none;
   }
 
-  .phoneAnchor {
-    position: relative;
-    top: auto;
-    left: auto;
-    transform: none;
-    justify-self: center;
-    grid-column: 1 / -1;
-    margin-bottom: 0.35rem;
-  }
-
   .phone {
-    width: min(220px, 68vw);
-    min-width: 0;
+    width: min(220px, 70vw);
   }
 
-  .cardAnchor {
-    position: relative;
-    left: auto !important;
-    top: auto !important;
-    width: auto;
-    height: auto;
-    transform: none;
-  }
-
-  .card {
-    width: 100% !important;
+  .slotGoals,
+  .slotCoach {
+    width: 100%;
   }
 }
 
 @media (max-width: 560px) {
   .stage {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "phone"
+      "goals"
+      "workout"
+      "nutrition"
+      "ai"
+      "progress"
+      "recovery"
+      "pr"
+      "coach";
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .glowCore,
-  .particle,
   .linkPath,
   .phoneProgressFill,
   .goalFill,
