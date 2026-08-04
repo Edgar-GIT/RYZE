@@ -182,7 +182,7 @@ Defines the complete visual identity of the platform.
 
 Includes topics such as:
 
-- Color palette
+- Color palette (Hero section is the source of truth)
 - Typography
 - Layout
 - Components
@@ -192,6 +192,9 @@ Includes topics such as:
 - Loading screens
 - Responsive behavior
 - Accessibility
+
+Whenever UI or visual identity changes, update `docs/PAGES/design.MD` and keep
+`main/src/frontend/src/styles/global.css` tokens synchronized.
 - Visual consistency
 
 Every frontend implementation must remain consistent with this document.

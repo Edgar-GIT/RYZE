@@ -1,3 +1,34 @@
+# Version 2.2.17
+
+Title: Unify global palette to Hero design system
+
+Date: 2026-08-04
+
+Summary:
+
+Replaced the legacy teal/blue-grey token set with the Hero-derived futuristic
+palette across global CSS and shared UI surfaces. Updated design documentation
+as the new visual source of truth. Footer styling was intentionally preserved.
+
+Files modified:
+
+- `main/src/frontend/src/styles/global.css`
+- `main/src/frontend/src/components/button/button.module.css`
+- `main/src/frontend/src/components/navbar/navbar.module.css`
+- `main/src/frontend/src/components/section_wrapper/section_wrapper.module.css`
+- Multiple component/page CSS modules (palette sync)
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/procedure.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The Hero already defined the premium futuristic identity, but later sections
+still used the old palette and broke visual continuity.
+
+---
+
 # Version 2.2.16
 
 Title: Rebuild Start Faster around phone atmosphere + page reveals

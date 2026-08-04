@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.6
+Version: 2.2.17
 
 ---
 
@@ -19,11 +19,15 @@ The platform should always feel:
 - High contrast
 - Technology-first
 - Clean
-- Apple + Linear + Vercel quality
+- Apple Vision Pro + Nothing + Raycast + Linear + Vercel quality
 
 This is not a generic fitness website aesthetic.
 
 It is a dark technology product interface with athletic purpose.
+
+The Hero section is the single visual source of truth for the entire website.
+Every other page and section must match that language — never the other way
+around.
 
 ---
 
@@ -31,8 +35,8 @@ It is a dark technology product interface with athletic purpose.
 
 The RYZE brand represents progress, discipline and innovation.
 
-Its visual identity combines near-black blue-tinted surfaces, electric cyan
-accents and dark glass panels.
+Its visual identity combines near-black surfaces, electric cyan accents and
+dark glass panels with soft ambient blue glow.
 
 The logo should always be used consistently across the platform.
 
@@ -40,65 +44,71 @@ The logo should always be used consistently across the platform.
 
 # Color Palette
 
-Primary Background
+Official palette. Do not invent alternate blues, teals or greys.
 
-- `#070A0F`
-- `#090D14`
-- `#0B1018`
+Background
 
-Secondary Surfaces / Cards
-
-- `#101722`
-- `#111B27`
-- `#162130`
-
-Cards should be only slightly brighter than the page.
-
-Avoid grey backgrounds.
-
-Everything should keep a subtle blue atmosphere.
+- Primary Background: `#05070C`
+- Secondary Background: `#0A1018`
+- Surface: `#111827`
+- Elevated Surface: `#161F2D`
+- Navbar: `rgba(8, 12, 18, 0.78)` with `backdrop-filter: blur(20px)`
 
 Primary Accent
 
-- `#1FCBFF`
-- `#2EBEFF`
-- `#27B6FF`
-- `#00C8FF`
+- Electric Cyan: `#2ED8FF`
+- Bright Blue: `#1FA8FF`
 
-Accent Gradient
+Accent Gradient (primary CTAs)
 
-- `#32D7FF` → `#1E8CFF`
+- `#39E3FF` → `#1A7BFF`
+
+Glow
+
+- Blue Glow: `rgba(46, 216, 255, 0.45)`
+- Soft Glow: `rgba(46, 216, 255, 0.15)`
+- Hover Glow: `rgba(46, 216, 255, 0.25)`
 
 Text
 
-- Primary: `#FFFFFF`
-- Secondary: `#B8C3D1`
-- Muted: `#8794A8`
+- Primary: `#F4F7FB`
+- Secondary: `#A4B1C5`
+- Muted: `#6D7B91`
+- Disabled: `#465264`
 
 Borders
 
-- `rgba(255, 255, 255, 0.08)`
+- Default: `rgba(255, 255, 255, 0.08)`
+- Hover: `rgba(46, 216, 255, 0.35)`
+- Focused: `#2ED8FF`
 
-Hover
+CSS custom properties in `main/src/frontend/src/styles/global.css` are the
+runtime source of truth for these tokens.
 
-- Increase brightness
-- Soft cyan glow on interactive elements only
+Never use:
 
-Never use saturated colors other than the blue / cyan accent.
+- Old teal / green-blue accents
+- Rainbow graph colors
+- Hard grey cardboard surfaces
+- Harsh black-only shadows without ambient cyan glow
+
+Icons may use white, muted grey or electric cyan only (except official third-
+party brand marks such as Gmail / Instagram / WhatsApp).
 
 ---
 
 # Visual Style
 
-- Darker overall surfaces
+- Darker overall surfaces aligned with the Hero
 - Living atmospheric background (soft cyan nebulae, vignette, subtle motion)
 - Sections use translucent washes so atmosphere shows through
-- Soft cyan glows only around interactive elements and ambient washes
-- Premium lighting on buttons
-- Cards as dark glass panels
-- Blue-tinted shadows instead of flat black shadows
+- Soft cyan glows around interactive elements and ambient washes
+- Premium lighting on buttons via the accent gradient
+- Cards as dark glass panels with shared surface tokens
+- Soft ambient blue glows instead of harsh black shadows
 - Spacing defines sections more than hard separators
 - Never use a flat, static single-color page fill
+- Section transitions must feel seamless — no obvious palette jumps
 
 ---
 
@@ -162,7 +172,7 @@ performance.
 
 Primary
 
-- Cyan / blue gradient (`#32D7FF` → `#1E8CFF`)
+- Cyan / blue gradient (`#39E3FF` → `#1A7BFF`)
 - Soft cyan glow
 - High contrast text
 
@@ -222,8 +232,8 @@ Secondary
 
 Alternate between:
 
-- Very dark background (`#070A0F` / `#090D14`)
-- Slightly lighter surface (`#0B1018` / `#101722`)
+- Very dark background (`#05070C` / `#0A1018`)
+- Slightly lighter surface (`#111827` / `#161F2D`)
 
 Use soft radial cyan washes for atmosphere.
 
