@@ -1,3 +1,30 @@
+# Version 2.2.13
+
+Title: Rebalance Start Faster phone and floating cards
+
+Date: 2026-08-04
+
+Summary:
+
+Increased the phone `rotateY` to `-30deg`, moved Nutrition to the lower-left of
+the device, kept This week and Recovery on the right, and removed all connector
+lines. Mobile stacks or hides the cards so they never overlay the phone.
+
+Files modified:
+
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.tsx`
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The visual needed a stronger 3D phone angle and more balanced card weight on
+both sides of the device, without connector lines.
+
+---
+
 # Version 2.2.12
 
 Title: Rebuild Start Faster visual around a 3D phone

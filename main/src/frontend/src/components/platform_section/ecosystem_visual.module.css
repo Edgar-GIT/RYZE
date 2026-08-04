@@ -12,7 +12,7 @@
 .glowCore {
   position: absolute;
   top: 42%;
-  left: 42%;
+  left: 50%;
   z-index: 0;
   width: 18rem;
   height: 18rem;
@@ -26,7 +26,7 @@
 .glowFloor {
   position: absolute;
   bottom: 8%;
-  left: 40%;
+  left: 50%;
   z-index: 0;
   width: 14rem;
   height: 3.5rem;
@@ -35,10 +35,6 @@
   filter: blur(18px);
   pointer-events: none;
   transform: translateX(-50%);
-}
-
-.links {
-  display: none;
 }
 
 .phoneScene {
@@ -688,12 +684,6 @@
 
   to {
     transform: scaleX(1);
-  }
-}
-
-@keyframes linkFlow {
-  to {
-    stroke-dashoffset: -48;
   }
 }
 

@@ -321,11 +321,16 @@ It uses:
 
 - Left column copy with headline, ecosystem description and CTA
 - Right column device composition:
-  - One almost-3D tilted phone with realistic proportions and RYZE UI inside
-  - A few glass panels emerging from the phone (This week, Nutrition, Recovery)
-  - Soft dashed connectors and slow float motion
+  - One almost-3D tilted phone (`rotateY(-30deg)`) with realistic proportions and
+    RYZE UI inside
+  - Exactly three floating glass panels, no connector lines:
+    - Nutrition on the left (lower, mid/bottom of the phone)
+    - This week on the upper right
+    - Recovery on the lower right
+  - Slow float motion only
+  - On mobile, panels stack under the phone or hide; they never overlay the device
   - Meaningful product signals (weekly heatmap, macro rings, recovery score)
-  instead of crowded orbit layouts or generic KPI dashboards
+    instead of crowded orbit layouts or generic KPI dashboards
 
 Other major sections after Platform should:
 
