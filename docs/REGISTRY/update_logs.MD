@@ -1,3 +1,32 @@
+# Version 2.2.24
+
+Title: Rebuild Nutrition section with accent copy, badges and glass card
+
+Date: 2026-08-04
+
+Summary:
+
+Replaced the Nutrition showcase/demo with a dedicated section: left copy with
+accent highlight and vertical feature badges (Training-style), right glass
+nutrition card matching the attached kcal/macros/recommendation design, plus
+reveal and float animations.
+
+Files modified:
+
+- `main/src/frontend/src/components/nutrition_section/nutrition_section.tsx`
+- `main/src/frontend/src/components/nutrition_section/nutrition_section.module.css`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Nutrition needed the same richer left-column treatment as Training and a card
+matching the provided reference.
+
+---
+
 # Version 2.2.23
 
 Title: Rebuild Training section with background artwork and feature badges

@@ -1,0 +1,437 @@
+.section {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 7rem 0 5.5rem;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.nebula {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 48% 55% at 18% 48%, rgba(24, 216, 255, 0.14), transparent 60%),
+    radial-gradient(ellipse 40% 45% at 78% 62%, rgba(42, 140, 255, 0.08), transparent 58%),
+    linear-gradient(180deg, var(--bg-primary), #070b12 50%, var(--bg-primary));
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  background-image:
+    linear-gradient(rgba(24, 216, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(24, 216, 255, 0.1) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 65% at 70% 50%, #000 15%, transparent 78%);
+}
+
+.stars {
+  position: absolute;
+  inset: 0;
+}
+
+.stars span {
+  position: absolute;
+  width: 1.5px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  opacity: 0.28;
+  top: calc(10% + (var(--i) * 4.6%));
+  left: calc(12% + (var(--i) * 5%));
+  box-shadow: 0 0 6px rgba(24, 216, 255, 0.35);
+  animation: starTwinkle 7s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.18s);
+}
+
+.layout {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+  width: 100%;
+}
+
+.copy {
+  display: grid;
+  gap: 1.35rem;
+  justify-items: start;
+  max-width: 28rem;
+  margin-left: clamp(1.25rem, 5vw, 4.5rem);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.copy h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(2.3rem, 5vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.accentPhrase {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 28px rgba(24, 216, 255, 0.2);
+}
+
+.description {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 1.02rem;
+  line-height: 1.7;
+  max-width: 34ch;
+}
+
+.features {
+  display: grid;
+  gap: 1.05rem;
+  width: 100%;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.95rem;
+  align-items: center;
+}
+
+.featureIcon {
+  display: grid;
+  place-items: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.85rem;
+  color: var(--accent);
+  background:
+    linear-gradient(160deg, rgba(24, 216, 255, 0.1), transparent 55%),
+    rgba(20, 31, 45, 0.72);
+  box-shadow: 0 0 18px rgba(24, 216, 255, 0.08);
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.feature:hover .featureIcon {
+  transform: translateY(-2px);
+  border-color: rgba(24, 216, 255, 0.35);
+  box-shadow: 0 0 24px rgba(24, 216, 255, 0.18);
+}
+
+.featureIcon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.featureCopy {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.featureCopy strong {
+  color: var(--text-primary);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.featureCopy span {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.visual {
+  min-width: 0;
+  width: 100%;
+  display: grid;
+  justify-items: center;
+}
+
+.card {
+  width: min(100%, 34rem);
+  display: grid;
+  gap: 1.15rem;
+  padding: 1.2rem 1.25rem 1.2rem;
+  border: 1px solid rgba(24, 216, 255, 0.35);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(160deg, rgba(24, 216, 255, 0.08), transparent 42%),
+    rgba(12, 18, 28, 0.78);
+  box-shadow:
+    0 28px 70px rgba(5, 7, 11, 0.45),
+    0 0 40px rgba(24, 216, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px);
+}
+
+.cardHeader {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.cardHeader svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--accent);
+}
+
+.cardBody {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.35rem;
+  align-items: center;
+}
+
+.calorieRing {
+  position: relative;
+  width: 9.2rem;
+  height: 9.2rem;
+}
+
+.calorieRing svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ringTrack,
+.ringValue {
+  fill: none;
+  stroke-width: 10;
+}
+
+.ringTrack {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.ringValue {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 302;
+  stroke-dashoffset: 72;
+  filter: drop-shadow(0 0 8px rgba(24, 216, 255, 0.55));
+  animation: ringDraw 1.4s ease forwards;
+}
+
+.ringLabel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 0.1rem;
+  text-align: center;
+}
+
+.ringLabel strong {
+  color: var(--text-primary);
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.ringLabel span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.macroList {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.macroRow {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.macroMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.macroMeta span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.macroMeta strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.macroMeta em {
+  color: var(--text-muted);
+  font-style: normal;
+  font-weight: 650;
+}
+
+.progressTrack {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-gradient);
+  box-shadow: 0 0 12px rgba(24, 216, 255, 0.45);
+  transform-origin: left center;
+  animation: barGrow 1.2s ease forwards;
+}
+
+.recommendation {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.85rem;
+  background: rgba(5, 7, 11, 0.45);
+}
+
+.recommendation span {
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.recommendation p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+@media (min-width: 961px) {
+  .layout {
+    grid-template-columns: minmax(0, 0.46fr) minmax(0, 0.54fr);
+    gap: 2rem 2.5rem;
+  }
+
+  .visual {
+    justify-items: end;
+    padding-right: 0.5rem;
+  }
+}
+
+@media (max-width: 960px) {
+  .section {
+    min-height: 0;
+    padding: 5rem 0 4.5rem;
+  }
+
+  .copy {
+    max-width: none;
+    margin-left: 0.5rem;
+  }
+
+  .copy h2 {
+    font-size: clamp(2.1rem, 8vw, 3rem);
+  }
+
+  .cardBody {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .macroList {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .copy {
+    margin-left: 0;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+}
+
+@keyframes starTwinkle {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes ringDraw {
+  from {
+    stroke-dashoffset: 302;
+  }
+
+  to {
+    stroke-dashoffset: 72;
+  }
+}
+
+@keyframes barGrow {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stars span,
+  .ringValue,
+  .progressFill,
+  .feature:hover .featureIcon {
+    animation: none;
+    transform: none;
+  }
+}

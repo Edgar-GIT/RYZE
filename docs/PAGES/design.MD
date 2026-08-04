@@ -370,6 +370,14 @@ The Training section uses:
 - Vertical feature badges (icon tile + title + subtitle)
 - Reveal animations on copy and badges
 
+The Nutrition section uses:
+
+- Atmospheric dark background (nebula / faint grid / particles)
+- Left copy matching Training hierarchy with accent on `plan.`
+- Vertical nutrition feature badges
+- Right column: glass nutrition card (kcal ring, macros, recommendation)
+- Reveal + subtle floating card motion
+
 Preferred demo surfaces for remaining showcase sections include:
 
 - Weekly activity charts
