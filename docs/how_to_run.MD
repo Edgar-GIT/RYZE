@@ -165,9 +165,11 @@ Available frontend routes:
 - `/`
 - `/services`
 - `/contact`
+- `/our-vision`
 - `/feedback`
-- `/about-us`
 - `/profile`
+
+`/about-us` redirects to `/our-vision`.
 
 Routes that are not fully implemented yet display a professional under
 development screen instead of a blank page or browser error.

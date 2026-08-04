@@ -1,3 +1,60 @@
+# Version 2.2.15
+
+Title: Replace About Us with Our Vision page
+
+Date: 2026-08-04
+
+Summary:
+
+Replaced the About Us placeholder with a premium `/our-vision` page focused on
+platform vision, mission, roadmap and technology. Updated navigation/footer
+labels, redirected `/about-us`, and synchronized design/project/run docs.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/**` (new)
+- `main/src/frontend/src/routes/app_routes.tsx`
+- `main/src/frontend/src/constants/navigation.ts`
+- `main/src/frontend/src/components/footer/footer.tsx`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/project.MD`
+- `docs/how_to_run.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The old About Us framing no longer matched RYZE as a technology company
+reinventing fitness; the public page needed to sell vision, not founders.
+
+---
+
+# Version 2.2.14
+
+Title: Fix Start Faster card orbit layout around tilted phone
+
+Date: 2026-08-04
+
+Summary:
+
+Rebuilt the Platform visual composition as a 3-column CSS grid so Nutrition,
+This week and Recovery stay anchored beside the phone instead of drifting with
+absolute edge positioning. Increased phone tilt to `rotateY(-40deg)`.
+
+Files modified:
+
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Absolute left/right card placement made the panels look scattered and poorly
+aligned relative to the centered phone.
+
+---
+
 # Version 2.2.13
 
 Title: Rebalance Start Faster phone and floating cards

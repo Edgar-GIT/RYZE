@@ -28,9 +28,15 @@ By combining technology, automation and fitness knowledge, the platform reduces 
 
 # Vision
 
-The long-term vision is to become a modern fitness ecosystem where users can easily discover, purchase and follow high-quality training and nutrition plans while certified trainers can publish and manage their own content.
+The long-term vision is to become a modern fitness ecosystem where users can
+easily discover, purchase and follow high-quality training and nutrition plans
+while certified trainers can publish and manage their own content.
 
-Artificial Intelligence will progressively automate repetitive tasks, allowing trainers to focus on quality rather than manual work.
+Artificial Intelligence will progressively automate repetitive tasks, allowing
+trainers to focus on quality rather than manual work.
+
+The public `/our-vision` page communicates this direction as a technology-first
+vision surface focused on the platform and roadmap, not founder biographies.
 
 ---
 

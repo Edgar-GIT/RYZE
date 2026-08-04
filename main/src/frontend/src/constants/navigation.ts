@@ -17,7 +17,7 @@ export const PUBLIC_NAVIGATION_ITEMS: NavigationItem[] = [
     to: "/feedback"
   },
   {
-    label: "About Us",
-    to: "/about-us"
+    label: "Our Vision",
+    to: "/our-vision"
   }
 ];

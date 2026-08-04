@@ -1,10 +1,14 @@
 .stage {
   position: relative;
   display: grid;
-  place-items: center;
+  grid-template-columns: minmax(11rem, 1fr) auto minmax(12rem, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 1.1rem;
+  row-gap: 1rem;
   width: 100%;
   min-height: 34rem;
-  padding: 1rem 0.5rem 1.5rem;
+  padding: 0.75rem 0.25rem 1.25rem;
   isolation: isolate;
   overflow: visible;
 }
@@ -40,7 +44,11 @@
 .phoneScene {
   position: relative;
   z-index: 4;
-  width: 15.5rem;
+  grid-column: 2;
+  grid-row: 1 / -1;
+  width: 15.75rem;
+  justify-self: center;
+  align-self: center;
   perspective: 1400px;
   transform-style: preserve-3d;
 }
@@ -49,7 +57,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 9 / 19.2;
-  transform: rotateY(-30deg) rotateX(8deg) rotateZ(-4deg);
+  transform: rotateY(-40deg) rotateX(8deg) rotateZ(-4deg);
   transform-style: preserve-3d;
 }
 
@@ -74,15 +82,15 @@
 
 .phoneSide {
   position: absolute;
-  top: 3%;
-  right: -0.55rem;
+  top: 2.5%;
+  right: -0.72rem;
   z-index: 1;
-  width: 0.7rem;
-  height: 94%;
+  width: 0.85rem;
+  height: 95%;
   border-radius: 0 1.2rem 1.2rem 0;
   background: linear-gradient(180deg, #1a2434, #0b111a);
   box-shadow: 4px 10px 24px rgba(4, 12, 26, 0.35);
-  transform: skewY(-8deg);
+  transform: skewY(-10deg);
 }
 
 .phoneShadow {
@@ -443,11 +451,11 @@
 }
 
 .card {
-  position: absolute;
+  position: relative;
   z-index: 5;
   display: grid;
   gap: 0.55rem;
-  width: min(15.5rem, 72%);
+  width: 100%;
   padding: 0.85rem 0.9rem;
   border: var(--border-subtle);
   border-radius: 16px;
@@ -461,21 +469,30 @@
 }
 
 .cardWeek {
-  top: 3%;
-  right: 0;
-  width: min(16.5rem, 42%);
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  justify-self: start;
+  max-width: 16rem;
+  margin-top: 0.5rem;
 }
 
 .cardNutrition {
-  left: 0;
-  bottom: 10%;
-  width: min(13.5rem, 36%);
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
+  justify-self: end;
+  max-width: 13.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .cardRecovery {
-  right: 0;
-  bottom: 4%;
-  width: min(15rem, 40%);
+  grid-column: 3;
+  grid-row: 2;
+  align-self: end;
+  justify-self: start;
+  max-width: 14.75rem;
+  margin-bottom: 0.35rem;
 }
 
 .card header {
@@ -689,47 +706,34 @@
 
 @media (min-width: 961px) {
   .stage {
-    min-height: 36rem;
-    place-items: center;
-    padding: 0.5rem 0 1rem;
+    min-height: 38rem;
+    padding: 0.35rem 0 1rem;
   }
 
   .phoneScene {
-    margin: 0 auto;
-    width: 16.25rem;
+    width: 16.5rem;
   }
 
   .cardWeek {
-    top: 2%;
-    right: 0;
-    left: auto;
-    max-width: 16.5rem;
+    max-width: 16.25rem;
   }
 
   .cardNutrition {
-    top: auto;
-    right: auto;
-    left: 0;
-    bottom: 8%;
-    max-width: 13.75rem;
+    max-width: 13.5rem;
   }
 
   .cardRecovery {
-    top: auto;
-    right: 0;
-    left: auto;
-    bottom: 2%;
-    max-width: 15.25rem;
+    max-width: 15rem;
   }
 }
 
 @media (max-width: 960px) {
   .stage {
     min-height: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
     gap: 0.9rem;
     padding: 0.25rem 0 0.5rem;
-    display: grid;
-    grid-template-columns: 1fr;
     justify-items: center;
   }
 
@@ -738,32 +742,30 @@
   }
 
   .phoneScene {
+    grid-column: auto;
+    grid-row: auto;
     width: min(14rem, 58vw);
     margin: 0.5rem auto 0.25rem;
     order: 1;
   }
 
   .phone {
-    transform: rotateY(-22deg) rotateX(6deg) rotateZ(-2deg);
+    transform: rotateY(-28deg) rotateX(6deg) rotateZ(-2deg);
   }
 
   .card {
-    position: relative;
-    top: auto;
-    right: auto;
-    left: auto;
-    bottom: auto;
     width: min(22rem, 100%);
+    max-width: none;
+    margin: 0;
   }
 
   .cardWeek,
   .cardNutrition,
   .cardRecovery {
-    top: auto;
-    right: auto;
-    left: auto;
-    bottom: auto;
-    width: min(22rem, 100%);
+    grid-column: auto;
+    grid-row: auto;
+    justify-self: stretch;
+    align-self: stretch;
     order: 2;
   }
 }
@@ -774,7 +776,7 @@
   }
 
   .phone {
-    transform: rotateY(-18deg) rotateX(4deg) rotateZ(-2deg);
+    transform: rotateY(-24deg) rotateX(4deg) rotateZ(-2deg);
   }
 
   .cardWeek,

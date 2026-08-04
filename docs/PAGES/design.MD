@@ -253,7 +253,7 @@ The public navigation bar contains:
 - Services
 - Contact
 - Feedback
-- About Us
+- Our Vision
 - Profile
 
 The logo always redirects to the Home page.
@@ -321,7 +321,7 @@ It uses:
 
 - Left column copy with headline, ecosystem description and CTA
 - Right column device composition:
-  - One almost-3D tilted phone (`rotateY(-30deg)`) with realistic proportions and
+  - One almost-3D tilted phone (`rotateY(-40deg)`) with realistic proportions and
     RYZE UI inside
   - Exactly three floating glass panels, no connector lines:
     - Nutrition on the left (lower, mid/bottom of the phone)
@@ -475,14 +475,36 @@ The Home page must not duplicate the full Contact page. It uses a compact
 
 ---
 
-## About Us
+## Our Vision
 
-Explains:
+Route: `/our-vision`
 
-- The RYZE story
-- Mission
-- Vision
-- Values
+Purpose: sell the RYZE platform vision — not founder biographies.
+
+The page must feel like a modern technology vision surface (Apple / Linear /
+Vercel style): minimal copy, strong hierarchy, generous whitespace, premium
+motion and dark futuristic atmosphere.
+
+Legacy `/about-us` redirects to `/our-vision`.
+
+Sections:
+
+1. The future of fitness — large hero with short thesis and abstract system
+   visualization (connected Train / Fuel / Recover / AI nodes). No stock gym
+   photography.
+2. Our mission — concise statement plus 3–5 icon cards (Accessible,
+   Affordable, Professional, Simple, Technology First).
+3. Why RYZE — dense responsive feature grid of premium glass cards with icon,
+   title, one sentence, hover lift and soft glow.
+4. Our vision — scroll-revealed roadmap / timeline of platform milestones.
+5. Continuous evolution — floating capability cards instead of paragraphs.
+6. Technology first — modular software visual (connected product modules).
+7. The people behind RYZE — small closing section with subtle founder cards
+   (initials / circular marks, name, role, one sentence). Platform remains the
+   hero.
+
+Do not use long paragraphs, huge founder photos, or traditional “About Us”
+brochure layouts.
 
 ---
 

@@ -1,8 +1,9 @@
 import { AnimatePresence } from "framer-motion";
-import { Route, Switch, useLocation } from "react-router-dom";
+import { Redirect, Route, Switch, useLocation } from "react-router-dom";
 
 import { ContactPage } from "@/pages/contact_page/contact_page";
 import { HomePage } from "@/pages/home_page/home_page";
+import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
 import { ServicesPage } from "@/pages/services_page/services_page";
 import { UnderDevelopmentPage } from "@/pages/under_development_page/under_development_page";
 
@@ -25,6 +26,8 @@ export const AppRoutes = () => {
           )}
         />
         <Route exact path="/contact" component={ContactPage} />
+        <Route exact path="/our-vision" component={OurVisionPage} />
+        <Route exact path="/about-us" render={() => <Redirect to="/our-vision" />} />
         <Route
           path="/feedback"
           render={() => (
@@ -32,16 +35,6 @@ export const AppRoutes = () => {
               eyebrow="Feedback"
               title="Feedback is under development."
               description="The community area and digital complaints book will be introduced after the frontend foundation is ready."
-            />
-          )}
-        />
-        <Route
-          path="/about-us"
-          render={() => (
-            <UnderDevelopmentPage
-              eyebrow="About Us"
-              title="About Us is under development."
-              description="This page will present the RYZE story, mission, vision and values in a dedicated public experience."
             />
           )}
         />

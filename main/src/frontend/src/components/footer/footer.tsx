@@ -15,16 +15,16 @@ const footerColumns = [
       { label: "Training engine", to: "/services" },
       { label: "Nutrition", to: "/services/premium-level-1" },
       { label: "Analytics", to: "/profile" },
-      { label: "Coaches", to: "/about-us" },
+      { label: "Coaches", to: "/our-vision" },
       { label: "Mobile app", to: "/profile" }
     ]
   },
   {
     title: "Company",
     links: [
-      { label: "About", to: "/about-us" },
-      { label: "Careers", to: "/about-us" },
-      { label: "Press", to: "/about-us" },
+      { label: "Our Vision", to: "/our-vision" },
+      { label: "Careers", to: "/our-vision" },
+      { label: "Press", to: "/our-vision" },
       { label: "Partners", to: "/contact" },
       { label: "Contact", href: `mailto:${CONTACT_EMAIL}` }
     ]
@@ -91,7 +91,7 @@ export const Footer = () => (
 
         <div className={styles.utilities} aria-label="Legal links">
           {utilityLinks.map((link) => (
-            <Link key={link} to="/about-us">
+            <Link key={link} to="/our-vision">
               {link}
             </Link>
           ))}

@@ -1,0 +1,657 @@
+.page {
+  overflow: clip;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-accent-500);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.hero {
+  position: relative;
+  padding: 7.5rem 0 5.5rem;
+  background:
+    radial-gradient(ellipse 55% 55% at 78% 28%, rgba(47, 140, 255, 0.14), transparent 60%),
+    radial-gradient(ellipse 40% 45% at 12% 70%, rgba(56, 225, 255, 0.06), transparent 55%),
+    linear-gradient(180deg, rgba(5, 7, 13, 0.2), rgba(5, 7, 13, 0.55));
+}
+
+.heroLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 3rem;
+  align-items: center;
+}
+
+.heroCopy {
+  display: grid;
+  gap: 1.1rem;
+  justify-items: start;
+  max-width: 34rem;
+}
+
+.heroCopy h1,
+.sectionIntro h2 {
+  margin: 0;
+  color: var(--color-white);
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+
+.heroCopy h1 {
+  font-size: clamp(2.6rem, 6vw, 4.4rem);
+  max-width: 11ch;
+}
+
+.lead,
+.sectionLead {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  max-width: 36ch;
+}
+
+.heroVisualWrap {
+  min-width: 0;
+}
+
+.heroVisual {
+  position: relative;
+  width: min(100%, 26rem);
+  aspect-ratio: 1;
+  margin-inline: auto;
+}
+
+.heroGlow {
+  position: absolute;
+  inset: 18%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(47, 140, 255, 0.28), transparent 68%);
+  filter: blur(28px);
+  animation: glowPulse 5.5s ease-in-out infinite;
+}
+
+.orbit {
+  position: absolute;
+  inset: 0;
+}
+
+.node {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  width: 4.4rem;
+  padding: 0.7rem 0.55rem;
+  border: var(--border-subtle);
+  border-radius: 1.1rem;
+  color: var(--color-white);
+  background:
+    linear-gradient(160deg, rgba(56, 225, 255, 0.12), transparent 48%),
+    rgba(13, 27, 46, 0.82);
+  box-shadow:
+    0 18px 40px rgba(4, 12, 26, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.node svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--color-accent-400);
+}
+
+.node em {
+  color: var(--color-text-soft);
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nodeCore {
+  top: 50%;
+  left: 50%;
+  width: 5.4rem;
+  transform: translate(-50%, -50%);
+  box-shadow:
+    0 20px 48px rgba(4, 12, 26, 0.45),
+    0 0 36px rgba(47, 140, 255, 0.18);
+}
+
+.nodeTrain {
+  top: 4%;
+  left: 50%;
+  animation: floatTrain 5.2s ease-in-out infinite;
+}
+
+.nodeFuel {
+  top: 24%;
+  right: 4%;
+  animation: floatB 5.8s ease-in-out infinite;
+}
+
+.nodeRecover {
+  bottom: 18%;
+  right: 8%;
+  animation: floatA 6.1s ease-in-out infinite;
+}
+
+.nodeAi {
+  top: 28%;
+  left: 4%;
+  animation: floatB 5.5s ease-in-out infinite;
+}
+
+.heroLinks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.heroLinks path {
+  fill: none;
+  stroke: rgba(56, 225, 255, 0.28);
+  stroke-width: 1.4;
+  stroke-dasharray: 5 8;
+  stroke-linecap: round;
+  animation: dashFlow 5s linear infinite;
+}
+
+.section {
+  padding: 6.5rem 0;
+}
+
+.sectionWhy,
+.sectionEvolution {
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 0%, rgba(47, 140, 255, 0.07), transparent 55%),
+    linear-gradient(180deg, rgba(5, 7, 13, 0.15), rgba(5, 7, 13, 0.35));
+}
+
+.sectionPeople {
+  padding-bottom: 7.5rem;
+}
+
+.sectionIntro {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 2.75rem;
+  max-width: 38rem;
+}
+
+.sectionIntro h2 {
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  max-width: 16ch;
+}
+
+.missionGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.iconCard,
+.whyCard,
+.evolutionCard,
+.personCard {
+  border: var(--border-subtle);
+  border-radius: 1.1rem;
+  background:
+    linear-gradient(160deg, rgba(56, 225, 255, 0.07), transparent 46%),
+    rgba(13, 27, 46, 0.72);
+  box-shadow:
+    0 18px 44px rgba(4, 12, 26, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  transition:
+    transform 240ms ease,
+    border-color 240ms ease,
+    box-shadow 240ms ease;
+}
+
+.iconCard {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 100%;
+  padding: 1.25rem 1.15rem;
+}
+
+.iconCard:hover,
+.whyCard:hover,
+.evolutionCard:hover,
+.personCard:hover {
+  transform: translateY(-4px);
+  border-color: rgba(56, 225, 255, 0.28);
+  box-shadow:
+    0 22px 48px rgba(4, 12, 26, 0.38),
+    0 0 28px rgba(47, 140, 255, 0.1);
+}
+
+.iconWrap,
+.whyIcon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  color: var(--color-accent-400);
+  background: rgba(47, 140, 255, 0.12);
+  box-shadow: 0 0 18px rgba(47, 140, 255, 0.12);
+}
+
+.iconWrap svg,
+.whyIcon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.iconCard h3,
+.whyCard h3,
+.evolutionCard h3,
+.personCard h3 {
+  margin: 0;
+  color: var(--color-white);
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+}
+
+.iconCard p,
+.whyCard p,
+.personCard p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.whyGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.whyCard {
+  position: relative;
+  display: grid;
+  gap: 0.7rem;
+  min-height: 100%;
+  padding: 1.3rem 1.15rem 1.35rem;
+  overflow: hidden;
+}
+
+.whyAccent {
+  position: absolute;
+  right: -1.2rem;
+  bottom: -1.2rem;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(56, 225, 255, 0.18), transparent 70%);
+  pointer-events: none;
+}
+
+.roadmapLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 3rem;
+  align-items: start;
+}
+
+.roadmap {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roadmapItem {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.15rem;
+  border: var(--border-subtle);
+  border-radius: 1rem;
+  background: rgba(13, 27, 46, 0.62);
+  backdrop-filter: blur(14px);
+}
+
+.roadmapIndex {
+  color: var(--color-accent-400);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.roadmapItem p {
+  margin: 0 0 0.2rem;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.roadmapItem strong {
+  color: var(--color-white);
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.evolutionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.evolutionCard {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 5.2rem;
+  padding: 1.15rem 1.2rem;
+}
+
+.evolutionCard svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: var(--color-accent-400);
+  flex: 0 0 auto;
+}
+
+.techLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 3rem;
+  align-items: center;
+}
+
+.techVisual {
+  position: relative;
+  min-height: 22rem;
+  border: var(--border-subtle);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(47, 140, 255, 0.14), transparent 42%),
+    rgba(5, 7, 13, 0.55);
+  overflow: hidden;
+}
+
+.techCore {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  width: 7.2rem;
+  padding: 1.1rem 0.8rem;
+  border: 1px solid rgba(56, 225, 255, 0.28);
+  border-radius: 1.2rem;
+  color: var(--color-white);
+  background: rgba(13, 27, 46, 0.88);
+  box-shadow: 0 0 40px rgba(47, 140, 255, 0.18);
+  transform: translate(-50%, -50%);
+}
+
+.techCore svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  color: var(--color-accent-400);
+}
+
+.techCore strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+}
+
+.techModule {
+  position: absolute;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 0.9rem;
+  border: var(--border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-soft);
+  background: rgba(13, 27, 46, 0.78);
+  backdrop-filter: blur(12px);
+  font-size: 0.78rem;
+  font-weight: 650;
+  animation: floatA 5.6s ease-in-out infinite;
+}
+
+.techModule svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--color-accent-400);
+}
+
+.techA {
+  top: 14%;
+  left: 12%;
+}
+
+.techB {
+  top: 16%;
+  right: 12%;
+  animation-delay: 0.4s;
+}
+
+.techC {
+  bottom: 18%;
+  left: 16%;
+  animation-delay: 0.8s;
+}
+
+.techD {
+  bottom: 16%;
+  right: 14%;
+  animation-delay: 1.1s;
+}
+
+.techE {
+  top: 46%;
+  right: 6%;
+  animation-delay: 0.2s;
+}
+
+.peopleGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  max-width: 48rem;
+}
+
+.personCard {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: start;
+  padding: 1.25rem 1.2rem;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid rgba(56, 225, 255, 0.24);
+  border-radius: 999px;
+  color: var(--color-accent-400);
+  background: rgba(47, 140, 255, 0.12);
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.personRole {
+  margin: 0.2rem 0 0.55rem !important;
+  color: var(--color-accent-400) !important;
+  font-size: 0.74rem !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@keyframes floatA {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes floatTrain {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  50% {
+    transform: translateX(-50%) translateY(-8px);
+  }
+}
+
+@keyframes floatB {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(7px);
+  }
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+@media (max-width: 1100px) {
+  .missionGrid,
+  .whyGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .evolutionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .hero {
+    padding: 6.25rem 0 4rem;
+  }
+
+  .heroLayout,
+  .roadmapLayout,
+  .techLayout {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .heroCopy h1 {
+    max-width: none;
+  }
+
+  .section {
+    padding: 4.5rem 0;
+  }
+
+  .sectionIntro {
+    margin-bottom: 2rem;
+  }
+
+  .missionGrid,
+  .whyGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .techVisual {
+    min-height: 18rem;
+  }
+
+  .peopleGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .missionGrid,
+  .whyGrid,
+  .evolutionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroCopy h1 {
+    font-size: clamp(2.3rem, 11vw, 3.1rem);
+  }
+
+  .lead,
+  .sectionLead {
+    font-size: 0.98rem;
+  }
+
+  .node {
+    width: 3.8rem;
+    padding: 0.55rem 0.4rem;
+  }
+
+  .nodeCore {
+    width: 4.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroGlow,
+  .nodeTrain,
+  .nodeFuel,
+  .nodeRecover,
+  .nodeAi,
+  .heroLinks path,
+  .techModule {
+    animation: none;
+  }
+
+  .nodeTrain {
+    transform: translateX(-50%);
+  }
+
+  .iconCard:hover,
+  .whyCard:hover,
+  .evolutionCard:hover,
+  .personCard:hover {
+    transform: none;
+  }
+}
