@@ -11,27 +11,27 @@
   content: "";
   pointer-events: none;
   background:
-    radial-gradient(ellipse 65% 55% at 82% 18%, rgba(47, 140, 255, 0.08), transparent 58%),
-    radial-gradient(ellipse 55% 45% at 8% 82%, rgba(56, 225, 255, 0.06), transparent 55%),
-    radial-gradient(ellipse 40% 35% at 50% 50%, rgba(56, 225, 255, 0.03), transparent 60%);
+    radial-gradient(ellipse 65% 55% at 82% 18%, rgba(46, 216, 255, 0.08), transparent 58%),
+    radial-gradient(ellipse 55% 45% at 8% 82%, rgba(31, 168, 255, 0.06), transparent 55%),
+    radial-gradient(ellipse 40% 35% at 50% 50%, rgba(46, 216, 255, 0.03), transparent 60%);
 }
 
 .toneDeep {
   background:
-    linear-gradient(180deg, rgba(5, 7, 13, 0.5), rgba(5, 7, 13, 0.32)),
+    linear-gradient(180deg, rgba(5, 7, 12, 0.45), rgba(5, 7, 12, 0.28)),
     transparent;
 }
 
 .toneSurface {
   background:
-    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(47, 140, 255, 0.08), transparent 52%),
-    linear-gradient(180deg, rgba(5, 7, 13, 0.42), rgba(5, 7, 13, 0.24));
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(46, 216, 255, 0.07), transparent 52%),
+    linear-gradient(180deg, rgba(10, 16, 24, 0.42), rgba(5, 7, 12, 0.22));
 }
 
 .toneCard {
   background:
-    radial-gradient(ellipse 55% 45% at 70% 30%, rgba(56, 225, 255, 0.09), transparent 55%),
-    linear-gradient(180deg, rgba(5, 7, 13, 0.48), rgba(5, 7, 13, 0.28));
+    radial-gradient(ellipse 55% 45% at 70% 30%, rgba(46, 216, 255, 0.08), transparent 55%),
+    linear-gradient(180deg, rgba(17, 24, 39, 0.38), rgba(5, 7, 12, 0.26));
 }
 
 .section > * {

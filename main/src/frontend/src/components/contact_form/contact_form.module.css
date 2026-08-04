@@ -5,11 +5,11 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   background:
-    radial-gradient(ellipse 80% 55% at 12% 0%, rgba(31, 203, 255, 0.14), transparent 55%),
+    radial-gradient(ellipse 80% 55% at 12% 0%, rgba(46, 216, 255, 0.14), transparent 55%),
     linear-gradient(160deg, rgba(17, 27, 39, 0.94), rgba(10, 14, 22, 0.92));
   box-shadow:
-    0 28px 70px rgba(8, 20, 40, 0.45),
-    0 0 40px rgba(31, 203, 255, 0.08),
+    0 28px 70px rgba(5, 7, 12, 0.45),
+    0 0 40px rgba(46, 216, 255, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(18px);
 }
@@ -35,7 +35,7 @@
 
 .fields label span,
 .uploadCopy span {
-  color: #b8c3d1;
+  color: #a4b1c5;
   font-size: 0.78rem;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -48,7 +48,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   color: #ffffff;
-  background: rgba(7, 10, 15, 0.55);
+  background: rgba(8, 12, 18, 0.55);
   font: inherit;
   outline: none;
   transition:
@@ -76,9 +76,9 @@
 
 .fields input:focus,
 .fields textarea:focus {
-  border-color: rgba(31, 203, 255, 0.5);
-  background: rgba(7, 10, 15, 0.72);
-  box-shadow: 0 0 0 3px rgba(31, 203, 255, 0.12);
+  border-color: rgba(46, 216, 255, 0.5);
+  background: rgba(8, 12, 18, 0.72);
+  box-shadow: 0 0 0 3px rgba(46, 216, 255, 0.12);
 }
 
 .fullWidth,
@@ -93,7 +93,7 @@
   justify-content: space-between;
   gap: 0.85rem;
   padding: 0.7rem 0.8rem;
-  border: 1px dashed rgba(31, 203, 255, 0.28);
+  border: 1px dashed rgba(46, 216, 255, 0.28);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
 }
@@ -118,7 +118,7 @@
   width: 1.15rem;
   height: 1.15rem;
   flex: 0 0 auto;
-  color: #32d7ff;
+  color: #39e3ff;
 }
 
 .uploadCopy div {
@@ -129,7 +129,7 @@
 
 .uploadCopy small {
   overflow: hidden;
-  color: #8794a8;
+  color: #6d7b91;
   font-size: 0.82rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -156,8 +156,8 @@
 }
 
 .uploadButton:hover {
-  border-color: rgba(31, 203, 255, 0.4);
-  background: rgba(31, 203, 255, 0.1);
+  border-color: rgba(46, 216, 255, 0.4);
+  background: rgba(46, 216, 255, 0.1);
 }
 
 .uploadButton svg {
@@ -176,7 +176,7 @@
 
 .note {
   margin: 0;
-  color: #8794a8;
+  color: #6d7b91;
   font-size: 0.86rem;
   text-align: center;
 }

@@ -20,12 +20,12 @@
   padding: 0.35rem 0.85rem 0.35rem 0.75rem;
   border: 1px solid rgba(255, 255, 255, calc(0.04 + var(--nav-scroll) * 0.08));
   border-radius: 999px;
-  background: rgba(7, 10, 15, calc(0.28 + var(--nav-scroll) * 0.55));
+  background: rgba(8, 12, 18, calc(0.42 + var(--nav-scroll) * 0.36));
   box-shadow:
-    0 10px 40px rgba(8, 20, 40, calc(var(--nav-scroll) * 0.35)),
+    0 10px 40px rgba(5, 7, 12, calc(var(--nav-scroll) * 0.35)),
     inset 0 1px 0 rgba(255, 255, 255, calc(var(--nav-scroll) * 0.05));
-  backdrop-filter: blur(calc(10px + var(--nav-scroll) * 14px));
-  -webkit-backdrop-filter: blur(calc(10px + var(--nav-scroll) * 14px));
+  backdrop-filter: blur(calc(14px + var(--nav-scroll) * 6px));
+  -webkit-backdrop-filter: blur(calc(14px + var(--nav-scroll) * 6px));
   pointer-events: auto;
   transition:
     background 280ms ease,
@@ -71,7 +71,7 @@
   z-index: 1;
   min-height: 34px;
   padding: 0.45rem 0.7rem;
-  color: rgba(184, 195, 209, 0.58);
+  color: rgba(164, 177, 197, 0.72);
   font-size: 0.84rem;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -94,8 +94,8 @@
   left: 0;
   height: 1.5px;
   border-radius: 999px;
-  background: #1fcbff;
-  box-shadow: 0 0 12px rgba(31, 203, 255, 0.75);
+  background: #2ed8ff;
+  box-shadow: 0 0 12px rgba(46, 216, 255, 0.75);
   opacity: 0;
   pointer-events: none;
   transition:
@@ -117,7 +117,7 @@
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  color: #b8c3d1;
+  color: #a4b1c5;
   background: transparent;
   transition:
     background 220ms ease,
@@ -130,9 +130,9 @@
 .activeProfile,
 .menuButton:hover {
   color: #ffffff;
-  border-color: rgba(31, 203, 255, 0.4);
-  background: rgba(31, 203, 255, 0.08);
-  box-shadow: 0 0 18px rgba(31, 203, 255, 0.12);
+  border-color: rgba(46, 216, 255, 0.35);
+  background: rgba(46, 216, 255, 0.15);
+  box-shadow: 0 0 18px rgba(46, 216, 255, 0.2);
 }
 
 .profileLink svg,
@@ -170,7 +170,7 @@
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 22px;
-    background: rgba(7, 10, 15, 0.94);
+    background: rgba(8, 12, 18, 0.94);
     opacity: 0;
     pointer-events: auto;
     backdrop-filter: blur(20px);
@@ -193,15 +193,15 @@
     gap: 0.65rem;
     padding: 0.75rem 0.85rem;
     border-radius: 8px;
-    color: #8794a8;
+    color: #6d7b91;
     font-weight: 500;
   }
 
   .mobileLink:hover,
   .activeMobileLink {
     color: #ffffff;
-    background: rgba(31, 203, 255, 0.06);
-    box-shadow: inset 0 -1.5px 0 #1fcbff;
+    background: rgba(46, 216, 255, 0.08);
+    box-shadow: inset 0 -1.5px 0 #2ed8ff;
   }
 }
 

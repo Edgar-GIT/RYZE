@@ -319,18 +319,15 @@ The Platform section is a dedicated visual moment after the hero.
 
 It uses:
 
-- Left column copy with headline, ecosystem description and CTA
-- Right column device composition:
-  - One almost-3D tilted phone (`rotateY(-40deg)`) with realistic proportions and
-    RYZE UI inside
-  - Exactly three floating glass panels, no connector lines:
-    - Nutrition on the left (lower, mid/bottom of the phone)
-    - This week on the upper right
-    - Recovery on the lower right
-  - Slow float motion only
-  - On mobile, panels stack under the phone or hide; they never overlay the device
-  - Meaningful product signals (weekly heatmap, macro rings, recovery score)
-    instead of crowded orbit layouts or generic KPI dashboards
+- Left column with a strong headline, short supporting line, primary CTA and a
+  secondary text link (`See how it works →`)
+- Right column dominated by one larger almost-3D phone (`rotateY` about `-16deg`)
+  with soft blue glow, floating motion and subtle mouse parallax
+- No floating information cards
+- Atmospheric support only: soft grid, radial glows, holographic rings, data
+  trails, story-flow nodes (questions → AI → plan → progress) and tiny low-opacity
+  UI fragments
+- The visual story should communicate onboarding without explanatory text
 
 Other major sections after Platform should:
 

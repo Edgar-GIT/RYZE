@@ -4,7 +4,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(160deg, rgba(31, 203, 255, 0.06), transparent 42%),
+    linear-gradient(160deg, rgba(46, 216, 255, 0.06), transparent 42%),
     rgba(16, 23, 34, 0.86);
   box-shadow:
     var(--shadow-card),
@@ -17,10 +17,10 @@
 }
 
 .panel:hover {
-  border-color: rgba(31, 203, 255, 0.22);
+  border-color: rgba(46, 216, 255, 0.22);
   box-shadow:
     var(--shadow-card),
-    0 0 28px rgba(31, 203, 255, 0.08);
+    0 0 28px rgba(46, 216, 255, 0.08);
 }
 
 .panel > * {

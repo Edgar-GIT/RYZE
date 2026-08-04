@@ -1,9 +1,9 @@
 .section {
   padding: 1.5rem 0 4rem;
   background:
-    radial-gradient(ellipse 50% 80% at 80% 50%, rgba(47, 140, 255, 0.08), transparent 55%),
-    radial-gradient(ellipse 40% 50% at 10% 40%, rgba(56, 225, 255, 0.05), transparent 50%),
-    linear-gradient(180deg, rgba(5, 7, 13, 0.3), rgba(5, 7, 13, 0.18));
+    radial-gradient(ellipse 50% 80% at 80% 50%, rgba(31, 168, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse 40% 50% at 10% 40%, rgba(46, 216, 255, 0.05), transparent 50%),
+    linear-gradient(180deg, rgba(5, 7, 12, 0.3), rgba(5, 7, 12, 0.18));
 }
 
 .band {
@@ -16,8 +16,8 @@
   border-radius: var(--radius-lg);
   color: var(--color-white);
   background:
-    radial-gradient(circle at 88% 20%, rgba(56, 225, 255, 0.12), transparent 18rem),
-    #0d1b2e;
+    radial-gradient(circle at 88% 20%, rgba(46, 216, 255, 0.12), transparent 18rem),
+    #111827;
   box-shadow: var(--shadow-card);
 }
 

@@ -1,3 +1,34 @@
+# Version 2.2.16
+
+Title: Rebuild Start Faster around phone atmosphere + page reveals
+
+Date: 2026-08-04
+
+Summary:
+
+Removed floating Platform cards and made the phone the sole hero, surrounded by
+atmospheric grid/glow/trails and tiny decorative fragments. Shortened Start
+Faster copy, added a secondary link, and introduced shared scroll reveals across
+Home and Services.
+
+Files modified:
+
+- `main/src/frontend/src/components/platform_section/**`
+- `main/src/frontend/src/components/reveal/reveal.tsx` (new)
+- `main/src/frontend/src/components/showcase_section/showcase_section.tsx`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `main/src/frontend/src/pages/services_page/services_page.tsx`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Floating cards still felt AI-generated and competed with the phone; Home and
+Services needed the same premium scroll motion language as Our Vision.
+
+---
+
 # Version 2.2.15
 
 Title: Replace About Us with Our Vision page

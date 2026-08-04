@@ -1,38 +1,47 @@
 :root {
   color-scheme: dark;
   font-family: "Google Sans", Inter, Roboto, Arial, sans-serif;
-  color: #e7ecf3;
-  background: #05070d;
+  color: #f4f7fb;
+  background: #05070c;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --color-primary-950: #05070d;
-  --color-primary-900: #07111b;
-  --color-primary-800: #091321;
-  --color-primary-700: #0d1b2e;
-  --color-surface-card: #0d1b2e;
-  --color-surface-elevated: #11233b;
-  --color-accent-500: #2f8cff;
-  --color-accent-400: #38e1ff;
-  --color-accent-300: #7fefff;
-  --color-accent-glow: rgba(47, 140, 255, 0.34);
-  --color-neutral-100: #e7ecf3;
-  --color-neutral-200: #c6d2e1;
-  --color-neutral-500: #7c8aa0;
-  --color-white: #e7ecf3;
+  --color-primary-950: #05070c;
+  --color-primary-900: #0a1018;
+  --color-primary-800: #111827;
+  --color-primary-700: #161f2d;
+  --color-surface-card: #111827;
+  --color-surface-elevated: #161f2d;
+  --color-accent-500: #1fa8ff;
+  --color-accent-400: #2ed8ff;
+  --color-accent-300: #39e3ff;
+  --color-accent-deep: #1a7bff;
+  --color-accent-glow: rgba(46, 216, 255, 0.45);
+  --color-accent-glow-soft: rgba(46, 216, 255, 0.15);
+  --color-accent-glow-hover: rgba(46, 216, 255, 0.25);
+  --color-neutral-100: #f4f7fb;
+  --color-neutral-200: #a4b1c5;
+  --color-neutral-500: #6d7b91;
+  --color-neutral-600: #465264;
+  --color-white: #f4f7fb;
   --color-success: #2f8f69;
-  --color-surface-dark: rgba(13, 27, 46, 0.82);
-  --color-surface-strong: rgba(5, 7, 13, 0.94);
-  --color-text-muted: #7c8aa0;
-  --color-text-soft: #c6d2e1;
+  --color-surface-dark: rgba(17, 24, 39, 0.82);
+  --color-surface-strong: rgba(5, 7, 12, 0.94);
+  --color-text-muted: #6d7b91;
+  --color-text-soft: #a4b1c5;
+  --color-navbar: rgba(8, 12, 18, 0.78);
 
-  --shadow-soft: 0 28px 80px rgba(4, 12, 26, 0.56);
-  --shadow-card: 0 20px 56px rgba(4, 12, 26, 0.46);
-  --shadow-glow: 0 0 36px rgba(47, 140, 255, 0.18);
-  --border-subtle: 1px solid rgba(56, 132, 255, 0.15);
-  --border-accent: 1px solid rgba(56, 225, 255, 0.32);
+  --shadow-soft: 0 28px 80px rgba(5, 7, 12, 0.56);
+  --shadow-card: 0 20px 56px rgba(5, 7, 12, 0.46);
+  --shadow-glow: 0 0 36px rgba(46, 216, 255, 0.15);
+  --border-subtle: 1px solid rgba(255, 255, 255, 0.08);
+  --border-accent: 1px solid rgba(46, 216, 255, 0.35);
+  --border-hover: rgba(46, 216, 255, 0.35);
+
+  --gradient-accent: linear-gradient(135deg, #39e3ff, #1a7bff);
+  --gradient-accent-hover: linear-gradient(135deg, #5aebff, #2ed8ff 42%, #1a7bff);
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -90,7 +99,7 @@ img {
 }
 
 :focus-visible {
-  outline: 2px solid rgba(56, 225, 255, 0.82);
+  outline: 2px solid var(--color-accent-400);
   outline-offset: 3px;
 }
 

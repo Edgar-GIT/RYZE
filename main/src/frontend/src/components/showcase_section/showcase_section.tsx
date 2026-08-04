@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Reveal } from "@/components/reveal/reveal";
 import { SectionWrapper } from "@/components/section_wrapper/section_wrapper";
 import { joinClassNames } from "@utils/class_names";
 
@@ -29,11 +30,13 @@ export const ShowcaseSection = ({
     className={joinClassNames(styles.section, className)}
     containerClassName={joinClassNames(styles.inner, reverse && styles.reverse)}
   >
-    <div className={styles.copy}>
+    <Reveal className={styles.copy} delay={reverse ? 0.08 : 0}>
       <p className={styles.eyebrow}>{eyebrow}</p>
       <h2>{title}</h2>
       <p className={styles.description}>{description}</p>
-    </div>
-    <div className={styles.visual}>{children}</div>
+    </Reveal>
+    <Reveal className={styles.visual} delay={reverse ? 0 : 0.1} y={34}>
+      {children}
+    </Reveal>
   </SectionWrapper>
 );

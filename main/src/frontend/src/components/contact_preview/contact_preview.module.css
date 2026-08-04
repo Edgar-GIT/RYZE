@@ -54,7 +54,7 @@
   border: var(--border-subtle);
   border-radius: 999px;
   color: var(--color-white);
-  background: rgba(13, 27, 46, 0.72);
+  background: rgba(17, 24, 39, 0.72);
   font-size: 0.88rem;
   font-weight: 600;
   text-decoration: none;
@@ -67,9 +67,9 @@
 
 .chip:hover {
   transform: translateY(-2px);
-  border-color: rgba(56, 225, 255, 0.3);
-  background: rgba(13, 27, 46, 0.9);
-  box-shadow: 0 10px 28px rgba(4, 12, 26, 0.35);
+  border-color: rgba(46, 216, 255, 0.3);
+  background: rgba(17, 24, 39, 0.9);
+  box-shadow: 0 10px 28px rgba(5, 7, 12, 0.35);
 }
 
 .chip svg {

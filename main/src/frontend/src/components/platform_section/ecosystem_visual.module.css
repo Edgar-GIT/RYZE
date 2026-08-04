@@ -1,63 +1,329 @@
 .stage {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(11rem, 1fr) auto minmax(12rem, 1fr);
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: center;
-  column-gap: 1.1rem;
-  row-gap: 1rem;
+  place-items: center;
   width: 100%;
-  min-height: 34rem;
-  padding: 0.75rem 0.25rem 1.25rem;
+  min-height: 36rem;
+  padding: 1rem 0 1.5rem;
   isolation: isolate;
   overflow: visible;
 }
 
-.glowCore {
+.atmosphere {
   position: absolute;
-  top: 42%;
-  left: 50%;
+  inset: -8% -4%;
   z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(46, 216, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(46, 216, 255, 0.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 60% 45%, black 18%, transparent 72%);
+}
+
+.glowLarge {
+  position: absolute;
+  top: 12%;
+  right: 8%;
+  width: 26rem;
+  height: 26rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(31, 168, 255, 0.28), transparent 68%);
+  filter: blur(40px);
+  animation: glowPulse 7s ease-in-out infinite;
+}
+
+.glowSoft {
+  position: absolute;
+  bottom: 8%;
+  left: 18%;
   width: 18rem;
   height: 18rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(47, 140, 255, 0.22), transparent 68%);
-  filter: blur(40px);
-  pointer-events: none;
-  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(46, 216, 255, 0.14), transparent 70%);
+  filter: blur(36px);
 }
 
-.glowFloor {
+.beam,
+.beamTwo {
   position: absolute;
-  bottom: 8%;
-  left: 50%;
-  z-index: 0;
-  width: 14rem;
-  height: 3.5rem;
+  width: 55%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(46, 216, 255, 0.35), transparent);
+  filter: blur(0.5px);
+  opacity: 0.45;
+  animation: beamDrift 9s ease-in-out infinite;
+}
+
+.beam {
+  top: 28%;
+  left: 10%;
+  transform: rotate(-18deg);
+}
+
+.beamTwo {
+  bottom: 30%;
+  right: 4%;
+  transform: rotate(14deg);
+  animation-delay: 1.4s;
+}
+
+.ring,
+.ringOuter {
+  position: absolute;
+  top: 46%;
+  left: 58%;
+  border: 1px solid rgba(46, 216, 255, 0.16);
   border-radius: 999px;
-  background: radial-gradient(ellipse, rgba(4, 12, 26, 0.7), transparent 70%);
-  filter: blur(18px);
+  transform: translate(-50%, -50%);
+  animation: ringPulse 8s ease-in-out infinite;
+}
+
+.ring {
+  width: 18rem;
+  height: 18rem;
+}
+
+.ringOuter {
+  width: 24rem;
+  height: 24rem;
+  opacity: 0.55;
+  animation-delay: 1s;
+}
+
+.particles {
+  position: absolute;
+  inset: 0;
+}
+
+.particles span {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(46, 216, 255, 0.55);
+  box-shadow: 0 0 10px rgba(46, 216, 255, 0.35);
+  top: calc(12% + (var(--i) * 5.5%));
+  left: calc(18% + (var(--i) * 4.8%));
+  opacity: 0.35;
+  animation: particleFloat 6.5s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.28s);
+}
+
+.dataTrails,
+.storyFlow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.dataTrails path,
+.storyFlow path {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.dataTrails path {
+  stroke: rgba(46, 216, 255, 0.16);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 10;
+  animation: trailFlow 7s linear infinite;
+}
+
+.storyFlow path {
+  stroke: rgba(31, 168, 255, 0.28);
+  stroke-width: 1.4;
+  stroke-dasharray: 5 9;
+  animation: trailFlow 5.5s linear infinite;
+}
+
+.storyNodes {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   pointer-events: none;
-  transform: translateX(-50%);
+}
+
+.storyNode {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid rgba(46, 216, 255, 0.18);
+  border-radius: 999px;
+  color: var(--color-accent-400);
+  background: rgba(17, 24, 39, 0.42);
+  backdrop-filter: blur(10px);
+  opacity: 0.55;
+  animation: fragmentFloat 6s ease-in-out infinite;
+}
+
+.storyNode svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.storyQ {
+  top: 18%;
+  left: 8%;
+}
+
+.storyAi {
+  top: 38%;
+  left: 16%;
+  animation-delay: 0.5s;
+}
+
+.storyPlan {
+  top: 58%;
+  left: 10%;
+  animation-delay: 1s;
+}
+
+.storyProgress {
+  top: 22%;
+  right: 8%;
+  animation-delay: 0.7s;
+}
+
+.fragments {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.fragment {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 4.4rem;
+  height: 4.4rem;
+  border: 1px solid rgba(46, 216, 255, 0.12);
+  border-radius: 1rem;
+  color: var(--color-accent-400);
+  background: rgba(17, 24, 39, 0.28);
+  backdrop-filter: blur(8px);
+  opacity: 0.28;
+  animation: fragmentFloat 7s ease-in-out infinite;
+}
+
+.fragment svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.fragRing {
+  top: 12%;
+  right: 18%;
+}
+
+.fragRing svg {
+  width: 2.2rem;
+  height: 2.2rem;
+  transform: rotate(-90deg);
+}
+
+.fragRing circle {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 3;
+}
+
+.fragRingValue {
+  stroke: rgba(46, 216, 255, 0.7) !important;
+  stroke-dasharray: 55 88;
+  stroke-linecap: round;
+}
+
+.fragChart {
+  bottom: 18%;
+  right: 10%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.28rem;
+  padding-bottom: 0.9rem;
+  animation-delay: 0.8s;
+}
+
+.fragChart i {
+  width: 0.35rem;
+  border-radius: 999px;
+  background: rgba(46, 216, 255, 0.55);
+}
+
+.fragChart i:nth-child(1) {
+  height: 0.7rem;
+}
+
+.fragChart i:nth-child(2) {
+  height: 1.15rem;
+}
+
+.fragChart i:nth-child(3) {
+  height: 0.9rem;
+}
+
+.fragChart i:nth-child(4) {
+  height: 1.4rem;
+}
+
+.fragTrain {
+  bottom: 28%;
+  left: 6%;
+  animation-delay: 1.2s;
+}
+
+.fragFuel {
+  top: 48%;
+  right: 4%;
+  animation-delay: 0.4s;
 }
 
 .phoneScene {
   position: relative;
-  z-index: 4;
-  grid-column: 2;
-  grid-row: 1 / -1;
-  width: 15.75rem;
-  justify-self: center;
-  align-self: center;
-  perspective: 1400px;
+  z-index: 5;
+  width: min(18.5rem, 72%);
+  justify-self: end;
+  margin-right: 4%;
+}
+
+.phoneParallax {
+  position: relative;
+  transition: transform 180ms ease-out;
   transform-style: preserve-3d;
+}
+
+.phoneGlow {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  z-index: 0;
+  width: 16rem;
+  height: 16rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(31, 168, 255, 0.35), transparent 68%);
+  filter: blur(28px);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .phone {
   position: relative;
+  z-index: 2;
   width: 100%;
   aspect-ratio: 9 / 19.2;
-  transform: rotateY(-40deg) rotateX(8deg) rotateZ(-4deg);
+  transform: rotateY(-16deg) rotateX(6deg) rotateZ(-2deg);
   transform-style: preserve-3d;
 }
 
@@ -71,11 +337,11 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 2.1rem;
   background:
-    linear-gradient(160deg, rgba(56, 225, 255, 0.1), transparent 42%),
+    linear-gradient(160deg, rgba(46, 216, 255, 0.1), transparent 42%),
     linear-gradient(180deg, #121a28 0%, #0a101a 100%);
   box-shadow:
-    0 40px 90px rgba(4, 12, 26, 0.55),
-    0 0 48px rgba(47, 140, 255, 0.14),
+    0 40px 90px rgba(5, 7, 12, 0.55),
+    0 0 48px rgba(31, 168, 255, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     inset 0 -1px 0 rgba(0, 0, 0, 0.35);
 }
@@ -83,27 +349,27 @@
 .phoneSide {
   position: absolute;
   top: 2.5%;
-  right: -0.72rem;
+  right: -0.55rem;
   z-index: 1;
-  width: 0.85rem;
+  width: 0.7rem;
   height: 95%;
   border-radius: 0 1.2rem 1.2rem 0;
   background: linear-gradient(180deg, #1a2434, #0b111a);
-  box-shadow: 4px 10px 24px rgba(4, 12, 26, 0.35);
-  transform: skewY(-10deg);
+  box-shadow: 4px 10px 24px rgba(5, 7, 12, 0.35);
+  transform: skewY(-8deg);
 }
 
 .phoneShadow {
   position: absolute;
-  left: 8%;
-  right: -4%;
-  bottom: -1.4rem;
+  left: 6%;
+  right: -2%;
+  bottom: -1.6rem;
   z-index: 0;
-  height: 2.2rem;
+  height: 2.4rem;
   border-radius: 999px;
-  background: radial-gradient(ellipse, rgba(4, 12, 26, 0.55), transparent 72%);
-  filter: blur(10px);
-  transform: rotate(-8deg);
+  background: radial-gradient(ellipse, rgba(5, 7, 12, 0.62), transparent 72%);
+  filter: blur(12px);
+  transform: rotate(-6deg);
 }
 
 .phoneNotch {
@@ -122,12 +388,12 @@
   justify-content: flex-start;
   gap: 0.36rem;
   min-height: 0;
-  padding: 0.52rem 0.52rem 0.5rem;
+  padding: 0.5rem 0.52rem 0.5rem;
   overflow: hidden;
   border-radius: 1.45rem;
   background:
-    radial-gradient(circle at 80% 0%, rgba(47, 140, 255, 0.16), transparent 42%),
-    rgba(5, 7, 13, 0.92);
+    radial-gradient(circle at 80% 0%, rgba(31, 168, 255, 0.16), transparent 42%),
+    rgba(5, 7, 12, 0.92);
 }
 
 .phoneStatus {
@@ -140,7 +406,8 @@
 .phoneStatus em,
 .sessionMeta span,
 .phoneProfile p,
-.phoneBanner p {
+.phoneBanner p,
+.phoneGreeting p {
   margin: 0;
   color: var(--color-text-muted);
   font-size: 0.64rem;
@@ -161,18 +428,24 @@
   justify-content: space-between;
   gap: 0.45rem;
   padding: 0.4rem 0.5rem;
-  border: 1px solid rgba(56, 132, 255, 0.16);
+  border: 1px solid rgba(31, 168, 255, 0.16);
   border-radius: 0.75rem;
   background:
-    linear-gradient(135deg, rgba(47, 140, 255, 0.16), transparent 55%),
-    rgba(13, 27, 46, 0.7);
+    linear-gradient(135deg, rgba(31, 168, 255, 0.16), transparent 55%),
+    rgba(17, 24, 39, 0.7);
+}
+
+.phoneBanner strong,
+.phoneProfile strong,
+.phoneGreeting strong,
+.phoneStats strong {
+  color: var(--color-white);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .phoneBanner strong {
-  color: var(--color-white);
   font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
   line-height: 1.15;
 }
 
@@ -181,10 +454,10 @@
   place-items: center;
   width: 1.85rem;
   height: 1.85rem;
-  border: 1px solid rgba(56, 225, 255, 0.28);
+  border: 1px solid rgba(46, 216, 255, 0.28);
   border-radius: 999px;
   color: var(--color-accent-400);
-  background: rgba(47, 140, 255, 0.12);
+  background: rgba(31, 168, 255, 0.12);
   font-size: 0.68rem;
   font-weight: 750;
   flex: 0 0 auto;
@@ -199,10 +472,7 @@
 }
 
 .phoneProfile strong {
-  color: var(--color-white);
   font-size: 0.94rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
   line-height: 1.15;
 }
 
@@ -212,10 +482,10 @@
   gap: 0.22rem;
   min-width: 0;
   padding: 0.3rem 0.45rem;
-  border: 1px solid rgba(56, 225, 255, 0.2);
+  border: 1px solid rgba(46, 216, 255, 0.2);
   border-radius: 999px;
   color: var(--color-accent-400);
-  background: rgba(47, 140, 255, 0.1);
+  background: rgba(31, 168, 255, 0.1);
   font-size: 0.6rem;
   font-weight: 700;
   white-space: nowrap;
@@ -248,7 +518,7 @@
 
 .tabActive {
   color: var(--color-white) !important;
-  background: rgba(47, 140, 255, 0.22);
+  background: rgba(31, 168, 255, 0.22);
 }
 
 .phoneGreeting {
@@ -256,23 +526,9 @@
   gap: 0.16rem;
 }
 
-.phoneGreeting p,
-.card header span,
-.metaRow span {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.64rem;
-  font-weight: 650;
+.phoneGreeting p {
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.phoneGreeting strong,
-.card strong,
-.metaRow strong {
-  color: var(--color-white);
-  font-weight: 700;
-  letter-spacing: -0.02em;
 }
 
 .phoneGreeting strong {
@@ -308,13 +564,13 @@
 
 .miniDone {
   color: var(--color-white);
-  background: rgba(47, 140, 255, 0.45);
+  background: rgba(31, 168, 255, 0.45);
 }
 
 .miniActive {
-  color: #05070d;
+  color: #05070c;
   background: var(--color-accent-400);
-  box-shadow: 0 0 10px rgba(56, 225, 255, 0.28);
+  box-shadow: 0 0 10px rgba(46, 216, 255, 0.28);
 }
 
 .miniIdle {
@@ -326,9 +582,9 @@
   display: grid;
   gap: 0.38rem;
   padding: 0.5rem 0.52rem;
-  border: 1px solid rgba(56, 132, 255, 0.14);
+  border: 1px solid rgba(31, 168, 255, 0.14);
   border-radius: 0.8rem;
-  background: rgba(13, 27, 46, 0.55);
+  background: rgba(17, 24, 39, 0.55);
 }
 
 .sessionMeta {
@@ -395,7 +651,7 @@
   gap: 0.08rem;
   min-width: 0;
   padding: 0.36rem 0.18rem;
-  border: 1px solid rgba(56, 132, 255, 0.12);
+  border: 1px solid rgba(31, 168, 255, 0.12);
   border-radius: 0.6rem;
   background: rgba(255, 255, 255, 0.03);
   text-align: center;
@@ -410,10 +666,7 @@
 }
 
 .phoneStats strong {
-  color: var(--color-white);
   font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
 }
 
 .phoneInsight {
@@ -433,7 +686,7 @@
   padding: 0.5rem 0.55rem;
   border-radius: 0.7rem;
   color: var(--color-text-soft);
-  background: rgba(47, 140, 255, 0.1);
+  background: rgba(31, 168, 255, 0.1);
   font-size: 0.7rem;
 }
 
@@ -450,250 +703,6 @@
   white-space: nowrap;
 }
 
-.card {
-  position: relative;
-  z-index: 5;
-  display: grid;
-  gap: 0.55rem;
-  width: 100%;
-  padding: 0.85rem 0.9rem;
-  border: var(--border-subtle);
-  border-radius: 16px;
-  background:
-    linear-gradient(160deg, rgba(56, 225, 255, 0.1), transparent 48%),
-    rgba(13, 27, 46, 0.82);
-  box-shadow:
-    0 22px 50px rgba(4, 12, 26, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(18px);
-}
-
-.cardWeek {
-  grid-column: 3;
-  grid-row: 1;
-  align-self: start;
-  justify-self: start;
-  max-width: 16rem;
-  margin-top: 0.5rem;
-}
-
-.cardNutrition {
-  grid-column: 1;
-  grid-row: 2;
-  align-self: end;
-  justify-self: end;
-  max-width: 13.25rem;
-  margin-bottom: 1.5rem;
-}
-
-.cardRecovery {
-  grid-column: 3;
-  grid-row: 2;
-  align-self: end;
-  justify-self: start;
-  max-width: 14.75rem;
-  margin-bottom: 0.35rem;
-}
-
-.card header {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.card header svg {
-  width: 0.9rem;
-  height: 0.9rem;
-  color: var(--color-accent-500);
-  flex: 0 0 auto;
-}
-
-.cardLead {
-  font-size: 0.95rem;
-  line-height: 1.3;
-}
-
-.metaRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.metaRow strong {
-  font-size: 0.84rem;
-}
-
-.heatmap {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.24rem;
-}
-
-.heatCell {
-  display: grid;
-  gap: 0.16rem;
-  justify-items: center;
-}
-
-.heatCell span {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 4px;
-}
-
-.heatDone {
-  background: rgba(47, 140, 255, 0.55);
-  box-shadow: 0 0 8px rgba(47, 140, 255, 0.2);
-}
-
-.heatActive {
-  background: var(--color-accent-400);
-  box-shadow: 0 0 12px rgba(56, 225, 255, 0.32);
-}
-
-.heatIdle {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.heatCell em {
-  color: var(--color-text-muted);
-  font-size: 0.52rem;
-  font-style: normal;
-}
-
-.macroRow {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.4rem;
-}
-
-.macroRing {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 0.18rem;
-  width: 2.5rem;
-}
-
-.macroRing svg {
-  width: 2.2rem;
-  height: 2.2rem;
-  overflow: visible;
-  transform: rotate(-90deg);
-}
-
-.ringTrack {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 3.5;
-}
-
-.ringValue {
-  fill: none;
-  stroke: var(--color-accent-500);
-  stroke-width: 3.5;
-  stroke-linecap: round;
-  stroke-dasharray: 55 88;
-}
-
-.macroRing strong {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 2.2rem;
-  height: 2.2rem;
-  display: grid;
-  place-items: center;
-  font-size: 0.64rem;
-  transform: translateX(-50%);
-}
-
-.macroRing span {
-  color: var(--color-text-muted);
-  font-size: 0.58rem;
-  font-weight: 650;
-  text-transform: uppercase;
-}
-
-.recoveryBody {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  min-width: 0;
-}
-
-.scoreRing {
-  position: relative;
-  width: 2.8rem;
-  height: 2.8rem;
-  flex: 0 0 auto;
-}
-
-.scoreRing svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  transform: rotate(-90deg);
-}
-
-.scoreRing .ringTrack,
-.scoreValue {
-  stroke-width: 5;
-}
-
-.scoreValue {
-  fill: none;
-  stroke: var(--color-accent-500);
-  stroke-linecap: round;
-}
-
-.scoreValueText {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--color-white);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  pointer-events: none;
-}
-
-.recoveryBody ul {
-  display: grid;
-  gap: 0.3rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  min-width: 0;
-  color: var(--color-text-soft);
-  font-size: 0.68rem;
-}
-
-.recoveryBody li {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  min-width: 0;
-}
-
-.recoveryBody li span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recoveryBody li > svg {
-  width: 0.72rem;
-  height: 0.72rem;
-  color: var(--color-accent-500);
-  flex: 0 0 auto;
-}
-
 @keyframes fillBar {
   from {
     transform: scaleX(0);
@@ -704,90 +713,141 @@
   }
 }
 
+@keyframes glowPulse {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes beamDrift {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes ringPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1.03);
+  }
+}
+
+@keyframes particleFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.25;
+  }
+
+  50% {
+    transform: translateY(-10px);
+    opacity: 0.55;
+  }
+}
+
+@keyframes trailFlow {
+  to {
+    stroke-dashoffset: -48;
+  }
+}
+
+@keyframes fragmentFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
 @media (min-width: 961px) {
   .stage {
-    min-height: 38rem;
-    padding: 0.35rem 0 1rem;
+    min-height: 40rem;
+    justify-items: end;
+    padding: 0.5rem 0 1rem;
   }
 
   .phoneScene {
-    width: 16.5rem;
-  }
-
-  .cardWeek {
-    max-width: 16.25rem;
-  }
-
-  .cardNutrition {
-    max-width: 13.5rem;
-  }
-
-  .cardRecovery {
-    max-width: 15rem;
+    width: 19rem;
+    margin-right: 6%;
   }
 }
 
 @media (max-width: 960px) {
   .stage {
     min-height: 0;
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-    gap: 0.9rem;
-    padding: 0.25rem 0 0.5rem;
     justify-items: center;
-  }
-
-  .glowFloor {
-    display: none;
+    padding: 0.5rem 0;
   }
 
   .phoneScene {
-    grid-column: auto;
-    grid-row: auto;
-    width: min(14rem, 58vw);
-    margin: 0.5rem auto 0.25rem;
-    order: 1;
+    width: min(16rem, 68vw);
+    margin-right: 0;
+    justify-self: center;
   }
 
   .phone {
-    transform: rotateY(-28deg) rotateX(6deg) rotateZ(-2deg);
+    transform: rotateY(-12deg) rotateX(5deg) rotateZ(-1deg);
   }
 
-  .card {
-    width: min(22rem, 100%);
-    max-width: none;
-    margin: 0;
-  }
-
-  .cardWeek,
-  .cardNutrition,
-  .cardRecovery {
-    grid-column: auto;
-    grid-row: auto;
-    justify-self: stretch;
-    align-self: stretch;
-    order: 2;
+  .storyNodes,
+  .fragments,
+  .storyFlow {
+    opacity: 0.7;
   }
 }
 
 @media (max-width: 640px) {
   .phoneScene {
-    width: min(13rem, 64vw);
+    width: min(14.5rem, 74vw);
+  }
+
+  .storyNodes,
+  .fragments {
+    display: none;
   }
 
   .phone {
-    transform: rotateY(-24deg) rotateX(4deg) rotateZ(-2deg);
-  }
-
-  .cardWeek,
-  .cardNutrition,
-  .cardRecovery {
-    display: none;
+    transform: rotateY(-10deg) rotateX(4deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .glowLarge,
+  .beam,
+  .beamTwo,
+  .ring,
+  .ringOuter,
+  .particles span,
+  .dataTrails path,
+  .storyFlow path,
+  .storyNode,
+  .fragment,
   .phoneProgressFill {
     animation: none;
+  }
+
+  .phoneParallax {
+    transition: none;
   }
 }
