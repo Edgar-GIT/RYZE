@@ -4,12 +4,11 @@ import { Hero } from "@/components/hero/hero";
 import { NutritionSection } from "@/components/nutrition_section/nutrition_section";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PlatformSection } from "@/components/platform_section/platform_section";
-import { ProgressDemo } from "@/components/product_demos/progress_demo";
+import { ProgressSection } from "@/components/progress_section/progress_section";
 import { Reveal } from "@/components/reveal/reveal";
 import { SectionTitle } from "@/components/section_title/section_title";
 import { SectionWrapper } from "@/components/section_wrapper/section_wrapper";
 import { ServiceCard } from "@/components/service_card/service_card";
-import { ShowcaseSection } from "@/components/showcase_section/showcase_section";
 import { TrainingSection } from "@/components/training_section/training_section";
 import { SERVICE_PLANS } from "@/constants/services";
 
@@ -25,15 +24,7 @@ export const HomePage = () => (
 
     <NutritionSection />
 
-    <ShowcaseSection
-      eyebrow="Progress"
-      title="Proof, not motivation posters."
-      description="Strength trends, body metrics and PRs in one calm analytics surface."
-      reverse
-      tone="surface"
-    >
-      <ProgressDemo />
-    </ShowcaseSection>
+    <ProgressSection />
 
     <SectionWrapper
       tone="card"
