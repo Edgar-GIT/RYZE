@@ -1,124 +1,37 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { Activity, Brain, Flame, HelpCircle, Leaf, Sparkles, Zap } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Flame, Zap } from "lucide-react";
 
 import styles from "./ecosystem_visual.module.css";
 
-const floatTransition = (delay: number) => ({
-  duration: 5.6 + delay,
+const floatTransition = {
+  duration: 5.8,
   repeat: Infinity,
   repeatType: "mirror" as const,
   ease: "easeInOut" as const
-});
+};
 
 export const EcosystemVisual = () => {
   const reduceMotion = useReducedMotion();
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    if (reduceMotion) {
-      return;
-    }
-
-    const stage = stageRef.current;
-    if (!stage) {
-      return;
-    }
-
-    const onMove = (event: MouseEvent) => {
-      const rect = stage.getBoundingClientRect();
-      const px = (event.clientX - rect.left) / rect.width - 0.5;
-      const py = (event.clientY - rect.top) / rect.height - 0.5;
-      setTilt({ x: py * -4, y: px * 5 });
-    };
-
-    const onLeave = () => setTilt({ x: 0, y: 0 });
-
-    stage.addEventListener("mousemove", onMove);
-    stage.addEventListener("mouseleave", onLeave);
-    return () => {
-      stage.removeEventListener("mousemove", onMove);
-      stage.removeEventListener("mouseleave", onLeave);
-    };
-  }, [reduceMotion]);
 
   return (
-    <div className={styles.stage} ref={stageRef} aria-hidden="true">
-      <div className={styles.atmosphere}>
-        <div className={styles.grid} />
-        <div className={styles.glowLarge} />
+    <div className={styles.stage} aria-hidden="true">
+      <div className={styles.ambient}>
+        <div className={styles.glowCore} />
         <div className={styles.glowSoft} />
-        <div className={styles.beam} />
-        <div className={styles.beamTwo} />
-        <div className={styles.ring} />
-        <div className={styles.ringOuter} />
         <div className={styles.particles}>
-          {Array.from({ length: 14 }, (_, index) => (
+          {Array.from({ length: 10 }, (_, index) => (
             <span key={index} style={{ ["--i" as string]: index }} />
           ))}
         </div>
-        <svg className={styles.dataTrails} viewBox="0 0 640 520" preserveAspectRatio="none">
-          <path d="M40 120 C140 90, 220 140, 300 180 S460 210, 560 150" />
-          <path d="M60 280 C160 250, 240 300, 330 320 S470 340, 590 290" />
-          <path d="M80 400 C180 360, 260 390, 360 410 S500 430, 600 380" />
-        </svg>
-        <svg className={styles.storyFlow} viewBox="0 0 640 520" preserveAspectRatio="none">
-          <path d="M90 180 C150 200, 200 240, 250 280" />
-          <path d="M250 280 C300 310, 340 330, 390 300" />
-          <path d="M470 250 C520 220, 560 200, 600 180" />
-        </svg>
-      </div>
-
-      <div className={styles.storyNodes}>
-        <span className={`${styles.storyNode} ${styles.storyQ}`}>
-          <HelpCircle />
-        </span>
-        <span className={`${styles.storyNode} ${styles.storyAi}`}>
-          <Brain />
-        </span>
-        <span className={`${styles.storyNode} ${styles.storyPlan}`}>
-          <Sparkles />
-        </span>
-        <span className={`${styles.storyNode} ${styles.storyProgress}`}>
-          <Activity />
-        </span>
-      </div>
-
-      <div className={styles.fragments}>
-        <span className={`${styles.fragment} ${styles.fragRing}`}>
-          <svg viewBox="0 0 40 40">
-            <circle cx="20" cy="20" r="14" />
-            <circle cx="20" cy="20" r="14" className={styles.fragRingValue} />
-          </svg>
-        </span>
-        <span className={`${styles.fragment} ${styles.fragChart}`}>
-          <i />
-          <i />
-          <i />
-          <i />
-        </span>
-        <span className={`${styles.fragment} ${styles.fragTrain}`}>
-          <Flame />
-        </span>
-        <span className={`${styles.fragment} ${styles.fragFuel}`}>
-          <Leaf />
-        </span>
       </div>
 
       <motion.div
         className={styles.phoneScene}
-        animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
-        transition={floatTransition(0)}
+        animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
+        transition={floatTransition}
       >
-        <div
-          className={styles.phoneParallax}
-          style={{
-            transform: `perspective(1200px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`
-          }}
-        >
-          <div className={styles.phoneGlow} />
-          <div className={styles.phone}>
+        <div className={styles.phoneGlow} />
+        <div className={styles.phone}>
           <div className={styles.phoneBezel}>
             <div className={styles.phoneNotch} />
             <div className={styles.phoneScreen}>
@@ -230,7 +143,6 @@ export const EcosystemVisual = () => {
           </div>
           <div className={styles.phoneSide} />
           <div className={styles.phoneShadow} />
-        </div>
         </div>
       </motion.div>
     </div>
