@@ -360,9 +360,17 @@ Other major sections after Platform should:
 - Use a small title
 - Use a strong headline
 - Use a very short description
-- Immediately show a visual product demo
+- Prefer full-bleed section backgrounds when artwork assets exist
+  (e.g. Training uses `training_sec_bg.png`)
 
-Preferred demo surfaces include:
+The Training section uses:
+
+- Full-bleed background image (`main/src/resources/img/hero/training_sec_bg.png`)
+- Left copy: eyebrow, heading with accent on `follow.`, short description
+- Vertical feature badges (icon tile + title + subtitle)
+- Reveal animations on copy and badges
+
+Preferred demo surfaces for remaining showcase sections include:
 
 - Weekly activity charts
 - Workout calendars

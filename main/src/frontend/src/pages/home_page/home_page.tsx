@@ -5,12 +5,12 @@ import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PlatformSection } from "@/components/platform_section/platform_section";
 import { NutritionDemo } from "@/components/product_demos/nutrition_demo";
 import { ProgressDemo } from "@/components/product_demos/progress_demo";
-import { TrainingDemo } from "@/components/product_demos/training_demo";
 import { Reveal } from "@/components/reveal/reveal";
 import { SectionTitle } from "@/components/section_title/section_title";
 import { SectionWrapper } from "@/components/section_wrapper/section_wrapper";
 import { ServiceCard } from "@/components/service_card/service_card";
 import { ShowcaseSection } from "@/components/showcase_section/showcase_section";
+import { TrainingSection } from "@/components/training_section/training_section";
 import { SERVICE_PLANS } from "@/constants/services";
 
 import styles from "./home_page.module.css";
@@ -21,15 +21,7 @@ export const HomePage = () => (
 
     <PlatformSection />
 
-    <ShowcaseSection
-      eyebrow="Training"
-      title="Sessions you can actually follow."
-      description="Weekly structure, live lifts and clear next steps without digging through spreadsheets."
-      reverse
-      tone="surface"
-    >
-      <TrainingDemo />
-    </ShowcaseSection>
+    <TrainingSection />
 
     <ShowcaseSection
       eyebrow="Nutrition"

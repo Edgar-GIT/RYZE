@@ -1,3 +1,31 @@
+# Version 2.2.23
+
+Title: Rebuild Training section with background artwork and feature badges
+
+Date: 2026-08-04
+
+Summary:
+
+Replaced the Training showcase/demo block with a full-bleed section using
+`training_sec_bg.png`. Left column now matches the reference copy hierarchy and
+vertical feature badges, with reveal animations kept.
+
+Files modified:
+
+- `main/src/frontend/src/components/training_section/training_section.tsx`
+- `main/src/frontend/src/components/training_section/training_section.module.css`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Training needed the same artwork-driven treatment as Start Faster, with left
+content matching the attached reference.
+
+---
+
 # Version 2.2.22
 
 Title: Start Faster background image test without phone
