@@ -17,9 +17,9 @@ export const EcosystemVisual = () => {
     <div className={styles.stage} aria-hidden="true">
       <div className={styles.ambient}>
         <div className={styles.glowCore} />
-        <div className={styles.glowSoft} />
+        <div className={styles.glowFloor} />
         <div className={styles.particles}>
-          {Array.from({ length: 10 }, (_, index) => (
+          {Array.from({ length: 12 }, (_, index) => (
             <span key={index} style={{ ["--i" as string]: index }} />
           ))}
         </div>
@@ -27,7 +27,7 @@ export const EcosystemVisual = () => {
 
       <motion.div
         className={styles.phoneScene}
-        animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
+        animate={reduceMotion ? undefined : { y: [0, -7, 0] }}
         transition={floatTransition}
       >
         <div className={styles.phoneGlow} />
@@ -45,7 +45,13 @@ export const EcosystemVisual = () => {
                   <p>Fri 4 · Evening</p>
                   <strong>Ready to train</strong>
                 </div>
-                <span className={styles.readyPill}>86</span>
+                <span className={styles.readyRing}>
+                  <svg viewBox="0 0 36 36">
+                    <circle className={styles.readyTrack} cx="18" cy="18" r="14" />
+                    <circle className={styles.readyValue} cx="18" cy="18" r="14" />
+                  </svg>
+                  <b>86</b>
+                </span>
               </div>
 
               <div className={styles.phoneProfile}>

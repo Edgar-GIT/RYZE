@@ -1,14 +1,35 @@
 .section {
   position: relative;
-  padding: 5.5rem 0 5.25rem;
+  padding: 5.5rem 0 5.5rem;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 58% 55% at 82% 42%, rgba(46, 216, 255, 0.1), transparent 58%),
-    radial-gradient(ellipse 40% 45% at 10% 70%, rgba(26, 132, 255, 0.06), transparent 52%),
-    linear-gradient(180deg, rgba(5, 7, 12, 0.2), rgba(9, 17, 27, 0.35));
+    radial-gradient(ellipse 52% 58% at 78% 42%, rgba(46, 216, 255, 0.12), transparent 58%),
+    radial-gradient(ellipse 36% 42% at 12% 68%, rgba(26, 132, 255, 0.05), transparent 55%),
+    linear-gradient(180deg, rgba(5, 7, 12, 0.15), rgba(9, 17, 27, 0.32));
+}
+
+.arc {
+  position: absolute;
+  inset: 8% 0 4%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.arc svg {
+  width: 100%;
+  height: 100%;
+}
+
+.arcPath {
+  stroke: rgba(46, 216, 255, 0.35);
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 10px rgba(46, 216, 255, 0.35));
 }
 
 .layout {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 2rem;
   align-items: center;
@@ -32,10 +53,17 @@
 .copy h2 {
   margin: 0;
   color: var(--text-primary);
-  font-size: clamp(2.1rem, 9vw, 2.85rem);
-  line-height: 1.02;
+  font-size: clamp(2.1rem, 8.5vw, 2.9rem);
+  line-height: 1.05;
   letter-spacing: -0.035em;
-  max-width: 11ch;
+  max-width: 13ch;
+}
+
+.accentPhrase {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .description {
@@ -43,21 +71,21 @@
   color: var(--text-muted);
   font-size: 1.02rem;
   line-height: 1.85;
-  max-width: 28ch;
+  max-width: 30ch;
 }
 
 .actions {
   display: grid;
   gap: 0.85rem;
   justify-items: start;
-  margin-top: 0.25rem;
+  margin-top: 0.15rem;
 }
 
 .secondaryLink {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: 0.92rem;
   font-weight: 650;
   text-decoration: none;
@@ -81,6 +109,58 @@
   transform: translateX(3px);
 }
 
+.process {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  width: min(100%, 34rem);
+  margin: 1.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.processStep {
+  position: relative;
+  display: grid;
+  gap: 0.55rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.processIcon {
+  display: grid;
+  place-items: center;
+  width: 2.55rem;
+  height: 2.55rem;
+  border: 1px solid rgba(46, 216, 255, 0.35);
+  border-radius: 999px;
+  color: var(--accent);
+  background: rgba(46, 216, 255, 0.08);
+  box-shadow: 0 0 18px rgba(46, 216, 255, 0.18);
+}
+
+.processIcon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.processLabel {
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.35;
+  max-width: 11ch;
+}
+
+.processArrow {
+  position: absolute;
+  top: 0.75rem;
+  right: -0.55rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  color: rgba(46, 216, 255, 0.55);
+}
+
 .visual {
   min-width: 0;
   width: 100%;
@@ -88,22 +168,33 @@
 
 @media (min-width: 961px) {
   .layout {
-    grid-template-columns: minmax(0, 0.68fr) minmax(0, 1.32fr);
-    gap: 2.5rem;
+    grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+    gap: 1.5rem;
+    align-items: end;
   }
 
   .copy {
-    max-width: 400px;
+    max-width: 460px;
+    padding-bottom: 0.5rem;
   }
 
   .copy h2 {
-    font-size: clamp(2.7rem, 4.2vw, 3.55rem);
+    font-size: clamp(2.55rem, 3.8vw, 3.35rem);
+    max-width: 12ch;
+  }
+
+  .process {
+    margin-top: 2rem;
   }
 }
 
 @media (max-width: 960px) {
   .section {
     padding: 4rem 0 4.25rem;
+  }
+
+  .arc {
+    display: none;
   }
 
   .layout {
@@ -120,7 +211,27 @@
   }
 
   .description {
-    max-width: 34ch;
+    max-width: 36ch;
+  }
+
+  .process {
+    width: 100%;
+    gap: 0.4rem;
+  }
+
+  .processArrow {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .process {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 0.75rem;
+  }
+
+  .processLabel {
+    max-width: 14ch;
   }
 }
 

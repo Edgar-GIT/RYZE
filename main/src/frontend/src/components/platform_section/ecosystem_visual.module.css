@@ -3,41 +3,40 @@
   display: grid;
   place-items: center;
   width: 100%;
-  min-height: 38rem;
-  padding: 1rem 0 1.75rem;
+  min-height: 40rem;
+  padding: 0.5rem 0 1.5rem;
   isolation: isolate;
   overflow: visible;
 }
 
 .ambient {
   position: absolute;
-  inset: -6% -2%;
+  inset: -4% -2%;
   z-index: 0;
   pointer-events: none;
 }
 
 .glowCore {
   position: absolute;
-  top: 18%;
+  top: 16%;
   left: 52%;
-  width: 24rem;
-  height: 24rem;
+  width: 28rem;
+  height: 28rem;
   border-radius: 999px;
-  background: radial-gradient(circle, var(--accent-glow), transparent 68%);
-  filter: blur(42px);
+  background: radial-gradient(circle, rgba(46, 216, 255, 0.34), transparent 68%);
+  filter: blur(48px);
   transform: translateX(-50%);
-  opacity: 0.9;
 }
 
-.glowSoft {
+.glowFloor {
   position: absolute;
-  bottom: 6%;
-  left: 40%;
+  bottom: 4%;
+  left: 50%;
   width: 18rem;
-  height: 10rem;
+  height: 8rem;
   border-radius: 999px;
-  background: radial-gradient(ellipse, rgba(26, 132, 255, 0.18), transparent 70%);
-  filter: blur(28px);
+  background: radial-gradient(ellipse, rgba(26, 132, 255, 0.22), transparent 70%);
+  filter: blur(24px);
   transform: translateX(-50%);
 }
 
@@ -53,32 +52,31 @@
   border-radius: 999px;
   background: var(--accent);
   opacity: 0.28;
-  top: calc(18% + (var(--i) * 6%));
-  left: calc(28% + (var(--i) * 5%));
+  top: calc(16% + (var(--i) * 5.8%));
+  left: calc(30% + (var(--i) * 4.8%));
   box-shadow: 0 0 8px var(--accent-glow);
   animation: particleFloat 7s ease-in-out infinite;
-  animation-delay: calc(var(--i) * 0.25s);
+  animation-delay: calc(var(--i) * 0.22s);
 }
 
 .phoneScene {
   position: relative;
   z-index: 2;
-  width: min(22rem, 86%);
-  justify-self: end;
-  margin-right: 2%;
-  perspective: 1400px;
+  width: min(21.5rem, 84%);
+  justify-self: center;
+  perspective: 1600px;
 }
 
 .phoneGlow {
   position: absolute;
-  top: 14%;
+  top: 12%;
   left: 50%;
   z-index: 0;
-  width: 20rem;
-  height: 20rem;
+  width: 19rem;
+  height: 19rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(46, 216, 255, 0.34), transparent 70%);
-  filter: blur(28px);
+  background: radial-gradient(circle, rgba(46, 216, 255, 0.4), transparent 70%);
+  filter: blur(30px);
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -87,8 +85,8 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  aspect-ratio: 9 / 19.4;
-  transform: rotateY(-16deg) rotateX(5deg) rotateZ(-1.5deg);
+  aspect-ratio: 9 / 19.5;
+  transform: rotateY(-10deg) rotateX(4deg) rotateZ(-1deg);
   transform-style: preserve-3d;
 }
 
@@ -98,83 +96,97 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 2.2rem;
+  padding: 0.52rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 2.35rem;
   background:
-    linear-gradient(160deg, rgba(46, 216, 255, 0.1), transparent 42%),
-    linear-gradient(180deg, var(--surface-elevated) 0%, var(--bg-secondary) 100%);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 28%),
+    linear-gradient(180deg, #1a2434 0%, #0a111b 52%, #070b12 100%);
   box-shadow:
-    0 48px 100px rgba(5, 7, 12, 0.58),
-    0 0 48px rgba(46, 216, 255, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.38);
+    0 48px 110px rgba(5, 7, 12, 0.62),
+    0 0 56px rgba(46, 216, 255, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.phoneBezel::before {
+  position: absolute;
+  inset: 0.18rem;
+  z-index: 0;
+  border-radius: 2.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  content: "";
+  pointer-events: none;
 }
 
 .phoneBezel::after {
   position: absolute;
-  inset: 0.5rem;
-  z-index: 4;
-  border-radius: 1.55rem;
+  inset: 0.52rem;
+  z-index: 5;
+  border-radius: 1.7rem;
   content: "";
   pointer-events: none;
   background: linear-gradient(
-    125deg,
-    rgba(255, 255, 255, 0.2) 0%,
-    rgba(255, 255, 255, 0.06) 18%,
-    transparent 36%,
-    transparent 72%,
+    118deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0.07) 16%,
+    transparent 34%,
+    transparent 74%,
     rgba(255, 255, 255, 0.04) 100%
   );
 }
 
 .phoneSide {
   position: absolute;
-  top: 2.5%;
-  right: -0.58rem;
+  top: 2.2%;
+  right: -0.52rem;
   z-index: 1;
-  width: 0.72rem;
-  height: 95%;
-  border-radius: 0 1.15rem 1.15rem 0;
-  background: linear-gradient(180deg, #1a2536, var(--bg-secondary));
-  box-shadow: 4px 12px 24px rgba(5, 7, 12, 0.35);
-  transform: skewY(-7deg);
+  width: 0.62rem;
+  height: 95.5%;
+  border-radius: 0 1.1rem 1.1rem 0;
+  background: linear-gradient(180deg, #243246, #0a111b 55%, #05070c);
+  box-shadow: 5px 14px 28px rgba(5, 7, 12, 0.4);
+  transform: skewY(-6deg);
 }
 
 .phoneShadow {
   position: absolute;
-  left: 8%;
-  right: 0;
-  bottom: -1.55rem;
+  left: 10%;
+  right: 2%;
+  bottom: -1.65rem;
   z-index: 0;
-  height: 2.35rem;
+  height: 2.4rem;
   border-radius: 999px;
-  background: radial-gradient(ellipse, rgba(5, 7, 12, 0.65), transparent 72%);
+  background: radial-gradient(ellipse, rgba(5, 7, 12, 0.7), transparent 72%);
   filter: blur(12px);
-  transform: rotate(-5deg);
+  transform: rotate(-4deg);
 }
 
 .phoneNotch {
-  width: 34%;
-  height: 0.28rem;
-  margin: 0.12rem auto 0.3rem;
+  position: relative;
+  z-index: 3;
+  width: 32%;
+  height: 0.3rem;
+  margin: 0.14rem auto 0.28rem;
   border-radius: 999px;
-  background: rgba(244, 247, 251, 0.14);
+  background: rgba(244, 247, 251, 0.16);
   flex: 0 0 auto;
 }
 
 .phoneScreen {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 0.32rem;
+  gap: 0.34rem;
   min-height: 0;
   padding: 0.48rem 0.52rem 0.5rem;
   overflow: hidden;
-  border-radius: 1.55rem;
+  border-radius: 1.7rem;
   background:
-    radial-gradient(circle at 82% 0%, rgba(46, 216, 255, 0.14), transparent 42%),
+    radial-gradient(circle at 84% 0%, rgba(46, 216, 255, 0.16), transparent 40%),
     var(--bg-primary);
 }
 
@@ -201,7 +213,7 @@
 .phoneGreeting p {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.64rem;
+  font-size: 0.62rem;
   font-weight: 650;
   letter-spacing: 0.04em;
   font-style: normal;
@@ -220,10 +232,10 @@
   gap: 0.45rem;
   padding: 0.42rem 0.5rem;
   border: var(--border);
-  border-radius: 0.75rem;
+  border-radius: 0.8rem;
   background:
-    linear-gradient(135deg, rgba(46, 216, 255, 0.14), transparent 55%),
-    rgba(16, 24, 38, 0.78);
+    linear-gradient(135deg, rgba(46, 216, 255, 0.16), transparent 55%),
+    rgba(16, 24, 38, 0.82);
 }
 
 .phoneBanner strong,
@@ -240,18 +252,48 @@
   line-height: 1.15;
 }
 
-.readyPill {
+.readyRing {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  border: 1px solid rgba(46, 216, 255, 0.3);
-  border-radius: 999px;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex: 0 0 auto;
+}
+
+.readyRing svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.readyTrack,
+.readyValue {
+  fill: none;
+  stroke-width: 2.6;
+}
+
+.readyTrack {
+  stroke: rgba(255, 255, 255, 0.1);
+}
+
+.readyValue {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 88;
+  stroke-dashoffset: 12;
+  filter: drop-shadow(0 0 4px rgba(46, 216, 255, 0.55));
+}
+
+.readyRing b {
+  position: relative;
+  z-index: 1;
   color: var(--accent);
-  background: rgba(46, 216, 255, 0.12);
   font-size: 0.68rem;
   font-weight: 750;
-  flex: 0 0 auto;
+  letter-spacing: -0.02em;
 }
 
 .phoneProfile strong {
@@ -300,12 +342,13 @@
 
 .tabActive {
   color: var(--text-primary) !important;
-  background: rgba(46, 216, 255, 0.2);
+  background: rgba(46, 216, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(46, 216, 255, 0.2);
 }
 
 .phoneGreeting {
   display: grid;
-  gap: 0.16rem;
+  gap: 0.14rem;
 }
 
 .phoneGreeting p {
@@ -314,31 +357,31 @@
 }
 
 .phoneGreeting strong {
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   line-height: 1.15;
 }
 
 .phaseChip {
   width: fit-content;
-  margin-top: 0.08rem;
-  padding: 0.24rem 0.45rem;
+  margin-top: 0.06rem;
+  padding: 0.22rem 0.42rem;
   border-radius: 999px;
   color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.05);
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 650;
 }
 
 .miniWeek {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.2rem;
+  gap: 0.18rem;
 }
 
 .miniWeek span {
   display: grid;
   place-items: center;
-  min-height: 1.35rem;
+  min-height: 1.32rem;
   border-radius: 0.4rem;
   font-size: 0.54rem;
   font-weight: 700;
@@ -346,7 +389,7 @@
 
 .miniDone {
   color: var(--text-primary);
-  background: rgba(26, 132, 255, 0.45);
+  background: rgba(26, 132, 255, 0.42);
 }
 
 .miniActive {
@@ -362,11 +405,11 @@
 
 .phoneSession {
   display: grid;
-  gap: 0.38rem;
-  padding: 0.52rem;
+  gap: 0.34rem;
+  padding: 0.48rem;
   border: var(--border);
   border-radius: 0.8rem;
-  background: rgba(16, 24, 38, 0.72);
+  background: rgba(16, 24, 38, 0.74);
 }
 
 .phoneProgress {
@@ -388,7 +431,7 @@
 
 .sessionList {
   display: grid;
-  gap: 0.26rem;
+  gap: 0.24rem;
 }
 
 .sessionList div {
@@ -402,7 +445,7 @@
 .sessionList span {
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -410,7 +453,7 @@
 
 .sessionList em {
   color: var(--text-muted);
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-style: normal;
   font-weight: 650;
   flex: 0 0 auto;
@@ -419,49 +462,49 @@
 .phoneStats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.28rem;
+  gap: 0.26rem;
 }
 
 .phoneStats div {
   display: grid;
-  gap: 0.08rem;
+  gap: 0.06rem;
   min-width: 0;
-  padding: 0.36rem 0.18rem;
+  padding: 0.34rem 0.16rem;
   border: var(--border);
-  border-radius: 0.6rem;
+  border-radius: 0.58rem;
   background: rgba(255, 255, 255, 0.03);
   text-align: center;
 }
 
 .phoneStats span {
   color: var(--text-muted);
-  font-size: 0.56rem;
+  font-size: 0.54rem;
   font-weight: 650;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .phoneStats strong {
-  font-size: 0.76rem;
+  font-size: 0.74rem;
 }
 
 .phoneInsight {
-  padding: 0.4rem 0.52rem;
-  border-radius: 0.6rem;
+  padding: 0.36rem 0.48rem;
+  border-radius: 0.58rem;
   color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.04);
-  font-size: 0.64rem;
+  font-size: 0.62rem;
   line-height: 1.3;
 }
 
 .phoneNext {
   gap: 0.35rem;
   min-width: 0;
-  padding: 0.5rem 0.55rem;
+  padding: 0.48rem 0.52rem;
   border-radius: 0.7rem;
   color: var(--text-secondary);
   background: rgba(46, 216, 255, 0.1);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
 }
 
 .phoneNext svg {
@@ -504,12 +547,12 @@
   .stage {
     min-height: 46rem;
     justify-items: end;
-    padding: 0.5rem 0 1.25rem;
+    padding: 0.25rem 0 1rem;
   }
 
   .phoneScene {
-    width: 22.5rem;
-    margin-right: 4%;
+    width: 22.75rem;
+    margin-right: 6%;
   }
 }
 
@@ -520,23 +563,21 @@
   }
 
   .phoneScene {
-    width: min(19.5rem, 80vw);
-    margin-right: 0;
-    justify-self: center;
+    width: min(20rem, 78vw);
   }
 
   .phone {
-    transform: rotateY(-12deg) rotateX(4deg);
+    transform: rotateY(-8deg) rotateX(3deg);
   }
 }
 
 @media (max-width: 640px) {
   .phoneScene {
-    width: min(17.5rem, 86vw);
+    width: min(18rem, 86vw);
   }
 
   .phone {
-    transform: rotateY(-10deg) rotateX(3deg);
+    transform: rotateY(-6deg) rotateX(2deg);
   }
 }
 

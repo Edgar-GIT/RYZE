@@ -1,3 +1,33 @@
+# Version 2.2.19
+
+Title: Match Start Faster section to reference mockup
+
+Date: 2026-08-04
+
+Summary:
+
+Rebuilt the Start Faster / phone section to match the attached reference:
+accent headline phrase, process steps, thin connecting arc, and a larger
+front-facing premium phone with circular ready gauge, glass reflection and
+soft blue ambient glow.
+
+Files modified:
+
+- `main/src/frontend/src/components/platform_section/platform_section.tsx`
+- `main/src/frontend/src/components/platform_section/platform_section.module.css`
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.tsx`
+- `main/src/frontend/src/components/platform_section/ecosystem_visual.module.css`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The live phone section diverged from the approved reference composition.
+
+---
+
 # Version 2.2.18
 
 Title: Official Hero token system + restore premium Platform phone

@@ -1,7 +1,7 @@
 # RYZE
 # Design System
 
-Version: 2.2.18
+Version: 2.2.19
 
 ---
 
@@ -140,6 +140,8 @@ Requirements:
 - Complete UI kept inside the screen
 - No cropped or simplified interface
 - No floating marketing cards around the phone
+- Process steps under the copy and one thin connecting arc are part of the
+  official Start Faster composition
 
 ---
 

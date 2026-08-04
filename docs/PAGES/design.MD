@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.18
+Version: 2.2.19
 
 ---
 
@@ -341,16 +341,20 @@ The Platform section is a dedicated visual moment after the hero.
 
 It uses:
 
-- Left column with a strong headline, short supporting line, primary CTA and a
-  secondary text link (`See how it works →`)
+- Left column with a strong headline (`without waiting.` in accent gradient),
+  short supporting line, primary CTA and secondary text link
+  (`See how it works →`)
+- Horizontal process flow under the copy:
+  Answer questions → AI builds plan → synced training/nutrition/recovery →
+  weekly progress
+- One thin glowing arc connecting the process flow toward the phone
 - Right column dominated by one large premium almost-3D phone
-  (`rotateY` about `-16deg`) with soft blue ambient glow, realistic reflection,
-  perspective depth and gentle floating motion
+  (`rotateY` about `-10deg`) with soft blue ambient glow, realistic glass
+  reflection, perspective depth and gentle floating motion
 - Full phone UI kept inside the screen — never cropped or simplified
-- No floating information cards
-- Atmospheric support only: soft gradients, large radial lighting, subtle
-  particles, ambient glow and depth
-- No random circles, dotted curves, SVG lines or floating icons
+- Ready score rendered as a circular ring gauge
+- No floating information cards around the phone
+- No random decorative circles, dotted curves or floating icons
 
 Other major sections after Platform should:
 
