@@ -1,9 +1,9 @@
 import { ContactPreview } from "@/components/contact_preview/contact_preview";
 import { CtaBand } from "@/components/cta_band/cta_band";
 import { Hero } from "@/components/hero/hero";
+import { NutritionSection } from "@/components/nutrition_section/nutrition_section";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PlatformSection } from "@/components/platform_section/platform_section";
-import { NutritionDemo } from "@/components/product_demos/nutrition_demo";
 import { ProgressDemo } from "@/components/product_demos/progress_demo";
 import { Reveal } from "@/components/reveal/reveal";
 import { SectionTitle } from "@/components/section_title/section_title";
@@ -23,14 +23,7 @@ export const HomePage = () => (
 
     <TrainingSection />
 
-    <ShowcaseSection
-      eyebrow="Nutrition"
-      title="Fuel that moves with the plan."
-      description="Macros, timing and guidance that adapt to the training week — not a static PDF."
-      tone="card"
-    >
-      <NutritionDemo />
-    </ShowcaseSection>
+    <NutritionSection />
 
     <ShowcaseSection
       eyebrow="Progress"
