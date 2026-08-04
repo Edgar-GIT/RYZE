@@ -10,37 +10,6 @@ const floatTransition = (delay: number) => ({
   ease: "easeInOut" as const
 });
 
-type LinkVariant = "top" | "worm" | "bottom";
-
-const LINK_PATHS: Record<LinkVariant, string> = {
-  // Top → bottom descending arc into the phone
-  top: "M156 6 C108 18, 58 42, 4 58",
-  // Middle worm / minhoca
-  worm: "M156 30 C128 6, 108 54, 84 28 C60 4, 36 52, 4 30",
-  // Bottom descending arc into the phone
-  bottom: "M156 8 C110 22, 62 48, 4 62"
-};
-
-const CardLink = ({ variant }: { variant: LinkVariant }) => {
-  const linkClass =
-    variant === "top"
-      ? styles.cardLinkTop
-      : variant === "worm"
-        ? styles.cardLinkWorm
-        : styles.cardLinkBottom;
-
-  return (
-    <svg
-      className={`${styles.cardLink} ${linkClass}`}
-      viewBox="0 0 160 68"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <path className={styles.linkPath} d={LINK_PATHS[variant]} />
-    </svg>
-  );
-};
-
 export const EcosystemVisual = () => {
   const reduceMotion = useReducedMotion();
 
@@ -48,6 +17,33 @@ export const EcosystemVisual = () => {
     <div className={styles.stage} aria-hidden="true">
       <div className={styles.glowCore} />
       <div className={styles.glowFloor} />
+
+      <motion.article
+        className={`${styles.card} ${styles.cardNutrition}`}
+        animate={reduceMotion ? undefined : { y: [0, -5, 0] }}
+        transition={floatTransition(0.7)}
+      >
+        <header>
+          <Flame aria-hidden="true" />
+          <span>Nutrition</span>
+        </header>
+        <div className={styles.macroRow}>
+          {[
+            { label: "P", value: "78" },
+            { label: "C", value: "64" },
+            { label: "F", value: "52" }
+          ].map((macro) => (
+            <div key={macro.label} className={styles.macroRing}>
+              <svg viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="14" className={styles.ringTrack} />
+                <circle cx="18" cy="18" r="14" className={styles.ringValue} />
+              </svg>
+              <strong>{macro.label}</strong>
+              <span>{macro.value}%</span>
+            </div>
+          ))}
+        </div>
+      </motion.article>
 
       <motion.div
         className={styles.phoneScene}
@@ -174,7 +170,6 @@ export const EcosystemVisual = () => {
         animate={reduceMotion ? undefined : { y: [0, -6, 0] }}
         transition={floatTransition(0.35)}
       >
-        <CardLink variant="top" />
         <header>
           <Activity aria-hidden="true" />
           <span>This week</span>
@@ -199,39 +194,10 @@ export const EcosystemVisual = () => {
       </motion.article>
 
       <motion.article
-        className={`${styles.card} ${styles.cardNutrition}`}
-        animate={reduceMotion ? undefined : { y: [0, -5, 0] }}
-        transition={floatTransition(0.7)}
-      >
-        <CardLink variant="worm" />
-        <header>
-          <Flame aria-hidden="true" />
-          <span>Nutrition</span>
-        </header>
-        <div className={styles.macroRow}>
-          {[
-            { label: "P", value: "78" },
-            { label: "C", value: "64" },
-            { label: "F", value: "52" }
-          ].map((macro) => (
-            <div key={macro.label} className={styles.macroRing}>
-              <svg viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="14" className={styles.ringTrack} />
-                <circle cx="18" cy="18" r="14" className={styles.ringValue} />
-              </svg>
-              <strong>{macro.label}</strong>
-              <span>{macro.value}%</span>
-            </div>
-          ))}
-        </div>
-      </motion.article>
-
-      <motion.article
         className={`${styles.card} ${styles.cardRecovery}`}
         animate={reduceMotion ? undefined : { y: [0, -4, 0] }}
         transition={floatTransition(1.05)}
       >
-        <CardLink variant="bottom" />
         <header>
           <Moon aria-hidden="true" />
           <span>Recovery</span>
