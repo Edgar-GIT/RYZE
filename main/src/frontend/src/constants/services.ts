@@ -12,6 +12,7 @@ export interface ServicePlan {
   imageAlt: string;
   badge: string;
   features: string[];
+  featured?: boolean;
 }
 
 export const SERVICE_PLANS: ServicePlan[] = [
@@ -37,7 +38,8 @@ export const SERVICE_PLANS: ServicePlan[] = [
     imageSrc: planPremiumOne,
     imageAlt: "RYZE premium level 1 badge",
     badge: "Train & Nutrition",
-    features: ["Plan built around your goal", "Nutrition matched to your training", "Immediate delivery"]
+    features: ["Plan built around your goal", "Nutrition matched to your training", "Immediate delivery"],
+    featured: true
   },
   {
     title: "Premium Level 2",
@@ -48,7 +50,7 @@ export const SERVICE_PLANS: ServicePlan[] = [
     to: "/services/premium-level-2",
     imageSrc: planPremiumTwo,
     imageAlt: "RYZE premium level 2 badge",
-    badge: "Coach reviewed full plan",
+    badge: "Coach reviewed",
     features: ["Trainer reviewed", "Every detail accounted for", "Ongoing adjustments"]
   }
 ];

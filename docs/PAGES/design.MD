@@ -217,7 +217,8 @@ Secondary
 
 ## Service cards
 
-- Tall glass panels with image media, cyan badge, feature list and full-width CTA
+- Compact glass panels with logo mark, badge, feature list and full-width CTA
+- Featured plan uses solid cyan badge + primary CTA
 - Hover: lift + cyan border glow
 - Same card language on homepage preview and `/services`
 
@@ -398,8 +399,9 @@ Do not use generic admin-dashboard placeholder layouts for Platform.
 
 ### Plans
 
-Three product cards for Free, Premium and Elite. Each card shows a compact
-right-aligned price above its CTA.
+Three product cards for Free, Premium and Elite using the shared modern
+`ServiceCard` (logo mark, badge, features, right-aligned price, CTA). Premium
+Level 1 is featured.
 
 ### Final CTA
 
@@ -419,20 +421,26 @@ Contains:
 
 Displays every available product offered by the platform.
 
-Landing Page
+Catalog landing
 
-Three product cards.
+- Eyebrow “Catalog”, headline with accent on “categories.”
+- Three highlight points: Built by experts / Instant access / Always evolving
+- Three modern glass plan cards (shared `ServiceCard`)
+- Bottom trust row: Secure & private / Satisfaction guarantee / Support 24/7
+- No section background image for now
 
 Each card contains:
 
-- Image
-- Name
-- Description
-- Main Features
+- Compact plan logo mark
+- Badge (featured plan uses solid cyan badge)
+- Name and description
+- Feature list with cyan checks
 - Compact right-aligned price above the CTA
-- Call To Action
+- Call To Action (primary on featured Premium Level 1, outline on others)
 
 Each product redirects to its own page.
+
+The same `ServiceCard` language is used on the homepage plans preview.
 
 ### Free
 
@@ -544,23 +552,23 @@ Sections:
    (eyebrow “Get started”, headline with accent on “minutes.”, short lead)
    and a bottom “How RYZE works” panel: five numbered steps connected by a
    glowing rail (Sign up → goals → AI plan → track → weekly improvement).
-3. Why RYZE — dense responsive feature grid of premium glass cards with icon,
-   title, one sentence, hover lift and soft glow.
-4. Our vision — two-column roadmap: left intro with phase tags
-   (Today / Next / Soon / Later / Horizon) and soft ambient glow, right
-   vertical timeline with numbered milestone cards.
+3. Fitness operating system — full-bleed `evo_man_bg.png` background with
+   left intro (eyebrow, headline with accent on “operating system”, lead,
+   Explore RYZE CTA) and a bottom bordered 2×4 feature panel of compact
+   icon+copy cells (Adaptive Programs, AI Coaching, Nutrition, Progress,
+   Devices, Accountability, Community, Results).
+4. Our vision — full-bleed `future_bg.png` background with two-column
+   roadmap: left intro with phase tags (Today / Next / Soon / Later /
+   Horizon), right vertical timeline with numbered milestone cards.
 5. Continuous evolution — full-bleed `conti_bg.png` background with left
    intro and a 2×3 grid of glowing capability cards (icon well, title,
    description, chevron).
 6. Technology first — full-bleed `tech_bg.png` background with left copy
    (eyebrow, headline with accent on “modern”, feature list). No CTA button,
    no bottom pillar row.
-7. The people behind RYZE — small closing section with subtle founder cards
-   (initials / circular marks, name, role, one sentence). Platform remains the
-   hero.
 
 Do not use long paragraphs, huge founder photos, or traditional “About Us”
-brochure layouts.
+brochure layouts. Founder/people content is deferred for a later release.
 
 ---
 

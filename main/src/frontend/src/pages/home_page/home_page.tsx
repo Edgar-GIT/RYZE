@@ -33,9 +33,9 @@ export const HomePage = () => (
     >
       <Reveal>
         <SectionTitle
-          eyebrow="Plans"
-          title="Choose how far you want to go."
-          description="Start free, add automatic nutrition, or move into a fully personalized Elite plan."
+          eyebrow="Catalog"
+          title="Available RYZE plan categories."
+          description="Start free, add automatic nutrition, or move into a coach-reviewed Elite plan."
           align="center"
         />
       </Reveal>

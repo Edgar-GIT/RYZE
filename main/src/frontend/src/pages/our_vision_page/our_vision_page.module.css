@@ -436,11 +436,175 @@
 }
 
 .sectionWhy {
-  background:
-    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(42, 140, 255, 0.2), transparent 58%),
-    radial-gradient(ellipse 45% 35% at 90% 70%, rgba(24, 216, 255, 0.1), transparent 55%),
-    radial-gradient(ellipse 35% 30% at 10% 90%, rgba(42, 140, 255, 0.1), transparent 50%),
-    linear-gradient(180deg, rgba(10, 16, 28, 0.35), rgba(5, 7, 11, 0.15));
+  position: relative;
+  overflow: hidden;
+  min-height: 100svh;
+  display: grid;
+  align-items: stretch;
+  padding: 5rem 0 3.5rem;
+  background: var(--bg-primary);
+}
+
+.whyBackground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.whyLayout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-content: stretch;
+  gap: clamp(2.5rem, 8vh, 5rem);
+  min-height: calc(100svh - 8.5rem);
+}
+
+.whyIntro {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  max-width: 34rem;
+}
+
+.whyIntro h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(2.1rem, 4.4vw, 3.45rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+  max-width: 14ch;
+  text-transform: uppercase;
+}
+
+.whyIntro .sectionLead {
+  max-width: 40ch;
+  color: rgba(210, 222, 238, 0.8);
+}
+
+.whyCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  min-height: 2.55rem;
+  padding: 0.55rem 1.15rem;
+  border: 1px solid rgba(24, 216, 255, 0.45);
+  border-radius: 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.74rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(4, 10, 20, 0.35);
+  box-shadow: 0 0 22px rgba(24, 216, 255, 0.16);
+  transition:
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.whyCta svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--accent);
+}
+
+.whyCta:hover {
+  border-color: rgba(24, 216, 255, 0.75);
+  background: rgba(24, 216, 255, 0.08);
+  box-shadow: 0 0 28px rgba(24, 216, 255, 0.28);
+  transform: translateY(-1px);
+}
+
+.whyPanel {
+  align-self: end;
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid rgba(24, 216, 255, 0.28);
+  border-radius: 1rem;
+  background: rgba(4, 8, 16, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(24, 216, 255, 0.04) inset,
+    0 0 32px rgba(24, 216, 255, 0.08),
+    0 18px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.whyGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.whyCard {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: start;
+  min-height: 100%;
+  padding: 0.85rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.75rem;
+  background: rgba(8, 14, 24, 0.55);
+  transition:
+    transform 240ms ease,
+    border-color 240ms ease,
+    background 240ms ease,
+    box-shadow 240ms ease;
+}
+
+.whyCard:hover {
+  transform: translateY(-3px);
+  border-color: rgba(24, 216, 255, 0.32);
+  background: rgba(12, 20, 34, 0.72);
+  box-shadow: 0 0 20px rgba(24, 216, 255, 0.12);
+}
+
+.whyIcon {
+  display: grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.whyIcon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  filter: drop-shadow(0 0 8px rgba(24, 216, 255, 0.45));
+}
+
+.whyCopy {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.whyCopy h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.whyCopy p {
+  margin: 0;
+  color: rgba(168, 182, 202, 0.82);
+  font-size: 0.74rem;
+  line-height: 1.4;
 }
 
 .sectionEvolution {
@@ -485,20 +649,13 @@
   max-width: 12ch;
 }
 
-.sectionPeople {
-  padding-bottom: 7.5rem;
-  background:
-    radial-gradient(ellipse 50% 40% at 30% 100%, rgba(42, 140, 255, 0.12), transparent 55%),
-    radial-gradient(ellipse 35% 30% at 100% 40%, rgba(24, 216, 255, 0.07), transparent 50%);
-}
-
 .sectionTech {
   position: relative;
   overflow: hidden;
   min-height: 100svh;
   display: grid;
   align-items: start;
-  padding: 3.25rem 0 5.5rem;
+  padding: 3.25rem 0 7rem;
   background: var(--bg-primary);
 }
 
@@ -623,101 +780,6 @@
   max-width: 16ch;
 }
 
-.whyCard,
-.personCard {
-  border: 1px solid rgba(24, 216, 255, 0.16);
-  border-radius: 1.1rem;
-  background:
-    linear-gradient(155deg, rgba(24, 216, 255, 0.14), transparent 42%),
-    linear-gradient(320deg, rgba(42, 140, 255, 0.08), transparent 50%),
-    color-mix(in srgb, var(--card) 82%, transparent);
-  box-shadow:
-    0 20px 48px rgba(5, 7, 11, 0.38),
-    0 0 32px rgba(42, 140, 255, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  transition:
-    transform 260ms ease,
-    border-color 260ms ease,
-    box-shadow 260ms ease,
-    background 260ms ease;
-}
-
-.whyCard:hover,
-.personCard:hover {
-  transform: translateY(-6px);
-  border-color: rgba(24, 216, 255, 0.4);
-  background:
-    linear-gradient(155deg, rgba(24, 216, 255, 0.2), transparent 42%),
-    linear-gradient(320deg, rgba(42, 140, 255, 0.12), transparent 50%),
-    color-mix(in srgb, var(--card-hover) 88%, transparent);
-  box-shadow:
-    0 26px 56px rgba(5, 7, 11, 0.45),
-    0 0 40px rgba(24, 216, 255, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.whyIcon {
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border: 1px solid rgba(24, 216, 255, 0.28);
-  border-radius: 0.8rem;
-  color: var(--accent);
-  background:
-    radial-gradient(circle at 40% 35%, rgba(24, 216, 255, 0.28), transparent 65%),
-    rgba(42, 140, 255, 0.14);
-  box-shadow: 0 0 22px rgba(24, 216, 255, 0.28);
-}
-
-.whyIcon svg {
-  width: 1.15rem;
-  height: 1.15rem;
-}
-
-.whyCard h3,
-.personCard h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.02rem;
-  letter-spacing: -0.02em;
-}
-
-.whyCard p,
-.personCard p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.55;
-}
-
-.whyGrid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.9rem;
-}
-
-.whyCard {
-  position: relative;
-  display: grid;
-  gap: 0.7rem;
-  min-height: 100%;
-  padding: 1.3rem 1.15rem 1.35rem;
-  overflow: hidden;
-}
-
-.whyAccent {
-  position: absolute;
-  right: -1.2rem;
-  bottom: -1.2rem;
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(24, 216, 255, 0.18), transparent 70%);
-  pointer-events: none;
-}
-
 .roadmapLayout {
   position: relative;
   z-index: 1;
@@ -730,10 +792,19 @@
 .sectionRoadmap {
   position: relative;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse 55% 50% at 8% 85%, rgba(42, 140, 255, 0.1), transparent 62%),
-    radial-gradient(ellipse 40% 35% at 92% 18%, rgba(24, 216, 255, 0.06), transparent 55%),
-    transparent;
+  background: var(--bg-primary);
+}
+
+.roadmapBackground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  pointer-events: none;
+  user-select: none;
 }
 
 .roadmapIntro {
@@ -1041,49 +1112,9 @@
   transform: translateX(3px);
 }
 
-.peopleGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  max-width: 48rem;
-}
-
-.personCard {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1rem;
-  align-items: start;
-  padding: 1.25rem 1.2rem;
-}
-
-.avatar {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border: 1px solid rgba(24, 216, 255, 0.35);
-  border-radius: 999px;
-  color: var(--accent);
-  background:
-    radial-gradient(circle at 40% 35%, rgba(24, 216, 255, 0.28), transparent 65%),
-    rgba(42, 140, 255, 0.14);
-  box-shadow: 0 0 20px rgba(24, 216, 255, 0.3);
-  font-size: 0.9rem;
-  font-weight: 750;
-}
-
-.personRole {
-  margin: 0.2rem 0 0.55rem !important;
-  color: var(--accent) !important;
-  font-size: 0.74rem !important;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 @media (max-width: 1100px) {
   .whyGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .evolutionGrid {
@@ -1148,8 +1179,24 @@
     margin-bottom: 2rem;
   }
 
+  .sectionWhy {
+    min-height: auto;
+    padding: 4rem 0 3rem;
+  }
+
+  .whyLayout {
+    min-height: auto;
+    gap: 2.25rem;
+  }
+
+  .whyIntro h2 {
+    max-width: none;
+    text-transform: none;
+    font-size: clamp(1.9rem, 7vw, 2.6rem);
+  }
+
   .whyGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .howWorksSteps {
@@ -1189,14 +1236,9 @@
   .howWorksStep p {
     max-width: none;
   }
-
-  .peopleGrid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 640px) {
-  .whyGrid,
   .evolutionGrid {
     grid-template-columns: 1fr;
   }
@@ -1217,7 +1259,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .whyCard:hover,
-  .personCard:hover,
   .evolutionCard:hover,
   .roadmapItem:hover,
   .heroBadge:hover,

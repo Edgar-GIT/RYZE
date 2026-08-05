@@ -10,21 +10,20 @@ import {
   Dumbbell,
   Gauge,
   Globe2,
+  Hexagon,
   Layers3,
   Leaf,
   Link2,
   MonitorSmartphone,
   Network,
   Play,
-  RefreshCw,
   Rocket,
   ShieldCheck,
   Sparkles,
   Sprout,
-  Timer,
-  Trophy,
   User,
   UserPlus,
+  Users,
   Utensils,
   Zap
 } from "lucide-react";
@@ -33,6 +32,8 @@ import type { ReactNode } from "react";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
+import fitnessOsBackground from "@resources/img/hero/evo_man_bg.png";
+import futureBackground from "@resources/img/hero/future_bg.png";
 import howItWorksBackground from "@resources/img/hero/how_bg.png";
 import ourVisionBackground from "@resources/img/hero/our_view.png";
 import technologyBackground from "@resources/img/hero/tech_bg.png";
@@ -79,54 +80,44 @@ const howItWorksSteps = [
 
 const whyCards = [
   {
-    icon: Dumbbell,
-    title: "Free Programs",
-    text: "Start today with ready-made structure and zero waiting."
-  },
-  {
-    icon: Sparkles,
-    title: "Premium Programs",
-    text: "Plans that adapt around your goals, schedule and phase."
+    icon: Hexagon,
+    title: "Adaptive Programs",
+    text: "Plans that adapt in real-time based on your progress, recovery and goals."
   },
   {
     icon: Brain,
-    title: "AI-Assisted Planning",
-    text: "Automation that protects quality while removing busywork."
+    title: "AI-Powered Coaching",
+    text: "Advanced AI that analyzes your data and gives you smarter recommendations."
   },
   {
     icon: Utensils,
-    title: "Nutrition Integration",
-    text: "Fuel that moves with training — not a disconnected PDF."
+    title: "Smart Nutrition",
+    text: "Nutrition plans that fit your lifestyle and evolve with your training."
   },
   {
     icon: ChartNoAxesCombined,
-    title: "Progress Tracking",
-    text: "Proof of adaptation through calm, readable analytics."
-  },
-  {
-    icon: Trophy,
-    title: "Personal Records",
-    text: "Strength milestones stay visible as the plan evolves."
-  },
-  {
-    icon: ShieldCheck,
-    title: "Coach Reviewed Plans",
-    text: "Human review when you need exclusive, elite precision."
-  },
-  {
-    icon: RefreshCw,
-    title: "Constant Evolution",
-    text: "New capabilities ship continuously into the same product."
+    title: "Progress Intelligence",
+    text: "Track what matters with powerful analytics and actionable insights."
   },
   {
     icon: MonitorSmartphone,
-    title: "Cross Device Experience",
-    text: "One system that stays clear from phone to desktop."
+    title: "All Your Devices",
+    text: "Seamless sync across phone, watch, desktop and more."
   },
   {
-    icon: Timer,
-    title: "Fast Delivery",
-    text: "From questionnaire to plan in minutes, not weeks."
+    icon: ShieldCheck,
+    title: "Built-In Accountability",
+    text: "Stay consistent with built-in reminders, check-ins and streak tracking."
+  },
+  {
+    icon: Users,
+    title: "Coach & Community",
+    text: "Connect with elite coaches and a community that pushes you forward."
+  },
+  {
+    icon: Zap,
+    title: "Results, Faster",
+    text: "Everything working together so you get results in less time."
   }
 ] as const;
 
@@ -170,21 +161,6 @@ const evolutionCards = [
     icon: Link2,
     title: "New integrations",
     text: "Seamless connections with the tools you love."
-  }
-] as const;
-
-const founders = [
-  {
-    initials: "E",
-    name: "Edgar",
-    role: "Technology",
-    text: "Focused on building technology that makes professional fitness accessible."
-  },
-  {
-    initials: "S",
-    name: "Sandro",
-    role: "Fitness & Strategy",
-    text: "Focused on keeping every plan practical, human and worth following."
   }
 ] as const;
 
@@ -301,6 +277,37 @@ const HowWorksPanel = () => {
   );
 };
 
+const WhyFeatureGrid = () => {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <div className={styles.whyGrid}>
+      {whyCards.map((card, index) => {
+        const Icon = card.icon;
+
+        return (
+          <motion.article
+            key={card.title}
+            className={styles.whyCard}
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.45, ease: "easeOut", delay: 0.08 + index * 0.05 }}
+          >
+            <span className={styles.whyIcon}>
+              <Icon aria-hidden="true" strokeWidth={1.6} />
+            </span>
+            <div className={styles.whyCopy}>
+              <h3>{card.title}</h3>
+              <p>{card.text}</p>
+            </div>
+          </motion.article>
+        );
+      })}
+    </div>
+  );
+};
+
 const techFeatures = [
   {
     icon: Boxes,
@@ -379,32 +386,44 @@ export const OurVisionPage = () => (
     </section>
 
     <section className={`${styles.section} ${styles.sectionWhy}`}>
-      <Container>
-        <Reveal className={styles.sectionIntro}>
-          <p className={styles.eyebrow}>Why RYZE</p>
-          <h2>A fitness operating system, not another plan PDF.</h2>
+      <img
+        className={styles.whyBackground}
+        src={fitnessOsBackground}
+        alt=""
+        aria-hidden="true"
+      />
+
+      <Container className={styles.whyLayout}>
+        <Reveal className={styles.whyIntro}>
+          <p className={styles.eyebrow}>Built different. For real results.</p>
+          <h2>
+            A fitness <span className={styles.accentPhrase}>operating system</span>, not another
+            plan.
+          </h2>
           <p className={styles.sectionLead}>
-            Every surface exists to make starting easier and staying consistent measurable.
+            Training, nutrition, recovery and progress in one connected system — built to adapt with
+            you, not force you into a static template.
           </p>
+          <a className={styles.whyCta} href="#vision-roadmap">
+            Explore RYZE
+            <ChevronRight aria-hidden="true" />
+          </a>
         </Reveal>
-        <div className={styles.whyGrid}>
-          {whyCards.map((card, index) => (
-            <Reveal key={card.title} delay={(index % 5) * 0.04}>
-              <article className={styles.whyCard}>
-                <span className={styles.whyIcon}>
-                  <card.icon aria-hidden="true" />
-                </span>
-                <h3>{card.title}</h3>
-                <p>{card.text}</p>
-                <span className={styles.whyAccent} />
-              </article>
-            </Reveal>
-          ))}
-        </div>
+
+        <Reveal className={styles.whyPanel} delay={0.12}>
+          <WhyFeatureGrid />
+        </Reveal>
       </Container>
     </section>
 
     <section className={`${styles.section} ${styles.sectionRoadmap}`} id="vision-roadmap">
+      <img
+        className={styles.roadmapBackground}
+        src={futureBackground}
+        alt=""
+        aria-hidden="true"
+      />
+
       <Container className={styles.roadmapLayout}>
         <Reveal className={styles.roadmapIntro}>
           <p className={styles.eyebrow}>Our vision</p>
@@ -530,30 +549,6 @@ export const OurVisionPage = () => (
             })}
           </ul>
         </Reveal>
-      </Container>
-    </section>
-
-    <section className={`${styles.section} ${styles.sectionPeople}`}>
-      <Container>
-        <Reveal className={styles.sectionIntro}>
-          <p className={styles.eyebrow}>The people behind RYZE</p>
-          <h2>Builders of the system.</h2>
-          <p className={styles.sectionLead}>The platform stays the hero. We build it.</p>
-        </Reveal>
-        <div className={styles.peopleGrid}>
-          {founders.map((founder, index) => (
-            <Reveal key={founder.name} delay={index * 0.08}>
-              <article className={styles.personCard}>
-                <span className={styles.avatar}>{founder.initials}</span>
-                <div>
-                  <h3>{founder.name}</h3>
-                  <p className={styles.personRole}>{founder.role}</p>
-                  <p>{founder.text}</p>
-                </div>
-              </article>
-            </Reveal>
-          ))}
-        </div>
       </Container>
     </section>
   </PageWrapper>

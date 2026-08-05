@@ -1,7 +1,7 @@
 {
   "name": "ryze",
   "private": true,
-  "version": "2.2.51",
+  "version": "2.2.54",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",

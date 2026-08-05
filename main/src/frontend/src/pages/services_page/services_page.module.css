@@ -1,86 +1,145 @@
-.hero {
-  padding: 9rem 0 2.5rem;
-}
-
-.heroInner {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2rem;
-  align-items: end;
-  padding: 2.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: var(--radius-md);
+.page {
   background:
-    radial-gradient(circle at 88% 20%, rgba(24, 216, 255, 0.14), transparent 20rem),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    color-mix(in srgb, var(--card) 88%, transparent);
-  box-shadow:
-    0 26px 90px rgba(5, 7, 11, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(22px);
+    radial-gradient(ellipse 48% 40% at 92% 8%, rgba(24, 216, 255, 0.12), transparent 58%),
+    radial-gradient(ellipse 40% 35% at 8% 70%, rgba(42, 140, 255, 0.08), transparent 55%),
+    transparent;
 }
 
-.copy {
+.catalog {
+  padding: 8.5rem 0 5.5rem;
+}
+
+.catalogInner {
   display: grid;
-  gap: 0.75rem;
-  max-width: 720px;
+  gap: 2.35rem;
 }
 
-.copy p,
-.copy h1,
-.copy span {
+.intro {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 40rem;
+}
+
+.eyebrow {
   margin: 0;
-}
-
-.copy p {
-  color: var(--color-accent-300);
-  font-weight: 900;
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(24, 216, 255, 0.3);
 }
 
-.copy h1 {
+.intro h1 {
+  margin: 0;
   color: var(--text-primary);
-  font-size: 3rem;
-  line-height: 1.04;
+  font-size: clamp(2.2rem, 4.5vw, 3.35rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
 }
 
-.copy span {
-  color: var(--text-muted);
-  line-height: 1.7;
+.accent {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.plans {
-  padding: 2.5rem 0 5rem;
+.lead {
+  margin: 0;
+  max-width: 42ch;
+  color: rgba(176, 190, 210, 0.86);
+  font-size: 1.02rem;
+  line-height: 1.65;
 }
 
-.planInner {
+.highlights {
   display: grid;
-  gap: 2rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.highlight,
+.trustItem {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.highlightIcon,
+.trustIcon {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid rgba(24, 216, 255, 0.28);
+  border-radius: 0.7rem;
+  color: var(--accent);
+  background:
+    radial-gradient(circle at 40% 30%, rgba(24, 216, 255, 0.2), transparent 65%),
+    rgba(8, 14, 24, 0.7);
+  box-shadow: 0 0 16px rgba(24, 216, 255, 0.14);
+}
+
+.highlightIcon svg,
+.trustIcon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.highlight strong,
+.trustItem strong {
+  display: block;
+  margin: 0 0 0.2rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.highlight p,
+.trustItem p {
+  margin: 0;
+  color: rgba(168, 182, 202, 0.8);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
+  gap: 1.15rem;
+  align-items: stretch;
+}
+
+.trust {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 @media (max-width: 960px) {
-  .heroInner,
-  .grid {
+  .highlights,
+  .grid,
+  .trust {
     grid-template-columns: 1fr;
   }
 
-  .copy h1 {
-    font-size: 2.35rem;
+  .catalog {
+    padding: 7.5rem 0 4.5rem;
   }
 }
 
 @media (max-width: 560px) {
-  .hero {
-    padding-top: 7.4rem;
+  .catalog {
+    padding-top: 6.75rem;
   }
 
-  .heroInner {
-    padding: 1.35rem;
+  .intro h1 {
+    font-size: clamp(1.9rem, 9vw, 2.4rem);
   }
 }

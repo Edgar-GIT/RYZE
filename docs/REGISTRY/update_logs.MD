@@ -1,3 +1,91 @@
+# Version 2.2.54
+
+Title: Modernize services catalog and plan cards
+
+Date: 2026-08-05
+
+Summary:
+
+Rebuilt `/services` into a Catalog layout (highlights, three plan cards, trust
+row) matching the reference mock without a background image yet. Redesigned
+shared `ServiceCard` with compact logo mark, badges, stronger glass treatment
+and featured Premium Level 1 CTA — also used on the homepage plans preview.
+
+Files modified:
+
+- `main/src/frontend/src/constants/services.ts`
+- `main/src/frontend/src/components/service_card/service_card.tsx`
+- `main/src/frontend/src/components/service_card/service_card.module.css`
+- `main/src/frontend/src/pages/services_page/services_page.tsx`
+- `main/src/frontend/src/pages/services_page/services_page.module.css`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `main/src/frontend/src/pages/home_page/home_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked to renew the services section and modernize homepage plan cards to
+match the Catalog mock.
+
+---
+
+# Version 2.2.53
+
+Title: Rebuild Fitness OS section with evo_man background
+
+Date: 2026-08-05
+
+Summary:
+
+Rebuilt the Our Vision “Why RYZE” block into a Fitness Operating System
+surface over `evo_man_bg.png`: left thesis copy + Explore RYZE CTA, and a
+compact 2×4 feature panel with updated titles, descriptions and staggered
+reveal animations.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked to match the Fitness Operating System mock, use `evo_man_bg.png`,
+and tighten the feature boxes into one composition.
+
+---
+
+# Version 2.2.52
+
+Title: Remove people section and add roadmap future background
+
+Date: 2026-08-05
+
+Summary:
+
+Removed the “The people behind RYZE” section from Our Vision for a later
+release, and applied full-bleed `future_bg.png` behind the “Where RYZE is
+going” roadmap section.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked to drop the founders section for now and use `future_bg.png` as the
+roadmap background.
+
+---
+
 # Version 2.2.51
 
 Title: Modernize navbar icons and compact scroll mode
