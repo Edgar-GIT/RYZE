@@ -1,7 +1,9 @@
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
+  ArrowRight,
   BarChart3,
+  Boxes,
   Brain,
   ChartNoAxesCombined,
   ChevronRight,
@@ -29,11 +31,13 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
 import ourVisionBackground from "@resources/img/hero/our_view.png";
+import technologyBackground from "@resources/img/hero/tech_bg.png";
 
 import styles from "./our_vision_page.module.css";
 
@@ -240,6 +244,24 @@ const HeroBadges = () => {
   );
 };
 
+const techFeatures = [
+  {
+    icon: Boxes,
+    title: "Connected Modules",
+    text: "Everything works together. Nothing works alone."
+  },
+  {
+    icon: Zap,
+    title: "Clear Interfaces",
+    text: "Designed for people. Built for precision."
+  },
+  {
+    icon: Sparkles,
+    title: "Smart Automation",
+    text: "Less manual work. More human impact."
+  }
+] as const;
+
 const IconCard = ({
   icon: Icon,
   title,
@@ -256,35 +278,6 @@ const IconCard = ({
     <h3>{title}</h3>
     <p>{text}</p>
   </article>
-);
-
-const TechVisual = () => (
-  <div className={styles.techVisual} aria-hidden="true">
-    <div className={styles.techCore}>
-      <Cpu />
-      <strong>RYZE OS</strong>
-    </div>
-    <div className={`${styles.techModule} ${styles.techA}`}>
-      <Dumbbell />
-      <span>Training</span>
-    </div>
-    <div className={`${styles.techModule} ${styles.techB}`}>
-      <Utensils />
-      <span>Nutrition</span>
-    </div>
-    <div className={`${styles.techModule} ${styles.techC}`}>
-      <Brain />
-      <span>AI Layer</span>
-    </div>
-    <div className={`${styles.techModule} ${styles.techD}`}>
-      <ChartNoAxesCombined />
-      <span>Progress</span>
-    </div>
-    <div className={`${styles.techModule} ${styles.techE}`}>
-      <ShieldCheck />
-      <span>Coach</span>
-    </div>
-  </div>
 );
 
 export const OurVisionPage = () => (
@@ -454,17 +447,47 @@ export const OurVisionPage = () => (
     </section>
 
     <section className={`${styles.section} ${styles.sectionTech}`}>
+      <img
+        className={styles.techBackground}
+        src={technologyBackground}
+        alt=""
+        aria-hidden="true"
+      />
+
       <Container className={styles.techLayout}>
-        <Reveal className={styles.sectionIntro}>
-          <p className={styles.eyebrow}>Technology first</p>
-          <h2>Built like modern software.</h2>
+        <Reveal className={styles.techIntro}>
+          <p className={styles.techEyebrow}>Technology first</p>
+          <h2>
+            Built like <span className={styles.accentPhrase}>modern</span> software.
+          </h2>
           <p className={styles.sectionLead}>
-            Connected modules. Clear interfaces. Automation where it helps — humans where it
-            matters.
+            Connected modules. Clear interfaces.
+            <br />
+            Automation where it helps. Intelligence where it matters.
           </p>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <TechVisual />
+
+          <ul className={styles.techFeatures}>
+            {techFeatures.map((feature) => {
+              const Icon = feature.icon;
+
+              return (
+                <li key={feature.title} className={styles.techFeature}>
+                  <span className={styles.techFeatureIcon}>
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <div>
+                    <strong>{feature.title}</strong>
+                    <p>{feature.text}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          <Link className={styles.techCta} to="/services">
+            Explore RYZE OS
+            <ArrowRight aria-hidden="true" />
+          </Link>
         </Reveal>
       </Container>
     </section>

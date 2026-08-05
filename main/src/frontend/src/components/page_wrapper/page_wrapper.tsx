@@ -13,10 +13,10 @@ interface PageWrapperProps {
 export const PageWrapper = ({ children, className }: PageWrapperProps) => (
   <motion.div
     className={joinClassNames(styles.page, className)}
-    initial={{ opacity: 0, y: 14 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -10 }}
-    transition={{ duration: 0.26, ease: "easeOut" }}
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.22, ease: "easeOut" }}
   >
     {children}
   </motion.div>

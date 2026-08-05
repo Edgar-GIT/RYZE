@@ -1,4 +1,4 @@
-import { ArrowRight, Brain, Lock, Users } from "lucide-react";
+import { ArrowRight, Brain, Users } from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";

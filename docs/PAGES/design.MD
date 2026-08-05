@@ -550,7 +550,9 @@ Sections:
 5. Continuous evolution — full-bleed `conti_bg.png` background with left
    intro and a 2×3 grid of glowing capability cards (icon well, title,
    description, chevron).
-6. Technology first — modular software visual (connected product modules).
+6. Technology first — full-bleed `tech_bg.png` background with left copy
+   (eyebrow, headline with accent on “modern”, feature list, Explore RYZE OS
+   CTA). No bottom pillar row.
 7. The people behind RYZE — small closing section with subtle founder cards
    (initials / circular marks, name, role, one sentence). Platform remains the
    hero.

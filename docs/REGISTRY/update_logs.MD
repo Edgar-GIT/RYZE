@@ -1,3 +1,96 @@
+# Version 2.2.47
+
+Title: Restore full-bleed tech bg and clean home hero
+
+Date: 2026-08-05
+
+Summary:
+
+Restored Technology First `tech_bg.png` as a full-section cover background.
+Reverted the home hero to the simple full-bleed image pattern with a light
+bottom fade only, removed the hero clip shelf, and anchored Start Faster
+background to `center top` so the phone is not cropped at the top.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.tsx`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `main/src/frontend/src/components/platform_section/platform_section.module.css`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `main/src/frontend/src/pages/home_page/home_page.module.css`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Previous “fixes” over-faded the hero and shrank the tech background; user asked
+to restore full-bleed section art and undo the broken homepage treatment.
+
+---
+
+# Version 2.2.46
+
+Title: Hard-clip home hero + tighten Technology First
+
+Date: 2026-08-05
+
+Summary:
+
+Clipped the home hero inside a fixed `100svh` shelf, removed PageWrapper Y
+transform (stacking culprit), and strengthened the hero bottom fade. Technology
+First: removed bottom pillars, pulled copy up, and zoomed `tech_bg` out further.
+
+Files modified:
+
+- `main/src/frontend/src/components/page_wrapper/page_wrapper.tsx`
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `main/src/frontend/src/components/platform_section/platform_section.module.css`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `main/src/frontend/src/pages/home_page/home_page.module.css`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Hero still bled into Start Faster; Technology First needed no bottom cards,
+higher copy and less image zoom.
+
+---
+
+# Version 2.2.45
+
+Title: Clip home hero overlap + remodel Technology First
+
+Date: 2026-08-05
+
+Summary:
+
+Fixed the home hero image bleeding over Start Faster by locking the hero to
+`100svh` with `overflow: clip` / `contain: paint`, and raising the next section
+stacking. Remodeled Our Vision Technology First around `tech_bg.png` with left
+copy, feature list, CTA, and four bottom pillar cards.
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.module.css`
+- `main/src/frontend/src/components/platform_section/platform_section.module.css`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Hero image still overlapped section 2 after the z-index attempt; Technology
+First needed to match the provided mock with a background asset.
+
+---
+
 # Version 2.2.44
 
 Title: Stretch Our Vision hero + remodel Continuous Evolution
