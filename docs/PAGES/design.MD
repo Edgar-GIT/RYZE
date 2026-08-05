@@ -540,8 +540,10 @@ Sections:
    eyebrow, thesis headline with accent on “software.”, short lead, horizontal
    capability chips (AI / Training / Nutrition / Recovery / Progress), and an
    Our Vision jump link. No stock gym photography.
-2. Our mission — concise statement plus 3–5 icon cards (Accessible,
-   Affordable, Professional, Simple, Technology First).
+2. Get started — full-bleed `how_bg.png` background with left intro
+   (eyebrow “Get started”, headline with accent on “minutes.”, short lead)
+   and a bottom “How RYZE works” panel: five numbered steps connected by a
+   glowing rail (Sign up → goals → AI plan → track → weekly improvement).
 3. Why RYZE — dense responsive feature grid of premium glass cards with icon,
    title, one sentence, hover lift and soft glow.
 4. Our vision — two-column roadmap: left intro with phase tags

@@ -320,30 +320,7 @@ export const OurVisionPage = () => (
           </p>
         </Reveal>
 
-        <Reveal className={styles.howWorks} delay={0.12}>
-          <div className={styles.howWorksTitle}>
-            <span className={styles.howWorksLine} aria-hidden="true" />
-            <h3>How RYZE works</h3>
-            <span className={styles.howWorksLine} aria-hidden="true" />
-          </div>
-
-          <ol className={styles.howWorksSteps}>
-            {howItWorksSteps.map((step) => {
-              const Icon = step.icon;
-
-              return (
-                <li key={step.number} className={styles.howWorksStep}>
-                  <span className={styles.howWorksNumber}>{step.number}</span>
-                  <span className={styles.howWorksIcon}>
-                    <Icon aria-hidden="true" />
-                  </span>
-                  <h4>{step.title}</h4>
-                  <p>{step.text}</p>
-                </li>
-              );
-            })}
-          </ol>
-        </Reveal>
+        <HowWorksPanel />
       </Container>
     </section>
 

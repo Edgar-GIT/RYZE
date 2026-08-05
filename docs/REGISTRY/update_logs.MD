@@ -1,3 +1,56 @@
+# Version 2.2.49
+
+Title: Match How RYZE Works panel to mock colors
+
+Date: 2026-08-05
+
+Summary:
+
+Restyled the Get Started “How RYZE works” panel to match the reference:
+solid dark navy frame, cyan border/glow, cyan step numbers, neon circular
+icons, white titles, muted gray descriptions, and a connecting rail with
+glowing midpoint dots.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User reported the previous panel styling did not match the provided mock.
+
+---
+
+# Version 2.2.48
+
+Title: Revamp Our Mission with How RYZE Works panel
+
+Date: 2026-08-05
+
+Summary:
+
+Rebuilt the Our Vision “Our Mission” section as a Get Started surface over
+`how_bg.png`, with exact mock copy and a real HTML “How RYZE works” five-step
+panel (bordered frame, titled rail, numbered icon steps).
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked to match the Get Started mock and build the bottom How RYZE Works
+box in markup instead of relying on baked-in image UI.
+
+---
+
 # Version 2.2.47
 
 Title: Restore full-bleed tech bg and clean home hero

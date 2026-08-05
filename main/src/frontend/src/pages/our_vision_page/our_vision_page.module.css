@@ -212,8 +212,8 @@
   overflow: hidden;
   min-height: 100svh;
   display: grid;
-  align-items: start;
-  padding: 4.5rem 0 5.5rem;
+  align-items: stretch;
+  padding: 4.5rem 0 4rem;
   background: var(--bg-primary);
 }
 
@@ -233,7 +233,10 @@
   position: relative;
   z-index: 1;
   display: grid;
-  align-content: start;
+  grid-template-rows: auto 1fr;
+  align-content: stretch;
+  gap: clamp(2.5rem, 6vh, 4.5rem);
+  min-height: calc(100svh - 8.5rem);
 }
 
 .missionIntro {
@@ -272,6 +275,164 @@
   letter-spacing: -0.035em;
   line-height: 1.08;
   max-width: 16ch;
+}
+
+.missionIntro .sectionLead {
+  max-width: 42ch;
+  color: rgba(220, 230, 245, 0.78);
+}
+
+.howWorks {
+  --how-cyan: #22b4d4;
+  --how-cyan-soft: rgba(34, 180, 212, 0.38);
+  --how-panel: rgba(4, 8, 16, 0.78);
+  --how-rail: 2.7rem;
+  align-self: end;
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  padding: 1rem clamp(0.85rem, 1.6vw, 1.35rem) 1.1rem;
+  border: 1px solid var(--how-cyan-soft);
+  border-radius: 0.8rem;
+  background: var(--how-panel);
+  box-shadow:
+    0 0 0 1px rgba(34, 180, 212, 0.05) inset,
+    0 0 24px rgba(34, 180, 212, 0.08),
+    0 16px 36px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.howWorksTitle {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.howWorksTitle h3 {
+  margin: 0;
+  color: #3ec4e0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 0 12px rgba(34, 180, 212, 0.3);
+}
+
+.howWorksLine {
+  display: block;
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(34, 180, 212, 0.18) 12%,
+    rgba(34, 180, 212, 0.5) 50%,
+    rgba(34, 180, 212, 0.18) 88%,
+    transparent 100%
+  );
+  box-shadow: none;
+}
+
+.howWorksSteps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.howWorksSteps::before {
+  position: absolute;
+  top: var(--how-rail);
+  left: 10%;
+  right: 10%;
+  z-index: 0;
+  height: 1px;
+  content: "";
+  background: rgba(34, 180, 212, 0.42);
+  box-shadow: 0 0 6px rgba(34, 180, 212, 0.2);
+}
+
+.howWorksStep {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.28rem;
+  text-align: center;
+}
+
+.howWorksStep:not(:last-child)::after {
+  position: absolute;
+  top: var(--how-rail);
+  left: calc(100% + 0.2rem);
+  z-index: 2;
+  width: 0.34rem;
+  height: 0.34rem;
+  border-radius: 999px;
+  background: #3ec4e0;
+  box-shadow:
+    0 0 7px rgba(34, 180, 212, 0.7),
+    0 0 14px rgba(34, 180, 212, 0.35);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.howWorksNumber {
+  color: #3ec4e0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-shadow: none;
+}
+
+.howWorksIcon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 2.85rem;
+  height: 2.85rem;
+  margin: 0.1rem 0 0.2rem;
+  border: 1.5px solid rgba(62, 196, 224, 0.85);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(3, 7, 14, 0.92);
+  box-shadow:
+    0 0 14px rgba(34, 180, 212, 0.35),
+    0 0 26px rgba(34, 180, 212, 0.16);
+}
+
+.howWorksIcon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  stroke-width: 1.65;
+}
+
+.howWorksStep h4 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.howWorksStep p {
+  margin: 0;
+  max-width: 18ch;
+  color: rgba(186, 200, 218, 0.88);
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.35;
 }
 
 .sectionWhy {
@@ -462,13 +623,6 @@
   max-width: 16ch;
 }
 
-.missionGrid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.9rem;
-}
-
-.iconCard,
 .whyCard,
 .personCard {
   border: 1px solid rgba(24, 216, 255, 0.16);
@@ -489,14 +643,6 @@
     background 260ms ease;
 }
 
-.iconCard {
-  display: grid;
-  gap: 0.75rem;
-  min-height: 100%;
-  padding: 1.25rem 1.15rem;
-}
-
-.iconCard:hover,
 .whyCard:hover,
 .personCard:hover {
   transform: translateY(-6px);
@@ -511,7 +657,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.iconWrap,
 .whyIcon {
   display: grid;
   place-items: center;
@@ -526,13 +671,11 @@
   box-shadow: 0 0 22px rgba(24, 216, 255, 0.28);
 }
 
-.iconWrap svg,
 .whyIcon svg {
   width: 1.15rem;
   height: 1.15rem;
 }
 
-.iconCard h3,
 .whyCard h3,
 .personCard h3 {
   margin: 0;
@@ -541,7 +684,6 @@
   letter-spacing: -0.02em;
 }
 
-.iconCard p,
 .whyCard p,
 .personCard p {
   margin: 0;
@@ -940,13 +1082,24 @@
 }
 
 @media (max-width: 1100px) {
-  .missionGrid,
   .whyGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .evolutionGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .howWorksSteps {
+    gap: 0.55rem;
+  }
+
+  .howWorksStep h4 {
+    font-size: 0.9rem;
+  }
+
+  .howWorksStep p {
+    font-size: 0.76rem;
   }
 }
 
@@ -981,13 +1134,60 @@
     padding: 4.5rem 0;
   }
 
+  .sectionMission {
+    min-height: auto;
+    padding: 4rem 0 3.5rem;
+  }
+
+  .missionLayout {
+    min-height: auto;
+    gap: 2.5rem;
+  }
+
   .sectionIntro {
     margin-bottom: 2rem;
   }
 
-  .missionGrid,
   .whyGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .howWorksSteps {
+    --how-rail: 0;
+    grid-template-columns: 1fr;
+    gap: 1.15rem;
+  }
+
+  .howWorksSteps::before {
+    display: none;
+  }
+
+  .howWorksStep:not(:last-child)::after {
+    display: none;
+  }
+
+  .howWorksStep {
+    grid-template-columns: auto auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 0.85rem;
+    row-gap: 0.2rem;
+    justify-items: start;
+    text-align: left;
+    align-items: center;
+  }
+
+  .howWorksNumber {
+    grid-row: 1 / span 2;
+  }
+
+  .howWorksIcon {
+    grid-row: 1 / span 2;
+    margin: 0;
+  }
+
+  .howWorksStep h4,
+  .howWorksStep p {
+    max-width: none;
   }
 
   .peopleGrid {
@@ -996,7 +1196,6 @@
 }
 
 @media (max-width: 640px) {
-  .missionGrid,
   .whyGrid,
   .evolutionGrid {
     grid-template-columns: 1fr;
@@ -1017,7 +1216,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .iconCard:hover,
   .whyCard:hover,
   .personCard:hover,
   .evolutionCard:hover,
