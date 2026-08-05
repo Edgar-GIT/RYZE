@@ -1,3 +1,32 @@
+# Version 2.2.37
+
+Title: Replace 3D planet with our_view.png hero background
+
+Date: 2026-08-05
+
+Summary:
+
+Removed the Three.js RYZE Planet component and all related dependencies.
+Our Vision hero now uses `our_view.png` as a full-bleed background image,
+matching Training / Start Faster section pattern, with left copy only.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/**` (removed)
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/how_to_run.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The 3D planet path was unstable; ship a clean image-backed hero instead.
+
+---
+
 # Version 2.2.36
 
 Title: Fit full planet in canvas, remove sparks, blink RYZE, shooting stars

@@ -53,10 +53,6 @@ Whenever multiple solutions exist, prefer the one that is easier to maintain.
 - Framer Motion
 - React Hook Form
 - Zod
-- Three.js
-- React Three Fiber
-- React Three Drei
-- React Three Postprocessing
 
 The frontend is developed as a Progressive Web Application (PWA).
 

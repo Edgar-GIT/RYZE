@@ -13,22 +13,42 @@
 
 .hero {
   position: relative;
-  min-height: min(92svh, 58rem);
+  min-height: min(100svh, 58rem);
   display: grid;
   align-items: center;
   padding: 7.5rem 0 5rem;
-  overflow: visible;
-  background:
-    radial-gradient(ellipse 55% 60% at 78% 45%, rgba(139, 92, 246, 0.2), transparent 58%),
-    radial-gradient(ellipse 40% 45% at 88% 20%, rgba(88, 28, 135, 0.16), transparent 55%),
-    radial-gradient(ellipse 35% 40% at 14% 68%, rgba(24, 216, 255, 0.04), transparent 55%),
-    linear-gradient(180deg, rgba(5, 7, 11, 0.1), rgba(5, 7, 11, 0.55));
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.heroBackground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hero::after {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  height: 18%;
+  content: "";
+  background: linear-gradient(180deg, transparent 0%, var(--bg-primary) 100%);
+  pointer-events: none;
 }
 
 .heroLayout {
+  position: relative;
+  z-index: 2;
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.35fr);
-  gap: clamp(0.75rem, 2.5vw, 2rem);
   width: 100%;
   align-items: center;
 }
@@ -39,24 +59,6 @@
   justify-items: start;
   max-width: 40rem;
   margin-left: clamp(1.5rem, 6vw, 5.5rem);
-}
-
-.heroVisual {
-  min-width: 0;
-  width: 100%;
-  display: grid;
-  place-items: center;
-  justify-self: stretch;
-  overflow: visible;
-}
-
-.planetFallback {
-  width: min(100%, 52rem);
-  aspect-ratio: 1;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 30%, rgba(167, 139, 250, 0.2), transparent 42%),
-    radial-gradient(circle at 50% 50%, #2a1b45 0%, transparent 70%);
 }
 
 .heroCopy h1,

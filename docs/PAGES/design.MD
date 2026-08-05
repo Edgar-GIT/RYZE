@@ -535,12 +535,11 @@ Legacy `/about-us` redirects to `/our-vision`.
 
 Sections:
 
-1. The future of fitness — large left-aligned hero: eyebrow, thesis headline
-   with accent on “software.”, short lead, horizontal capability badges (AI /
-   Training / Nutrition / Recovery / Progress), and an Our Vision jump link.
-   Right side: real-time Three.js / R3F RYZE Planet — dark tech sphere with
-   slow rotation, cyan Fresnel atmosphere, holographic mark + wordmark, and
-   subtle particles. No stock gym photography.
+1. The future of fitness — large left-aligned hero over `our_view.png`
+   background (same full-bleed image pattern as Training / Start Faster):
+   eyebrow, thesis headline with accent on “software.”, short lead, horizontal
+   capability badges (AI / Training / Nutrition / Recovery / Progress), and an
+   Our Vision jump link. No stock gym photography.
 2. Our mission — concise statement plus 3–5 icon cards (Accessible,
    Affordable, Professional, Simple, Technology First).
 3. Why RYZE — dense responsive feature grid of premium glass cards with icon,
