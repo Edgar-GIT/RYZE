@@ -37,7 +37,7 @@ import ourVisionBackground from "@resources/img/hero/our_view.png";
 import styles from "./our_vision_page.module.css";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 28 },
+  hidden: { opacity: 0, y: 34 },
   visible: { opacity: 1, y: 0 }
 };
 
@@ -180,7 +180,7 @@ const Reveal = ({ children, className, delay = 0 }: RevealProps) => {
       whileInView="visible"
       viewport={{ once: true, amount: 0.24 }}
       variants={fadeUp}
-      transition={{ duration: 0.55, ease: "easeOut", delay }}
+      transition={{ duration: 0.62, ease: "easeOut", delay }}
     >
       {children}
     </motion.div>
@@ -295,7 +295,7 @@ export const OurVisionPage = () => (
       </Container>
     </section>
 
-    <section className={styles.section}>
+    <section className={`${styles.section} ${styles.sectionMission}`}>
       <Container>
         <Reveal className={styles.sectionIntro}>
           <p className={styles.eyebrow}>Our mission</p>
@@ -408,7 +408,7 @@ export const OurVisionPage = () => (
       </Container>
     </section>
 
-    <section className={styles.section}>
+    <section className={`${styles.section} ${styles.sectionTech}`}>
       <Container className={styles.techLayout}>
         <Reveal className={styles.sectionIntro}>
           <p className={styles.eyebrow}>Technology first</p>

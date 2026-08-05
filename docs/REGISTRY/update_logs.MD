@@ -1,3 +1,29 @@
+# Version 2.2.43
+
+Title: Liven Our Vision page — quieter chips, no orbit rings
+
+Date: 2026-08-05
+
+Summary:
+
+Made hero chips smaller with soft static shadows (no pulse). Removed planet
+orbit lines from the roadmap. Boosted ambient light, card color, shadows and
+hover motion across the page.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked to stop the blinking chips, drop the orbit lines, and make the page
+feel less dead.
+
+---
+
 # Version 2.2.42
 
 Title: Restyle Our Vision hero capability chips

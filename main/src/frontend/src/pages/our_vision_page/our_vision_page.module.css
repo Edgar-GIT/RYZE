@@ -34,7 +34,7 @@
   left: 0;
   z-index: 0;
   width: 100%;
-  height: calc(100% - 4.75rem + 2.5rem);
+  height: 100%;
   object-fit: cover;
   object-position: center 62%;
   pointer-events: none;
@@ -378,37 +378,37 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 70% 65% at 6% 100%, rgba(42, 140, 255, 0.28), transparent 60%),
-    radial-gradient(ellipse 48% 42% at 0% 88%, rgba(24, 216, 255, 0.16), transparent 55%),
-    radial-gradient(ellipse 36% 30% at 70% 18%, rgba(42, 140, 255, 0.08), transparent 60%),
+    radial-gradient(ellipse 70% 65% at 6% 100%, rgba(42, 140, 255, 0.32), transparent 60%),
+    radial-gradient(ellipse 48% 42% at 0% 88%, rgba(24, 216, 255, 0.18), transparent 55%),
+    radial-gradient(ellipse 40% 32% at 75% 15%, rgba(42, 140, 255, 0.12), transparent 58%),
     transparent;
 }
 
 .roadmapOrbit {
   position: absolute;
-  left: -10%;
-  bottom: -22%;
+  left: -12%;
+  bottom: -28%;
   z-index: 0;
-  width: min(68vw, 48rem);
-  height: min(56vw, 40rem);
+  width: min(72vw, 50rem);
+  height: min(58vw, 40rem);
   pointer-events: none;
 }
 
 .roadmapPlanet {
   position: absolute;
-  left: -22%;
-  bottom: -42%;
-  width: 88%;
-  height: 105%;
+  left: -20%;
+  bottom: -40%;
+  width: 92%;
+  height: 108%;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 58% 30%, rgba(180, 230, 255, 0.7), transparent 22%),
-    radial-gradient(circle at 48% 40%, rgba(24, 216, 255, 0.48), rgba(42, 140, 255, 0.22) 38%, transparent 66%),
-    radial-gradient(circle at 40% 55%, rgba(20, 80, 180, 0.35), transparent 58%);
+    radial-gradient(circle at 58% 30%, rgba(180, 230, 255, 0.75), transparent 22%),
+    radial-gradient(circle at 48% 40%, rgba(24, 216, 255, 0.52), rgba(42, 140, 255, 0.24) 38%, transparent 66%),
+    radial-gradient(circle at 40% 55%, rgba(20, 80, 180, 0.4), transparent 58%);
   box-shadow:
-    0 0 60px rgba(24, 216, 255, 0.35),
-    0 0 120px rgba(42, 140, 255, 0.32),
-    0 0 220px rgba(24, 216, 255, 0.18);
+    0 0 70px rgba(24, 216, 255, 0.4),
+    0 0 140px rgba(42, 140, 255, 0.35),
+    0 0 240px rgba(24, 216, 255, 0.2);
 }
 
 .roadmapPlanet::after {
@@ -416,17 +416,8 @@
   inset: 18% 22% 28% 18%;
   border-radius: 50%;
   content: "";
-  background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.22), transparent 48%);
+  background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.25), transparent 48%);
   filter: blur(8px);
-}
-
-.roadmapOrbits {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 1;
-  filter: drop-shadow(0 0 6px rgba(24, 216, 255, 0.35));
 }
 
 .roadmapIntro {
@@ -468,11 +459,11 @@
   background: linear-gradient(
     180deg,
     rgba(24, 216, 255, 0.2),
-    rgba(24, 216, 255, 0.9) 18%,
-    rgba(42, 140, 255, 0.85) 82%,
+    rgba(24, 216, 255, 0.95) 18%,
+    rgba(42, 140, 255, 0.9) 82%,
     rgba(42, 140, 255, 0.18)
   );
-  box-shadow: 0 0 16px rgba(24, 216, 255, 0.45);
+  box-shadow: 0 0 18px rgba(24, 216, 255, 0.5);
   transform: translateX(-50%);
 }
 
@@ -491,8 +482,8 @@
   border-radius: 999px;
   background: var(--accent);
   box-shadow:
-    0 0 0 4px rgba(24, 216, 255, 0.16),
-    0 0 18px rgba(24, 216, 255, 0.7);
+    0 0 0 4px rgba(24, 216, 255, 0.18),
+    0 0 20px rgba(24, 216, 255, 0.75);
   transform: translate(-50%, -50%);
 }
 
@@ -508,27 +499,34 @@
   align-items: center;
   min-height: 4.35rem;
   padding: 0.85rem 1rem 0.85rem 0.85rem;
-  border: 1px solid rgba(24, 216, 255, 0.14);
+  border: 1px solid rgba(24, 216, 255, 0.22);
   border-radius: 1rem;
   background:
-    linear-gradient(120deg, rgba(24, 216, 255, 0.05), transparent 42%),
-    color-mix(in srgb, var(--card) 78%, transparent);
+    linear-gradient(120deg, rgba(24, 216, 255, 0.12), transparent 42%),
+    linear-gradient(300deg, rgba(42, 140, 255, 0.08), transparent 50%),
+    color-mix(in srgb, var(--card) 84%, transparent);
   box-shadow:
-    0 14px 34px rgba(5, 7, 11, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 16px 38px rgba(5, 7, 11, 0.36),
+    0 0 28px rgba(42, 140, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(14px);
   transition:
-    transform 220ms ease,
-    border-color 220ms ease,
-    box-shadow 220ms ease;
+    transform 240ms ease,
+    border-color 240ms ease,
+    box-shadow 240ms ease,
+    background 240ms ease;
 }
 
 .roadmapItem:hover {
-  transform: translateX(4px);
-  border-color: rgba(24, 216, 255, 0.32);
+  transform: translateX(6px);
+  border-color: rgba(24, 216, 255, 0.45);
+  background:
+    linear-gradient(120deg, rgba(24, 216, 255, 0.18), transparent 42%),
+    linear-gradient(300deg, rgba(42, 140, 255, 0.12), transparent 50%),
+    color-mix(in srgb, var(--card-hover) 90%, transparent);
   box-shadow:
-    0 18px 40px rgba(5, 7, 11, 0.36),
-    0 0 24px rgba(42, 140, 255, 0.12);
+    0 20px 44px rgba(5, 7, 11, 0.42),
+    0 0 36px rgba(24, 216, 255, 0.2);
 }
 
 .roadmapIcon {
@@ -536,10 +534,13 @@
   place-items: center;
   width: 2.35rem;
   height: 2.35rem;
-  border: 1px solid rgba(24, 216, 255, 0.28);
+  border: 1px solid rgba(24, 216, 255, 0.35);
   border-radius: 0.7rem;
   color: var(--accent);
-  background: rgba(24, 216, 255, 0.08);
+  background:
+    radial-gradient(circle at 40% 35%, rgba(24, 216, 255, 0.25), transparent 65%),
+    rgba(24, 216, 255, 0.1);
+  box-shadow: 0 0 16px rgba(24, 216, 255, 0.28);
 }
 
 .roadmapIcon svg {
@@ -553,6 +554,7 @@
   font-weight: 750;
   letter-spacing: 0.04em;
   line-height: 1;
+  text-shadow: 0 0 16px rgba(24, 216, 255, 0.4);
 }
 
 .roadmapCopy {
@@ -613,6 +615,7 @@
   height: 1.2rem;
   color: var(--accent);
   flex: 0 0 auto;
+  filter: drop-shadow(0 0 8px rgba(24, 216, 255, 0.45));
 }
 
 .techLayout {
@@ -625,11 +628,16 @@
 .techVisual {
   position: relative;
   min-height: 22rem;
-  border: var(--border-subtle);
+  border: 1px solid rgba(24, 216, 255, 0.2);
   border-radius: 1.5rem;
   background:
-    radial-gradient(circle at 50% 45%, rgba(42, 140, 255, 0.14), transparent 42%),
+    radial-gradient(circle at 50% 45%, rgba(42, 140, 255, 0.22), transparent 42%),
+    radial-gradient(circle at 20% 20%, rgba(24, 216, 255, 0.1), transparent 40%),
     rgba(5, 7, 11, 0.55);
+  box-shadow:
+    0 24px 56px rgba(5, 7, 11, 0.4),
+    0 0 48px rgba(42, 140, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
 
@@ -643,11 +651,11 @@
   gap: 0.4rem;
   width: 7.2rem;
   padding: 1.1rem 0.8rem;
-  border: 1px solid rgba(24, 216, 255, 0.28);
+  border: 1px solid rgba(24, 216, 255, 0.4);
   border-radius: 1.2rem;
   color: var(--text-primary);
   background: color-mix(in srgb, var(--card) 88%, transparent);
-  box-shadow: 0 0 40px rgba(42, 140, 255, 0.18);
+  box-shadow: 0 0 48px rgba(42, 140, 255, 0.28);
   transform: translate(-50%, -50%);
 }
 
@@ -655,6 +663,7 @@
   width: 1.35rem;
   height: 1.35rem;
   color: var(--accent);
+  filter: drop-shadow(0 0 10px rgba(24, 216, 255, 0.55));
 }
 
 .techCore strong {
@@ -669,10 +678,13 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.7rem 0.9rem;
-  border: var(--border-subtle);
+  border: 1px solid rgba(24, 216, 255, 0.24);
   border-radius: 999px;
   color: var(--text-secondary);
-  background: color-mix(in srgb, var(--card) 78%, transparent);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  box-shadow:
+    0 10px 24px rgba(5, 7, 11, 0.3),
+    0 0 18px rgba(24, 216, 255, 0.12);
   backdrop-filter: blur(12px);
   font-size: 0.78rem;
   font-weight: 650;
@@ -734,10 +746,13 @@
   place-items: center;
   width: 3rem;
   height: 3rem;
-  border: 1px solid rgba(24, 216, 255, 0.24);
+  border: 1px solid rgba(24, 216, 255, 0.35);
   border-radius: 999px;
   color: var(--accent);
-  background: rgba(42, 140, 255, 0.12);
+  background:
+    radial-gradient(circle at 40% 35%, rgba(24, 216, 255, 0.28), transparent 65%),
+    rgba(42, 140, 255, 0.14);
+  box-shadow: 0 0 20px rgba(24, 216, 255, 0.3);
   font-size: 0.9rem;
   font-weight: 750;
 }
@@ -758,7 +773,7 @@
   }
 
   50% {
-    transform: translateY(-8px);
+    transform: translateY(-10px);
   }
 }
 
@@ -800,7 +815,7 @@
   .roadmapOrbit {
     width: min(90vw, 34rem);
     height: min(70vw, 28rem);
-    opacity: 0.9;
+    opacity: 0.85;
   }
 
   .heroCopy h1 {
@@ -855,15 +870,12 @@
     animation: none;
   }
 
-  .heroBadge {
-    animation: none;
-  }
-
   .iconCard:hover,
   .whyCard:hover,
   .evolutionCard:hover,
   .personCard:hover,
   .roadmapItem:hover,
+  .heroBadge:hover,
   .visionLink:hover {
     transform: none;
   }
