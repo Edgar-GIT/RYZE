@@ -1,3 +1,31 @@
+# Version 2.2.44
+
+Title: Stretch Our Vision hero + remodel Continuous Evolution
+
+Date: 2026-08-05
+
+Summary:
+
+Stretched the hero `our_view.png` to the top of the page. Remodeled Continuous
+Evolution to match the mock: `conti_bg.png` full-bleed background, left intro,
+and a 2×3 grid of glowing cards with icon / title / copy / chevron.
+
+Files modified:
+
+- `main/src/resources/img/hero/conti_bg.png` (placeholder until real asset)
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked for hero top coverage and a Continuous Evolution section matching
+the attached mock with `conti_bg.png`.
+
+---
+
 # Version 2.2.43
 
 Title: Liven Our Vision page — quieter chips, no orbit rings

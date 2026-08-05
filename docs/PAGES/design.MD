@@ -547,7 +547,9 @@ Sections:
 4. Our vision — two-column roadmap: left intro + orbital planet glow,
    right vertical timeline with numbered milestone cards (icon, index, phase
    label, title, chevron).
-5. Continuous evolution — floating capability cards instead of paragraphs.
+5. Continuous evolution — full-bleed `conti_bg.png` background with left
+   intro and a 2×3 grid of glowing capability cards (icon well, title,
+   description, chevron).
 6. Technology first — modular software visual (connected product modules).
 7. The people behind RYZE — small closing section with subtle founder cards
    (initials / circular marks, name, role, one sentence). Platform remains the

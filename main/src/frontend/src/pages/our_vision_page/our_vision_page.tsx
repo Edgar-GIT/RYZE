@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
+  BarChart3,
   Brain,
   ChartNoAxesCombined,
   ChevronRight,
@@ -11,10 +12,10 @@ import {
   Globe2,
   Layers3,
   Leaf,
+  Link2,
   MonitorSmartphone,
   Network,
   Play,
-  Radar,
   RefreshCw,
   Rocket,
   ShieldCheck,
@@ -24,7 +25,6 @@ import {
   Trophy,
   User,
   Utensils,
-  WandSparkles,
   Zap
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -32,6 +32,7 @@ import type { ReactNode } from "react";
 
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
 import ourVisionBackground from "@resources/img/hero/our_view.png";
 
 import styles from "./our_vision_page.module.css";
@@ -133,12 +134,36 @@ const roadmap = [
 ] as const;
 
 const evolutionCards = [
-  { icon: WandSparkles, title: "New AI capabilities" },
-  { icon: Gauge, title: "Performance improvements" },
-  { icon: Layers3, title: "New trainer tools" },
-  { icon: Radar, title: "Better personalization" },
-  { icon: ChartNoAxesCombined, title: "Better analytics" },
-  { icon: Leaf, title: "New integrations" }
+  {
+    icon: Brain,
+    title: "New AI capabilities",
+    text: "Smarter models, deeper insights, endless potential."
+  },
+  {
+    icon: Gauge,
+    title: "Performance improvements",
+    text: "Faster, lighter, stronger. Built for what's next."
+  },
+  {
+    icon: Layers3,
+    title: "New trainer tools",
+    text: "Powerful tools to train smarter and scale faster."
+  },
+  {
+    icon: User,
+    title: "Better personalization",
+    text: "Tailored experiences that adapt to you."
+  },
+  {
+    icon: BarChart3,
+    title: "Better analytics",
+    text: "More data, clearer insights, smarter decisions."
+  },
+  {
+    icon: Link2,
+    title: "New integrations",
+    text: "Seamless connections with the tools you love."
+  }
 ] as const;
 
 const founders = [
@@ -387,23 +412,43 @@ export const OurVisionPage = () => (
     </section>
 
     <section className={`${styles.section} ${styles.sectionEvolution}`}>
-      <Container>
-        <Reveal className={styles.sectionIntro}>
+      <img
+        className={styles.evolutionBackground}
+        src={continuousEvolutionBackground}
+        alt=""
+        aria-hidden="true"
+      />
+
+      <Container className={styles.evolutionLayout}>
+        <Reveal className={styles.evolutionIntro}>
           <p className={styles.eyebrow}>Continuous evolution</p>
-          <h2>Software is never finished.</h2>
+          <h2>
+            Software is never finished<span className={styles.accentPhrase}>.</span>
+          </h2>
           <p className={styles.sectionLead}>
             RYZE keeps receiving new capability while the product stays one coherent system.
           </p>
         </Reveal>
+
         <div className={styles.evolutionGrid}>
-          {evolutionCards.map((card, index) => (
-            <Reveal key={card.title} delay={index * 0.05}>
-              <article className={styles.evolutionCard}>
-                <card.icon aria-hidden="true" />
-                <h3>{card.title}</h3>
-              </article>
-            </Reveal>
-          ))}
+          {evolutionCards.map((card, index) => {
+            const Icon = card.icon;
+
+            return (
+              <Reveal key={card.title} delay={index * 0.05}>
+                <article className={styles.evolutionCard}>
+                  <span className={styles.evolutionIcon}>
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <div className={styles.evolutionCopy}>
+                    <h3>{card.title}</h3>
+                    <p>{card.text}</p>
+                  </div>
+                  <ChevronRight className={styles.evolutionChevron} aria-hidden="true" />
+                </article>
+              </Reveal>
+            );
+          })}
         </div>
       </Container>
     </section>
