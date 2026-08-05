@@ -1,3 +1,34 @@
+# Version 2.2.27
+
+Title: Add real-time RYZE Planet 3D hero to Our Vision
+
+Date: 2026-08-05
+
+Summary:
+
+Replaced the empty Our Vision hero visual with a lazy-loaded Three.js /
+React Three Fiber planet: dark metallic tech sphere, ~50s rotation, Fresnel
+cyan rim, subtle particles, soft bloom, and a centered holographic RYZE mark
++ wordmark. No orbiting modules in this phase.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/**` (new)
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/how_to_run.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Our Vision needed a premium tech-first signature visual that communicates
+RYZE as future fitness software, not a traditional gym landing page.
+
+---
+
 # Version 2.2.26
 
 Title: Start Our Vision hero rebuild — new copy, clear right visual

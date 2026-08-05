@@ -23,12 +23,18 @@ import {
   Zap
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 
 import styles from "./our_vision_page.module.css";
+
+const RyzePlanet = lazy(() =>
+  import("@/components/ryze_planet/ryze_planet").then((module) => ({
+    default: module.RyzePlanet
+  }))
+);
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -263,6 +269,12 @@ export const OurVisionPage = () => (
             </span>
             Our vision
           </a>
+        </Reveal>
+
+        <Reveal className={styles.heroVisual} delay={0.12}>
+          <Suspense fallback={<div className={styles.planetFallback} aria-hidden="true" />}>
+            <RyzePlanet />
+          </Suspense>
         </Reveal>
       </Container>
     </section>

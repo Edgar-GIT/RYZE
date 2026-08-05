@@ -51,6 +51,10 @@ Runtime dependencies:
 - React Router DOM
 - Lucide React
 - Framer Motion
+- Three.js
+- React Three Fiber
+- React Three Drei
+- React Three Postprocessing
 
 Development dependencies:
 

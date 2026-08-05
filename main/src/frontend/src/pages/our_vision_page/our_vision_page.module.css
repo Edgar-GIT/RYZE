@@ -25,6 +25,8 @@
 
 .heroLayout {
   display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
   width: 100%;
   align-items: center;
 }
@@ -35,6 +37,21 @@
   justify-items: start;
   max-width: 40rem;
   margin-left: clamp(1.5rem, 6vw, 5.5rem);
+}
+
+.heroVisual {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+}
+
+.planetFallback {
+  width: min(100%, 34rem);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(99, 230, 255, 0.12), transparent 42%),
+    radial-gradient(circle at 50% 50%, #0b1220 0%, transparent 70%);
 }
 
 .heroCopy h1,
