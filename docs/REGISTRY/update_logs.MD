@@ -1,3 +1,30 @@
+# Version 2.2.28
+
+Title: Tune RYZE Planet size, violet glow, gold streaks and wordmark
+
+Date: 2026-08-05
+
+Summary:
+
+Made the Our Vision planet smaller and shifted left; switched glow to ultra
+neon violet; slowed rotation to ~95s/turn; added occasional high-speed gold
+surface streaks and a fluorescent gold “RYZE” wordmark that fades in and out.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/planet_scene.tsx`
+- `main/src/frontend/src/components/ryze_planet/planet_shaders.ts`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.module.css`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Refine the planet signature toward the requested neon-violet / gold pulse feel.
+
+---
+
 # Version 2.2.27
 
 Title: Add real-time RYZE Planet 3D hero to Our Vision

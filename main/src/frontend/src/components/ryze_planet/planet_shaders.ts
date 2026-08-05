@@ -14,10 +14,13 @@ void main() {
 
 export const planetFragmentShader = /* glsl */ `
 uniform float uTime;
+uniform float uGoldPulse;
+uniform float uStreakPhase;
 uniform vec3 uBaseColor;
 uniform vec3 uSurfaceColor;
 uniform vec3 uGlowColor;
 uniform vec3 uHighlight;
+uniform vec3 uGoldColor;
 uniform vec3 uCameraPosition;
 
 varying vec3 vNormal;
@@ -49,7 +52,7 @@ void main() {
   vec2 gridUv = vUv * vec2(42.0, 24.0);
   float lineX = smoothstep(0.04, 0.0, abs(fract(gridUv.x) - 0.5));
   float lineY = smoothstep(0.05, 0.0, abs(fract(gridUv.y) - 0.5));
-  float techLines = max(lineX, lineY) * 0.055;
+  float techLines = max(lineX, lineY) * 0.05;
 
   float surfaceNoise = noise(vUv * 18.0 + uTime * 0.01) * 0.045;
   float microNoise = noise(vUv * 64.0) * 0.03;
@@ -57,14 +60,20 @@ void main() {
   float sparkSeed = hash(floor(vUv * vec2(96.0, 56.0)));
   float sparks = step(0.985, sparkSeed) * (0.45 + 0.55 * sin(uTime * 1.4 + sparkSeed * 40.0));
 
+  // High-speed gold streaks — only visible during pulse bursts
+  float streakA = smoothstep(0.018, 0.0, abs(fract(vUv.x * 6.0 - uStreakPhase * 4.0) - 0.5));
+  float streakB = smoothstep(0.014, 0.0, abs(fract(vUv.y * 5.0 + vUv.x * 0.35 - uStreakPhase * 5.5) - 0.5));
+  float streakC = smoothstep(0.012, 0.0, abs(vUv.x * 0.7 + vUv.y - uStreakPhase * 2.2));
+  float goldStreaks = (streakA * 0.9 + streakB * 1.15 + streakC * 0.7) * uGoldPulse;
+
   vec3 color = mix(uBaseColor, uSurfaceColor, 0.35 + surfaceNoise + microNoise);
   color += uGlowColor * techLines;
-  color += uHighlight * sparks * 0.55;
-  color += uGlowColor * softFresnel * 0.18;
-  color += uHighlight * fresnel * 0.72;
+  color += uHighlight * sparks * 0.5;
+  color += uGlowColor * softFresnel * 0.2;
+  color += uHighlight * fresnel * 0.78;
+  color += uGoldColor * goldStreaks * 2.2;
 
-  float alpha = 1.0;
-  gl_FragColor = vec4(color, alpha);
+  gl_FragColor = vec4(color, 1.0);
 }
 `;
 
@@ -92,7 +101,7 @@ void main() {
   vec3 normal = normalize(vNormal);
   vec3 viewDir = normalize(uCameraPosition - vWorldPosition);
   float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 2.8);
-  float alpha = fresnel * 0.28;
+  float alpha = fresnel * 0.3;
   vec3 color = mix(uGlowColor, uHighlight, fresnel * 0.45);
   gl_FragColor = vec4(color, alpha);
 }

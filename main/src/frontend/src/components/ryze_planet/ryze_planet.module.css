@@ -1,8 +1,9 @@
 .planet {
   position: relative;
-  width: min(100%, 34rem);
+  width: min(100%, 24rem);
   aspect-ratio: 1;
-  margin-inline: auto;
+  margin-inline: 0 auto;
+  transform: translateX(-1.25rem);
   isolation: isolate;
 }
 
@@ -18,22 +19,25 @@
   margin: 14% auto;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 35% 30%, rgba(99, 230, 255, 0.18), transparent 42%),
-    radial-gradient(circle at 50% 55%, rgba(37, 217, 255, 0.12), transparent 58%),
+    radial-gradient(circle at 35% 30%, rgba(232, 121, 249, 0.2), transparent 42%),
+    radial-gradient(circle at 50% 55%, rgba(191, 0, 255, 0.14), transparent 58%),
     radial-gradient(circle at 50% 50%, #0b1220 0%, #05070b 72%);
   box-shadow:
-    0 0 48px rgba(37, 217, 255, 0.18),
-    inset 0 0 40px rgba(31, 162, 255, 0.12);
+    0 0 48px rgba(191, 0, 255, 0.22),
+    inset 0 0 40px rgba(217, 70, 239, 0.14);
 }
 
 @media (max-width: 960px) {
   .planet {
-    width: min(100%, 26rem);
+    width: min(100%, 20rem);
+    margin-inline: auto;
+    transform: translateX(-0.5rem);
   }
 }
 
 @media (max-width: 640px) {
   .planet {
-    width: min(100%, 20rem);
+    width: min(100%, 16.5rem);
+    transform: none;
   }
 }
