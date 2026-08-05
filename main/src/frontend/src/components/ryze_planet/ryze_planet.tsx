@@ -90,10 +90,11 @@ export const RyzePlanet = ({ className }: RyzePlanetProps) => {
               stencil: false,
               depth: true
             }}
-            camera={{ position: [0, 0.1, 3.75], fov: 40, near: 0.1, far: 40 }}
+            camera={{ position: [0, 0.15, 5.4], fov: 38, near: 0.1, far: 50 }}
             frameloop={isVisible ? (reduceMotion ? "demand" : "always") : "never"}
             onCreated={({ gl, invalidate }) => {
               gl.setClearColor(0x000000, 0);
+              gl.setClearAlpha(0);
               invalidate();
             }}
           >
@@ -103,6 +104,10 @@ export const RyzePlanet = ({ className }: RyzePlanetProps) => {
           </Canvas>
         </PlanetErrorBoundary>
       )}
+
+      <p className={joinClassNames(styles.wordmark, reduceMotion && styles.wordmarkStatic)}>
+        RYZE
+      </p>
     </div>
   );
 };

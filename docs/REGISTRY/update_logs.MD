@@ -1,3 +1,33 @@
+# Version 2.2.36
+
+Title: Fit full planet in canvas, remove sparks, blink RYZE, shooting stars
+
+Date: 2026-08-05
+
+Summary:
+
+Enlarged the planet canvas (~52rem) and pulled the camera back so the whole
+sphere fits without clipping. Removed blinking surface squares. Added gold
+shooting-star orbits and a 1s / 0.3s-fade RYZE wordmark blink. Violet rim
+palette to match the reference.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/planet_scene.tsx`
+- `main/src/frontend/src/components/ryze_planet/planet_shaders.ts`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.tsx`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.module.css`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Planet was clipped by a too-small frustum/canvas; sparks and missing stars
+did not match the brief.
+
+---
+
 # Version 2.2.35
 
 Title: Restore original Three.js rotating RYZE Planet (v1)
