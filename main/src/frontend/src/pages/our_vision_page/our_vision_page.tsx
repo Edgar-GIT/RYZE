@@ -6,7 +6,6 @@ import {
   Brain,
   ChartNoAxesCombined,
   ChevronRight,
-  Cpu,
   Crosshair,
   Dumbbell,
   Gauge,
@@ -25,15 +24,16 @@ import {
   Timer,
   Trophy,
   User,
+  UserPlus,
   Utensils,
   Zap
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
+import howItWorksBackground from "@resources/img/hero/how_bg.png";
 import ourVisionBackground from "@resources/img/hero/our_view.png";
 import technologyBackground from "@resources/img/hero/tech_bg.png";
 
@@ -44,31 +44,36 @@ const fadeUp = {
   visible: { opacity: 1, y: 0 }
 };
 
-const missionCards = [
+const howItWorksSteps = [
   {
-    icon: Globe2,
-    title: "Accessible",
-    text: "Professional guidance without waiting rooms or gatekeeping."
+    number: "01",
+    icon: UserPlus,
+    title: "Sign up",
+    text: "Create your account in seconds."
   },
   {
-    icon: Zap,
-    title: "Affordable",
-    text: "Technology lowers cost without lowering the quality of the plan."
-  },
-  {
-    icon: ShieldCheck,
-    title: "Professional",
-    text: "Structure, progression and review — not random workout lists."
-  },
-  {
+    number: "02",
     icon: Crosshair,
-    title: "Simple",
-    text: "Clear weekly actions. Open the app and know what to do."
+    title: "Tell us your goals",
+    text: "Share your goals and preferences."
   },
   {
-    icon: Cpu,
-    title: "Technology first",
-    text: "Built like modern software, not a static fitness brochure."
+    number: "03",
+    icon: Brain,
+    title: "AI builds your plan",
+    text: "We create a training and nutrition plan just for you."
+  },
+  {
+    number: "04",
+    icon: BarChart3,
+    title: "Track progress",
+    text: "Monitor your performance in real time."
+  },
+  {
+    number: "05",
+    icon: Rocket,
+    title: "Get better every week",
+    text: "Smart adjustments keep you moving forward."
   }
 ] as const;
 
@@ -260,24 +265,6 @@ const techFeatures = [
   }
 ] as const;
 
-const IconCard = ({
-  icon: Icon,
-  title,
-  text
-}: {
-  icon: LucideIcon;
-  title: string;
-  text: string;
-}) => (
-  <article className={styles.iconCard}>
-    <span className={styles.iconWrap}>
-      <Icon aria-hidden="true" />
-    </span>
-    <h3>{title}</h3>
-    <p>{text}</p>
-  </article>
-);
-
 export const OurVisionPage = () => (
   <PageWrapper className={styles.page}>
     <section className={styles.hero}>
@@ -312,22 +299,51 @@ export const OurVisionPage = () => (
     </section>
 
     <section className={`${styles.section} ${styles.sectionMission}`}>
-      <Container>
-        <Reveal className={styles.sectionIntro}>
-          <p className={styles.eyebrow}>Our mission</p>
-          <h2>Professional guidance without the friction.</h2>
+      <img
+        className={styles.missionBackground}
+        src={howItWorksBackground}
+        alt=""
+        aria-hidden="true"
+      />
+
+      <Container className={styles.missionLayout}>
+        <Reveal className={styles.missionIntro}>
+          <p className={styles.missionEyebrow}>Get started</p>
+          <h2>
+            Start your journey in <span className={styles.accentPhrase}>minutes.</span>
+            <br />
+            Transform for life.
+          </h2>
           <p className={styles.sectionLead}>
-            Quality training and nutrition should not be expensive or complicated. Technology lets
-            us keep the standard high and the path simple.
+            RYZE makes it easy to start. Set your goals, follow your plan and let technology handle
+            the rest.
           </p>
         </Reveal>
-        <div className={styles.missionGrid}>
-          {missionCards.map((card, index) => (
-            <Reveal key={card.title} delay={index * 0.05}>
-              <IconCard {...card} />
-            </Reveal>
-          ))}
-        </div>
+
+        <Reveal className={styles.howWorks} delay={0.12}>
+          <div className={styles.howWorksTitle}>
+            <span className={styles.howWorksLine} aria-hidden="true" />
+            <h3>How RYZE works</h3>
+            <span className={styles.howWorksLine} aria-hidden="true" />
+          </div>
+
+          <ol className={styles.howWorksSteps}>
+            {howItWorksSteps.map((step) => {
+              const Icon = step.icon;
+
+              return (
+                <li key={step.number} className={styles.howWorksStep}>
+                  <span className={styles.howWorksNumber}>{step.number}</span>
+                  <span className={styles.howWorksIcon}>
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <h4>{step.title}</h4>
+                  <p>{step.text}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </Reveal>
       </Container>
     </section>
 
