@@ -544,15 +544,15 @@ Sections:
    Affordable, Professional, Simple, Technology First).
 3. Why RYZE — dense responsive feature grid of premium glass cards with icon,
    title, one sentence, hover lift and soft glow.
-4. Our vision — two-column roadmap: left intro + orbital planet glow,
-   right vertical timeline with numbered milestone cards (icon, index, phase
-   label, title, chevron).
+4. Our vision — two-column roadmap: left intro with phase tags
+   (Today / Next / Soon / Later / Horizon) and soft ambient glow, right
+   vertical timeline with numbered milestone cards.
 5. Continuous evolution — full-bleed `conti_bg.png` background with left
    intro and a 2×3 grid of glowing capability cards (icon well, title,
    description, chevron).
 6. Technology first — full-bleed `tech_bg.png` background with left copy
-   (eyebrow, headline with accent on “modern”, feature list, Explore RYZE OS
-   CTA). No bottom pillar row.
+   (eyebrow, headline with accent on “modern”, feature list). No CTA button,
+   no bottom pillar row.
 7. The people behind RYZE — small closing section with subtle founder cards
    (initials / circular marks, name, role, one sentence). Platform remains the
    hero.

@@ -276,7 +276,7 @@
   min-height: 100svh;
   display: grid;
   align-items: start;
-  padding: 5rem 0 5.5rem;
+  padding: 3.25rem 0 5.5rem;
   background: var(--bg-primary);
 }
 
@@ -387,46 +387,6 @@
   color: var(--text-secondary);
   font-size: 0.88rem;
   line-height: 1.5;
-}
-
-.techCta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin-top: 0.55rem;
-  min-height: 2.7rem;
-  padding: 0.55rem 1.15rem;
-  border: 1px solid rgba(24, 216, 255, 0.45);
-  border-radius: 0.75rem;
-  color: var(--accent);
-  background: rgba(24, 216, 255, 0.06);
-  box-shadow:
-    0 0 20px rgba(24, 216, 255, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  font-size: 0.74rem;
-  font-weight: 750;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  text-decoration: none;
-  transition:
-    transform 220ms ease,
-    border-color 220ms ease,
-    box-shadow 220ms ease,
-    background 220ms ease,
-    color 220ms ease;
-}
-
-.techCta svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.techCta:hover {
-  color: var(--text-primary);
-  border-color: rgba(24, 216, 255, 0.7);
-  background: rgba(24, 216, 255, 0.12);
-  box-shadow: 0 0 28px rgba(24, 216, 255, 0.28);
-  transform: translateY(-2px);
 }
 
 .sectionIntro {
@@ -568,46 +528,9 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 70% 65% at 6% 100%, rgba(42, 140, 255, 0.32), transparent 60%),
-    radial-gradient(ellipse 48% 42% at 0% 88%, rgba(24, 216, 255, 0.18), transparent 55%),
-    radial-gradient(ellipse 40% 32% at 75% 15%, rgba(42, 140, 255, 0.12), transparent 58%),
+    radial-gradient(ellipse 55% 50% at 8% 85%, rgba(42, 140, 255, 0.1), transparent 62%),
+    radial-gradient(ellipse 40% 35% at 92% 18%, rgba(24, 216, 255, 0.06), transparent 55%),
     transparent;
-}
-
-.roadmapOrbit {
-  position: absolute;
-  left: -12%;
-  bottom: -28%;
-  z-index: 0;
-  width: min(72vw, 50rem);
-  height: min(58vw, 40rem);
-  pointer-events: none;
-}
-
-.roadmapPlanet {
-  position: absolute;
-  left: -20%;
-  bottom: -40%;
-  width: 92%;
-  height: 108%;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 58% 30%, rgba(180, 230, 255, 0.75), transparent 22%),
-    radial-gradient(circle at 48% 40%, rgba(24, 216, 255, 0.52), rgba(42, 140, 255, 0.24) 38%, transparent 66%),
-    radial-gradient(circle at 40% 55%, rgba(20, 80, 180, 0.4), transparent 58%);
-  box-shadow:
-    0 0 70px rgba(24, 216, 255, 0.4),
-    0 0 140px rgba(42, 140, 255, 0.35),
-    0 0 240px rgba(24, 216, 255, 0.2);
-}
-
-.roadmapPlanet::after {
-  position: absolute;
-  inset: 18% 22% 28% 18%;
-  border-radius: 50%;
-  content: "";
-  background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.25), transparent 48%);
-  filter: blur(8px);
 }
 
 .roadmapIntro {
@@ -625,6 +548,31 @@
   letter-spacing: -0.035em;
   line-height: 1.05;
   max-width: 10ch;
+}
+
+.roadmapPhases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roadmapPhases li {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid rgba(24, 216, 255, 0.2);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(24, 216, 255, 0.06);
+  box-shadow: 0 8px 18px rgba(5, 7, 11, 0.18);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .roadmap {
@@ -964,12 +912,6 @@
     max-width: 14ch;
   }
 
-  .roadmapOrbit {
-    width: min(90vw, 34rem);
-    height: min(70vw, 28rem);
-    opacity: 0.85;
-  }
-
   .heroCopy h1 {
     max-width: none;
   }
@@ -1020,7 +962,6 @@
   .evolutionCard:hover,
   .roadmapItem:hover,
   .heroBadge:hover,
-  .techCta:hover,
   .visionLink:hover {
     transform: none;
   }

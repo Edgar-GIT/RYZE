@@ -1,7 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
-  ArrowRight,
   BarChart3,
   Boxes,
   Brain,
@@ -31,7 +30,6 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
 
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
@@ -360,10 +358,6 @@ export const OurVisionPage = () => (
     </section>
 
     <section className={`${styles.section} ${styles.sectionRoadmap}`} id="vision-roadmap">
-      <div className={styles.roadmapOrbit} aria-hidden="true">
-        <span className={styles.roadmapPlanet} />
-      </div>
-
       <Container className={styles.roadmapLayout}>
         <Reveal className={styles.roadmapIntro}>
           <p className={styles.eyebrow}>Our vision</p>
@@ -373,6 +367,11 @@ export const OurVisionPage = () => (
           <p className={styles.sectionLead}>
             The roadmap is the story. Each step expands the ecosystem without abandoning the core.
           </p>
+          <ul className={styles.roadmapPhases}>
+            {["Today", "Next", "Soon", "Later", "Horizon"].map((phase) => (
+              <li key={phase}>{phase}</li>
+            ))}
+          </ul>
         </Reveal>
 
         <ol className={styles.roadmap}>
@@ -483,11 +482,6 @@ export const OurVisionPage = () => (
               );
             })}
           </ul>
-
-          <Link className={styles.techCta} to="/services">
-            Explore RYZE OS
-            <ArrowRight aria-hidden="true" />
-          </Link>
         </Reveal>
       </Container>
     </section>
