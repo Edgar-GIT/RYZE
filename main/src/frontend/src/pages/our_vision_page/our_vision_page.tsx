@@ -149,6 +149,14 @@ const founders = [
   }
 ] as const;
 
+const heroBadges = [
+  { icon: Brain, label: "AI" },
+  { icon: Activity, label: "Training" },
+  { icon: Utensils, label: "Nutrition" },
+  { icon: Leaf, label: "Recovery" },
+  { icon: ChartNoAxesCombined, label: "Progress" }
+] as const;
+
 interface RevealProps {
   children: ReactNode;
   className?: string;
@@ -190,41 +198,6 @@ const IconCard = ({
   </article>
 );
 
-const HeroVisual = () => (
-  <div className={styles.heroVisual} aria-hidden="true">
-    <div className={styles.heroGlow} />
-    <div className={styles.orbit}>
-      <span className={`${styles.node} ${styles.nodeCore}`}>
-        <Cpu />
-        <em>RYZE</em>
-      </span>
-      <span className={`${styles.node} ${styles.nodeTrain}`}>
-        <Activity />
-        <em>Train</em>
-      </span>
-      <span className={`${styles.node} ${styles.nodeFuel}`}>
-        <Utensils />
-        <em>Fuel</em>
-      </span>
-      <span className={`${styles.node} ${styles.nodeRecover}`}>
-        <Leaf />
-        <em>Recover</em>
-      </span>
-      <span className={`${styles.node} ${styles.nodeAi}`}>
-        <Brain />
-        <em>AI</em>
-      </span>
-    </div>
-    <svg className={styles.heroLinks} viewBox="0 0 420 420">
-      <path d="M210 210 L210 78" />
-      <path d="M210 210 L318 140" />
-      <path d="M210 210 L318 280" />
-      <path d="M210 210 L102 280" />
-      <path d="M210 210 L102 140" />
-    </svg>
-  </div>
-);
-
 const TechVisual = () => (
   <div className={styles.techVisual} aria-hidden="true">
     <div className={styles.techCore}>
@@ -260,13 +233,35 @@ export const OurVisionPage = () => (
       <Container className={styles.heroLayout}>
         <Reveal className={styles.heroCopy}>
           <p className={styles.eyebrow}>The future of fitness</p>
-          <h1>Fitness deserves better software.</h1>
+          <h1>
+            Fitness deserves better{" "}
+            <span className={styles.accentPhrase}>software.</span>
+          </h1>
           <p className={styles.lead}>
-            Modern training should adapt to people — not force people to adapt to static plans.
+            Modern training should adapt to you, not force you to adapt to static plans.
           </p>
-        </Reveal>
-        <Reveal className={styles.heroVisualWrap} delay={0.12}>
-          <HeroVisual />
+
+          <ul className={styles.heroBadges}>
+            {heroBadges.map((badge) => {
+              const Icon = badge.icon;
+
+              return (
+                <li key={badge.label} className={styles.heroBadge}>
+                  <span className={styles.heroBadgeIcon}>
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <span>{badge.label}</span>
+                </li>
+              );
+            })}
+          </ul>
+
+          <a className={styles.visionLink} href="#vision-roadmap">
+            <span className={styles.visionPlay}>
+              <Play aria-hidden="true" />
+            </span>
+            Our vision
+          </a>
         </Reveal>
       </Container>
     </section>
