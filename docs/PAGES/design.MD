@@ -535,9 +535,11 @@ Legacy `/about-us` redirects to `/our-vision`.
 
 Sections:
 
-1. The future of fitness — large hero with short thesis and abstract system
-   visualization (connected Train / Fuel / Recover / AI nodes). No stock gym
-   photography.
+1. The future of fitness — large left-aligned hero: eyebrow, thesis headline
+   with accent on “software.”, short lead, horizontal capability badges (AI /
+   Training / Nutrition / Recovery / Progress), and an Our Vision jump link.
+   Right-side visual slot is reserved for a forthcoming composition. No stock
+   gym photography.
 2. Our mission — concise statement plus 3–5 icon cards (Accessible,
    Affordable, Professional, Simple, Technology First).
 3. Why RYZE — dense responsive feature grid of premium glass cards with icon,

@@ -1,3 +1,32 @@
+# Version 2.2.26
+
+Title: Start Our Vision hero rebuild — new copy, clear right visual
+
+Date: 2026-08-05
+
+Summary:
+
+Rewrote the Our Vision first section to match the reference: “THE FUTURE OF
+FITNESS” eyebrow, accent “software.” headline, adaptive-training lead,
+horizontal AI / Training / Nutrition / Recovery / Progress badges, and an Our
+Vision jump link. Removed the orbit / node hero visual so the right side can
+receive a new composition next.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Full Our Vision page redo starts with locking the hero copy and clearing the
+outdated right-side system diagram.
+
+---
+
 # Version 2.2.25
 
 Title: Rebuild Progress section with analytics card and feature badges

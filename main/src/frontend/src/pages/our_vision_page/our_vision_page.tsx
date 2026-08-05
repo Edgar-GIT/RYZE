@@ -11,6 +11,7 @@ import {
   Layers3,
   Leaf,
   MonitorSmartphone,
+  Play,
   Radar,
   RefreshCw,
   ShieldCheck,
@@ -312,7 +313,7 @@ export const OurVisionPage = () => (
       </Container>
     </section>
 
-    <section className={styles.section}>
+    <section className={styles.section} id="vision-roadmap">
       <Container className={styles.roadmapLayout}>
         <Reveal className={styles.sectionIntro}>
           <p className={styles.eyebrow}>Our vision</p>
