@@ -3,6 +3,7 @@ import {
   Activity,
   Brain,
   ChartNoAxesCombined,
+  ChevronRight,
   Cpu,
   Crosshair,
   Dumbbell,
@@ -11,13 +12,17 @@ import {
   Layers3,
   Leaf,
   MonitorSmartphone,
+  Network,
   Play,
   Radar,
   RefreshCw,
+  Rocket,
   ShieldCheck,
   Sparkles,
+  Sprout,
   Timer,
   Trophy,
+  User,
   Utensils,
   WandSparkles,
   Zap
@@ -118,13 +123,13 @@ const whyCards = [
 ] as const;
 
 const roadmap = [
-  { label: "Today", title: "Platform Launch" },
-  { label: "Next", title: "AI Training" },
-  { label: "Next", title: "AI Nutrition" },
-  { label: "Soon", title: "Recovery Intelligence" },
-  { label: "Later", title: "Coach Marketplace" },
-  { label: "Later", title: "Worldwide Trainers" },
-  { label: "Horizon", title: "Complete Fitness Ecosystem" }
+  { icon: Rocket, label: "Today", title: "Platform Launch" },
+  { icon: Brain, label: "Next", title: "AI Training" },
+  { icon: Sprout, label: "Next", title: "AI Nutrition" },
+  { icon: Activity, label: "Soon", title: "Recovery Intelligence" },
+  { icon: User, label: "Later", title: "Coach Marketplace" },
+  { icon: Globe2, label: "Later", title: "Worldwide Trainers" },
+  { icon: Network, label: "Horizon", title: "Complete Fitness Ecosystem" }
 ] as const;
 
 const evolutionCards = [
@@ -153,7 +158,7 @@ const founders = [
 
 const heroBadges = [
   { icon: Brain, label: "AI" },
-  { icon: Activity, label: "Training" },
+  { icon: Dumbbell, label: "Training" },
   { icon: Utensils, label: "Nutrition" },
   { icon: Leaf, label: "Recovery" },
   { icon: ChartNoAxesCombined, label: "Progress" }
@@ -179,6 +184,34 @@ const Reveal = ({ children, className, delay = 0 }: RevealProps) => {
     >
       {children}
     </motion.div>
+  );
+};
+
+const HeroBadges = () => {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <ul className={styles.heroBadges}>
+      {heroBadges.map((badge, index) => {
+        const Icon = badge.icon;
+
+        return (
+          <motion.li
+            key={badge.label}
+            className={styles.heroBadge}
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.6 }}
+            transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 + index * 0.05 }}
+          >
+            <span className={styles.heroBadgeIcon}>
+              <Icon aria-hidden="true" />
+            </span>
+            <span className={styles.heroBadgeLabel}>{badge.label}</span>
+          </motion.li>
+        );
+      })}
+    </ul>
   );
 };
 
@@ -250,20 +283,7 @@ export const OurVisionPage = () => (
             Modern training should adapt to you, not force you to adapt to static plans.
           </p>
 
-          <ul className={styles.heroBadges}>
-            {heroBadges.map((badge) => {
-              const Icon = badge.icon;
-
-              return (
-                <li key={badge.label} className={styles.heroBadge}>
-                  <span className={styles.heroBadgeIcon}>
-                    <Icon aria-hidden="true" />
-                  </span>
-                  <span>{badge.label}</span>
-                </li>
-              );
-            })}
-          </ul>
+          <HeroBadges />
 
           <a className={styles.visionLink} href="#vision-roadmap">
             <span className={styles.visionPlay}>
@@ -321,27 +341,47 @@ export const OurVisionPage = () => (
       </Container>
     </section>
 
-    <section className={styles.section} id="vision-roadmap">
+    <section className={`${styles.section} ${styles.sectionRoadmap}`} id="vision-roadmap">
+      <div className={styles.roadmapOrbit} aria-hidden="true">
+        <span className={styles.roadmapPlanet} />
+      </div>
+
       <Container className={styles.roadmapLayout}>
-        <Reveal className={styles.sectionIntro}>
+        <Reveal className={styles.roadmapIntro}>
           <p className={styles.eyebrow}>Our vision</p>
-          <h2>Where RYZE is going.</h2>
+          <h2>
+            Where RYZE is going<span className={styles.accentPhrase}>.</span>
+          </h2>
           <p className={styles.sectionLead}>
             The roadmap is the story. Each step expands the ecosystem without abandoning the core.
           </p>
         </Reveal>
+
         <ol className={styles.roadmap}>
-          {roadmap.map((item, index) => (
-            <Reveal key={item.title} delay={index * 0.06}>
-              <li className={styles.roadmapItem}>
-                <span className={styles.roadmapIndex}>{String(index + 1).padStart(2, "0")}</span>
-                <div>
-                  <p>{item.label}</p>
-                  <strong>{item.title}</strong>
-                </div>
+          {roadmap.map((item, index) => {
+            const Icon = item.icon;
+
+            return (
+              <li key={item.title} className={styles.roadmapEntry}>
+                <span className={styles.roadmapNode} aria-hidden="true" />
+                <Reveal delay={index * 0.05} className={styles.roadmapCardReveal}>
+                  <article className={styles.roadmapItem}>
+                    <span className={styles.roadmapIcon}>
+                      <Icon aria-hidden="true" />
+                    </span>
+                    <span className={styles.roadmapIndex}>
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div className={styles.roadmapCopy}>
+                      <p>{item.label}</p>
+                      <strong>{item.title}</strong>
+                    </div>
+                    <ChevronRight className={styles.roadmapChevron} aria-hidden="true" />
+                  </article>
+                </Reveal>
               </li>
-            </Reveal>
-          ))}
+            );
+          })}
         </ol>
       </Container>
     </section>

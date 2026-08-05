@@ -1,5 +1,11 @@
 .page {
   overflow: visible;
+  background:
+    radial-gradient(ellipse 80% 48% at 50% -10%, rgba(42, 140, 255, 0.24), transparent 58%),
+    radial-gradient(ellipse 52% 40% at 100% 22%, rgba(24, 216, 255, 0.12), transparent 55%),
+    radial-gradient(ellipse 48% 38% at 0% 55%, rgba(42, 140, 255, 0.14), transparent 52%),
+    radial-gradient(ellipse 40% 30% at 80% 85%, rgba(24, 216, 255, 0.08), transparent 55%),
+    var(--bg-primary);
 }
 
 .eyebrow {
@@ -9,26 +15,28 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  text-shadow: 0 0 22px rgba(24, 216, 255, 0.35);
 }
 
 .hero {
   position: relative;
-  min-height: min(100svh, 58rem);
+  min-height: min(94svh, 56rem);
   display: grid;
   align-items: center;
-  padding: 7.5rem 0 5rem;
+  padding: 6.5rem 0 4.5rem;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: transparent;
 }
 
 .heroBackground {
   position: absolute;
-  inset: 0;
+  top: 4.75rem;
+  left: 0;
   z-index: 0;
   width: 100%;
-  height: 100%;
+  height: calc(100% - 4.75rem + 2.5rem);
   object-fit: cover;
-  object-position: center center;
+  object-position: center 62%;
   pointer-events: none;
   user-select: none;
 }
@@ -39,7 +47,7 @@
   right: 0;
   bottom: 0;
   z-index: 1;
-  height: 18%;
+  height: 12%;
   content: "";
   background: linear-gradient(180deg, transparent 0%, var(--bg-primary) 100%);
   pointer-events: none;
@@ -85,7 +93,7 @@
 .lead,
 .sectionLead {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 1.05rem;
   line-height: 1.7;
   max-width: 38ch;
@@ -94,8 +102,8 @@
 .heroBadges {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
-  margin: 0.35rem 0 0;
+  gap: 0.5rem;
+  margin: 0.2rem 0 0;
   padding: 0;
   list-style: none;
 }
@@ -104,16 +112,32 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  min-height: 2.35rem;
-  padding: 0.35rem 0.8rem 0.35rem 0.4rem;
+  min-height: 2.15rem;
+  padding: 0.28rem 0.75rem 0.28rem 0.3rem;
   border: 1px solid rgba(24, 216, 255, 0.28);
-  border-radius: 999px;
-  color: var(--text-secondary);
-  background: rgba(24, 216, 255, 0.06);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  border-radius: 0.7rem;
+  color: var(--text-primary);
+  background:
+    linear-gradient(145deg, rgba(24, 216, 255, 0.1), transparent 50%),
+    rgba(12, 18, 28, 0.88);
+  box-shadow:
+    0 8px 20px rgba(5, 7, 11, 0.35),
+    0 0 14px rgba(24, 216, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.heroBadge:hover {
+  border-color: rgba(24, 216, 255, 0.45);
+  box-shadow:
+    0 10px 24px rgba(5, 7, 11, 0.4),
+    0 0 20px rgba(24, 216, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
 }
 
 .heroBadgeIcon {
@@ -124,11 +148,20 @@
   border-radius: 999px;
   color: var(--accent);
   background: rgba(24, 216, 255, 0.12);
+  box-shadow: 0 0 10px rgba(24, 216, 255, 0.28);
 }
 
 .heroBadgeIcon svg {
-  width: 0.85rem;
-  height: 0.85rem;
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.heroBadgeLabel {
+  color: var(--text-primary);
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .visionLink {
@@ -157,11 +190,11 @@
   place-items: center;
   width: 2.2rem;
   height: 2.2rem;
-  border: 1px solid rgba(24, 216, 255, 0.35);
+  border: 1px solid rgba(24, 216, 255, 0.4);
   border-radius: 999px;
   color: var(--accent);
-  background: rgba(24, 216, 255, 0.08);
-  box-shadow: 0 0 18px rgba(24, 216, 255, 0.16);
+  background: rgba(24, 216, 255, 0.1);
+  box-shadow: 0 0 22px rgba(24, 216, 255, 0.28);
 }
 
 .visionPlay svg {
@@ -171,18 +204,36 @@
 }
 
 .section {
+  position: relative;
   padding: 6.5rem 0;
+}
+
+.sectionMission {
+  background:
+    radial-gradient(ellipse 55% 45% at 15% 20%, rgba(42, 140, 255, 0.12), transparent 55%),
+    radial-gradient(ellipse 40% 35% at 90% 80%, rgba(24, 216, 255, 0.08), transparent 50%);
 }
 
 .sectionWhy,
 .sectionEvolution {
   background:
-    radial-gradient(ellipse 50% 40% at 50% 0%, rgba(42, 140, 255, 0.07), transparent 55%),
-    linear-gradient(180deg, rgba(5, 7, 11, 0.15), rgba(5, 7, 11, 0.35));
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(42, 140, 255, 0.2), transparent 58%),
+    radial-gradient(ellipse 45% 35% at 90% 70%, rgba(24, 216, 255, 0.1), transparent 55%),
+    radial-gradient(ellipse 35% 30% at 10% 90%, rgba(42, 140, 255, 0.1), transparent 50%),
+    linear-gradient(180deg, rgba(10, 16, 28, 0.35), rgba(5, 7, 11, 0.15));
 }
 
 .sectionPeople {
   padding-bottom: 7.5rem;
+  background:
+    radial-gradient(ellipse 50% 40% at 30% 100%, rgba(42, 140, 255, 0.12), transparent 55%),
+    radial-gradient(ellipse 35% 30% at 100% 40%, rgba(24, 216, 255, 0.07), transparent 50%);
+}
+
+.sectionTech {
+  background:
+    radial-gradient(ellipse 50% 45% at 85% 50%, rgba(42, 140, 255, 0.14), transparent 55%),
+    radial-gradient(ellipse 35% 30% at 10% 30%, rgba(24, 216, 255, 0.08), transparent 50%);
 }
 
 .sectionIntro {
@@ -207,19 +258,22 @@
 .whyCard,
 .evolutionCard,
 .personCard {
-  border: var(--border-subtle);
+  border: 1px solid rgba(24, 216, 255, 0.16);
   border-radius: 1.1rem;
   background:
-    linear-gradient(160deg, rgba(24, 216, 255, 0.07), transparent 46%),
-    color-mix(in srgb, var(--card) 72%, transparent);
+    linear-gradient(155deg, rgba(24, 216, 255, 0.14), transparent 42%),
+    linear-gradient(320deg, rgba(42, 140, 255, 0.08), transparent 50%),
+    color-mix(in srgb, var(--card) 82%, transparent);
   box-shadow:
-    0 18px 44px rgba(5, 7, 11, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 20px 48px rgba(5, 7, 11, 0.38),
+    0 0 32px rgba(42, 140, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(16px);
   transition:
-    transform 240ms ease,
-    border-color 240ms ease,
-    box-shadow 240ms ease;
+    transform 260ms ease,
+    border-color 260ms ease,
+    box-shadow 260ms ease,
+    background 260ms ease;
 }
 
 .iconCard {
@@ -233,11 +287,16 @@
 .whyCard:hover,
 .evolutionCard:hover,
 .personCard:hover {
-  transform: translateY(-4px);
-  border-color: rgba(24, 216, 255, 0.28);
+  transform: translateY(-6px);
+  border-color: rgba(24, 216, 255, 0.4);
+  background:
+    linear-gradient(155deg, rgba(24, 216, 255, 0.2), transparent 42%),
+    linear-gradient(320deg, rgba(42, 140, 255, 0.12), transparent 50%),
+    color-mix(in srgb, var(--card-hover) 88%, transparent);
   box-shadow:
-    0 22px 48px rgba(5, 7, 11, 0.38),
-    0 0 28px rgba(42, 140, 255, 0.1);
+    0 26px 56px rgba(5, 7, 11, 0.45),
+    0 0 40px rgba(24, 216, 255, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .iconWrap,
@@ -246,10 +305,13 @@
   place-items: center;
   width: 2.5rem;
   height: 2.5rem;
+  border: 1px solid rgba(24, 216, 255, 0.28);
   border-radius: 0.8rem;
   color: var(--accent);
-  background: rgba(42, 140, 255, 0.12);
-  box-shadow: 0 0 18px rgba(42, 140, 255, 0.12);
+  background:
+    radial-gradient(circle at 40% 35%, rgba(24, 216, 255, 0.28), transparent 65%),
+    rgba(42, 140, 255, 0.14);
+  box-shadow: 0 0 22px rgba(24, 216, 255, 0.28);
 }
 
 .iconWrap svg,
@@ -272,7 +334,7 @@
 .whyCard p,
 .personCard p {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   line-height: 1.55;
 }
@@ -304,52 +366,232 @@
 }
 
 .roadmapLayout {
+  position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 3rem;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
   align-items: start;
 }
 
-.roadmap {
+.sectionRoadmap {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 70% 65% at 6% 100%, rgba(42, 140, 255, 0.28), transparent 60%),
+    radial-gradient(ellipse 48% 42% at 0% 88%, rgba(24, 216, 255, 0.16), transparent 55%),
+    radial-gradient(ellipse 36% 30% at 70% 18%, rgba(42, 140, 255, 0.08), transparent 60%),
+    transparent;
+}
+
+.roadmapOrbit {
+  position: absolute;
+  left: -10%;
+  bottom: -22%;
+  z-index: 0;
+  width: min(68vw, 48rem);
+  height: min(56vw, 40rem);
+  pointer-events: none;
+}
+
+.roadmapPlanet {
+  position: absolute;
+  left: -22%;
+  bottom: -42%;
+  width: 88%;
+  height: 105%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 58% 30%, rgba(180, 230, 255, 0.7), transparent 22%),
+    radial-gradient(circle at 48% 40%, rgba(24, 216, 255, 0.48), rgba(42, 140, 255, 0.22) 38%, transparent 66%),
+    radial-gradient(circle at 40% 55%, rgba(20, 80, 180, 0.35), transparent 58%);
+  box-shadow:
+    0 0 60px rgba(24, 216, 255, 0.35),
+    0 0 120px rgba(42, 140, 255, 0.32),
+    0 0 220px rgba(24, 216, 255, 0.18);
+}
+
+.roadmapPlanet::after {
+  position: absolute;
+  inset: 18% 22% 28% 18%;
+  border-radius: 50%;
+  content: "";
+  background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.22), transparent 48%);
+  filter: blur(8px);
+}
+
+.roadmapOrbits {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  filter: drop-shadow(0 0 6px rgba(24, 216, 255, 0.35));
+}
+
+.roadmapIntro {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.9rem;
+  max-width: 22rem;
+  padding-top: 0.35rem;
+}
+
+.roadmapIntro h2 {
   margin: 0;
-  padding: 0;
+  color: var(--text-primary);
+  font-size: clamp(2.1rem, 4.2vw, 3.25rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  max-width: 10ch;
+}
+
+.roadmap {
+  --rail: 0.72rem;
+  --rail-gap: 2.15rem;
+  position: relative;
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0 0 0 var(--rail-gap);
   list-style: none;
+}
+
+.roadmap::before {
+  position: absolute;
+  top: 1.55rem;
+  bottom: 1.55rem;
+  left: var(--rail);
+  width: 2px;
+  content: "";
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(24, 216, 255, 0.2),
+    rgba(24, 216, 255, 0.9) 18%,
+    rgba(42, 140, 255, 0.85) 82%,
+    rgba(42, 140, 255, 0.18)
+  );
+  box-shadow: 0 0 16px rgba(24, 216, 255, 0.45);
+  transform: translateX(-50%);
+}
+
+.roadmapEntry {
+  position: relative;
+}
+
+.roadmapNode {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--rail) - var(--rail-gap));
+  z-index: 1;
+  width: 0.78rem;
+  height: 0.78rem;
+  border: 2px solid rgba(5, 7, 11, 0.9);
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 4px rgba(24, 216, 255, 0.16),
+    0 0 18px rgba(24, 216, 255, 0.7);
+  transform: translate(-50%, -50%);
+}
+
+.roadmapCardReveal {
+  display: block;
+  width: 100%;
 }
 
 .roadmapItem {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1rem;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 0.85rem;
   align-items: center;
-  padding: 1rem 1.15rem;
-  border: var(--border-subtle);
+  min-height: 4.35rem;
+  padding: 0.85rem 1rem 0.85rem 0.85rem;
+  border: 1px solid rgba(24, 216, 255, 0.14);
   border-radius: 1rem;
-  background: color-mix(in srgb, var(--card) 62%, transparent);
+  background:
+    linear-gradient(120deg, rgba(24, 216, 255, 0.05), transparent 42%),
+    color-mix(in srgb, var(--card) 78%, transparent);
+  box-shadow:
+    0 14px 34px rgba(5, 7, 11, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(14px);
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.roadmapItem:hover {
+  transform: translateX(4px);
+  border-color: rgba(24, 216, 255, 0.32);
+  box-shadow:
+    0 18px 40px rgba(5, 7, 11, 0.36),
+    0 0 24px rgba(42, 140, 255, 0.12);
+}
+
+.roadmapIcon {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid rgba(24, 216, 255, 0.28);
+  border-radius: 0.7rem;
+  color: var(--accent);
+  background: rgba(24, 216, 255, 0.08);
+}
+
+.roadmapIcon svg {
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
 .roadmapIndex {
   color: var(--accent);
-  font-size: 0.78rem;
+  font-size: 1.05rem;
   font-weight: 750;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
+  line-height: 1;
 }
 
-.roadmapItem p {
-  margin: 0 0 0.2rem;
+.roadmapCopy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.roadmapCopy p {
+  margin: 0;
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.roadmapItem strong {
+.roadmapCopy strong {
   color: var(--text-primary);
-  font-size: 1.05rem;
+  font-size: 1.02rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.roadmapChevron {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  transition:
+    color 220ms ease,
+    transform 220ms ease,
+    opacity 220ms ease;
+}
+
+.roadmapItem:hover .roadmapChevron {
+  color: var(--accent);
+  opacity: 1;
+  transform: translateX(2px);
 }
 
 .evolutionGrid {
@@ -547,6 +789,20 @@
     gap: 2rem;
   }
 
+  .roadmapIntro {
+    max-width: none;
+  }
+
+  .roadmapIntro h2 {
+    max-width: 14ch;
+  }
+
+  .roadmapOrbit {
+    width: min(90vw, 34rem);
+    height: min(70vw, 28rem);
+    opacity: 0.9;
+  }
+
   .heroCopy h1 {
     max-width: none;
   }
@@ -592,10 +848,6 @@
   .sectionLead {
     font-size: 0.98rem;
   }
-
-  .heroBadges {
-    gap: 0.5rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -603,10 +855,15 @@
     animation: none;
   }
 
+  .heroBadge {
+    animation: none;
+  }
+
   .iconCard:hover,
   .whyCard:hover,
   .evolutionCard:hover,
   .personCard:hover,
+  .roadmapItem:hover,
   .visionLink:hover {
     transform: none;
   }

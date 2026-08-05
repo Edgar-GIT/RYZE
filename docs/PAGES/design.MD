@@ -538,13 +538,15 @@ Sections:
 1. The future of fitness — large left-aligned hero over `our_view.png`
    background (same full-bleed image pattern as Training / Start Faster):
    eyebrow, thesis headline with accent on “software.”, short lead, horizontal
-   capability badges (AI / Training / Nutrition / Recovery / Progress), and an
+   capability chips (AI / Training / Nutrition / Recovery / Progress), and an
    Our Vision jump link. No stock gym photography.
 2. Our mission — concise statement plus 3–5 icon cards (Accessible,
    Affordable, Professional, Simple, Technology First).
 3. Why RYZE — dense responsive feature grid of premium glass cards with icon,
    title, one sentence, hover lift and soft glow.
-4. Our vision — scroll-revealed roadmap / timeline of platform milestones.
+4. Our vision — two-column roadmap: left intro + orbital planet glow,
+   right vertical timeline with numbered milestone cards (icon, index, phase
+   label, title, chevron).
 5. Continuous evolution — floating capability cards instead of paragraphs.
 6. Technology first — modular software visual (connected product modules).
 7. The people behind RYZE — small closing section with subtle founder cards

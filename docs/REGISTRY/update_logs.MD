@@ -1,3 +1,131 @@
+# Version 2.2.42
+
+Title: Restyle Our Vision hero capability chips
+
+Date: 2026-08-05
+
+Summary:
+
+Rebuilt hero chips to match the neon glass mock: white labels, glowing icon
+wells, cyan border bloom, staggered entrance and ambient pulse animation.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Previous chips were low-contrast and static; user asked for the mock style with
+light and motion.
+
+---
+
+# Version 2.2.41
+
+Title: Restore Our Vision hero capability chips
+
+Date: 2026-08-05
+
+Summary:
+
+Added AI / Training / Nutrition / Recovery / Progress chips above the Our
+Vision button in the hero, matching the provided block mock.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked to put the capability blocks back above the hero CTA.
+
+---
+
+# Version 2.2.40
+
+Title: Fix Our Vision hero crop, timeline nodes and lighting
+
+Date: 2026-08-05
+
+Summary:
+
+Stopped cropping the bottom of `our_view.png` in the hero. Aligned roadmap
+timeline dots to the rail. Increased page ambient light and enlarged / enriched
+the bottom-left orbital planet graphic.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User reported clipped hero artwork, misaligned timeline nodes, and asked for
+more light plus a stronger orbit visual.
+
+---
+
+# Version 2.2.39
+
+Title: Redesign Our Vision roadmap to match mock
+
+Date: 2026-08-05
+
+Summary:
+
+Rebuilt the “Where RYZE is going” section as a two-column layout with left
+intro + orbital planet glow and a right vertical timeline of milestone cards
+(icon, index, phase, title, chevron).
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Match the provided roadmap mock exactly.
+
+---
+
+# Version 2.2.38
+
+Title: Simplify Our Vision hero copy
+
+Date: 2026-08-05
+
+Summary:
+
+Removed the five capability badges under the hero lead. Kept only the Our
+Vision jump link. Slightly reduced the hero section height so the background
+image takes less vertical space.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked for a cleaner hero: text + CTA only, with a slightly smaller image.
+
+---
+
 # Version 2.2.37
 
 Title: Replace 3D planet with our_view.png hero background
