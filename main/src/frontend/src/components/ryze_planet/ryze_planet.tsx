@@ -82,8 +82,7 @@ export const RyzePlanet = ({ className }: RyzePlanetProps) => {
         <PlanetErrorBoundary onError={() => setWebglFailed(true)}>
           <Canvas
             className={styles.canvas}
-            dpr={[1, 1.75]}
-            shadows
+            dpr={[1, 1.5]}
             gl={{
               antialias: true,
               alpha: true,
@@ -91,11 +90,10 @@ export const RyzePlanet = ({ className }: RyzePlanetProps) => {
               stencil: false,
               depth: true
             }}
-            camera={{ position: [0, 0.05, 3.35], fov: 42, near: 0.1, far: 40 }}
+            camera={{ position: [0, 0.1, 3.75], fov: 40, near: 0.1, far: 40 }}
             frameloop={isVisible ? (reduceMotion ? "demand" : "always") : "never"}
             onCreated={({ gl, invalidate }) => {
               gl.setClearColor(0x000000, 0);
-              gl.toneMappingExposure = 1.15;
               invalidate();
             }}
           >

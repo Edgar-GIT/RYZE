@@ -1,80 +1,41 @@
 .planet {
   position: relative;
-  width: min(100%, 46rem);
+  width: min(100%, 40rem);
   aspect-ratio: 1;
-  margin-inline: 0 auto;
-  transform: translate(0.4rem, -1.25rem);
+  margin-inline: auto;
   isolation: isolate;
+  background: transparent;
 }
 
 .canvas {
   width: 100% !important;
   height: 100% !important;
+  background: transparent !important;
   touch-action: none;
 }
 
 .fallback {
-  width: 78%;
-  height: 78%;
-  margin: 11% auto;
+  width: 72%;
+  height: 72%;
+  margin: 14% auto;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 35% 30%, rgba(232, 121, 249, 0.22), transparent 42%),
-    radial-gradient(circle at 50% 55%, rgba(191, 0, 255, 0.16), transparent 58%),
+    radial-gradient(circle at 35% 30%, rgba(99, 230, 255, 0.18), transparent 42%),
+    radial-gradient(circle at 50% 55%, rgba(37, 217, 255, 0.12), transparent 58%),
     radial-gradient(circle at 50% 50%, #0b1220 0%, #05070b 72%);
   box-shadow:
-    0 0 64px rgba(191, 0, 255, 0.28),
-    0 28px 60px rgba(0, 0, 0, 0.55),
-    inset 0 0 40px rgba(217, 70, 239, 0.14);
-}
-
-@media (max-width: 960px) {
-  .planet {
-    width: min(100%, 34rem);
-    margin-inline: auto;
-    transform: translate(0.2rem, -0.55rem);
-  }
-}
-
-@media (max-width: 640px) {
-  .planet {
-    width: min(100%, 24rem);
-    transform: translateY(-0.25rem);
-  }
-}
-
-.canvas {
-  width: 100% !important;
-  height: 100% !important;
-  touch-action: none;
-}
-
-.fallback {
-  width: 78%;
-  height: 78%;
-  margin: 11% auto;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 30%, rgba(232, 121, 249, 0.22), transparent 42%),
-    radial-gradient(circle at 50% 55%, rgba(191, 0, 255, 0.16), transparent 58%),
-    radial-gradient(circle at 50% 50%, #0b1220 0%, #05070b 72%);
-  box-shadow:
-    0 0 64px rgba(191, 0, 255, 0.28),
-    0 28px 60px rgba(0, 0, 0, 0.55),
-    inset 0 0 40px rgba(217, 70, 239, 0.14);
+    0 0 48px rgba(37, 217, 255, 0.18),
+    inset 0 0 40px rgba(31, 162, 255, 0.12);
 }
 
 @media (max-width: 960px) {
   .planet {
     width: min(100%, 28rem);
-    margin-inline: auto;
-    transform: translate(0.25rem, -0.4rem);
   }
 }
 
 @media (max-width: 640px) {
   .planet {
-    width: min(100%, 21rem);
-    transform: translateY(-0.2rem);
+    width: min(100%, 20rem);
   }
 }

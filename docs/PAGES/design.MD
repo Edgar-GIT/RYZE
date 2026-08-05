@@ -538,10 +538,9 @@ Sections:
 1. The future of fitness — large left-aligned hero: eyebrow, thesis headline
    with accent on “software.”, short lead, horizontal capability badges (AI /
    Training / Nutrition / Recovery / Progress), and an Our Vision jump link.
-   Right side: real-time RYZE Planet (Three.js / React Three Fiber) — dark
-   metallic tech sphere, slow rotation (~50s/turn), Fresnel cyan rim, subtle
-   particles, and a centered holographic RYZE mark + wordmark. No orbiting
-   modules yet. No stock gym photography.
+   Right side: real-time Three.js / R3F RYZE Planet — dark tech sphere with
+   slow rotation, cyan Fresnel atmosphere, holographic mark + wordmark, and
+   subtle particles. No stock gym photography.
 2. Our mission — concise statement plus 3–5 icon cards (Accessible,
    Affordable, Professional, Simple, Technology First).
 3. Why RYZE — dense responsive feature grid of premium glass cards with icon,

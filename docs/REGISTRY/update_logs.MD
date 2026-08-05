@@ -1,3 +1,176 @@
+# Version 2.2.35
+
+Title: Restore original Three.js rotating RYZE Planet (v1)
+
+Date: 2026-08-05
+
+Summary:
+
+Restored the first-version 3D planet (commit `planet` / 91cd3b8): shader
+sphere, slow rotation, atmosphere, hologram mark + RYZE wordmark, particles.
+Removed EffectComposer bloom (it caused the opaque canvas square). Slightly
+boosted lighting/surface so the ball stays readable.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/planet_scene.tsx`
+- `main/src/frontend/src/components/ryze_planet/planet_shaders.ts`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.tsx`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.module.css`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked to bring back the original rotating 3D planet from the first
+working version.
+
+---
+
+# Version 2.2.34
+
+Title: Fix invisible planet — opaque SVG sphere
+
+Date: 2026-08-05
+
+Summary:
+
+Rebuilt the planet as an opaque SVG ball with solid purple fill, rim light,
+gold circuits and a CSS fallback background so the sphere cannot blend into
+the page. Previous CSS gradients faded to page-black and made the ball
+invisible.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.tsx`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.module.css`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Screenshot showed only RYZE text + haze because the sphere color matched the
+background.
+
+---
+
+# Version 2.2.33
+
+Title: Replace broken WebGL planet with CSS/SVG RYZE Planet
+
+Date: 2026-08-05
+
+Summary:
+
+Removed the failing Three.js canvas (opaque/blurred square, invisible sphere)
+and rebuilt the Our Vision planet as a reliable CSS/SVG composition matching
+the reference: large violet sphere, gold circuit lines, RYZE blink, shooting
+stars, nebula glow, and entrance animation.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.tsx`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.module.css`
+- `main/src/frontend/src/components/ryze_planet/planet_scene.tsx` (removed)
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+WebGL path kept failing visually; the hero needs a guaranteed circular planet
+aligned to the attached concept.
+
+---
+
+# Version 2.2.32
+
+Title: Restore visible RYZE Planet sphere with reliable materials
+
+Date: 2026-08-05
+
+Summary:
+
+Rebuilt the planet core with MeshStandardMaterial + panel texture so the
+sphere is actually visible (custom shader was rendering near-black against
+the page). Kept cyan/blue/violet site palette, orbital trails, shooting
+stars, RYZE blink, and entrance animation. Removed broken bloom/shader path.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/planet_scene.tsx`
+- `main/src/frontend/src/components/ryze_planet/planet_shaders.ts` (removed)
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Users only saw a rectangular canvas with faint orbits because the sphere
+silhouette matched the page background.
+
+---
+
+# Version 2.2.31
+
+Title: Fix planet canvas box, site palette, RYZE blink and entrance
+
+Date: 2026-08-05
+
+Summary:
+
+Removed EffectComposer bloom (it painted an opaque purple rectangle over the
+transparent canvas and hid the sphere). Restored the visible planet with
+site cyan/blue/violet colors, RYZE blink (1s cycle, 0.3s fade-out), and a
+CSS entrance fade/scale for the planet.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/planet_scene.tsx`
+- `main/src/frontend/src/components/ryze_planet/planet_shaders.ts`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.tsx`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+The hero visual was broken by postprocessing alpha; palette and motion needed
+to match the RYZE site language.
+
+---
+
+# Version 2.2.30
+
+Title: Scale up RYZE Planet hero presence
+
+Date: 2026-08-05
+
+Summary:
+
+Enlarged the Our Vision planet (container ~46rem, larger radius, closer
+camera) and gave the visual column more grid space so the sphere dominates
+the first viewport.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.module.css`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.tsx`
+- `main/src/frontend/src/components/ryze_planet/planet_scene.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Planet still read too small against the reference; it needs hero-level scale.
+
+---
+
 # Version 2.2.29
 
 Title: Refine planet size, shooting-star gold and RYZE wordmark
