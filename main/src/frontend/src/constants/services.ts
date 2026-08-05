@@ -1,6 +1,6 @@
-import planGeneric from "@resources/img/plan_cards/card_generic.png";
-import planPremiumOne from "@resources/img/plan_cards/card_premium1.png";
-import planPremiumTwo from "@resources/img/plan_cards/card_premium2.png";
+import planGenericOne from "@resources/img/plan_cards/plan_generic1.png";
+import planGenericTwo from "@resources/img/plan_cards/plan_generic2.png";
+import planGenericThree from "@resources/img/plan_cards/plan_generic3.png";
 
 export interface ServicePlan {
   title: string;
@@ -23,8 +23,8 @@ export const SERVICE_PLANS: ServicePlan[] = [
     price: "FREE",
     ctaLabel: "Start now for FREE",
     to: "/services/generic-plan",
-    imageSrc: planGeneric,
-    imageAlt: "RYZE basic badge",
+    imageSrc: planGenericOne,
+    imageAlt: "RYZE Generic Plan card background",
     badge: "Base plan",
     features: ["Ready-made workouts", "Exercise guidance", "Instant Access"]
   },
@@ -35,8 +35,8 @@ export const SERVICE_PLANS: ServicePlan[] = [
     price: "14,49€",
     ctaLabel: "Get my plan",
     to: "/services/premium-level-1",
-    imageSrc: planPremiumOne,
-    imageAlt: "RYZE premium level 1 badge",
+    imageSrc: planGenericTwo,
+    imageAlt: "RYZE Premium Level 1 card background",
     badge: "Train & Nutrition",
     features: ["Plan built around your goal", "Nutrition matched to your training", "Immediate delivery"],
     featured: true
@@ -48,8 +48,8 @@ export const SERVICE_PLANS: ServicePlan[] = [
     price: "19,49€",
     ctaLabel: "Start now with a Coach",
     to: "/services/premium-level-2",
-    imageSrc: planPremiumTwo,
-    imageAlt: "RYZE premium level 2 badge",
+    imageSrc: planGenericThree,
+    imageAlt: "RYZE Premium Level 2 card background",
     badge: "Coach reviewed",
     features: ["Trainer reviewed", "Every detail accounted for", "Ongoing adjustments"]
   }
