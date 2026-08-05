@@ -378,6 +378,13 @@ The Nutrition section uses:
 - Right column: glass nutrition card (kcal ring, macros, recommendation)
 - Reveal + subtle floating card motion
 
+The Progress section uses:
+
+- Same atmospheric treatment as Nutrition
+- Left copy with accent on `see.` and vertical progress feature badges
+- Right glass analytics card: strength chart, summary stats, metric tiles
+- Reveal + subtle floating card motion
+
 Preferred demo surfaces for remaining showcase sections include:
 
 - Weekly activity charts

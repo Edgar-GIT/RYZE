@@ -1,3 +1,30 @@
+# Version 2.2.25
+
+Title: Rebuild Progress section with analytics card and feature badges
+
+Date: 2026-08-04
+
+Summary:
+
+Replaced the Progress showcase/demo with a dedicated section: left accent copy
+and vertical badges, right glass progress card matching the attached chart /
+summary / metric tiles design, with reveal and float animations.
+
+Files modified:
+
+- `main/src/frontend/src/components/progress_section/progress_section.tsx`
+- `main/src/frontend/src/components/progress_section/progress_section.module.css`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Progress needed the same complete treatment as Training and Nutrition.
+
+---
+
 # Version 2.2.24
 
 Title: Rebuild Nutrition section with accent copy, badges and glass card

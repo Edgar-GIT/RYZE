@@ -194,10 +194,10 @@ export const ProgressSection = () => {
                     <span className={styles.summaryIcon}>
                       <Icon aria-hidden="true" />
                     </span>
-                    <div>
-                      <span>{stat.label}</span>
-                      <strong>{stat.value}</strong>
-                      <em>{stat.note}</em>
+                    <div className={styles.summaryCopy}>
+                      <span className={styles.summaryLabel}>{stat.label}</span>
+                      <strong className={styles.summaryValue}>{stat.value}</strong>
+                      <em className={styles.summaryNote}>{stat.note}</em>
                     </div>
                   </div>
                 );
