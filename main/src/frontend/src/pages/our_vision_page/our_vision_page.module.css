@@ -43,12 +43,13 @@
   min-width: 0;
   display: grid;
   place-items: center;
-  justify-self: start;
-  margin-left: -0.75rem;
+  justify-self: center;
+  margin-left: 0.5rem;
+  margin-top: -0.5rem;
 }
 
 .planetFallback {
-  width: min(100%, 24rem);
+  width: min(100%, 46rem);
   aspect-ratio: 1;
   border-radius: 999px;
   background:

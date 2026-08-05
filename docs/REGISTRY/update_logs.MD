@@ -1,3 +1,31 @@
+# Version 2.2.29
+
+Title: Refine planet size, shooting-star gold and RYZE wordmark
+
+Date: 2026-08-05
+
+Summary:
+
+Enlarged and nudged the planet up/right; replaced gold burst lines with a
+single shooting-star meteor; removed blinking surface sparks; restored a
+clear intermittent gold “RYZE” wordmark via Troika Text.
+
+Files modified:
+
+- `main/src/frontend/src/components/ryze_planet/planet_scene.tsx`
+- `main/src/frontend/src/components/ryze_planet/planet_shaders.ts`
+- `main/src/frontend/src/components/ryze_planet/ryze_planet.module.css`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+Match the intended meteor motion and make the gold RYZE wordmark actually
+visible.
+
+---
+
 # Version 2.2.28
 
 Title: Tune RYZE Planet size, violet glow, gold streaks and wordmark
