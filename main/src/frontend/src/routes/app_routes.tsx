@@ -39,6 +39,26 @@ export const AppRoutes = () => {
           )}
         />
         <Route
+          path="/login"
+          render={() => (
+            <UnderDevelopmentPage
+              eyebrow="Log in"
+              title="Log in is under development."
+              description="Authentication will be connected when the backend account flows are implemented."
+            />
+          )}
+        />
+        <Route
+          path="/register"
+          render={() => (
+            <UnderDevelopmentPage
+              eyebrow="Start free"
+              title="Account creation is under development."
+              description="Registration and onboarding will be connected when the backend account flows are implemented."
+            />
+          )}
+        />
+        <Route
           path="/profile"
           render={() => (
             <UnderDevelopmentPage

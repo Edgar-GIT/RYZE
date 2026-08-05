@@ -197,13 +197,15 @@ Secondary
 
 ## Navbar
 
-- Floating pill shape (`border-radius: 999px`), never a full-width rectangle
+- Floating rounded rectangle (`border-radius: ~1.15rem`), soft cyan border glow
 - Soft glass fill that becomes more opaque on scroll
-- Light refined nav text; hover brightens to white
-- Enough top padding so the bar is never clipped
-- Larger brand mark in the nav
-- Active page indicated only by a glowing cyan underline
-- Never use boxed active navigation items
+- Brand left (with divider), navigation links centered, auth CTAs right
+- Nav links show icon + uppercase label at rest
+- On scroll, nav link labels collapse and only icons remain
+- Active page uses cyan icon/text plus a glowing cyan underline
+- Auth actions: outline “Log in” (with user icon) + gradient cyan “Start free”
+  (with arrow)
+- Never use boxed active navigation items as the sole active treatment
 
 ## Cards
 
@@ -272,14 +274,12 @@ requested.
 
 The public navigation bar contains:
 
-- Brand Logo
-- Services
-- Contact
-- Feedback
-- Our Vision
-- Profile
+- Brand Logo (left)
+- Centered links: Services, Contact, Feedback, Our Vision
+- Right actions: Log in (outline pill) and Start free (solid cyan pill)
 
 The logo always redirects to the Home page.
+Log in routes to `/login`. Start free routes to `/register`.
 
 Navbar behaviour is defined in the Components section above and must be followed.
 

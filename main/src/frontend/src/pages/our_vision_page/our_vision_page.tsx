@@ -247,6 +247,60 @@ const HeroBadges = () => {
   );
 };
 
+const HowWorksPanel = () => {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <motion.div
+      className={styles.howWorks}
+      initial={reduceMotion ? false : { opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.35 }}
+      transition={{ duration: 0.65, ease: "easeOut", delay: 0.1 }}
+    >
+      <motion.div
+        className={styles.howWorksTitle}
+        initial={reduceMotion ? false : { opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5, ease: "easeOut", delay: 0.22 }}
+      >
+        <span className={styles.howWorksLine} aria-hidden="true" />
+        <h3>How RYZE works</h3>
+        <span className={styles.howWorksLine} aria-hidden="true" />
+      </motion.div>
+
+      <ol className={styles.howWorksSteps}>
+        {howItWorksSteps.map((step, index) => {
+          const Icon = step.icon;
+
+          return (
+            <motion.li
+              key={step.number}
+              className={styles.howWorksStep}
+              initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.92 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, amount: 0.4 }}
+              transition={{
+                duration: 0.48,
+                ease: "easeOut",
+                delay: 0.28 + index * 0.09
+              }}
+            >
+              <span className={styles.howWorksNumber}>{step.number}</span>
+              <span className={styles.howWorksIcon}>
+                <Icon aria-hidden="true" strokeWidth={1.6} />
+              </span>
+              <h4>{step.title}</h4>
+              <p>{step.text}</p>
+            </motion.li>
+          );
+        })}
+      </ol>
+    </motion.div>
+  );
+};
+
 const techFeatures = [
   {
     icon: Boxes,

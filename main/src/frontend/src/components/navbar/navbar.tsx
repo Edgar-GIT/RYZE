@@ -1,11 +1,15 @@
-import { Menu, UserRound, X } from "lucide-react";
 import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties
-} from "react";
+  ArrowRight,
+  Dumbbell,
+  Eye,
+  Mail,
+  Menu,
+  MessageSquareText,
+  UserRound,
+  X
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 
 import { BrandMark } from "@/components/brand_mark/brand_mark";
@@ -15,59 +19,55 @@ import { joinClassNames } from "@utils/class_names";
 import styles from "./navbar.module.css";
 
 const SCROLL_RANGE = 140;
+const SCROLL_IDLE_MS = 220;
+
+const NAV_ICONS: Record<string, LucideIcon> = {
+  "/services": Dumbbell,
+  "/contact": Mail,
+  "/feedback": MessageSquareText,
+  "/our-vision": Eye
+};
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [indicator, setIndicator] = useState({ left: 0, width: 0, visible: false });
+  const [isScrolling, setIsScrolling] = useState(false);
   const location = useLocation();
-  const linksRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const scrollIdleTimeout = useRef<number | null>(null);
 
   useEffect(() => {
     setIsMenuOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
+    const clearIdleTimer = () => {
+      if (scrollIdleTimeout.current !== null) {
+        window.clearTimeout(scrollIdleTimeout.current);
+        scrollIdleTimeout.current = null;
+      }
+    };
+
     const updateScrollState = () => {
       setScrollProgress(Math.min(1, window.scrollY / SCROLL_RANGE));
+      setIsScrolling(true);
+      clearIdleTimer();
+      scrollIdleTimeout.current = window.setTimeout(() => {
+        setIsScrolling(false);
+        scrollIdleTimeout.current = null;
+      }, SCROLL_IDLE_MS);
     };
 
     updateScrollState();
+    setIsScrolling(false);
+    clearIdleTimer();
+
     window.addEventListener("scroll", updateScrollState, { passive: true });
 
     return () => {
+      clearIdleTimer();
       window.removeEventListener("scroll", updateScrollState);
     };
   }, []);
-
-  useLayoutEffect(() => {
-    const updateIndicator = () => {
-      const activeItem = itemRefs.current[location.pathname];
-      const linksElement = linksRef.current;
-
-      if (!activeItem || !linksElement) {
-        setIndicator((current) => ({ ...current, visible: false }));
-        return;
-      }
-
-      const linksRect = linksElement.getBoundingClientRect();
-      const itemRect = activeItem.getBoundingClientRect();
-
-      setIndicator({
-        left: itemRect.left - linksRect.left,
-        width: itemRect.width,
-        visible: true
-      });
-    };
-
-    updateIndicator();
-    window.addEventListener("resize", updateIndicator);
-
-    return () => {
-      window.removeEventListener("resize", updateIndicator);
-    };
-  }, [location.pathname, isMenuOpen]);
 
   const toggleMenu = () => {
     setIsMenuOpen((currentValue) => !currentValue);
@@ -75,7 +75,11 @@ export const Navbar = () => {
 
   return (
     <header
-      className={joinClassNames(styles.header, scrollProgress > 0.08 && styles.headerScrolled)}
+      className={joinClassNames(
+        styles.header,
+        scrollProgress > 0.08 && styles.headerScrolled,
+        isScrolling && styles.headerCompact
+      )}
       style={{ "--nav-scroll": String(scrollProgress) } as CSSProperties}
     >
       <nav className={styles.navbar} aria-label="Primary navigation">
@@ -84,43 +88,37 @@ export const Navbar = () => {
           <span>RYZE</span>
         </Link>
 
-        <div className={styles.desktopLinks} ref={linksRef}>
-          {PUBLIC_NAVIGATION_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={styles.navLink}
-              activeClassName={styles.activeLink}
-              exact={item.to === "/"}
-              innerRef={(element) => {
-                itemRefs.current[item.to] = element;
-              }}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-          <span
-            className={joinClassNames(
-              styles.activeIndicator,
-              indicator.visible && styles.activeIndicatorVisible
-            )}
-            style={{
-              transform: `translateX(${indicator.left}px)`,
-              width: indicator.width
-            }}
-            aria-hidden="true"
-          />
+        <div className={styles.desktopLinks}>
+          {PUBLIC_NAVIGATION_ITEMS.map((item) => {
+            const Icon = NAV_ICONS[item.to];
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={styles.navLink}
+                activeClassName={styles.activeLink}
+                exact={item.to === "/"}
+                aria-label={item.label}
+                title={item.label}
+              >
+                {Icon ? <Icon aria-hidden="true" className={styles.navIcon} strokeWidth={1.7} /> : null}
+                <span className={styles.navLabel}>{item.label}</span>
+              </NavLink>
+            );
+          })}
         </div>
 
-        <NavLink
-          className={styles.profileLink}
-          activeClassName={styles.activeProfile}
-          to="/profile"
-          aria-label="Profile"
-          title="Profile"
-        >
-          <UserRound aria-hidden="true" />
-        </NavLink>
+        <div className={styles.authActions}>
+          <Link className={styles.loginButton} to="/login">
+            <UserRound aria-hidden="true" strokeWidth={1.7} />
+            <span>Log in</span>
+          </Link>
+          <Link className={styles.startButton} to="/register">
+            <span>Start free</span>
+            <ArrowRight aria-hidden="true" strokeWidth={2} />
+          </Link>
+        </div>
 
         <button
           className={styles.menuButton}
@@ -138,25 +136,32 @@ export const Navbar = () => {
         id="mobile-navigation"
         className={joinClassNames(styles.mobilePanel, isMenuOpen && styles.mobilePanelOpen)}
       >
-        {PUBLIC_NAVIGATION_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={styles.mobileLink}
-            activeClassName={styles.activeMobileLink}
-            exact={item.to === "/"}
-          >
-            {item.label}
-          </NavLink>
-        ))}
-        <NavLink
-          to="/profile"
-          className={joinClassNames(styles.mobileLink, styles.mobileProfile)}
-          activeClassName={styles.activeMobileLink}
-        >
-          <UserRound aria-hidden="true" />
-          <span>Profile</span>
-        </NavLink>
+        {PUBLIC_NAVIGATION_ITEMS.map((item) => {
+          const Icon = NAV_ICONS[item.to];
+
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={styles.mobileLink}
+              activeClassName={styles.activeMobileLink}
+              exact={item.to === "/"}
+            >
+              {Icon ? <Icon aria-hidden="true" strokeWidth={1.7} /> : null}
+              <span>{item.label}</span>
+            </NavLink>
+          );
+        })}
+        <div className={styles.mobileAuth}>
+          <Link className={styles.loginButton} to="/login">
+            <UserRound aria-hidden="true" strokeWidth={1.7} />
+            <span>Log in</span>
+          </Link>
+          <Link className={styles.startButton} to="/register">
+            <span>Start free</span>
+            <ArrowRight aria-hidden="true" strokeWidth={2} />
+          </Link>
+        </div>
       </div>
     </header>
   );

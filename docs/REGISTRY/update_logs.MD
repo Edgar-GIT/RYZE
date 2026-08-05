@@ -1,3 +1,59 @@
+# Version 2.2.51
+
+Title: Modernize navbar icons and compact scroll mode
+
+Date: 2026-08-05
+
+Summary:
+
+Restyled the public navbar toward a more rectangular cyan-edged glass bar with
+icon+label nav items, richer color, and auth CTAs with icons. On scroll, nav
+labels collapse so only icons remain while keeping the same destinations and
+brand.
+
+Files modified:
+
+- `main/src/frontend/src/components/navbar/navbar.tsx`
+- `main/src/frontend/src/components/navbar/navbar.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked to modernize navbar appearance to match the reference and collapse
+link text to icons while scrolling.
+
+---
+
+# Version 2.2.50
+
+Title: Center navbar links and add auth CTAs
+
+Date: 2026-08-05
+
+Summary:
+
+Centered public nav links in the floating navbar and replaced the profile icon
+with outline “Log in” and solid cyan “Start free” pills. Added `/login` and
+`/register` under-development routes for the new CTAs.
+
+Files modified:
+
+- `main/src/frontend/src/components/navbar/navbar.tsx`
+- `main/src/frontend/src/components/navbar/navbar.module.css`
+- `main/src/frontend/src/routes/app_routes.tsx`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked for centered navigation items and LOG IN / START FREE buttons
+matching the provided mock instead of the profile icon.
+
+---
+
 # Version 2.2.49
 
 Title: Match How RYZE Works panel to mock colors
