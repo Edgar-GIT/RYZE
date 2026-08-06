@@ -57,8 +57,13 @@ export const ContactPreview = () => (
       </a>
     </div>
 
-    <Button className={styles.cta} to="/contact" icon={<ArrowRight />}>
-      Contact us
-    </Button>
+    <div className={styles.ctaRow}>
+      <Button className={styles.cta} to="/contact" variant="secondary" icon={<ArrowRight />}>
+        Contact us
+      </Button>
+      <Button className={styles.cta} to="/services/generic-plan" icon={<ArrowRight />}>
+        Join for Free
+      </Button>
+    </div>
   </SectionWrapper>
 );

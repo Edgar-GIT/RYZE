@@ -77,8 +77,15 @@
   height: 1.05rem;
 }
 
-.cta {
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
   margin-top: 0.25rem;
+}
+
+.cta {
+  min-width: 10.5rem;
 }
 
 @media (max-width: 560px) {

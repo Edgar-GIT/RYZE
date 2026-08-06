@@ -12,6 +12,7 @@ import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { Reveal } from "@/components/reveal/reveal";
 import { ServiceCard } from "@/components/service_card/service_card";
 import { SERVICE_PLANS } from "@/constants/services";
+import servicesBackground from "@resources/img/hero/bg_services.png";
 
 import styles from "./services_page.module.css";
 
@@ -54,35 +55,44 @@ const trustBadges = [
 export const ServicesPage = () => (
   <PageWrapper className={styles.page}>
     <section className={styles.catalog}>
+      <img
+        className={styles.catalogBackground}
+        src={servicesBackground}
+        alt=""
+        aria-hidden="true"
+      />
+
       <Container className={styles.catalogInner}>
-        <Reveal className={styles.intro}>
-          <p className={styles.eyebrow}>Catalog</p>
-          <h1>
-            Available RYZE plan <span className={styles.accent}>categories.</span>
-          </h1>
-          <p className={styles.lead}>
-            Compare the initial RYZE offer and choose the route that fits the guidance and
-            personalization you need.
-          </p>
-        </Reveal>
+        <div className={styles.headerRow}>
+          <Reveal className={styles.intro}>
+            <p className={styles.eyebrow}>Catalog</p>
+            <h1>
+              Available RYZE plan <span className={styles.accent}>categories.</span>
+            </h1>
+            <p className={styles.lead}>
+              Compare the initial RYZE offer and choose the route that fits the guidance and
+              personalization you need.
+            </p>
+          </Reveal>
 
-        <Reveal className={styles.highlights} delay={0.08}>
-          {catalogHighlights.map((item) => {
-            const Icon = item.icon;
+          <Reveal className={styles.highlights} delay={0.08}>
+            {catalogHighlights.map((item) => {
+              const Icon = item.icon;
 
-            return (
-              <article key={item.title} className={styles.highlight}>
-                <span className={styles.highlightIcon}>
-                  <Icon aria-hidden="true" strokeWidth={1.7} />
-                </span>
-                <div>
-                  <strong>{item.title}</strong>
-                  <p>{item.text}</p>
-                </div>
-              </article>
-            );
-          })}
-        </Reveal>
+              return (
+                <article key={item.title} className={styles.highlight}>
+                  <span className={styles.highlightIcon}>
+                    <Icon aria-hidden="true" strokeWidth={1.7} />
+                  </span>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.text}</p>
+                  </div>
+                </article>
+              );
+            })}
+          </Reveal>
+        </div>
 
         <div className={styles.grid}>
           {SERVICE_PLANS.map((service, index) => (

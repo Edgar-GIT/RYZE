@@ -12,46 +12,44 @@ interface ServiceCardProps {
 
 export const ServiceCard = ({ service }: ServiceCardProps) => (
   <article className={joinClassNames(styles.card, service.featured && styles.featured)}>
-    <img
-      className={styles.background}
-      src={service.imageSrc}
-      alt=""
-      aria-hidden="true"
-      loading="lazy"
-    />
+    <header className={styles.header}>
+      <img
+        className={styles.logo}
+        src={service.logoSrc}
+        alt={service.logoAlt}
+        loading="lazy"
+      />
 
-    <div className={styles.content}>
-      <div className={styles.top}>
+      <div className={styles.copy}>
         <span className={joinClassNames(styles.badge, service.featured && styles.badgeFeatured)}>
           {service.badge}
         </span>
-      </div>
-
-      <div className={styles.copy}>
         <h3>{service.title}</h3>
         <p>{service.description}</p>
       </div>
+    </header>
 
-      <ul className={styles.features} aria-label={`${service.title} features`}>
-        {service.features.map((feature) => (
-          <li key={feature}>
-            <Check aria-hidden="true" strokeWidth={2.4} />
-            <span>{feature}</span>
-          </li>
-        ))}
-      </ul>
+    <ul className={styles.features} aria-label={`${service.title} features`}>
+      {service.features.map((feature) => (
+        <li key={feature}>
+          <span className={styles.check}>
+            <Check aria-hidden="true" strokeWidth={2.6} />
+          </span>
+          <span>{feature}</span>
+        </li>
+      ))}
+    </ul>
 
-      <div className={styles.footer}>
-        <p className={styles.price}>{service.price}</p>
-        <Button
-          className={styles.button}
-          to={service.to}
-          variant={service.featured ? "primary" : "secondary"}
-          icon={<ArrowRight />}
-        >
-          {service.ctaLabel}
-        </Button>
-      </div>
+    <div className={styles.footer}>
+      <p className={styles.price}>{service.price}</p>
+      <Button
+        className={styles.button}
+        to={service.to}
+        variant={service.featured ? "primary" : "secondary"}
+        icon={<ArrowRight />}
+      >
+        {service.ctaLabel}
+      </Button>
     </div>
   </article>
 );

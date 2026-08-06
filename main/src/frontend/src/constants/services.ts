@@ -1,6 +1,6 @@
-import planGenericOne from "@resources/img/plan_cards/plan_generic1.png";
-import planGenericTwo from "@resources/img/plan_cards/plan_generic2.png";
-import planGenericThree from "@resources/img/plan_cards/plan_generic3.png";
+import logoCardOne from "@resources/img/plan_cards/logo_card1.png";
+import logoCardTwo from "@resources/img/plan_cards/logo_card2.png";
+import logoCardThree from "@resources/img/plan_cards/logo_card3.png";
 
 export interface ServicePlan {
   title: string;
@@ -8,8 +8,8 @@ export interface ServicePlan {
   price: string;
   ctaLabel: string;
   to: string;
-  imageSrc: string;
-  imageAlt: string;
+  logoSrc: string;
+  logoAlt: string;
   badge: string;
   features: string[];
   featured?: boolean;
@@ -23,8 +23,8 @@ export const SERVICE_PLANS: ServicePlan[] = [
     price: "FREE",
     ctaLabel: "Start now for FREE",
     to: "/services/generic-plan",
-    imageSrc: planGenericOne,
-    imageAlt: "RYZE Generic Plan card background",
+    logoSrc: logoCardOne,
+    logoAlt: "RYZE Generic Plan logo",
     badge: "Base plan",
     features: ["Ready-made workouts", "Exercise guidance", "Instant Access"]
   },
@@ -35,8 +35,8 @@ export const SERVICE_PLANS: ServicePlan[] = [
     price: "14,49€",
     ctaLabel: "Get my plan",
     to: "/services/premium-level-1",
-    imageSrc: planGenericTwo,
-    imageAlt: "RYZE Premium Level 1 card background",
+    logoSrc: logoCardTwo,
+    logoAlt: "RYZE Premium Level 1 logo",
     badge: "Train & Nutrition",
     features: ["Plan built around your goal", "Nutrition matched to your training", "Immediate delivery"],
     featured: true
@@ -48,8 +48,8 @@ export const SERVICE_PLANS: ServicePlan[] = [
     price: "19,49€",
     ctaLabel: "Start now with a Coach",
     to: "/services/premium-level-2",
-    imageSrc: planGenericThree,
-    imageAlt: "RYZE Premium Level 2 card background",
+    logoSrc: logoCardThree,
+    logoAlt: "RYZE Premium Level 2 logo",
     badge: "Coach reviewed",
     features: ["Trainer reviewed", "Every detail accounted for", "Ongoing adjustments"]
   }

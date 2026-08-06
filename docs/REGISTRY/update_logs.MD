@@ -1,3 +1,36 @@
+# Version 2.2.55
+
+Title: Add services background and plan card logos
+
+Date: 2026-08-05
+
+Summary:
+
+Applied `bg_services.png` as the full-bleed background on `/services` and the
+homepage plans section. Switched plan cards to independent logos
+(`logo_card1`–`3`) matching the Catalog mock, with glass cards over the shared
+background.
+
+Files modified:
+
+- `main/src/frontend/src/constants/services.ts`
+- `main/src/frontend/src/components/service_card/service_card.tsx`
+- `main/src/frontend/src/components/service_card/service_card.module.css`
+- `main/src/frontend/src/pages/services_page/services_page.tsx`
+- `main/src/frontend/src/pages/services_page/services_page.module.css`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `main/src/frontend/src/pages/home_page/home_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked for `bg_services.png` behind services/plans and the three
+independent plan logos on the cards.
+
+---
+
 # Version 2.2.54
 
 Title: Modernize services catalog and plan cards

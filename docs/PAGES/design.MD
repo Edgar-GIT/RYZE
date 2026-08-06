@@ -320,9 +320,8 @@ Sections
 4. Nutrition Intelligence
 5. Progress Analytics
 6. Choose Your Plan
-7. Final CTA
-8. Contact preview
-9. Footer
+7. Contact preview
+8. Footer
 
 ### Hero
 
@@ -403,9 +402,9 @@ Three product cards for Free, Premium and Elite using the shared modern
 `ServiceCard` (logo mark, badge, features, right-aligned price, CTA). Premium
 Level 1 is featured.
 
-### Final CTA
+### Contact preview
 
-Compact dark band with clear next actions.
+Contact channels plus two CTAs side by side: Contact us and Join for Free.
 
 ### Footer
 
@@ -423,24 +422,25 @@ Displays every available product offered by the platform.
 
 Catalog landing
 
+- Full-bleed `bg_services.png` background
 - Eyebrow “Catalog”, headline with accent on “categories.”
 - Three highlight points: Built by experts / Instant access / Always evolving
-- Three modern glass plan cards (shared `ServiceCard`)
+- Three modern glass plan cards (shared `ServiceCard`) with independent logos
+  (`logo_card1.png`, `logo_card2.png`, `logo_card3.png`)
 - Bottom trust row: Secure & private / Satisfaction guarantee / Support 24/7
-- No section background image for now
 
 Each card contains:
 
-- Compact plan logo mark
-- Badge (featured plan uses solid cyan badge)
-- Name and description
-- Feature list with cyan checks
+- Large floating plan logo on the left (`logo_card1`–`3`), not boxed
+- Badge, title and description to the right of the logo
+- Three feature bullets with cyan circular checks
 - Compact right-aligned price above the CTA
 - Call To Action (primary on featured Premium Level 1, outline on others)
 
 Each product redirects to its own page.
 
-The same `ServiceCard` language is used on the homepage plans preview.
+The same `ServiceCard` language and `bg_services.png` background are used on
+the homepage plans preview.
 
 ### Free
 
@@ -524,8 +524,8 @@ At the current frontend stage the form remains visual only and does not send
 data. File validation and delivery remain backend responsibilities.
 
 The Home page must not duplicate the full Contact page. It uses a compact
-`Get in touch` preview with short copy, three compact channel buttons and a
-`Contact us` CTA that navigates to `/contact`.
+`Get in touch` preview with short copy, three compact channel buttons and two
+CTAs side by side: `Contact us` → `/contact` and `Join for Free` → free plan.
 
 ---
 
