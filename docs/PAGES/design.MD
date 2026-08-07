@@ -218,7 +218,7 @@ Secondary
 ## Service cards
 
 - Compact glass panels with logo mark, badge, feature list and full-width CTA
-- Featured plan uses solid cyan badge + primary CTA
+- Featured program uses solid cyan badge + primary CTA
 - Hover: lift + cyan border glow
 - Same card language on homepage preview and `/services`
 
@@ -319,7 +319,7 @@ Sections
 3. Training Tracking
 4. Nutrition Intelligence
 5. Progress Analytics
-6. Choose Your Plan
+6. Choose Your Program
 7. Contact preview
 8. Footer
 
@@ -373,7 +373,7 @@ The Training section uses:
 The Nutrition section uses:
 
 - Atmospheric dark background (nebula / faint grid / particles)
-- Left copy matching Training hierarchy with accent on `plan.`
+- Left copy matching Training hierarchy with accent on `program.`
 - Vertical nutrition feature badges
 - Right column: glass nutrition card (kcal ring, macros, recommendation)
 - Reveal + subtle floating card motion
@@ -396,7 +396,7 @@ Preferred demo surfaces for remaining showcase sections include:
 Do not use generic multi-card "Why RYZE" feature grids.
 Do not use generic admin-dashboard placeholder layouts for Platform.
 
-### Plans
+### Programs
 
 Three product cards for Free, Premium and Elite using the shared modern
 `ServiceCard` (logo mark, badge, features, right-aligned price, CTA). Premium
@@ -425,13 +425,13 @@ Catalog landing
 - Full-bleed `bg_services.png` background
 - Eyebrow “Catalog”, headline with accent on “categories.”
 - Three highlight points: Built by experts / Instant access / Always evolving
-- Three modern glass plan cards (shared `ServiceCard`) with independent logos
+- Three modern glass program cards (shared `ServiceCard`) with independent logos
   (`logo_card1.png`, `logo_card2.png`, `logo_card3.png`)
 - Bottom trust row: Secure & private / Satisfaction guarantee / Support 24/7
 
 Each card contains:
 
-- Large floating plan logo on the left (`logo_card1`–`3`), not boxed
+- Large floating program logo on the left (`logo_card1`–`3`), not boxed
 - Badge, title and description to the right of the logo
 - Three feature bullets with cyan circular checks
 - Compact right-aligned price above the CTA
@@ -440,7 +440,7 @@ Each card contains:
 Each product redirects to its own page.
 
 The same `ServiceCard` language and `bg_services.png` background are used on
-the homepage plans preview.
+the homepage programs preview.
 
 ### Free
 
@@ -456,7 +456,7 @@ Includes:
 
 ### Premium
 
-Displays training packs together with automatically assigned nutrition plans.
+Displays training packs together with automatically assigned nutrition programs.
 
 Includes:
 
@@ -519,7 +519,7 @@ data. File validation and delivery remain backend responsibilities.
 
 The Home page must not duplicate the full Contact page. It uses a compact
 `Get in touch` preview with short copy, three compact channel buttons and two
-CTAs side by side: `Contact us` → `/contact` and `Join for Free` → free plan.
+CTAs side by side: `Contact us` → `/contact` and `Join for Free` → free program.
 
 ---
 
@@ -545,7 +545,7 @@ Sections:
 2. Get started — full-bleed `how_bg.png` background with left intro
    (eyebrow “Get started”, headline with accent on “minutes.”, short lead)
    and a bottom “How RYZE works” panel: five numbered steps connected by a
-   glowing rail (Sign up → goals → AI plan → track → weekly improvement).
+   glowing rail (Sign up → goals → AI program → track → weekly improvement).
 3. Fitness operating system — full-bleed `evo_man_bg.png` background with
    left intro (eyebrow, headline with accent on “operating system”, lead,
    Explore RYZE CTA) and a bottom bordered 2×4 feature panel of compact
@@ -593,9 +593,9 @@ Measurements
 
 Optional body measurements similar to Lyfta.
 
-Current Plan
+Current Program
 
-Displays the active training and nutrition plan.
+Displays the active training and nutrition program.
 
 Calendar
 

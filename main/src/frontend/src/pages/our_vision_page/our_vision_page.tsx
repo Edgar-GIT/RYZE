@@ -61,8 +61,8 @@ const howItWorksSteps = [
   {
     number: "03",
     icon: Brain,
-    title: "AI builds your plan",
-    text: "We create a training and nutrition plan just for you."
+    title: "AI builds your program",
+    text: "We create a training and nutrition program just for you."
   },
   {
     number: "04",
@@ -82,7 +82,7 @@ const whyCards = [
   {
     icon: Hexagon,
     title: "Adaptive Programs",
-    text: "Plans that adapt in real-time based on your progress, recovery and goals."
+    text: "Programs that adapt in real-time based on your progress, recovery and goals."
   },
   {
     icon: Brain,
@@ -92,7 +92,7 @@ const whyCards = [
   {
     icon: Utensils,
     title: "Smart Nutrition",
-    text: "Nutrition plans that fit your lifestyle and evolve with your training."
+    text: "Nutrition programs that fit your lifestyle and evolve with your training."
   },
   {
     icon: ChartNoAxesCombined,
@@ -344,7 +344,7 @@ export const OurVisionPage = () => (
             <span className={styles.accentPhrase}>software.</span>
           </h1>
           <p className={styles.lead}>
-            Modern training should adapt to you, not force you to adapt to static plans.
+            Modern training should adapt to you, not force you to adapt to static programs.
           </p>
 
           <HeroBadges />
@@ -376,7 +376,7 @@ export const OurVisionPage = () => (
             Transform for life.
           </h2>
           <p className={styles.sectionLead}>
-            RYZE makes it easy to start. Set your goals, follow your plan and let technology handle
+            RYZE makes it easy to start. Set your goals, follow your program and let technology handle
             the rest.
           </p>
         </Reveal>
@@ -398,7 +398,7 @@ export const OurVisionPage = () => (
           <p className={styles.eyebrow}>Built different. For real results.</p>
           <h2>
             A fitness <span className={styles.accentPhrase}>operating system</span>, not another
-            plan.
+            program.
           </h2>
           <p className={styles.sectionLead}>
             Training, nutrition, recovery and progress in one connected system — built to adapt with

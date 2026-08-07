@@ -147,9 +147,9 @@ Transactions should guarantee data consistency.
 
 Artificial Intelligence may generate:
 
-- Training plans
+- Training programs
 
-- Nutrition plans
+- Nutrition programs
 
 - Recommendations
 
@@ -343,7 +343,7 @@ Supported roles:
 
 Each account has exactly one role.
 
-Administrators and trainers can also purchase plans as regular users.
+Administrators and trainers can also purchase programs as regular users.
 
 ---
 ## Packs
@@ -413,7 +413,7 @@ Exercises are reused by multiple packs.
 
 ## Nutrition
 
-Stores nutrition plans associated with Premium plans.
+Stores nutrition programs associated with Premium programs.
 
 Premium Level 1:
 
@@ -591,7 +591,7 @@ Possible future features include:
 
 - Marketplace expansion
 - Native mobile applications
-- AI-generated training plans
+- AI-generated training programs
 - AI-generated nutrition
 - Additional payment providers
 - Public API

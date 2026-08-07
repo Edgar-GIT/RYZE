@@ -37,7 +37,7 @@ export const Hero = () => (
           guided by real coaches.
         </p>
         <div className={styles.actions}>
-          <Button to="/services/generic-plan" size="large" icon={<ArrowRight />}>
+          <Button to="/services/generic-program" size="large" icon={<ArrowRight />}>
             Start Free
           </Button>
           <Button to="/services" size="large" variant="secondary">

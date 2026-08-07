@@ -1,8 +1,8 @@
-import logoCardOne from "@resources/img/plan_cards/logo_card1.png";
-import logoCardTwo from "@resources/img/plan_cards/logo_card2.png";
-import logoCardThree from "@resources/img/plan_cards/logo_card3.png";
+import logoCardOne from "@resources/img/program_cards/logo_card1.png";
+import logoCardTwo from "@resources/img/program_cards/logo_card2.png";
+import logoCardThree from "@resources/img/program_cards/logo_card3.png";
 
-export interface ServicePlan {
+export interface ServiceProgram {
   title: string;
   description: string;
   price: string;
@@ -15,36 +15,40 @@ export interface ServicePlan {
   featured?: boolean;
 }
 
-export const SERVICE_PLANS: ServicePlan[] = [
+export const SERVICE_PROGRAMS: ServiceProgram[] = [
   {
-    title: "Generic Plan",
+    title: "Generic Program",
     description:
       "Ready-to-use training packs. No questionnaire, no waiting — start training today.",
     price: "FREE",
     ctaLabel: "Start now for FREE",
-    to: "/services/generic-plan",
+    to: "/services/generic-program",
     logoSrc: logoCardOne,
-    logoAlt: "RYZE Generic Plan logo",
-    badge: "Base plan",
+    logoAlt: "RYZE Generic Program logo",
+    badge: "Base program",
     features: ["Ready-made workouts", "Exercise guidance", "Instant Access"]
   },
   {
     title: "Premium Level 1",
     description:
-      "A guided plan with a personalized training pack and automatically assigned nutrition plan.",
+      "A guided program with a personalized training pack and automatically assigned nutrition program.",
     price: "14,49€",
-    ctaLabel: "Get my plan",
+    ctaLabel: "Get my program",
     to: "/services/premium-level-1",
     logoSrc: logoCardTwo,
     logoAlt: "RYZE Premium Level 1 logo",
     badge: "Train & Nutrition",
-    features: ["Plan built around your goal", "Nutrition matched to your training", "Immediate delivery"],
+    features: [
+      "Program built around your goal",
+      "Nutrition matched to your training",
+      "Immediate delivery"
+    ],
     featured: true
   },
   {
     title: "Premium Level 2",
     description:
-      "Your training and nutrition plan prepared and reviewed by a real coach. Exclusive to your needs.",
+      "Your training and nutrition program prepared and reviewed by a real coach. Exclusive to your needs.",
     price: "19,49€",
     ctaLabel: "Start now with a Coach",
     to: "/services/premium-level-2",

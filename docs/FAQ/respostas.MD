@@ -6,7 +6,7 @@
 
 3 - No futuro esperamos contratações.
 
-4 - A simplicidade de não esperar por um ginásio/profissional para ter um plano para si.
+4 - A simplicidade de não esperar por um ginásio/profissional para ter um programa para si.
 
 5 - O facto de o site ser completamente automatico.
 
@@ -82,20 +82,20 @@
       Divisão de treino-> 4 vezes por semana
       Objetivo -> Hipertrofia e perder gordura
 
-     Plano alimentar: Tem de ter um inquérito para a pessoa preencher,personalizar.
+     Programa alimentar: Tem de ter um inquérito para a pessoa preencher,personalizar.
      (idade,nome, preferencias comida, alergias, objetivo, o que a pessoa faz,
      se a pessoa já faz dieta, peso atual, horário de trabalho, se já treinou,
      se costuma beber alcoól e bebidas com cafeína, como descreveria a sua alimentação 
      atual, quantas horas dorme, numa escala 0/5 o nível de stresse diário, condições médicas
      , lesões)
 
-     Plano de Treino: Duração de 6 meses, o treino estruturado (séries,exercicios,repetições)
+     Programa de Treino: Duração de 6 meses, o treino estruturado (séries,exercicios,repetições)
      com devidas exemplificações.
      Anotações de cargas, graficos de progressões.
 
 40 - 
-      Planos gratuitos -> Automáticos, sem personalização.
-      Planos pagos -> Subdividem-se em planos mensais ou trimensais
+      Programas gratuitos -> Automáticos, sem personalização.
+      Programas pagos -> Subdividem-se em programas mensais ou trimensais
                   
                   ->Mensais: Duração 6 semanas.
 

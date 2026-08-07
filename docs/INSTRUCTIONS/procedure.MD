@@ -314,8 +314,8 @@ Defines every AI-related feature implemented by the platform.
 
 Examples include:
 
-- AI-generated nutrition plans
-- AI-generated workout plans
+- AI-generated nutrition programs
+- AI-generated workout programs
 - Prompt engineering
 - Model integrations
 - AI workflows

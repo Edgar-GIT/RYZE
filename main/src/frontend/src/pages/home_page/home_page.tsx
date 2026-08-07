@@ -9,7 +9,7 @@ import { Reveal } from "@/components/reveal/reveal";
 import { SectionTitle } from "@/components/section_title/section_title";
 import { ServiceCard } from "@/components/service_card/service_card";
 import { TrainingSection } from "@/components/training_section/training_section";
-import { SERVICE_PLANS } from "@/constants/services";
+import { SERVICE_PROGRAMS } from "@/constants/services";
 import servicesBackground from "@resources/img/hero/bg_services.png";
 
 import styles from "./home_page.module.css";
@@ -37,13 +37,13 @@ export const HomePage = () => (
         <Reveal>
           <SectionTitle
             eyebrow="Catalog"
-            title="Available RYZE plan categories."
-            description="Start free, add automatic nutrition, or move into a coach-reviewed Elite plan."
+            title="Available RYZE program categories."
+            description="Start free, add automatic nutrition, or move into a coach-reviewed Elite program."
             align="center"
           />
         </Reveal>
         <div className={styles.serviceGrid}>
-          {SERVICE_PLANS.map((service, index) => (
+          {SERVICE_PROGRAMS.map((service, index) => (
             <Reveal key={service.title} delay={index * 0.07}>
               <ServiceCard service={service} />
             </Reveal>

@@ -25,7 +25,7 @@ export const ContactSection = () => (
         </h1>
         <p className={styles.description}>
           We&apos;re always available to answer questions, discuss partnerships or help you start
-          your fitness journey with a clear plan.
+          your fitness journey with a clear program.
         </p>
 
         <div className={styles.channels} role="list">

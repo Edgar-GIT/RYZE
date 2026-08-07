@@ -47,7 +47,7 @@ export const TrainingSection = () => (
           actually <span className={styles.accentPhrase}>follow.</span>
         </h2>
         <p className={styles.description}>
-          Structured weekly plan, live exercises and clear progression without the chaos of
+          Structured weekly program, live exercises and clear progression without the chaos of
           spreadsheets.
         </p>
 

@@ -11,7 +11,7 @@ import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { Reveal } from "@/components/reveal/reveal";
 import { ServiceCard } from "@/components/service_card/service_card";
-import { SERVICE_PLANS } from "@/constants/services";
+import { SERVICE_PROGRAMS } from "@/constants/services";
 import servicesBackground from "@resources/img/hero/bg_services.png";
 
 import styles from "./services_page.module.css";
@@ -20,7 +20,7 @@ const catalogHighlights = [
   {
     icon: ShieldCheck,
     title: "Built by experts",
-    text: "Professionally designed plans and programs."
+    text: "Professionally designed training and nutrition programs."
   },
   {
     icon: Zap,
@@ -30,7 +30,7 @@ const catalogHighlights = [
   {
     icon: RefreshCw,
     title: "Always evolving",
-    text: "Plans are updated continuously."
+    text: "Programs are updated continuously."
   }
 ] as const;
 
@@ -67,7 +67,7 @@ export const ServicesPage = () => (
           <Reveal className={styles.intro}>
             <p className={styles.eyebrow}>Catalog</p>
             <h1>
-              Available RYZE plan <span className={styles.accent}>categories.</span>
+              Available RYZE program <span className={styles.accent}>categories.</span>
             </h1>
             <p className={styles.lead}>
               Compare the initial RYZE offer and choose the route that fits the guidance and
@@ -95,7 +95,7 @@ export const ServicesPage = () => (
         </div>
 
         <div className={styles.grid}>
-          {SERVICE_PLANS.map((service, index) => (
+          {SERVICE_PROGRAMS.map((service, index) => (
             <Reveal key={service.title} delay={0.1 + index * 0.08}>
               <ServiceCard service={service} />
             </Reveal>

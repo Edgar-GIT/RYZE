@@ -63,7 +63,7 @@ export const NutritionSection = () => {
           <h2 id="nutrition-heading">
             Fuel that moves
             <br />
-            with your <span className={styles.accentPhrase}>plan.</span>
+            with your <span className={styles.accentPhrase}>program.</span>
           </h2>
           <p className={styles.description}>
             Macros, timing and guidance that adapt to the training week — not a static PDF.

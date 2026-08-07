@@ -17,7 +17,7 @@
 	-O que é que os concorrentes fazem mal, que podemos fazer melhor?
 
 	-Qual é o foco principal do produto?
-      (ex: promover planos, acompanhamento contínuo, comunidade)
+      (ex: promover programas, acompanhamento contínuo, comunidade)
 
 **Equipa e Recursos Humanos**
 
@@ -98,10 +98,10 @@
 
 	-Que métodos de pagamento vamos aceitar?
 
-	-Onde é que as pessoas vão gastar dinheiro (planos, pacotes, sessões avulso, etc.)?
+	-Onde é que as pessoas vão gastar dinheiro (programas, pacotes, sessões avulso, etc.)?
       Especificar tudo.
 
-	-Que diferença existe entre os planos/pacotes,
+	-Que diferença existe entre os programas/pacotes,
       e o que inclui exatamente cada um (ex: básico vs. premium com acompanhamento)?
       Especificar tudo.
 
@@ -113,7 +113,7 @@
 	-Qual é o intervalo de preços que o mercado está disposto a pagar por um serviço semelhante,
        em Portugal e no mercado internacional? Definir valor mínimo e máximo.
 
-	-Vamos ter descontos para planos anuais vs. mensais?
+	-Vamos ter descontos para programas anuais vs. mensais?
 
 	-Que outro tipo de descontos vamos ter, onde se aplicam, e vamos ter códigos de desconto?
 
@@ -123,7 +123,7 @@
 
 	-O que acontece se um pagamento falhar (cancelamento automático, nova tentativa, aviso)?
 
-**Serviços e Planos**
+**Serviços e Programas**
 
 	-Como é que o progresso do cliente vai ser acompanhado ao longo do tempo?
 
@@ -143,7 +143,7 @@
       -Como vamos garantir a proteção dos dados de saúde/físicos dos clientes
       (peso, medidas, fotos de progresso), em conformidade com o RGPD?
 
-      -Se vendermos online (subscrições, planos), temos de garantir
+      -Se vendermos online (subscrições, programas), temos de garantir
       o direito de retratação de 14 dias exigido por lei
       da UE para vendas à distância? Como o aplicamos a um serviço já "consumido"?
 
@@ -226,7 +226,7 @@
 
       -Vamos adaptar preços à moeda local?
 
-      -Vamos traduzir todo o conteúdo, incluindo planos e exercícios?
+      -Vamos traduzir todo o conteúdo, incluindo programas e exercícios?
 
       -Vamos adaptar datas e unidades (kg/lb, cm/in) por região?
 
@@ -323,7 +323,7 @@
       -Vamos mostrar resumo de progresso (peso, streak, última sessão) no topo?
 
       -Vamos ter atalhos rápidos para as ações mais usadas?
-      (registar treino, ver plano, falar com treinador)
+      (registar treino, ver programa, falar com treinador)
 
       -Vamos mostrar mensagens/notificações não lidas logo à entrada?
 
@@ -379,7 +379,7 @@
       -Vamos ter barra de pesquisa (para exercícios, artigos do blog, treinadores)?
 
       -Vamos ter filtros nas listagens?
-      (ex: filtrar exercícios por grupo muscular, filtrar planos por preço)
+      (ex: filtrar exercícios por grupo muscular, filtrar programas por preço)
 
       -Vamos ter breadcrumbs (indicação de onde o utilizador está no site)?
 
@@ -399,7 +399,7 @@
 
 **Avaliações e Reviews**
 
-      -Os clientes podem avaliar o treinador/plano no final de cada sessão ou período?
+      -Os clientes podem avaliar o treinador/programa no final de cada sessão ou período?
 
       -Essas avaliações aparecem publicamente no site, ou ficam só internas?
 
@@ -415,9 +415,9 @@
 
 **Checkout e Carrinho de Compras**
 
-      -Vamos ter carrinho de compras, ou é sempre compra direta de um plano/pacote?
+      -Vamos ter carrinho de compras, ou é sempre compra direta de um programa/pacote?
 
-      -Vamos permitir comprar mais do que um produto/plano ao mesmo tempo?
+      -Vamos permitir comprar mais do que um produto/programa ao mesmo tempo?
 
       -Vamos mostrar resumo do pedido antes de confirmar pagamento?
 
@@ -430,7 +430,7 @@
 **Marketplace de Treinadores (se abrirmos a outros no futuro)**
 
       -Vamos permitir que outros treinadores se registem,
-      e vendam os próprios planos na plataforma?
+      e vendam os próprios programas na plataforma?
 
       -Vamos cobrar comissão sobre as vendas desses treinadores?
 
@@ -448,7 +448,7 @@
       -Precisamos de um sistema tipo CMS (gestor de conteúdo),
       para o blog e páginas institucionais?
 
-      -Os preços e planos devem poder ser alterados sem tocar em código?
+      -Os preços e programas devem poder ser alterados sem tocar em código?
       (ex: através de um ecrã de admin)
 
       -Vamos precisar de um editor de texto visual (tipo Word)

@@ -64,7 +64,7 @@ Good examples:
 
 ```ts
 currentUser
-trainingPlan
+trainingProgram
 profilePicture
 totalCalories
 ```

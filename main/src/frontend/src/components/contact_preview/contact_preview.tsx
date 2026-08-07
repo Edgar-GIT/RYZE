@@ -61,7 +61,7 @@ export const ContactPreview = () => (
       <Button className={styles.cta} to="/contact" variant="secondary" icon={<ArrowRight />}>
         Contact us
       </Button>
-      <Button className={styles.cta} to="/services/generic-plan" icon={<ArrowRight />}>
+      <Button className={styles.cta} to="/services/generic-program" icon={<ArrowRight />}>
         Join for Free
       </Button>
     </div>

@@ -417,7 +417,7 @@ Examples:
 - Updating statistics
 - Calculating rankings
 - Processing email queues
-- Expiring plans
+- Expiring programs
 - Scheduled backups
 
 ---

@@ -370,7 +370,7 @@ Supported roles:
 - Technical Administrator
 - Management Administrator
 
-Administrators and trainers may also purchase plans like normal clients.
+Administrators and trainers may also purchase programs like normal clients.
 
 Permissions are determined by role.
 

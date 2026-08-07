@@ -1,13 +1,13 @@
 import { ArrowRight, Check } from "lucide-react";
 
 import { Button } from "@/components/button/button";
-import type { ServicePlan } from "@/constants/services";
+import type { ServiceProgram } from "@/constants/services";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./service_card.module.css";
 
 interface ServiceCardProps {
-  service: ServicePlan;
+  service: ServiceProgram;
 }
 
 export const ServiceCard = ({ service }: ServiceCardProps) => (

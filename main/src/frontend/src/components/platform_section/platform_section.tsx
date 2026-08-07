@@ -10,7 +10,7 @@ import styles from "./platform_section.module.css";
 
 const processSteps = [
   { icon: HelpCircle, label: "Answer a few questions" },
-  { icon: Brain, label: "AI builds your plan" },
+  { icon: Brain, label: "AI builds your program" },
   { icon: CalendarDays, label: "Training, nutrition & recovery" },
   { icon: TrendingUp, label: "Track progress" }
 ] as const;
@@ -28,7 +28,7 @@ export const PlatformSection = () => (
       <Reveal className={styles.copy}>
         <p className={styles.eyebrow}>Start Faster</p>
         <h2 id="platform-heading">
-          Get a plan
+          Get a program
           <br />
           that fits your week,
           <br />
@@ -37,13 +37,13 @@ export const PlatformSection = () => (
         <p className={styles.description}>
           Answer a few questions.
           <br />
-          RYZE builds your plan.
+          RYZE builds your program.
           <br />
           Everything lands on your phone.
         </p>
         <div className={styles.actions}>
           <Button to="/services" icon={<ArrowRight />}>
-            Choose your plan
+            Choose your program
           </Button>
           <Link className={styles.secondaryLink} to="/our-vision">
             See how it works

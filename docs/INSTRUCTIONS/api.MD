@@ -1417,7 +1417,7 @@ Processes a refund when applicable.
 
 # QUESTIONNAIRE ENDPOINTS
 
-Premium plans require questionnaires.
+Premium programs require questionnaires.
 
 ---
 
@@ -1463,17 +1463,17 @@ Returns previously submitted questionnaires.
 
 # NUTRITION ENDPOINTS
 
-Nutrition plans associated with purchased packs.
+Nutrition programs associated with purchased packs.
 
 ---
 
-## Current Nutrition Plan
+## Current Nutrition Program
 
 ```
 GET /api/v1/nutrition/current
 ```
 
-Returns the user's current nutrition plan.
+Returns the user's current nutrition program.
 
 ---
 
@@ -1483,7 +1483,7 @@ Returns the user's current nutrition plan.
 GET /api/v1/nutrition/history
 ```
 
-Returns previous nutrition plans.
+Returns previous nutrition programs.
 
 ---
 
@@ -1493,7 +1493,7 @@ Returns previous nutrition plans.
 GET /api/v1/nutrition/pdf
 ```
 
-Downloads the nutrition plan.
+Downloads the nutrition program.
 
 ---
 
@@ -1549,7 +1549,7 @@ Marks a workout as completed.
 GET /api/v1/workouts/pdf
 ```
 
-Downloads the workout plan.
+Downloads the workout program.
 
 ---
 

@@ -6,7 +6,7 @@ Version: 1.0.0
 
 # Overview
 
-RYZE is a fully online fitness platform designed to automate the creation, distribution and sale of training and nutrition plans.
+RYZE is a fully online fitness platform designed to automate the creation, distribution and sale of training and nutrition programs.
 
 The platform aims to remove the complexity of getting started in fitness by providing structured, accessible and personalized guidance through a modern digital experience.
 
@@ -29,7 +29,7 @@ By combining technology, automation and fitness knowledge, the platform reduces 
 # Vision
 
 The long-term vision is to become a modern fitness ecosystem where users can
-easily discover, purchase and follow high-quality training and nutrition plans
+easily discover, purchase and follow high-quality training and nutrition programs
 while certified trainers can publish and manage their own content.
 
 Artificial Intelligence will progressively automate repetitive tasks, allowing
@@ -99,23 +99,23 @@ Since the majority of users are expected to access the platform using smartphone
 
 RYZE generates revenue through the sale of digital training and nutrition packs.
 
-RYZE currently offers three different plan categories, each designed for a different level of personalization.
+RYZE currently offers three different program categories, each designed for a different level of personalization.
 
 ## RYZE Free
 
-The Free Plan is designed to help new users get started with structured training at no cost.
+The Free Program is designed to help new users get started with structured training at no cost.
 
-Users can browse a catalog of generic training packs and activate one plan at a time.
+Users can browse a catalog of generic training packs and activate one program at a time.
 
-Each plan is pre-built and intended for common goals such as muscle gain, fat loss or general fitness.
+Each program is pre-built and intended for common goals such as muscle gain, fat loss or general fitness.
 
 Features include:
 
-- One active training plan
+- One active training program
 - Generic workout program
 - Exercise demonstrations
 - PDF export
-- No nutrition plan
+- No nutrition program
 - No personalization
 - No coach interaction
 - Limited access duration
@@ -124,7 +124,7 @@ Features include:
 
 ## RYZE Premium
 
-Premium Level 1 combines a structured training program with an automatically generated nutrition plan.
+Premium Level 1 combines a structured training program with an automatically generated nutrition program.
 
 Before purchasing, the user completes a short questionnaire describing their fitness goals and basic personal information.
 
@@ -135,14 +135,14 @@ Examples include:
 - Improve endurance
 - Maintain weight
 
-Based on the questionnaire, the RYZE Recommendation Engine automatically selects the most appropriate nutrition plan.
+Based on the questionnaire, the RYZE Recommendation Engine automatically selects the most appropriate nutrition program.
 
-This allows users to receive both a workout plan and a nutrition plan immediately after purchase, without waiting for manual preparation.
+This allows users to receive both a workout program and a nutrition program immediately after purchase, without waiting for manual preparation.
 
 Features include:
 
 - Personalized training pack
-- Automatically assigned nutrition plan
+- Automatically assigned nutrition program
 - Immediate delivery
 - Exercise demonstrations
 - PDF export
@@ -153,7 +153,7 @@ Features include:
 
 Premium Level 2 provides the highest level of personalization available on the platform.
 
-After purchasing the plan, the client completes a comprehensive questionnaire covering every relevant aspect of their physical condition, lifestyle and objectives.
+After purchasing the program, the client completes a comprehensive questionnaire covering every relevant aspect of their physical condition, lifestyle and objectives.
 
 Information may include:
 
@@ -170,20 +170,20 @@ Information may include:
 - Equipment availability
 - Additional lifestyle information
 
-Initially, every Premium Level 2 plan is manually created by a certified trainer, ensuring that both the training and nutrition plans are specifically tailored to that individual.
+Initially, every Premium Level 2 program is manually created by a certified trainer, ensuring that both the training and nutrition programs are specifically tailored to that individual.
 
 As the platform evolves, this process may gradually incorporate Artificial Intelligence to assist trainers in generating personalized recommendations while maintaining professional oversight.
 
-Since every plan is created individually, delivery is not immediate.
+Since every program is created individually, delivery is not immediate.
 
 Clients are informed of the estimated preparation time and receive access to their complete training and nutrition pack once it has been finalized.
 
 Features include:
 
 - Fully personalized workout program
-- Fully personalized nutrition plan
+- Fully personalized nutrition program
 - Manual trainer review
-- Individual plan creation
+- Individual program creation
 - Exercise demonstrations
 - PDF export
 - Highest level of customization---
@@ -214,7 +214,7 @@ The platform currently defines four user roles.
 Clients can:
 
 - Purchase packs
-- Follow training plans
+- Follow training programs
 - Track progress
 - View statistics
 - Participate in the community
@@ -269,8 +269,8 @@ They are responsible for:
 
 The platform currently includes the following core features:
 
-- Training plans
-- Nutrition plans
+- Training programs
+- Nutrition programs
 - Exercise library
 - Progress tracking
 - Marketplace
@@ -326,7 +326,7 @@ Artificial Intelligence represents one of the most important long-term component
 
 Initially, AI will support internal development.
 
-Future releases will integrate AI directly into the platform, allowing automatic generation of personalized training and nutrition plans based on user questionnaires.
+Future releases will integrate AI directly into the platform, allowing automatic generation of personalized training and nutrition programs based on user questionnaires.
 
 The long-term objective is to significantly reduce manual work while maintaining high-quality recommendations.
 
@@ -389,7 +389,7 @@ RYZE is designed to evolve continuously.
 
 Future releases may introduce:
 
-- AI-generated plans
+- AI-generated programs
 - Advanced marketplace features
 - Additional payment providers
 - Two-Factor Authentication

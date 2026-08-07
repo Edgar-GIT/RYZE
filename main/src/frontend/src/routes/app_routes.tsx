@@ -20,7 +20,7 @@ export const AppRoutes = () => {
           render={() => (
             <UnderDevelopmentPage
               eyebrow="Service details"
-              title="This plan page is under development."
+              title="This program page is under development."
               description="The visual route is ready. Product details, pricing and backend-backed purchase flows will be connected in a later implementation."
             />
           )}

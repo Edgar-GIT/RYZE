@@ -1,3 +1,50 @@
+# Version 2.2.57
+
+Title: Rename product language from Plan to Program
+
+Date: 2026-08-07
+
+Summary:
+
+Replaced product terminology across the frontend and documentation so RYZE
+sells Programs, not Plans. Updated copy, route slugs, constants
+(`ServiceProgram` / `SERVICE_PROGRAMS`), asset folder `program_cards`, and
+related docs.
+
+Files modified:
+
+- `main/src/frontend/src/constants/services.ts`
+- `main/src/frontend/src/components/service_card/service_card.tsx`
+- `main/src/frontend/src/components/hero/hero.tsx`
+- `main/src/frontend/src/components/platform_section/platform_section.tsx`
+- `main/src/frontend/src/components/nutrition_section/nutrition_section.tsx`
+- `main/src/frontend/src/components/training_section/training_section.tsx`
+- `main/src/frontend/src/components/contact_section/contact_section.tsx`
+- `main/src/frontend/src/components/contact_preview/contact_preview.tsx`
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `main/src/frontend/src/pages/services_page/services_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/routes/app_routes.tsx`
+- `main/src/resources/img/program_cards/**` (renamed from `plan_cards`)
+- `docs/INSTRUCTIONS/project.MD`
+- `docs/INSTRUCTIONS/procedure.MD`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/INSTRUCTIONS/security.MD`
+- `docs/INSTRUCTIONS/conventions.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/DATABASE/database.MD`
+- `docs/PAGES/design.MD`
+- `docs/FAQ/perguntas.MD`
+- `docs/FAQ/respostas.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User clarified that RYZE sells programs, not plans.
+
+---
+
 # Version 2.2.56
 
 Title: Add Feed nav item and under-development page
