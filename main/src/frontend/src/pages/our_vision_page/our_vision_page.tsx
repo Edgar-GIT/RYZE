@@ -32,6 +32,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { CONTACT_WHATSAPP_URL } from "@/constants/contact";
 import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
 import fitnessOsBackground from "@resources/img/hero/evo_man_bg.png";
 import futureBackground from "@resources/img/hero/future_bg.png";
@@ -547,7 +548,7 @@ export const OurVisionPage = () => (
 
             <Button
               className={styles.joinCta}
-              to="/register"
+              href={CONTACT_WHATSAPP_URL}
               variant="secondary"
               size="medium"
               icon={<ArrowRight aria-hidden="true" />}

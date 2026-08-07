@@ -1,3 +1,100 @@
+# Version 2.2.69
+
+Title: Lower join intro text further
+
+Date: 2026-08-07
+
+Summary:
+
+The eyebrow, title, description and CTA of the "Join the movement" section
+moved further down (top padding 3.5rem to 5.5rem).
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+Product feedback: top text should be even lower.
+
+---
+
+# Version 2.2.68
+
+Title: Lower join intro text and nudge feature bar down
+
+Date: 2026-08-07
+
+Summary:
+
+In the "Join the movement" section the eyebrow, title, description and CTA
+moved lower (top padding 2rem to 3.5rem) and the section is slightly taller
+(min-height 135svh to 140svh), which also lowers the feature bar a bit while
+keeping it pinned to the bottom above the closing lines.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+Product feedback: top text should sit lower and the feature bar a touch lower.
+
+---
+
+# Version 2.2.67
+
+Title: Join CTA links to WhatsApp; pin feature bar and closing lines to bottom
+
+Date: 2026-08-07
+
+Summary:
+
+The "JOIN RYZE" button of the "Join the movement" section now opens the
+WhatsApp community link (`CONTACT_WHATSAPP_URL`) in a new tab instead of
+navigating to `/register`. The join layout now fills the full section height
+(135svh) so the feature bar and the two closing lines sit at the very bottom
+of the section, no longer floating in the middle.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+Product feedback: CTA should point to the WhatsApp community; feature bar and
+closing statements must be pinned to the bottom of the section.
+
+---
+
+# Version 2.2.66
+
+Title: Move join feature bar below the RYZE logo and horizon
+
+Date: 2026-08-07
+
+Summary:
+
+The feature bar of the "Join the movement" section no longer overlaps the
+RYZE logo or cuts the planet horizon. The section minimum height grew from
+100svh to 135svh so the logo/horizon band sits clearly above the bar. The bar
+is now 90% wide (max 1450px), horizontally centered, slightly shorter, and
+keeps its glass/dark styling, 5 equal grid columns, icon-on-the-left layout,
+single-line titles (flex-wrap allowed as fallback) and identical content.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+Product feedback: feature bar crossed the horizon and covered the R symbol;
+the desired vertical order is headline, description, CTA, RYZE logo +
+horizon, feature bar, statement, movement.
+
+---
+
 # Version 2.2.65
 
 Title: Tune join section background, feature panel, CTA and footer position
@@ -10,9 +107,9 @@ In the "Join the movement" section the background is no longer cut at the
 bottom on wide screens (object-position biased to `center 85%` so the
 illuminated platform stays visible). The feature panel is wider (92rem) and
 much thinner in height, with larger, more legible icons and text now laid out
-as icon + number/title inline + subtitle, and sits lower. The CTA is smaller,
-rectangular with rounded corners and closer to the text. The title moved
-higher (2rem top padding) and the two closing lines moved closer to the
+as icon + number/title inline + subtitle, and sits lower. The CTA is rectangular with rounded corners, close
+to the text, with a stronger cyan glow (brighter border, outer and inner
+glows) that intensifies on hover. The title moved higher (2rem top padding) and the two closing lines moved closer to the
 bottom (1.25rem bottom padding).
 
 Files modified:
