@@ -2,7 +2,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
   BarChart3,
-  Boxes,
   Brain,
   ChartNoAxesCombined,
   ChevronRight,
@@ -19,7 +18,6 @@ import {
   Play,
   Rocket,
   ShieldCheck,
-  Sparkles,
   Sprout,
   User,
   UserPlus,
@@ -36,7 +34,6 @@ import fitnessOsBackground from "@resources/img/hero/evo_man_bg.png";
 import futureBackground from "@resources/img/hero/future_bg.png";
 import howItWorksBackground from "@resources/img/hero/how_bg.png";
 import ourVisionBackground from "@resources/img/hero/our_view.png";
-import technologyBackground from "@resources/img/hero/tech_bg.png";
 
 import styles from "./our_vision_page.module.css";
 
@@ -308,24 +305,6 @@ const WhyFeatureGrid = () => {
   );
 };
 
-const techFeatures = [
-  {
-    icon: Boxes,
-    title: "Connected Modules",
-    text: "Everything works together. Nothing works alone."
-  },
-  {
-    icon: Zap,
-    title: "Clear Interfaces",
-    text: "Designed for people. Built for precision."
-  },
-  {
-    icon: Sparkles,
-    title: "Smart Automation",
-    text: "Less manual work. More human impact."
-  }
-] as const;
-
 export const OurVisionPage = () => (
   <PageWrapper className={styles.page}>
     <section className={styles.hero}>
@@ -508,47 +487,6 @@ export const OurVisionPage = () => (
             );
           })}
         </div>
-      </Container>
-    </section>
-
-    <section className={`${styles.section} ${styles.sectionTech}`}>
-      <img
-        className={styles.techBackground}
-        src={technologyBackground}
-        alt=""
-        aria-hidden="true"
-      />
-
-      <Container className={styles.techLayout}>
-        <Reveal className={styles.techIntro}>
-          <p className={styles.techEyebrow}>Technology first</p>
-          <h2>
-            Built like <span className={styles.accentPhrase}>modern</span> software.
-          </h2>
-          <p className={styles.sectionLead}>
-            Connected modules. Clear interfaces.
-            <br />
-            Automation where it helps. Intelligence where it matters.
-          </p>
-
-          <ul className={styles.techFeatures}>
-            {techFeatures.map((feature) => {
-              const Icon = feature.icon;
-
-              return (
-                <li key={feature.title} className={styles.techFeature}>
-                  <span className={styles.techFeatureIcon}>
-                    <Icon aria-hidden="true" />
-                  </span>
-                  <div>
-                    <strong>{feature.title}</strong>
-                    <p>{feature.text}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Reveal>
       </Container>
     </section>
   </PageWrapper>

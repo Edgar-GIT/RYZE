@@ -2342,6 +2342,221 @@ Breaking changes should only occur between major API versions.
 
 ---
 
+## RYZE Feed API
+
+The RYZE Feed API provides endpoints for consuming Feed content, managing Likes and Follows, and allowing authorized trainers to publish and manage their own content.
+
+All endpoints must follow the existing RYZE API conventions, authentication requirements, versioning strategy, validation rules, and error-handling standards.
+
+### Feed Consumption
+
+#### Get Feed
+
+```http
+GET /api/v1/feed
+
+Returns a paginated set of Feed content personalized for the authenticated user.
+
+The response should provide the information required to render the Feed without requiring unnecessary additional requests.
+
+Conceptual response data:
+
+feed item
+├── id
+├── video
+├── thumbnail
+├── title
+├── description
+├── trainer
+│   ├── id
+│   ├── name
+│   └── profile_image
+├── likes_count
+└── user_liked
+
+The endpoint should support incremental loading suitable for infinite scrolling.
+
+The pagination mechanism must be stable enough to prevent excessive duplication or skipping of content while the user is consuming the Feed.
+
+Feed Content
+Get Feed Item
+GET /api/v1/feed/:id
+
+Returns a single published Feed item and its associated creator information.
+
+Unpublished, hidden, deleted, or otherwise inaccessible content must not be returned to normal users.
+
+Likes
+Like Feed Item
+POST /api/v1/feed/:id/like
+
+Creates a Like for the authenticated user.
+
+The operation must be idempotent from the client's perspective.
+
+A user must not be able to create duplicate Likes for the same Feed item.
+
+Unlike Feed Item
+DELETE /api/v1/feed/:id/like
+
+Removes the authenticated user's Like from the Feed item.
+
+The operation should remain safe if the user has not previously Liked the content.
+
+Trainer Following
+Follow Trainer
+POST /api/v1/trainers/:id/follow
+
+Creates a Follow relationship between the authenticated user and the specified trainer.
+
+The operation must prevent duplicate Follow relationships.
+
+Unfollow Trainer
+DELETE /api/v1/trainers/:id/follow
+
+Removes the authenticated user's Follow relationship with the specified trainer.
+
+Get Trainer Follow State
+
+The API should provide the current Follow state where required by Feed and Trainer interfaces.
+
+The exact endpoint may be:
+
+GET /api/v1/trainers/:id/follow
+
+or incorporated into the Trainer response.
+
+The implementation should avoid unnecessary requests when the state can already be returned as part of another response.
+
+Trainer Content Management
+
+Only authorized trainers may create and manage their own RYZE Feed content.
+
+Create Feed Content
+POST /api/v1/trainer/feed
+
+Creates a new Feed content record.
+
+The initial content should not automatically become publicly available if video processing, validation, moderation, or other required processing has not completed.
+
+Upload Video
+POST /api/v1/trainer/feed/:id/video
+
+Uploads or associates the video media with the Feed content.
+
+The upload must pass all RYZE media security and validation requirements before becoming available for playback.
+
+Update Feed Content
+PATCH /api/v1/trainer/feed/:id
+
+Allows the owning trainer to modify editable metadata such as:
+
+Title
+Description
+Category/tags when supported
+Visibility/status when permitted
+
+A trainer must not be able to modify content belonging to another trainer.
+
+Delete Feed Content
+DELETE /api/v1/trainer/feed/:id
+
+Removes the trainer's Feed content according to the project's established deletion strategy.
+
+Deleted content must immediately stop appearing in normal Feed results.
+
+Authorization
+
+Feed permissions are separated into two primary groups.
+
+Authenticated Users
+
+Users may:
+
+View Feed content
+Like content
+Remove Likes
+Follow trainers
+Unfollow trainers
+View public trainer information
+Authorized Trainers
+
+Trainers may additionally:
+
+Create Feed content
+Upload videos
+Edit their own content
+Publish content when permitted
+Hide their own content
+Remove their own content
+
+A trainer must never be able to modify another trainer's content.
+
+Content Visibility
+
+The Feed API must distinguish between content states.
+
+Normal Feed requests should only return content that is:
+
+Published
+Valid
+Available for the current user
+Not deleted
+Not hidden
+
+Administrative or trainer-management endpoints may access additional states according to their authorization level.
+
+Personalization
+
+Feed retrieval may use:
+
+Trainer follows
+Video Likes
+Content relevance
+Content freshness
+Popularity
+Future recommendation signals
+
+The API contract should not expose or depend on the internal ranking formula.
+
+The ranking system may evolve independently while maintaining the same Feed API contract.
+
+Error Handling
+
+The API must use the standard RYZE error response format.
+
+Examples of relevant errors include:
+
+401 Unauthorized
+403 Forbidden
+404 Feed content not found
+409 Relationship already exists
+422 Invalid content
+
+The exact status codes must follow the global RYZE API conventions.
+
+Security
+
+All Feed API endpoints must follow the security requirements defined in security.md.
+
+Particular attention must be given to:
+
+Authentication
+Authorization
+Trainer ownership checks
+Rate limiting
+Input validation
+Upload validation
+File type validation
+File size limits
+Malicious media detection
+Abuse prevention
+Resource enumeration protection
+
+Feed APIs must never trust client-provided trainer IDs, user IDs, ownership information, file metadata, or permission claims.
+
+---
+
 # FUTURE EXPANSION
 
 The API has been designed to support future features without major architectural changes.

@@ -1437,6 +1437,315 @@ Expired cache entries should be removed automatically.
 
 ---
 
+## RYZE Feed Security
+
+RYZE Feed introduces additional security requirements because trainers can upload and publish media content and users can interact with that content.
+
+All Feed functionality must follow the general security requirements defined in this document. The following rules are specific to the RYZE Feed.
+
+### Content Ownership and Authorization
+
+All trainer Feed operations must enforce server-side authorization.
+
+The backend must never trust:
+
+- `trainer_id` supplied by the client
+- `user_id` supplied by the client
+- ownership information supplied by the client
+- client-side role information
+- client-side permissions
+
+The authenticated identity must come from the validated authentication context.
+
+A trainer may only modify or delete Feed content that they own, unless an explicitly authorized administrative role is performing the operation.
+
+### Video Upload Security
+
+Video uploads must be treated as untrusted input.
+
+The server must validate uploaded media independently of the filename and client-provided MIME type.
+
+Validation should include:
+
+- File size
+- Actual file type
+- Container format
+- Codec compatibility
+- File structure
+- Duration
+- Resolution
+- Encoding characteristics
+- Potentially malformed media
+- Potentially malicious content
+
+Client-provided extensions such as `.mp4`, `.mov`, `.webm`, or similar must never be considered proof that the file is safe.
+
+### Media Processing Isolation
+
+Uploaded media should be processed in an isolated environment where practical.
+
+Media processing must not execute uploaded files as native applications.
+
+Video processing components must be treated as security-sensitive dependencies because malformed media can target vulnerabilities in codecs, parsers, or processing libraries.
+
+Processing workers should have:
+
+- Minimal filesystem permissions
+- Minimal network access
+- No unnecessary application credentials
+- Restricted access to application secrets
+- Resource limits
+- CPU and memory limits
+- Execution time limits
+
+A compromised media-processing process must not provide direct access to the main application or database.
+
+### File Storage
+
+Uploaded videos must not be stored in locations where they can be interpreted as executable server-side code.
+
+User-uploaded media should be stored separately from application source code.
+
+Storage access should use generated identifiers rather than trusting user-provided filenames.
+
+Original filenames must not be used as authoritative storage paths.
+
+### File Validation
+
+The system must validate the actual content of uploaded files.
+
+At minimum:
+
+```text
+Client Upload
+     │
+     ▼
+Size Validation
+     │
+     ▼
+File Signature / Type Detection
+     │
+     ▼
+Media Parsing
+     │
+     ▼
+Security Validation
+     │
+     ▼
+Processing / Transcoding
+     │
+     ▼
+Safe Storage
+     │
+     ▼
+Publication
+
+Files that fail validation must never become publicly accessible.
+
+Malicious Media
+
+A valid-looking media extension does not guarantee that the content is safe.
+
+The security system must account for:
+
+Malformed video containers
+Parser exploitation
+Codec vulnerabilities
+Embedded unexpected data
+Polyglot files
+Files with misleading extensions
+Resource-exhaustion media
+Decompression/resource bombs
+
+Where appropriate, uploaded videos should be transcoded into controlled output formats rather than serving the original uploaded binary directly.
+
+Thumbnails and Generated Media
+
+Generated thumbnails and preview images must also be treated as untrusted media until safely generated.
+
+The system should preferably generate thumbnails from the processed video rather than trusting trainer-uploaded thumbnail files.
+
+If custom thumbnails are supported later, they must pass the same media security validation requirements as other uploaded images.
+
+Feed Content Abuse
+
+RYZE Feed must include mechanisms to prevent abusive content from becoming an uncontrolled public distribution channel.
+
+The architecture should support:
+
+Content hiding
+Content removal
+Trainer restrictions
+Administrative moderation
+Content status changes
+Abuse/rate controls
+Future reporting functionality
+
+Moderation functionality may evolve independently from the initial Feed implementation.
+
+Likes
+
+Like endpoints must be protected against abuse.
+
+The backend must enforce:
+
+One Like per user per Feed item
+Unique database constraints
+Authentication
+Rate limiting
+Server-side validation
+
+Like counts must not be accepted from the client as authoritative values.
+
+Trainer Following
+
+Follow endpoints must enforce:
+
+Authentication
+Valid user identity
+Valid trainer identity
+Unique user/trainer relationship
+Rate limiting
+Server-side validation
+
+A user must not be able to create duplicate Follow relationships through repeated or concurrent requests.
+
+Feed Enumeration Protection
+
+Feed APIs must avoid exposing unnecessary internal information.
+
+The system should not expose:
+
+Internal storage paths
+Database identifiers that are not intended for public use
+Processing infrastructure details
+Internal moderation information
+Private trainer data
+Hidden or unpublished content
+
+Public Feed responses should contain only the information required by the client.
+
+Rate Limiting
+
+Feed interactions must be protected against excessive automated requests.
+
+Rate limiting should be considered for:
+
+Feed retrieval
+Likes
+Follows
+Video uploads
+Content creation
+Content modification
+Content deletion
+
+Upload and content-management operations should have significantly stricter limits than normal Feed browsing.
+
+Resource Protection
+
+Video processing and uploads can consume significant resources.
+
+The system must enforce limits for:
+
+Maximum upload size
+Maximum video duration
+Maximum resolution
+Maximum processing time
+Maximum concurrent processing jobs
+Maximum storage consumption where applicable
+
+These limits must be enforced server-side.
+
+Authentication
+
+Users must be authenticated before performing:
+
+Likes
+Follows
+Trainer content management
+Video uploads
+
+Public Feed access may be allowed only if explicitly defined by the product's access model.
+
+Authentication and authorization must never depend solely on frontend route protection.
+
+XSS and Content Injection
+
+Trainer-provided metadata such as:
+
+Titles
+Descriptions
+Tags
+
+must be treated as untrusted input.
+
+The application must prevent stored XSS and other injection attacks.
+
+User-generated text must be safely encoded when rendered.
+
+HTML provided by trainers must not be rendered as trusted content unless an explicit, secure sanitization pipeline exists.
+
+SQL Injection
+
+All Feed database operations must use the project's parameterized database access mechanisms.
+
+User-provided values must never be concatenated directly into SQL queries.
+
+This applies particularly to:
+
+Feed search/filtering
+Trainer identifiers
+Pagination
+Sorting
+Content identifiers
+Likes
+Follows
+Authorization Testing
+
+The Feed backend must include tests for horizontal privilege escalation.
+
+Examples:
+
+Trainer A cannot edit Trainer B's video.
+Trainer A cannot delete Trainer B's video.
+User A cannot modify User B's Like.
+User A cannot modify User B's Follow relationship.
+Unpublished content cannot be retrieved through public Feed endpoints.
+Deleted content cannot be retrieved through normal Feed endpoints.
+Logging and Auditing
+
+Security-relevant Feed events should be auditable where appropriate.
+
+Potential events include:
+
+Trainer content creation
+Video upload
+Content publication
+Content hiding
+Content deletion
+Administrative moderation
+Trainer restrictions
+
+Logs must not contain sensitive user information or authentication secrets.
+
+Security by Default
+
+RYZE Feed must follow a deny-by-default security model.
+
+New Feed capabilities must not automatically become publicly accessible.
+
+Any new content type, upload mechanism, interaction, or trainer capability must explicitly define:
+
+Authentication requirements
+Authorization requirements
+Input validation
+Rate limiting
+Storage requirements
+Moderation requirements
+Audit requirements
+
+---
+
 # PRIVACY
 
 Privacy is a core requirement of the platform.

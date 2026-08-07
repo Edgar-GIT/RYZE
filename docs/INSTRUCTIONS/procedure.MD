@@ -578,6 +578,200 @@ The API should remain:
 
 ---
 
+## RYZE Feed Development Procedure
+
+RYZE Feed is a core RYZE feature and must be developed according to the existing project architecture, database conventions, security requirements, and design system.
+
+Before modifying the RYZE Feed, AI agents must read:
+
+- `architecture.MD`
+- `DB.md`
+- `design.MD`
+- `security.MD`
+- API/backend documentation
+- `AGENTS.md`
+- `CLAUDE.md`
+
+### Scope
+
+RYZE Feed includes:
+
+- Short-form fitness videos
+- Trainer-created content
+- Vertical video consumption
+- Trainer profiles
+- Trainer following
+- Video Likes
+- Feed personalization
+- Content publishing
+- Content management
+- Video processing
+- Content moderation
+
+RYZE Feed must not be expanded into a general-purpose social network without an explicit product decision.
+
+### Before Implementation
+
+Before creating or modifying Feed functionality, the agent must:
+
+1. Inspect the existing implementation.
+2. Read the relevant documentation.
+3. Identify existing reusable components and services.
+4. Check existing authentication and authorization mechanisms.
+5. Check existing database conventions.
+6. Check existing media/upload infrastructure.
+7. Check existing API conventions.
+8. Determine whether the required functionality already exists elsewhere.
+
+Agents should extend existing systems where appropriate rather than creating duplicate implementations.
+
+### Database Changes
+
+Database changes must follow the conventions defined in `DB.md`.
+
+Before changing the schema:
+
+- Verify existing relationships.
+- Verify existing user and trainer entities.
+- Verify existing UUID conventions.
+- Verify timestamp conventions.
+- Verify soft-delete conventions.
+- Verify indexing conventions.
+- Check whether an equivalent table or relationship already exists.
+
+Schema changes must be implemented through the project's established migration system.
+
+Do not modify production database structures manually.
+
+### API Changes
+
+New Feed endpoints must follow the existing RYZE API structure.
+
+Before creating an endpoint:
+
+- Check whether an equivalent endpoint already exists.
+- Follow the existing authentication middleware.
+- Follow the existing authorization system.
+- Follow existing request validation.
+- Follow existing response structures.
+- Follow existing error handling.
+- Follow existing API versioning.
+
+Do not create parallel authentication, authorization, validation, or error-handling systems specifically for the Feed.
+
+### Trainer Content
+
+Trainer content must always maintain a clear ownership relationship.
+
+Any operation that modifies Feed content must verify ownership or explicit administrative authorization on the backend.
+
+Frontend ownership checks are not sufficient.
+
+### Media
+
+Video uploads must use the existing media infrastructure where possible.
+
+If the existing infrastructure is insufficient, the agent must first document the required architectural change before introducing a completely separate storage system.
+
+Media processing must follow the security requirements defined in `security.MD`.
+
+### Feed Personalization
+
+Feed ranking and personalization must remain modular.
+
+Agents must not hard-code the Feed around a single permanent recommendation formula unless explicitly requested.
+
+The initial implementation may use a simple deterministic ranking strategy.
+
+The architecture must allow the ranking strategy to be replaced or extended later without rewriting the Feed UI or database model.
+
+### Likes and Follows
+
+Likes and trainer follows are relationships, not duplicated user state.
+
+Agents must rely on the database constraints and backend validation to prevent duplicate relationships.
+
+The frontend must not be treated as the source of truth.
+
+### Frontend
+
+The Feed interface must follow `design.MD`.
+
+The intended experience is:
+
+```text
+Open Feed
+    ↓
+Active vertical video
+    ↓
+Minimal controls
+    ↓
+Scroll
+    ↓
+Next video
+    ↓
+Repeat
+
+The Feed should remain visually simple and content-focused.
+
+Do not introduce unnecessary cards, dashboards, filters, comment sections, or social-network features without an explicit design/product decision.
+
+Performance
+
+Feed development must prioritize:
+
+Fast initial loading
+Lazy loading
+Efficient video loading
+Automatic playback only for the active item
+Pausing inactive videos
+Incremental Feed loading
+Efficient database queries
+Minimal unnecessary API requests
+
+The entire Feed must never be loaded into memory at once.
+
+Documentation Synchronization
+
+Whenever Feed architecture, database structure, API behavior, security requirements, or UI behavior changes, the relevant documentation must be updated in the same development cycle.
+
+Documentation must reflect the current implementation.
+
+Agents must not leave implementation and documentation intentionally inconsistent.
+
+Safe Changes
+
+If an implementation decision is unclear or conflicts with existing documentation:
+
+Stop before making a broad architectural change.
+Identify the conflict.
+Check the relevant documentation.
+Prefer the existing project convention.
+If the decision requires a product or architectural choice, document the proposed change before implementing it.
+
+Agents may make small implementation decisions independently when they do not affect the documented architecture or product behavior.
+
+Future Changes
+
+RYZE Feed is expected to evolve.
+
+The initial implementation should not prevent future functionality such as:
+
+Advanced recommendations
+Video analytics
+View/retention metrics
+Categories
+Tags
+Trainer analytics
+Content reports
+Moderation tools
+Featured content
+Additional creator roles
+
+Future functionality should be added incrementally rather than prematurely implementing speculative systems.
+
+---
+
 # FOLDER STRUCTURE
 
 The current folder structure is a foundation, not a limitation.

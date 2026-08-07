@@ -1,3 +1,77 @@
+# Version 2.2.60
+
+Title: Remove Technology first section from Our Vision page
+
+Date: 2026-08-07
+
+Summary:
+
+Removed the "Technology first" section completely from the Our Vision page,
+including its `techFeatures` data, its JSX block, the now-unused
+`Boxes`/`Sparkles`/`technologyBackground` imports and the orphaned `tech*` CSS
+rules. The section remains on the home page.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+The section only belongs on the home page.
+
+---
+
+# Version 2.2.59
+
+Title: Match home page tech section to Our Vision
+
+Date: 2026-08-07
+
+Summary:
+
+The second section of the home page (Technology first) was rendering unstyled
+because its CSS module classes were missing from `home_page.module.css`. Copied
+the exact `.section`, `.sectionTech`, `.tech*` and text styles from the Our
+Vision page so both sections are identical.
+
+Files modified:
+
+- `main/src/frontend/src/pages/home_page/home_page.module.css`
+
+Reason:
+
+Home page tech section appeared broken ("loose") while the Our Vision section
+rendered correctly.
+
+---
+
+# Version 2.2.58
+
+Title: Fix broken lucide-react imports causing blank page
+
+Date: 2026-08-07
+
+Summary:
+
+Fixed two frontend import defects that broke the build and rendered a blank
+page: the duplicated `ChevronRight` import in the home page, and the missing
+`Boxes`/`Sparkles`/`Zap`/`technologyBackground` imports in the Our Vision page
+(which threw a `ReferenceError` at module evaluation because all pages are
+statically imported through the route table, crashing the whole app).
+
+Files modified:
+
+- `main/src/frontend/src/pages/home_page/home_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+
+Reason:
+
+Duplicate identifier broke the Vite/OXC parse; missing identifiers produced a
+blank page at runtime.
+
+---
+
 # Version 2.2.57
 
 Title: Rename product language from Plan to Program

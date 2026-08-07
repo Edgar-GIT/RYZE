@@ -653,6 +653,129 @@ Functions include:
 
 ---
 
+## RYZE Feed
+
+RYZE Feed uses a simple, immersive short-form video interface focused on consuming fitness content with minimal UI.
+
+### Feed Layout
+
+The Feed uses a full-screen vertical video layout.
+
+Each video occupies the majority of the viewport and users navigate between videos by vertical scrolling/swiping.
+
+The interface should remain visually clean and avoid unnecessary elements.
+
+### Video
+
+Each Feed item contains:
+
+- Full-screen vertical video
+- Automatic playback when the video becomes active
+- Automatic pause when the video leaves the viewport
+- Muted/unmuted video control
+- Video playback should prioritize a smooth and uninterrupted experience
+
+Videos should use a vertical format whenever possible.
+
+### Creator Information
+
+The active video displays a small creator section near the bottom of the screen containing:
+
+- Trainer profile picture
+- Trainer name
+- Follow button
+- Short video description/caption
+
+The creator name should be clickable and lead to the trainer's public profile.
+
+If the user already follows the trainer, the button should indicate the current following state.
+
+### Actions
+
+A small vertical action area is positioned on the right side of the video.
+
+Initial actions:
+
+- Like
+- Share
+
+The Like button displays the current like state and may display the number of likes.
+
+Comments are intentionally not available.
+
+### Navigation
+
+Users navigate the Feed primarily through vertical scrolling/swiping.
+
+The Feed should behave similarly to modern short-form video applications:
+
+1. User opens RYZE Feed.
+2. The first video automatically starts playing.
+3. User scrolls vertically.
+4. The current video stops playing.
+5. The next video becomes active and starts playing.
+6. The process continues indefinitely while content is available.
+
+There should be no traditional pagination visible to the user.
+
+### Follow Integration
+
+Following a trainer is available directly from the video interface.
+
+Following a trainer does not create a separate feed.
+
+Instead, followed trainers receive increased relevance in the user's personalized Feed.
+
+### UI Principles
+
+The RYZE Feed should prioritize:
+
+- Video content
+- Minimal UI
+- Fast navigation
+- Mobile-first interaction
+- Clear creator attribution
+- Simple actions
+
+The interface should avoid:
+
+- Large cards
+- Complex navigation
+- Comment sections
+- Excessive metadata
+- Persistent menus covering the video
+- Traditional social-media post layouts
+
+### Responsive Design
+
+The Feed is primarily designed for mobile devices.
+
+On mobile:
+
+- Video fills the viewport.
+- Controls remain easily reachable with one hand.
+- Creator information stays near the bottom.
+- Actions remain vertically aligned on the right.
+
+On desktop, the Feed may remain centered with a vertical-video aspect ratio rather than stretching the video across the entire screen.
+
+### Visual Style
+
+RYZE Feed should follow the existing RYZE visual identity:
+
+- Dark interface
+- RYZE blue/cyan accents
+- Subtle borders and glow effects
+- Minimal typography
+- High contrast controls
+- Smooth transitions
+
+The Feed should feel modern and technological without becoming visually overloaded.
+
+The content itself should remain the primary visual focus.
+
+---
+
 # Responsive Design
 
 Every page must function correctly on:

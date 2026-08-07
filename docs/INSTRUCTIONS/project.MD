@@ -286,6 +286,74 @@ Additional features will continue to be introduced as the platform evolves.
 
 ---
 
+## RYZE Feed
+
+RYZE Feed is a vertical, short-form video feed designed to provide users with continuous educational and fitness-related content from RYZE trainers and creators.
+Its not just another page like instagram, its for educational videos.
+The experience is inspired by short-form video platforms such as Instagram Reels, but is intentionally focused on fitness, training, nutrition, recovery, and related educational content.
+
+### Core Experience
+
+- Users browse videos through a vertically scrollable feed.
+- Videos are presented one at a time and optimized for visual consumption.
+- The feed is primarily discovery-oriented rather than a traditional social network.
+- Trainers can publish educational and informative fitness content.
+- Content may cover topics such as:
+  - Training techniques
+  - Hypertrophy
+  - Exercise execution
+  - Nutrition
+  - Recovery
+  - Fitness education
+  - General training advice
+- Users can like videos.
+- Comments are not supported.
+- RYZE Feed does not provide a user-facing viewing history.
+- The experience does not depend on traditional post feeds or long-form social interactions.
+
+### Trainer Following
+
+Users can follow trainers.
+
+Following a trainer influences feed personalization, increasing the frequency at which content from followed trainers is presented to the user.
+
+Following does not restrict the user to only that trainer's content. The feed may continue to include content from other trainers and creators.
+
+### Feed Personalization
+
+RYZE Feed should progressively personalize content based on user interactions.
+
+Relevant signals may include:
+
+- Trainers followed by the user
+- Videos liked by the user
+- General interaction with content
+- Content categories and topics
+- Trainer/content relevance
+
+The exact recommendation algorithm is an implementation detail and may evolve independently from the product specification.
+
+### Content Ownership
+
+RYZE Feed content is published by authorized trainers or other roles explicitly permitted by the platform.
+
+Each video belongs to its publishing creator and must maintain a relationship with that creator for attribution, management, and future personalization.
+
+### Product Constraints
+
+RYZE Feed intentionally excludes:
+
+- Comments
+- Public discussion threads
+- User-created posts
+- User-facing viewing history
+- Traditional social-media timelines
+- Direct messaging between users and trainers through the feed
+
+The initial goal is to provide a focused educational content experience rather than reproduce a complete social network.
+
+---
+
 # Community
 
 RYZE includes a community area available to users who have previously acquired at least one training pack.

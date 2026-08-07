@@ -583,6 +583,186 @@ Examples:
 
 ---
 
+## RYZE Feed Database
+
+RYZE Feed requires persistent data for trainer content, user likes, and trainer follows.
+
+The database design must remain normalized and follow the general RYZE database principles:
+
+- UUID identifiers
+- Normalized relational structure
+- Foreign-key relationships
+- `created_at` / `updated_at` timestamps where applicable
+- Soft deletion where appropriate
+- Proper indexing
+- Unique constraints for relationships that must not be duplicated
+
+### Feed Content
+
+Represents a piece of content published to RYZE Feed.
+
+Conceptual entity:
+
+```text
+feed_content
+
+Fields:
+
+id
+trainer_id
+title
+description
+video_url
+thumbnail_url
+duration
+status
+published_at
+created_at
+updated_at
+deleted_at
+Relationships
+Trainer 1 ──────── N Feed Content
+
+Each Feed item must belong to exactly one authorized creator.
+
+trainer_id references the trainer responsible for publishing the content.
+
+Content Status
+
+Feed content should support a lifecycle.
+
+Initial conceptual states:
+
+DRAFT
+PROCESSING
+PUBLISHED
+HIDDEN
+DELETED
+
+Only content in the appropriate published state may appear in the public Feed.
+
+The exact implementation of status values may be adjusted during backend implementation, but the database must prevent unpublished content from being treated as publicly available content.
+
+Feed Likes
+
+Represents a user's Like on a Feed item.
+
+Conceptual entity:
+
+feed_likes
+
+Fields:
+
+id
+feed_content_id
+user_id
+created_at
+
+Relationships:
+
+User        1 ──────── N Feed Likes
+Feed Content 1 ─────── N Feed Likes
+
+A user may Like a specific Feed item at most once.
+
+Required constraint:
+
+UNIQUE(feed_content_id, user_id)
+
+Removing a Like should remove/deactivate the relationship according to the project's established deletion strategy.
+
+The Like count should be derived from the stored relationships rather than duplicated as an authoritative value unless a future performance optimization explicitly introduces a denormalized counter.
+
+Trainer Follows
+
+Represents a user following a trainer.
+
+Conceptual entity:
+
+trainer_follows
+
+Fields:
+
+id
+user_id
+trainer_id
+created_at
+
+Relationships:
+
+User     1 ──────── N Trainer Follows
+Trainer  1 ──────── N Trainer Follows
+
+A user may follow a specific trainer at most once.
+
+Required constraint:
+
+UNIQUE(user_id, trainer_id)
+
+Following a trainer does not grant access to private trainer resources, paid plans, or client-only functionality.
+
+It is primarily a Feed personalization relationship unless another system explicitly defines additional permissions.
+
+Feed Personalization Data
+
+The initial Feed does not require a permanent feed_history or video_views table.
+
+The initial product intentionally does not expose a user-facing viewing history.
+
+Likes and trainer follows are valid persistent personalization signals.
+
+Additional recommendation signals may be introduced later without requiring the initial database schema to store a complete viewing history.
+
+Indexing
+
+The database must provide indexes for the main Feed access patterns.
+
+At minimum, consider indexes covering:
+
+feed_content.status
+feed_content.trainer_id
+feed_content.published_at
+feed_likes.feed_content_id
+feed_likes.user_id
+trainer_follows.trainer_id
+trainer_follows.user_id
+
+Composite indexes should be introduced where they improve the actual query patterns used by the Feed API.
+
+Indexes must be evaluated against real query patterns rather than added indiscriminately.
+
+Data Integrity
+
+Foreign keys must maintain the integrity of relationships between:
+
+Users
+Trainers
+Feed Content
+Feed Likes
+Trainer Follows
+
+Deleting or deactivating a trainer or Feed item must not leave invalid relationships.
+
+The implementation must follow the project's established soft-delete and referential-integrity strategy.
+
+Future Extensions
+
+The schema should remain extensible for future Feed functionality such as:
+
+Content categories
+Tags
+Content moderation records
+Content reports
+Trainer analytics
+Video analytics
+Featured content
+Recommendation metadata
+Content visibility controls
+
+These should be introduced as separate entities when appropriate rather than adding unrelated fields to feed_content.
+
+---
+
 # FUTURE EXPANSION
 
 The database should always be designed to support future features without requiring major structural changes.

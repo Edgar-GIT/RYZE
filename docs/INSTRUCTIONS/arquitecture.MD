@@ -337,6 +337,244 @@ docs/API/api.MD
 
 ---
 
+## RYZE Feed Architecture
+
+RYZE Feed is a dedicated content delivery system within the RYZE platform.
+
+The system is responsible for storing, publishing, retrieving, ranking, and delivering short-form fitness content created by authorized trainers.
+
+The Feed is designed as a modular system so that content delivery and recommendation logic can evolve independently from the rest of the platform.
+
+### Core Components
+
+RYZE Feed consists of the following logical components:
+
+- Content Management
+- Video Storage
+- Video Processing
+- Feed Delivery
+- Feed Personalization
+- Trainer Following
+- Video Likes
+- Content Moderation
+
+### Content Flow
+
+Trainer content follows this general lifecycle:
+
+```text
+Trainer
+   │
+   ▼
+Create Content
+   │
+   ▼
+Upload Video
+   │
+   ▼
+Validate File
+   │
+   ▼
+Process Video
+   │
+   ▼
+Generate/Store Media
+   │
+   ▼
+Content Review / Validation
+   │
+   ▼
+Publish
+   │
+   ▼
+RYZE Feed
+
+nly published and valid content may be returned to normal Feed users.
+
+Feed Delivery
+
+The Feed should use incremental content loading rather than loading the entire content library at once.
+
+The client requests a limited number of Feed items and requests additional items as the user approaches the end of the currently loaded content.
+
+Conceptually:
+
+Client
+   │
+   ▼
+Feed API
+   │
+   ▼
+Candidate Content
+   │
+   ▼
+Personalization / Ranking
+   │
+   ▼
+Paginated Results
+   │
+   ▼
+Client
+
+The exact pagination mechanism may evolve as the platform develops.
+
+Feed Personalization
+
+RYZE Feed supports personalized content discovery.
+
+The system may consider signals such as:
+
+Trainers followed by the user
+Videos liked by the user
+Content categories
+Trainer relevance
+Content popularity
+Content freshness
+Other future engagement signals
+
+Following a trainer should increase the probability that content from that trainer appears in the user's Feed.
+
+Following must not restrict the Feed exclusively to followed trainers.
+
+The Feed should maintain a balance between:
+
+Followed content
+Relevant content
+Discovery content
+
+The recommendation algorithm must remain modular and replaceable.
+
+No specific ranking formula should be considered part of the permanent architecture.
+
+Trainer Following
+
+Following is represented as a relationship between a user and a trainer.
+
+User
+ │
+ └── follows ──► Trainer
+
+This relationship may be consumed by the Feed personalization system.
+
+Following a trainer does not automatically grant access to private trainer resources or paid plans.
+
+It only affects Feed content personalization unless another system explicitly defines additional permissions.
+
+Video Likes
+
+Users may like published Feed videos.
+
+The Like system must:
+
+Allow one active Like per user per video
+Allow users to remove their Like
+Prevent duplicate Likes
+Provide the current Like state to the client
+Provide aggregate Like counts where required
+
+Likes may be used as a personalization signal.
+
+Content Ownership
+
+Every Feed video must have a clearly defined creator.
+
+Trainer
+   │
+   └── owns/publishes ──► Feed Content
+
+Content ownership is required for:
+
+Attribution
+Content management
+Editing
+Removal
+Moderation
+Future analytics
+Content States
+
+Feed content should support a lifecycle rather than being immediately public after upload.
+
+At minimum, the architecture should support states conceptually equivalent to:
+
+Draft
+   │
+   ▼
+Processing
+   │
+   ▼
+Published
+   │
+   ├──► Hidden
+   │
+   └──► Deleted
+
+The exact state names may be adjusted during database/API design.
+
+Only appropriate published content should be visible in the public Feed.
+
+Media Processing
+
+Uploaded videos must not be assumed to be ready for immediate playback.
+
+The system should support a processing stage where uploaded media can be:
+
+Validated
+Security checked
+Transcoded if necessary
+Optimized for delivery
+Associated with a thumbnail/poster
+Prepared for supported playback formats
+
+The processing system should be designed independently from the Feed UI.
+
+Content Moderation
+
+RYZE Feed content must pass the platform's security and moderation requirements before becoming publicly available.
+
+Content moderation and security validation are separate concerns:
+
+Security validation protects the platform and infrastructure.
+Content moderation determines whether content is appropriate for publication.
+
+The Feed architecture must allow content to be hidden or removed without requiring physical deletion of all associated records.
+
+Scalability
+
+RYZE Feed should be designed so that increasing content volume does not require loading all videos or all users into memory.
+
+The architecture should support future growth in:
+
+Number of trainers
+Number of videos
+Number of Feed users
+Number of Likes
+Number of Follows
+Video storage requirements
+Feed requests
+
+Feed retrieval, media storage, and recommendation logic should remain independently scalable where practical.
+
+Future Extensibility
+
+The initial RYZE Feed intentionally remains simple.
+
+The architecture should, however, allow future functionality such as:
+
+More advanced recommendations
+Content categories
+Hashtags/tags
+Trainer analytics
+Content analytics
+Improved video processing
+Content moderation tooling
+Featured content
+Personalized discovery
+Additional creator roles
+
+Future functionality must not require redesigning the fundamental relationship between users, trainers, and Feed content.
+
+---
+
 # FILE STORAGE
 
 Uploads are stored locally during the initial phase.
