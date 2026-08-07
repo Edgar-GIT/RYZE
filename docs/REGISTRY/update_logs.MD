@@ -1,3 +1,136 @@
+# Version 2.2.65
+
+Title: Tune join section background, feature panel, CTA and footer position
+
+Date: 2026-08-07
+
+Summary:
+
+In the "Join the movement" section the background is no longer cut at the
+bottom on wide screens (object-position biased to `center 85%` so the
+illuminated platform stays visible). The feature panel is wider (92rem) and
+much thinner in height, with larger, more legible icons and text now laid out
+as icon + number/title inline + subtitle, and sits lower. The CTA is smaller,
+rectangular with rounded corners and closer to the text. The title moved
+higher (2rem top padding) and the two closing lines moved closer to the
+bottom (1.25rem bottom padding).
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+
+Reason:
+
+Product feedback: background cropped at bottom, title too low, CTA too big
+and pill-shaped, feature panel too tall and narrow.
+
+---
+
+# Version 2.2.64
+
+Title: Compact join feature panel and lower the bottom statement
+
+Date: 2026-08-07
+
+Summary:
+
+In the "Join the movement" section the feature panel is now much more compact
+(smaller padding, icons, numbers and text) and pinned just above the closing
+statement via `margin-top: auto`. The two closing lines were wrapped in a
+`.joinFooter` group, brightened (larger, `--text-secondary` / accent glow) and
+anchored to the bottom of the viewport.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+Product feedback: smaller feature bar right above a more visible, lower closing
+statement.
+
+---
+
+# Version 2.2.63
+
+Title: Move join section text higher
+
+Date: 2026-08-07
+
+Summary:
+
+The "Join the movement" section was vertically centered; the eyebrow, headline
+and lead sat too low. The section is now top-aligned with reduced top padding,
+while the closing statement stays anchored to the bottom of the viewport via
+`margin-top: auto` on a flex column content wrapper.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+Product feedback: the top centered text must sit higher.
+
+---
+
+# Version 2.2.62
+
+Title: Remove logo from the Our Vision join section
+
+Date: 2026-08-07
+
+Summary:
+
+Removed the glowing RYZE R mark that floated between the CTA and the feature
+panel in the new "Join the movement" section. Deleted the element, its
+`ryzeIcon` import and the orphaned `.joinLogo` CSS. The background remains
+unchanged.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+Product feedback: the logo does not belong in the composition.
+
+---
+
+# Version 2.2.61
+
+Title: Add "Join the movement" closing section to Our Vision
+
+Date: 2026-08-07
+
+Summary:
+
+Added a new final section to the Our Vision page using the supplied
+`join_bg.png` background (full-bleed, unchanged). Fully centered composition:
+"The journey continues" eyebrow, two-line headline with cyan gradient accent on
+"join us now.", short description, neon outline "JOIN RYZE →" CTA to
+`/register`, the glowing RYZE R mark floating above the platform, a wide glass
+panel with five numbered feature items, and the closing "RYZE is more than a
+platform." / "It's a movement." statement. Reveal animations match the rest of
+the page. Updated the Our Vision section list in the page design docs.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+The "Technology first" section was replaced by a closing platform section per
+product decision.
+
+---
+
 # Version 2.2.60
 
 Title: Remove Technology first section from Our Vision page

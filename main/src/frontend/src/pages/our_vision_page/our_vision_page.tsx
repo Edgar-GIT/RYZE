@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
+  ArrowRight,
   BarChart3,
   Brain,
   ChartNoAxesCombined,
@@ -9,6 +10,7 @@ import {
   Dumbbell,
   Gauge,
   Globe2,
+  Heart,
   Hexagon,
   Layers3,
   Leaf,
@@ -27,12 +29,14 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
 import fitnessOsBackground from "@resources/img/hero/evo_man_bg.png";
 import futureBackground from "@resources/img/hero/future_bg.png";
 import howItWorksBackground from "@resources/img/hero/how_bg.png";
+import joinBackground from "@resources/img/hero/join_bg.png";
 import ourVisionBackground from "@resources/img/hero/our_view.png";
 
 import styles from "./our_vision_page.module.css";
@@ -158,6 +162,34 @@ const evolutionCards = [
     icon: Link2,
     title: "New integrations",
     text: "Seamless connections with the tools you love."
+  }
+] as const;
+
+const joinFeatures = [
+  {
+    icon: Users,
+    title: "Strong community",
+    text: "Together we go further."
+  },
+  {
+    icon: Dumbbell,
+    title: "Smarter training",
+    text: "Train with purpose."
+  },
+  {
+    icon: Heart,
+    title: "Built with passion",
+    text: "For people who never stop."
+  },
+  {
+    icon: ChartNoAxesCombined,
+    title: "Continuous evolution",
+    text: "Always improving."
+  },
+  {
+    icon: Zap,
+    title: "Your journey",
+    text: "Your goals, our mission."
   }
 ] as const;
 
@@ -486,6 +518,77 @@ export const OurVisionPage = () => (
               </Reveal>
             );
           })}
+        </div>
+      </Container>
+    </section>
+
+    <section className={`${styles.section} ${styles.sectionJoin}`}>
+      <img
+        className={styles.joinBackground}
+        src={joinBackground}
+        alt=""
+        aria-hidden="true"
+      />
+
+      <Container className={styles.joinLayout}>
+        <div className={styles.joinContent}>
+          <Reveal className={styles.joinIntro}>
+            <p className={styles.joinEyebrow}>The journey continues</p>
+            <h2 className={styles.joinTitle}>
+              Grow together
+              <br />
+              with RYZE, <span className={styles.joinAccent}>join us now.</span>
+            </h2>
+            <p className={styles.joinLead}>
+              We're building the future of fitness, education and technology.
+              <br />
+              Be part of a community that evolves every day.
+            </p>
+
+            <Button
+              className={styles.joinCta}
+              to="/register"
+              variant="secondary"
+              size="medium"
+              icon={<ArrowRight aria-hidden="true" />}
+            >
+              JOIN RYZE
+            </Button>
+          </Reveal>
+
+          <Reveal className={styles.joinFeaturesPanel} delay={0.12}>
+            <ol className={styles.joinFeatures}>
+              {joinFeatures.map((feature, index) => {
+                const Icon = feature.icon;
+
+                return (
+                  <li key={feature.title} className={styles.joinFeature}>
+                    <span className={styles.joinFeatureIcon}>
+                      <Icon aria-hidden="true" />
+                    </span>
+                    <span className={styles.joinFeatureCopy}>
+                      <span className={styles.joinFeatureHeader}>
+                        <span className={styles.joinFeatureNumber}>
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <strong>{feature.title}</strong>
+                      </span>
+                      <p>{feature.text}</p>
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </Reveal>
+
+          <div className={styles.joinFooter}>
+            <p className={styles.joinStatement}>
+              <span className={styles.joinStatementLine} aria-hidden="true" />
+              RYZE is more than a platform.
+              <span className={styles.joinStatementLine} aria-hidden="true" />
+            </p>
+            <p className={styles.joinMovement}>It's a movement.</p>
+          </div>
         </div>
       </Container>
     </section>

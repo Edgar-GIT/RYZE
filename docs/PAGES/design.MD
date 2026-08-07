@@ -557,9 +557,14 @@ Sections:
 5. Continuous evolution — full-bleed `conti_bg.png` background with left
    intro and a 2×3 grid of glowing capability cards (icon well, title,
    description, chevron).
-6. Technology first — full-bleed `tech_bg.png` background with left copy
-   (eyebrow, headline with accent on “modern”, feature list). No CTA button,
-   no bottom pillar row.
+6. Join the movement — full-bleed `join_bg.png` background. Fully centered
+   composition on the central vertical axis: eyebrow ("The journey
+   continues"), two-line headline with accent on "join us now.", short
+   description, neon outline CTA ("JOIN RYZE →" to `/register`), a wide
+   single glass panel with five numbered feature items (community / training
+   / passion / evolution / journey), and a bottom statement ("RYZE is more
+   than a platform." with side lines, then "It's a movement."). No left or
+   right columns, no extra cards, no navigation.
 
 Do not use long paragraphs, huge founder photos, or traditional “About Us”
 brochure layouts. Founder/people content is deferred for a later release.
