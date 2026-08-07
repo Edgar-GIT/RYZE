@@ -1,3 +1,30 @@
+# Version 2.2.56
+
+Title: Add Feed nav item and under-development page
+
+Date: 2026-08-07
+
+Summary:
+
+Added a public “Feed” navigation item and `/feed` under-development route,
+matching the existing placeholder pattern used by Feedback and auth pages.
+
+Files modified:
+
+- `main/src/frontend/src/constants/navigation.ts`
+- `main/src/frontend/src/components/navbar/navbar.tsx`
+- `main/src/frontend/src/routes/app_routes.tsx`
+- `docs/PAGES/design.MD`
+- `docs/how_to_run.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+
+Reason:
+
+User asked to add Feed to the navbar and create the not-yet-implemented page.
+
+---
+
 # Version 2.2.55
 
 Title: Add services background and plan card logos

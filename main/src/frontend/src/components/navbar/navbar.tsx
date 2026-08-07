@@ -5,6 +5,7 @@ import {
   Mail,
   Menu,
   MessageSquareText,
+  Newspaper,
   UserRound,
   X
 } from "lucide-react";
@@ -25,7 +26,8 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   "/services": Dumbbell,
   "/contact": Mail,
   "/feedback": MessageSquareText,
-  "/our-vision": Eye
+  "/our-vision": Eye,
+  "/feed": Newspaper
 };
 
 export const Navbar = () => {

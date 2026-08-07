@@ -39,6 +39,16 @@ export const AppRoutes = () => {
           )}
         />
         <Route
+          path="/feed"
+          render={() => (
+            <UnderDevelopmentPage
+              eyebrow="Feed"
+              title="Feed is under development."
+              description="The RYZE activity feed will be introduced after the frontend foundation is ready."
+            />
+          )}
+        />
+        <Route
           path="/login"
           render={() => (
             <UnderDevelopmentPage

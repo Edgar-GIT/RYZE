@@ -276,7 +276,7 @@ requested.
 The public navigation bar contains:
 
 - Brand Logo (left)
-- Centered links: Services, Contact, Feedback, Our Vision
+- Centered links: Services, Contact, Feedback, Our Vision, Feed
 - Right actions: Log in (outline pill) and Start free (solid cyan pill)
 
 The logo always redirects to the Home page.
@@ -477,23 +477,17 @@ redirected to the client dashboard.
 
 ## Feedback
 
-Acts as the platform's social area.
+Acts as the platform's social / complaints area.
 
-Contains two sections.
+Digital Complaints Book and related feedback flows live here.
 
-Community
+---
 
-Facebook-inspired feed where users can:
+## Feed
 
-- Create posts
-- Upload images
-- View achievements
-- Share progress
-- Comment
+Public activity feed for RYZE community updates.
 
-Digital Complaints Book
-
-Official complaint submission page.
+Currently routes to an under-development placeholder (`/feed`).
 
 ---
 

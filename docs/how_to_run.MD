@@ -167,6 +167,7 @@ Available frontend routes:
 - `/contact`
 - `/our-vision`
 - `/feedback`
+- `/feed`
 - `/profile`
 
 `/about-us` redirects to `/our-vision`.

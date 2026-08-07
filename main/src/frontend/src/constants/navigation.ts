@@ -19,5 +19,9 @@ export const PUBLIC_NAVIGATION_ITEMS: NavigationItem[] = [
   {
     label: "Our Vision",
     to: "/our-vision"
+  },
+  {
+    label: "Feed",
+    to: "/feed"
   }
 ];
