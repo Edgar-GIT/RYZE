@@ -1,3 +1,65 @@
+# Version 2.2.99
+
+Title: Backend Step 15 — reactivate soft-deleted users on re-registration
+
+Date: 2026-08-10
+
+Summary:
+
+When a user whose account was soft-deleted re-registers with the same email,
+`POST /api/v1/auth/register` now restores the existing row instead of creating
+a duplicate account. The original UUID and `created_at` are preserved, the
+first/last names are updated, `deleted_at` is cleared and the `password_hash`
+is replaced with a freshly Argon2id-hashed password — the old password never
+verifies again and the old hash is never restored. Registering an active
+email still returns `ErrDuplicateEmail` (HTTP 409) and a brand new email still
+creates a normal account (HTTP 201); the endpoint, response structure and
+status codes are unchanged.
+
+The orchestration lives in the `registration` service (lookup -> decide ->
+create/reactivate). The User Repository gained two GORM-only operations:
+`FindByEmailIncludingDeleted` (`Unscoped` lookup to detect whether a previous
+account owns the email) and `Reactivate` (`Unscoped` update clearing
+`deleted_at` and replacing names + password hash). No new endpoint, no second
+database connection and no new library were introduced; `created_at`,
+`updated_at`, soft-delete and the generated `active_email` uniqueness are all
+enforced by the existing table.
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passing. New tests cover: repository lookup
+including deleted rows + reactivation (same UUID, restored active lookups,
+uniqueness re-enforced); registration reactivation (same UUID, updated names,
+preserved created_at, no second row, only the new password verifies);
+reactivation repository failure propagation; login after reactivation (new
+password authenticates, old password rejected); and the HTTP layer
+(re-registering a soft-deleted email returns 201 with the same user id and no
+password_hash/plaintext exposure). A MariaDB end-to-end flow confirmed the
+full cycle (register -> soft delete -> re-register same email -> same UUID,
+single row, login with new password 200, old password 401) and the manual test
+user was removed afterwards.
+
+Files modified:
+
+- `main/src/backend/repositories/user_repository.go` (added
+  `FindByEmailIncludingDeleted` + `Reactivate`)
+- `main/src/backend/services/registration/registration.go` (reactivation flow)
+- `main/src/backend/services/registration/registration_test.go`
+- `main/src/backend/services/login/login_test.go` (login after reactivation)
+- `main/src/backend/repositories/user_repository_test.go`
+- `main/src/backend/api/auth/register_handler_test.go`
+- `main/src/backend/api/auth/login_handler_test.go` (mock updated)
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+A soft-deleted account should be recoverable: re-registering with the same
+email should restore the person's original account (same identity) rather than
+splitting their history across a second row, matching the project's soft-delete
+and data-preservation philosophy.
+
+---
+
 # Version 2.2.98
 
 Title: Step 14 — simple authenticated profile page

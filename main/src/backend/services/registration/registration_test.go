@@ -14,6 +14,8 @@ import (
 	"ryze/backend/repositories"
 	"ryze/backend/services/password"
 	"ryze/backend/services/registration"
+
+	"gorm.io/gorm"
 )
 
 func TestRegisterSuccess(t *testing.T) {
@@ -154,6 +156,96 @@ func TestRegisterRepositoryErrorPropagation(t *testing.T) {
 	}
 }
 
+func TestRegisterReactivateSoftDeletedUser(t *testing.T) {
+	repo, close := newTestRepository(t)
+	defer close()
+
+	svc := registration.NewRegistrationService(repo, password.Hasher{})
+	ctx := context.Background()
+	email := fmt.Sprintf("register-reactivate-%d@ryze.local", time.Now().UnixNano())
+	oldPassword := "OldPassword123!"
+	newPassword := "NewPassword456!"
+
+	first, err := svc.Register(ctx, registration.RegisterInput{
+		Email:     email,
+		Password:  oldPassword,
+		FirstName: "First",
+		LastName:  "User",
+	})
+	if err != nil {
+		t.Fatalf("first Register: %v", err)
+	}
+
+	if err := repo.SoftDelete(ctx, first.ID); err != nil {
+		t.Fatalf("SoftDelete: %v", err)
+	}
+
+	reactivated, err := svc.Register(ctx, registration.RegisterInput{
+		Email:     email,
+		Password:  newPassword,
+		FirstName: "Second",
+		LastName:  "Name",
+	})
+	if err != nil {
+		t.Fatalf("Register after soft delete: %v", err)
+	}
+	if reactivated.ID != first.ID {
+		t.Fatalf("reactivation must keep the same UUID: got %q, want %q", reactivated.ID, first.ID)
+	}
+	if reactivated.PasswordHash != "" {
+		t.Fatal("reactivated user must not expose password_hash")
+	}
+	if reactivated.DeletedAt.Valid {
+		t.Fatal("reactivated user must not expose deleted_at")
+	}
+
+	// No second row is created: the same row is restored and active again.
+	stored, err := repo.FindByID(ctx, first.ID)
+	if err != nil {
+		t.Fatalf("FindByID after reactivation: %v", err)
+	}
+	if stored.FirstName != "Second" || stored.LastName != "Name" {
+		t.Fatalf("reactivation must update names, got %s %s", stored.FirstName, stored.LastName)
+	}
+	if stored.Email != email {
+		t.Fatalf("reactivation must keep the email, got %q", stored.Email)
+	}
+	if !stored.CreatedAt.Equal(first.CreatedAt) {
+		t.Fatal("reactivation must preserve created_at")
+	}
+
+	// The stored hash was replaced with a fresh Argon2id hash: only the new
+	// password verifies, the old password no longer works.
+	ok, err := password.VerifyPassword(newPassword, stored.PasswordHash)
+	if err != nil {
+		t.Fatalf("VerifyPassword (new): %v", err)
+	}
+	if !ok {
+		t.Fatal("new password must verify after reactivation")
+	}
+	ok, err = password.VerifyPassword(oldPassword, stored.PasswordHash)
+	if err != nil {
+		t.Fatalf("VerifyPassword (old): %v", err)
+	}
+	if ok {
+		t.Fatal("old password must no longer verify after reactivation")
+	}
+}
+
+func TestRegisterReactivationFailure(t *testing.T) {
+	svc := registration.NewRegistrationService(reactivationFailRepo{}, password.Hasher{})
+
+	_, err := svc.Register(context.Background(), registration.RegisterInput{
+		Email:     "reactivate-fail@ryze.local",
+		Password:  "Password123!",
+		FirstName: "First",
+		LastName:  "Last",
+	})
+	if !errors.Is(err, errRepositoryFailure) {
+		t.Fatalf("Register: expected reactivation repository error to propagate, got %v", err)
+	}
+}
+
 func newTestRepository(t *testing.T) (repositories.UserRepository, func()) {
 	t.Helper()
 
@@ -187,9 +279,41 @@ func (failingRepo) FindByID(_ context.Context, _ string) (*models.User, error) {
 func (failingRepo) FindByEmail(_ context.Context, _ string) (*models.User, error) {
 	return nil, errRepositoryFailure
 }
+func (failingRepo) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
+	return nil, errRepositoryFailure
+}
 func (failingRepo) Update(_ context.Context, _ *models.User) error {
 	return errRepositoryFailure
 }
+func (failingRepo) Reactivate(_ context.Context, _ *models.User) error {
+	return errRepositoryFailure
+}
 func (failingRepo) SoftDelete(_ context.Context, _ string) error {
+	return errRepositoryFailure
+}
+
+// reactivationFailRepo returns a soft-deleted user on lookup but fails when the
+// reactivation update is performed.
+type reactivationFailRepo struct{}
+
+func (reactivationFailRepo) Create(_ context.Context, _ *models.User) error {
+	return errRepositoryFailure
+}
+func (reactivationFailRepo) FindByID(_ context.Context, _ string) (*models.User, error) {
+	return nil, errRepositoryFailure
+}
+func (reactivationFailRepo) FindByEmail(_ context.Context, _ string) (*models.User, error) {
+	return nil, errRepositoryFailure
+}
+func (reactivationFailRepo) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
+	return &models.User{DeletedAt: gorm.DeletedAt{Valid: true}}, nil
+}
+func (reactivationFailRepo) Update(_ context.Context, _ *models.User) error {
+	return errRepositoryFailure
+}
+func (reactivationFailRepo) Reactivate(_ context.Context, _ *models.User) error {
+	return errRepositoryFailure
+}
+func (reactivationFailRepo) SoftDelete(_ context.Context, _ string) error {
 	return errRepositoryFailure
 }

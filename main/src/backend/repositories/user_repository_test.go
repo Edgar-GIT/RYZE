@@ -113,4 +113,58 @@ func TestUserRepository(t *testing.T) {
 	if !raw.DeletedAt.Valid {
 		t.Fatal("expected deleted_at to be populated on the soft-deleted row")
 	}
+
+	// 9. The soft-deleted user is found when deleted rows are included.
+	deleted, err := repo.FindByEmailIncludingDeleted(ctx, updatedEmail)
+	if err != nil {
+		t.Fatalf("find user including deleted: %v", err)
+	}
+	if deleted.ID != user.ID {
+		t.Fatalf("find including deleted: expected id %q, got %q", user.ID, deleted.ID)
+	}
+	if !deleted.DeletedAt.Valid {
+		t.Fatal("find including deleted: expected deleted_at to be populated")
+	}
+
+	// 10. Reactivate the user (simulates re-registration with the same email).
+	deleted.FirstName = "Restored"
+	deleted.LastName = "Account"
+	deleted.PasswordHash = "replacement-hash"
+	if err := repo.Reactivate(ctx, deleted); err != nil {
+		t.Fatalf("reactivate user: %v", err)
+	}
+
+	// 11. The same row is restored and returned by normal lookups again.
+	restored, err := repo.FindByID(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("find reactivated user by id: %v", err)
+	}
+	if restored.ID != user.ID {
+		t.Fatalf("reactivate: expected id %q, got %q", user.ID, restored.ID)
+	}
+	if restored.FirstName != "Restored" || restored.LastName != "Account" {
+		t.Fatalf("reactivate: got %s %s", restored.FirstName, restored.LastName)
+	}
+	if restored.PasswordHash != "replacement-hash" {
+		t.Fatal("reactivate: password_hash must be replaced")
+	}
+	if restored.DeletedAt.Valid {
+		t.Fatal("reactivate: deleted_at must be cleared")
+	}
+	if !restored.CreatedAt.Equal(user.CreatedAt) {
+		t.Fatal("reactivate: created_at must be preserved")
+	}
+	if !restored.UpdatedAt.After(user.UpdatedAt) {
+		t.Fatal("reactivate: updated_at must advance")
+	}
+
+	// 12. Email uniqueness is enforced again after reactivation.
+	duplicate = &models.User{
+		Email:     updatedEmail,
+		FirstName: "Duplicate",
+		LastName:  "Entry",
+	}
+	if err := repo.Create(ctx, duplicate); !errors.Is(err, repositories.ErrDuplicateEmail) {
+		t.Fatalf("duplicate after reactivation: expected ErrDuplicateEmail, got %v", err)
+	}
 }

@@ -334,7 +334,13 @@ func (failingLoginRepository) FindByID(_ context.Context, _ string) (*models.Use
 func (failingLoginRepository) FindByEmail(_ context.Context, _ string) (*models.User, error) {
 	return nil, errLoginRepoFailure
 }
+func (failingLoginRepository) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
+	return nil, errLoginRepoFailure
+}
 func (failingLoginRepository) Update(_ context.Context, _ *models.User) error {
+	return errLoginRepoFailure
+}
+func (failingLoginRepository) Reactivate(_ context.Context, _ *models.User) error {
 	return errLoginRepoFailure
 }
 func (failingLoginRepository) SoftDelete(_ context.Context, _ string) error {

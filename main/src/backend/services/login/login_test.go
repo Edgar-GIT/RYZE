@@ -111,6 +111,48 @@ func TestLoginSoftDeletedUser(t *testing.T) {
 	}
 }
 
+func TestLoginAfterReactivation(t *testing.T) {
+	repo, close := newTestRepository(t)
+	defer close()
+
+	svc := login.NewLoginService(repo, password.Verifier{})
+	ctx := context.Background()
+	email := fmt.Sprintf("login-reactivate-%d@ryze.local", time.Now().UnixNano())
+	oldPassword := "OldPassword123!"
+	newPassword := "NewPassword456!"
+	user := seedUser(t, repo, email, oldPassword)
+
+	if err := repo.SoftDelete(ctx, user.ID); err != nil {
+		t.Fatalf("SoftDelete: %v", err)
+	}
+
+	// Re-activate the row with a replaced password hash, as registration does.
+	user.FirstName = "Restored"
+	user.LastName = "Account"
+	hash, err := password.HashPassword(newPassword)
+	if err != nil {
+		t.Fatalf("HashPassword: %v", err)
+	}
+	user.PasswordHash = hash
+	if err := repo.Reactivate(ctx, user); err != nil {
+		t.Fatalf("Reactivate: %v", err)
+	}
+
+	// The old password must not work after reactivation.
+	if _, err := svc.Login(ctx, login.LoginInput{Email: email, Password: oldPassword}); !errors.Is(err, login.ErrInvalidCredentials) {
+		t.Fatalf("Login with old password: expected ErrInvalidCredentials, got %v", err)
+	}
+
+	// The new password must authenticate the restored account.
+	authed, err := svc.Login(ctx, login.LoginInput{Email: email, Password: newPassword})
+	if err != nil {
+		t.Fatalf("Login after reactivation: %v", err)
+	}
+	if authed.ID != user.ID {
+		t.Fatalf("Login after reactivation: expected id %q, got %q", user.ID, authed.ID)
+	}
+}
+
 func TestLoginEmptyInput(t *testing.T) {
 	repo, close := newTestRepository(t)
 	defer close()
@@ -189,7 +231,13 @@ func (failingRepo) FindByID(_ context.Context, _ string) (*models.User, error) {
 func (failingRepo) FindByEmail(_ context.Context, _ string) (*models.User, error) {
 	return nil, errRepositoryFailure
 }
+func (failingRepo) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
+	return nil, errRepositoryFailure
+}
 func (failingRepo) Update(_ context.Context, _ *models.User) error {
+	return errRepositoryFailure
+}
+func (failingRepo) Reactivate(_ context.Context, _ *models.User) error {
 	return errRepositoryFailure
 }
 func (failingRepo) SoftDelete(_ context.Context, _ string) error {

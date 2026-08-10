@@ -30,8 +30,9 @@ func init() {
 }
 
 // newTestRouter builds a router backed by a real database transaction so the
-// created users are rolled back and never persisted.
-func newTestRouter(t *testing.T) *gin.Engine {
+// created users are rolled back and never persisted. The repository is returned
+// so tests can manipulate the user directly.
+func newTestRouter(t *testing.T) (*gin.Engine, repositories.UserRepository) {
 	t.Helper()
 
 	config.LoadEnvFile()
@@ -48,13 +49,14 @@ func newTestRouter(t *testing.T) *gin.Engine {
 	tx := db.Begin()
 	t.Cleanup(func() { tx.Rollback() })
 
-	svc := registration.NewRegistrationService(repositories.NewUserRepository(tx), password.Hasher{})
+	repo := repositories.NewUserRepository(tx)
+	svc := registration.NewRegistrationService(repo, password.Hasher{})
 	handler := auth.NewRegisterHandler(svc)
 
 	router := gin.New()
 	router.POST(registerRoute, handler.Register)
 
-	return router
+	return router, repo
 }
 
 // failingRepository simulates an unexpected repository failure.
@@ -69,7 +71,13 @@ func (failingRepository) FindByID(_ context.Context, _ string) (*models.User, er
 func (failingRepository) FindByEmail(_ context.Context, _ string) (*models.User, error) {
 	return nil, repositories.ErrUserNotFound
 }
+func (failingRepository) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
+	return nil, repositories.ErrUserNotFound
+}
 func (failingRepository) Update(_ context.Context, _ *models.User) error {
+	return nil
+}
+func (failingRepository) Reactivate(_ context.Context, _ *models.User) error {
 	return nil
 }
 func (failingRepository) SoftDelete(_ context.Context, _ string) error {
@@ -97,7 +105,7 @@ func uniqueEmail() string {
 }
 
 func TestRegisterSuccess(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 
 	rec, data, raw := register(router, fmt.Sprintf(`{
 		"email": %q,
@@ -127,7 +135,7 @@ func TestRegisterSuccess(t *testing.T) {
 }
 
 func TestRegisterDuplicateEmail(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 	email := uniqueEmail()
 	body := fmt.Sprintf(`{
 		"email": %q,
@@ -148,7 +156,7 @@ func TestRegisterDuplicateEmail(t *testing.T) {
 }
 
 func TestRegisterInvalidJSON(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 
 	rec, _, _ := register(router, `{"email": "broken"`)
 	if rec.Code != http.StatusBadRequest {
@@ -157,7 +165,7 @@ func TestRegisterInvalidJSON(t *testing.T) {
 }
 
 func TestRegisterMissingRequiredFields(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 
 	for name, body := range map[string]string{
 		"empty object": `{}`,
@@ -192,7 +200,7 @@ func TestRegisterMissingRequiredFields(t *testing.T) {
 }
 
 func TestRegisterResponseNeverContainsPassword(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 
 	rec, data, raw := register(router, fmt.Sprintf(`{
 		"email": %q,
@@ -231,5 +239,51 @@ func TestRegisterInternalError(t *testing.T) {
 	}
 	if strings.Contains(raw, "database unreachable") {
 		t.Fatal("internal error details must never be exposed")
+	}
+}
+
+func TestRegisterReactivatesSoftDeletedUser(t *testing.T) {
+	router, repo := newTestRouter(t)
+	email := uniqueEmail()
+	firstBody := fmt.Sprintf(`{
+		"email": %q,
+		"password": "Str0ng!Passw0rd",
+		"first_name": "John",
+		"last_name": "Doe"
+	}`, email)
+
+	rec, data, raw := register(router, firstBody)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("first registration: expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	id, _ := data["id"].(string)
+	if id == "" {
+		t.Fatal("expected non-empty user id")
+	}
+
+	if err := repo.SoftDelete(context.Background(), id); err != nil {
+		t.Fatalf("SoftDelete: %v", err)
+	}
+
+	rec, data, raw = register(router, fmt.Sprintf(`{
+		"email": %q,
+		"password": "NewP@ssw0rd!",
+		"first_name": "Jane",
+		"last_name": "Smith"
+	}`, email))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("re-registration: expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	if again, _ := data["id"].(string); again != id {
+		t.Fatalf("re-registration must reuse the same user id: got %q, want %q", again, id)
+	}
+	if firstName, _ := data["first_name"].(string); firstName != "Jane" {
+		t.Fatalf("re-registration must update first_name, got %q", firstName)
+	}
+	if strings.Contains(raw, "password_hash") {
+		t.Fatal("response must never contain password_hash")
+	}
+	if strings.Contains(raw, "NewP@ssw0rd!") {
+		t.Fatal("response must never contain the plaintext password")
 	}
 }

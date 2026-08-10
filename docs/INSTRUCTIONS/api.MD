@@ -648,6 +648,14 @@ Public endpoint.
 
 Accounts are inactive until email verification is completed.
 
+If the email belongs to a soft-deleted (previously deleted) account, the same
+registration restores that account instead of creating a duplicate: the
+original UUID and creation date are kept, the names are updated and the
+password is replaced by the new password hash. The endpoint still returns
+HTTP 201 and the same response structure in both cases. Registering an email
+that belongs to an active account returns HTTP 409
+`EMAIL_ALREADY_REGISTERED`.
+
 ---
 
 ## Logout
