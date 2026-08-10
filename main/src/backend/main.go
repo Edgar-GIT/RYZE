@@ -6,6 +6,7 @@ import (
 
 	"ryze/backend/config"
 	"ryze/backend/database"
+	"ryze/backend/routes"
 )
 
 func main() {
@@ -33,6 +34,15 @@ func main() {
 	defer sqlDB.Close()
 
 	fmt.Printf("database connection established successfully (host=%s port=%s db=%s)\n", cfg.Host, cfg.Port, cfg.Name)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	if err := routes.Setup(db).Run(":" + port); err != nil {
+		fail("http server error: %v", err)
+	}
 }
 
 func runMigrateCommand(cfg config.DatabaseConfig, args []string) {

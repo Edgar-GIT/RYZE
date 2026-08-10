@@ -72,6 +72,14 @@ func (Hasher) HashPassword(password string) (string, error) {
 	return HashPassword(password)
 }
 
+// Verifier exposes VerifyPassword as a method so the verification service can
+// be injected as a dependency.
+type Verifier struct{}
+
+func (Verifier) VerifyPassword(password, hash string) (bool, error) {
+	return VerifyPassword(password, hash)
+}
+
 // VerifyPassword reports whether the plaintext password matches the given
 // hash. Malformed or empty hashes return ErrInvalidHash; empty passwords
 // return ErrEmptyPassword. Verification never panics on malformed input.

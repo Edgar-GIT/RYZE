@@ -1,3 +1,54 @@
+# Version 2.2.89
+
+Title: Backend Step 6 — registration HTTP endpoint
+
+Date: 2026-08-10
+
+Summary:
+
+Exposed the existing Registration Service through a single public endpoint
+`POST /api/v1/auth/register` using Gin (already part of the documented backend
+stack). Dependencies are wired once at startup in `routes.Setup(db)`:
+repository -> registration service -> handler, so the handler never hashes
+passwords, touches GORM or creates database connections.
+
+The HTTP layer only parses JSON into a request DTO and maps results. It does
+not re-implement semantic validation: the service still owns required-field and
+format checks, so handler code does not duplicate service validation. Error
+responses follow the project's API envelope
+`{success, message, error:{code, details}}` and map to: 201 with safe public
+user data (id, email, first_name, last_name, created_at, updated_at) on
+success; 409 `EMAIL_ALREADY_REGISTERED` for duplicate email; 400
+`VALIDATION_ERROR` for malformed JSON or invalid input; 500 `INTERNAL_ERROR`
+for unexpected failures. `password_hash` is never returned and plaintext
+passwords never leak (an explicit response DTO, not the model, is serialized).
+
+`main.go` now starts the HTTP server after the database connection, honoring a
+`PORT` environment variable (default 8080); the `migrate` CLI is unchanged.
+
+Verification: HTTP-level tests (httptest) cover success 201, duplicate email
+409, invalid JSON 400, missing required fields 400, no `password_hash` in the
+response, no plaintext password in the response, and an unexpected repository
+failure mapping to 500 without leaking internal details. Database-backed cases
+run inside rolled-back transactions, leaving no permanent users. End-to-end
+manual check via `curl` against a running server confirmed 201/409/400/400; the
+single manual test user was removed afterwards.
+
+Files modified:
+
+- `main/src/backend/api/auth/register_handler.go` (new)
+- `main/src/backend/api/auth/register_handler_test.go` (new)
+- `main/src/backend/routes/routes.go`
+- `main/src/backend/main.go`
+- `main/src/backend/go.mod`, `main/src/backend/go.sum` (added Gin)
+
+Reason:
+
+Bring the registration flow to the API surface as the next step toward
+authentication, keeping the HTTP layer thin and the service layer reusable.
+
+---
+
 # Version 2.2.88
 
 Title: Backend Step 5 — user registration service

@@ -261,6 +261,20 @@ database connection established successfully (host=127.0.0.1 port=3306 db=ryze)
 If the database is unreachable, misconfigured, or the credentials are
 rejected, the backend prints a clear error and exits with a non-zero status.
 
+After the connection succeeds the backend starts the HTTP API. The listen port
+is read from the `PORT` environment variable and defaults to `8080`.
+
+```bash
+cd main/src/backend
+go run .
+```
+
+## Available Endpoints
+
+Current API surface (versioned under `/api/v1`):
+
+- `POST /api/v1/auth/register` — creates a new user account (public).
+
 ## Database Migrations
 
 Database schema changes are managed with `golang-migrate`. The schema must
