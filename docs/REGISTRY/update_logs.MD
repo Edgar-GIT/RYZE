@@ -1,3 +1,47 @@
+# Version 2.2.87
+
+Title: Backend Step 4 — password hashing service (Argon2id)
+
+Date: 2026-08-10
+
+Summary:
+
+Implemented a small, isolated password hashing component in
+`services/password`. It provides `HashPassword` and `VerifyPassword` using
+Argon2id (`golang.org/x/crypto/argon2`) with explicit, documented parameters:
+time cost 3, memory 64 MiB (65536 KiB), parallelism 4, 16-byte random salt and
+32-byte derived key. The hash is returned as a self-contained PHC string
+(`$argon2id$v=19$m=...,t=...,p=...$<salt>$<key>`), so it carries everything
+required for verification. Unique random salts ensure hashing the same
+password twice produces different hashes.
+
+Plaintext passwords are never logged, stored, embedded in errors or returned.
+Behaviour is explicit: empty passwords return `ErrEmptyPassword`; malformed,
+empty or out-of-range hashes return `ErrInvalidHash` and never panic.
+Verification applies constant-time comparison and rejects hashes declaring
+excessive parameters (memory above 512 MiB, time above 32, threads above 32)
+as a safety guard against hostile input. The component is not connected to
+the User Repository yet, and no database or migration was touched.
+
+Verification: isolated unit tests (no database) cover hashing a valid
+password, hash differing from the plaintext, successful and failed
+verification, unique salts per hash, malformed hashes handled safely, and
+empty-input behaviour.
+
+Files modified:
+
+- `main/src/backend/go.mod`
+- `main/src/backend/go.sum`
+- `main/src/backend/services/password/password.go` (new)
+- `main/src/backend/services/password/password_test.go` (new)
+
+Reason:
+
+Add the secure password hashing primitive required by the upcoming
+registration and authentication features, kept isolated per the step scope.
+
+---
+
 # Version 2.2.86
 
 Title: Backend Step 3 — user repository and active-email uniqueness fix
