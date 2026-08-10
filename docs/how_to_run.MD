@@ -171,8 +171,15 @@ Available frontend routes:
 - `/feedback`
 - `/feed`
 - `/profile`
+- `/login`
+- `/register`
 
 `/about-us` redirects to `/our-vision`.
+
+The `/login` and `/register` pages are connected to the backend: registration
+calls `POST /api/v1/auth/register` and login calls `POST /api/v1/auth/login`.
+Both redirect to `/profile` on success. Start the backend (see below) before
+using the forms.
 
 Routes that are not fully implemented yet display a professional under
 development screen instead of a blank page or browser error.
@@ -264,6 +271,22 @@ commit a real value) with:
 
 ```bash
 openssl rand -hex 32
+```
+
+## CORS Configuration
+
+The frontend runs on a different origin during development (`localhost:5173`)
+and sends its requests with credentials (the auth cookie). The backend only
+serves CORS headers to an explicit allow-list, never to `*`.
+
+- `CORS_ALLOWED_ORIGINS` (optional, comma-separated). Defaults to
+  `http://localhost:5173,http://127.0.0.1:5173` (the Vite dev server).
+
+Add other origins (for example the Vite preview on `4173` or a deployed
+frontend) by listing them:
+
+```text
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173
 ```
 
 ## Verify the Database Connection

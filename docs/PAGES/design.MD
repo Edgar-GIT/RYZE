@@ -575,8 +575,13 @@ brochure layouts. Founder/people content is deferred for a later release.
 
 Routes: `/login` (login), `/register` (register).
 
-Purpose: authenticate existing accounts and create new ones. At the current
-frontend stage both forms remain visual only and do not send data.
+Purpose: authenticate existing accounts and create new ones. Both forms send
+data to the backend (`POST /api/v1/auth/login` and
+`POST /api/v1/auth/register`). Login stores the `ryze_access_token` HttpOnly
+cookie in the browser; no JWT is ever handled in JavaScript. On success both
+forms redirect to `/profile` (still a placeholder screen at this stage).
+Backend and network errors are shown inside the card as a compact inline alert
+above the submit button.
 
 Single page component (`LoginPage`) with two interchangeable forms — LOGIN and
 CREATE ACCOUNT — on the same compact floating card. The background must never
@@ -625,8 +630,8 @@ Login form
 Register form
 
 - Title "Create account", subtitle "Join RYZE and start your evolution."
-- Fields: Full name, Email, Password, Confirm password (all identical
-  size/style; password fields have eye toggles)
+- Fields: First name, Last name, Email, Password, Confirm password (all
+  identical size/style; password fields have eye toggles)
 - Terms checkbox: "I agree to the Terms of Service and the Privacy Policy"
   (cyan links)
 - Primary button "Create account", same Google divider, footer "Already have

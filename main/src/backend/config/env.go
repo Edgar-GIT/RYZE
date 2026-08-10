@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	defaultHost        = "127.0.0.1"
-	defaultPort        = "3306"
-	defaultTokenTTL    = 15 * time.Minute
-	minJWTSecretLength = 32
+	defaultHost          = "127.0.0.1"
+	defaultPort          = "3306"
+	defaultTokenTTL      = 15 * time.Minute
+	minJWTSecretLength   = 32
+	defaultAllowedOrigin = "http://localhost:5173,http://127.0.0.1:5173"
 )
 
 // LoadEnvFile loads the repository .env file so environment variables defined
@@ -104,4 +105,26 @@ func LoadJWT() (JWTConfig, error) {
 	}
 
 	return JWTConfig{Secret: secret, AccessTokenTTL: ttl, CookieSecure: cookieSecure}, nil
+}
+
+// LoadCORS reads the cross-origin configuration from environment variables.
+// CORS_ALLOWED_ORIGINS is a comma-separated list of origins allowed to call the
+// API with credentials. When unset it defaults to the local Vite development
+// origins so the frontend can talk to the backend without extra setup.
+func LoadCORS() (CORSConfig, error) {
+	origins := []string{}
+	raw := strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	if raw == "" {
+		raw = defaultAllowedOrigin
+	}
+
+	for _, origin := range strings.Split(raw, ",") {
+		origin = strings.TrimSpace(origin)
+		if origin == "" {
+			return CORSConfig{}, fmt.Errorf("CORS_ALLOWED_ORIGINS contains an empty origin")
+		}
+		origins = append(origins, origin)
+	}
+
+	return CORSConfig{AllowedOrigins: origins}, nil
 }

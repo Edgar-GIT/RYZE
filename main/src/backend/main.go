@@ -22,6 +22,11 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
+	corsCfg, err := config.LoadCORS()
+	if err != nil {
+		fail("configuration error: %v", err)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		runMigrateCommand(cfg, os.Args[2:])
 		return
@@ -45,7 +50,7 @@ func main() {
 		port = "8080"
 	}
 
-	if err := routes.Setup(db, jwtCfg).Run(":" + port); err != nil {
+	if err := routes.Setup(db, jwtCfg, corsCfg).Run(":" + port); err != nil {
 		fail("http server error: %v", err)
 	}
 }

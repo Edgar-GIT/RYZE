@@ -1,3 +1,63 @@
+# Version 2.2.97
+
+Title: Step 13 — connect Login/Register to the backend
+
+Date: 2026-08-10
+
+Summary:
+
+Connected the existing `/login` and `/register` pages to the backend
+authentication endpoints. The register form now sends `first_name`, `last_name`,
+`email` and `password` to `POST /api/v1/auth/register`; the login form sends
+`email` and `password` to `POST /api/v1/auth/login`. The register form field
+"Full name" was split into "First name" and "Last name" to match the backend
+contract (both are required). Successful login/register redirects to `/profile`
+(the existing placeholder). Backend and network errors are displayed inside the
+card as a compact inline alert using the design tokens; submit buttons disable
+while a request is pending.
+
+No JWT ever touches JavaScript: the backend keeps delivering the access token
+as the HttpOnly `ryze_access_token` cookie and every request is sent with
+`credentials: "include"`.
+
+A small reusable HTTP client was created at `main/src/utils/http_client.ts`
+(`apiPost`, `ApiError`) following the API envelope, with the base URL read from
+`VITE_API_BASE_URL` (default `http://localhost:8080/api/v1`). No new frontend
+dependency was added.
+
+Because the frontend runs on a different origin during development, a minimal
+CORS middleware was added to the backend (`middleware/cors.go`, no new
+library). It only serves headers to an explicit origin allow-list (never `*`)
+because the auth cookie requires credentials. The allow-list is configured with
+`CORS_ALLOWED_ORIGINS` (comma-separated, defaults to
+`http://localhost:5173,http://127.0.0.1:5173`) and loaded through the existing
+config package. Preflight `OPTIONS` requests return 204 with the allowed
+methods and headers; unknown origins receive no CORS headers.
+
+Files modified:
+
+- `main/src/backend/middleware/cors.go` (new)
+- `main/src/backend/middleware/cors_test.go` (new)
+- `main/src/backend/config/config.go` (added `CORSConfig`)
+- `main/src/backend/config/env.go` (added `LoadCORS`)
+- `main/src/backend/routes/routes.go` (CORS middleware + new `Setup` signature)
+- `main/src/backend/main.go` (loads CORS config)
+- `main/src/utils/http_client.ts` (new)
+- `main/src/frontend/src/pages/login_page/login_page.tsx` (forms connected,
+  first/last name fields, error alert, disabled submit)
+- `main/src/frontend/src/pages/login_page/login_page.module.css` (error alert)
+- `docs/PAGES/design.MD`
+- `docs/how_to_run.MD`
+- `.env.example`
+
+Reason:
+
+Make the authentication flow functional end to end while keeping the existing
+visual design, keeping the JWT away from JavaScript and reusing the backend
+authentication architecture already built.
+
+---
+
 # Version 2.2.96
 
 Title: Backend Step 12 — logout endpoint

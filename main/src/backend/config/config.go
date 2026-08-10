@@ -15,3 +15,7 @@ type JWTConfig struct {
 	AccessTokenTTL time.Duration
 	CookieSecure   bool
 }
+
+type CORSConfig struct {
+	AllowedOrigins []string
+}

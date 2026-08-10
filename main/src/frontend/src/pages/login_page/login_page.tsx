@@ -2,12 +2,13 @@ import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useHistory } from "react-router-dom";
 
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { ApiError, apiPost } from "@utils/http_client";
 import loginBackground from "@resources/img/login_create/background.png";
 
 import styles from "./login_page.module.css";
@@ -98,149 +99,273 @@ interface AuthFormProps {
   onSwitch: () => void;
 }
 
-const LoginForm = ({ onSwitch }: AuthFormProps) => (
-  <motion.form
-    className={styles.form}
-    variants={containerVariants}
-    initial="hidden"
-    animate="visible"
-    onSubmit={(event: FormEvent) => event.preventDefault()}
-    noValidate
-  >
-    <FadeItem className={styles.header}>
-      <h2>Welcome back</h2>
-      <p>Log in to continue your journey.</p>
-    </FadeItem>
+const errorMessageFor = (error: unknown): string => {
+  if (error instanceof ApiError) {
+    if (error.code === "INVALID_CREDENTIALS") {
+      return "Invalid email or password.";
+    }
+    if (error.code === "EMAIL_ALREADY_REGISTERED") {
+      return "This email is already registered.";
+    }
+    return error.message || "Something went wrong. Please try again.";
+  }
+  return "Something went wrong. Please try again.";
+};
 
-    <FadeItem className={styles.fields}>
-      <div className={styles.field}>
-        <Mail className={styles.fieldIcon} aria-hidden="true" />
-        <input
-          type="email"
-          name="email"
-          placeholder="Email or username"
-          autoComplete="email"
-          aria-label="Email or username"
-        />
-      </div>
-    </FadeItem>
-    <FadeItem>
-      <PasswordField id="login-password" placeholder="Password" autoComplete="current-password" />
-    </FadeItem>
+const LoginForm = ({ onSwitch }: AuthFormProps) => {
+  const history = useHistory();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-    <FadeItem className={styles.options}>
-      <label className={styles.check}>
-        <input type="checkbox" name="remember" />
-        <span>Remember me</span>
-      </label>
-      <a className={styles.link} href="#" onClick={(event) => event.preventDefault()}>
-        Forgot your password?
-      </a>
-    </FadeItem>
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitting) {
+      return;
+    }
 
-    <FadeItem>
-      <Button type="submit" size="large" className={styles.submit}>
-        Log in
-      </Button>
-    </FadeItem>
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "");
+    const password = String(form.get("login-password") ?? "");
 
-    <FadeItem className={styles.divider}>
-      <span>or continue with</span>
-    </FadeItem>
+    if (!email || !password) {
+      setErrorMessage("Please fill in all fields.");
+      return;
+    }
 
-    <FadeItem className={styles.googleRow}>
-      <GoogleButton />
-    </FadeItem>
+    setSubmitting(true);
+    setErrorMessage("");
 
-    <FadeItem className={styles.formFooter}>
-      <p className={styles.switch}>
-        Don&apos;t have an account?{" "}
-        <button type="button" onClick={onSwitch}>
-          Create one here
-        </button>
-      </p>
-    </FadeItem>
-  </motion.form>
-);
+    try {
+      await apiPost("/auth/login", { email, password });
+      history.push("/profile");
+    } catch (error) {
+      setErrorMessage(errorMessageFor(error));
+      setSubmitting(false);
+    }
+  };
 
-const RegisterForm = ({ onSwitch }: AuthFormProps) => (
-  <motion.form
-    className={styles.form}
-    variants={containerVariants}
-    initial="hidden"
-    animate="visible"
-    onSubmit={(event: FormEvent) => event.preventDefault()}
-    noValidate
-  >
-    <FadeItem className={styles.header}>
-      <h2>Create account</h2>
-      <p>Join RYZE and start your evolution.</p>
-    </FadeItem>
+  return (
+    <motion.form
+      className={styles.form}
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      onSubmit={handleSubmit}
+      noValidate
+    >
+      <FadeItem className={styles.header}>
+        <h2>Welcome back</h2>
+        <p>Log in to continue your journey.</p>
+      </FadeItem>
 
-    <FadeItem className={styles.fields}>
-      <div className={styles.field}>
-        <User className={styles.fieldIcon} aria-hidden="true" />
-        <input type="text" name="name" placeholder="Full name" autoComplete="name" aria-label="Full name" />
-      </div>
-      <div className={styles.field}>
-        <Mail className={styles.fieldIcon} aria-hidden="true" />
-        <input type="email" name="email" placeholder="Email" autoComplete="email" aria-label="Email" />
-      </div>
-    </FadeItem>
-    <FadeItem className={styles.fields}>
-      <PasswordField id="register-password" placeholder="Password" autoComplete="new-password" />
-      <PasswordField
-        id="register-confirm"
-        placeholder="Confirm password"
-        autoComplete="new-password"
-      />
-    </FadeItem>
+      <FadeItem className={styles.fields}>
+        <div className={styles.field}>
+          <Mail className={styles.fieldIcon} aria-hidden="true" />
+          <input
+            type="email"
+            name="email"
+            placeholder="Email or username"
+            autoComplete="email"
+            aria-label="Email or username"
+          />
+        </div>
+      </FadeItem>
+      <FadeItem>
+        <PasswordField id="login-password" placeholder="Password" autoComplete="current-password" />
+      </FadeItem>
 
-    <FadeItem>
-      <span className={styles.checkTerms}>
-        <input
-          id="register-terms"
-          type="checkbox"
-          name="terms"
-          aria-label="I agree to the Terms of Service and the Privacy Policy"
-        />
-        <span>
-          I agree to the{" "}
-          <a href="#" onClick={(event) => event.preventDefault()}>
-            Terms of Service
-          </a>{" "}
-          and the{" "}
-          <a href="#" onClick={(event) => event.preventDefault()}>
-            Privacy Policy
-          </a>
-        </span>
-      </span>
-    </FadeItem>
+      <FadeItem className={styles.options}>
+        <label className={styles.check}>
+          <input type="checkbox" name="remember" />
+          <span>Remember me</span>
+        </label>
+        <a className={styles.link} href="#" onClick={(event) => event.preventDefault()}>
+          Forgot your password?
+        </a>
+      </FadeItem>
 
-    <FadeItem>
-      <Button type="submit" size="large" className={styles.submit}>
-        Create account
-      </Button>
-    </FadeItem>
+      {errorMessage ? (
+        <FadeItem>
+          <p className={styles.formError} role="alert">
+            {errorMessage}
+          </p>
+        </FadeItem>
+      ) : null}
 
-    <FadeItem className={styles.divider}>
-      <span>or continue with</span>
-    </FadeItem>
-
-    <FadeItem className={styles.googleRow}>
-      <GoogleButton />
-    </FadeItem>
-
-    <FadeItem className={styles.formFooter}>
-      <p className={styles.switch}>
-        Already have an account?{" "}
-        <button type="button" onClick={onSwitch}>
+      <FadeItem>
+        <Button type="submit" size="large" className={styles.submit} disabled={submitting}>
           Log in
-        </button>
-      </p>
-    </FadeItem>
-  </motion.form>
-);
+        </Button>
+      </FadeItem>
+
+      <FadeItem className={styles.divider}>
+        <span>or continue with</span>
+      </FadeItem>
+
+      <FadeItem className={styles.googleRow}>
+        <GoogleButton />
+      </FadeItem>
+
+      <FadeItem className={styles.formFooter}>
+        <p className={styles.switch}>
+          Don&apos;t have an account?{" "}
+          <button type="button" onClick={onSwitch}>
+            Create one here
+          </button>
+        </p>
+      </FadeItem>
+    </motion.form>
+  );
+};
+
+const RegisterForm = ({ onSwitch }: AuthFormProps) => {
+  const history = useHistory();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitting) {
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const firstName = String(form.get("first_name") ?? "");
+    const lastName = String(form.get("last_name") ?? "");
+    const email = String(form.get("email") ?? "");
+    const password = String(form.get("register-password") ?? "");
+    const confirmPassword = String(form.get("register-confirm") ?? "");
+
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      setErrorMessage("Please fill in all fields.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match.");
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      await apiPost("/auth/register", {
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        password
+      });
+      history.push("/profile");
+    } catch (error) {
+      setErrorMessage(errorMessageFor(error));
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.form
+      className={styles.form}
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      onSubmit={handleSubmit}
+      noValidate
+    >
+      <FadeItem className={styles.header}>
+        <h2>Create account</h2>
+        <p>Join RYZE and start your evolution.</p>
+      </FadeItem>
+
+      <FadeItem className={styles.fields}>
+        <div className={styles.field}>
+          <User className={styles.fieldIcon} aria-hidden="true" />
+          <input
+            type="text"
+            name="first_name"
+            placeholder="First name"
+            autoComplete="given-name"
+            aria-label="First name"
+          />
+        </div>
+        <div className={styles.field}>
+          <User className={styles.fieldIcon} aria-hidden="true" />
+          <input
+            type="text"
+            name="last_name"
+            placeholder="Last name"
+            autoComplete="family-name"
+            aria-label="Last name"
+          />
+        </div>
+        <div className={styles.field}>
+          <Mail className={styles.fieldIcon} aria-hidden="true" />
+          <input type="email" name="email" placeholder="Email" autoComplete="email" aria-label="Email" />
+        </div>
+      </FadeItem>
+      <FadeItem className={styles.fields}>
+        <PasswordField id="register-password" placeholder="Password" autoComplete="new-password" />
+        <PasswordField
+          id="register-confirm"
+          placeholder="Confirm password"
+          autoComplete="new-password"
+        />
+      </FadeItem>
+
+      <FadeItem>
+        <span className={styles.checkTerms}>
+          <input
+            id="register-terms"
+            type="checkbox"
+            name="terms"
+            aria-label="I agree to the Terms of Service and the Privacy Policy"
+          />
+          <span>
+            I agree to the{" "}
+            <a href="#" onClick={(event) => event.preventDefault()}>
+              Terms of Service
+            </a>{" "}
+            and the{" "}
+            <a href="#" onClick={(event) => event.preventDefault()}>
+              Privacy Policy
+            </a>
+          </span>
+        </span>
+      </FadeItem>
+
+      {errorMessage ? (
+        <FadeItem>
+          <p className={styles.formError} role="alert">
+            {errorMessage}
+          </p>
+        </FadeItem>
+      ) : null}
+
+      <FadeItem>
+        <Button type="submit" size="large" className={styles.submit} disabled={submitting}>
+          Create account
+        </Button>
+      </FadeItem>
+
+      <FadeItem className={styles.divider}>
+        <span>or continue with</span>
+      </FadeItem>
+
+      <FadeItem className={styles.googleRow}>
+        <GoogleButton />
+      </FadeItem>
+
+      <FadeItem className={styles.formFooter}>
+        <p className={styles.switch}>
+          Already have an account?{" "}
+          <button type="button" onClick={onSwitch}>
+            Log in
+          </button>
+        </p>
+      </FadeItem>
+    </motion.form>
+  );
+};
 
 export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
   const [mode, setMode] = useState<AuthMode>(initialMode);

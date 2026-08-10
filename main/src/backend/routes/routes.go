@@ -15,8 +15,9 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig) *gin.Engine {
 	router := gin.Default()
+	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 
 	userRepository := repositories.NewUserRepository(db)
 
