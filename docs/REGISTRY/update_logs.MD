@@ -1,3 +1,79 @@
+# Version 2.2.84
+
+Title: Local database setup — system MariaDB and dedicated ryze_admin user
+
+Date: 2026-08-10
+
+Summary:
+
+The local database configuration now targets the normal system MariaDB
+instance on port 3306 instead of the temporary isolated instance on port 3307.
+A dedicated development administrator user `ryze_admin` is provisioned with
+full privileges only on the `ryze` database (`ryze.*`); it receives no
+privileges over unrelated databases. The root `.env` was updated to use
+`DB_HOST=127.0.0.1`, `DB_PORT=3306`, `DB_NAME=ryze`, `DB_USER=ryze_admin`
+and a local development password (kept out of Git). The temporary port 3307
+MariaDB instance was stopped and removed. Provisioning the database and user
+on the system instance requires root privileges, so the exact `sudo mariadb`
+commands are provided in `docs/how_to_run.MD`.
+
+Files modified:
+
+- `.env` (local, not committed)
+- `.env.example`
+- `docs/how_to_run.MD`
+
+Reason:
+
+Use the normal system MariaDB for local development with a dedicated,
+least-privilege RYZE database user.
+
+---
+
+# Version 2.2.83
+
+Title: Backend foundation — MariaDB/MySQL database connection layer
+
+Date: 2026-08-10
+
+Summary:
+
+Initial Go backend foundation: the backend now loads its database
+configuration from environment variables and establishes a verified
+MariaDB/MySQL connection using the documented GORM stack. A small `main.go`
+entrypoint was added purely to verify the connection, reporting success or a
+clear failure (non-zero exit) when the database is unreachable, misconfigured
+or the credentials are rejected. No authentication, API endpoints, migrations
+or business logic were introduced.
+
+Database configuration is read from `DB_HOST`, `DB_PORT`, `DB_NAME`,
+`DB_USER` and `DB_PASSWORD` (defaults: `DB_HOST=127.0.0.1`, `DB_PORT=3306`;
+`DB_NAME` and `DB_USER` are required). The `.env` file at the repository root
+is loaded automatically when the backend runs. Connection attempts use a 5s
+timeout and fail fast, and credentials are never exposed in errors or logs.
+
+Files modified:
+
+- `main/src/backend/go.mod` (new)
+- `main/src/backend/go.sum` (new)
+- `main/src/backend/main.go` (new)
+- `main/src/backend/config/config.go` (new)
+- `main/src/backend/config/env.go` (new)
+- `main/src/backend/database/database.go` (new)
+- `main/src/backend/database/migrate.go` (package declaration only)
+- `main/src/backend/logs/logger.go` (package declaration only)
+- `main/src/backend/routes/routes.go` (package declaration only)
+- `.env.example` (new)
+- `docs/how_to_run.MD`
+
+Reason:
+
+First backend foundation step: establish a reliable, isolated database
+connection layer before authentication, users, API endpoints and migrations
+are implemented in later tasks.
+
+---
+
 # Version 2.2.82
 
 Title: Feedback hero — bottom-left copy, RYZE logo on the right, solid CTA and animations

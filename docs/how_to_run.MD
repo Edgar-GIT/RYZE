@@ -7,10 +7,12 @@ Version: 1.0.0
 
 # Purpose
 
-This document explains how to install, run and build the current RYZE frontend.
+This document explains how to install, run and build the RYZE frontend and
+the Go backend foundation.
 
-The current implementation contains the initial visual interface only.
-Backend integration is not implemented in this stage.
+The current implementation contains the initial visual interface plus a
+backend database connection layer. Other backend features are not implemented
+yet.
 
 ---
 
@@ -174,3 +176,87 @@ Available frontend routes:
 
 Routes that are not fully implemented yet display a professional under
 development screen instead of a blank page or browser error.
+
+---
+
+# Backend
+
+The backend lives in:
+
+```text
+main/src/backend
+```
+
+It uses Go with the documented GORM stack.
+
+## Prerequisites
+
+- Go 1.26 or newer
+- A running MariaDB/MySQL server
+
+## Database Configuration
+
+The backend reads its database configuration from environment variables:
+
+- `DB_HOST` (default `127.0.0.1`)
+- `DB_PORT` (default `3306`)
+- `DB_NAME` (required)
+- `DB_USER` (required)
+- `DB_PASSWORD`
+
+Local development uses the system MariaDB instance on port `3306`. The
+project uses a dedicated development administrator user with full privileges
+only on the `ryze` database.
+
+Create the database and user with root privileges:
+
+```bash
+sudo mariadb
+```
+
+Then run:
+
+```sql
+CREATE DATABASE IF NOT EXISTS ryze CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'ryze_admin'@'127.0.0.1' IDENTIFIED BY 'your_password';
+CREATE USER IF NOT EXISTS 'ryze_admin'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON ryze.* TO 'ryze_admin'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON ryze.* TO 'ryze_admin'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+The `ryze_admin` user receives full privileges only on `ryze.*` and no
+privileges over unrelated databases.
+
+Add the variables to the repository root `.env` file (already ignored by Git):
+
+```text
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=ryze
+DB_USER=ryze_admin
+DB_PASSWORD=your_password
+```
+
+A template without secrets is available at `.env.example`.
+
+The backend loads the repository root `.env` automatically, so the database
+credentials never need to be hardcoded or committed.
+
+## Verify the Database Connection
+
+From the backend directory, run:
+
+```bash
+cd main/src/backend
+go run .
+```
+
+A successful connection prints:
+
+```text
+database connection established successfully (host=127.0.0.1 port=3306 db=ryze)
+```
+
+If the database is unreachable, misconfigured, or the credentials are
+rejected, the backend prints a clear error and exits with a non-zero status.
