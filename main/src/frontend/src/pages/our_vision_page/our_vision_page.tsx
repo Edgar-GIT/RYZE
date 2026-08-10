@@ -559,7 +559,7 @@ export const OurVisionPage = () => (
 
           <Reveal className={styles.joinFeaturesPanel} delay={0.12}>
             <ol className={styles.joinFeatures}>
-              {joinFeatures.map((feature, index) => {
+              {joinFeatures.map((feature) => {
                 const Icon = feature.icon;
 
                 return (
@@ -568,12 +568,7 @@ export const OurVisionPage = () => (
                       <Icon aria-hidden="true" />
                     </span>
                     <span className={styles.joinFeatureCopy}>
-                      <span className={styles.joinFeatureHeader}>
-                        <span className={styles.joinFeatureNumber}>
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <strong>{feature.title}</strong>
-                      </span>
+                      <strong>{feature.title}</strong>
                       <p>{feature.text}</p>
                     </span>
                   </li>

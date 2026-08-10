@@ -1,3 +1,244 @@
+# Version 2.2.78
+
+Title: Translate the auth page forms to English
+
+Date: 2026-08-07
+
+Summary:
+
+All login and register form copy on the auth page was translated to English,
+matching the rest of the site: "Welcome back", "Log in to continue your
+journey.", "Email or username", "Password", "Remember me", "Forgot your
+password?", "Log in", "or continue with", "Don't have an account? Create one
+here", "Create account", "Join RYZE and start your evolution.", "Full name",
+"Email", "Confirm password", the terms checkbox and "Already have an account?
+Log in". ARIA labels were translated as well.
+
+Files modified:
+
+- `main/src/frontend/src/pages/login_page/login_page.tsx`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+The auth page should be fully in English like the rest of the product.
+
+---
+
+# Version 2.2.77
+
+Title: Keep the auth card within the viewport and make it scrollable
+
+Date: 2026-08-07
+
+Summary:
+
+The register form filled almost the entire screen height, was pushed up by the
+card's upward offset and got clipped by the section's `overflow: hidden`,
+leaving it glued to the top edge without any way to scroll. The card now has
+`max-height: calc(100svh - 5rem)` and scrolls its own content (`overflow-y:
+auto`, thin cyan scrollbar), so it always stays centered and fully reachable.
+The form was also tightened (padding, gap and field height reduced) to lower
+the vertical footprint.
+
+Files modified:
+
+- `main/src/frontend/src/pages/login_page/login_page.module.css`
+
+Reason:
+
+On shorter viewports the register form overflowed the screen and could not be
+scrolled.
+
+---
+
+# Version 2.2.76
+
+Title: Restructure the authentication page as a standalone premium experience
+
+Date: 2026-08-07
+
+Summary:
+
+The login page was completely restructured. The background image is no longer
+an `<img>` element — it is now a CSS `background-image` on the full-viewport
+section using `background-size: cover`, `background-position: center center`
+and `background-repeat: no-repeat`, so the original aspect ratio is always
+preserved and never stretched. The site chrome (navbar, footer and animated
+background) is hidden on `/login` and `/register` via a new `showChrome` prop
+on `Layout`. Only a small RYZE logo (mark + wordmark) remains in the top-left
+corner. The oversized glass panel was replaced by a compact, content-sized
+floating card (~420px, dark/translucent, subtle cyan border, `border-radius:
+20px`, very discreet glow) centered slightly above the vertical center, with
+the space background clearly visible around it. A discreet legal line
+`© 2026 RYZE · Privacy Policy · Terms of Service` is pinned to the bottom.
+
+Files modified:
+
+- `main/src/frontend/src/components/layout/layout.tsx`
+- `main/src/frontend/src/app.tsx`
+- `main/src/frontend/src/pages/login_page/login_page.tsx`
+- `main/src/frontend/src/pages/login_page/login_page.module.css`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+The auth page should feel like a premium, minimalist RYZE experience
+independent from the main website layout, with the untouched space background
+as the only backdrop.
+
+---
+
+# Version 2.2.75
+
+Title: Remove empty space at the bottom of the login form
+
+Date: 2026-08-07
+
+Summary:
+
+The login form (shorter than the register form) left a large empty area at
+the bottom of the fixed-height panel. The panel min-height was reduced
+(690px to 680px) and the form now distributes the free vertical space evenly
+between its blocks (`justify-content: space-between`) instead of pushing only
+the footer to the bottom. The register form already fills the panel, so its
+layout is unchanged. Panel size still stays constant between modes.
+
+Files modified:
+
+- `main/src/frontend/src/pages/login_page/login_page.module.css`
+
+Reason:
+
+The login form displayed an oversized empty space beneath its content.
+
+---
+
+# Version 2.2.74
+
+Title: Stretch login background and swap forms via LoadingScreen
+
+Date: 2026-08-07
+
+Summary:
+
+The login background image now stretches to fill the screen height
+(`object-fit: fill` instead of `cover`). The energy-wave curtain transition
+was removed; switching between the login and register forms now shows the
+shared RYZE `LoadingScreen` overlay for ~1 second, then swaps the content and
+lets the new form stagger in. Still respects `prefers-reduced-motion`.
+
+Files modified:
+
+- `main/src/frontend/src/pages/login_page/login_page.tsx`
+- `main/src/frontend/src/pages/login_page/login_page.module.css`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+Product feedback: stretch the background further in height and replace the
+wave animation with the existing loading screen during form swaps.
+
+---
+
+# Version 2.2.73
+
+Title: Create Login / Register page with energy-wave form transition
+
+Date: 2026-08-07
+
+Summary:
+
+New `LoginPage` replaces the under-development placeholders for `/login` and
+`/register`. A single glass panel over the full-bleed
+`main/src/resources/img/login_create/background.png` hosts two interchangeable
+forms (LOGIN "Bem-vindo de volta" and CREATE ACCOUNT "Criar conta") with the
+specified fields, options row, Google circle, dividers and switch links. The
+panel keeps a fixed position/size and the background never changes; switching
+forms runs an energy-wave curtain (thin dark/electric/cyan sine lines sliding
+across the clipped panel) while the outgoing content fades out and the new
+form staggers in (~50ms per block). Respects `prefers-reduced-motion`.
+
+Files modified:
+
+- `main/src/frontend/src/pages/login_page/login_page.tsx` (new)
+- `main/src/frontend/src/pages/login_page/login_page.module.css` (new)
+- `main/src/frontend/src/routes/app_routes.tsx`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+Feature request: visual login and account creation screen reusing the provided
+`background.png`, with a premium RYZE-styled transition between the two forms.
+
+---
+
+# Version 2.2.72
+
+Title: Drop feature numbering and slim the join feature bar
+
+Date: 2026-08-07
+
+Summary:
+
+The "01"–"05" numbering was removed from the items of the "Join the
+movement" feature bar, and the bar is slightly shorter (panel padding
+reduced; the number/header wrappers and their CSS were removed).
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+Product feedback: numbering should be dropped and the bar shorter.
+
+---
+
+# Version 2.2.71
+
+Title: Make join feature bar pill-shaped and enlarge its icons
+
+Date: 2026-08-07
+
+Summary:
+
+The feature bar of the "Join the movement" section now uses a fully rounded
+pill shape (border-radius 999px) with a slightly tighter padding, and the
+feature icons grew (well 2.2rem to 2.7rem, glyph 1.15rem to 1.5rem).
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+Product feedback: feature bar should look like a pill and its icons larger.
+
+---
+
+# Version 2.2.70
+
+Title: Move join CTA slightly lower
+
+Date: 2026-08-07
+
+Summary:
+
+The "JOIN RYZE" button of the "Join the movement" section gained a small
+top margin (0.6rem) so it sits slightly lower under the description.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+
+Reason:
+
+Product feedback: button should sit a bit lower.
+
+---
+
 # Version 2.2.69
 
 Title: Lower join intro text further

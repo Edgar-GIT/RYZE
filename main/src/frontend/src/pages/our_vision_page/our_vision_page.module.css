@@ -1230,7 +1230,7 @@
 }
 
 .joinCta {
-  margin-top: 0;
+  margin-top: 0.6rem;
   min-height: 0;
   padding: 0.95rem 2.1rem;
   border-radius: 0.7rem;
@@ -1265,9 +1265,9 @@
   width: 90%;
   max-width: 1450px;
   margin-top: auto;
-  padding: 0.7rem 1rem;
+  padding: 0.4rem 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.9rem;
+  border-radius: 999px;
   background: rgba(6, 10, 18, 0.72);
   box-shadow:
     0 0 0 1px rgba(24, 216, 255, 0.04) inset,
@@ -1307,14 +1307,14 @@
 .joinFeatureIcon {
   display: grid;
   place-items: center;
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 2.7rem;
+  height: 2.7rem;
   color: var(--accent);
 }
 
 .joinFeatureIcon svg {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.5rem;
+  height: 1.5rem;
   filter: drop-shadow(0 0 8px rgba(24, 216, 255, 0.5));
 }
 
@@ -1322,21 +1322,6 @@
   display: grid;
   gap: 0.1rem;
   min-width: 0;
-}
-
-.joinFeatureHeader {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.joinFeatureNumber {
-  color: var(--text-muted);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
 }
 
 .joinFeatureCopy strong {

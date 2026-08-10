@@ -8,18 +8,25 @@ import styles from "./layout.module.css";
 
 interface LayoutProps {
   children: ReactNode;
+  showChrome?: boolean;
 }
 
-export const Layout = ({ children }: LayoutProps) => (
-  <>
-    <a className={styles.skipLink} href="#main-content">
-      Skip to content
-    </a>
-    <AnimatedBackground />
-    <Navbar />
-    <main id="main-content" className={styles.main}>
-      {children}
-    </main>
-    <Footer />
-  </>
-);
+export const Layout = ({ children, showChrome = true }: LayoutProps) => {
+  if (!showChrome) {
+    return <>{children}</>;
+  }
+
+  return (
+    <>
+      <a className={styles.skipLink} href="#main-content">
+        Skip to content
+      </a>
+      <AnimatedBackground />
+      <Navbar />
+      <main id="main-content" className={styles.main}>
+        {children}
+      </main>
+      <Footer />
+    </>
+  );
+};

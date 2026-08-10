@@ -3,6 +3,7 @@ import { Redirect, Route, Switch, useLocation } from "react-router-dom";
 
 import { ContactPage } from "@/pages/contact_page/contact_page";
 import { HomePage } from "@/pages/home_page/home_page";
+import { LoginPage } from "@/pages/login_page/login_page";
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
 import { ServicesPage } from "@/pages/services_page/services_page";
 import { UnderDevelopmentPage } from "@/pages/under_development_page/under_development_page";
@@ -48,25 +49,10 @@ export const AppRoutes = () => {
             />
           )}
         />
-        <Route
-          path="/login"
-          render={() => (
-            <UnderDevelopmentPage
-              eyebrow="Log in"
-              title="Log in is under development."
-              description="Authentication will be connected when the backend account flows are implemented."
-            />
-          )}
-        />
+        <Route exact path="/login" component={LoginPage} />
         <Route
           path="/register"
-          render={() => (
-            <UnderDevelopmentPage
-              eyebrow="Start free"
-              title="Account creation is under development."
-              description="Registration and onboarding will be connected when the backend account flows are implemented."
-            />
-          )}
+          render={() => <LoginPage initialMode="register" />}
         />
         <Route
           path="/profile"

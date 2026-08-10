@@ -571,10 +571,82 @@ brochure layouts. Founder/people content is deferred for a later release.
 
 ---
 
+## Login / Register
+
+Routes: `/login` (login), `/register` (register).
+
+Purpose: authenticate existing accounts and create new ones. At the current
+frontend stage both forms remain visual only and do not send data.
+
+Single page component (`LoginPage`) with two interchangeable forms — LOGIN and
+CREATE ACCOUNT — on the same compact floating card. The background must never
+change during the transition; only the card content swaps.
+
+The auth page is rendered **without** the site chrome: no navbar, no footer
+and no animated background. The `Layout` receives `showChrome={false}` for
+`/login` and `/register`.
+
+Page structure
+
+- Full-viewport background. The image
+  `main/src/resources/img/login_create/background.png` is applied as a CSS
+  `background-image` (never an `<img>` element) with `background-size: cover`,
+  `background-position: center center` and `background-repeat: no-repeat`. The
+  original aspect ratio is always preserved; the viewport crops the image
+  naturally at its edges, never stretched or deformed.
+- Small RYZE logo (brand mark + wordmark) fixed in the top-left corner,
+  linking home.
+- A discreet legal line pinned to the bottom center:
+  `© 2026 RYZE · Privacy Policy · Terms of Service`.
+
+Card
+
+- Compact, content-sized floating card, ~380–440px wide
+- Dark/translucent background, thin cyan/blue border, `border-radius: 20px`
+- Very subtle blue glow; `backdrop-filter: blur`
+- Centered horizontally, slightly above the vertical center
+- The space background stays clearly visible around the card
+- No traditional footer inside or below the card
+
+Login form
+
+- Title "Welcome back" (white, bold, centered)
+- Subtitle "Log in to continue your journey."
+- Email field with envelope icon (placeholder "Email or username")
+- Password field with lock icon and show/hide eye toggle (placeholder
+  "Password")
+- Options row: "Remember me" checkbox left, "Forgot your password?" cyan
+  link right
+- Primary button "Log in" (full width, cyan gradient, `border-radius: 8px`)
+- Divider "or continue with" with side lines + white circle with the official
+  Google G
+- Footer link "Don't have an account? Create one here" (cyan)
+
+Register form
+
+- Title "Create account", subtitle "Join RYZE and start your evolution."
+- Fields: Full name, Email, Password, Confirm password (all identical
+  size/style; password fields have eye toggles)
+- Terms checkbox: "I agree to the Terms of Service and the Privacy Policy"
+  (cyan links)
+- Primary button "Create account", same Google divider, footer "Already have
+  an account? Log in" (cyan)
+
+Login ⇄ Register transition
+
+The swap is not a page change nor a `display: none` swap. It shows the shared
+RYZE `LoadingScreen` overlay for ~1 second and then swaps the form content,
+which staggers in (each block fades up ~8px, ~50ms apart — title, subtitle,
+fields, terms, button, Google, footer link). The card and background never
+move.
+
+Respects `prefers-reduced-motion` (direct swap, no loading overlay).
+
+---
+
 # Client Dashboard
 
 The dashboard is the client's main workspace.
-
 Navigation
 
 - Profile
