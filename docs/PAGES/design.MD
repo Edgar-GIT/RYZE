@@ -579,9 +579,9 @@ Purpose: authenticate existing accounts and create new ones. Both forms send
 data to the backend (`POST /api/v1/auth/login` and
 `POST /api/v1/auth/register`). Login stores the `ryze_access_token` HttpOnly
 cookie in the browser; no JWT is ever handled in JavaScript. On success both
-forms redirect to `/profile` (still a placeholder screen at this stage).
-Backend and network errors are shown inside the card as a compact inline alert
-above the submit button.
+forms redirect to `/profile`, the authenticated profile page. Backend and
+network errors are shown inside the card as a compact inline alert above the
+submit button.
 
 Single page component (`LoginPage`) with two interchangeable forms — LOGIN and
 CREATE ACCOUNT — on the same compact floating card. The background must never
@@ -646,6 +646,63 @@ fields, terms, button, Google, footer link). The card and background never
 move.
 
 Respects `prefers-reduced-motion` (direct swap, no loading overlay).
+
+---
+
+## Profile
+
+Route: `/profile`.
+
+Purpose: prove the user is authenticated and display their personal area. This
+is intentionally a simple profile page, not a dashboard. It shows only real
+data returned by `GET /api/v1/me`; nothing is hardcoded.
+
+Authentication
+
+- On page load the page calls `GET /api/v1/me` with credentials included.
+- If `/me` returns 401, the user is redirected to `/login`.
+- On success the real user data is rendered.
+- Loading uses the shared RYZE `LoadingScreen` overlay.
+- Unexpected API errors render a simple generic error state with a "Try
+  again" action.
+- The JWT is never read from JavaScript and no storage (localStorage /
+  sessionStorage) is used for authentication. The HttpOnly cookie is managed
+  entirely by the browser.
+
+Navbar
+
+The profile page renders its own minimal navbar (the page is rendered without
+the global site chrome). It follows the Login/Register brand treatment.
+
+- Left: RYZE logo/icon linking home.
+- Center: reserved empty navigation area for future pages. No links are
+  invented.
+- Right: the authenticated user's first name followed by a circular profile
+  avatar. No avatar upload exists yet, so a default person/user icon is shown.
+
+Profile content
+
+A centered, spacious, glass profile card (same language as the auth card):
+
+- Large circular avatar (default person icon; structured to accept a real
+  image later without redesign).
+- Full name (`first_name` + `last_name`).
+- Email.
+- "Member since <Month Year>" derived from the account `created_at`.
+- A thin divider and a secondary "Log out" button.
+
+Logout
+
+The "Log out" action calls `POST /api/v1/auth/logout` with credentials
+included and redirects to `/login` on success. No new backend logout
+functionality is implemented.
+
+Scope
+
+No statistics, training plans, nutrition, calendar, charts, marketplace,
+notifications, dashboard grids, sidebar or fake data. Change Password and
+Soft Delete Account are intentionally not implemented — those backend
+endpoints do not exist yet and no fake buttons are shown.
 
 ---
 

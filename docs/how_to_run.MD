@@ -181,6 +181,11 @@ calls `POST /api/v1/auth/register` and login calls `POST /api/v1/auth/login`.
 Both redirect to `/profile` on success. Start the backend (see below) before
 using the forms.
 
+The `/profile` route is the simple authenticated profile page. It loads the
+authenticated user from `GET /api/v1/me` (redirecting to `/login` on 401) and
+offers a "Log out" action that calls `POST /api/v1/auth/logout`. This page
+requires the HttpOnly `ryze_access_token` cookie set by login.
+
 Routes that are not fully implemented yet display a professional under
 development screen instead of a blank page or browser error.
 

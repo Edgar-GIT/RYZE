@@ -7,7 +7,7 @@ import { useInitialLoading } from "@/hooks/use_initial_loading";
 import { AppRoutes } from "@/routes/app_routes";
 import { ScrollToTop } from "@/routes/scroll_to_top";
 
-const CHROME_FREE_PATHNAMES = new Set(["/login", "/register"]);
+const CHROME_FREE_PATHNAMES = new Set(["/login", "/register", "/profile"]);
 
 export const App = () => {
   const isInitialLoading = useInitialLoading();

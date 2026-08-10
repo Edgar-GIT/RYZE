@@ -25,6 +25,21 @@ export class ApiError extends Error {
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:8080/api/v1";
 
+export async function apiGet<T>(path: string): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "GET",
+      credentials: "include"
+    });
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "Unable to reach the server.");
+  }
+
+  return handleResponse<T>(response);
+}
+
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   let response: Response;
 

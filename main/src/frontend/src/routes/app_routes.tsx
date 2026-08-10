@@ -6,6 +6,7 @@ import { FeedbackPage } from "@/pages/feedback_page/feedback_page";
 import { HomePage } from "@/pages/home_page/home_page";
 import { LoginPage } from "@/pages/login_page/login_page";
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
+import { ProfilePage } from "@/pages/profile_page/profile_page";
 import { ServicesPage } from "@/pages/services_page/services_page";
 import { UnderDevelopmentPage } from "@/pages/under_development_page/under_development_page";
 
@@ -46,16 +47,7 @@ export const AppRoutes = () => {
           path="/register"
           render={() => <LoginPage initialMode="register" />}
         />
-        <Route
-          path="/profile"
-          render={() => (
-            <UnderDevelopmentPage
-              eyebrow="Profile"
-              title="Profile is under development."
-              description="Authentication and profile management will be connected when the backend account flows are implemented."
-            />
-          )}
-        />
+        <Route exact path="/profile" component={ProfilePage} />
         <Route
           render={() => (
             <UnderDevelopmentPage

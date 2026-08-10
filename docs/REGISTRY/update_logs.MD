@@ -1,3 +1,58 @@
+# Version 2.2.98
+
+Title: Step 14 — simple authenticated profile page
+
+Date: 2026-08-10
+
+Summary:
+
+Implemented the first authenticated Profile page at `/profile`, replacing the
+under-development placeholder. The page is intentionally small: it proves the
+user is authenticated and shows their personal area. No dashboard.
+
+The page calls `GET /api/v1/me` with credentials on load and renders only real
+data (`id`, `email`, `first_name`, `last_name`, `created_at`) — nothing is
+hardcoded. A 401 redirects to `/login`; loading uses the shared RYZE
+`LoadingScreen`; unexpected errors show a generic error state with a "Try
+again" action. The HttpOnly cookie remains browser-managed: the JWT is never
+read from JavaScript and no localStorage/sessionStorage is used for
+authentication.
+
+The page renders its own minimal navbar (brand left linking home, reserved
+empty center, first name + circular avatar right) so it is chrome-free in the
+global layout (`/profile` added to `CHROME_FREE_PATHNAMES`). A reusable
+`ProfileAvatar` renders the default person icon and accepts an `imageUrl` so a
+real profile image can be added later without redesigning the page.
+
+Content is a centered glass card consistent with the auth card: large circular
+avatar, full name, email, "Member since <Month Year>" derived from
+`created_at`, a divider and a secondary "Log out" button. Logout calls the
+existing `POST /api/v1/auth/logout` (no new backend functionality) and
+redirects to `/login` on success. No fake buttons for Change Password or
+Delete Account (those backend endpoints do not exist yet).
+
+The HTTP client gained `apiGet` alongside the existing `apiPost`
+(`main/src/utils/http_client.ts`).
+
+Files modified:
+
+- `main/src/utils/http_client.ts` (added `apiGet`)
+- `main/src/frontend/src/pages/profile_page/profile_page.tsx` (new)
+- `main/src/frontend/src/pages/profile_page/profile_page.module.css` (new)
+- `main/src/frontend/src/routes/app_routes.tsx` (`/profile` → `ProfilePage`)
+- `main/src/frontend/src/app.tsx` (`/profile` added to chrome-free paths)
+- `docs/PAGES/design.MD` (new Profile section)
+- `docs/how_to_run.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Turn the now-working authentication flow into a visible, minimal personal area
+while keeping scope tight and avoiding any new backend endpoint, migration or
+fake functionality.
+
+---
+
 # Version 2.2.97
 
 Title: Step 13 — connect Login/Register to the backend
