@@ -28,10 +28,12 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig) *gin.Engine {
 	loginHandler := auth.NewLoginHandler(loginService, tokenService, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
 
 	meHandler := auth.NewMeHandler(userRepository)
+	logoutHandler := auth.NewLogoutHandler(jwtCfg.CookieSecure)
 
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
+	v1.POST("/auth/logout", logoutHandler.Logout)
 	v1.GET("/me", middleware.Authenticate(tokenService), meHandler.GetMe)
 
 	return router

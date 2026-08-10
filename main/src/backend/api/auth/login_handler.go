@@ -12,9 +12,6 @@ import (
 	"ryze/backend/services/token"
 )
 
-// AccessTokenCookieName is the HttpOnly cookie carrying the access token.
-const AccessTokenCookieName = "ryze_access_token"
-
 // loginRequest is the request DTO for POST /api/v1/auth/login. It carries no
 // validation tags: semantic validation is owned by the login service.
 type loginRequest struct {
@@ -64,15 +61,7 @@ func (h *LoginHandler) Login(c *gin.Context) {
 		return
 	}
 
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     AccessTokenCookieName,
-		Value:    accessToken,
-		Path:     "/",
-		MaxAge:   int(h.ttl.Seconds()),
-		HttpOnly: true,
-		Secure:   h.secure,
-		SameSite: http.SameSiteLaxMode,
-	})
+	http.SetCookie(c.Writer, accessTokenCookie(accessToken, accessTokenLifetime(h.ttl), h.secure))
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

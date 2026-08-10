@@ -1,3 +1,55 @@
+# Version 2.2.96
+
+Title: Backend Step 12 — logout endpoint
+
+Date: 2026-08-10
+
+Summary:
+
+Implemented `POST /api/v1/auth/logout`. The endpoint clears the browser
+authentication cookie (`ryze_access_token`) with the same attributes used by
+login (HttpOnly, Path=/, SameSite=Lax, Secure from `COOKIE_SECURE`) and a
+negative Max-Age so the browser removes it (`Max-Age=0`). It deliberately does
+not validate the JWT, does not require the authentication middleware and does
+not touch the database — logout works even when the cookie is missing, expired
+or malformed, and the user row is never deleted or soft-deleted.
+
+Cookie configuration was extracted into a shared helper
+(`api/auth/cookies.go`: `accessTokenCookie`, `accessTokenLifetime`, plus the
+`AccessTokenCookieName` constant) used by both login and logout, so the two
+endpoints cannot drift. `LogoutHandler` receives only the Secure flag from the
+existing `COOKIE_SECURE` configuration; no repository, database connection or
+token service is involved.
+
+Response: HTTP 200 with the envelope `{ success: true, message: "Logout
+successful.", data: {} }`. Never returns the JWT, JWT_SECRET, password,
+password_hash or internal details.
+
+Verification: HTTP-level tests cover success 200, clearing Set-Cookie with
+empty value, HttpOnly, Path=/, SameSite=Lax, Max-Age=0, Secure following the
+`COOKIE_SECURE` configuration (enabled by default, disabled for local HTTP),
+logout without a cookie, logout with invalid/expired cookies, and responses
+never containing a JWT, JWT_SECRET or password_hash. Existing login, register
+and `/me` tests continue passing. An end-to-end `curl` check (register ->
+login -> `/me` 200 -> logout -> `/me` 401) confirmed the cookie is cleared
+while the user row remains in the database (`deleted_at` NULL); the manual
+test user was removed afterwards.
+
+Files modified:
+
+- `main/src/backend/api/auth/logout_handler.go` (new)
+- `main/src/backend/api/auth/logout_handler_test.go` (new)
+- `main/src/backend/api/auth/cookies.go` (new, shared cookie helper)
+- `main/src/backend/api/auth/login_handler.go` (uses shared cookie helper)
+- `main/src/backend/routes/routes.go`
+
+Reason:
+
+Complete the authentication lifecycle by allowing the browser to clear its
+authentication state without server-side token revocation.
+
+---
+
 # Version 2.2.95
 
 Title: Backend Step 11 — authenticated user endpoint

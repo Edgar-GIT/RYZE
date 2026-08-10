@@ -299,6 +299,8 @@ Current API surface (versioned under `/api/v1`):
 - `POST /api/v1/auth/register` — creates a new user account (public).
 - `POST /api/v1/auth/login` — authenticates with email/password and sets the
   `ryze_access_token` HttpOnly cookie (public).
+- `POST /api/v1/auth/logout` — clears the `ryze_access_token` cookie (public;
+  works even with a missing, expired or invalid cookie).
 - `GET /api/v1/me` — returns the authenticated user's safe account
   information (requires the `ryze_access_token` HttpOnly cookie).
 
