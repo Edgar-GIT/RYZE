@@ -6,6 +6,7 @@ import (
 
 	"ryze/backend/api/auth"
 	"ryze/backend/config"
+	"ryze/backend/middleware"
 	"ryze/backend/repositories"
 	"ryze/backend/services/login"
 	"ryze/backend/services/password"
@@ -26,9 +27,12 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig) *gin.Engine {
 	loginService := login.NewLoginService(userRepository, password.Verifier{})
 	loginHandler := auth.NewLoginHandler(loginService, tokenService, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
 
+	meHandler := auth.NewMeHandler(userRepository)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
+	v1.GET("/me", middleware.Authenticate(tokenService), meHandler.GetMe)
 
 	return router
 }

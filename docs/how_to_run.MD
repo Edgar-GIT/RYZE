@@ -297,8 +297,10 @@ go run .
 Current API surface (versioned under `/api/v1`):
 
 - `POST /api/v1/auth/register` — creates a new user account (public).
-- `POST /api/v1/auth/login` — authenticates with email/password and returns a
-  Bearer access token in the JSON response (public).
+- `POST /api/v1/auth/login` — authenticates with email/password and sets the
+  `ryze_access_token` HttpOnly cookie (public).
+- `GET /api/v1/me` — returns the authenticated user's safe account
+  information (requires the `ryze_access_token` HttpOnly cookie).
 
 ## Database Migrations
 

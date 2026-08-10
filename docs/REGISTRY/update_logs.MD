@@ -1,3 +1,63 @@
+# Version 2.2.95
+
+Title: Backend Step 11 — authenticated user endpoint
+
+Date: 2026-08-10
+
+Summary:
+
+Implemented `GET /api/v1/me`, a protected endpoint returning the authenticated
+user's safe account information. The route is guarded by the existing
+authentication middleware (`middleware.Authenticate(tokenService)`) and the
+handler receives the existing User Repository through dependency injection, so
+it never touches GORM or MariaDB directly and never re-implements
+authentication. Middleware logic was not modified.
+
+After the middleware resolves the authenticated UUID, `MeHandler.GetMe`
+retrieves the user via `repo.FindByID` (which already excludes soft-deleted
+users) and returns HTTP 200 with the envelope: `data { id, email,
+first_name, last_name, created_at, updated_at }`. `password_hash`,
+`deleted_at`, the JWT and the JWT secret are never returned. An authenticated
+UUID that no longer exists (or a soft-deleted user) maps to HTTP 401; missing
+or invalid cookies are handled by the middleware as 401
+`AUTHENTICATION_REQUIRED`; unexpected repository failures map to HTTP 500
+without leaking details.
+
+To avoid an import cycle (`api/auth` needs the context helper while the
+middleware uses `api/auth`'s error envelope and cookie name), the
+authentication context key and `UserIDFromContext` helper were extracted into
+a new `middleware/authcontext` package; `middleware/auth.go` now imports it
+and its logic is unchanged. The safe user response DTO was renamed
+`registerResponse`/`newRegisterResponse` -> `userResponse`/`newUserResponse`
+and is now shared by register and `/me`.
+
+Verification: HTTP-level tests cover success 200 with the correct id, email,
+first_name, last_name and non-empty created_at/updated_at, no
+password_hash/deleted_at/JWT/JWT-secret exposure, missing cookie 401, invalid
+JWT 401, expired JWT 401, unknown authenticated UUID 401, soft-deleted user
+401, and repository failure 500 without leaking details. Database-backed cases
+run inside rolled-back transactions, leaving no permanent users. An
+end-to-end `curl` check (register -> login -> `/me` with the HttpOnly cookie)
+returned the correct user with 200 and 401 without a cookie; the manual test
+user was removed afterwards.
+
+Files modified:
+
+- `main/src/backend/api/auth/me_handler.go` (new)
+- `main/src/backend/api/auth/me_handler_test.go` (new)
+- `main/src/backend/middleware/authcontext/authcontext.go` (new)
+- `main/src/backend/middleware/auth.go`
+- `main/src/backend/middleware/auth_test.go`
+- `main/src/backend/api/auth/register_handler.go` (renamed shared response DTO)
+- `main/src/backend/routes/routes.go`
+
+Reason:
+
+Expose the authenticated user profile as the first protected route built on
+the authentication foundation.
+
+---
+
 # Version 2.2.94
 
 Title: Backend Step 10 — authentication middleware

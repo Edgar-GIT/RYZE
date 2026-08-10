@@ -13,6 +13,7 @@ import (
 
 	"ryze/backend/api/auth"
 	"ryze/backend/middleware"
+	"ryze/backend/middleware/authcontext"
 	"ryze/backend/services/token"
 )
 
@@ -43,7 +44,7 @@ func newProtectedRouter(t *testing.T, svc token.Service) (*gin.Engine, *bool, *s
 	router := gin.New()
 	router.GET("/protected", middleware.Authenticate(svc), func(c *gin.Context) {
 		reached = true
-		id, err := middleware.UserIDFromContext(c)
+		id, err := authcontext.UserIDFromContext(c)
 		if err == nil {
 			userID = id
 		}
@@ -234,9 +235,9 @@ func TestInternalValidationFailureDoesNotExposeDetails(t *testing.T) {
 func TestUserIDFromContextValid(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	expected := uuid.NewString()
-	c.Set(middleware.UserIDContextKey, expected)
+	c.Set(authcontext.UserIDContextKey, expected)
 
-	userID, err := middleware.UserIDFromContext(c)
+	userID, err := authcontext.UserIDFromContext(c)
 	if err != nil {
 		t.Fatalf("UserIDFromContext: %v", err)
 	}
@@ -257,11 +258,11 @@ func TestUserIDFromContextInvalidValues(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())
 			if value != nil {
-				c.Set(middleware.UserIDContextKey, value)
+				c.Set(authcontext.UserIDContextKey, value)
 			}
 
-			userID, err := middleware.UserIDFromContext(c)
-			if !errors.Is(err, middleware.ErrNoAuthenticatedUser) {
+			userID, err := authcontext.UserIDFromContext(c)
+			if !errors.Is(err, authcontext.ErrNoAuthenticatedUser) {
 				t.Fatalf("expected ErrNoAuthenticatedUser, got %v", err)
 			}
 			if userID != "" {

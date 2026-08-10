@@ -22,8 +22,8 @@ type registerRequest struct {
 	LastName  string `json:"last_name"`
 }
 
-// registerResponse only exposes safe public user information.
-type registerResponse struct {
+// userResponse only exposes safe public user information.
+type userResponse struct {
 	ID        string    `json:"id"`
 	Email     string    `json:"email"`
 	FirstName string    `json:"first_name"`
@@ -69,12 +69,12 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"message": "Account created successfully.",
-		"data":    newRegisterResponse(user),
+		"data":    newUserResponse(user),
 	})
 }
 
-func newRegisterResponse(user *models.User) registerResponse {
-	return registerResponse{
+func newUserResponse(user *models.User) userResponse {
+	return userResponse{
 		ID:        user.ID,
 		Email:     user.Email,
 		FirstName: user.FirstName,
