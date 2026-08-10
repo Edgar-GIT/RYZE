@@ -64,6 +64,14 @@ func HashPassword(password string) (string, error) {
 	), nil
 }
 
+// Hasher exposes HashPassword as a method so the hashing service can be
+// injected as a dependency.
+type Hasher struct{}
+
+func (Hasher) HashPassword(password string) (string, error) {
+	return HashPassword(password)
+}
+
 // VerifyPassword reports whether the plaintext password matches the given
 // hash. Malformed or empty hashes return ErrInvalidHash; empty passwords
 // return ErrEmptyPassword. Verification never panics on malformed input.

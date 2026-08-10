@@ -1,3 +1,49 @@
+# Version 2.2.88
+
+Title: Backend Step 5 — user registration service
+
+Date: 2026-08-10
+
+Summary:
+
+Implemented the registration use-case service in `services/registration`. It
+combines the existing Password Hashing Service and User Repository through
+dependency injection: `NewRegistrationService(repo, hasher)` accepts the
+repository and a `PasswordHasher` (implemented by `password.Hasher`), and the
+service never touches GORM or creates database connections directly.
+
+The `Register` flow validates input (required email/first_name/last_name,
+basic email format, empty passwords rejected with `password.ErrEmptyPassword`),
+hashes the plaintext password with Argon2id, stores the hash via the User
+Repository, propagates `ErrDuplicateEmail` unchanged, and returns the created
+user with `password_hash` cleared so it is never exposed to callers. Plaintext
+passwords are never logged, stored, embedded in errors or returned. UUID
+generation remains handled by the model/repository.
+
+A `Hasher` type was added to `services/password` so the hashing component can
+be injected as a dependency.
+
+Verification: isolated tests cover successful registration (persisted hash
+differs from plaintext and verifies with the Password Service; a wrong
+password fails), duplicate email returning `ErrDuplicateEmail`, empty password
+rejected, invalid input rejected, and repository failures propagated without
+being mistaken for `ErrDuplicateEmail`. Database-backed cases run inside a
+rolled-back transaction, leaving no permanent users.
+
+Files modified:
+
+- `main/src/backend/services/password/password.go`
+- `main/src/backend/services/registration/registration.go` (new)
+- `main/src/backend/services/registration/registration_test.go` (new)
+
+Reason:
+
+Combine the tested components (hashing + repository) into the registration
+use-case as the next step toward authentication, kept isolated from HTTP and
+login.
+
+---
+
 # Version 2.2.87
 
 Title: Backend Step 4 — password hashing service (Argon2id)
