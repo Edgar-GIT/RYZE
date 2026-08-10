@@ -2,24 +2,10 @@
   position: relative;
   overflow: hidden;
   padding: 8rem 0 5.5rem;
-  background: #000001;
-}
-
-.atmosphere {
-  position: absolute;
-  top: -8rem;
-  left: 50%;
-  width: min(64rem, 94vw);
-  height: 34rem;
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse 50% 50% at 50% 0%,
-    rgba(0, 110, 235, 0.12),
-    transparent 72%
-  );
-  filter: blur(48px);
-  transform: translateX(-50%);
-  pointer-events: none;
+  background-color: #000001;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
 }
 
 .inner {
@@ -85,7 +71,7 @@
 }
 
 .media {
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 4 / 4.5;
   overflow: hidden;
 }
 

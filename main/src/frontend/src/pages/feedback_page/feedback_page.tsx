@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import feedbackBackground from "@resources/img/feedbacks/feedback_bg.png";
 import feedbackOne from "@resources/img/feedbacks/f1.jpeg";
 import feedbackTwo from "@resources/img/feedbacks/f2.jpeg";
 import feedbackThree from "@resources/img/feedbacks/f3.jpeg";
@@ -44,9 +45,11 @@ const Stars = () => (
 
 export const FeedbackPage = () => (
   <PageWrapper>
-    <section className={styles.hero} aria-label="Feedback">
-      <div className={styles.atmosphere} aria-hidden="true" />
-
+    <section
+      className={styles.hero}
+      style={{ backgroundImage: `url(${feedbackBackground})` }}
+      aria-label="Feedback"
+    >
       <Container className={styles.inner}>
         <p className={styles.eyebrow}>Feedback</p>
 
