@@ -24,7 +24,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig) *gin.Engine {
 
 	tokenService := token.NewService([]byte(jwtCfg.Secret), jwtCfg.AccessTokenTTL)
 	loginService := login.NewLoginService(userRepository, password.Verifier{})
-	loginHandler := auth.NewLoginHandler(loginService, tokenService, jwtCfg.AccessTokenTTL)
+	loginHandler := auth.NewLoginHandler(loginService, tokenService, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
 
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)

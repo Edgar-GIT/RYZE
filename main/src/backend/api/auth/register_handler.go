@@ -44,7 +44,7 @@ func NewRegisterHandler(svc registration.RegistrationService) *RegisterHandler {
 func (h *RegisterHandler) Register(c *gin.Context) {
 	var req registerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request body.", nil)
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request body.", nil)
 		return
 	}
 
@@ -57,11 +57,11 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrDuplicateEmail):
-			respondError(c, http.StatusConflict, "EMAIL_ALREADY_REGISTERED", "Email already in use.", nil)
+			RespondError(c, http.StatusConflict, "EMAIL_ALREADY_REGISTERED", "Email already in use.", nil)
 		case errors.Is(err, registration.ErrInvalidInput), errors.Is(err, password.ErrEmptyPassword):
-			respondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		default:
-			respondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
+			RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 		}
 		return
 	}
@@ -84,8 +84,8 @@ func newRegisterResponse(user *models.User) registerResponse {
 	}
 }
 
-// respondError follows the project's API error envelope.
-func respondError(c *gin.Context, status int, code, message string, details []string) {
+// RespondError writes an API error response using the project's envelope.
+func RespondError(c *gin.Context, status int, code, message string, details []string) {
 	if details == nil {
 		details = []string{}
 	}

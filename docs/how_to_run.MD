@@ -250,9 +250,14 @@ from environment variables:
 
 - `JWT_SECRET` (required, at least 32 characters)
 - `JWT_ACCESS_TOKEN_TTL` (optional, defaults to `15m`)
+- `COOKIE_SECURE` (optional, defaults to `true`; the auth cookie is served
+  with the Secure flag, which must be `false` only for local HTTP development)
 
 If `JWT_SECRET` is missing or too short, the backend fails at startup instead
 of falling back to an insecure default secret.
+
+The access token is delivered as an HttpOnly cookie named `ryze_access_token`
+(SameSite=Lax, Path=/), not in the JSON response.
 
 The `.env.example` template uses placeholders. Generate a local secret (never
 commit a real value) with:

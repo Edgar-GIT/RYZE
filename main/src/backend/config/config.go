@@ -13,4 +13,5 @@ type DatabaseConfig struct {
 type JWTConfig struct {
 	Secret         string
 	AccessTokenTTL time.Duration
+	CookieSecure   bool
 }

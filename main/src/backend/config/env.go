@@ -77,7 +77,8 @@ func valueOr(key, fallback string) string {
 // LoadJWT reads the JWT configuration from environment variables. The signing
 // secret is required and must be strong enough (minimum length) so the server
 // never silently falls back to an insecure default. The access-token lifetime
-// is optional and defaults to 15 minutes when not provided.
+// is optional and defaults to 15 minutes when not provided. The auth cookie is
+// Secure by default; local HTTP development may disable it with COOKIE_SECURE.
 func LoadJWT() (JWTConfig, error) {
 	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
 	if len(secret) < minJWTSecretLength {
@@ -93,5 +94,14 @@ func LoadJWT() (JWTConfig, error) {
 		ttl = parsed
 	}
 
-	return JWTConfig{Secret: secret, AccessTokenTTL: ttl}, nil
+	cookieSecure := true
+	if raw := strings.TrimSpace(os.Getenv("COOKIE_SECURE")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return JWTConfig{}, fmt.Errorf("COOKIE_SECURE must be a boolean, got %q", raw)
+		}
+		cookieSecure = parsed
+	}
+
+	return JWTConfig{Secret: secret, AccessTokenTTL: ttl, CookieSecure: cookieSecure}, nil
 }

@@ -25,15 +25,16 @@ import (
 )
 
 const (
-	loginRoute   = "/api/v1/auth/login"
-	testSecret   = "login-test-secret-that-is-longer-than-32-bytes-77"
-	testTokenTTL = 15 * time.Minute
+	loginRoute     = "/api/v1/auth/login"
+	testSecret     = "login-test-secret-that-is-longer-than-32-bytes-77"
+	testTokenTTL   = 15 * time.Minute
+	testCookieName = "ryze_access_token"
 )
 
 // newLoginTestRouter builds a router backed by a real database transaction so
 // created users are rolled back and never persisted. The token service uses a
 // fixed test secret so returned tokens can be validated in the tests.
-func newLoginTestRouter(t *testing.T) (*gin.Engine, repositories.UserRepository, token.Service) {
+func newLoginTestRouter(t *testing.T, secure bool) (*gin.Engine, repositories.UserRepository, token.Service) {
 	t.Helper()
 
 	config.LoadEnvFile()
@@ -53,7 +54,7 @@ func newLoginTestRouter(t *testing.T) (*gin.Engine, repositories.UserRepository,
 	repo := repositories.NewUserRepository(tx)
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
 	loginSvc := login.NewLoginService(repo, password.Verifier{})
-	handler := auth.NewLoginHandler(loginSvc, tokenSvc, testTokenTTL)
+	handler := auth.NewLoginHandler(loginSvc, tokenSvc, testTokenTTL, secure)
 
 	router := gin.New()
 	router.POST(loginRoute, handler.Login)
@@ -101,8 +102,29 @@ func loginBody(email, password string) string {
 	return fmt.Sprintf(`{"email": %q, "password": %q}`, email, password)
 }
 
+// parseSetCookie extracts the attributes of the first Set-Cookie header.
+func parseSetCookie(t *testing.T, rec *httptest.ResponseRecorder) map[string]string {
+	t.Helper()
+
+	header := rec.Header().Get("Set-Cookie")
+	if header == "" {
+		t.Fatal("expected a Set-Cookie header")
+	}
+
+	attrs := map[string]string{}
+	for _, part := range strings.Split(header, ";") {
+		kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
+		value := ""
+		if len(kv) == 2 {
+			value = kv[1]
+		}
+		attrs[strings.ToLower(kv[0])] = value
+	}
+	return attrs
+}
+
 func TestLoginSuccess(t *testing.T) {
-	router, repo, _ := newLoginTestRouter(t)
+	router, repo, _ := newLoginTestRouter(t, true)
 	user := seedLoginUser(t, repo, uniqueEmail(), "CorrectPassword1!")
 
 	rec, data, raw := attemptLogin(router, loginBody(user.Email, "CorrectPassword1!"))
@@ -113,33 +135,80 @@ func TestLoginSuccess(t *testing.T) {
 	if data == nil {
 		t.Fatal("expected data object in response")
 	}
-	accessToken, _ := data["access_token"].(string)
-	if accessToken == "" {
-		t.Fatal("expected non-empty access_token")
+	if _, ok := data["access_token"]; ok {
+		t.Fatal("JSON response must not contain access_token")
 	}
-	if tokenType, _ := data["token_type"].(string); tokenType != "Bearer" {
-		t.Fatalf("expected token_type Bearer, got %q", tokenType)
-	}
-	if expiresIn, _ := data["expires_in"].(float64); int(expiresIn) != int(testTokenTTL.Seconds()) {
-		t.Fatalf("expected expires_in %d, got %v", int(testTokenTTL.Seconds()), expiresIn)
+	if _, ok := data["token"]; ok {
+		t.Fatal("JSON response must not contain a token")
 	}
 }
 
-func TestLoginTokenValidatesAndMatchesSubject(t *testing.T) {
-	router, repo, tokenSvc := newLoginTestRouter(t)
+func TestLoginSetsHttpOnlyCookie(t *testing.T) {
+	router, repo, _ := newLoginTestRouter(t, true)
 	user := seedLoginUser(t, repo, uniqueEmail(), "CorrectPassword1!")
 
-	rec, data, raw := attemptLogin(router, loginBody(user.Email, "CorrectPassword1!"))
+	rec, _, raw := attemptLogin(router, loginBody(user.Email, "CorrectPassword1!"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
 
-	accessToken, _ := data["access_token"].(string)
-	if accessToken == "" {
-		t.Fatal("expected access_token in response")
+	cookie := parseSetCookie(t, rec)
+
+	token, ok := cookie[testCookieName]
+	if !ok {
+		t.Fatal("cookie ryze_access_token must be set")
+	}
+	if token == "" {
+		t.Fatal("cookie must contain the generated JWT")
+	}
+	if _, present := cookie["httponly"]; !present {
+		t.Fatal("cookie must be HttpOnly")
+	}
+	if _, present := cookie["secure"]; !present {
+		t.Fatal("cookie must be Secure by default")
+	}
+	if sameSite, _ := cookie["samesite"]; sameSite != "Lax" {
+		t.Fatalf("expected SameSite=Lax, got %q", sameSite)
+	}
+	if path, _ := cookie["path"]; path != "/" {
+		t.Fatalf("expected Path=/, got %q", path)
+	}
+	if maxAge, _ := cookie["max-age"]; maxAge != "900" {
+		t.Fatalf("expected Max-Age=900 matching the TTL, got %q", maxAge)
+	}
+}
+
+func TestLoginSecureCookieDisabledForLocalHTTP(t *testing.T) {
+	router, repo, _ := newLoginTestRouter(t, false)
+	user := seedLoginUser(t, repo, uniqueEmail(), "CorrectPassword1!")
+
+	rec, _, raw := attemptLogin(router, loginBody(user.Email, "CorrectPassword1!"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
 
-	subject, err := tokenSvc.ValidateAccessToken(accessToken)
+	cookie := parseSetCookie(t, rec)
+	if _, present := cookie["secure"]; present {
+		t.Fatal("Secure must be disabled for local HTTP development")
+	}
+}
+
+func TestLoginTokenValidatesAndMatchesSubject(t *testing.T) {
+	router, repo, tokenSvc := newLoginTestRouter(t, true)
+	user := seedLoginUser(t, repo, uniqueEmail(), "CorrectPassword1!")
+
+	rec, _, raw := attemptLogin(router, loginBody(user.Email, "CorrectPassword1!"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	cookie := parseSetCookie(t, rec)
+	jwtValue, ok := cookie[testCookieName]
+	if !ok {
+		t.Fatal("cookie ryze_access_token must be set")
+	}
+
+	subject, err := tokenSvc.ValidateAccessToken(jwtValue)
 	if err != nil {
 		t.Fatalf("ValidateAccessToken: %v", err)
 	}
@@ -149,7 +218,7 @@ func TestLoginTokenValidatesAndMatchesSubject(t *testing.T) {
 }
 
 func TestLoginWrongPassword(t *testing.T) {
-	router, repo, _ := newLoginTestRouter(t)
+	router, repo, _ := newLoginTestRouter(t, true)
 	user := seedLoginUser(t, repo, uniqueEmail(), "CorrectPassword1!")
 
 	rec, _, _ := attemptLogin(router, loginBody(user.Email, "WrongPassword1!"))
@@ -159,7 +228,7 @@ func TestLoginWrongPassword(t *testing.T) {
 }
 
 func TestLoginNonExistentEmail(t *testing.T) {
-	router, _, _ := newLoginTestRouter(t)
+	router, _, _ := newLoginTestRouter(t, true)
 
 	rec, _, _ := attemptLogin(router, loginBody(uniqueEmail(), "Whatever123!"))
 	if rec.Code != http.StatusUnauthorized {
@@ -168,7 +237,7 @@ func TestLoginNonExistentEmail(t *testing.T) {
 }
 
 func TestLoginSoftDeletedUser(t *testing.T) {
-	router, repo, _ := newLoginTestRouter(t)
+	router, repo, _ := newLoginTestRouter(t, true)
 	user := seedLoginUser(t, repo, uniqueEmail(), "CorrectPassword1!")
 
 	if err := repo.SoftDelete(context.Background(), user.ID); err != nil {
@@ -182,7 +251,7 @@ func TestLoginSoftDeletedUser(t *testing.T) {
 }
 
 func TestLoginInvalidJSON(t *testing.T) {
-	router, _, _ := newLoginTestRouter(t)
+	router, _, _ := newLoginTestRouter(t, true)
 
 	rec, _, _ := attemptLogin(router, `{"email": "broken"`)
 	if rec.Code != http.StatusBadRequest {
@@ -191,7 +260,7 @@ func TestLoginInvalidJSON(t *testing.T) {
 }
 
 func TestLoginMissingFields(t *testing.T) {
-	router, _, _ := newLoginTestRouter(t)
+	router, _, _ := newLoginTestRouter(t, true)
 
 	for name, body := range map[string]string{
 		"empty object":     `{}`,
@@ -204,6 +273,49 @@ func TestLoginMissingFields(t *testing.T) {
 				t.Fatalf("expected 400, got %d (body: %s)", rec.Code, rec.Body.String())
 			}
 		})
+	}
+}
+
+func TestLoginInternalError(t *testing.T) {
+	loginSvc := login.NewLoginService(failingLoginRepository{}, password.Verifier{})
+	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
+	handler := auth.NewLoginHandler(loginSvc, tokenSvc, testTokenTTL, true)
+
+	router := gin.New()
+	router.POST(loginRoute, handler.Login)
+
+	rec, _, raw := attemptLogin(router, loginBody("someone@ryze.local", "Whatever123!"))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, "repository failure") {
+		t.Fatal("internal error details must never be exposed")
+	}
+}
+
+func TestLoginResponseNeverExposesSecrets(t *testing.T) {
+	router, repo, _ := newLoginTestRouter(t, true)
+	plaintext := "SuperSecret1!"
+	user := seedLoginUser(t, repo, uniqueEmail(), plaintext)
+
+	rec, data, raw := attemptLogin(router, loginBody(user.Email, plaintext))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if _, ok := data["password_hash"]; ok {
+		t.Fatal("response must not expose password_hash")
+	}
+	if strings.Contains(raw, plaintext) {
+		t.Fatal("response must never contain the plaintext password")
+	}
+	if strings.Contains(raw, testSecret) {
+		t.Fatal("response must never expose JWT_SECRET")
+	}
+
+	cookie := parseSetCookie(t, rec)
+	jwtValue := cookie[testCookieName]
+	if jwtValue != "" && strings.Contains(raw, jwtValue) {
+		t.Fatal("JWT must exist only in the Set-Cookie header, never in the JSON response")
 	}
 }
 
@@ -227,41 +339,4 @@ func (failingLoginRepository) Update(_ context.Context, _ *models.User) error {
 }
 func (failingLoginRepository) SoftDelete(_ context.Context, _ string) error {
 	return errLoginRepoFailure
-}
-
-func TestLoginInternalError(t *testing.T) {
-	loginSvc := login.NewLoginService(failingLoginRepository{}, password.Verifier{})
-	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
-	handler := auth.NewLoginHandler(loginSvc, tokenSvc, testTokenTTL)
-
-	router := gin.New()
-	router.POST(loginRoute, handler.Login)
-
-	rec, _, raw := attemptLogin(router, loginBody("someone@ryze.local", "Whatever123!"))
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d (body: %s)", rec.Code, raw)
-	}
-	if strings.Contains(raw, "repository failure") {
-		t.Fatal("internal error details must never be exposed")
-	}
-}
-
-func TestLoginResponseNeverExposesSecrets(t *testing.T) {
-	router, repo, _ := newLoginTestRouter(t)
-	plaintext := "SuperSecret1!"
-	user := seedLoginUser(t, repo, uniqueEmail(), plaintext)
-
-	rec, data, raw := attemptLogin(router, loginBody(user.Email, plaintext))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
-	}
-	if _, ok := data["password_hash"]; ok {
-		t.Fatal("response must not expose password_hash")
-	}
-	if strings.Contains(raw, plaintext) {
-		t.Fatal("response must never contain the plaintext password")
-	}
-	if strings.Contains(raw, testSecret) {
-		t.Fatal("response must never expose JWT_SECRET")
-	}
 }

@@ -1,3 +1,100 @@
+# Version 2.2.94
+
+Title: Backend Step 10 — authentication middleware
+
+Date: 2026-08-10
+
+Summary:
+
+Implemented Gin authentication middleware in `middleware/auth.go`.
+`middleware.Authenticate(tokens)` receives the existing Token Service through
+dependency injection, reads the `ryze_access_token` HttpOnly cookie, validates
+the JWT, extracts the authenticated user UUID and stores it in the Gin
+context before calling `c.Next()`. It never touches GORM, MariaDB or the JWT
+secret directly and never logs or returns the token.
+
+All authentication failures (missing cookie, empty cookie, malformed/expired/
+tampered JWT, wrong secret, invalid or missing subject) map to the same
+indistinguishable HTTP 401 `AUTHENTICATION_REQUIRED` error using the project
+envelope, so validation internals are never exposed. The middleware is not
+applied globally and does not protect registration or login; it is ready to be
+used explicitly on protected routes (no protected endpoint was added).
+
+The authenticated user ID uses a dedicated unexported context-key type
+(`UserIDContextKey`) and a helper `UserIDFromContext(c *gin.Context)` that
+safely rejects missing values, wrong types, empty strings and non-UUID values
+instead of silently returning a zero UUID. `RespondError` in `api/auth` was
+exported so the middleware reuses the single error envelope implementation
+instead of duplicating it.
+
+Verification: middleware tests (httptest, no MariaDB) cover valid cookie
+continuation, correct UUID stored in context, missing/empty cookie 401,
+malformed JWT 401, expired JWT 401, wrong-secret JWT 401, invalid UUID subject
+401, missing subject 401, internal validation failure 401 without leaking
+details, and the context helper's valid and invalid retrieval cases.
+
+Files modified:
+
+- `main/src/backend/middleware/auth.go` (new)
+- `main/src/backend/middleware/auth_test.go` (new)
+- `main/src/backend/api/auth/register_handler.go` (exported `RespondError`)
+- `main/src/backend/api/auth/login_handler.go` (uses exported helper)
+
+Reason:
+
+Provide reusable request authentication for future protected routes while
+keeping the public registration and login endpoints untouched.
+
+---
+
+# Version 2.2.93
+
+Title: Backend Step 9 correction — HttpOnly auth cookie
+
+Date: 2026-08-10
+
+Summary:
+
+Changed the login authentication transport from a JSON-returned token to an
+HttpOnly cookie. `POST /api/v1/auth/login` still authenticates through the
+Login Service and generates the JWT through the Token Service, but now sets
+the token as an HttpOnly cookie `ryze_access_token` via `http.SetCookie` and
+returns only `{ success, message, data: {} }` — the JWT never appears in the
+JSON response.
+
+Cookie attributes: HttpOnly, SameSite=Lax, Path=/, Max-Age matching the
+configured access-token TTL (no hardcoded lifetime), and Secure by default.
+`config.LoadJWT()` now reads `COOKIE_SECURE` (boolean, default `true`) so
+production stays secure over HTTPS while local HTTP development can disable
+the flag in the gitignored `.env`. `.env.example` and `how_to_run.MD` document
+the variable. The Login Service, User Repository and JWT Service were not
+modified.
+
+Verification: login HTTP tests updated — success 200 without a token in the
+JSON body, Set-Cookie present, cookie name `ryze_access_token`, cookie value
+validated through the Token Service with subject matching the authenticated
+user UUID, HttpOnly enabled, SameSite=Lax, Path=/, Max-Age 900 matching the
+TTL, Secure enabled by default and disabled for local HTTP, plus the existing
+401/400/500 and secret-exposure tests unchanged. Database-backed cases still
+run inside rolled-back transactions, leaving no permanent users.
+
+Files modified:
+
+- `main/src/backend/api/auth/login_handler.go`
+- `main/src/backend/api/auth/login_handler_test.go`
+- `main/src/backend/routes/routes.go`
+- `main/src/backend/config/config.go`
+- `main/src/backend/config/env.go`
+- `.env.example`
+
+Reason:
+
+Adopt the definitive browser authentication transport (HttpOnly cookie) while
+keeping credential verification, token generation and the API surface
+unchanged.
+
+---
+
 # Version 2.2.92
 
 Title: Backend Step 9 — login HTTP endpoint
