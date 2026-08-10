@@ -1,3 +1,52 @@
+# Version 2.2.85
+
+Title: Backend Step 2 — golang-migrate workflow and initial users table
+
+Date: 2026-08-10
+
+Summary:
+
+Introduced the database migration workflow using `golang-migrate` and created
+the first migration, which defines the initial normalized `users` table. The
+backend now exposes three migration commands:
+
+- `go run . migrate up` — applies all pending migrations
+- `go run . migrate down` — rolls back all applied migrations
+- `go run . migrate version` — shows the current migration version and dirty state
+
+The migration workflow is embedded in the backend binary; migration files
+live in `main/src/backend/database/migrations/`. Database schema changes must
+be made through versioned migrations, never manually.
+
+The `users` table contains the identity/account foundation only: `id`
+(UUID, `CHAR(36)` primary key), `email`, `password_hash`, `first_name`,
+`last_name`, `created_at`, `updated_at` and `deleted_at` (soft delete).
+Email uniqueness applies to active users through a composite
+`UNIQUE (email, deleted_at)` key, which keeps soft-deleted rows recoverable
+while preventing duplicate active emails.
+
+The migration was executed against the local `ryze` database: UP created the
+table, DOWN removed it, and UP recreated it successfully. Final state is
+migration version 1, clean.
+
+Files modified:
+
+- `main/src/backend/go.mod`
+- `main/src/backend/go.sum`
+- `main/src/backend/main.go`
+- `main/src/backend/database/database.go`
+- `main/src/backend/database/migrate.go`
+- `main/src/backend/database/migrations/000001_create_users_table.up.sql` (new)
+- `main/src/backend/database/migrations/000001_create_users_table.down.sql` (new)
+- `docs/how_to_run.MD`
+
+Reason:
+
+Establish the reproducible, versioned migration workflow and the initial
+users table as the next foundation step before authentication features.
+
+---
+
 # Version 2.2.84
 
 Title: Local database setup — system MariaDB and dedicated ryze_admin user

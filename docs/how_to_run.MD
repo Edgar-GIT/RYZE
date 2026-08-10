@@ -260,3 +260,39 @@ database connection established successfully (host=127.0.0.1 port=3306 db=ryze)
 
 If the database is unreachable, misconfigured, or the credentials are
 rejected, the backend prints a clear error and exits with a non-zero status.
+
+## Database Migrations
+
+Database schema changes are managed with `golang-migrate`. The schema must
+be reproducible entirely through migrations — never modify the database
+manually (for example through DBeaver).
+
+Migrations are versioned files inside:
+
+```text
+main/src/backend/database/migrations/
+```
+
+Each migration has an `.up.sql` and a `.down.sql` file.
+
+Run all pending migrations:
+
+```bash
+cd main/src/backend
+go run . migrate up
+```
+
+Roll back all applied migrations:
+
+```bash
+go run . migrate down
+```
+
+Check the current migration status:
+
+```bash
+go run . migrate version
+```
+
+The migration commands must be executed from the `main/src/backend`
+directory.
