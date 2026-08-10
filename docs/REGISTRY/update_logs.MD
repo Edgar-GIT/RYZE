@@ -1,3 +1,25 @@
+# Version 2.2.79
+
+Title: Update home hero headline to "The Future of Fitness"
+
+Date: 2026-08-07
+
+Summary:
+
+Replaced the home hero headline ("Train smarter. Fuel better. Evolve always.")
+with "The Future of Fitness", highlighting "Future" with the existing accent
+highlight style, split across two lines: "The Future of" / "Fitness".
+
+Files modified:
+
+- `main/src/frontend/src/components/hero/hero.tsx`
+
+Reason:
+
+Brand copy update requested by the user.
+
+---
+
 # Version 2.2.78
 
 Title: Translate the auth page forms to English

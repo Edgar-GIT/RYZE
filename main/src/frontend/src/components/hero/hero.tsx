@@ -26,11 +26,9 @@ export const Hero = () => (
           AI-powered training and nutrition platform
         </p>
         <h1>
-          Train smarter.
+          The <span className={styles.accentLine}>Future</span> of
           <br />
-          Fuel better.
-          <br />
-          <span className={styles.accentLine}>Evolve always.</span>
+          Fitness
         </h1>
         <p className={styles.description}>
           Personalized training, nutrition and recovery — powered by AI and
