@@ -653,17 +653,19 @@ preview). It sits directly below the navbar.
 
 Background
 
-- Solid near-black (`#000001`), no background image
-- Only an extremely subtle radial blue atmosphere behind the headline
+- Solid near-black (`#000001`) fallback behind `feedback_bg.png`
+  (`main/src/resources/img/feedbacks/feedback_bg.png`), applied as a full
+  `background-image` with `cover`/center
 
-Composition (all centered)
+Composition
 
-- Blue uppercase eyebrow "FEEDBACK"
-- Large bold headline "Real people. / Real results." — "Real people." white,
-  "Real results." bright RYZE blue with a subtle glow
-  (`0 0 20px rgba(0, 150, 255, 0.25)`)
-- Soft gray/white centered description
-- Three testimonial cards in a single row (stack on small screens)
+- Top row: two columns. Left column holds the copy (blue uppercase eyebrow
+  "FEEDBACK", large bold headline "Real people. / Real results." with
+  "Real results." in bright RYZE blue and a subtle glow, soft gray
+  description) anchored to the bottom. Right column shows the RYZE slogan
+  logo (`BRAND_ASSETS.slogan`), bottom-aligned.
+- Below: three testimonial cards in a single row (stack on small screens)
+- Bottom: centered CTA
 
 Testimonial cards
 

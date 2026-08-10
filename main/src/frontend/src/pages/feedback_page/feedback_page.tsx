@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { BRAND_ASSETS } from "@/constants/brand_assets";
 import feedbackBackground from "@resources/img/feedbacks/feedback_bg.png";
 import feedbackOne from "@resources/img/feedbacks/f1.jpeg";
 import feedbackTwo from "@resources/img/feedbacks/f2.jpeg";
@@ -51,21 +52,26 @@ export const FeedbackPage = () => (
       aria-label="Feedback"
     >
       <Container className={styles.inner}>
-        <p className={styles.eyebrow}>Feedback</p>
+        <div className={styles.topRow}>
+          <div className={styles.copy}>
+            <p className={styles.eyebrow}>Feedback</p>
 
-        <h1 className={styles.title}>
-          Real people.
-          <br />
-          <span className={styles.accent}>Real results.</span>
-        </h1>
+            <h1 className={styles.title}>
+              Real people.
+              <br />
+              <span className={styles.accent}>Real results.</span>
+            </h1>
 
-        <p className={styles.description}>
-          Thousands of people are already
-          <br />
-          transforming their lives with RYZE.
-          <br />
-          Here are some of their stories.
-        </p>
+            <p className={styles.description}>
+              Thousands of people are already transforming their lives with
+              RYZE. Here are some of their stories.
+            </p>
+          </div>
+
+          <div className={styles.visual}>
+            <img src={BRAND_ASSETS.slogan} alt="RYZE" className={styles.visualLogo} />
+          </div>
+        </div>
 
         <div className={styles.grid}>
           {testimonials.map((testimonial) => (
@@ -95,7 +101,7 @@ export const FeedbackPage = () => (
             className={styles.ctaButton}
             icon={<ArrowRight />}
           >
-            START MY TRANSFORMATION
+            START YOUR TRANSFORMATION
           </Button>
         </div>
       </Container>
