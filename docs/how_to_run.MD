@@ -243,6 +243,24 @@ A template without secrets is available at `.env.example`.
 The backend loads the repository root `.env` automatically, so the database
 credentials never need to be hardcoded or committed.
 
+## JWT Configuration
+
+The backend signs access tokens with HMAC-SHA256. The configuration is read
+from environment variables:
+
+- `JWT_SECRET` (required, at least 32 characters)
+- `JWT_ACCESS_TOKEN_TTL` (optional, defaults to `15m`)
+
+If `JWT_SECRET` is missing or too short, the backend fails at startup instead
+of falling back to an insecure default secret.
+
+The `.env.example` template uses placeholders. Generate a local secret (never
+commit a real value) with:
+
+```bash
+openssl rand -hex 32
+```
+
 ## Verify the Database Connection
 
 From the backend directory, run:

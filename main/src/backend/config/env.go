@@ -6,13 +6,16 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 const (
-	defaultHost = "127.0.0.1"
-	defaultPort = "3306"
+	defaultHost        = "127.0.0.1"
+	defaultPort        = "3306"
+	defaultTokenTTL    = 15 * time.Minute
+	minJWTSecretLength = 32
 )
 
 // LoadEnvFile loads the repository .env file so environment variables defined
@@ -69,4 +72,26 @@ func valueOr(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// LoadJWT reads the JWT configuration from environment variables. The signing
+// secret is required and must be strong enough (minimum length) so the server
+// never silently falls back to an insecure default. The access-token lifetime
+// is optional and defaults to 15 minutes when not provided.
+func LoadJWT() (JWTConfig, error) {
+	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	if len(secret) < minJWTSecretLength {
+		return JWTConfig{}, fmt.Errorf("JWT_SECRET must be set and at least %d characters long", minJWTSecretLength)
+	}
+
+	ttl := defaultTokenTTL
+	if raw := strings.TrimSpace(os.Getenv("JWT_ACCESS_TOKEN_TTL")); raw != "" {
+		parsed, err := time.ParseDuration(raw)
+		if err != nil || parsed <= 0 {
+			return JWTConfig{}, fmt.Errorf("JWT_ACCESS_TOKEN_TTL must be a positive duration, got %q", raw)
+		}
+		ttl = parsed
+	}
+
+	return JWTConfig{Secret: secret, AccessTokenTTL: ttl}, nil
 }

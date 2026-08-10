@@ -1,3 +1,104 @@
+# Version 2.2.91
+
+Title: Backend Step 8 — JWT token service
+
+Date: 2026-08-10
+
+Summary:
+
+Implemented a dedicated JWT service in `services/token` using
+`github.com/golang-jwt/jwt/v5` with HMAC-SHA256 (HS256). `NewService(secret,
+ttl)` exposes `GenerateAccessToken(userID)`, which signs a token carrying only
+`sub` (user UUID), `iat` and `exp`, and `ValidateAccessToken(token)`, which
+verifies the signature, rejects any signing algorithm other than HS256 (via
+`jwt.WithValidMethods`, never trusting the algorithm declared by the token),
+enforces an expiration claim (`jwt.WithExpirationRequired`), checks the token
+is not expired, parses the subject and requires it to be a valid UUID. No
+email or personal information is embedded in tokens.
+
+Safe typed errors are returned: `token.ErrInvalidToken` for malformed tokens,
+wrong-secret signatures, unexpected algorithms, missing/invalid subjects, and
+`token.ErrExpiredToken` for expired tokens. The secret is never logged and
+never included in errors.
+
+Configuration: `config.LoadJWT()` reads `JWT_SECRET` (required, minimum 32
+characters — startup fails clearly if missing or weak, no insecure default)
+and `JWT_ACCESS_TOKEN_TTL` (Go duration, defaults to 15 minutes). `main.go`
+validates the JWT configuration at startup; the service itself is not wired to
+the Login Service or any HTTP endpoint yet. `.env.example` gained placeholder
+entries and `how_to_run.MD` documents the variables; the local development
+secret was generated and added only to the gitignored `.env`.
+
+Verification: isolated unit tests (no MariaDB) cover valid token generation,
+successful validation, correct UUID extraction, expired token rejection,
+malformed token rejection, wrong-secret rejection, unexpected-algorithm
+rejection, missing subject rejection, invalid UUID subject rejection, missing
+expiration rejection, and missing/short/invalid JWT configuration handling.
+
+Files modified:
+
+- `main/src/backend/services/token/token.go` (new)
+- `main/src/backend/services/token/token_test.go` (new)
+- `main/src/backend/config/config.go`
+- `main/src/backend/config/env.go`
+- `main/src/backend/main.go`
+- `main/src/backend/go.mod`, `main/src/backend/go.sum` (added golang-jwt/jwt/v5)
+- `.env.example`
+
+Reason:
+
+Provide signed access-token generation and validation as the next step toward
+authentication, kept isolated from login, middleware and HTTP.
+
+---
+
+# Version 2.2.90
+
+Title: Backend Step 7 — login service
+
+Date: 2026-08-10
+
+Summary:
+
+Implemented the login use-case service in `services/login`. `NewLoginService(
+repo, verifier)` combines the existing User Repository and Password Service
+through dependency injection (a `Verifier` type exposing `VerifyPassword` as a
+method was added to `services/password`, mirroring the existing `Hasher`
+pattern). The service never touches GORM or creates database connections.
+
+The `Login` flow validates input (email required, empty passwords rejected with
+`password.ErrEmptyPassword`), resolves the active user through
+`repo.FindByEmail` (soft-deleted users are never returned by the repository),
+verifies the supplied password with the constant-time `VerifyPassword`, and
+returns the authenticated user with `password_hash` cleared.
+
+Authentication behaviour is deliberately opaque: unknown emails, wrong
+passwords, soft-deleted users and unverifiable stored hashes all return the
+single `login.ErrInvalidCredentials`, so callers cannot tell which case
+occurred. Unexpected repository failures propagate as wrapped internal errors
+(never reported as invalid credentials); plaintext passwords are never logged,
+stored, returned or embedded in errors.
+
+Verification: isolated tests cover success (stored hash differs from plaintext
+and verifies), wrong password, non-existent email, indistinguishability
+between wrong password and unknown email, soft-deleted users rejected, empty
+email/password rejected, repository failure propagation, and the result never
+exposing `password_hash`. Database-backed cases run inside a rolled-back
+transaction, leaving no permanent users.
+
+Files modified:
+
+- `main/src/backend/services/login/login.go` (new)
+- `main/src/backend/services/login/login_test.go` (new)
+- `main/src/backend/services/password/password.go`
+
+Reason:
+
+Provide credential verification as the next step toward authentication,
+keeping the service isolated from HTTP, JWT and tokens.
+
+---
+
 # Version 2.2.89
 
 Title: Backend Step 6 — registration HTTP endpoint

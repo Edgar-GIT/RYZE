@@ -17,6 +17,10 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
+	if _, err := config.LoadJWT(); err != nil {
+		fail("configuration error: %v", err)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		runMigrateCommand(cfg, os.Args[2:])
 		return
