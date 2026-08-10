@@ -292,6 +292,8 @@ go run .
 Current API surface (versioned under `/api/v1`):
 
 - `POST /api/v1/auth/register` — creates a new user account (public).
+- `POST /api/v1/auth/login` — authenticates with email/password and returns a
+  Bearer access token in the JSON response (public).
 
 ## Database Migrations
 

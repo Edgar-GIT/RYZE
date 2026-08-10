@@ -17,7 +17,8 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
-	if _, err := config.LoadJWT(); err != nil {
+	jwtCfg, err := config.LoadJWT()
+	if err != nil {
 		fail("configuration error: %v", err)
 	}
 
@@ -44,7 +45,7 @@ func main() {
 		port = "8080"
 	}
 
-	if err := routes.Setup(db).Run(":" + port); err != nil {
+	if err := routes.Setup(db, jwtCfg).Run(":" + port); err != nil {
 		fail("http server error: %v", err)
 	}
 }

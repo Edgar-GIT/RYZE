@@ -1,3 +1,57 @@
+# Version 2.2.92
+
+Title: Backend Step 9 — login HTTP endpoint
+
+Date: 2026-08-10
+
+Summary:
+
+Exposed authentication through `POST /api/v1/auth/login`. The new
+`api/auth` `LoginHandler` receives the existing Login Service, the JWT Token
+Service and the access-token lifetime via dependency injection (wired once in
+`routes.Setup(db, jwtCfg)`), so it never touches GORM, MariaDB, password
+verification or JWT generation directly.
+
+The handler parses a dedicated request DTO (`email`, `password`), delegates
+credential verification to the Login Service, then issues an access token
+through the Token Service. Success returns HTTP 200 with the project envelope:
+`data { access_token, token_type: "Bearer", expires_in }`. All authentication
+failures (unknown email, wrong password, soft-deleted user, invalid stored
+hash) map indistinguishably to HTTP 401 `INVALID_CREDENTIALS`; malformed JSON
+and missing fields map to 400 `VALIDATION_ERROR`; unexpected failures map to
+500 `INTERNAL_ERROR` without leaking details. `password_hash`, plaintext
+passwords and the JWT secret are never included in responses.
+
+For this step only, the token is returned in the JSON response to allow
+end-to-end testing; cookies, localStorage, refresh tokens and the final
+browser transport are deliberately left for a future decision.
+
+Verification: HTTP-level tests cover success 200, Bearer token in the
+response, token validation through the Token Service, token subject matching
+the authenticated user UUID, wrong password 401, non-existent email 401,
+soft-deleted user 401, invalid JSON 400, missing fields 400, unexpected
+repository failure 500 (without leaking details), and responses never
+containing `password_hash`, plaintext passwords or the JWT secret.
+Database-backed cases run inside rolled-back transactions, leaving no
+permanent users. An end-to-end `curl` check (register -> login) confirmed
+201/200 with a token whose `sub` matches the registered user UUID; the manual
+test user was removed afterwards.
+
+Files modified:
+
+- `main/src/backend/api/auth/login_handler.go` (new)
+- `main/src/backend/api/auth/login_handler_test.go` (new)
+- `main/src/backend/routes/routes.go`
+- `main/src/backend/main.go`
+
+Reason:
+
+Bring credential-based login to the API surface using the tested Login and
+Token services, while deferring middleware, protected routes and the browser
+token transport to later steps.
+
+---
+
 # Version 2.2.91
 
 Title: Backend Step 8 — JWT token service
