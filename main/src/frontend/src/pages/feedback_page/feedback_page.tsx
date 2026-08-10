@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { Reveal } from "@/components/reveal/reveal";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import feedbackBackground from "@resources/img/feedbacks/feedback_bg.png";
 import feedbackOne from "@resources/img/feedbacks/f1.jpeg";
@@ -54,56 +55,71 @@ export const FeedbackPage = () => (
       <Container className={styles.inner}>
         <div className={styles.topRow}>
           <div className={styles.copy}>
-            <p className={styles.eyebrow}>Feedback</p>
+            <Reveal y={18}>
+              <p className={styles.eyebrow}>Feedback</p>
+            </Reveal>
 
-            <h1 className={styles.title}>
-              Real people.
-              <br />
-              <span className={styles.accent}>Real results.</span>
-            </h1>
+            <Reveal y={18} delay={0.08}>
+              <h1 className={styles.title}>
+                Real people.
+                <br />
+                <span className={styles.accent}>Real results.</span>
+              </h1>
+            </Reveal>
 
-            <p className={styles.description}>
-              Thousands of people are already transforming their lives with
-              RYZE. Here are some of their stories.
-            </p>
+            <Reveal y={18} delay={0.16}>
+              <p className={styles.description}>
+                Thousands of people are already transforming their lives with
+                RYZE. Here are some of their stories.
+              </p>
+            </Reveal>
           </div>
 
-          <div className={styles.visual}>
+          <Reveal className={styles.visual} y={18} delay={0.12}>
             <img src={BRAND_ASSETS.slogan} alt="RYZE" className={styles.visualLogo} />
-          </div>
+          </Reveal>
         </div>
 
         <div className={styles.grid}>
-          {testimonials.map((testimonial) => (
-            <article className={styles.card} key={testimonial.alt}>
-              <div className={styles.media}>
-                <img src={testimonial.image} alt={testimonial.alt} loading="lazy" />
-              </div>
-              <div className={styles.body}>
-                <div className={styles.starsRow}>
-                  <span className={styles.quoteMark} aria-hidden="true">
-                    “
-                  </span>
-                  <Stars />
+          {testimonials.map((testimonial, index) => (
+            <Reveal
+              className={styles.gridItem}
+              y={26}
+              delay={0.15 + index * 0.12}
+              key={testimonial.alt}
+            >
+              <article className={styles.card}>
+                <div className={styles.media}>
+                  <img src={testimonial.image} alt={testimonial.alt} loading="lazy" />
                 </div>
-                <p className={styles.name}>Anonymous</p>
-                <p className={styles.quote}>{testimonial.quote}</p>
-              </div>
-            </article>
+                <div className={styles.body}>
+                  <div className={styles.starsRow}>
+                    <span className={styles.quoteMark} aria-hidden="true">
+                      “
+                    </span>
+                    <Stars />
+                  </div>
+                  <p className={styles.name}>Anonymous</p>
+                  <p className={styles.quote}>{testimonial.quote}</p>
+                </div>
+              </article>
+            </Reveal>
           ))}
         </div>
 
-        <div className={styles.cta}>
-          <Button
-            to="/register"
-            size="large"
-            variant="secondary"
-            className={styles.ctaButton}
-            icon={<ArrowRight />}
-          >
-            START YOUR TRANSFORMATION
-          </Button>
-        </div>
+        <Reveal className={styles.ctaReveal} y={18} delay={0.22}>
+          <div className={styles.cta}>
+            <Button
+              to="/register"
+              size="large"
+              variant="secondary"
+              className={styles.ctaButton}
+              icon={<ArrowRight />}
+            >
+              START YOUR TRANSFORMATION
+            </Button>
+          </div>
+        </Reveal>
       </Container>
     </section>
   </PageWrapper>

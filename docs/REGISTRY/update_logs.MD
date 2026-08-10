@@ -1,3 +1,35 @@
+# Version 2.2.82
+
+Title: Feedback hero — bottom-left copy, RYZE logo on the right, solid CTA and animations
+
+Date: 2026-08-07
+
+Summary:
+
+Feedback hero layout was reworked: the copy (eyebrow, headline, description)
+moved to the bottom-left of the hero, the RYZE slogan logo
+(`BRAND_ASSETS.slogan`) sits on the right side, aligned near the title. The
+CTA became a solid futuristic cyan/blue button (gradient #00C6FF → #087BFF,
+dark navy text/arrow, 11px radius, soft cyan outer glow, hover brightens with
+translateY(-2px) and a stronger glow), with text "START YOUR TRANSFORMATION".
+Animations were added using the shared `Reveal` component (staggered fade-up
+for eyebrow, title, description, logo, cards and CTA) plus subtle continuous
+glow pulses on the accent headline and the RYZE logo, and a lift + glow on
+card hover. All CSS animations respect `prefers-reduced-motion`.
+
+Files modified:
+
+- `main/src/frontend/src/pages/feedback_page/feedback_page.tsx`
+- `main/src/frontend/src/pages/feedback_page/feedback_page.module.css`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+Match the updated reference: left-aligned copy, footer logo on the right and
+a solid blue CTA, with the RYZE motion language.
+
+---
+
 # Version 2.2.81
 
 Title: Feedback hero — single-line title and neon quote mark above the stars

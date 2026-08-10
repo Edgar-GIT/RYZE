@@ -195,7 +195,6 @@ const joinFeatures = [
 ] as const;
 
 const heroBadges = [
-  { icon: Brain, label: "AI" },
   { icon: Dumbbell, label: "Training" },
   { icon: Utensils, label: "Nutrition" },
   { icon: Leaf, label: "Recovery" },
