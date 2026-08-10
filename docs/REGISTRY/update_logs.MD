@@ -1,3 +1,53 @@
+# Version 2.2.86
+
+Title: Backend Step 3 — user repository and active-email uniqueness fix
+
+Date: 2026-08-10
+
+Summary:
+
+Implemented the User repository layer over the existing `users` table,
+following the documented GORM stack and dependency-injection conventions.
+A `models.User` entity matches the `users` table (UUID id auto-generated
+before insert, GORM soft delete via `deleted_at`). A `UserRepository`
+interface with a GORM-backed implementation provides Create, FindByID,
+FindByEmail, Update (first_name, last_name and email only) and SoftDelete
+(setting `deleted_at` without physically removing the row). Lookups never
+return soft-deleted users. Errors are typed sentinels (`ErrUserNotFound`,
+`ErrDuplicateEmail`) plus wrapped database errors, and database credentials
+are never exposed.
+
+Schema correction: the repository test exposed that `UNIQUE (email,
+deleted_at)` does not prevent duplicate emails among active users, because
+MariaDB treats NULL values as distinct in unique indexes, so two active rows
+(`deleted_at = NULL`) could share an email. Migration 000001 was edited to
+add a stored generated column `active_email` (`IF(deleted_at IS NULL, email,
+NULL)`) with `UNIQUE (active_email)`, enforcing email uniqueness for active
+users while keeping emails reusable after soft delete. The local dev database
+was reconciled with `go run . migrate down` and `go run . migrate up`.
+
+Verification: an isolated repository test runs inside a rolled-back
+transaction (no permanent data). It creates a user, rejects a duplicate
+email, finds by ID and by email, updates first/last name and email, soft
+deletes the user, confirms the user is no longer returned by normal lookups,
+and confirms the physical row still exists with `deleted_at` populated.
+
+Files modified:
+
+- `main/src/backend/go.mod`
+- `main/src/backend/go.sum`
+- `main/src/backend/models/user.go` (new)
+- `main/src/backend/repositories/user_repository.go` (new)
+- `main/src/backend/repositories/user_repository_test.go` (new)
+- `main/src/backend/database/migrations/000001_create_users_table.up.sql`
+
+Reason:
+
+Add the data-access layer for users as the next foundation step and fix the
+email uniqueness constraint that did not enforce uniqueness for active users.
+
+---
+
 # Version 2.2.85
 
 Title: Backend Step 2 — golang-migrate workflow and initial users table
