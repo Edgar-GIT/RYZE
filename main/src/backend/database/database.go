@@ -20,11 +20,10 @@ const (
 	connectTimeout  = 5 * time.Second
 )
 
-// Connect establishes a MySQL/MariaDB connection from the given configuration.
-// The connection is verified with a ping so an unavailable database fails
-// immediately with a meaningful error.
-func Connect(cfg config.DatabaseConfig) (*gorm.DB, error) {
-	mysqlConfig := gomysql.Config{
+// mysqlConfig builds the go-sql-driver connection configuration. The DSN is
+// never exposed to keep credentials out of errors and logs.
+func mysqlConfig(cfg config.DatabaseConfig) *gomysql.Config {
+	return &gomysql.Config{
 		User:                 cfg.User,
 		Passwd:               cfg.Password,
 		Net:                  "tcp",
@@ -37,8 +36,18 @@ func Connect(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		WriteTimeout:         connectTimeout,
 		AllowNativePasswords: true,
 	}
+}
 
-	db, err := gorm.Open(mysql.Open(mysqlConfig.FormatDSN()), &gorm.Config{})
+// DSN returns the MySQL DSN for the given configuration.
+func DSN(cfg config.DatabaseConfig) string {
+	return mysqlConfig(cfg).FormatDSN()
+}
+
+// Connect establishes a MySQL/MariaDB connection from the given configuration.
+// The connection is verified with a ping so an unavailable database fails
+// immediately with a meaningful error.
+func Connect(cfg config.DatabaseConfig) (*gorm.DB, error) {
+	db, err := gorm.Open(mysql.Open(DSN(cfg)), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
