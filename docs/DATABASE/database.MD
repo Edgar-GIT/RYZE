@@ -314,6 +314,15 @@ Includes:
 - Security
 - Status
 
+Security fields:
+
+- password_hash
+- session_version
+
+`session_version` is incremented whenever the account password changes. Access
+tokens embed the session version they were issued for, so a password change
+revokes every previously issued token (see security.MD, Session Revocation).
+
 ---
 
 ## User Profiles

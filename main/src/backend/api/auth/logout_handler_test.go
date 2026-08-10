@@ -121,7 +121,7 @@ func TestLogoutResponseNeverExposesSecrets(t *testing.T) {
 	router := newLogoutRouter(t, true)
 
 	svc := token.NewService([]byte(testSecret), testTokenTTL)
-	jwtValue, err := svc.GenerateAccessToken("00000000-0000-0000-0000-000000000000")
+	jwtValue, err := svc.GenerateAccessToken("00000000-0000-0000-0000-000000000000", 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}

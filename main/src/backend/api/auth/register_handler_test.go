@@ -74,7 +74,13 @@ func (failingRepository) FindByEmail(_ context.Context, _ string) (*models.User,
 func (failingRepository) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
 	return nil, repositories.ErrUserNotFound
 }
+func (failingRepository) GetSessionVersion(_ context.Context, _ string) (int, error) {
+	return 0, nil
+}
 func (failingRepository) Update(_ context.Context, _ *models.User) error {
+	return nil
+}
+func (failingRepository) ChangePassword(_ context.Context, _ string, _ string) error {
 	return nil
 }
 func (failingRepository) Reactivate(_ context.Context, _ *models.User) error {

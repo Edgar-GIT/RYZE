@@ -1,6 +1,7 @@
 package middleware_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"ryze/backend/api/auth"
 	"ryze/backend/middleware"
 	"ryze/backend/middleware/authcontext"
+	"ryze/backend/repositories"
 	"ryze/backend/services/token"
 )
 
@@ -26,23 +28,34 @@ func init() {
 // failingTokenService simulates an unexpected token validation failure.
 type failingTokenService struct{}
 
-func (failingTokenService) GenerateAccessToken(string) (string, error) {
+func (failingTokenService) GenerateAccessToken(string, int) (string, error) {
 	return "", errors.New("generation failure")
 }
-func (failingTokenService) ValidateAccessToken(string) (string, error) {
-	return "", errors.New("database exploded")
+func (failingTokenService) ValidateAccessToken(string) (*token.Claims, error) {
+	return nil, errors.New("database exploded")
+}
+
+// fakeSessionProvider returns a fixed session version for every user so tests
+// can control whether the token's session version matches.
+type fakeSessionProvider struct {
+	version int
+	err     error
+}
+
+func (f fakeSessionProvider) GetSessionVersion(_ context.Context, _ string) (int, error) {
+	return f.version, f.err
 }
 
 // newProtectedRouter mounts a guarded test route with the middleware and
 // records whether the handler ran and the context user ID.
-func newProtectedRouter(t *testing.T, svc token.Service) (*gin.Engine, *bool, *string) {
+func newProtectedRouter(t *testing.T, svc token.Service, sessions middleware.SessionProvider) (*gin.Engine, *bool, *string) {
 	t.Helper()
 
 	reached := false
 	userID := ""
 
 	router := gin.New()
-	router.GET("/protected", middleware.Authenticate(svc), func(c *gin.Context) {
+	router.GET("/protected", middleware.Authenticate(svc, sessions), func(c *gin.Context) {
 		reached = true
 		id, err := authcontext.UserIDFromContext(c)
 		if err == nil {
@@ -66,9 +79,9 @@ func requestWithCookie(router http.Handler, cookieValue string) *httptest.Respon
 
 func TestValidCookieContinues(t *testing.T) {
 	svc := token.NewService([]byte(testSecret), 15*time.Minute)
-	router, reached, _ := newProtectedRouter(t, svc)
+	router, reached, _ := newProtectedRouter(t, svc, fakeSessionProvider{version: 0})
 
-	jwtValue, err := svc.GenerateAccessToken(uuid.NewString())
+	jwtValue, err := svc.GenerateAccessToken(uuid.NewString(), 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -84,10 +97,10 @@ func TestValidCookieContinues(t *testing.T) {
 
 func TestValidCookieStoresUserUUID(t *testing.T) {
 	svc := token.NewService([]byte(testSecret), 15*time.Minute)
-	router, _, userID := newProtectedRouter(t, svc)
+	router, _, userID := newProtectedRouter(t, svc, fakeSessionProvider{version: 0})
 
 	expected := uuid.NewString()
-	jwtValue, err := svc.GenerateAccessToken(expected)
+	jwtValue, err := svc.GenerateAccessToken(expected, 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -103,7 +116,7 @@ func TestValidCookieStoresUserUUID(t *testing.T) {
 
 func TestMissingCookieRejected(t *testing.T) {
 	svc := token.NewService([]byte(testSecret), 15*time.Minute)
-	router, reached, _ := newProtectedRouter(t, svc)
+	router, reached, _ := newProtectedRouter(t, svc, fakeSessionProvider{version: 0})
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
 	rec := httptest.NewRecorder()
@@ -120,7 +133,7 @@ func TestMissingCookieRejected(t *testing.T) {
 
 func TestEmptyCookieRejected(t *testing.T) {
 	svc := token.NewService([]byte(testSecret), 15*time.Minute)
-	router, reached, _ := newProtectedRouter(t, svc)
+	router, reached, _ := newProtectedRouter(t, svc, fakeSessionProvider{version: 0})
 
 	rec := requestWithCookie(router, "")
 	if rec.Code != http.StatusUnauthorized {
@@ -134,7 +147,7 @@ func TestEmptyCookieRejected(t *testing.T) {
 
 func TestMalformedJWTRejected(t *testing.T) {
 	svc := token.NewService([]byte(testSecret), 15*time.Minute)
-	router, _, _ := newProtectedRouter(t, svc)
+	router, _, _ := newProtectedRouter(t, svc, fakeSessionProvider{version: 0})
 
 	for _, value := range []string{"not.a.jwt", "garbage", "a.b.c.d.e"} {
 		rec := requestWithCookie(router, value)
@@ -147,9 +160,9 @@ func TestMalformedJWTRejected(t *testing.T) {
 
 func TestExpiredJWTRejected(t *testing.T) {
 	svc := token.NewService([]byte(testSecret), -1*time.Minute)
-	router, _, _ := newProtectedRouter(t, svc)
+	router, _, _ := newProtectedRouter(t, svc, fakeSessionProvider{version: 0})
 
-	jwtValue, err := svc.GenerateAccessToken(uuid.NewString())
+	jwtValue, err := svc.GenerateAccessToken(uuid.NewString(), 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -163,10 +176,10 @@ func TestExpiredJWTRejected(t *testing.T) {
 
 func TestWrongSecretJWTRejected(t *testing.T) {
 	validSvc := token.NewService([]byte(testSecret), 15*time.Minute)
-	router, _, _ := newProtectedRouter(t, validSvc)
+	router, _, _ := newProtectedRouter(t, validSvc, fakeSessionProvider{version: 0})
 
 	other := token.NewService([]byte("other-secret-that-is-longer-than-32-bytes-99"), 15*time.Minute)
-	jwtValue, err := other.GenerateAccessToken(uuid.NewString())
+	jwtValue, err := other.GenerateAccessToken(uuid.NewString(), 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -180,9 +193,9 @@ func TestWrongSecretJWTRejected(t *testing.T) {
 
 func TestInvalidUUIDSubjectRejected(t *testing.T) {
 	svc := token.NewService([]byte(testSecret), 15*time.Minute)
-	router, _, _ := newProtectedRouter(t, svc)
+	router, _, _ := newProtectedRouter(t, svc, fakeSessionProvider{version: 0})
 
-	jwtValue, err := svc.GenerateAccessToken("not-a-uuid")
+	jwtValue, err := svc.GenerateAccessToken("not-a-uuid", 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -196,9 +209,9 @@ func TestInvalidUUIDSubjectRejected(t *testing.T) {
 
 func TestMissingSubjectRejected(t *testing.T) {
 	svc := token.NewService([]byte(testSecret), 15*time.Minute)
-	router, _, _ := newProtectedRouter(t, svc)
+	router, _, _ := newProtectedRouter(t, svc, fakeSessionProvider{version: 0})
 
-	jwtValue, err := svc.GenerateAccessToken("")
+	jwtValue, err := svc.GenerateAccessToken("", 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -211,9 +224,9 @@ func TestMissingSubjectRejected(t *testing.T) {
 }
 
 func TestInternalValidationFailureDoesNotExposeDetails(t *testing.T) {
-	router, reached, _ := newProtectedRouter(t, failingTokenService{})
+	router, reached, _ := newProtectedRouter(t, failingTokenService{}, fakeSessionProvider{version: 0})
 
-	jwtValue, err := token.NewService([]byte(testSecret), 15*time.Minute).GenerateAccessToken(uuid.NewString())
+	jwtValue, err := token.NewService([]byte(testSecret), 15*time.Minute).GenerateAccessToken(uuid.NewString(), 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -230,6 +243,85 @@ func TestInternalValidationFailureDoesNotExposeDetails(t *testing.T) {
 		t.Fatal("internal validation details must never be exposed")
 	}
 	assertAuthenticationError(t, body)
+}
+
+func TestSessionVersionMismatchRejected(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	router, reached, _ := newProtectedRouter(t, svc, fakeSessionProvider{version: 1})
+
+	// Token issued for session version 0 while the current version is 1:
+	// the session has been revoked (e.g. password changed).
+	jwtValue, err := svc.GenerateAccessToken(uuid.NewString(), 0)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec := requestWithCookie(router, jwtValue)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec.Code)
+	}
+	if *reached {
+		t.Fatal("protected handler must not be reached with a revoked session token")
+	}
+	assertAuthenticationError(t, rec.Body.String())
+}
+
+func TestSessionVersionMatchAllowed(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	router, reached, _ := newProtectedRouter(t, svc, fakeSessionProvider{version: 3})
+
+	jwtValue, err := svc.GenerateAccessToken(uuid.NewString(), 3)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec := requestWithCookie(router, jwtValue)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if !*reached {
+		t.Fatal("protected handler must be reached with a matching session version")
+	}
+}
+
+func TestSessionLookupUnknownUserRejected(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	router, reached, _ := newProtectedRouter(t, svc, fakeSessionProvider{err: repositories.ErrUserNotFound})
+
+	jwtValue, err := svc.GenerateAccessToken(uuid.NewString(), 0)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec := requestWithCookie(router, jwtValue)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec.Code)
+	}
+	if *reached {
+		t.Fatal("protected handler must not be reached for an unknown user")
+	}
+	assertAuthenticationError(t, rec.Body.String())
+}
+
+func TestSessionLookupInternalFailureMapsTo500(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	router, reached, _ := newProtectedRouter(t, svc, fakeSessionProvider{err: errors.New("database unreachable")})
+
+	jwtValue, err := svc.GenerateAccessToken(uuid.NewString(), 0)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec := requestWithCookie(router, jwtValue)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.Code)
+	}
+	if *reached {
+		t.Fatal("protected handler must not be reached on session lookup failure")
+	}
+	if strings.Contains(rec.Body.String(), "database unreachable") {
+		t.Fatal("internal error details must never be exposed")
+	}
 }
 
 func TestUserIDFromContextValid(t *testing.T) {

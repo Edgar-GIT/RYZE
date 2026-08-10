@@ -670,6 +670,38 @@ Authentication required.
 
 ---
 
+## Change Password
+
+```
+POST /api/v1/auth/change-password
+```
+
+Replaces the password of the authenticated user after verifying the current
+password.
+
+Request body:
+
+```json
+{
+  "current_password": "...",
+  "new_password": "..."
+}
+```
+
+Only these two fields are accepted. The user identity is resolved exclusively
+from the authenticated session; client-provided identifiers are never accepted.
+
+The current password must be verified, otherwise the request fails with
+HTTP 401 `INVALID_CREDENTIALS`. The new password replaces the stored
+`password_hash` and the account's `session_version` is incremented, revoking
+every previously issued access token. On success the response clears the
+`ryze_access_token` cookie (HTTP 200, empty `data`) and the user must
+authenticate again. Empty passwords return HTTP 400 `VALIDATION_ERROR`.
+
+Authentication required.
+
+---
+
 ## Refresh Token
 
 ```

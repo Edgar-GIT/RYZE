@@ -55,7 +55,7 @@ func (h *LoginHandler) Login(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := h.tokens.GenerateAccessToken(user.ID)
+	accessToken, err := h.tokens.GenerateAccessToken(user.ID, user.SessionVersion)
 	if err != nil {
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 		return

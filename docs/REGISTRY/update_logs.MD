@@ -1,3 +1,93 @@
+# Version 2.3.0
+
+Title: Backend Step 16 — authenticated change password with session revocation
+
+Date: 2026-08-10
+
+Summary:
+
+`POST /api/v1/auth/change-password` now lets an authenticated user replace
+their password after verifying the current one. The request body accepts only
+`current_password` and `new_password`; the user identity is resolved
+exclusively from the authenticated session (`authcontext.UserIDFromContext`),
+never from client-provided identifiers. Wrong current password, unknown or
+soft-deleted user and unverifiable stored hash all map to the same HTTP 401
+`INVALID_CREDENTIALS`; empty passwords and malformed JSON return HTTP 400
+`VALIDATION_ERROR`. On success the endpoint returns HTTP 200 with an empty
+`data` object, clears the `ryze_access_token` HttpOnly cookie and the user must
+authenticate again. No password, hash, JWT or JWT secret is ever returned.
+
+The change is implemented through the standard HTTP Handler -> Service ->
+Repository split: a new `change_password` service verifies the current password
+with the existing `password.Verifier`, hashes the new one with the existing
+`password.Hasher` and delegates the update to the repository. The User
+Repository gained two GORM-only operations: `ChangePassword` (replaces the hash
+and increments `session_version` in the same statement) and `GetSessionVersion`
+(used by the authentication middleware). Migration 000002 adds the
+`session_version INT NOT NULL DEFAULT 0` column to `users`.
+
+Session revocation is backend-side, not just cookie clearing: access tokens now
+carry a `ver` claim with the session version they were issued for and the
+`Authenticate` middleware compares it against the current `session_version`
+resolved through a small `SessionProvider` dependency (the repository). A token
+issued for an older session is rejected with HTTP 401, so after a password
+change every previously issued access token is immediately invalid. The token
+service interface changed accordingly
+(`GenerateAccessToken(userID, sessionVersion)` and `ValidateAccessToken`
+returning `*token.Claims`), so login now embeds the user's session version.
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passing. New tests cover: token `ver` claim
+round-trip and default-to-zero for tokens without it; middleware rejection of
+revoked-session tokens, unknown users and session-lookup failures; the
+change-password service (success, hash replaced, old password rejected, new
+password authenticates, session version bumped, wrong current/unknown/deleted/
+unverifiable-hash -> `ErrInvalidCredentials`, empty input, repository failure);
+and the HTTP layer (success envelope, cookie cleared with Max-Age=0, old token
+rejected on /me, old login 401 / new login 200 with identity preserved, wrong
+current 401, empty current/new 400, invalid JSON 400, unauthenticated 401, no
+hash/plaintext/JWT/JWT-secret exposure, internal error 500). A MariaDB
+end-to-end flow confirmed register -> login -> /me 200 -> change-password 200
+-> old cookie /me 401 -> login old password 401 -> login new password 200 ->
+/me 200 with the same identity, the clearing Set-Cookie and the
+`session_version` increment; the manual test user was soft-deleted afterwards.
+
+Files modified:
+
+- `main/src/backend/database/migrations/000002_add_session_version_to_users.up.sql`
+  (new)
+- `main/src/backend/database/migrations/000002_add_session_version_to_users.down.sql`
+  (new)
+- `main/src/backend/models/user.go` (added `session_version` field)
+- `main/src/backend/services/token/token.go` (session version `ver` claim,
+  `GenerateAccessToken`/`ValidateAccessToken` signatures, `token.Claims`)
+- `main/src/backend/repositories/user_repository.go` (added `GetSessionVersion`
+  + `ChangePassword`)
+- `main/src/backend/middleware/auth.go` (`Authenticate` now verifies the session
+  version through a `SessionProvider`)
+- `main/src/backend/services/change_password/change_password.go` (new service)
+- `main/src/backend/api/auth/change_password_handler.go` (new handler)
+- `main/src/backend/api/auth/login_handler.go` (embeds the session version in
+  generated tokens)
+- `main/src/backend/routes/routes.go` (wired `POST /api/v1/auth/change-password`)
+- tests: `services/token/token_test.go`, `middleware/auth_test.go`,
+  `api/auth/login_handler_test.go`, `api/auth/me_handler_test.go`,
+  `api/auth/logout_handler_test.go`, `api/auth/register_handler_test.go`,
+  `services/login/login_test.go`, `services/registration/registration_test.go`,
+  `services/change_password/change_password_test.go` (new),
+  `api/auth/change_password_handler_test.go` (new)
+- `docs/DATABASE/database.MD`, `docs/INSTRUCTIONS/api.MD`,
+  `docs/INSTRUCTIONS/security.MD`
+
+Reason: RYZE requires the backend to be capable of invalidating sessions
+(security.MD, Session Revocation), with password change explicitly listed as a
+case. A stateless JWT with no `jti` cannot revoke a specific token on its own,
+so the session-version mechanism was chosen as the minimal DB-backed marker
+that also generalizes to future revocation cases (account disabled, security
+incident).
+
+---
+
 # Version 2.2.99
 
 Title: Backend Step 15 — reactivate soft-deleted users on re-registration

@@ -47,9 +47,19 @@ func newMeTestRouter(t *testing.T) (*gin.Engine, repositories.UserRepository, to
 	handler := auth.NewMeHandler(repo)
 
 	router := gin.New()
-	router.GET(meRoute, middleware.Authenticate(tokenSvc), handler.GetMe)
+	router.GET(meRoute, middleware.Authenticate(tokenSvc, repo), handler.GetMe)
 
 	return router, repo, tokenSvc
+}
+
+// stubSessionProvider returns a fixed session version so handler tests can
+// satisfy the middleware session check without touching the database.
+type stubSessionProvider struct {
+	version int
+}
+
+func (s stubSessionProvider) GetSessionVersion(_ context.Context, _ string) (int, error) {
+	return s.version, nil
 }
 
 func requestMe(router http.Handler, cookieValue string) (*httptest.ResponseRecorder, map[string]any, string) {
@@ -73,7 +83,7 @@ func TestMeSuccess(t *testing.T) {
 	router, repo, tokenSvc := newMeTestRouter(t)
 	user := seedLoginUser(t, repo, uniqueEmail(), "Whatever123!")
 
-	jwtValue, err := tokenSvc.GenerateAccessToken(user.ID)
+	jwtValue, err := tokenSvc.GenerateAccessToken(user.ID, user.SessionVersion)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -108,7 +118,7 @@ func TestMeNeverExposesSecrets(t *testing.T) {
 	router, repo, tokenSvc := newMeTestRouter(t)
 	user := seedLoginUser(t, repo, uniqueEmail(), "Whatever123!")
 
-	jwtValue, err := tokenSvc.GenerateAccessToken(user.ID)
+	jwtValue, err := tokenSvc.GenerateAccessToken(user.ID, user.SessionVersion)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -159,7 +169,7 @@ func TestMeExpiredJWT(t *testing.T) {
 	router, _, _ := newMeTestRouter(t)
 	expired := token.NewService([]byte(testSecret), -1*time.Minute)
 
-	jwtValue, err := expired.GenerateAccessToken(uuid.NewString())
+	jwtValue, err := expired.GenerateAccessToken(uuid.NewString(), 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -173,7 +183,7 @@ func TestMeExpiredJWT(t *testing.T) {
 func TestMeUnknownUserID(t *testing.T) {
 	router, _, tokenSvc := newMeTestRouter(t)
 
-	jwtValue, err := tokenSvc.GenerateAccessToken(uuid.NewString())
+	jwtValue, err := tokenSvc.GenerateAccessToken(uuid.NewString(), 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -192,7 +202,7 @@ func TestMeSoftDeletedUser(t *testing.T) {
 		t.Fatalf("SoftDelete: %v", err)
 	}
 
-	jwtValue, err := tokenSvc.GenerateAccessToken(user.ID)
+	jwtValue, err := tokenSvc.GenerateAccessToken(user.ID, user.SessionVersion)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -208,9 +218,9 @@ func TestMeRepositoryFailure(t *testing.T) {
 	handler := auth.NewMeHandler(failingLoginRepository{})
 
 	router := gin.New()
-	router.GET(meRoute, middleware.Authenticate(tokenSvc), handler.GetMe)
+	router.GET(meRoute, middleware.Authenticate(tokenSvc, stubSessionProvider{version: 0}), handler.GetMe)
 
-	jwtValue, err := tokenSvc.GenerateAccessToken(uuid.NewString())
+	jwtValue, err := tokenSvc.GenerateAccessToken(uuid.NewString(), 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}

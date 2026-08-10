@@ -321,6 +321,11 @@ Examples:
 - User logout
 - Security incident
 
+Password changes revoke every previously issued access token: the account's
+`session_version` is incremented and access tokens embed the session version
+they were issued for, so the authentication middleware rejects any token
+carrying an older version.
+
 Future implementations should support token blacklisting or rotation.
 
 ---

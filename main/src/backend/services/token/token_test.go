@@ -23,17 +23,17 @@ func TestGenerateAndValidateAccessToken(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 	userID := uuid.NewString()
 
-	raw, err := svc.GenerateAccessToken(userID)
+	raw, err := svc.GenerateAccessToken(userID, 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	subject, err := svc.ValidateAccessToken(raw)
+	claims, err := svc.ValidateAccessToken(raw)
 	if err != nil {
 		t.Fatalf("ValidateAccessToken: %v", err)
 	}
-	if subject != userID {
-		t.Fatalf("expected subject %q, got %q", userID, subject)
+	if claims.UserID != userID {
+		t.Fatalf("expected subject %q, got %q", userID, claims.UserID)
 	}
 }
 
@@ -41,20 +41,62 @@ func TestValidateReturnsCorrectUUID(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 	userID := uuid.NewString()
 
-	raw, err := svc.GenerateAccessToken(userID)
+	raw, err := svc.GenerateAccessToken(userID, 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	subject, err := svc.ValidateAccessToken(raw)
+	claims, err := svc.ValidateAccessToken(raw)
 	if err != nil {
 		t.Fatalf("ValidateAccessToken: %v", err)
 	}
-	if _, err := uuid.Parse(subject); err != nil {
-		t.Fatalf("subject must be a valid UUID, got %q: %v", subject, err)
+	if _, err := uuid.Parse(claims.UserID); err != nil {
+		t.Fatalf("subject must be a valid UUID, got %q: %v", claims.UserID, err)
 	}
-	if subject != userID {
-		t.Fatalf("expected subject %q, got %q", userID, subject)
+	if claims.UserID != userID {
+		t.Fatalf("expected subject %q, got %q", userID, claims.UserID)
+	}
+}
+
+func TestSessionVersionRoundTrip(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+	userID := uuid.NewString()
+
+	for _, version := range []int{0, 1, 42} {
+		raw, err := svc.GenerateAccessToken(userID, version)
+		if err != nil {
+			t.Fatalf("GenerateAccessToken(%d): %v", version, err)
+		}
+
+		claims, err := svc.ValidateAccessToken(raw)
+		if err != nil {
+			t.Fatalf("ValidateAccessToken(%d): %v", version, err)
+		}
+		if claims.SessionVersion != version {
+			t.Fatalf("expected session version %d, got %d", version, claims.SessionVersion)
+		}
+	}
+}
+
+func TestMissingSessionVersionDefaultsToZero(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	claims := jwt.RegisteredClaims{
+		Subject:   uuid.NewString(),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+	}
+	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+
+	parsed, err := svc.ValidateAccessToken(raw)
+	if err != nil {
+		t.Fatalf("ValidateAccessToken: %v", err)
+	}
+	if parsed.SessionVersion != 0 {
+		t.Fatalf("expected session version 0 for a token without a ver claim, got %d", parsed.SessionVersion)
 	}
 }
 
@@ -62,7 +104,7 @@ func TestExpiredTokenIsRejected(t *testing.T) {
 	svc := newService(t, -1*time.Minute)
 	userID := uuid.NewString()
 
-	raw, err := svc.GenerateAccessToken(userID)
+	raw, err := svc.GenerateAccessToken(userID, 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
@@ -91,7 +133,7 @@ func TestTokenSignedWithWrongSecretIsRejected(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 	other := token.NewService([]byte("another-secret-that-is-longer-than-32-bytes-99"), 15*time.Minute)
 
-	raw, err := other.GenerateAccessToken(uuid.NewString())
+	raw, err := other.GenerateAccessToken(uuid.NewString(), 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}

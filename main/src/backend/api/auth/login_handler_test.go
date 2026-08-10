@@ -212,8 +212,8 @@ func TestLoginTokenValidatesAndMatchesSubject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValidateAccessToken: %v", err)
 	}
-	if subject != user.ID {
-		t.Fatalf("expected token subject %q, got %q", user.ID, subject)
+	if subject.UserID != user.ID {
+		t.Fatalf("expected token subject %q, got %q", user.ID, subject.UserID)
 	}
 }
 
@@ -337,7 +337,13 @@ func (failingLoginRepository) FindByEmail(_ context.Context, _ string) (*models.
 func (failingLoginRepository) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
 	return nil, errLoginRepoFailure
 }
+func (failingLoginRepository) GetSessionVersion(_ context.Context, _ string) (int, error) {
+	return 0, errLoginRepoFailure
+}
 func (failingLoginRepository) Update(_ context.Context, _ *models.User) error {
+	return errLoginRepoFailure
+}
+func (failingLoginRepository) ChangePassword(_ context.Context, _ string, _ string) error {
 	return errLoginRepoFailure
 }
 func (failingLoginRepository) Reactivate(_ context.Context, _ *models.User) error {
