@@ -51,7 +51,9 @@ export const FeedbackPage = () => (
         <p className={styles.eyebrow}>Feedback</p>
 
         <h1 className={styles.title}>
-          Real people. <span className={styles.accent}>Real results.</span>
+          Real people.
+          <br />
+          <span className={styles.accent}>Real results.</span>
         </h1>
 
         <p className={styles.description}>
@@ -69,10 +71,12 @@ export const FeedbackPage = () => (
                 <img src={testimonial.image} alt={testimonial.alt} loading="lazy" />
               </div>
               <div className={styles.body}>
-                <span className={styles.quoteMark} aria-hidden="true">
-                  “
-                </span>
-                <Stars />
+                <div className={styles.starsRow}>
+                  <span className={styles.quoteMark} aria-hidden="true">
+                    “
+                  </span>
+                  <Stars />
+                </div>
                 <p className={styles.name}>Anonymous</p>
                 <p className={styles.quote}>{testimonial.quote}</p>
               </div>

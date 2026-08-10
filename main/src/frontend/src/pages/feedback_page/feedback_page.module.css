@@ -104,6 +104,12 @@
   text-align: left;
 }
 
+.starsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .stars {
   color: var(--accent);
   font-size: 1.05rem;
@@ -128,7 +134,7 @@
 
 .quoteMark {
   color: var(--accent);
-  font-size: 2rem;
+  font-size: 1.7rem;
   font-weight: 700;
   line-height: 1;
   text-shadow:
