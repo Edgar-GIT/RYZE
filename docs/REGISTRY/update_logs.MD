@@ -1,3 +1,62 @@
+# Version 2.2.81
+
+Title: Feedback hero — single-line title and neon quote mark above the stars
+
+Date: 2026-08-07
+
+Summary:
+
+The Feedback hero headline now fits on a single line ("Real people. Real
+results."). In each testimonial card the quotation mark was moved out of the
+testimonial text and rendered as a single larger neon-style blue quote glyph
+above the star row; the testimonial copy is now plain text.
+
+Files modified:
+
+- `main/src/frontend/src/pages/feedback_page/feedback_page.tsx`
+- `main/src/frontend/src/pages/feedback_page/feedback_page.module.css`
+
+Reason:
+
+Visual feedback from the user on the hero composition.
+
+---
+
+# Version 2.2.80
+
+Title: Build the Feedback page hero section
+
+Date: 2026-08-07
+
+Summary:
+
+Replaced the `/feedback` under-development placeholder with a new Feedback
+page containing only the hero. Solid near-black background (`#000001`) with a
+very subtle radial blue atmosphere and no background artwork. Centered
+composition: blue "FEEDBACK" eyebrow, large white/blue headline ("Real
+people." / "Real results." with a restrained blue glow), gray description, and
+exactly three premium testimonial cards in a single row using the supplied
+assets (`main/src/resources/img/feedbacks/f1.jpeg`, `f2.jpeg`, `f3.jpeg`).
+Each card: 4:5 image with rounded top corners and `object-fit: cover`, thin
+blue border, subtle edge glow, five blue stars, "Anonymous" label, blue
+quotation mark and short muted testimonial copy. Centered outline CTA "START
+MY TRANSFORMATION" (with arrow) linking to `/register`. Cards stack on small
+screens.
+
+Files modified:
+
+- `main/src/frontend/src/pages/feedback_page/feedback_page.tsx` (new)
+- `main/src/frontend/src/pages/feedback_page/feedback_page.module.css` (new)
+- `main/src/frontend/src/routes/app_routes.tsx`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+Provide the approved Feedback hero reference as the first stage of the
+Feedback page.
+
+---
+
 # Version 2.2.79
 
 Title: Update home hero headline to "The Future of Fitness"

@@ -644,6 +644,54 @@ Respects `prefers-reduced-motion` (direct swap, no loading overlay).
 
 ---
 
+## Feedback page hero
+
+Route: `/feedback`.
+
+The Feedback page currently contains only the hero section (testimonial
+preview). It sits directly below the navbar.
+
+Background
+
+- Solid near-black (`#000001`), no background image
+- Only an extremely subtle radial blue atmosphere behind the headline
+
+Composition (all centered)
+
+- Blue uppercase eyebrow "FEEDBACK"
+- Large bold headline "Real people. / Real results." — "Real people." white,
+  "Real results." bright RYZE blue with a subtle glow
+  (`0 0 20px rgba(0, 150, 255, 0.25)`)
+- Soft gray/white centered description
+- Three testimonial cards in a single row (stack on small screens)
+
+Testimonial cards
+
+- Equal width/height, rounded corners (`18px`), very dark translucent surface,
+  thin blue border (`rgba(42, 140, 255, 0.28)`) and a subtle blue edge glow
+- Image occupying the upper portion (aspect ratio 4:5, `object-fit: cover`,
+  rounded top corners, no filters)
+- Body: five individual blue stars (`★★★★★`), white "Anonymous" label, muted
+  testimonial copy with a blue quotation mark
+
+Card copy (from the supplied assets `main/src/resources/img/feedbacks/f1.jpeg`,
+`f2.jpeg`, `f3.jpeg`):
+
+- "Over 16 weeks, I gained 12kg and a whole new level of confidence. The RYZE
+  training and nutrition plan completely changed the way I approach fitness."
+- "I lost 9kg and feel so much more energetic! I learned how to train with
+  purpose and eat better. I feel stronger both inside and out."
+- "RYZE helped me rebuild my confidence and feel better in my own body. The
+  results came consistently and in a healthy, sustainable way."
+
+CTA
+
+- Centered below the cards: "START MY TRANSFORMATION" with an arrow icon,
+  linking to `/register`
+- Blue/cyan outline style, rounded, subtle glow — must not dominate the cards
+
+---
+
 # Client Dashboard
 
 The dashboard is the client's main workspace.

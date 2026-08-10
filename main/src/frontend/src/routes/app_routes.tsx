@@ -2,6 +2,7 @@ import { AnimatePresence } from "framer-motion";
 import { Redirect, Route, Switch, useLocation } from "react-router-dom";
 
 import { ContactPage } from "@/pages/contact_page/contact_page";
+import { FeedbackPage } from "@/pages/feedback_page/feedback_page";
 import { HomePage } from "@/pages/home_page/home_page";
 import { LoginPage } from "@/pages/login_page/login_page";
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
@@ -29,16 +30,7 @@ export const AppRoutes = () => {
         <Route exact path="/contact" component={ContactPage} />
         <Route exact path="/our-vision" component={OurVisionPage} />
         <Route exact path="/about-us" render={() => <Redirect to="/our-vision" />} />
-        <Route
-          path="/feedback"
-          render={() => (
-            <UnderDevelopmentPage
-              eyebrow="Feedback"
-              title="Feedback is under development."
-              description="The community area and digital complaints book will be introduced after the frontend foundation is ready."
-            />
-          )}
-        />
+        <Route exact path="/feedback" component={FeedbackPage} />
         <Route
           path="/feed"
           render={() => (
