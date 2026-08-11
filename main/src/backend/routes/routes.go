@@ -10,6 +10,7 @@ import (
 	"ryze/backend/middleware/adminroles"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_login"
+	"ryze/backend/services/admin_trainers"
 	"ryze/backend/services/admin_users"
 	"ryze/backend/services/change_password"
 	"ryze/backend/services/delete_account"
@@ -47,6 +48,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminUsersService := admin_users.NewAdminUserService(userRepository, registrationService, password.Hasher{})
 	adminUsersHandler := auth.NewAdminUserHandler(adminUsersService)
 
+	trainerRepository := repositories.NewTrainerRepository(db)
+	adminTrainersService := admin_trainers.NewAdminTrainerService(trainerRepository, userRepository, registrationService, adminUsersService)
+	adminTrainersHandler := auth.NewAdminTrainerHandler(adminTrainersService)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
@@ -73,6 +78,19 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminMutate.PATCH("/users/:id/disable", adminUsersHandler.SoftDeleteUser)
 	adminMutate.POST("/users/:id/reactivate", adminUsersHandler.ReactivateUser)
 	adminMutate.POST("/users/:id/password", adminUsersHandler.ResetUserPassword)
+
+	adminTrainerRead := admin.Group("")
+	adminTrainerRead.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainersRead))
+	adminTrainerRead.GET("/trainers", adminTrainersHandler.ListTrainers)
+	adminTrainerRead.GET("/trainers/:id", adminTrainersHandler.GetTrainer)
+
+	adminTrainerMutate := admin.Group("")
+	adminTrainerMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainersManage))
+	adminTrainerMutate.GET("/trainers/deleted", adminTrainersHandler.ListDeletedTrainers)
+	adminTrainerMutate.POST("/trainers", adminTrainersHandler.CreateTrainer)
+	adminTrainerMutate.PATCH("/trainers/:id", adminTrainersHandler.UpdateTrainer)
+	adminTrainerMutate.PATCH("/trainers/:id/disable", adminTrainersHandler.SoftDeleteTrainer)
+	adminTrainerMutate.POST("/trainers/:id/reactivate", adminTrainersHandler.ReactivateTrainer)
 
 	return router
 }

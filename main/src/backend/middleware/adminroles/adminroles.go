@@ -30,10 +30,16 @@ const (
 	// PermissionUsers is the coarse user-management permission umbrella held by
 	// both roles. Read-only and lifecycle responsibilities are expressed by the
 	// finer-grained PermissionUsersRead / PermissionUsersManage permissions.
-	PermissionUsers                  Permission = "users"
-	PermissionUsersRead              Permission = "users.read"
-	PermissionUsersManage            Permission = "users.manage"
+	PermissionUsers       Permission = "users"
+	PermissionUsersRead   Permission = "users.read"
+	PermissionUsersManage Permission = "users.manage"
+	// PermissionTrainers is the coarse trainer-management permission umbrella
+	// held by both roles. Read-only and lifecycle responsibilities are
+	// expressed by the finer-grained PermissionTrainersRead /
+	// PermissionTrainersManage permissions.
 	PermissionTrainers               Permission = "trainers"
+	PermissionTrainersRead           Permission = "trainers.read"
+	PermissionTrainersManage         Permission = "trainers.manage"
 	PermissionStatistics             Permission = "statistics"
 	PermissionPlans                  Permission = "plans"
 	PermissionFinance                Permission = "finance"
@@ -46,21 +52,24 @@ const (
 )
 
 // rolePermissions maps each role to its granted permissions. Users, trainers
-// and statistics are shared by both roles. User management is split into a
-// read-only view (users.read, shared by both roles) and a full lifecycle
-// capability (users.manage: create, update, soft-delete, reactivate and
-// administrative password reset, granted only to the Technical Administrator).
-// Technical concerns (system, infrastructure, technical configuration,
-// security, development) belong exclusively to the Technical Administrator and
-// business concerns (plans, finance, marketing) exclusively to the Management
-// Administrator. Neither role is a superset of the other: the Technical
-// Administrator does not automatically receive management permissions.
+// and statistics are shared by both roles. User management and trainer
+// management are each split into a read-only view (users.read / trainers.read,
+// shared by both roles) and a full lifecycle capability (users.manage /
+// trainers.manage: create, update, soft-delete and reactivate, granted only to
+// the Technical Administrator). Technical concerns (system, infrastructure,
+// technical configuration, security, development) belong exclusively to the
+// Technical Administrator and business concerns (plans, finance, marketing)
+// exclusively to the Management Administrator. Neither role is a superset of
+// the other: the Technical Administrator does not automatically receive
+// management permissions.
 var rolePermissions = map[Role][]Permission{
 	RoleTechnicalAdministrator: {
 		PermissionUsers,
 		PermissionUsersRead,
 		PermissionUsersManage,
 		PermissionTrainers,
+		PermissionTrainersRead,
+		PermissionTrainersManage,
 		PermissionStatistics,
 		PermissionSystem,
 		PermissionInfrastructure,
@@ -72,6 +81,7 @@ var rolePermissions = map[Role][]Permission{
 		PermissionUsers,
 		PermissionUsersRead,
 		PermissionTrainers,
+		PermissionTrainersRead,
 		PermissionStatistics,
 		PermissionPlans,
 		PermissionFinance,

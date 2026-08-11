@@ -376,6 +376,52 @@ func TestManagePermissionManagementAdminForbidden(t *testing.T) {
 	assertNoAuthorizationLeak(t, rec.Body.String())
 }
 
+func TestTrainerReadPermissionAllowedForBothRoles(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+
+	for _, adminID := range []string{config.Admin1ID, config.Admin2ID} {
+		t.Run(adminID, func(t *testing.T) {
+			router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionTrainersRead)
+			rec := permissionRequestWithCookie(router, validAdminToken(t, svc, adminID))
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d", rec.Code)
+			}
+			if !*reached {
+				t.Fatalf("%s must reach the trainer read resource", adminID)
+			}
+		})
+	}
+}
+
+func TestTrainerManagePermissionTechnicalAdminAllowed(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionTrainersManage)
+
+	rec := permissionRequestWithCookie(router, validAdminToken(t, svc, config.Admin1ID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if !*reached {
+		t.Fatal("technical admin must reach the trainer manage resource")
+	}
+}
+
+func TestTrainerManagePermissionManagementAdminForbidden(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionTrainersManage)
+
+	rec := permissionRequestWithCookie(router, validAdminToken(t, svc, config.Admin2ID))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", rec.Code)
+	}
+	if *reached {
+		t.Fatal("management admin must not reach the trainer manage resource")
+	}
+	assertForbiddenError(t, rec.Body.String())
+	assertNoAuthorizationLeak(t, rec.Body.String())
+}
+
 func TestPermissionMiddlewareFailsClosedWithoutAuthentication(t *testing.T) {
 	router, reached := newPermissionOnlyRouter(adminroles.PermissionUsersRead, adminroles.PermissionUsersManage)
 
@@ -436,6 +482,8 @@ func TestPermissionsTechnicalAdministrator(t *testing.T) {
 		adminroles.PermissionUsersRead,
 		adminroles.PermissionUsersManage,
 		adminroles.PermissionTrainers,
+		adminroles.PermissionTrainersRead,
+		adminroles.PermissionTrainersManage,
 		adminroles.PermissionStatistics,
 		adminroles.PermissionSystem,
 		adminroles.PermissionInfrastructure,
@@ -464,6 +512,7 @@ func TestPermissionsManagementAdministrator(t *testing.T) {
 		adminroles.PermissionUsers,
 		adminroles.PermissionUsersRead,
 		adminroles.PermissionTrainers,
+		adminroles.PermissionTrainersRead,
 		adminroles.PermissionStatistics,
 		adminroles.PermissionPlans,
 		adminroles.PermissionFinance,
@@ -476,6 +525,7 @@ func TestPermissionsManagementAdministrator(t *testing.T) {
 
 	for _, denied := range []adminroles.Permission{
 		adminroles.PermissionUsersManage,
+		adminroles.PermissionTrainersManage,
 		adminroles.PermissionSystem,
 		adminroles.PermissionInfrastructure,
 		adminroles.PermissionTechnicalConfiguration,
