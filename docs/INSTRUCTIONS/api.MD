@@ -289,6 +289,15 @@ Permissions are determined exclusively by the backend.
 
 Frontend restrictions are visual only and must never replace backend authorization.
 
+Administrator authorization is enforced by a reusable backend middleware
+(`middleware.RequireAdminRole`) mounted after the admin authentication
+middleware. The role is always derived from the authenticated admin identity
+(ADMIN_1 → Technical Administrator, ADMIN_2 → Management Administrator); roles
+or permissions supplied by the client are never accepted.
+
+Authentication failures return HTTP 401 `AUTHENTICATION_REQUIRED`.
+Authorization failures return HTTP 403 `FORBIDDEN` with a generic message.
+
 ---
 
 # ROLE PERMISSIONS
@@ -347,32 +356,38 @@ Additional permissions:
 
 ## Technical Administrator
 
-Responsible for system administration.
+The configured ADMIN_1 identity. Responsible for the platform's technical
+side.
 
 Permissions include:
 
 - User management
-- Maintenance
-- Logs
-- Configuration
+- Trainer management
+- Statistics
+- System management
 - Infrastructure
+- Technical configuration
+- Security / authentication administration
+- Development
 
-Technical administrators do not manage business content unless explicitly permitted.
+Technical administrators do not manage business content unless explicitly
+permitted. The Technical Administrator is not a super administrator: plans,
+finance and marketing are reserved for the Management Administrator.
 
 ---
 
 ## Management Administrator
 
-Responsible for business management.
+The configured ADMIN_2 identity. Responsible for business management.
 
 Permissions include:
 
-- Pack approval
-- Trainer approval
+- User management
+- Trainer management
 - Statistics
-- Marketplace management
-- Promotions
-- Business reports
+- Plans management and creation
+- Financial management
+- Marketing (promotions)
 
 ---
 

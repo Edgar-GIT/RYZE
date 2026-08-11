@@ -1,3 +1,77 @@
+# Version 2.8.0
+
+Title: Backend Step 20 — reusable admin authorization layer (roles and permissions)
+
+Date: 2026-08-11
+
+Summary:
+
+Added a reusable backend authorization layer that maps the two configured
+administrator identities to two roles operating strictly after the Step 19
+`AdminAuthenticate` middleware. The role model lives in a new
+`middleware/adminroles` package: ADMIN_1 is the **Technical Administrator**
+(`TECHNICAL_ADMINISTRATOR`) and ADMIN_2 is the **Management Administrator**
+(`MANAGEMENT_ADMINISTRATOR`). Users, trainers and statistics are shared by both
+roles; the Technical Administrator additionally holds system, infrastructure,
+technical configuration, security and development; the Management Administrator
+additionally holds plans, finance and marketing. Neither role is a superset of
+the other: the Technical Administrator is intentionally **not** a super
+administrator and never automatically receives management business permissions.
+
+A single reusable middleware (`middleware.RequireAdminRole`) enforces
+authorization on protected admin routes. It reads the authenticated admin
+identity from the context via
+`adminauthcontext.AdminIdentityFromContext`, resolves the role through the
+identity (never from client-supplied roles, permissions, headers or query
+parameters) and allows the request only when the required role matches. Denials
+return a uniform HTTP 403 `FORBIDDEN` response that never reveals the required
+roles, the caller's role or any internal detail. The middleware fails closed:
+mounted without `AdminAuthenticate` it still denies the request. Authentication
+(401 `AUTHENTICATION_REQUIRED`, owned by `AdminAuthenticate`) and authorization
+(403 `FORBIDDEN`) remain separate concerns.
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passes. New middleware tests cover the required
+scenarios: ADMIN_1 on a technical resource allowed, ADMIN_2 on a technical
+resource rejected, ADMIN_2 on a management resource allowed, ADMIN_1 on a
+management resource rejected, both roles on a shared resource allowed, missing
+cookie, invalid/expired token, user token, stage token and unknown identity all
+rejected with 401, authorization failures exposing no internal details, the
+middleware failing closed without authentication, the identity→role mapping,
+and the permission sets of both roles. The full DB-backed suite (user
+login/register/me/logout/change-password/delete-account) stays green, so
+existing user flows are unaffected. E2E via temporary protected routes on the
+running server verified ADMIN_1 200 / ADMIN_2 403 on the technical route,
+ADMIN_1 403 / ADMIN_2 200 on the management route and both 200 on the shared
+route, plus user session, stage-only cookie, missing cookie and garbage cookie
+all 401; the temporary routes were removed afterwards and return 404, so the
+production API surface is unchanged. No admin dashboards, business features or
+new endpoints were implemented. The `project.MD` Technical Administrator
+description was reconciled: "unrestricted access" applies to the technical side
+only, and the role never receives management business permissions.
+
+Files modified:
+
+- `main/src/backend/middleware/adminroles/adminroles.go` (new role/permission
+  model and identity mapping)
+- `main/src/backend/middleware/admin_authorization.go` (new
+  `RequireAdminRole` middleware)
+- `main/src/backend/middleware/admin_authorization_test.go` (new authorization
+  tests)
+- `docs/INSTRUCTIONS/security.MD`, `docs/INSTRUCTIONS/api.MD`,
+  `docs/INSTRUCTIONS/arquitecture.MD`, `docs/INSTRUCTIONS/project.MD`,
+  `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Future admin routes need a single, reusable authorization gate derived
+exclusively from the authenticated admin identity, separating authorization
+from the Step 19 authentication middleware and enforcing the two distinct
+administrator responsibilities without treating either administrator as a
+super admin.
+
+---
+
 # Version 2.7.0
 
 Title: Backend Step 19 — admin authentication middleware

@@ -124,6 +124,40 @@ middleware/context split. See `security.MD` (Administrator Authentication) and
 
 ---
 
+## Authorization
+
+Authorization is a separate concern from authentication. Authentication
+establishes who the caller is; authorization decides what the caller may do.
+
+The admin authorization layer is one reusable abstraction implemented as Gin
+middleware (`middleware.RequireAdminRole`) that runs strictly after
+`middleware.AdminAuthenticate` on every protected admin route. The role is
+never stored or transmitted: it is always derived server-side from the
+authenticated admin identity held in the request context.
+
+Role model (`middleware/adminroles`):
+
+- ADMIN_1 → Technical Administrator
+- ADMIN_2 → Management Administrator
+
+Permissions:
+
+- Shared by both roles: users, trainers, statistics.
+- Technical Administrator only: system, infrastructure, technical
+  configuration, security, development.
+- Management Administrator only: plans, finance, marketing.
+
+Neither role is a superset of the other: the Technical Administrator is not a
+super administrator and does not receive management business permissions.
+
+The authorization layer introduces no authentication logic and the
+authentication layer introduces no authorization logic. See `security.MD`
+(Administrator Authorization) for the security rules and `api.MD` for the
+error semantics (401 `AUTHENTICATION_REQUIRED` from authentication, 403
+`FORBIDDEN` from authorization).
+
+---
+
 ## Email
 
 Provider:

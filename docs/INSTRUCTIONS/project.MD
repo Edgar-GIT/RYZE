@@ -252,7 +252,7 @@ Responsibilities include:
 
 ## Technical Administrator
 
-Technical administrators have unrestricted access to the platform.
+Technical administrators have unrestricted access to the platform's technical side.
 
 They are responsible for:
 
@@ -262,6 +262,11 @@ They are responsible for:
 - User management
 - Software development
 - Database administration
+
+The Technical Administrator does not act as a super administrator: management
+business responsibilities (plans, finance, marketing) belong exclusively to
+the Management Administrator and are never granted automatically to the
+Technical Administrator.
 
 ---
 

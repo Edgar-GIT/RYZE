@@ -436,6 +436,11 @@ Administrators and trainers may also purchase programs like normal clients.
 
 Permissions are determined by role.
 
+Administrator roles are never stored in the database and are never supplied by
+the client. The role of an administrator is always derived server-side from the
+configured administrator identity (ADMIN_1/ADMIN_2) established by the admin
+authentication flow.
+
 ---
 
 ## Permission Validation
@@ -487,6 +492,46 @@ Examples:
 Administrative endpoints should never rely solely on hidden frontend interfaces.
 
 The backend must always enforce permissions.
+
+---
+
+## Administrator Authorization
+
+The admin authorization layer is implemented as a reusable backend middleware
+(`middleware.RequireAdminRole`) that runs strictly after the admin
+authentication middleware (`middleware.AdminAuthenticate`).
+
+Role model:
+
+- ADMIN_1 is the **Technical Administrator**
+  (`TECHNICAL_ADMINISTRATOR`).
+- ADMIN_2 is the **Management Administrator**
+  (`MANAGEMENT_ADMINISTRATOR`).
+
+Granted permissions:
+
+- Shared by both roles: users, trainers, statistics.
+- Technical Administrator only: system, infrastructure, technical
+  configuration, security, development.
+- Management Administrator only: plans, finance, marketing.
+
+Security rules:
+
+- Authorization derives **only** from the authenticated admin identity stored
+  in the request context by `AdminAuthenticate`. Roles and permissions
+  supplied by the client (JSON, headers, query parameters) are never accepted.
+- The Technical Administrator is **not** a super administrator: it never
+  automatically receives management business permissions (plans, finance,
+  marketing).
+- The role model and its permission mapping live in
+  `middleware/adminroles` and are the single reusable authorization source.
+- Admin authorization failure returns HTTP 403 `FORBIDDEN` with a generic
+  message that never reveals the required roles, the caller's role or any
+  internal detail. Authentication failures are handled by the
+  authentication middleware and remain HTTP 401 `AUTHENTICATION_REQUIRED`.
+- The authorization middleware fails closed: mounted without
+  `AdminAuthenticate` (no admin identity in context) it still denies the
+  request.
 
 ---
 
