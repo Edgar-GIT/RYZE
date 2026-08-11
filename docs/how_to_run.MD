@@ -358,15 +358,29 @@ Current API surface (versioned under `/api/v1`):
   code); on success sets the `ryze_admin_access_token` HttpOnly cookie and
   clears the stage cookie (public).
 - `GET /api/v1/admin/users` — lists active users (pagination, newest first);
-  requires an authenticated admin session.
+  requires an authenticated admin session with `users.read` (both roles).
 - `GET /api/v1/admin/users/{id}` — returns the safe representation of one
-  active user; requires an authenticated admin session.
+  active user; requires an authenticated admin session with `users.read` (both
+  roles).
+- `GET /api/v1/admin/users/deleted` — lists soft-deleted users; requires
+  `users.manage` (Technical Administrator only).
+- `POST /api/v1/admin/users` — creates a user (or reactivates a soft-deleted
+  email); requires `users.manage` (Technical Administrator only).
+- `PATCH /api/v1/admin/users/{id}` — updates the safe fields of a user;
+  requires `users.manage` (Technical Administrator only).
 - `PATCH /api/v1/admin/users/{id}/disable` — soft-disables a regular user
-  account (revokes all sessions, blocks login); requires an authenticated
-  admin session.
+  account (revokes all sessions, blocks login); requires `users.manage`
+  (Technical Administrator only).
+- `POST /api/v1/admin/users/{id}/reactivate` — restores a soft-deleted user;
+  requires `users.manage` (Technical Administrator only).
+- `POST /api/v1/admin/users/{id}/password` — administrative password reset
+  (invalidates all sessions); requires `users.manage` (Technical Administrator
+  only).
 
-The three user-management endpoints are authorized for both administrator roles
-(`RequireAdminRole(TECHNICAL_ADMINISTRATOR, MANAGEMENT_ADMINISTRATOR)`).
+Authorization model: read endpoints run under `users.read` (both roles); every
+lifecycle endpoint runs under `users.manage` and is denied with HTTP 403
+`FORBIDDEN` for the Management Administrator. There is no permanent-deletion
+endpoint.
 
 ## Database Migrations
 

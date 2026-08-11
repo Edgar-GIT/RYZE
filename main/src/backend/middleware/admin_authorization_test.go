@@ -46,6 +46,34 @@ func newRoleOnlyRouter(roles ...adminroles.Role) (*gin.Engine, *bool) {
 	return router, &reached
 }
 
+// newPermissionProtectedRouter mounts AdminAuthenticate followed by
+// RequireAdminPermission(permissions...) on /permission-protected and records
+// whether the handler ran.
+func newPermissionProtectedRouter(t *testing.T, svc token.Service, permissions ...adminroles.Permission) (*gin.Engine, *bool) {
+	t.Helper()
+
+	reached := false
+	router := gin.New()
+	router.GET("/permission-protected", middleware.AdminAuthenticate(svc), middleware.RequireAdminPermission(permissions...), func(c *gin.Context) {
+		reached = true
+		c.Status(http.StatusOK)
+	})
+
+	return router, &reached
+}
+
+// newPermissionOnlyRouter mounts RequireAdminPermission without AdminAuthenticate
+// to prove the authorization middleware fails closed on misconfiguration.
+func newPermissionOnlyRouter(permissions ...adminroles.Permission) (*gin.Engine, *bool) {
+	reached := false
+	router := gin.New()
+	router.GET("/permission-only", middleware.RequireAdminPermission(permissions...), func(c *gin.Context) {
+		reached = true
+		c.Status(http.StatusOK)
+	})
+	return router, &reached
+}
+
 func roleRequestWithCookie(router http.Handler, cookieValue string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, "/role-protected", nil)
 	req.AddCookie(&http.Cookie{Name: auth.AdminAccessTokenCookieName, Value: cookieValue})
@@ -280,6 +308,104 @@ func TestAuthorizationMiddlewareFailsClosedWithoutAuthentication(t *testing.T) {
 	assertNoAuthorizationLeak(t, rec.Body.String())
 }
 
+func permissionRequestWithCookie(router http.Handler, cookieValue string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodGet, "/permission-protected", nil)
+	req.AddCookie(&http.Cookie{Name: auth.AdminAccessTokenCookieName, Value: cookieValue})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func permissionRequest(router http.Handler) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodGet, "/permission-protected", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func permissionOnlyRequest(router http.Handler) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodGet, "/permission-only", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestReadPermissionAllowedForBothRoles(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+
+	for _, adminID := range []string{config.Admin1ID, config.Admin2ID} {
+		t.Run(adminID, func(t *testing.T) {
+			router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionUsersRead)
+			rec := permissionRequestWithCookie(router, validAdminToken(t, svc, adminID))
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d", rec.Code)
+			}
+			if !*reached {
+				t.Fatalf("%s must reach the read resource", adminID)
+			}
+		})
+	}
+}
+
+func TestManagePermissionTechnicalAdminAllowed(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionUsersManage)
+
+	rec := permissionRequestWithCookie(router, validAdminToken(t, svc, config.Admin1ID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if !*reached {
+		t.Fatal("technical admin must reach the manage resource")
+	}
+}
+
+func TestManagePermissionManagementAdminForbidden(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionUsersManage)
+
+	rec := permissionRequestWithCookie(router, validAdminToken(t, svc, config.Admin2ID))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", rec.Code)
+	}
+	if *reached {
+		t.Fatal("management admin must not reach the manage resource")
+	}
+	assertForbiddenError(t, rec.Body.String())
+	assertNoAuthorizationLeak(t, rec.Body.String())
+}
+
+func TestPermissionMiddlewareFailsClosedWithoutAuthentication(t *testing.T) {
+	router, reached := newPermissionOnlyRouter(adminroles.PermissionUsersRead, adminroles.PermissionUsersManage)
+
+	rec := permissionOnlyRequest(router)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", rec.Code)
+	}
+	if *reached {
+		t.Fatal("handler must not be reached when RequireAdminPermission is mounted without AdminAuthenticate")
+	}
+	assertForbiddenError(t, rec.Body.String())
+	assertNoAuthorizationLeak(t, rec.Body.String())
+}
+
+func TestPermissionMiddlewareRejectsUnknownIdentity(t *testing.T) {
+	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionUsersRead)
+
+	for _, identity := range []string{"ADMIN_3", "admin", "user-42"} {
+		rec := permissionRequestWithCookie(router, validAdminToken(t, svc, identity))
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("identity %q: expected 401, got %d", identity, rec.Code)
+		}
+		if *reached {
+			t.Fatalf("identity %q: protected handler must not be reached", identity)
+		}
+		assertAuthenticationError(t, rec.Body.String())
+	}
+}
+
 func TestRoleForAdminID(t *testing.T) {
 	technical, err := adminroles.RoleForAdminID(config.Admin1ID)
 	if err != nil {
@@ -307,6 +433,8 @@ func TestRoleForAdminID(t *testing.T) {
 func TestPermissionsTechnicalAdministrator(t *testing.T) {
 	for _, granted := range []adminroles.Permission{
 		adminroles.PermissionUsers,
+		adminroles.PermissionUsersRead,
+		adminroles.PermissionUsersManage,
 		adminroles.PermissionTrainers,
 		adminroles.PermissionStatistics,
 		adminroles.PermissionSystem,
@@ -334,6 +462,7 @@ func TestPermissionsTechnicalAdministrator(t *testing.T) {
 func TestPermissionsManagementAdministrator(t *testing.T) {
 	for _, granted := range []adminroles.Permission{
 		adminroles.PermissionUsers,
+		adminroles.PermissionUsersRead,
 		adminroles.PermissionTrainers,
 		adminroles.PermissionStatistics,
 		adminroles.PermissionPlans,
@@ -346,6 +475,7 @@ func TestPermissionsManagementAdministrator(t *testing.T) {
 	}
 
 	for _, denied := range []adminroles.Permission{
+		adminroles.PermissionUsersManage,
 		adminroles.PermissionSystem,
 		adminroles.PermissionInfrastructure,
 		adminroles.PermissionTechnicalConfiguration,

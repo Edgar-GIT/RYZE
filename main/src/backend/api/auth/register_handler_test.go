@@ -68,6 +68,9 @@ func (failingRepository) Create(_ context.Context, _ *models.User) error {
 func (failingRepository) FindByID(_ context.Context, _ string) (*models.User, error) {
 	return nil, repositories.ErrUserNotFound
 }
+func (failingRepository) FindByIDIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
+	return nil, repositories.ErrUserNotFound
+}
 func (failingRepository) FindByEmail(_ context.Context, _ string) (*models.User, error) {
 	return nil, repositories.ErrUserNotFound
 }
@@ -75,6 +78,9 @@ func (failingRepository) FindByEmailIncludingDeleted(_ context.Context, _ string
 	return nil, repositories.ErrUserNotFound
 }
 func (failingRepository) ListActive(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
+	return nil, 0, errors.New("database unreachable")
+}
+func (failingRepository) ListDeleted(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
 	return nil, 0, errors.New("database unreachable")
 }
 func (failingRepository) GetSessionVersion(_ context.Context, _ string) (int, error) {
@@ -93,6 +99,9 @@ func (failingRepository) SoftDelete(_ context.Context, _ string) error {
 	return nil
 }
 func (failingRepository) DeleteAccount(_ context.Context, _ string) error {
+	return nil
+}
+func (failingRepository) ClearDeletedAt(_ context.Context, _ string) error {
 	return nil
 }
 

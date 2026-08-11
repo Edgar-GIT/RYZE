@@ -304,6 +304,9 @@ func (failingRepo) Create(_ context.Context, _ *models.User) error {
 func (failingRepo) FindByID(_ context.Context, _ string) (*models.User, error) {
 	return nil, errRepositoryFailure
 }
+func (failingRepo) FindByIDIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
+	return nil, errRepositoryFailure
+}
 func (failingRepo) FindByEmail(_ context.Context, _ string) (*models.User, error) {
 	return nil, errRepositoryFailure
 }
@@ -311,6 +314,9 @@ func (failingRepo) FindByEmailIncludingDeleted(_ context.Context, _ string) (*mo
 	return nil, errRepositoryFailure
 }
 func (failingRepo) ListActive(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
+	return nil, 0, errRepositoryFailure
+}
+func (failingRepo) ListDeleted(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
 	return nil, 0, errRepositoryFailure
 }
 func (failingRepo) GetSessionVersion(_ context.Context, _ string) (int, error) {
@@ -329,5 +335,8 @@ func (failingRepo) SoftDelete(_ context.Context, _ string) error {
 	return errRepositoryFailure
 }
 func (failingRepo) DeleteAccount(_ context.Context, _ string) error {
+	return errRepositoryFailure
+}
+func (failingRepo) ClearDeletedAt(_ context.Context, _ string) error {
 	return errRepositoryFailure
 }

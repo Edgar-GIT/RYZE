@@ -289,11 +289,12 @@ Permissions are determined exclusively by the backend.
 
 Frontend restrictions are visual only and must never replace backend authorization.
 
-Administrator authorization is enforced by a reusable backend middleware
-(`middleware.RequireAdminRole`) mounted after the admin authentication
-middleware. The role is always derived from the authenticated admin identity
-(ADMIN_1 → Technical Administrator, ADMIN_2 → Management Administrator); roles
-or permissions supplied by the client are never accepted.
+Administrator authorization is enforced by reusable backend middlewares
+(`middleware.RequireAdminRole` and `middleware.RequireAdminPermission`) mounted
+after the admin authentication middleware. The role and its permissions are
+always derived from the authenticated admin identity (ADMIN_1 → Technical
+Administrator, ADMIN_2 → Management Administrator); roles or permissions
+supplied by the client are never accepted.
 
 Authentication failures return HTTP 401 `AUTHENTICATION_REQUIRED`.
 Authorization failures return HTTP 403 `FORBIDDEN` with a generic message.
@@ -2198,11 +2199,18 @@ Withdraws the application.
 
 # ADMIN USER MANAGEMENT
 
-Implemented backend foundation. Accessible by both administrator roles after
-admin authentication and role authorization:
+Implemented backend foundation for managing regular client accounts. The user
+permission is split into two finer-grained permissions:
 
-- Technical Administrator (ADMIN_1)
-- Management Administrator (ADMIN_2)
+- `users.read` — read-only view (list users, view one user). Granted to both
+  administrator roles.
+- `users.manage` — full lifecycle (create, update, soft-delete, reactivate,
+  administrative password reset, deleted-user listing). Granted only to the
+  Technical Administrator (ADMIN_1).
+
+The Management Administrator (ADMIN_2) holds `users.read` only: every lifecycle
+endpoint returns HTTP 403 `FORBIDDEN` for ADMIN_2, enforced server-side by
+`RequireAdminPermission(PermissionUsersManage)`.
 
 Only regular client accounts are managed here. Trainer content management,
 plans, finance and marketing are separate permissions.
@@ -2214,10 +2222,14 @@ Admin Login
     ↓
 Admin Verify (access code)
     ↓
-RequireAdminRole(TECHNICAL_ADMINISTRATOR, MANAGEMENT_ADMINISTRATOR)
+RequireAdminPermission(users.read | users.manage)
     ↓
 AdminUserHandler → AdminUserService → UserRepository → MariaDB
 ```
+
+There is intentionally **no permanent-deletion endpoint**. Account removal is
+always a soft delete; rows, UUIDs and `created_at` are preserved and the account
+can be reactivated by an administrator or re-registered publicly.
 
 ## List Users
 
@@ -2226,7 +2238,7 @@ GET /api/v1/admin/users?page=1&limit=20
 ```
 
 Returns active registered users, newest first. Soft-deleted users are never
-returned.
+returned. Accessible by both roles (`users.read`).
 
 Pagination:
 
@@ -2250,13 +2262,94 @@ data.pagination       { page, limit, total, total_pages }
 GET /api/v1/admin/users/{id}
 ```
 
-Returns the safe representation of one active user.
+Returns the safe representation of one active user. Soft-deleted users are
+never returned. Accessible by both roles (`users.read`).
 
 - Unknown or soft-deleted users: HTTP 404 `USER_NOT_FOUND`.
 - Malformed identifiers: HTTP 400 `VALIDATION_ERROR`.
 
 The safe representation never includes password hashes, session versions or
 deletion markers.
+
+---
+
+## List Deleted Users
+
+```
+GET /api/v1/admin/users/deleted?page=1&limit=20
+```
+
+Returns soft-deleted users, most recently deleted first. Active and deleted
+users are never mixed in a single list. Accessible only by ADMIN_1
+(`users.manage`); ADMIN_2 receives HTTP 403 `FORBIDDEN`.
+
+Same pagination and safe-representation rules as List Users.
+
+---
+
+## Create User
+
+```
+POST /api/v1/admin/users
+```
+
+Creates a new active user (HTTP 201, message "User created successfully.").
+Accessible only by ADMIN_1 (`users.manage`).
+
+Request body:
+
+```
+{
+  "email": "user@ryze.com",
+  "password": "plaintext-password",
+  "first_name": "User",
+  "last_name": "Name"
+}
+```
+
+Rules:
+
+- The caller can never set `id`, `deleted_at`, `session_version` or
+  `password_hash`: those are controlled exclusively by the backend.
+- The password is always hashed with Argon2id before storage and never returned
+  or logged.
+- If the email belongs to an active account: HTTP 409
+  `EMAIL_ALREADY_REGISTERED`.
+- If the email belongs to a soft-deleted account: the existing identity is
+  reactivated (same UUID and `created_at` are preserved, `deleted_at` is
+  cleared and the password is replaced). No second row is created.
+- Missing or malformed fields return HTTP 400 `VALIDATION_ERROR`.
+
+---
+
+## Update User
+
+```
+PATCH /api/v1/admin/users/{id}
+```
+
+Updates the whitelisted safe fields of an active user (HTTP 200, message "User
+updated successfully."). Accessible only by ADMIN_1 (`users.manage`).
+
+Request body (at least one field required; `null` means unchanged):
+
+```
+{
+  "email": "new@ryze.com",
+  "first_name": "New",
+  "last_name": "Name"
+}
+```
+
+Rules:
+
+- Only `email`, `first_name` and `last_name` can be modified. `id`,
+  `password_hash`, `deleted_at` and `session_version` can never be changed here
+  (password changes use the dedicated administrative reset).
+- The email must not be owned by any other existing identity (active or
+  soft-deleted): HTTP 409 `EMAIL_ALREADY_REGISTERED`.
+- Unknown or soft-deleted users: HTTP 404 `USER_NOT_FOUND`.
+- Empty body or malformed fields: HTTP 400 `VALIDATION_ERROR`.
 
 ---
 
@@ -2267,7 +2360,7 @@ PATCH /api/v1/admin/users/{id}/disable
 ```
 
 Soft-disables a regular user account (HTTP 200, message "User disabled
-successfully.").
+successfully."). Accessible only by ADMIN_1 (`users.manage`).
 
 Effects:
 
@@ -2277,16 +2370,72 @@ Effects:
 - The user can no longer log in.
 - The account data remains intact and recoverable.
 
-There is intentionally no permanent-deletion endpoint in this foundation.
 Unknown, already-disabled or malformed identifiers follow the same error
 contract as User Details.
 
 ---
 
-## Planned (not implemented)
+## Reactivate User
 
-- Update User — `PATCH /api/v1/admin/users/{id}`
-- Enable User — `PATCH /api/v1/admin/users/{id}/enable`
+```
+POST /api/v1/admin/users/{id}/reactivate
+```
+
+Restores a soft-deleted user (HTTP 200, message "User reactivated
+successfully."). Accessible only by ADMIN_1 (`users.manage`).
+
+Effects:
+
+- Clears `deleted_at` only: the same UUID, email, `created_at`, password hash
+  and session version are preserved.
+- The account becomes active again and can authenticate again.
+- Because the soft delete incremented `session_version`, every pre-deletion
+  access token remains invalid.
+- The password is not changed.
+
+- Already-active users: HTTP 409 `USER_ALREADY_ACTIVE`.
+- Unknown users: HTTP 404 `USER_NOT_FOUND`.
+
+---
+
+## Reset User Password
+
+```
+POST /api/v1/admin/users/{id}/password
+```
+
+Replaces an active user's password without requiring the current password
+(HTTP 200, message "Password reset successfully."). Accessible only by ADMIN_1
+(`users.manage`).
+
+Request body:
+
+```
+{
+  "new_password": "new-plaintext-password"
+}
+```
+
+Effects:
+
+- The password is hashed with Argon2id and stored as `password_hash`.
+- `session_version` is incremented in the same statement, invalidating every
+  previously issued session.
+- The plaintext password, the hash, the token and `session_version` are never
+  returned.
+
+- Empty `new_password`: HTTP 400 `VALIDATION_ERROR`.
+- Unknown or soft-deleted users: HTTP 404 `USER_NOT_FOUND`.
+
+---
+
+## Public Re-registration after Disable
+
+When a disabled user's email is registered again through the public endpoint,
+the original soft-deleted row is reactivated: the same UUID and `created_at`
+are preserved, `deleted_at` is cleared, the password is replaced, and the
+previous password stops working. Exactly one row exists for the email at all
+times.
 
 ---
 

@@ -33,3 +33,29 @@ func RequireAdminRole(required ...adminroles.Role) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// RequireAdminPermission returns authorization middleware that MUST be mounted
+// after AdminAuthenticate. It allows the request only when the authenticated
+// admin identity holds at least one of the required permissions. Permissions
+// are always derived from the authenticated identity stored by
+// AdminAuthenticate, never from client input. Every denial maps to the same
+// indistinguishable HTTP 403 FORBIDDEN error without revealing the required
+// permissions or the admin's permissions.
+func RequireAdminPermission(required ...adminroles.Permission) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		adminID, err := adminauthcontext.AdminIdentityFromContext(c)
+		if err != nil {
+			auth.RespondError(c, http.StatusForbidden, "FORBIDDEN", "Forbidden.", nil)
+			c.Abort()
+			return
+		}
+		for _, permission := range required {
+			if adminroles.HasPermission(adminID, permission) {
+				c.Next()
+				return
+			}
+		}
+		auth.RespondError(c, http.StatusForbidden, "FORBIDDEN", "Forbidden.", nil)
+		c.Abort()
+	}
+}

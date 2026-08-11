@@ -248,9 +248,10 @@ Responsibilities include:
 - Viewing business statistics
 - Creating and editing platform packs
 
-User management (list, view and soft-disable regular client accounts) is shared
-with the Technical Administrator and implemented as a backend foundation under
-the `users` permission.
+The Management Administrator holds a read-only view of user accounts (list and
+view, under `users.read`). The full user lifecycle (create, update,
+soft-disable, reactivate and administrative password reset, under
+`users.manage`) belongs to the Technical Administrator.
 
 ---
 
@@ -272,9 +273,10 @@ business responsibilities (plans, finance, marketing) belong exclusively to
 the Management Administrator and are never granted automatically to the
 Technical Administrator.
 
-User management (list, view and soft-disable regular client accounts) is shared
-with the Management Administrator and implemented as a backend foundation under
-the `users` permission.
+User management (full lifecycle: create, update, soft-disable, reactivate and
+administrative password reset) is implemented as a backend foundation under the
+`users.manage` permission and is exclusive to the Technical Administrator. The
+Management Administrator keeps a read-only view under `users.read`.
 
 ---
 

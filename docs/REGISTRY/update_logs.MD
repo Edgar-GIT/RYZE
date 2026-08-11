@@ -1,3 +1,133 @@
+# Version 2.10.0
+
+Title: Backend Step 21 Correction 2 — definitive admin user-management model
+
+Date: 2026-08-11
+
+Summary:
+
+Transformed the Step 21 admin user-management foundation into the definitive
+model. The shared `users` permission is now split into two finer-grained
+permissions enforced by a new reusable `middleware.RequireAdminPermission(...)`
+authorization middleware:
+
+- `users.read` (list users, view one user) — granted to both administrator
+  roles.
+- `users.manage` (create, update, soft-delete, reactivate, administrative
+  password reset, deleted-user listing) — granted only to the Technical
+  Administrator (ADMIN_1).
+
+ADMIN_1 owns the full user lifecycle; ADMIN_2 is strictly read-only. Every
+ADMIN_2 mutation attempt (including the deleted-user listing) returns HTTP 403
+`FORBIDDEN`, enforced server-side by `RequireAdminPermission` reading the
+authenticated identity from the request context. The coarse `PermissionUsers`
+remains granted to both roles and the role/permission mapping stays in
+`middleware/adminroles` as the single reusable authorization source.
+
+Permanent routes under `/api/v1/admin`:
+
+- `GET /users`, `GET /users/{id}` — read-only, `users.read`, both roles.
+- `GET /users/deleted` — soft-deleted users listing (separated from the active
+  view), `users.manage`, ADMIN_1 only.
+- `POST /users` — create user, `users.manage`, ADMIN_1 only.
+- `PATCH /users/{id}` — update whitelisted safe fields (`email`,
+  `first_name`, `last_name`), `users.manage`, ADMIN_1 only.
+- `PATCH /users/{id}/disable` — soft-delete (row/UUID/`created_at` preserved,
+  `deleted_at` set and `session_version` incremented atomically),
+  `users.manage`, ADMIN_1 only.
+- `POST /users/{id}/reactivate` — clears `deleted_at` only (same UUID, email,
+  `created_at`, hash and session version preserved; pre-deletion sessions stay
+  invalid), `users.manage`, ADMIN_1 only.
+- `POST /users/{id}/password` — administrative password reset (Argon2id hash
+  replacement + `session_version` increment in one statement, no current
+  password required, nothing sensitive returned), `users.manage`, ADMIN_1
+  only.
+
+There is intentionally no permanent-deletion endpoint. Admin user creation
+delegates to the existing registration service so the identity rule is shared
+with public registration: an email belonging to a soft-deleted account
+reactivates the original row (same UUID and `created_at`, exactly one row, old
+password fails, new password works) instead of creating a duplicate; an email
+belonging to an active account returns `EMAIL_ALREADY_REGISTERED`. Update
+operations reject emails owned by any other identity (active or soft-deleted)
+and the caller can never set `id`, `password_hash`, `deleted_at` or
+`session_version`. Administrative password resets never return the plaintext,
+the hash, a token or `session_version`.
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passes. Service tests cover list/deleted-list/get/
+create/update/soft-delete/reactivate/reset-password success and error paths
+(invalid input, duplicate email, not found, already active, empty password,
+wrapped repository/hasher/registrar failures). Handler tests cover both roles
+for the read routes, every mutation allowed for ADMIN_1 and HTTP 403 for
+ADMIN_2 with no authorization/internal detail leakage, unauthenticated (401),
+regular-user and stage/invalid-token rejection, create/update/reactivate/
+password-reset semantics (including reactivation preserving the UUID and
+invalidating pre-deletion sessions, reset invalidating old sessions and old
+password, and duplicate/not-found/validation error mapping), deleted-only
+listing and no sensitive leaks. Middleware tests cover the permission gates
+(both roles read, ADMIN_2 denied on manage, fail-closed without
+`AdminAuthenticate`) and the updated permission matrix. E2E against the running
+server verified the full ADMIN_1 lifecycle (register → login → /me → disable →
+old session 401 / login 401 / row preserved with `deleted_at` → reactivate →
+same UUID / one row / login works → admin password reset → old password 401 /
+new password 200 / old session 401 → disable → public re-registration → same
+UUID / one row / `created_at` unchanged / `deleted_at` NULL / old password 401
+/ new password 200) and ADMIN_2 read-only enforcement (list/get 200, every
+mutation and deleted listing 403). All temporary rows were removed afterwards.
+
+Files modified:
+
+- `main/src/backend/middleware/adminroles/adminroles.go` — added
+  `PermissionUsersRead`/`PermissionUsersManage`, updated the role permission
+  map.
+- `main/src/backend/middleware/admin_authorization.go` — added
+  `RequireAdminPermission`.
+- `main/src/backend/repositories/user_repository.go` — added
+  `FindByIDIncludingDeleted`, `ListDeleted`, `ClearDeletedAt` to interface and
+  implementation.
+- `main/src/backend/services/admin_users/admin_users.go` and
+  `main/src/backend/services/admin_users/admin_users_test.go` — full lifecycle
+  service (constructor now takes the registrar and hasher), rewritten tests.
+- `main/src/backend/api/auth/admin_users_handler.go` and
+  `main/src/backend/api/auth/admin_users_handler_test.go` — create/update/
+  reactivate/password-reset/deleted-list handlers and DTOs, read/mutate route
+  groups, expanded tests.
+- `main/src/backend/routes/routes.go` — read (`users.read`) and mutate
+  (`users.manage`) admin route groups.
+- `main/src/backend/middleware/admin_authorization_test.go` — permission-gate
+  and permission-matrix tests.
+- Test fakes extended with the three new repository methods:
+  `main/src/backend/services/login/login_test.go`,
+  `main/src/backend/services/delete_account/delete_account_test.go`,
+  `main/src/backend/services/change_password/change_password_test.go`,
+  `main/src/backend/services/registration/registration_test.go`,
+  `main/src/backend/api/auth/register_handler_test.go`,
+  `main/src/backend/api/auth/login_handler_test.go`
+- `docs/INSTRUCTIONS/api.MD` (definitive ADMIN USER MANAGEMENT section with the
+  eight endpoints and the read/mutate permission model),
+  `docs/INSTRUCTIONS/security.MD` (permission split, ADMIN_2 read-only, admin
+  reset/reactivation session semantics, no permanent deletion),
+  `docs/INSTRUCTIONS/arquitecture.MD` (permission middleware and lifecycle
+  layering), `docs/DATABASE/database.MD` (new repository queries and soft-delete
+  lifecycle), `docs/INSTRUCTIONS/project.MD` (ADMIN_1 lifecycle vs ADMIN_2
+  read-only), `docs/how_to_run.MD` (endpoint list and authorization model),
+  `docs/REGISTRY/update_logs.MD` (this entry).
+
+Reason:
+
+The Step 21 foundation left both roles able to disable accounts, which does not
+match the product intent: the Technical Administrator owns the technical user
+lifecycle while the Management Administrator only needs visibility. The
+correction makes the authorization model definitive (ADMIN_1 = full lifecycle,
+ADMIN_2 = read-only), guarantees that a hard delete never exists, keeps the
+soft-delete/reactivation lifecycle recoverable and shares the identity rule
+between admin creation and public re-registration, all while reusing the
+existing authorization, token, session-version, registration and hashing
+infrastructure.
+
+---
+
 # Version 2.9.0
 
 Title: Backend Step 21 — admin user management foundation

@@ -130,10 +130,12 @@ Authorization is a separate concern from authentication. Authentication
 establishes who the caller is; authorization decides what the caller may do.
 
 The admin authorization layer is one reusable abstraction implemented as Gin
-middleware (`middleware.RequireAdminRole`) that runs strictly after
-`middleware.AdminAuthenticate` on every protected admin route. The role is
-never stored or transmitted: it is always derived server-side from the
-authenticated admin identity held in the request context.
+middlewares (`middleware.RequireAdminRole` for role-based checks and
+`middleware.RequireAdminPermission` for permission-based checks) that run
+strictly after `middleware.AdminAuthenticate` on every protected admin route.
+The role and its permissions are never stored or transmitted: they are always
+derived server-side from the authenticated admin identity held in the request
+context.
 
 Role model (`middleware/adminroles`):
 
@@ -147,6 +149,11 @@ Permissions:
   configuration, security, development.
 - Management Administrator only: plans, finance, marketing.
 
+The coarse `users` permission is split into `users.read` (shared by both
+roles) and `users.manage` (create, update, soft-delete, reactivate,
+administrative password reset and deleted-user listing, granted only to the
+Technical Administrator).
+
 Neither role is a superset of the other: the Technical Administrator is not a
 super administrator and does not receive management business permissions.
 
@@ -156,14 +163,17 @@ authentication layer introduces no authorization logic. See `security.MD`
 error semantics (401 `AUTHENTICATION_REQUIRED` from authentication, 403
 `FORBIDDEN` from authorization).
 
-The shared `users` permission is implemented as the admin user-management
-foundation: `AdminUserHandler` (thin, in `api/auth`) → `admin_users` service
-(in `services/admin_users`) → `UserRepository` (in `repositories`). The
-service validates identifiers, normalizes pagination and maps repository
-errors; the repository exposes a paginated `ListActive` query and reuses the
-existing atomic soft-delete primitive (sets `deleted_at` and increments
-`session_version` in one statement). Controllers stay thin and business logic
-stays inside the service, following the backend layering convention.
+The user-management foundation follows the same layering:
+`AdminUserHandler` (thin, in `api/auth`) → `admin_users` service (in
+`services/admin_users`) → `UserRepository` (in `repositories`). The service
+validates identifiers, normalizes pagination, validates create/update input
+and maps repository errors; it reuses the registration service for user
+creation and the Argon2id hasher for the administrative password reset. The
+repository exposes `ListActive`, `ListDeleted`, `FindByIDIncludingDeleted`
+and `ClearDeletedAt`, and reuses the existing atomic soft-delete primitive
+(sets `deleted_at` and increments `session_version` in one statement).
+Controllers stay thin and business logic stays inside the service, following
+the backend layering convention.
 
 ---
 

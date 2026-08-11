@@ -28,7 +28,6 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	registrationService := registration.NewRegistrationService(userRepository, password.Hasher{})
 	registerHandler := auth.NewRegisterHandler(registrationService)
-
 	tokenService := token.NewService([]byte(jwtCfg.Secret), jwtCfg.AccessTokenTTL)
 	loginService := login.NewLoginService(userRepository, password.Verifier{})
 	loginHandler := auth.NewLoginHandler(loginService, tokenService, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
@@ -45,7 +44,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	deleteAccountService := delete_account.NewDeleteAccountService(userRepository, password.Verifier{})
 	deleteAccountHandler := auth.NewDeleteAccountHandler(deleteAccountService, jwtCfg.CookieSecure)
 
-	adminUsersService := admin_users.NewAdminUserService(userRepository)
+	adminUsersService := admin_users.NewAdminUserService(userRepository, registrationService, password.Hasher{})
 	adminUsersHandler := auth.NewAdminUserHandler(adminUsersService)
 
 	v1 := router.Group("/api/v1")
@@ -59,13 +58,21 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 
 	admin := v1.Group("/admin")
-	admin.Use(
-		middleware.AdminAuthenticate(tokenService),
-		middleware.RequireAdminRole(adminroles.RoleTechnicalAdministrator, adminroles.RoleManagementAdministrator),
-	)
-	admin.GET("/users", adminUsersHandler.ListUsers)
-	admin.GET("/users/:id", adminUsersHandler.GetUser)
-	admin.PATCH("/users/:id/disable", adminUsersHandler.SoftDeleteUser)
+	admin.Use(middleware.AdminAuthenticate(tokenService))
+
+	adminRead := admin.Group("")
+	adminRead.Use(middleware.RequireAdminPermission(adminroles.PermissionUsersRead))
+	adminRead.GET("/users", adminUsersHandler.ListUsers)
+	adminRead.GET("/users/:id", adminUsersHandler.GetUser)
+
+	adminMutate := admin.Group("")
+	adminMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionUsersManage))
+	adminMutate.GET("/users/deleted", adminUsersHandler.ListDeletedUsers)
+	adminMutate.POST("/users", adminUsersHandler.CreateUser)
+	adminMutate.PATCH("/users/:id", adminUsersHandler.UpdateUser)
+	adminMutate.PATCH("/users/:id/disable", adminUsersHandler.SoftDeleteUser)
+	adminMutate.POST("/users/:id/reactivate", adminUsersHandler.ReactivateUser)
+	adminMutate.POST("/users/:id/password", adminUsersHandler.ResetUserPassword)
 
 	return router
 }

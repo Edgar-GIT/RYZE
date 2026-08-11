@@ -319,16 +319,34 @@ Security fields:
 - password_hash
 - session_version
 
-`session_version` is incremented whenever the account password changes or the
-account is soft-deleted (by the account holder or by an administrator). Access
-tokens embed the session version they were issued for, so such operations
-revoke every previously issued token (see security.MD, Session Revocation).
+`session_version` is incremented whenever the account password changes (by the
+account holder or by an administrator) or the account is soft-deleted (by the
+account holder or by an administrator). Access tokens embed the session version
+they were issued for, so such operations revoke every previously issued token
+(see security.MD, Session Revocation). Reactivation (administrative or public
+re-registration) preserves the increment, so pre-deletion tokens stay invalid.
 
-The repository provides a paginated active-user query (`ListActive`) used by
-the admin user-management foundation. It applies the soft-delete scope, orders
-newest first and returns the active total; it reuses the same atomic soft-delete
-primitive (`deleted_at` + `session_version` in one statement) used by account
-deletion.
+Soft delete is the only deletion mechanism: rows, UUIDs and `created_at` are
+preserved and `deleted_at` is populated. There is no permanent-deletion
+endpoint; reactivation and re-registration restore the original identity.
+
+The repository provides the queries used by the admin user-management
+foundation:
+
+- `ListActive` — paginated active users (soft-delete scope applied, newest
+  first, active total).
+- `ListDeleted` — paginated soft-deleted users (`deleted_at IS NOT NULL`,
+  newest first, deleted total), a clearly separated view from the active
+  listing.
+- `FindByIDIncludingDeleted` — user lookup without the soft-delete scope,
+  used by the reactivation lifecycle.
+- `ClearDeletedAt` — reactivates a row by clearing `deleted_at` only
+  (UUID, email, `created_at`, password hash and session version preserved),
+  guarded by `deleted_at IS NOT NULL` so an already-active user can never be
+  reactivated.
+- `DeleteAccount` — the atomic soft-delete primitive (`deleted_at` +
+  `session_version` increment in one statement) shared by account deletion and
+  the admin disable endpoint.
 
 ---
 

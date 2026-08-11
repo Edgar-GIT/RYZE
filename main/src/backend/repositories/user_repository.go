@@ -23,13 +23,16 @@ const mysqlDuplicateEntry = 1062
 type UserRepository interface {
 	Create(ctx context.Context, user *models.User) error
 	FindByID(ctx context.Context, id string) (*models.User, error)
+	FindByIDIncludingDeleted(ctx context.Context, id string) (*models.User, error)
 	FindByEmail(ctx context.Context, email string) (*models.User, error)
 	FindByEmailIncludingDeleted(ctx context.Context, email string) (*models.User, error)
 	ListActive(ctx context.Context, page, limit int) ([]models.User, int64, error)
+	ListDeleted(ctx context.Context, page, limit int) ([]models.User, int64, error)
 	GetSessionVersion(ctx context.Context, id string) (int, error)
 	Update(ctx context.Context, user *models.User) error
 	ChangePassword(ctx context.Context, id string, newHash string) error
 	Reactivate(ctx context.Context, user *models.User) error
+	ClearDeletedAt(ctx context.Context, id string) error
 	SoftDelete(ctx context.Context, id string) error
 	DeleteAccount(ctx context.Context, id string) error
 }
@@ -55,6 +58,20 @@ func (r *userRepository) Create(ctx context.Context, user *models.User) error {
 func (r *userRepository) FindByID(ctx context.Context, id string) (*models.User, error) {
 	var user models.User
 	if err := r.db.WithContext(ctx).First(&user, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to find user by id: %w", err)
+	}
+	return &user, nil
+}
+
+// FindByIDIncludingDeleted looks up a user by id without excluding soft-deleted
+// rows. It is used by the admin lifecycle operations (reactivation) to inspect
+// accounts that are no longer active.
+func (r *userRepository) FindByIDIncludingDeleted(ctx context.Context, id string) (*models.User, error) {
+	var user models.User
+	if err := r.db.WithContext(ctx).Unscoped().First(&user, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrUserNotFound
 		}
@@ -109,7 +126,35 @@ func (r *userRepository) ListActive(ctx context.Context, page, limit int) ([]mod
 	return users, total, nil
 }
 
-// GetSessionVersion returns the current session version of the user. It is
+// ListDeleted returns one page of soft-deleted users (rows with a populated
+// deleted_at) ordered by deletion time, plus the total number of soft-deleted
+// users. It is used by the admin lifecycle management as a clearly separated
+// view from the normal active-user listing. The caller guarantees page >= 1
+// and limit >= 1.
+func (r *userRepository) ListDeleted(ctx context.Context, page, limit int) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	if err := r.db.WithContext(ctx).
+		Unscoped().
+		Model(&models.User{}).
+		Where("deleted_at IS NOT NULL").
+		Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count deleted users: %w", err)
+	}
+
+	if err := r.db.WithContext(ctx).
+		Unscoped().
+		Where("deleted_at IS NOT NULL").
+		Order("deleted_at DESC, id ASC").
+		Limit(limit).
+		Offset((page - 1) * limit).
+		Find(&users).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list deleted users: %w", err)
+	}
+	return users, total, nil
+}
+
 // used by the authentication middleware to reject access tokens that were
 // issued for a revoked session (e.g. after a password change).
 func (r *userRepository) GetSessionVersion(ctx context.Context, id string) (int, error) {
@@ -178,6 +223,30 @@ func (r *userRepository) Reactivate(ctx context.Context, user *models.User) erro
 		if isDuplicateEntry(result.Error) {
 			return ErrDuplicateEmail
 		}
+		return fmt.Errorf("failed to reactivate user: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// ClearDeletedAt reactivates a soft-deleted user without touching any account
+// data: the UUID, email, created_at, password hash and session version are all
+// preserved, only deleted_at is cleared (and updated_at refreshed). The
+// `deleted_at IS NOT NULL` guard makes reactivation of an already-active user
+// impossible. Because the account was soft-deleted with a session-version
+// increment, every pre-deletion access token remains invalid afterwards.
+func (r *userRepository) ClearDeletedAt(ctx context.Context, id string) error {
+	result := r.db.WithContext(ctx).
+		Unscoped().
+		Model(&models.User{}).
+		Where("id = ? AND deleted_at IS NOT NULL", id).
+		Updates(map[string]any{
+			"deleted_at": nil,
+			"updated_at": time.Now(),
+		})
+	if result.Error != nil {
 		return fmt.Errorf("failed to reactivate user: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {

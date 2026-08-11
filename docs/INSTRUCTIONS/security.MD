@@ -338,6 +338,17 @@ atomically, so all of the user's active sessions are revoked immediately and
 the user can no longer log in, while the account data remains intact and
 recoverable.
 
+The administrative password reset
+(`POST /api/v1/admin/users/{id}/password`) and the public re-registration of a
+disabled email apply the same rule: the stored password hash is replaced and
+`session_version` is incremented in the same statement, so every previously
+issued access token is rejected and the previous password stops working.
+
+Reactivating an account (administrative `POST /api/v1/admin/users/{id}/reactivate`
+or public re-registration) preserves the session-version increment performed at
+soft-delete time: the account becomes active again but every pre-deletion
+access token remains invalid.
+
 Future implementations should support token blacklisting or rotation.
 
 ---
@@ -504,9 +515,10 @@ The backend must always enforce permissions.
 
 ## Administrator Authorization
 
-The admin authorization layer is implemented as a reusable backend middleware
-(`middleware.RequireAdminRole`) that runs strictly after the admin
-authentication middleware (`middleware.AdminAuthenticate`).
+The admin authorization layer is implemented as reusable backend middlewares
+(`middleware.RequireAdminRole` and `middleware.RequireAdminPermission`) that
+run strictly after the admin authentication middleware
+(`middleware.AdminAuthenticate`).
 
 Role model:
 
@@ -522,6 +534,13 @@ Granted permissions:
   configuration, security, development.
 - Management Administrator only: plans, finance, marketing.
 
+The coarse `users` permission is split into finer-grained permissions:
+
+- `users.read` (view users) — granted to both roles.
+- `users.manage` (create, update, soft-delete, reactivate, administrative
+  password reset, deleted-user listing) — granted only to the Technical
+  Administrator.
+
 Security rules:
 
 - Authorization derives **only** from the authenticated admin identity stored
@@ -533,21 +552,33 @@ Security rules:
 - The role model and its permission mapping live in
   `middleware/adminroles` and are the single reusable authorization source.
 - Admin authorization failure returns HTTP 403 `FORBIDDEN` with a generic
-  message that never reveals the required roles, the caller's role or any
-  internal detail. Authentication failures are handled by the
+  message that never reveals the required roles or permissions, the caller's
+  role or any internal detail. Authentication failures are handled by the
   authentication middleware and remain HTTP 401 `AUTHENTICATION_REQUIRED`.
-- The authorization middleware fails closed: mounted without
-  `AdminAuthenticate` (no admin identity in context) it still denies the
+- The authorization middlewares fail closed: mounted without
+  `AdminAuthenticate` (no admin identity in context) they still deny the
   request.
 
-Implemented under the shared `users` permission: the admin user-management
-foundation (list users, get user, soft-delete user) is enforced by
-`RequireAdminRole(TECHNICAL_ADMINISTRATOR, MANAGEMENT_ADMINISTRATOR)`, so both
-administrator roles may manage regular user accounts. Target user identifiers
-are never accepted from the client as ownership proof: a soft-delete targets
-only the account resolved by the validated route identifier and always operates
-server-side. The management response never exposes password hashes, session
-versions or deletion markers.
+User management authorization model:
+
+- Read endpoints (`GET /admin/users`, `GET /admin/users/{id}`) run under
+  `users.read` and are allowed for both administrator roles.
+- Every lifecycle endpoint (`GET /admin/users/deleted`,
+  `POST /admin/users`, `PATCH /admin/users/{id}`,
+  `PATCH /admin/users/{id}/disable`,
+  `POST /admin/users/{id}/reactivate`,
+  `POST /admin/users/{id}/password`) runs under `users.manage` and is allowed
+  only for ADMIN_1. ADMIN_2 receives HTTP 403 `FORBIDDEN` on every one of
+  these operations.
+- Target user identifiers are never accepted from the client as ownership
+  proof: every operation targets only the account resolved by the validated
+  route identifier and always operates server-side.
+- User creation and update never accept `id`, `password_hash`, `deleted_at`
+  or `session_version` from the caller; passwords are always Argon2id-hashed
+  by the backend.
+- There is no permanent-deletion endpoint. Disabling is always a soft delete
+  and admin responses never expose password hashes, session versions or
+  deletion markers.
 
 ---
 

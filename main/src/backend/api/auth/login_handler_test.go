@@ -331,6 +331,9 @@ func (failingLoginRepository) Create(_ context.Context, _ *models.User) error {
 func (failingLoginRepository) FindByID(_ context.Context, _ string) (*models.User, error) {
 	return nil, errLoginRepoFailure
 }
+func (failingLoginRepository) FindByIDIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
+	return nil, errLoginRepoFailure
+}
 func (failingLoginRepository) FindByEmail(_ context.Context, _ string) (*models.User, error) {
 	return nil, errLoginRepoFailure
 }
@@ -338,6 +341,9 @@ func (failingLoginRepository) FindByEmailIncludingDeleted(_ context.Context, _ s
 	return nil, errLoginRepoFailure
 }
 func (failingLoginRepository) ListActive(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
+	return nil, 0, errLoginRepoFailure
+}
+func (failingLoginRepository) ListDeleted(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
 	return nil, 0, errLoginRepoFailure
 }
 func (failingLoginRepository) GetSessionVersion(_ context.Context, _ string) (int, error) {
@@ -356,5 +362,8 @@ func (failingLoginRepository) SoftDelete(_ context.Context, _ string) error {
 	return errLoginRepoFailure
 }
 func (failingLoginRepository) DeleteAccount(_ context.Context, _ string) error {
+	return errLoginRepoFailure
+}
+func (failingLoginRepository) ClearDeletedAt(_ context.Context, _ string) error {
 	return errLoginRepoFailure
 }
