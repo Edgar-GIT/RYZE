@@ -1,3 +1,93 @@
+# Version 2.6.1
+
+Title: Backend Step 18 correction — admin second-factor authentication (access code)
+
+Date: 2026-08-11
+
+Summary:
+
+Admin authentication is now two-stage. `POST /api/v1/admin/auth/login` only
+verifies the configured username/password and, on success, issues a short-lived
+temporary stage cookie `ryze_admin_stage_token` (5 minutes, `kind: admin-stage`).
+It never issues an admin session. `POST /api/v1/admin/auth/verify` then requires
+that stage cookie and an `access_code`; on success it clears the stage cookie and
+sets the admin session cookie `ryze_admin_access_token`. Every failure — wrong
+password, unknown username, missing/expired/invalid stage state, wrong or
+cross-admin access code — returns the same HTTP 401 `INVALID_CREDENTIALS`, and
+malformed JSON or empty fields return HTTP 400 `VALIDATION_ERROR`, so callers
+never learn which stage failed or whether an administrator exists.
+
+Each administrator now defines a second secret in `.env`:
+`ADMIN_1_ACCESS_CODE` and `ADMIN_2_ACCESS_CODE` (minimum 8 characters, validated
+at startup like the username/password; invalid values fail with a clear
+`configuration error`). Access codes are configuration-only, never stored in the
+database, embedded in tokens, logged or returned by the API; changing them in
+`.env` takes effect on restart. `config.Admin` gained `AccessCode`,
+`LoadAdmin` validates it, the `admin_login` service exposes
+`VerifyAccessCode` (constant-time comparison) and the wiring in `routes.go`
+now copies the access code into the service credentials.
+
+The token service gained a third `kind` (`admin-stage`) with
+`GenerateAdminStageToken`/`ValidateAdminStageToken` and a 5-minute
+`AdminStageTokenTTL`. Stage tokens are rejected by the admin and user
+validators, and admin/user tokens are rejected by the stage validator, so a
+leaked stage cookie can never be promoted to a session without the access code.
+
+A minimal future-ready two-stage admin login page was added at `/admin/login`
+(credentials step, then access-code step, then a placeholder "authenticated"
+state) reusing the existing login design tokens and the shared HTTP client. No
+admin dashboard, middleware, role mapping or authorization was added; the
+`users` table is untouched.
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passes (new token, config, service, handler and
+routes-wiring tests). Manual E2E against the running server: stage 1 sets only
+the stage cookie (Max-Age=300, no final cookie); verify with the correct code
+sets `ryze_admin_access_token` (Max-Age=900, HttpOnly, SameSite=Lax) and clears
+the stage cookie; wrong password, unknown username, verify without stage state,
+wrong and cross-admin codes are 401; missing fields 400; a final admin token
+reused as a stage state and a user token reused as a stage state are both 401;
+`/api/v1/me` rejects both the stage cookie and the admin cookie; changing the
+access codes in `.env` and restarting rejects the old codes and accepts the new
+ones. `npm run typecheck` and `npm run build` pass.
+
+Files modified:
+
+- `main/src/backend/config/config.go` (Admin.AccessCode)
+- `main/src/backend/config/env.go` (LoadAdmin access-code validation,
+  `minAdminAccessCodeLen`)
+- `main/src/backend/config/env_test.go` (access-code tests)
+- `main/src/backend/services/token/token.go` (admin-stage kind, 5m TTL,
+  Generate/ValidateAdminStageToken, mutual kind rejection)
+- `main/src/backend/services/token/token_test.go` (stage token tests)
+- `main/src/backend/services/admin_login/admin_login.go` (VerifyInput,
+  VerifyAccessCode, AdminCredential.AccessCode)
+- `main/src/backend/services/admin_login/admin_login_test.go` (access-code tests)
+- `main/src/backend/api/auth/cookies.go` (ryze_admin_stage_token cookie)
+- `main/src/backend/api/auth/admin_login_handler.go` (two-stage flow)
+- `main/src/backend/api/auth/admin_login_handler_test.go` (rewritten)
+- `main/src/backend/middleware/auth_test.go` (failingTokenService implements
+  the expanded token service)
+- `main/src/backend/routes/routes.go` (verify route + access-code wiring)
+- `main/src/backend/routes/admin_credentials_test.go` (new)
+- `main/src/frontend/src/pages/admin_login_page/admin_login_page.tsx` (new)
+- `main/src/frontend/src/pages/admin_login_page/admin_login_page.module.css` (new)
+- `main/src/frontend/src/routes/app_routes.tsx` (`/admin/login`)
+- `.env` (dev access-code secrets, git-ignored) and `.env.example` (placeholders)
+- `docs/INSTRUCTIONS/api.MD`, `docs/INSTRUCTIONS/security.MD`,
+  `docs/INSTRUCTIONS/arquitecture.MD`, `docs/how_to_run.MD`,
+  `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+The Step 18 spec required a second authentication factor for administrators,
+but Step 18 shipped only a single-stage password login. This correction adds
+the access-code factor with a strictly ordered two-stage flow so the admin
+session is never issued without both factors, while keeping the failure
+semantics opaque and all secrets configuration-only.
+
+---
+
 # Version 2.6.0
 
 Title: Backend Step 18 — configured administrator authentication (admin login)

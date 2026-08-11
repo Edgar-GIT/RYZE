@@ -12,12 +12,13 @@ import (
 )
 
 const (
-	defaultHost          = "127.0.0.1"
-	defaultPort          = "3306"
-	defaultTokenTTL      = 15 * time.Minute
-	minJWTSecretLength   = 32
-	defaultAllowedOrigin = "http://localhost:5173,http://127.0.0.1:5173"
-	minAdminPasswordLen  = 6
+	defaultHost           = "127.0.0.1"
+	defaultPort           = "3306"
+	defaultTokenTTL       = 15 * time.Minute
+	minJWTSecretLength    = 32
+	defaultAllowedOrigin  = "http://localhost:5173,http://127.0.0.1:5173"
+	minAdminPasswordLen   = 6
+	minAdminAccessCodeLen = 8
 )
 
 // LoadEnvFile loads the repository .env file so environment variables defined
@@ -109,10 +110,11 @@ func LoadJWT() (JWTConfig, error) {
 }
 
 // LoadAdmin reads the configured administrators from environment variables.
-// Every admin requires a username and a password of at least
-// minAdminPasswordLen characters; missing or invalid values fail at startup
-// instead of silently disabling an administrator. Usernames must be unique so
-// credentials always resolve to a single admin identity.
+// Every admin requires a username, a password and an access code (the second
+// authentication factor) of at least their minimum length; missing or invalid
+// values fail at startup instead of silently disabling an administrator.
+// Usernames must be unique so credentials always resolve to a single admin
+// identity.
 func LoadAdmin() (AdminConfig, error) {
 	admins := []Admin{
 		{ID: "ADMIN_1"},
@@ -123,11 +125,15 @@ func LoadAdmin() (AdminConfig, error) {
 	for i, admin := range admins {
 		username := strings.TrimSpace(os.Getenv(admin.ID + "_USERNAME"))
 		password := os.Getenv(admin.ID + "_PASSWORD")
+		accessCode := os.Getenv(admin.ID + "_ACCESS_CODE")
 		if username == "" {
 			return AdminConfig{}, fmt.Errorf("%s_USERNAME is required", admin.ID)
 		}
 		if len(password) < minAdminPasswordLen {
 			return AdminConfig{}, fmt.Errorf("%s_PASSWORD is required and must be at least %d characters long", admin.ID, minAdminPasswordLen)
+		}
+		if len(accessCode) < minAdminAccessCodeLen {
+			return AdminConfig{}, fmt.Errorf("%s_ACCESS_CODE is required and must be at least %d characters long", admin.ID, minAdminAccessCodeLen)
 		}
 		if previous, exists := seenUsernames[username]; exists {
 			return AdminConfig{}, fmt.Errorf("admin username %q is already used by %s and %s", username, previous, admin.ID)
@@ -135,6 +141,7 @@ func LoadAdmin() (AdminConfig, error) {
 		seenUsernames[username] = admin.ID
 		admins[i].Username = username
 		admins[i].Password = password
+		admins[i].AccessCode = accessCode
 	}
 
 	return AdminConfig{Admins: admins}, nil

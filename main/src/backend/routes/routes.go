@@ -48,6 +48,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/auth/login", loginHandler.Login)
 	v1.POST("/auth/logout", logoutHandler.Logout)
 	v1.POST("/admin/auth/login", adminLoginHandler.Login)
+	v1.POST("/admin/auth/verify", adminLoginHandler.Verify)
 	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
@@ -61,9 +62,10 @@ func adminCredentials(cfg config.AdminConfig) []admin_login.AdminCredential {
 	credentials := make([]admin_login.AdminCredential, 0, len(cfg.Admins))
 	for _, admin := range cfg.Admins {
 		credentials = append(credentials, admin_login.AdminCredential{
-			ID:       admin.ID,
-			Username: admin.Username,
-			Password: admin.Password,
+			ID:         admin.ID,
+			Username:   admin.Username,
+			Password:   admin.Password,
+			AccessCode: admin.AccessCode,
 		})
 	}
 	return credentials

@@ -13,6 +13,11 @@ const AccessTokenCookieName = "ryze_access_token"
 // can never be confused with a regular user session in the same browser.
 const AdminAccessTokenCookieName = "ryze_admin_access_token"
 
+// AdminStageTokenCookieName is the HttpOnly cookie carrying the temporary
+// authentication state issued after the username/password stage of the admin
+// login flow. It is never accepted as an admin session.
+const AdminStageTokenCookieName = "ryze_admin_stage_token"
+
 // accessTokenCookie builds the ryze_access_token cookie shared by login and
 // logout so the two endpoints always use the same attributes. A negative
 // maxAge clears the cookie (Max-Age=0 plus an expired Expires).
@@ -21,9 +26,16 @@ func accessTokenCookie(value string, maxAge int, secure bool) *http.Cookie {
 }
 
 // adminAccessTokenCookie builds the ryze_admin_access_token cookie for the
-// admin login endpoint using the same secure attributes as the user cookie.
+// admin login flow using the same secure attributes as the user cookie.
 func adminAccessTokenCookie(value string, maxAge int, secure bool) *http.Cookie {
 	return authCookie(AdminAccessTokenCookieName, value, maxAge, secure)
+}
+
+// adminStageTokenCookie builds the short-lived ryze_admin_stage_token cookie
+// holding the temporary authentication state between the two admin login
+// stages.
+func adminStageTokenCookie(value string, maxAge int, secure bool) *http.Cookie {
+	return authCookie(AdminStageTokenCookieName, value, maxAge, secure)
 }
 
 // authCookie builds an HttpOnly session cookie shared by every authentication

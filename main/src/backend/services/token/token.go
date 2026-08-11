@@ -19,8 +19,15 @@ var (
 var signingAlgorithm = jwt.SigningMethodHS256.Alg()
 
 const (
-	kindUser  = "user"
-	kindAdmin = "admin"
+	kindUser       = "user"
+	kindAdmin      = "admin"
+	kindAdminStage = "admin-stage"
+
+	// AdminStageTokenTTL is the lifetime of the temporary authentication state
+	// issued after the username/password stage of the admin login flow. The
+	// state expires quickly and must be completed with the access code before
+	// the final admin session is created.
+	AdminStageTokenTTL = 5 * time.Minute
 )
 
 // Claims holds the data embedded in a validated access token.
@@ -39,6 +46,8 @@ type Service interface {
 	ValidateAccessToken(tokenString string) (*Claims, error)
 	GenerateAdminToken(adminID string) (string, error)
 	ValidateAdminToken(tokenString string) (string, error)
+	GenerateAdminStageToken(adminID string) (string, error)
+	ValidateAdminStageToken(tokenString string) (string, error)
 }
 
 // accessTokenClaims is the JWT payload shape. SessionVersion is carried in the
@@ -92,6 +101,23 @@ func (s *service) GenerateAdminToken(adminID string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
 }
 
+// GenerateAdminStageToken returns the short-lived temporary authentication
+// state issued after the username/password stage of the admin login flow. It
+// identifies the intended admin identity and only proves that stage one
+// succeeded; it is never accepted as a final admin session.
+func (s *service) GenerateAdminStageToken(adminID string) (string, error) {
+	now := time.Now()
+	claims := accessTokenClaims{
+		Kind: kindAdminStage,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   adminID,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(AdminStageTokenTTL)),
+		},
+	}
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
+}
+
 // ValidateAccessToken verifies the signature, rejects algorithms other than
 // the expected one, enforces an expiration claim, rejects admin tokens and
 // returns the user UUID and session version stored in the token.
@@ -115,14 +141,35 @@ func (s *service) ValidateAccessToken(tokenString string) (*Claims, error) {
 }
 
 // ValidateAdminToken verifies the signature, rejects algorithms other than the
-// expected one, enforces an expiration claim, rejects user tokens and returns
-// the admin identity stored as the token subject.
+// expected one, enforces an expiration claim, rejects user and stage tokens
+// and returns the admin identity stored as the token subject.
 func (s *service) ValidateAdminToken(tokenString string) (string, error) {
 	claims, err := s.parse(tokenString)
 	if err != nil {
 		return "", err
 	}
 	if claims.Kind != kindAdmin {
+		return "", ErrInvalidToken
+	}
+
+	adminID, err := claims.GetSubject()
+	if err != nil || adminID == "" {
+		return "", ErrInvalidToken
+	}
+	return adminID, nil
+}
+
+// ValidateAdminStageToken verifies the signature, rejects algorithms other
+// than the expected one, enforces an expiration claim, rejects every other
+// token kind and returns the admin identity stored as the token subject. Only
+// tokens issued by GenerateAdminStageToken are accepted, so a stage state can
+// never be used as the final admin session.
+func (s *service) ValidateAdminStageToken(tokenString string) (string, error) {
+	claims, err := s.parse(tokenString)
+	if err != nil {
+		return "", err
+	}
+	if claims.Kind != kindAdminStage {
 		return "", ErrInvalidToken
 	}
 

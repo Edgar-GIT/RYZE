@@ -111,6 +111,13 @@ Password recovery is performed via email.
 
 The architecture should remain compatible with future two-factor authentication.
 
+Administrator authentication uses the same JWT infrastructure with two
+config-only factors (username/password, then an access code). Administrators
+are defined exclusively in configuration (`.env`), never in the database. The
+second factor is completed through a short-lived temporary token kind before
+the admin session cookie is issued. See `security.MD` (Administrator
+Authentication) and `api.MD` (Admin Authentication).
+
 ---
 
 ## Email

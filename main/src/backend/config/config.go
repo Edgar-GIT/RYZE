@@ -24,9 +24,10 @@ type CORSConfig struct {
 // accounts defined exclusively through configuration; they are never stored in
 // the database.
 type Admin struct {
-	ID       string
-	Username string
-	Password string
+	ID         string
+	Username   string
+	Password   string
+	AccessCode string
 }
 
 type AdminConfig struct {

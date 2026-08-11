@@ -9,6 +9,7 @@ import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
 import { ProfilePage } from "@/pages/profile_page/profile_page";
 import { ServicesPage } from "@/pages/services_page/services_page";
 import { UnderDevelopmentPage } from "@/pages/under_development_page/under_development_page";
+import AdminLoginPage from "@/pages/admin_login_page/admin_login_page";
 
 export const AppRoutes = () => {
   const location = useLocation();
@@ -43,6 +44,7 @@ export const AppRoutes = () => {
           )}
         />
         <Route exact path="/login" component={LoginPage} />
+        <Route exact path="/admin/login" component={AdminLoginPage} />
         <Route
           path="/register"
           render={() => <LoginPage initialMode="register" />}

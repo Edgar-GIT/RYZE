@@ -294,6 +294,26 @@ frontend) by listing them:
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173
 ```
 
+## Admin Authentication Configuration
+
+Platform administrators are configuration-only accounts, never stored in the
+database. Each administrator requires a username, a password and an access
+code (the second authentication factor). The access code must be at least 8
+characters long. If any value is missing or too short, the backend fails at
+startup instead of silently disabling an administrator.
+
+```text
+ADMIN_1_USERNAME=...
+ADMIN_1_PASSWORD=...
+ADMIN_1_ACCESS_CODE=...
+ADMIN_2_USERNAME=...
+ADMIN_2_PASSWORD=...
+ADMIN_2_ACCESS_CODE=...
+```
+
+The access code is a secret: generate it locally and never commit a real
+value. Changing the values in `.env` takes effect on the next server restart.
+
 ## Verify the Database Connection
 
 From the backend directory, run:
@@ -331,6 +351,12 @@ Current API surface (versioned under `/api/v1`):
   works even with a missing, expired or invalid cookie).
 - `GET /api/v1/me` — returns the authenticated user's safe account
   information (requires the `ryze_access_token` HttpOnly cookie).
+- `POST /api/v1/admin/auth/login` — step 1 of admin authentication
+  (username/password); on success sets the short-lived
+  `ryze_admin_stage_token` cookie (public).
+- `POST /api/v1/admin/auth/verify` — step 2 of admin authentication (access
+  code); on success sets the `ryze_admin_access_token` HttpOnly cookie and
+  clears the stage cookie (public).
 
 ## Database Migrations
 

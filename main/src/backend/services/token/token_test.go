@@ -24,6 +24,16 @@ func tokenAdminClaimsWith(claims jwt.RegisteredClaims) jwt.Claims {
 	return adminTestClaims{Kind: "admin", RegisteredClaims: claims}
 }
 
+// adminStageTestClaims embeds the kind claim so tests can forge stage tokens.
+type adminStageTestClaims struct {
+	Kind string `json:"kind"`
+	jwt.RegisteredClaims
+}
+
+func tokenAdminStageClaimsWith(claims jwt.RegisteredClaims) jwt.Claims {
+	return adminStageTestClaims{Kind: "admin-stage", RegisteredClaims: claims}
+}
+
 func newService(t *testing.T, ttl time.Duration) token.Service {
 	t.Helper()
 	return token.NewService([]byte(testSecret), ttl)
@@ -175,6 +185,110 @@ func TestExpiredAdminTokenIsRejected(t *testing.T) {
 
 	if _, err := svc.ValidateAdminToken(raw); !errors.Is(err, token.ErrExpiredToken) {
 		t.Fatalf("expected ErrExpiredToken, got %v", err)
+	}
+}
+
+func TestGenerateAndValidateAdminStageToken(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	raw, err := svc.GenerateAdminStageToken("ADMIN_2")
+	if err != nil {
+		t.Fatalf("GenerateAdminStageToken: %v", err)
+	}
+
+	adminID, err := svc.ValidateAdminStageToken(raw)
+	if err != nil {
+		t.Fatalf("ValidateAdminStageToken: %v", err)
+	}
+	if adminID != "ADMIN_2" {
+		t.Fatalf("expected admin identity %q, got %q", "ADMIN_2", adminID)
+	}
+}
+
+func TestStageTokenRejectedAsAdminToken(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	raw, err := svc.GenerateAdminStageToken("ADMIN_1")
+	if err != nil {
+		t.Fatalf("GenerateAdminStageToken: %v", err)
+	}
+
+	if _, err := svc.ValidateAdminToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("stage token must never validate as a final admin token, got %v", err)
+	}
+}
+
+func TestStageTokenRejectedAsUserToken(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	raw, err := svc.GenerateAdminStageToken("ADMIN_1")
+	if err != nil {
+		t.Fatalf("GenerateAdminStageToken: %v", err)
+	}
+
+	if _, err := svc.ValidateAccessToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("stage token must never validate as a user token, got %v", err)
+	}
+}
+
+func TestAdminTokenRejectedAsStageToken(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	raw, err := svc.GenerateAdminToken("ADMIN_1")
+	if err != nil {
+		t.Fatalf("GenerateAdminToken: %v", err)
+	}
+
+	if _, err := svc.ValidateAdminStageToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("admin token must never validate as a stage token, got %v", err)
+	}
+}
+
+func TestUserTokenRejectedAsStageToken(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	raw, err := svc.GenerateAccessToken(uuid.NewString(), 0)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	if _, err := svc.ValidateAdminStageToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("user token must never validate as a stage token, got %v", err)
+	}
+}
+
+func TestExpiredAdminStageTokenIsRejected(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	claims := tokenAdminStageClaimsWith(jwt.RegisteredClaims{
+		Subject:   "ADMIN_1",
+		IssuedAt:  jwt.NewNumericDate(time.Now().Add(-6 * time.Minute)),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Minute)),
+	})
+	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+
+	if _, err := svc.ValidateAdminStageToken(raw); !errors.Is(err, token.ErrExpiredToken) {
+		t.Fatalf("expected ErrExpiredToken, got %v", err)
+	}
+}
+
+func TestStageTokenEmptySubjectRejected(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	claims := tokenAdminStageClaimsWith(jwt.RegisteredClaims{
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+	})
+	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+
+	if _, err := svc.ValidateAdminStageToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken for a stage token without a subject, got %v", err)
 	}
 }
 

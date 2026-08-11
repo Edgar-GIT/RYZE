@@ -338,15 +338,33 @@ Future implementations should support token blacklisting or rotation.
 ## Administrator Authentication
 
 Platform administrators are configuration-only accounts defined through
-`ADMIN_1`/`ADMIN_2` environment credentials; they are never stored in the
-database and no registration or recovery flow exists for them. Invalid
-configurations fail at server startup.
+`ADMIN_1`/`ADMIN_2` environment credentials (username, password and access
+code); they are never stored in the database and no registration or recovery
+flow exists for them. Invalid configurations fail at server startup.
+
+Admin authentication requires two factors completed in two stages:
+
+1. Credentials (`username` + `password`). Success issues only a short-lived
+   temporary stage state (`ryze_admin_stage_token`, 5 minute lifetime). This
+   state is not an authenticated session and is rejected by the admin token
+   validator.
+2. Access code (`ADMIN_1_ACCESS_CODE` / `ADMIN_2_ACCESS_CODE`). Only a valid
+   access code issued against the current stage state produces the admin
+   session cookie `ryze_admin_access_token`.
+
+Access codes are configuration secrets with a minimum length of 8 characters;
+they are never stored in the database, embedded in tokens, logged or returned
+by the API. Wrong credentials, wrong access codes, expired stage state and
+unknown administrators all map to the same indistinguishable HTTP 401, so a
+failed login never reveals which stage failed or whether an administrator
+exists.
 
 Admin login uses the same JWT infrastructure as user login but issues a
-distinct token kind. User tokens and admin tokens are distinguished by a
-`kind` claim and are mutually rejected, so a compromised user session can never
-authenticate as an administrator and an admin token can never access user
-endpoints.
+distinct token kind. User tokens, admin tokens and the temporary stage tokens
+are distinguished by a `kind` claim and are mutually rejected, so a compromised
+user session can never authenticate as an administrator, an admin token can
+never access user endpoints, and a leaked stage state can never be used as an
+admin session.
 
 The admin session uses a dedicated HttpOnly cookie (`ryze_admin_access_token`)
 that differs from the user cookie (`ryze_access_token`) so the two session

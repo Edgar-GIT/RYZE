@@ -636,14 +636,18 @@ Public endpoint.
 
 ---
 
-## Admin Login
+## Admin Authentication
+
+Administrator access uses two sequential steps. The first authenticates the
+credentials, the second completes the second factor (the admin access code).
+Only the second step issues the admin session cookie.
 
 ```
 POST /api/v1/admin/auth/login
 ```
 
-Authenticates a platform administrator using a configured username and
-password.
+Step 1 — authenticates a platform administrator using a configured username
+and password.
 
 Request body:
 
@@ -664,13 +668,48 @@ An unknown username or a wrong password fails with the same HTTP 401
 `INVALID_CREDENTIALS`; callers cannot distinguish which case occurred. Empty
 username/password or malformed JSON returns HTTP 400 `VALIDATION_ERROR`. On
 success the endpoint returns HTTP 200 with an empty `data` object and sets a
-dedicated HttpOnly cookie `ryze_admin_access_token` (`SameSite=Lax`, `Secure`
-per `COOKIE_SECURE`, same lifetime as the user access token). The admin cookie
-name differs from the user `ryze_access_token` cookie so the two session kinds
-cannot be confused. The admin JWT carries the administrator identity
-(`ADMIN_1`/`ADMIN_2`) as its subject and is only accepted by admin token
-validation; user tokens and admin tokens are mutually rejected. No password,
-username, JWT, JWT secret or internal details are ever returned.
+short-lived temporary HttpOnly cookie `ryze_admin_stage_token` (`SameSite=Lax`,
+`Secure` per `COOKIE_SECURE`, lifetime 5 minutes). This cookie only proves that
+step 1 succeeded; it is not an authenticated admin session and is rejected by
+the admin token validator.
+
+Public endpoint.
+
+---
+
+```
+POST /api/v1/admin/auth/verify
+```
+
+Step 2 — completes admin authentication with the access code. Requires the
+`ryze_admin_stage_token` cookie issued by step 1.
+
+Request body:
+
+```json
+{
+  "access_code": "..."
+}
+```
+
+Only `access_code` is accepted. The access code is a configuration-only secret
+(`ADMIN_1_ACCESS_CODE`/`ADMIN_2_ACCESS_CODE` in `.env`, minimum 8 characters),
+never stored in the database. Missing, too-short or invalid access codes fail
+at server startup.
+
+A missing, invalid or expired stage cookie, an unknown administrator or a wrong
+access code all fail with the same HTTP 401 `INVALID_CREDENTIALS`; callers
+cannot distinguish which case occurred. Empty `access_code` or malformed JSON
+returns HTTP 400 `VALIDATION_ERROR`. On success the endpoint returns HTTP 200
+with an empty `data` object, clears the `ryze_admin_stage_token` cookie and
+sets the admin session HttpOnly cookie `ryze_admin_access_token`
+(`SameSite=Lax`, `Secure` per `COOKIE_SECURE`, same lifetime as the user access
+token). The admin cookie name differs from the user `ryze_access_token` cookie
+so the two session kinds cannot be confused. The admin JWT carries the
+administrator identity (`ADMIN_1`/`ADMIN_2`) as its subject and is only
+accepted by admin token validation; user, admin and stage tokens are mutually
+rejected. No password, access code, username, JWT, JWT secret or internal
+details are ever returned.
 
 Public endpoint.
 

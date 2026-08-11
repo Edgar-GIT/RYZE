@@ -1,0 +1,79 @@
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.step {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(42, 140, 255, 0.18);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.stepActive {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(24, 216, 255, 0.45);
+  border-radius: 999px;
+  color: var(--color-accent-300);
+  background: rgba(24, 216, 255, 0.08);
+  white-space: nowrap;
+}
+
+.stepArrow {
+  color: var(--text-muted);
+}
+
+.retryHint {
+  margin: 0;
+  text-align: center;
+}
+
+.retryHint button {
+  padding: 0;
+  border: 0;
+  color: var(--accent);
+  background: none;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    text-shadow 200ms ease;
+}
+
+.retryHint button:hover {
+  color: var(--color-accent-300);
+  text-shadow: 0 0 12px rgba(24, 216, 255, 0.6);
+}
+
+.success {
+  display: grid;
+  gap: 1.25rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.successIcon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border: 1px solid rgba(24, 216, 255, 0.35);
+  border-radius: 50%;
+  color: var(--color-accent-300);
+  background: rgba(24, 216, 255, 0.08);
+  box-shadow: 0 0 24px rgba(24, 216, 255, 0.18);
+}
+
+.successIcon svg {
+  width: 26px;
+  height: 26px;
+}
