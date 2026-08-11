@@ -17,6 +17,7 @@ const (
 	defaultTokenTTL      = 15 * time.Minute
 	minJWTSecretLength   = 32
 	defaultAllowedOrigin = "http://localhost:5173,http://127.0.0.1:5173"
+	minAdminPasswordLen  = 6
 )
 
 // LoadEnvFile loads the repository .env file so environment variables defined
@@ -105,6 +106,38 @@ func LoadJWT() (JWTConfig, error) {
 	}
 
 	return JWTConfig{Secret: secret, AccessTokenTTL: ttl, CookieSecure: cookieSecure}, nil
+}
+
+// LoadAdmin reads the configured administrators from environment variables.
+// Every admin requires a username and a password of at least
+// minAdminPasswordLen characters; missing or invalid values fail at startup
+// instead of silently disabling an administrator. Usernames must be unique so
+// credentials always resolve to a single admin identity.
+func LoadAdmin() (AdminConfig, error) {
+	admins := []Admin{
+		{ID: "ADMIN_1"},
+		{ID: "ADMIN_2"},
+	}
+
+	seenUsernames := map[string]string{}
+	for i, admin := range admins {
+		username := strings.TrimSpace(os.Getenv(admin.ID + "_USERNAME"))
+		password := os.Getenv(admin.ID + "_PASSWORD")
+		if username == "" {
+			return AdminConfig{}, fmt.Errorf("%s_USERNAME is required", admin.ID)
+		}
+		if len(password) < minAdminPasswordLen {
+			return AdminConfig{}, fmt.Errorf("%s_PASSWORD is required and must be at least %d characters long", admin.ID, minAdminPasswordLen)
+		}
+		if previous, exists := seenUsernames[username]; exists {
+			return AdminConfig{}, fmt.Errorf("admin username %q is already used by %s and %s", username, previous, admin.ID)
+		}
+		seenUsernames[username] = admin.ID
+		admins[i].Username = username
+		admins[i].Password = password
+	}
+
+	return AdminConfig{Admins: admins}, nil
 }
 
 // LoadCORS reads the cross-origin configuration from environment variables.

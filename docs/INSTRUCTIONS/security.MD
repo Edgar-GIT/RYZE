@@ -335,6 +335,30 @@ Future implementations should support token blacklisting or rotation.
 
 ---
 
+## Administrator Authentication
+
+Platform administrators are configuration-only accounts defined through
+`ADMIN_1`/`ADMIN_2` environment credentials; they are never stored in the
+database and no registration or recovery flow exists for them. Invalid
+configurations fail at server startup.
+
+Admin login uses the same JWT infrastructure as user login but issues a
+distinct token kind. User tokens and admin tokens are distinguished by a
+`kind` claim and are mutually rejected, so a compromised user session can never
+authenticate as an administrator and an admin token can never access user
+endpoints.
+
+The admin session uses a dedicated HttpOnly cookie (`ryze_admin_access_token`)
+that differs from the user cookie (`ryze_access_token`) so the two session
+kinds cannot be confused in the same browser. All other cookie hardening
+(`SameSite=Lax`, `Secure` per `COOKIE_SECURE`, JWT only inside the cookie,
+credentials never returned by the API) applies identically to admin sessions.
+
+Future authorization layers must enforce admin permissions on the backend and
+must never rely on client-provided roles or hidden admin interfaces.
+
+---
+
 ## Account Recovery
 
 Account recovery should always require proof of ownership.

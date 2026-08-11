@@ -1,3 +1,119 @@
+# Version 2.6.0
+
+Title: Backend Step 18 — configured administrator authentication (admin login)
+
+Date: 2026-08-11
+
+Summary:
+
+`POST /api/v1/admin/auth/login` authenticates platform administrators using
+credentials defined exclusively in configuration (`.env`), never in the
+database. Two administrators are supported: `ADMIN_1`
+(`ADMIN_1_USERNAME` / `ADMIN_1_PASSWORD`) and `ADMIN_2`
+(`ADMIN_2_USERNAME` / `ADMIN_2_PASSWORD`). Missing, too-short or duplicated
+credentials fail at startup with a clear `configuration error`, so a broken
+configuration never silently disables an administrator. Changing the values in
+`.env` takes effect on the next server restart.
+
+The request body accepts only `username` and `password`. Unknown usernames and
+wrong passwords map to the same HTTP 401 `INVALID_CREDENTIALS`, so callers
+cannot distinguish which admin failed or whether a username exists. Empty
+username/password and malformed JSON return HTTP 400 `VALIDATION_ERROR`. On
+success the endpoint returns HTTP 200 with an empty `data` object and sets a
+dedicated HttpOnly cookie `ryze_admin_access_token` (`SameSite=Lax`, `Secure`
+per `COOKIE_SECURE`, same TTL as the client token). The cookie name
+intentionally differs from the client `ryze_access_token` so an admin session
+can never be confused with a regular user session. No password, username, JWT,
+JWT secret or internal details are ever returned in the response.
+
+Administrator identities (`ADMIN_1`/`ADMIN_2`) are carried in the admin JWT
+subject. The JWT service now issues two token kinds distinguished by a `kind`
+claim (`user` and `admin`): admin tokens are rejected by the user access-token
+validator (the user middleware, including `/api/v1/me`, returns 401 for them)
+and user tokens are rejected by the admin validator. This is the authentication
+foundation for the future authorization layer; no admin endpoints, admin
+middleware, role mapping or admin UI are added in this step. Administrators
+remain configuration-only accounts and the `users` table is untouched.
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passes, including new token, config, service and
+handler tests. Manual verification against the running server: both admin
+logins return 200 with the dedicated HttpOnly cookie, wrong password, unknown
+username and empty fields are rejected (401/400), the admin cookie is rejected
+by `/api/v1/me`, changing `ADMIN_2_PASSWORD` in `.env` and restarting
+invalidates the old password and accepts the new one, and an invalid
+configuration fails at startup.
+
+Files modified:
+
+- `main/src/backend/services/token/token.go` (kind claim, GenerateAdminToken,
+  ValidateAdminToken, shared token parsing)
+- `main/src/backend/services/token/token_test.go` (admin token tests)
+- `main/src/backend/config/config.go` (Admin and AdminConfig types)
+- `main/src/backend/config/env.go` (LoadAdmin validation)
+- `main/src/backend/config/env_test.go` (LoadAdmin tests)
+- `main/src/backend/services/admin_login/admin_login.go` (new service with
+  constant-time password comparison)
+- `main/src/backend/services/admin_login/admin_login_test.go` (service tests)
+- `main/src/backend/api/auth/cookies.go` (ryze_admin_access_token cookie)
+- `main/src/backend/api/auth/admin_login_handler.go` (new handler)
+- `main/src/backend/api/auth/admin_login_handler_test.go` (handler tests)
+- `main/src/backend/routes/routes.go` (admin login route + wiring)
+- `main/src/backend/main.go` (admin config load with startup fail-fast)
+
+---
+
+# Version 2.5.0
+
+Title: Frontend — profile account actions (change password and delete account UI)
+
+Date: 2026-08-11
+
+Summary:
+
+The `/profile` page now exposes the two existing backend account actions,
+`POST /api/v1/auth/change-password` and `POST /api/v1/auth/delete-account`,
+through clean inline panels inside the existing profile card. The page design
+(avatar, navbar, glass card, typography, spacing, logout behaviour) is
+unchanged.
+
+A "Change password" button opens an inline panel with current password, new
+password and confirmation fields, client-side validation (all fields required,
+new password must match the confirmation) and Confirm/Cancel buttons. On
+success the user is redirected to `/login` because the backend invalidates the
+session and clears the cookie; the user must log in with the new password.
+
+A "Delete account" button, visually separated as a destructive action through a
+new `danger` Button variant (red outline, consistent with the existing error
+styling), opens a confirmation panel that requires the current password before
+submitting. The account is never deleted from the first click; the existing
+backend performs the soft delete and clears the session, and the user is
+redirected to `/login`. Re-registering with the same email reactivates the
+original account.
+
+Both panels reuse the existing API client (`apiPost`, `credentials: include`),
+the existing password input pattern (visibility toggle) and the existing
+design tokens. Errors are mapped to clean user-facing messages; backend or
+internal details, JWTs and plaintext passwords are never exposed or logged.
+
+Verification: `npm run typecheck` and `npm run build` pass. Manual flow
+verified end-to-end against the running backend: login -> /profile -> change
+password -> session ends -> old password rejected -> new password works ->
+login again -> delete account -> account soft-deleted -> re-register with the
+same email reactivates the same UUID.
+
+Files modified:
+
+- `main/src/frontend/src/pages/profile_page/profile_page.tsx` (account action
+  buttons, ChangePasswordPanel, DeleteAccountPanel, PasswordField, error
+  mapping, success redirect to /login)
+- `main/src/frontend/src/pages/profile_page/profile_page.module.css` (panel,
+  field, eye-toggle, error and danger-panel styles)
+- `main/src/frontend/src/components/button/button.tsx` (new `danger` variant)
+- `main/src/frontend/src/components/button/button.module.css` (danger styles)
+
+---
+
 # Version 2.4.0
 
 Title: Backend Step 17 — authenticated account deletion (soft delete)

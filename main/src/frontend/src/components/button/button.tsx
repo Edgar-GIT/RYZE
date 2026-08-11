@@ -11,7 +11,8 @@ type ButtonVariant =
   | "ghost"
   | "dark"
   | "light"
-  | "outlineLight";
+  | "outlineLight"
+  | "danger";
 type ButtonSize = "small" | "medium" | "large";
 type ButtonType = "button" | "submit" | "reset";
 

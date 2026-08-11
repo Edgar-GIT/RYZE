@@ -34,6 +34,12 @@ func (failingTokenService) GenerateAccessToken(string, int) (string, error) {
 func (failingTokenService) ValidateAccessToken(string) (*token.Claims, error) {
 	return nil, errors.New("database exploded")
 }
+func (failingTokenService) GenerateAdminToken(string) (string, error) {
+	return "", errors.New("generation failure")
+}
+func (failingTokenService) ValidateAdminToken(string) (string, error) {
+	return "", errors.New("database exploded")
+}
 
 // fakeSessionProvider returns a fixed session version for every user so tests
 // can control whether the token's session version matches.

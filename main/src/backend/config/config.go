@@ -19,3 +19,16 @@ type JWTConfig struct {
 type CORSConfig struct {
 	AllowedOrigins []string
 }
+
+// Admin identifies one configured administrator. Administrators are platform
+// accounts defined exclusively through configuration; they are never stored in
+// the database.
+type Admin struct {
+	ID       string
+	Username string
+	Password string
+}
+
+type AdminConfig struct {
+	Admins []Admin
+}

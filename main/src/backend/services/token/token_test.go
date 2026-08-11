@@ -14,6 +14,16 @@ import (
 
 const testSecret = "test-secret-that-is-longer-than-32-bytes-1234"
 
+// adminTestClaims embeds the kind claim so tests can forge admin tokens.
+type adminTestClaims struct {
+	Kind string `json:"kind"`
+	jwt.RegisteredClaims
+}
+
+func tokenAdminClaimsWith(claims jwt.RegisteredClaims) jwt.Claims {
+	return adminTestClaims{Kind: "admin", RegisteredClaims: claims}
+}
+
 func newService(t *testing.T, ttl time.Duration) token.Service {
 	t.Helper()
 	return token.NewService([]byte(testSecret), ttl)
@@ -75,6 +85,96 @@ func TestSessionVersionRoundTrip(t *testing.T) {
 		if claims.SessionVersion != version {
 			t.Fatalf("expected session version %d, got %d", version, claims.SessionVersion)
 		}
+	}
+}
+
+func TestGenerateAndValidateAdminToken(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	raw, err := svc.GenerateAdminToken("ADMIN_1")
+	if err != nil {
+		t.Fatalf("GenerateAdminToken: %v", err)
+	}
+
+	adminID, err := svc.ValidateAdminToken(raw)
+	if err != nil {
+		t.Fatalf("ValidateAdminToken: %v", err)
+	}
+	if adminID != "ADMIN_1" {
+		t.Fatalf("expected admin identity %q, got %q", "ADMIN_1", adminID)
+	}
+}
+
+func TestAdminTokenRejectedAsUserToken(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	raw, err := svc.GenerateAdminToken("ADMIN_1")
+	if err != nil {
+		t.Fatalf("GenerateAdminToken: %v", err)
+	}
+
+	if _, err := svc.ValidateAccessToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("admin token must never validate as a user token, got %v", err)
+	}
+}
+
+func TestUserTokenRejectedAsAdminToken(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	raw, err := svc.GenerateAccessToken(uuid.NewString(), 0)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	if _, err := svc.ValidateAdminToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("user token must never validate as an admin token, got %v", err)
+	}
+}
+
+func TestAdminTokenEmptySubjectRejected(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	if _, err := svc.ValidateAdminToken(""); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken for empty token, got %v", err)
+	}
+
+	claims := jwt.RegisteredClaims{
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+	}
+	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, tokenAdminClaimsWith(claims)).SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+	if _, err := svc.ValidateAdminToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken for a token without a subject, got %v", err)
+	}
+}
+
+func TestAdminTokenWrongSecretRejected(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+	other := token.NewService([]byte("another-secret-that-is-longer-than-32-bytes-99"), 15*time.Minute)
+
+	raw, err := other.GenerateAdminToken("ADMIN_2")
+	if err != nil {
+		t.Fatalf("GenerateAdminToken: %v", err)
+	}
+
+	if _, err := svc.ValidateAdminToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken, got %v", err)
+	}
+}
+
+func TestExpiredAdminTokenIsRejected(t *testing.T) {
+	svc := newService(t, -1*time.Minute)
+
+	raw, err := svc.GenerateAdminToken("ADMIN_1")
+	if err != nil {
+		t.Fatalf("GenerateAdminToken: %v", err)
+	}
+
+	if _, err := svc.ValidateAdminToken(raw); !errors.Is(err, token.ErrExpiredToken) {
+		t.Fatalf("expected ErrExpiredToken, got %v", err)
 	}
 }
 

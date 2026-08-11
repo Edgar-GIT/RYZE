@@ -636,6 +636,46 @@ Public endpoint.
 
 ---
 
+## Admin Login
+
+```
+POST /api/v1/admin/auth/login
+```
+
+Authenticates a platform administrator using a configured username and
+password.
+
+Request body:
+
+```json
+{
+  "username": "...",
+  "password": "..."
+}
+```
+
+Only these two fields are accepted. Administrators are configuration-only
+accounts defined by `ADMIN_1_USERNAME`/`ADMIN_1_PASSWORD` and
+`ADMIN_2_USERNAME`/`ADMIN_2_PASSWORD` in `.env`; they are never stored in the
+database. Missing, too-short or duplicated admin credentials fail at server
+startup. Credential changes take effect on the next restart.
+
+An unknown username or a wrong password fails with the same HTTP 401
+`INVALID_CREDENTIALS`; callers cannot distinguish which case occurred. Empty
+username/password or malformed JSON returns HTTP 400 `VALIDATION_ERROR`. On
+success the endpoint returns HTTP 200 with an empty `data` object and sets a
+dedicated HttpOnly cookie `ryze_admin_access_token` (`SameSite=Lax`, `Secure`
+per `COOKIE_SECURE`, same lifetime as the user access token). The admin cookie
+name differs from the user `ryze_access_token` cookie so the two session kinds
+cannot be confused. The admin JWT carries the administrator identity
+(`ADMIN_1`/`ADMIN_2`) as its subject and is only accepted by admin token
+validation; user tokens and admin tokens are mutually rejected. No password,
+username, JWT, JWT secret or internal details are ever returned.
+
+Public endpoint.
+
+---
+
 ## Register
 
 ```

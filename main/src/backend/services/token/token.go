@@ -18,23 +18,35 @@ var (
 
 var signingAlgorithm = jwt.SigningMethodHS256.Alg()
 
+const (
+	kindUser  = "user"
+	kindAdmin = "admin"
+)
+
 // Claims holds the data embedded in a validated access token.
 type Claims struct {
 	UserID         string
 	SessionVersion int
 }
 
-// Service generates and validates access tokens for authenticated users.
+// Service generates and validates access tokens for authenticated users and
+// administrators. Both token kinds share the same signing secret so a single
+// secret configures the whole platform; they are kept distinct through the
+// "kind" claim so a user token can never be accepted as an admin token and
+// vice versa.
 type Service interface {
 	GenerateAccessToken(userID string, sessionVersion int) (string, error)
 	ValidateAccessToken(tokenString string) (*Claims, error)
+	GenerateAdminToken(adminID string) (string, error)
+	ValidateAdminToken(tokenString string) (string, error)
 }
 
 // accessTokenClaims is the JWT payload shape. SessionVersion is carried in the
 // "ver" claim so tokens issued for an older session (e.g. before a password
-// change) can be rejected.
+// change) can be rejected. Kind separates user tokens from admin tokens.
 type accessTokenClaims struct {
-	SessionVersion int `json:"ver"`
+	Kind           string `json:"kind"`
+	SessionVersion int    `json:"ver"`
 	jwt.RegisteredClaims
 }
 
@@ -53,6 +65,7 @@ func NewService(secret []byte, ttl time.Duration) Service {
 func (s *service) GenerateAccessToken(userID string, sessionVersion int) (string, error) {
 	now := time.Now()
 	claims := accessTokenClaims{
+		Kind:           kindUser,
 		SessionVersion: sessionVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
@@ -63,10 +76,66 @@ func (s *service) GenerateAccessToken(userID string, sessionVersion int) (string
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
 }
 
+// GenerateAdminToken returns a signed HMAC-SHA256 JWT carrying the admin
+// identity (ADMIN_1/ADMIN_2) as subject. Admin tokens never carry user session
+// state and are only accepted by ValidateAdminToken.
+func (s *service) GenerateAdminToken(adminID string) (string, error) {
+	now := time.Now()
+	claims := accessTokenClaims{
+		Kind: kindAdmin,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   adminID,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.ttl)),
+		},
+	}
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
+}
+
 // ValidateAccessToken verifies the signature, rejects algorithms other than
-// the expected one, enforces an expiration claim, and returns the user UUID
-// and session version stored in the token.
+// the expected one, enforces an expiration claim, rejects admin tokens and
+// returns the user UUID and session version stored in the token.
 func (s *service) ValidateAccessToken(tokenString string) (*Claims, error) {
+	claims, err := s.parse(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if claims.Kind != "" && claims.Kind != kindUser {
+		return nil, ErrInvalidToken
+	}
+
+	userID, err := claims.GetSubject()
+	if err != nil || userID == "" {
+		return nil, ErrInvalidToken
+	}
+	if _, err := uuid.Parse(userID); err != nil {
+		return nil, ErrInvalidToken
+	}
+	return &Claims{UserID: userID, SessionVersion: claims.SessionVersion}, nil
+}
+
+// ValidateAdminToken verifies the signature, rejects algorithms other than the
+// expected one, enforces an expiration claim, rejects user tokens and returns
+// the admin identity stored as the token subject.
+func (s *service) ValidateAdminToken(tokenString string) (string, error) {
+	claims, err := s.parse(tokenString)
+	if err != nil {
+		return "", err
+	}
+	if claims.Kind != kindAdmin {
+		return "", ErrInvalidToken
+	}
+
+	adminID, err := claims.GetSubject()
+	if err != nil || adminID == "" {
+		return "", ErrInvalidToken
+	}
+	return adminID, nil
+}
+
+// parse performs the signature, algorithm and expiration validation shared by
+// both token kinds.
+func (s *service) parse(tokenString string) (*accessTokenClaims, error) {
 	claims := &accessTokenClaims{}
 	parsed, err := jwt.ParseWithClaims(tokenString, claims,
 		func(_ *jwt.Token) (any, error) { return s.secret, nil },
@@ -82,13 +151,5 @@ func (s *service) ValidateAccessToken(tokenString string) (*Claims, error) {
 	if !parsed.Valid {
 		return nil, ErrInvalidToken
 	}
-
-	userID, err := claims.GetSubject()
-	if err != nil || userID == "" {
-		return nil, ErrInvalidToken
-	}
-	if _, err := uuid.Parse(userID); err != nil {
-		return nil, ErrInvalidToken
-	}
-	return &Claims{UserID: userID, SessionVersion: claims.SessionVersion}, nil
+	return claims, nil
 }

@@ -8,6 +8,7 @@ import (
 	"ryze/backend/config"
 	"ryze/backend/middleware"
 	"ryze/backend/repositories"
+	"ryze/backend/services/admin_login"
 	"ryze/backend/services/change_password"
 	"ryze/backend/services/delete_account"
 	"ryze/backend/services/login"
@@ -17,7 +18,7 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 
@@ -29,6 +30,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig) *gin
 	tokenService := token.NewService([]byte(jwtCfg.Secret), jwtCfg.AccessTokenTTL)
 	loginService := login.NewLoginService(userRepository, password.Verifier{})
 	loginHandler := auth.NewLoginHandler(loginService, tokenService, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
+
+	adminLoginService := admin_login.NewService(adminCredentials(adminCfg))
+	adminLoginHandler := auth.NewAdminLoginHandler(adminLoginService, tokenService, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
 
 	meHandler := auth.NewMeHandler(userRepository)
 	logoutHandler := auth.NewLogoutHandler(jwtCfg.CookieSecure)
@@ -43,9 +47,24 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig) *gin
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
 	v1.POST("/auth/logout", logoutHandler.Logout)
+	v1.POST("/admin/auth/login", adminLoginHandler.Login)
 	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 
 	return router
+}
+
+// adminCredentials converts the configured administrators into service
+// credentials.
+func adminCredentials(cfg config.AdminConfig) []admin_login.AdminCredential {
+	credentials := make([]admin_login.AdminCredential, 0, len(cfg.Admins))
+	for _, admin := range cfg.Admins {
+		credentials = append(credentials, admin_login.AdminCredential{
+			ID:       admin.ID,
+			Username: admin.Username,
+			Password: admin.Password,
+		})
+	}
+	return credentials
 }
