@@ -9,6 +9,7 @@ import (
 	"ryze/backend/middleware"
 	"ryze/backend/repositories"
 	"ryze/backend/services/change_password"
+	"ryze/backend/services/delete_account"
 	"ryze/backend/services/login"
 	"ryze/backend/services/password"
 	"ryze/backend/services/registration"
@@ -35,11 +36,15 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig) *gin
 	changePasswordService := change_password.NewChangePasswordService(userRepository, password.Verifier{}, password.Hasher{})
 	changePasswordHandler := auth.NewChangePasswordHandler(changePasswordService, jwtCfg.CookieSecure)
 
+	deleteAccountService := delete_account.NewDeleteAccountService(userRepository, password.Verifier{})
+	deleteAccountHandler := auth.NewDeleteAccountHandler(deleteAccountService, jwtCfg.CookieSecure)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
 	v1.POST("/auth/logout", logoutHandler.Logout)
 	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
+	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 
 	return router

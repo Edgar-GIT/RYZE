@@ -249,3 +249,6 @@ func (failingRepo) Reactivate(_ context.Context, _ *models.User) error {
 func (failingRepo) SoftDelete(_ context.Context, _ string) error {
 	return errRepositoryFailure
 }
+func (failingRepo) DeleteAccount(_ context.Context, _ string) error {
+	return errRepositoryFailure
+}

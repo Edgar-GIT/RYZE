@@ -702,6 +702,43 @@ Authentication required.
 
 ---
 
+## Delete Account
+
+```
+POST /api/v1/auth/delete-account
+```
+
+Soft-deletes the authenticated user's account after verifying the current
+password.
+
+Request body:
+
+```json
+{
+  "password": "..."
+}
+```
+
+Only this single field is accepted. The user identity is resolved exclusively
+from the authenticated session; client-provided identifiers are never accepted.
+
+The account is never physically removed: the row is preserved with its UUID,
+email and `created_at` unchanged and `deleted_at` populated. The account's
+`session_version` is incremented in the same operation, revoking every
+previously issued access token, and the `ryze_access_token` cookie is cleared.
+A soft-deleted account can no longer log in; re-registering with the same
+email reactivates the original row (same UUID) instead of creating a duplicate.
+
+A wrong password, an unknown or already-deleted user and an unverifiable stored
+hash all fail with the same HTTP 401 `INVALID_CREDENTIALS`. An empty password
+or malformed JSON returns HTTP 400 `VALIDATION_ERROR`. On success the response
+returns HTTP 200 with an empty `data` object. No password, hash, JWT, JWT
+secret or internal details (`deleted_at`, database columns) are ever returned.
+
+Authentication required.
+
+---
+
 ## Refresh Token
 
 ```

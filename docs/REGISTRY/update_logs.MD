@@ -1,3 +1,76 @@
+# Version 2.4.0
+
+Title: Backend Step 17 — authenticated account deletion (soft delete)
+
+Date: 2026-08-11
+
+Summary:
+
+`POST /api/v1/auth/delete-account` now lets an authenticated user soft-delete
+their own account after verifying their current password. The request body
+accepts only `password`; the user identity is resolved exclusively from the
+authenticated session (`authcontext.UserIDFromContext`), never from
+client-provided identifiers. Wrong password, unknown or already-deleted user
+and unverifiable stored hash all map to the same HTTP 401
+`INVALID_CREDENTIALS`; an empty password or malformed JSON returns HTTP 400
+`VALIDATION_ERROR`. On success the endpoint returns HTTP 200 with an empty
+`data` object and clears the `ryze_access_token` HttpOnly cookie. No password,
+hash, JWT, JWT secret or internal details are ever returned.
+
+The account is never physically removed. Following the soft-delete philosophy,
+the database row is preserved with its UUID, email and `created_at` unchanged;
+`deleted_at` and `updated_at` are set and `session_version` is incremented.
+Deletion and session revocation happen in a single repository statement, so
+every previously issued access token is immediately invalid server-side (the
+authenticated user can no longer reach any protected endpoint, and login with
+the old password fails). A soft-deleted account re-registering with the same
+email is reactivated as the original row with the same UUID, per the existing
+soft-delete/reactivation lifecycle.
+
+The change follows the standard HTTP Handler -> Service -> Repository split:
+a new `delete_account` service validates the input, resolves the user,
+verifies the current password with the existing `password.Verifier` and
+delegates the deletion to the repository, which gained a GORM-only
+`DeleteAccount` operation (`deleted_at` + `session_version` bump in one
+`Updates` statement, guarded by `deleted_at IS NULL`). No new dependency,
+database connection or schema change was introduced.
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passing. New tests cover: the delete-account service
+(success with row preserved, id/email/created_at/password_hash unchanged,
+session version bumped atomically, wrong password/unknown/already-deleted/
+unverifiable-hash -> `ErrInvalidCredentials`, empty input, repository failure,
+re-registration reactivates the same UUID and logs in with the new password)
+and the HTTP layer (success envelope, cookie cleared with Max-Age=0, old token
+rejected on /me, old login 401, empty password 400, invalid JSON 400,
+unauthenticated 401, soft-deleted user blocked by middleware, no
+password/JWT/JWT-secret/deleted_at exposure, internal error 500). A MariaDB
+end-to-end flow confirmed register -> login -> /me 200 -> delete-account 200
+with clearing Set-Cookie -> old cookie /me 401 -> login old password 401 ->
+database row still present with `deleted_at` set, `session_version` bumped and
+exactly one row -> re-register same email -> same UUID, `deleted_at` cleared,
+login new password 200 -> /me 200; the manual test user was soft-deleted
+afterwards.
+
+Files modified:
+
+- `main/src/backend/repositories/user_repository.go` (added atomic
+  `DeleteAccount`: soft-delete + `session_version` bump in one statement)
+- `main/src/backend/services/delete_account/delete_account.go` (new service)
+- `main/src/backend/api/auth/delete_account_handler.go` (new handler)
+- `main/src/backend/routes/routes.go` (wired
+  `POST /api/v1/auth/delete-account` behind `Authenticate`)
+- tests: `services/delete_account/delete_account_test.go` (new),
+  `api/auth/delete_account_handler_test.go` (new), and the
+  `UserRepository`-implementing mocks in `services/login/login_test.go`,
+  `services/registration/registration_test.go`,
+  `services/change_password/change_password_test.go`,
+  `api/auth/login_handler_test.go`, `api/auth/register_handler_test.go`
+- `docs/INSTRUCTIONS/api.MD` (added Delete Account endpoint),
+  `docs/INSTRUCTIONS/security.MD` (Session Revocation covers account deletion)
+
+---
+
 # Version 2.3.0
 
 Title: Backend Step 16 — authenticated change password with session revocation

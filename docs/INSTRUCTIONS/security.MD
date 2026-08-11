@@ -326,6 +326,11 @@ Password changes revoke every previously issued access token: the account's
 they were issued for, so the authentication middleware rejects any token
 carrying an older version.
 
+Account deletion follows the same mechanism: soft-deleting an account
+increments its `session_version` in the same operation, so every previously
+issued access token is immediately rejected even though the database row is
+preserved for the soft-delete/reactivation lifecycle.
+
 Future implementations should support token blacklisting or rotation.
 
 ---

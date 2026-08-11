@@ -30,6 +30,7 @@ type UserRepository interface {
 	ChangePassword(ctx context.Context, id string, newHash string) error
 	Reactivate(ctx context.Context, user *models.User) error
 	SoftDelete(ctx context.Context, id string) error
+	DeleteAccount(ctx context.Context, id string) error
 }
 
 type userRepository struct {
@@ -167,6 +168,29 @@ func (r *userRepository) SoftDelete(ctx context.Context, id string) error {
 	result := r.db.WithContext(ctx).Delete(&models.User{}, "id = ?", id)
 	if result.Error != nil {
 		return fmt.Errorf("failed to soft delete user: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// DeleteAccount soft-deletes the user's account and invalidates every
+// previously issued access token in the same statement. The row is never
+// physically removed: id, email and created_at are preserved so the account
+// remains available for the soft-delete/reactivation lifecycle. The
+// `deleted_at IS NULL` guard makes a second deletion impossible.
+func (r *userRepository) DeleteAccount(ctx context.Context, id string) error {
+	result := r.db.WithContext(ctx).
+		Model(&models.User{}).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Updates(map[string]any{
+			"deleted_at":      time.Now(),
+			"session_version": gorm.Expr("session_version + 1"),
+			"updated_at":      time.Now(),
+		})
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete account: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return ErrUserNotFound

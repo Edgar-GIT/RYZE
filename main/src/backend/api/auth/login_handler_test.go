@@ -352,3 +352,6 @@ func (failingLoginRepository) Reactivate(_ context.Context, _ *models.User) erro
 func (failingLoginRepository) SoftDelete(_ context.Context, _ string) error {
 	return errLoginRepoFailure
 }
+func (failingLoginRepository) DeleteAccount(_ context.Context, _ string) error {
+	return errLoginRepoFailure
+}

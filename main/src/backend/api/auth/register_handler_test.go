@@ -89,6 +89,9 @@ func (failingRepository) Reactivate(_ context.Context, _ *models.User) error {
 func (failingRepository) SoftDelete(_ context.Context, _ string) error {
 	return nil
 }
+func (failingRepository) DeleteAccount(_ context.Context, _ string) error {
+	return nil
+}
 
 func register(router http.Handler, body string) (*httptest.ResponseRecorder, map[string]any, string) {
 	req := httptest.NewRequest(http.MethodPost, registerRoute, bytes.NewBufferString(body))
