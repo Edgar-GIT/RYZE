@@ -331,6 +331,13 @@ increments its `session_version` in the same operation, so every previously
 issued access token is immediately rejected even though the database row is
 preserved for the soft-delete/reactivation lifecycle.
 
+Administrators disabling a user account through the user-management foundation
+(`PATCH /api/v1/admin/users/{id}/disable`) trigger the exact same mechanism:
+the repository soft-delete sets `deleted_at` and increments `session_version`
+atomically, so all of the user's active sessions are revoked immediately and
+the user can no longer log in, while the account data remains intact and
+recoverable.
+
 Future implementations should support token blacklisting or rotation.
 
 ---
@@ -532,6 +539,15 @@ Security rules:
 - The authorization middleware fails closed: mounted without
   `AdminAuthenticate` (no admin identity in context) it still denies the
   request.
+
+Implemented under the shared `users` permission: the admin user-management
+foundation (list users, get user, soft-delete user) is enforced by
+`RequireAdminRole(TECHNICAL_ADMINISTRATOR, MANAGEMENT_ADMINISTRATOR)`, so both
+administrator roles may manage regular user accounts. Target user identifiers
+are never accepted from the client as ownership proof: a soft-delete targets
+only the account resolved by the validated route identifier and always operates
+server-side. The management response never exposes password hashes, session
+versions or deletion markers.
 
 ---
 

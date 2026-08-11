@@ -248,6 +248,10 @@ Responsibilities include:
 - Viewing business statistics
 - Creating and editing platform packs
 
+User management (list, view and soft-disable regular client accounts) is shared
+with the Technical Administrator and implemented as a backend foundation under
+the `users` permission.
+
 ---
 
 ## Technical Administrator
@@ -267,6 +271,10 @@ The Technical Administrator does not act as a super administrator: management
 business responsibilities (plans, finance, marketing) belong exclusively to
 the Management Administrator and are never granted automatically to the
 Technical Administrator.
+
+User management (list, view and soft-disable regular client accounts) is shared
+with the Management Administrator and implemented as a backend foundation under
+the `users` permission.
 
 ---
 

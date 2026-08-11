@@ -74,6 +74,9 @@ func (failingRepository) FindByEmail(_ context.Context, _ string) (*models.User,
 func (failingRepository) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
 	return nil, repositories.ErrUserNotFound
 }
+func (failingRepository) ListActive(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
+	return nil, 0, errors.New("database unreachable")
+}
 func (failingRepository) GetSessionVersion(_ context.Context, _ string) (int, error) {
 	return 0, nil
 }

@@ -1,3 +1,98 @@
+# Version 2.9.0
+
+Title: Backend Step 21 — admin user management foundation
+
+Date: 2026-08-11
+
+Summary:
+
+Implemented the first feature on top of the Step 20 authorization layer: a
+backend foundation for administrators to manage regular user accounts under
+the shared `users` permission. Both administrator roles (Technical
+Administrator ADMIN_1 and Management Administrator ADMIN_2) may list users,
+view one user and soft-disable a user, enforced by
+`RequireAdminRole(TECHNICAL_ADMINISTRATOR, MANAGEMENT_ADMINISTRATOR)` after the
+Step 19 `AdminAuthenticate` middleware. The scope is deliberately minimal: no
+dashboard, no trainer management, no plans/finance/marketing/system endpoints,
+no admin user creation, no permanent deletion, no bulk operations and no
+frontend changes.
+
+Three permanent routes were added under `/api/v1/admin`:
+`GET /admin/users` (active users, newest first, paginated), `GET
+/admin/users/{id}` (safe representation of one active user) and
+`PATCH /admin/users/{id}/disable` (soft-disable). The chain is
+`AdminUserHandler` (thin, in `api/auth`) → `admin_users` service (in
+`services/admin_users`) → `UserRepository` (in `repositories`). The repository
+gains a paginated active-user query (`ListActive`, ordered newest first,
+soft-delete scope applied, returns the active total) and the admin service
+reuses the existing atomic soft-delete primitive, which sets `deleted_at` and
+increments `session_version` in one statement. Disabling therefore preserves
+the row/UUID/email, immediately revokes every active session and blocks further
+logins, while leaving the data recoverable.
+
+The service validates identifiers (malformed UUIDs are rejected before any
+database access), normalizes pagination (page ≥ 1, limit clamped to the
+platform maximum of 100) and maps `repositories.ErrUserNotFound` to a
+`USER_NOT_FOUND` error. Responses reuse the existing safe user representation
+and never include password hashes, session versions or deletion markers; the
+list endpoint reports `data.pagination` with `page`, `limit`, `total` and
+`total_pages`.
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passes. New service tests cover pagination
+normalization, UUID validation, not-found mapping and internal-failure
+mapping; handler tests cover both roles for list/get/disable, unauthenticated,
+regular-user and stage-token rejection, invalid/garbage cookies, active-only
+listing, pagination and oversized-limit clamping, safe-representation and
+no-sensitive-leak checks, unknown/malformed/already-deleted identifiers,
+session revocation with the row preserved and `session_version` incremented,
+and a 500 internal-error path that leaks no details. E2E against the running
+server verified the full flow for both admins: register a temporary user,
+login, admin two-stage login, list, get, disable, old user session rejected
+(401), subsequent login rejected (401), and the database row preserved with
+`deleted_at` set and `session_version` incremented. All temporary users were
+removed from the database afterwards and the production API surface now only
+contains the three documented endpoints.
+
+Files modified:
+
+- `main/src/backend/repositories/user_repository.go` (added `ListActive`
+  paginated active-user query to interface and implementation)
+- `main/src/backend/services/admin_users/admin_users.go` and
+  `main/src/backend/services/admin_users/admin_users_test.go` (new admin
+  user-management service)
+- `main/src/backend/api/auth/admin_users_handler.go` and
+  `main/src/backend/api/auth/admin_users_handler_test.go` (new handlers and
+  tests)
+- `main/src/backend/routes/routes.go` (wired the permanent `/admin/users`
+  routes with `AdminAuthenticate` + `RequireAdminRole` for both roles)
+- Test fakes extended with `ListActive`:
+  `main/src/backend/services/login/login_test.go`,
+  `main/src/backend/services/delete_account/delete_account_test.go`,
+  `main/src/backend/services/change_password/change_password_test.go`,
+  `main/src/backend/services/registration/registration_test.go`,
+  `main/src/backend/api/auth/register_handler_test.go`,
+  `main/src/backend/api/auth/login_handler_test.go`
+- `docs/INSTRUCTIONS/api.MD` (new ADMIN USER MANAGEMENT section with the three
+  implemented endpoints; technical/management sections marked as planned),
+  `docs/INSTRUCTIONS/security.MD` (session revocation via admin disable,
+  user-management authorization rules),
+  `docs/INSTRUCTIONS/arquitecture.MD` (user-management layering),
+  `docs/DATABASE/database.MD` (`session_version` triggers, `ListActive`),
+  `docs/INSTRUCTIONS/project.MD` (user management shared by both roles),
+  `docs/how_to_run.MD` (new endpoints), `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Administrators need a safe, server-side foundation to view and soft-disable
+regular user accounts before any dashboard exists. The implementation reuses
+the existing authorization, token, session-version and soft-delete
+infrastructure instead of building parallel systems, and keeps controllers
+thin, business logic in a dedicated service and data access behind the
+existing repository, so future admin features can follow the same pattern.
+
+---
+
 # Version 2.8.0
 
 Title: Backend Step 20 — reusable admin authorization layer (roles and permissions)

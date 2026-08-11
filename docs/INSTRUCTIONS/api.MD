@@ -2196,9 +2196,103 @@ Withdraws the application.
 
 ---
 
+# ADMIN USER MANAGEMENT
+
+Implemented backend foundation. Accessible by both administrator roles after
+admin authentication and role authorization:
+
+- Technical Administrator (ADMIN_1)
+- Management Administrator (ADMIN_2)
+
+Only regular client accounts are managed here. Trainer content management,
+plans, finance and marketing are separate permissions.
+
+The flow is:
+
+```
+Admin Login
+    ↓
+Admin Verify (access code)
+    ↓
+RequireAdminRole(TECHNICAL_ADMINISTRATOR, MANAGEMENT_ADMINISTRATOR)
+    ↓
+AdminUserHandler → AdminUserService → UserRepository → MariaDB
+```
+
+## List Users
+
+```
+GET /api/v1/admin/users?page=1&limit=20
+```
+
+Returns active registered users, newest first. Soft-deleted users are never
+returned.
+
+Pagination:
+
+- `page` defaults to 1 (must be ≥ 1).
+- `limit` defaults to 20; values above the platform maximum (100) are clamped.
+- Invalid numeric values return HTTP 400 `VALIDATION_ERROR`.
+
+Response body:
+
+```
+data.users[]          safe user representation (id, email, first_name,
+                      last_name, created_at, updated_at)
+data.pagination       { page, limit, total, total_pages }
+```
+
+---
+
+## User Details
+
+```
+GET /api/v1/admin/users/{id}
+```
+
+Returns the safe representation of one active user.
+
+- Unknown or soft-deleted users: HTTP 404 `USER_NOT_FOUND`.
+- Malformed identifiers: HTTP 400 `VALIDATION_ERROR`.
+
+The safe representation never includes password hashes, session versions or
+deletion markers.
+
+---
+
+## Disable User
+
+```
+PATCH /api/v1/admin/users/{id}/disable
+```
+
+Soft-disables a regular user account (HTTP 200, message "User disabled
+successfully.").
+
+Effects:
+
+- Sets `deleted_at` (soft delete): the row, UUID and email are preserved.
+- Increments the account `session_version` in the same operation, immediately
+  revoking every active session.
+- The user can no longer log in.
+- The account data remains intact and recoverable.
+
+There is intentionally no permanent-deletion endpoint in this foundation.
+Unknown, already-disabled or malformed identifiers follow the same error
+contract as User Details.
+
+---
+
+## Planned (not implemented)
+
+- Update User — `PATCH /api/v1/admin/users/{id}`
+- Enable User — `PATCH /api/v1/admin/users/{id}/enable`
+
+---
+
 # TECHNICAL ADMINISTRATION
 
-Accessible only by Technical Administrators.
+Planned endpoints. Accessible only by Technical Administrators.
 
 ---
 
@@ -2209,58 +2303,6 @@ GET /api/v1/admin/dashboard
 ```
 
 Returns system statistics.
-
----
-
-## Users
-
-```
-GET /api/v1/admin/users
-```
-
-Returns every registered user.
-
-Supports filtering and pagination.
-
----
-
-## User Details
-
-```
-GET /api/v1/admin/users/{id}
-```
-
-Returns complete account information.
-
----
-
-## Update User
-
-```
-PATCH /api/v1/admin/users/{id}
-```
-
-Updates user information.
-
----
-
-## Disable User
-
-```
-PATCH /api/v1/admin/users/{id}/disable
-```
-
-Soft disables an account.
-
----
-
-## Enable User
-
-```
-PATCH /api/v1/admin/users/{id}/enable
-```
-
-Reactivates a disabled account.
 
 ---
 
@@ -2306,7 +2348,7 @@ Enables or disables maintenance mode.
 
 # MANAGEMENT ADMINISTRATION
 
-Accessible only by Management Administrators.
+Planned endpoints. Accessible only by Management Administrators.
 
 ---
 

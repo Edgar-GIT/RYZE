@@ -319,9 +319,16 @@ Security fields:
 - password_hash
 - session_version
 
-`session_version` is incremented whenever the account password changes. Access
-tokens embed the session version they were issued for, so a password change
-revokes every previously issued token (see security.MD, Session Revocation).
+`session_version` is incremented whenever the account password changes or the
+account is soft-deleted (by the account holder or by an administrator). Access
+tokens embed the session version they were issued for, so such operations
+revoke every previously issued token (see security.MD, Session Revocation).
+
+The repository provides a paginated active-user query (`ListActive`) used by
+the admin user-management foundation. It applies the soft-delete scope, orders
+newest first and returns the active total; it reuses the same atomic soft-delete
+primitive (`deleted_at` + `session_version` in one statement) used by account
+deletion.
 
 ---
 

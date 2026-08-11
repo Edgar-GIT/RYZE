@@ -282,6 +282,9 @@ func (failingRepo) FindByEmail(_ context.Context, _ string) (*models.User, error
 func (failingRepo) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
 	return nil, errRepositoryFailure
 }
+func (failingRepo) ListActive(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
+	return nil, 0, errRepositoryFailure
+}
 func (failingRepo) GetSessionVersion(_ context.Context, _ string) (int, error) {
 	return 0, errRepositoryFailure
 }
@@ -316,6 +319,9 @@ func (reactivationFailRepo) FindByEmail(_ context.Context, _ string) (*models.Us
 }
 func (reactivationFailRepo) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
 	return &models.User{DeletedAt: gorm.DeletedAt{Valid: true}}, nil
+}
+func (reactivationFailRepo) ListActive(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
+	return nil, 0, errRepositoryFailure
 }
 func (reactivationFailRepo) GetSessionVersion(_ context.Context, _ string) (int, error) {
 	return 0, errRepositoryFailure

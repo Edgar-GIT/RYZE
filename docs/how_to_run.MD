@@ -357,6 +357,16 @@ Current API surface (versioned under `/api/v1`):
 - `POST /api/v1/admin/auth/verify` — step 2 of admin authentication (access
   code); on success sets the `ryze_admin_access_token` HttpOnly cookie and
   clears the stage cookie (public).
+- `GET /api/v1/admin/users` — lists active users (pagination, newest first);
+  requires an authenticated admin session.
+- `GET /api/v1/admin/users/{id}` — returns the safe representation of one
+  active user; requires an authenticated admin session.
+- `PATCH /api/v1/admin/users/{id}/disable` — soft-disables a regular user
+  account (revokes all sessions, blocks login); requires an authenticated
+  admin session.
+
+The three user-management endpoints are authorized for both administrator roles
+(`RequireAdminRole(TECHNICAL_ADMINISTRATOR, MANAGEMENT_ADMINISTRATOR)`).
 
 ## Database Migrations
 

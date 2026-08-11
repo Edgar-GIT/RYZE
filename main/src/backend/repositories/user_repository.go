@@ -25,6 +25,7 @@ type UserRepository interface {
 	FindByID(ctx context.Context, id string) (*models.User, error)
 	FindByEmail(ctx context.Context, email string) (*models.User, error)
 	FindByEmailIncludingDeleted(ctx context.Context, email string) (*models.User, error)
+	ListActive(ctx context.Context, page, limit int) ([]models.User, int64, error)
 	GetSessionVersion(ctx context.Context, id string) (int, error)
 	Update(ctx context.Context, user *models.User) error
 	ChangePassword(ctx context.Context, id string, newHash string) error
@@ -85,6 +86,27 @@ func (r *userRepository) FindByEmailIncludingDeleted(ctx context.Context, email 
 		return nil, fmt.Errorf("failed to find user by email: %w", err)
 	}
 	return &user, nil
+}
+
+// ListActive returns one page of active users (soft-deleted users are excluded
+// by GORM's default scope) ordered by creation time, plus the total number of
+// active users. The caller guarantees page >= 1 and limit >= 1.
+func (r *userRepository) ListActive(ctx context.Context, page, limit int) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	if err := r.db.WithContext(ctx).Model(&models.User{}).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count users: %w", err)
+	}
+
+	if err := r.db.WithContext(ctx).
+		Order("created_at DESC, id ASC").
+		Limit(limit).
+		Offset((page - 1) * limit).
+		Find(&users).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list users: %w", err)
+	}
+	return users, total, nil
 }
 
 // GetSessionVersion returns the current session version of the user. It is

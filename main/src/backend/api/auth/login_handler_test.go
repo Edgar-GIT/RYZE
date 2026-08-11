@@ -337,6 +337,9 @@ func (failingLoginRepository) FindByEmail(_ context.Context, _ string) (*models.
 func (failingLoginRepository) FindByEmailIncludingDeleted(_ context.Context, _ string) (*models.User, error) {
 	return nil, errLoginRepoFailure
 }
+func (failingLoginRepository) ListActive(_ context.Context, _ int, _ int) ([]models.User, int64, error) {
+	return nil, 0, errLoginRepoFailure
+}
 func (failingLoginRepository) GetSessionVersion(_ context.Context, _ string) (int, error) {
 	return 0, errLoginRepoFailure
 }

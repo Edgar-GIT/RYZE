@@ -7,8 +7,10 @@ import (
 	"ryze/backend/api/auth"
 	"ryze/backend/config"
 	"ryze/backend/middleware"
+	"ryze/backend/middleware/adminroles"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_login"
+	"ryze/backend/services/admin_users"
 	"ryze/backend/services/change_password"
 	"ryze/backend/services/delete_account"
 	"ryze/backend/services/login"
@@ -43,6 +45,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	deleteAccountService := delete_account.NewDeleteAccountService(userRepository, password.Verifier{})
 	deleteAccountHandler := auth.NewDeleteAccountHandler(deleteAccountService, jwtCfg.CookieSecure)
 
+	adminUsersService := admin_users.NewAdminUserService(userRepository)
+	adminUsersHandler := auth.NewAdminUserHandler(adminUsersService)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
@@ -52,6 +57,15 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
+
+	admin := v1.Group("/admin")
+	admin.Use(
+		middleware.AdminAuthenticate(tokenService),
+		middleware.RequireAdminRole(adminroles.RoleTechnicalAdministrator, adminroles.RoleManagementAdministrator),
+	)
+	admin.GET("/users", adminUsersHandler.ListUsers)
+	admin.GET("/users/:id", adminUsersHandler.GetUser)
+	admin.PATCH("/users/:id/disable", adminUsersHandler.SoftDeleteUser)
 
 	return router
 }

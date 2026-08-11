@@ -156,6 +156,15 @@ authentication layer introduces no authorization logic. See `security.MD`
 error semantics (401 `AUTHENTICATION_REQUIRED` from authentication, 403
 `FORBIDDEN` from authorization).
 
+The shared `users` permission is implemented as the admin user-management
+foundation: `AdminUserHandler` (thin, in `api/auth`) → `admin_users` service
+(in `services/admin_users`) → `UserRepository` (in `repositories`). The
+service validates identifiers, normalizes pagination and maps repository
+errors; the repository exposes a paginated `ListActive` query and reuses the
+existing atomic soft-delete primitive (sets `deleted_at` and increments
+`session_version` in one statement). Controllers stay thin and business logic
+stays inside the service, following the backend layering convention.
+
 ---
 
 ## Email
