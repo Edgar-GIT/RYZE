@@ -70,16 +70,16 @@ func (u stubUserUpdater) UpdateUser(_ context.Context, _ string, _ admin_users.U
 // only surfaced through the IncludingDeleted/ListDeleted operations, and
 // reactivation is guarded by the deleted state and the one-to-one link rule.
 type stubTrainerRepo struct {
-	all          []models.Trainer
-	createErr    error
-	listErr      error
+	all            []models.Trainer
+	createErr      error
+	listErr        error
 	deletedListErr error
-	getErr       error
-	findUserErr  error
-	deleteErr    error
-	reactivateErr error
-	deletedID    string
-	reactivatedID string
+	getErr         error
+	findUserErr    error
+	deleteErr      error
+	reactivateErr  error
+	deletedID      string
+	reactivatedID  string
 }
 
 func (s *stubTrainerRepo) Create(_ context.Context, trainer *models.Trainer) error {

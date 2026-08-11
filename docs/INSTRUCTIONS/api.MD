@@ -2439,6 +2439,191 @@ times.
 
 ---
 
+# ADMIN TRAINER MANAGEMENT
+
+Implemented backend foundation for managing trainer profiles. A trainer is a
+distinct entity from the user account: the `trainers` table stores only the
+trainer identity (`id`, `user_id`, timestamps and soft-delete state) while the
+linked `users` row owns authentication, contact and profile data. One user can
+own at most one **active** trainer profile.
+
+The trainer permission is split into two finer-grained permissions:
+
+- `trainers.read` — read-only view (list trainers, view one trainer). Granted
+  to both administrator roles.
+- `trainers.manage` — full lifecycle (create, update, soft-delete, reactivate,
+  deleted-trainer listing). Granted only to the Technical Administrator
+  (ADMIN_1).
+
+The Management Administrator (ADMIN_2) holds `trainers.read` only: every
+lifecycle endpoint returns HTTP 403 `FORBIDDEN` for ADMIN_2, enforced
+server-side by `RequireAdminPermission(PermissionTrainersManage)`.
+
+The flow is:
+
+```
+Admin Login
+    ↓
+Admin Verify (access code)
+    ↓
+RequireAdminPermission(trainers.read | trainers.manage)
+    ↓
+AdminTrainerHandler → AdminTrainerService → TrainerRepository → MariaDB
+```
+
+Trainer and user lifecycles are fully independent:
+
+- Soft-deleting a trainer **never touches** the linked user account.
+- Reactivating a trainer **never reactivates** a soft-deleted user: the
+  operation fails with HTTP 409 `USER_DISABLED` instead.
+- There is intentionally **no permanent-deletion endpoint**. Trainer removal is
+  always a soft delete; rows, UUIDs, user links and `created_at` are preserved.
+
+## List Trainers
+
+```
+GET /api/v1/admin/trainers?page=1&limit=20
+```
+
+Returns active trainers, newest first, each with its linked user profile.
+Soft-deleted trainers are never returned. Accessible by both roles
+(`trainers.read`).
+
+Pagination:
+
+- `page` defaults to 1 (must be ≥ 1).
+- `limit` defaults to 20; values above the platform maximum (100) are clamped.
+- Invalid numeric values return HTTP 400 `VALIDATION_ERROR`.
+
+Response body:
+
+```
+data.trainers[]       safe trainer representation (id, user_id, email,
+                      first_name, last_name, status, created_at, updated_at)
+data.pagination       { page, limit, total, total_pages }
+```
+
+## Trainer Details
+
+```
+GET /api/v1/admin/trainers/{id}
+```
+
+Returns one active trainer with its linked user profile. Soft-deleted trainers
+are never returned. Accessible by both roles (`trainers.read`).
+
+- Malformed or missing `{id}`: HTTP 400 `VALIDATION_ERROR`.
+- Unknown or soft-deleted trainer: HTTP 404 `TRAINER_NOT_FOUND`.
+
+## Deleted Trainers
+
+```
+GET /api/v1/admin/trainers/deleted?page=1&limit=20
+```
+
+Returns soft-deleted trainers, newest deletion first, as a clearly separated
+view for lifecycle management. The same safe representation is used. Only
+ADMIN_1 (`trainers.manage`); ADMIN_2 receives HTTP 403 `FORBIDDEN`.
+
+## Create Trainer
+
+```
+POST /api/v1/admin/trainers
+```
+
+Creates a new user account and its trainer profile in one operation. The user
+is created through the registration flow, so the identity rule is shared with
+public registration (email validation, Argon2id hashing, soft-deleted-email
+reactivation). If the trainer profile cannot be created, the just-created user
+is soft-deleted as a compensation: there are never partial accounts. Only
+ADMIN_1 (`trainers.manage`).
+
+Request body:
+
+```
+{
+  "email": "trainer@ryze.local",
+  "password": "plaintext-password",
+  "first_name": "First",
+  "last_name": "Last"
+}
+```
+
+Responses:
+
+- HTTP 201 `Trainer created successfully.` with the safe trainer
+  representation.
+- HTTP 400 `VALIDATION_ERROR` for malformed input or an empty password.
+- HTTP 409 `EMAIL_ALREADY_REGISTERED` when the email belongs to an active
+  identity.
+- HTTP 409 `TRAINER_ALREADY_LINKED` when the (reactivated) user already owns an
+  active trainer profile.
+
+The caller can never set the trainer id, the user id or `deleted_at`.
+
+## Update Trainer
+
+```
+PATCH /api/v1/admin/trainers/{id}
+```
+
+Updates the whitelisted safe profile fields of the user linked to an active
+trainer. The trainer profile itself has no editable fields. Only ADMIN_1
+(`trainers.manage`).
+
+Request body (all fields optional, at least one required):
+
+```
+{
+  "email": "new@ryze.local",
+  "first_name": "Renamed",
+  "last_name": "Surname"
+}
+```
+
+Responses:
+
+- HTTP 200 `Trainer updated successfully.` with the safe trainer
+  representation.
+- HTTP 400 `VALIDATION_ERROR` when no field is provided or a field is invalid.
+- HTTP 404 `TRAINER_NOT_FOUND` for an unknown or soft-deleted trainer.
+- HTTP 409 `USER_DISABLED` when the linked user account is soft-deleted.
+- HTTP 409 `EMAIL_ALREADY_REGISTERED` when the email belongs to another
+  identity.
+
+## Disable Trainer
+
+```
+PATCH /api/v1/admin/trainers/{id}/disable
+```
+
+Soft-deletes an active trainer. The row is preserved and the linked user
+account is **never touched**. Only ADMIN_1 (`trainers.manage`).
+
+- HTTP 200 `Trainer disabled successfully.`
+- HTTP 400 `VALIDATION_ERROR` for a malformed `{id}`.
+- HTTP 404 `TRAINER_NOT_FOUND` for an unknown or already-deleted trainer.
+
+## Reactivate Trainer
+
+```
+POST /api/v1/admin/trainers/{id}/reactivate
+```
+
+Restores a soft-deleted trainer: the same trainer UUID, user link and
+`created_at` are preserved and `deleted_at` is cleared. Reactivation never
+alters the linked user lifecycle. Only ADMIN_1 (`trainers.manage`).
+
+- HTTP 200 `Trainer reactivated successfully.`
+- HTTP 400 `VALIDATION_ERROR` for a malformed `{id}`.
+- HTTP 404 `TRAINER_NOT_FOUND` for an unknown trainer.
+- HTTP 409 `TRAINER_ALREADY_ACTIVE` for an already-active trainer.
+- HTTP 409 `USER_DISABLED` when the linked user account is soft-deleted.
+- HTTP 409 `TRAINER_ALREADY_LINKED` when the user already owns another active
+  trainer profile.
+
+---
+
 # TECHNICAL ADMINISTRATION
 
 Planned endpoints. Accessible only by Technical Administrators.

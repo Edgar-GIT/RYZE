@@ -1,3 +1,96 @@
+# Version 2.11.0
+
+Title: Backend Step 22 — admin trainer management foundation
+
+Date: 2026-08-11
+
+Summary:
+
+Implemented the backend foundation for administrator trainer management on top
+of the Step 21 authorization layer and the Step 22 trainer data model.
+
+A trainer is a distinct entity from the user account: the new `trainers` table
+(`000003_create_trainers_table`) stores only the trainer identity (`id`,
+`user_id`, `created_at`, `updated_at`, `deleted_at`) while the linked `users`
+row owns authentication, contact and profile data. The one-to-one rule is
+enforced by the database through the `active_user_id` MariaDB generated column
+(`IF(deleted_at IS NULL, user_id, NULL)`, unique), following the established
+`active_email` pattern from the `users` table. The new trainer GORM model and
+`repositories.TrainerRepository` (create, active/deleted listing,
+find-by-id/user-id, soft delete, reactivation guarded by `deleted_at IS NOT
+NULL`) are the foundation for future trainer profiles and RYZE Feed content.
+
+The `trainers` permission is split into two finer-grained permissions:
+
+- `trainers.read` (list trainers, view one trainer) — granted to both
+  administrator roles.
+- `trainers.manage` (create, update, soft-delete, reactivate,
+  deleted-trainer listing) — granted only to the Technical Administrator
+  (ADMIN_1).
+
+ADMIN_2 is strictly read-only: every trainer mutation attempt (including the
+deleted-trainer listing) returns HTTP 403 `FORBIDDEN`, enforced server-side by
+the existing reusable `RequireAdminPermission(...)` middleware. No role checks
+exist in handlers or services.
+
+Permanent routes under `/api/v1/admin`:
+
+- `GET /trainers`, `GET /trainers/{id}` — read-only, `trainers.read`, both
+  roles.
+- `GET /trainers/deleted` — soft-deleted trainers listing (separated from the
+  active view), `trainers.manage`, ADMIN_1 only.
+- `POST /trainers` — creates a user via the existing registration flow and its
+  trainer profile; on trainer-creation failure the just-created user is
+  soft-deleted as a compensation so no active account is ever left without a
+  trainer profile, `trainers.manage`, ADMIN_1 only.
+- `PATCH /trainers/{id}` — updates the whitelisted safe user-profile fields
+  (`email`, `first_name`, `last_name`) through the existing admin user service,
+  `trainers.manage`, ADMIN_1 only.
+- `PATCH /trainers/{id}/disable` — soft-deletes the trainer only; the linked
+  user account is never touched, `trainers.manage`, ADMIN_1 only.
+- `POST /trainers/{id}/reactivate` — clears `deleted_at` only (same trainer
+  UUID, user link and `created_at` preserved); fails with `USER_DISABLED` when
+  the linked user is soft-deleted (never reactivates the user) and with
+  `TRAINER_ALREADY_LINKED` when the user already owns another active trainer,
+  `trainers.manage`, ADMIN_1 only.
+
+Trainer and user lifecycles are intentionally independent: deleting a trainer
+never affects the user account, and trainer operations never reactivate a
+soft-deleted user. There is no permanent-deletion endpoint; reactivation
+preserves the original trainer identity.
+
+Verification: `go build ./...`, `go vet ./...` clean and `go test ./...`
+`-count=1` passes (repository, service and handler/integration tests, including
+both-role read access, ADMIN_2 mutation 403s, no-authorization/sensitive data
+leaks, and internal-error handling). Documentation updated in `api.MD` (new
+ADMIN TRAINER MANAGEMENT section) and `database.MD` (new `trainers` table
+documentation).
+
+Modified files:
+
+- `main/src/backend/database/migrations/000003_create_trainers_table.up.sql`
+- `main/src/backend/database/migrations/000003_create_trainers_table.down.sql`
+- `main/src/backend/models/trainer.go`
+- `main/src/backend/repositories/trainer_repository.go`
+- `main/src/backend/repositories/trainer_repository_test.go`
+- `main/src/backend/services/admin_trainers/admin_trainers.go`
+- `main/src/backend/services/admin_trainers/admin_trainers_test.go`
+- `main/src/backend/api/auth/admin_trainers_handler.go`
+- `main/src/backend/api/auth/admin_trainers_handler_test.go`
+- `main/src/backend/routes/routes.go`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/DATABASE/database.MD`
+
+Reason:
+
+Step 22 of the backend roadmap: establish the trainer entity and its
+administrative management foundation with a clear `trainers.read` /
+`trainers.manage` permission split, so future trainer features (trainer
+profiles, RYZE Feed content ownership) can build on a verified, DB-enforced
+one-to-one trainer/user model.
+
+---
+
 # Version 2.10.0
 
 Title: Backend Step 21 Correction 2 — definitive admin user-management model
