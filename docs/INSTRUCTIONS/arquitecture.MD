@@ -115,8 +115,12 @@ Administrator authentication uses the same JWT infrastructure with two
 config-only factors (username/password, then an access code). Administrators
 are defined exclusively in configuration (`.env`), never in the database. The
 second factor is completed through a short-lived temporary token kind before
-the admin session cookie is issued. See `security.MD` (Administrator
-Authentication) and `api.MD` (Admin Authentication).
+the admin session cookie is issued. Admin-protected routes are authenticated by
+a dedicated admin middleware that accepts only the final admin session cookie
+(validated by the token service) and stores the verified admin identity in the
+request context through a dedicated context/helper package, mirroring the user
+middleware/context split. See `security.MD` (Administrator Authentication) and
+`api.MD` (Admin Authentication).
 
 ---
 

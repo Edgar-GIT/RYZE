@@ -372,6 +372,16 @@ kinds cannot be confused in the same browser. All other cookie hardening
 (`SameSite=Lax`, `Secure` per `COOKIE_SECURE`, JWT only inside the cookie,
 credentials never returned by the API) applies identically to admin sessions.
 
+Admin-protected routes are guarded by a dedicated admin authentication
+middleware (`middleware.AdminAuthenticate`). It accepts only the final admin
+session cookie validated through the token service as an `admin`-kind token;
+stage tokens, user tokens and any invalid or misconfigured token are rejected,
+and the resolved identity must be one of the configured administrator
+identities (`ADMIN_1`/`ADMIN_2`). Every failure returns the same
+indistinguishable HTTP 401 `AUTHENTICATION_REQUIRED`. The middleware validates
+tokens through the token service only and never parses JWTs manually or
+touches the database, the JWT secret or the admin credentials.
+
 Future authorization layers must enforce admin permissions on the backend and
 must never rely on client-provided roles or hidden admin interfaces.
 

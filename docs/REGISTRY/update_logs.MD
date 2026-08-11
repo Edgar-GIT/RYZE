@@ -1,3 +1,72 @@
+# Version 2.7.0
+
+Title: Backend Step 19 — admin authentication middleware
+
+Date: 2026-08-11
+
+Summary:
+
+Added a reusable admin authentication middleware
+(`middleware.AdminAuthenticate`) that protects future admin routes. It reads
+only the final admin session cookie (`ryze_admin_access_token`), validates it
+exclusively through the existing Token Service (`ValidateAdminToken`, which
+enforces the `admin` token kind) and then checks the resolved identity against
+the configured administrator identities (`ADMIN_1`/`ADMIN_2`). The middleware
+never parses JWTs manually, never touches the JWT secret, the admin credentials
+or GORM/MariaDB, and stores the validated admin identity in the request
+context.
+
+The middleware accepts only a fully authenticated admin session. Stage tokens
+(`ryze_admin_stage_token`), normal user tokens (`ryze_access_token`), malformed,
+expired, tampered and wrong-secret tokens, tokens with a wrong `kind`, and
+tokens with a missing or non-configured admin identity are all rejected with
+the same indistinguishable HTTP 401 `AUTHENTICATION_REQUIRED` error; the
+response never reveals why authentication failed.
+
+A dedicated `middleware/adminauthcontext` package mirrors the existing user
+`authcontext` pattern: an unexported context key type, `AdminIdentityContextKey`
+and `AdminIdentityFromContext`, which rejects missing values, wrong types,
+empty strings and any value that is not a configured admin identity.
+`config` now defines the canonical admin identities (`Admin1ID`/`Admin2ID`
+constants and `IsValidAdminIdentity`) used by `LoadAdmin`, the middleware and
+the context helper, so the allow-list cannot drift.
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passes. Middleware tests cover both valid admins
+continuing with the identity stored in context, missing/empty cookie, malformed,
+expired, tampered, wrong-secret tokens, user and stage tokens rejected, missing
+and invalid admin identity rejected, internal token-validation failure returning
+401 without leaking details, and the context helper's valid and invalid cases.
+A temporary test-only protected route was used for an E2E check against the
+running server (ADMIN_1 and ADMIN_2 full two-stage login reaching the protected
+route; user session, stage cookie, missing cookie and invalid admin cookie all
+401) and was removed afterwards, so the production API surface is unchanged and
+the `/admin/auth/self` route returns 404. No admin authorization, permissions,
+dashboard or CRUD were added.
+
+Files modified:
+
+- `main/src/backend/middleware/admin_auth.go` (new AdminAuthenticate middleware)
+- `main/src/backend/middleware/adminauthcontext/adminauthcontext.go` (new
+  context/helper package)
+- `main/src/backend/middleware/admin_auth_test.go` (new middleware + context
+  tests)
+- `main/src/backend/config/config.go` (Admin1ID/Admin2ID constants,
+  IsValidAdminIdentity)
+- `main/src/backend/config/env.go` (LoadAdmin uses the canonical identity
+  constants)
+- `docs/INSTRUCTIONS/security.MD`, `docs/INSTRUCTIONS/api.MD`,
+  `docs/INSTRUCTIONS/arquitecture.MD`, `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Future admin endpoints need a single, reusable authentication gate that
+accepts only a fully authenticated admin session and rejects everything else,
+mirroring the existing user middleware while keeping the token kind separation
+authoritative.
+
+---
+
 # Version 2.6.1
 
 Title: Backend Step 18 correction — admin second-factor authentication (access code)

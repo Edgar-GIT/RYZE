@@ -117,8 +117,8 @@ func LoadJWT() (JWTConfig, error) {
 // identity.
 func LoadAdmin() (AdminConfig, error) {
 	admins := []Admin{
-		{ID: "ADMIN_1"},
-		{ID: "ADMIN_2"},
+		{ID: Admin1ID},
+		{ID: Admin2ID},
 	}
 
 	seenUsernames := map[string]string{}

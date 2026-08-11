@@ -713,6 +713,12 @@ details are ever returned.
 
 Public endpoint.
 
+Routes that require administrator access are protected by the admin
+authentication middleware, which accepts only the `ryze_admin_access_token`
+cookie validated as an `admin`-kind token carrying a configured admin identity
+(`ADMIN_1`/`ADMIN_2`). Stage tokens, user tokens and any invalid token are
+rejected with HTTP 401 `AUTHENTICATION_REQUIRED`.
+
 ---
 
 ## Register
