@@ -83,7 +83,7 @@ func (r *trainerRepository) FindByIDIncludingDeleted(ctx context.Context, id str
 // ErrTrainerNotFound when the user does not own an active trainer profile.
 func (r *trainerRepository) FindByUserID(ctx context.Context, userID string) (*models.Trainer, error) {
 	var trainer models.Trainer
-	if err := r.db.WithContext(ctx).First(&trainer, "user_id = ?", userID).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("User").First(&trainer, "user_id = ?", userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrTrainerNotFound
 		}
