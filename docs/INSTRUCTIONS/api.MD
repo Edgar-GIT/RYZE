@@ -364,6 +364,8 @@ Permissions include:
 
 - User management
 - Trainer management
+- Trainer application review (`trainer_applications.read` /
+  `trainer_applications.manage`, shared with the Management Administrator)
 - Statistics
 - System management
 - Infrastructure
@@ -385,6 +387,8 @@ Permissions include:
 
 - User management
 - Trainer management
+- Trainer application review (`trainer_applications.read` /
+  `trainer_applications.manage`, shared with the Technical Administrator)
 - Statistics
 - Plans management and creation
 - Financial management
@@ -2157,45 +2161,149 @@ Returns financial statistics.
 
 # TRAINER APPLICATION
 
-Users may apply to become trainers.
+Any authenticated user may apply to become a trainer. The trainer is an
+extension of the existing user identity: approving an application creates a
+trainer profile linked to the **same** user account (same UUID, email and
+authentication) — it never creates a second account.
+
+The user endpoint is:
+
+```
+POST /api/v1/trainer/apply
+```
+
+Authentication required (user cookie `ryze_access_token`).
+
+Submits a trainer application for the authenticated user. The request body is
+intentionally not trusted: the applicant is resolved exclusively from the
+authenticated session, so no `user_id` and no `status` are ever accepted from
+the client. The application is created with status `PENDING`.
+
+Success returns HTTP 201 with the safe application representation:
+
+```json
+{
+  "success": true,
+  "message": "Trainer application submitted successfully.",
+  "data": {
+    "id": "...",
+    "status": "PENDING",
+    "user_id": "...",
+    "user": { "id": "...", "email": "...", "first_name": "...", "last_name": "..." },
+    "created_at": "...",
+    "updated_at": "..."
+  }
+}
+```
+
+Errors:
+
+- HTTP 401 `AUTHENTICATION_REQUIRED` — no valid user session (including a
+  soft-deleted user).
+- HTTP 409 `ALREADY_TRAINER` — the user already owns a trainer profile.
+- HTTP 409 `APPLICATION_ALREADY_EXISTS` — the user already has an active
+  (PENDING or APPROVED) application.
+
+A rejected application stays in history; the user can apply again. An approved
+application is final.
+
+Future application data (curriculum vitae, certificates, personal information)
+extends this endpoint without changing the identity rule.
 
 ---
 
-## Apply
+# ADMIN TRAINER APPLICATIONS
+
+Implemented backend foundation for reviewing trainer applications. A trainer is
+an extension of an existing user account: approval creates a trainer profile
+linked to the applicant's **same** `user_id`, keeping the user identity,
+authentication and password untouched.
+
+The application permission is split into two finer-grained permissions:
+
+- `trainer_applications.read` — list applications, view one application.
+  Granted to both administrator roles.
+- `trainer_applications.manage` — approve and reject applications. Granted to
+  both administrator roles.
+
+Unlike `users.manage` and `trainers.manage`, the trainer-application review is
+shared by both administrators: Technical (ADMIN_1) and Management (ADMIN_2)
+administrators can both list, view, approve and reject applications.
+
+The flow is:
 
 ```
-POST /api/v1/trainer/application
+Admin Login
+    ↓
+Admin Verify (access code)
+    ↓
+RequireAdminPermission(trainer_applications.read | trainer_applications.manage)
+    ↓
+AdminTrainerApplicationHandler → TrainerApplicationsService → Repository → MariaDB
 ```
 
-Submits a trainer application.
+Applications are never deleted: rejected rows stay in history so the applicant
+can re-apply.
 
-Includes:
-
-- Curriculum Vitae
-- Certificates
-- Personal information
-
----
-
-## Application Status
+## List Applications
 
 ```
-GET /api/v1/trainer/application
+GET /api/v1/admin/trainer-applications?page=1&limit=20&status=PENDING
 ```
 
-Returns the application's current status.
+Returns one page of trainer applications, newest first, each with its linked
+user profile. `status` optionally filters by `PENDING`, `APPROVED` or
+`REJECTED`. Accessible by both roles (`trainer_applications.read`).
 
----
+Pagination follows the platform rules: page ≥ 1, limit clamped to a maximum of
+100, `data.pagination` reports `page`, `limit`, `total` and `total_pages`.
 
-## Cancel Application
+## Get Application
 
 ```
-DELETE /api/v1/trainer/application
+GET /api/v1/admin/trainer-applications/{id}
 ```
 
-Withdraws the application.
+Returns the safe representation of one application with its linked user.
+Malformed UUIDs return HTTP 400 `VALIDATION_ERROR`; unknown applications return
+HTTP 404 `APPLICATION_NOT_FOUND`. Accessible by both roles
+(`trainer_applications.read`).
 
----
+## Approve Application
+
+```
+POST /api/v1/admin/trainer-applications/{id}/approve
+```
+
+Approves a `PENDING` application and creates the trainer profile for the
+applicant's user account in the **same** database transaction: the application
+becomes `APPROVED` and the trainer row is inserted atomically. On success
+returns HTTP 200 with the application (`status: APPROVED`) and the same
+`user_id` — the user identity is never replaced.
+
+Errors:
+
+- HTTP 404 `APPLICATION_NOT_FOUND` — unknown application.
+- HTTP 400 `VALIDATION_ERROR` — malformed application id.
+- HTTP 409 `APPLICATION_STATE_CONFLICT` — the application is not pending
+  (already approved, rejected).
+- HTTP 409 `USER_ALREADY_TRAINER` — the applicant already owns a trainer
+  profile (the transaction rolls back: the application stays `PENDING`).
+- HTTP 409 `USER_NOT_ACTIVE` — the linked user account is soft-deleted.
+
+Accessible by both roles (`trainer_applications.manage`).
+
+## Reject Application
+
+```
+POST /api/v1/admin/trainer-applications/{id}/reject
+```
+
+Rejects a `PENDING` application. The row is kept in history with status
+`REJECTED` and no trainer profile is created; the applicant can apply again.
+Errors mirror the approve endpoint (`APPLICATION_NOT_FOUND`,
+`APPLICATION_STATE_CONFLICT`). Accessible by both roles
+(`trainer_applications.manage`).
 
 # ADMIN USER MANAGEMENT
 
@@ -2716,35 +2824,12 @@ Returns every registered trainer.
 
 ---
 
-## Pending Applications
+## Trainer Applications
 
-```
-GET /api/v1/management/trainer-applications
-```
-
-Returns trainer applications awaiting review.
-
----
-
-## Approve Trainer
-
-```
-PATCH /api/v1/management/trainer-applications/{id}/approve
-```
-
-Approves a trainer application.
-
----
-
-## Reject Trainer
-
-```
-PATCH /api/v1/management/trainer-applications/{id}/reject
-```
-
-Rejects a trainer application.
-
----
+Trainer application review is implemented and shared by both administrator
+roles under `GET/POST /api/v1/admin/trainer-applications` (see the ADMIN TRAINER
+APPLICATIONS section). There are no separate `/api/v1/management/...`
+application endpoints.
 
 ## Platform Revenue
 

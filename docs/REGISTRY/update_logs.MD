@@ -1,3 +1,110 @@
+# Version 2.12.0
+
+Title: Backend Step 23 — trainer application & approval foundation
+
+Date: 2026-08-11
+
+Summary:
+
+Implemented the backend foundation for the trainer application flow. Any
+authenticated user may apply to become a trainer and both administrators
+(Technical ADMIN_1 and Management ADMIN_2) review the applications. A trainer
+is an extension of an existing user identity: approving an application creates
+a trainer profile linked to the applicant's **same** user account (same UUID,
+email, password and session) — it never creates a second account.
+
+The new `trainer_applications` table (migration `000004`) stores the
+application (`id`, `user_id`, `status` in PENDING/APPROVED/REJECTED, timestamps
+and soft-delete marker). The one-active-application rule is enforced by the
+database through the `active_user_id` MariaDB generated column
+(`IF(deleted_at IS NULL, user_id, NULL)`, unique), following the established
+`active_user_id`/`active_email` pattern from `trainers`/`users`. Rejected
+applications stay in history so the user can apply again; an approved
+application is final.
+
+Permanent routes:
+
+- `POST /api/v1/trainer/apply` — authenticated user endpoint. The applicant is
+  resolved exclusively from the authenticated session; client-provided
+  `user_id` and `status` are ignored. Returns HTTP 201 with the safe
+  application representation. Errors: 401 `AUTHENTICATION_REQUIRED` (no valid
+  session, including soft-deleted users), 409 `ALREADY_TRAINER`, 409
+  `APPLICATION_ALREADY_EXISTS`.
+- `GET /api/v1/admin/trainer-applications` and
+  `GET /api/v1/admin/trainer-applications/{id}` — read-only review,
+  `trainer_applications.read`, both roles. Pagination and optional status
+  filter; malformed ids 400 `VALIDATION_ERROR`, unknown applications 404
+  `APPLICATION_NOT_FOUND`.
+- `POST /api/v1/admin/trainer-applications/{id}/approve` —
+  `trainer_applications.manage`, both roles. Approves a PENDING application and
+  inserts the trainer profile for the same `user_id` in a single transaction
+  (atomic; a duplicate trainer rolls the approval back and the application
+  stays PENDING). Errors: 409 `APPLICATION_STATE_CONFLICT`, 409
+  `USER_ALREADY_TRAINER`, 409 `USER_NOT_ACTIVE` (soft-deleted applicant).
+- `POST /api/v1/admin/trainer-applications/{id}/reject` —
+  `trainer_applications.manage`, both roles. Marks the application REJECTED
+  (no trainer created); the user can re-apply.
+
+The `trainer_applications` permission is split into `trainer_applications.read`
+and `trainer_applications.manage`, both granted to both administrator roles in
+`middleware/adminroles` — application review is a shared responsibility,
+unlike the Technical-Administrator-only `users.manage`/`trainers.manage`
+lifecycle permissions. No authorization logic exists in handlers or services;
+enforcement is purely the `AdminAuthenticate` +
+`RequireAdminPermission(...)` middleware chain.
+
+Layering follows the established convention:
+`AdminTrainerApplicationHandler`/`TrainerApplicationHandler` (in `api/auth`) →
+`trainer_applications` service (in `services/trainer_applications`) →
+`TrainerApplicationRepository` (in `repositories`), reusing the existing
+`UserRepository` (active-user check) and `TrainerRepository` (duplicate-trainer
+guard).
+
+Verification: `go build ./...`, `go vet ./...`, `gofmt -l .` clean and
+`go test ./... -count=1` passes against MariaDB. New repository tests cover the
+full lifecycle including atomic approval failure; service unit tests cover
+validation, mapping, state transitions and the reject→re-apply→approve
+lifecycle; handler/integration tests cover the user apply endpoint and both
+roles for list/get/approve/reject, status filters, pagination and clamping,
+state conflicts, atomicity, internal-error handling with no sensitive leaks,
+and 401s for missing/invalid/stage/user tokens; a full-router E2E test
+(`routes/trainer_application_e2e_test.go`) verified register → login → apply →
+ADMIN_1 list/get/approve → trainer created for the same `user_id` with the
+original login and `/me` intact, and ADMIN_2 reject → re-apply → approve with
+exactly one trainer. Migration `000004` was applied (schema version 4).
+
+Modified files:
+
+- `main/src/backend/database/migrations/000004_create_trainer_applications_table.up.sql`
+- `main/src/backend/database/migrations/000004_create_trainer_applications_table.down.sql`
+- `main/src/backend/models/trainer_application.go`
+- `main/src/backend/repositories/trainer_application_repository.go`
+- `main/src/backend/repositories/trainer_application_repository_test.go`
+- `main/src/backend/services/trainer_applications/trainer_applications.go`
+- `main/src/backend/services/trainer_applications/trainer_applications_test.go`
+- `main/src/backend/api/auth/trainer_application_handler.go`
+- `main/src/backend/api/auth/trainer_application_handler_test.go`
+- `main/src/backend/middleware/adminroles/adminroles.go`
+- `main/src/backend/routes/routes.go`
+- `main/src/backend/routes/trainer_application_e2e_test.go`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/DATABASE/database.MD`
+- `docs/INSTRUCTIONS/security.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/INSTRUCTIONS/project.MD`
+- `docs/how_to_run.MD`
+
+Reason:
+
+Step 23 of the backend roadmap: establish the trainer application and approval
+flow so the platform can onboard trainers through a review process while
+keeping the trainer strictly an extension of the existing user identity, with
+database-enforced uniqueness, atomic approval and server-side authorization
+shared by both administrators. This is the foundation for the trainer
+lifecycle and future trainer features (profiles, RYZE Feed content ownership).
+
+---
+
 # Version 2.11.0
 
 Title: Backend Step 22 — admin trainer management foundation

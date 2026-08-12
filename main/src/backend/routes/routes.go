@@ -18,6 +18,7 @@ import (
 	"ryze/backend/services/password"
 	"ryze/backend/services/registration"
 	"ryze/backend/services/token"
+	"ryze/backend/services/trainer_applications"
 )
 
 // Setup wires all dependencies and registers the API routes.
@@ -52,6 +53,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminTrainersService := admin_trainers.NewAdminTrainerService(trainerRepository, userRepository, registrationService, adminUsersService)
 	adminTrainersHandler := auth.NewAdminTrainerHandler(adminTrainersService)
 
+	trainerApplicationRepository := repositories.NewTrainerApplicationRepository(db)
+	trainerApplicationService := trainer_applications.NewService(trainerApplicationRepository, userRepository, trainerRepository)
+	adminTrainerApplicationHandler := auth.NewAdminTrainerApplicationHandler(trainerApplicationService)
+	trainerApplicationHandler := auth.NewTrainerApplicationHandler(trainerApplicationService)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
@@ -61,6 +67,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
+	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
 
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))
@@ -91,6 +98,16 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminTrainerMutate.PATCH("/trainers/:id", adminTrainersHandler.UpdateTrainer)
 	adminTrainerMutate.PATCH("/trainers/:id/disable", adminTrainersHandler.SoftDeleteTrainer)
 	adminTrainerMutate.POST("/trainers/:id/reactivate", adminTrainersHandler.ReactivateTrainer)
+
+	adminApplicationRead := admin.Group("")
+	adminApplicationRead.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsRead))
+	adminApplicationRead.GET("/trainer-applications", adminTrainerApplicationHandler.ListApplications)
+	adminApplicationRead.GET("/trainer-applications/:id", adminTrainerApplicationHandler.GetApplication)
+
+	adminApplicationMutate := admin.Group("")
+	adminApplicationMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsManage))
+	adminApplicationMutate.POST("/trainer-applications/:id/approve", adminTrainerApplicationHandler.ApproveApplication)
+	adminApplicationMutate.POST("/trainer-applications/:id/reject", adminTrainerApplicationHandler.RejectApplication)
 
 	return router
 }

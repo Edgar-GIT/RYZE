@@ -580,6 +580,26 @@ User management authorization model:
   and admin responses never expose password hashes, session versions or
   deletion markers.
 
+Trainer application authorization model:
+
+- The `trainer_applications` permission is split into
+  `trainer_applications.read` (list, view) and `trainer_applications.manage`
+  (approve, reject), both granted to **both** administrator roles — the review
+  is a shared responsibility, unlike the `users.manage`/`trainers.manage`
+  lifecycle permissions that are Technical Administrator only.
+- The applicant is always resolved from the authenticated user session on
+  `POST /trainer/apply`. Client-provided `user_id`, status values and roles are
+  never accepted: a user can only ever apply for themselves.
+- Approval creates the trainer profile for the applicant's **existing** user
+  identity (same UUID, email, password and session) in a single transaction.
+  The user is never replaced or recreated; no client can influence which
+  account receives the trainer profile.
+- Admin operations target only the application resolved by the validated route
+  UUID, and the linked applicant user is always resolved server-side from the
+  stored application — never from the request.
+- No authorization logic lives in handlers or services: it is enforced purely
+  by the `AdminAuthenticate` + `RequireAdminPermission` middleware chain.
+
 ---
 
 ## Future Authorization

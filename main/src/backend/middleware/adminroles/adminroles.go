@@ -37,31 +37,41 @@ const (
 	// held by both roles. Read-only and lifecycle responsibilities are
 	// expressed by the finer-grained PermissionTrainersRead /
 	// PermissionTrainersManage permissions.
-	PermissionTrainers               Permission = "trainers"
-	PermissionTrainersRead           Permission = "trainers.read"
-	PermissionTrainersManage         Permission = "trainers.manage"
-	PermissionStatistics             Permission = "statistics"
-	PermissionPlans                  Permission = "plans"
-	PermissionFinance                Permission = "finance"
-	PermissionMarketing              Permission = "marketing"
-	PermissionSystem                 Permission = "system"
-	PermissionInfrastructure         Permission = "infrastructure"
-	PermissionTechnicalConfiguration Permission = "technical-configuration"
-	PermissionSecurity               Permission = "security"
-	PermissionDevelopment            Permission = "development"
+	PermissionTrainers       Permission = "trainers"
+	PermissionTrainersRead   Permission = "trainers.read"
+	PermissionTrainersManage Permission = "trainers.manage"
+	// PermissionTrainerApplications is the coarse trainer-application
+	// management permission umbrella held by both roles. Reviewing trainer
+	// applications is shared between the Technical and the Management
+	// Administrator, so the read and manage sub-permissions are both granted
+	// to every role.
+	PermissionTrainerApplications       Permission = "trainer_applications"
+	PermissionTrainerApplicationsRead   Permission = "trainer_applications.read"
+	PermissionTrainerApplicationsManage Permission = "trainer_applications.manage"
+	PermissionStatistics                Permission = "statistics"
+	PermissionPlans                     Permission = "plans"
+	PermissionFinance                   Permission = "finance"
+	PermissionMarketing                 Permission = "marketing"
+	PermissionSystem                    Permission = "system"
+	PermissionInfrastructure            Permission = "infrastructure"
+	PermissionTechnicalConfiguration    Permission = "technical-configuration"
+	PermissionSecurity                  Permission = "security"
+	PermissionDevelopment               Permission = "development"
 )
 
-// rolePermissions maps each role to its granted permissions. Users, trainers
-// and statistics are shared by both roles. User management and trainer
-// management are each split into a read-only view (users.read / trainers.read,
-// shared by both roles) and a full lifecycle capability (users.manage /
-// trainers.manage: create, update, soft-delete and reactivate, granted only to
-// the Technical Administrator). Technical concerns (system, infrastructure,
-// technical configuration, security, development) belong exclusively to the
-// Technical Administrator and business concerns (plans, finance, marketing)
-// exclusively to the Management Administrator. Neither role is a superset of
-// the other: the Technical Administrator does not automatically receive
-// management permissions.
+// rolePermissions maps each role to its granted permissions. Users, trainers,
+// trainer applications and statistics are shared by both roles. User management
+// and trainer management are each split into a read-only view (users.read /
+// trainers.read, shared by both roles) and a full lifecycle capability
+// (users.manage / trainers.manage: create, update, soft-delete and reactivate,
+// granted only to the Technical Administrator). Trainer-application review is
+// shared by both roles: trainer_applications.read and
+// trainer_applications.manage are both granted to every role. Technical
+// concerns (system, infrastructure, technical configuration, security,
+// development) belong exclusively to the Technical Administrator and business
+// concerns (plans, finance, marketing) exclusively to the Management
+// Administrator. Neither role is a superset of the other: the Technical
+// Administrator does not automatically receive management permissions.
 var rolePermissions = map[Role][]Permission{
 	RoleTechnicalAdministrator: {
 		PermissionUsers,
@@ -70,6 +80,9 @@ var rolePermissions = map[Role][]Permission{
 		PermissionTrainers,
 		PermissionTrainersRead,
 		PermissionTrainersManage,
+		PermissionTrainerApplications,
+		PermissionTrainerApplicationsRead,
+		PermissionTrainerApplicationsManage,
 		PermissionStatistics,
 		PermissionSystem,
 		PermissionInfrastructure,
@@ -82,6 +95,9 @@ var rolePermissions = map[Role][]Permission{
 		PermissionUsersRead,
 		PermissionTrainers,
 		PermissionTrainersRead,
+		PermissionTrainerApplications,
+		PermissionTrainerApplicationsRead,
+		PermissionTrainerApplicationsManage,
 		PermissionStatistics,
 		PermissionPlans,
 		PermissionFinance,

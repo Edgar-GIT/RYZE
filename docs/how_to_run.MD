@@ -376,11 +376,26 @@ Current API surface (versioned under `/api/v1`):
 - `POST /api/v1/admin/users/{id}/password` — administrative password reset
   (invalidates all sessions); requires `users.manage` (Technical Administrator
   only).
+- `POST /api/v1/trainer/apply` — submits a trainer application for the
+  authenticated user (requires the `ryze_access_token` cookie); the applicant
+  is always resolved from the session.
+- `GET /api/v1/admin/trainer-applications` — lists trainer applications
+  (pagination + optional `status` filter); requires `trainer_applications.read`
+  (both roles).
+- `GET /api/v1/admin/trainer-applications/{id}` — returns one trainer
+  application; requires `trainer_applications.read` (both roles).
+- `POST /api/v1/admin/trainer-applications/{id}/approve` — approves a PENDING
+  application and creates the trainer profile for the same user atomically;
+  requires `trainer_applications.manage` (both roles).
+- `POST /api/v1/admin/trainer-applications/{id}/reject` — rejects a PENDING
+  application (kept in history; the user can re-apply); requires
+  `trainer_applications.manage` (both roles).
 
 Authorization model: read endpoints run under `users.read` (both roles); every
-lifecycle endpoint runs under `users.manage` and is denied with HTTP 403
-`FORBIDDEN` for the Management Administrator. There is no permanent-deletion
-endpoint.
+user lifecycle endpoint runs under `users.manage` and is denied with HTTP 403
+`FORBIDDEN` for the Management Administrator. Trainer-application review runs
+under `trainer_applications.read`/`trainer_applications.manage` and is shared
+by both roles. There is no permanent-deletion endpoint.
 
 ## Database Migrations
 

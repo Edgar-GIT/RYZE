@@ -154,6 +154,12 @@ roles) and `users.manage` (create, update, soft-delete, reactivate,
 administrative password reset and deleted-user listing, granted only to the
 Technical Administrator).
 
+The trainer-application permission is split into `trainer_applications.read`
+(list, view) and `trainer_applications.manage` (approve, reject), both shared
+by both administrator roles: application review is a shared administrative
+responsibility, unlike the Technical-Administrator-only user/trainer lifecycle
+permissions.
+
 Neither role is a superset of the other: the Technical Administrator is not a
 super administrator and does not receive management business permissions.
 
@@ -174,6 +180,20 @@ and `ClearDeletedAt`, and reuses the existing atomic soft-delete primitive
 (sets `deleted_at` and increments `session_version` in one statement).
 Controllers stay thin and business logic stays inside the service, following
 the backend layering convention.
+
+The trainer-application foundation follows the same layering:
+`AdminTrainerApplicationHandler` and `TrainerApplicationHandler` (thin, in
+`api/auth`) → `trainer_applications` service (in
+`services/trainer_applications`) → `TrainerApplicationRepository` (in
+`repositories`). The apply endpoint resolves the applicant exclusively from the
+authenticated session; the service validates identifiers, normalizes
+pagination, validates status filters, maps repository errors and reuses the
+existing `UserRepository` (active-user check) and `TrainerRepository` (duplicate
+trainer guard). Approval is atomic at the repository level: the PENDING→APPROVED
+update and the trainer insert commit or roll back together, so a duplicate
+trainer never leaves an approved application without a profile. No
+authorization logic exists in the handlers or services; every admin route runs
+behind `AdminAuthenticate` + `RequireAdminPermission`.
 
 ---
 

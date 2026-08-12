@@ -224,6 +224,10 @@ Clients can:
 
 ## Trainer
 
+A trainer is an extension of an existing user account: approving a trainer
+application creates a trainer profile linked to the applicant's **same** user
+identity (same UUID, email and password) — it never creates a second account.
+
 Trainers can:
 
 - Create packs
@@ -232,6 +236,9 @@ Trainers can:
 - View statistics
 - Manage clients
 - Access trainer dashboards
+
+Trainer applications are created by authenticated users through
+`POST /api/v1/trainer/apply` and reviewed by both administrators.
 
 ---
 
@@ -252,6 +259,11 @@ The Management Administrator holds a read-only view of user accounts (list and
 view, under `users.read`). The full user lifecycle (create, update,
 soft-disable, reactivate and administrative password reset, under
 `users.manage`) belongs to the Technical Administrator.
+
+Trainer application review (list, view, approve and reject, under
+`trainer_applications.read` / `trainer_applications.manage`) is implemented as a
+backend foundation shared by **both** administrators, matching the operational
+responsibility of approving trainer applications.
 
 ---
 
@@ -277,6 +289,10 @@ User management (full lifecycle: create, update, soft-disable, reactivate and
 administrative password reset) is implemented as a backend foundation under the
 `users.manage` permission and is exclusive to the Technical Administrator. The
 Management Administrator keeps a read-only view under `users.read`.
+
+Trainer application review is a shared responsibility: both administrators hold
+`trainer_applications.read` and `trainer_applications.manage` and can list,
+view, approve and reject applications.
 
 ---
 
