@@ -3,6 +3,7 @@ CLAUDE.md
 AGENTS.md
 .env
 .codex*
+.gemini*
 /how_to_run.MD
 node_modules/
 dist/
