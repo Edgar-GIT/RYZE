@@ -666,19 +666,25 @@ Security rules:
 ### Trainer Client Management
 
 The trainer-client relationship (`GET`/`POST` `/trainer/clients`,
-`DELETE`/`POST` `/trainer/clients/:userID[/reactivate]`) follows the same
+`GET`/`DELETE`/`POST` `/trainer/clients/:userID[/reactivate]`) follows the same
 security model:
 
 - The trainer identity is always resolved exclusively from the authenticated
   trainer context; a client-supplied `trainer_id` (query, body or path) is
   never accepted and can never change which relationship is created, listed,
-  removed or reactivated.
+  read, removed or reactivated.
 - The client `user_id` is always validated as a canonical UUID server-side
   before any database access.
 - A trainer can never become their own client; the self-relationship rule is
   enforced by the service and backed by a stored `CHECK` constraint.
 - Only an active relationship is unique per `(trainer_id, user_id)`; the
   uniqueness is enforced by a stored generated column, not by application code.
+- The single-client profile read (`GET /trainer/clients/:userID`) verifies the
+  active relationship together with the linked user in one query scoped by both
+  identifiers. A user that does not exist, is soft-deleted, is not an active
+  client of the authenticated trainer or whose relationship was soft-deleted is
+  indistinguishable: all map to the same `404 CLIENT_RELATION_NOT_FOUND`, so
+  the read can never enumerate other users' existence.
 - Removing a client soft-deletes only the relationship row. The user account
   and the trainer profile are never deleted; their lifecycles are independent
   and no endpoint can reach them through the relationship.
@@ -687,7 +693,8 @@ security model:
   reactivation.
 - Responses expose only the relationship identity and the client's public
   user fields. Password hashes, session versions and deletion markers are
-  never exposed.
+  never exposed. No trainer-specific fitness data (weight, goals, diet,
+  progress, PRs, programs, statistics or payments) is ever returned.
 
 ---
 

@@ -315,6 +315,94 @@ func TestListClientsRepositoryFailure(t *testing.T) {
 	}
 }
 
+func TestGetClientSuccess(t *testing.T) {
+	var gotTrainerID, gotUserID string
+	repo := &stubClientRepo{
+		findActive: func(trainerID, userID string) (*models.TrainerClient, error) {
+			gotTrainerID = trainerID
+			gotUserID = userID
+			return validRelation(), nil
+		},
+	}
+	svc := newService(repo)
+
+	client, err := svc.GetClient(context.Background(), trainerID, userID)
+	if err != nil {
+		t.Fatalf("GetClient: %v", err)
+	}
+	if gotTrainerID != trainerID || gotUserID != userID {
+		t.Fatalf("expected identifiers %q/%q, got %q/%q", trainerID, userID, gotTrainerID, gotUserID)
+	}
+	if client.UserID != userID || client.Email != "client@ryze.local" {
+		t.Fatalf("unexpected client %+v", client)
+	}
+}
+
+func TestGetClientRejectsInvalidIDs(t *testing.T) {
+	svc := newService(&stubClientRepo{})
+
+	for name, ids := range map[string][2]string{
+		"empty trainer": {"", userID},
+		"bad trainer":   {"not-a-uuid", userID},
+		"empty user":    {trainerID, ""},
+		"bad user":      {trainerID, "not-a-uuid"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := svc.GetClient(context.Background(), ids[0], ids[1]); !errors.Is(err, trainer_clients.ErrInvalidInput) {
+				t.Fatalf("expected ErrInvalidInput, got %v", err)
+			}
+		})
+	}
+}
+
+func TestGetClientRelationNotFound(t *testing.T) {
+	repo := &stubClientRepo{
+		findActive: func(_, _ string) (*models.TrainerClient, error) {
+			return nil, repositories.ErrClientRelationNotFound
+		},
+	}
+	svc := newService(repo)
+
+	if _, err := svc.GetClient(context.Background(), trainerID, userID); !errors.Is(err, trainer_clients.ErrClientRelationNotFound) {
+		t.Fatalf("expected ErrClientRelationNotFound, got %v", err)
+	}
+}
+
+func TestGetClientSoftDeletedUserHidden(t *testing.T) {
+	// A soft-deleted linked user leaves the relationship present but the
+	// preloaded user empty: the profile read must never reveal whether the
+	// user exists, so it maps to the same not-found error.
+	relation := validRelation()
+	relation.User = models.User{}
+	repo := &stubClientRepo{
+		findActive: func(_, _ string) (*models.TrainerClient, error) {
+			return relation, nil
+		},
+	}
+	svc := newService(repo)
+
+	if _, err := svc.GetClient(context.Background(), trainerID, userID); !errors.Is(err, trainer_clients.ErrClientRelationNotFound) {
+		t.Fatalf("expected ErrClientRelationNotFound, got %v", err)
+	}
+}
+
+func TestGetClientRepositoryFailure(t *testing.T) {
+	repo := &stubClientRepo{
+		findActive: func(_, _ string) (*models.TrainerClient, error) {
+			return nil, errRepoFailure
+		},
+	}
+	svc := newService(repo)
+
+	_, err := svc.GetClient(context.Background(), trainerID, userID)
+	if errors.Is(err, trainer_clients.ErrClientRelationNotFound) || errors.Is(err, trainer_clients.ErrInvalidInput) {
+		t.Fatalf("repository failure must not map to a domain error, got %v", err)
+	}
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+}
+
 func TestRemoveClientSuccess(t *testing.T) {
 	repo := &stubClientRepo{}
 	svc := newService(repo)

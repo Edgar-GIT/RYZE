@@ -238,8 +238,12 @@ follows the same layering as the trainer profile:
 The trainer identity never comes from the client: every operation receives the
 authenticated trainer id exclusively from `trainercontext`, so a client-supplied
 `trainer_id` (query, body or path) can never influence which relationship is
-created, listed, removed or reactivated. Ownership is therefore guaranteed by
-the trainer context, never trusted from request data.
+created, listed, read, removed or reactivated. Ownership is therefore guaranteed
+by the trainer context, never trusted from request data. The single-client
+profile read verifies the active relationship together with the linked user in
+one query scoped by both identifiers; a user that is not the trainer's active
+client (missing, soft-deleted or unrelated) is indistinguishable and maps to the
+same not-found error, preventing user enumeration.
 
 Removing a client soft-deletes only the relationship row; the user account and
 the trainer profile are never touched. Reactivation restores the exact same row.

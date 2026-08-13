@@ -110,6 +110,31 @@ func (h *TrainerClientsHandler) ListClients(c *gin.Context) {
 	})
 }
 
+// GetClient returns the safe profile of one of the authenticated trainer's
+// active clients. The trainer identity always comes from the trainer context;
+// the user id in the path only identifies the requested resource and never
+// proves access. Only an active trainer→client relationship grants access, so
+// a user that is not the trainer's client, does not exist or is soft-deleted
+// is never revealed.
+func (h *TrainerClientsHandler) GetClient(c *gin.Context) {
+	trainerID, ok := requireTrainerContext(c)
+	if !ok {
+		return
+	}
+
+	client, err := h.service.GetClient(c.Request.Context(), trainerID, c.Param("userID"))
+	if err != nil {
+		h.respondClientsError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Client profile retrieved successfully.",
+		"data":    newTrainerClientResponse(client),
+	})
+}
+
 // AddClient creates the active relationship between the authenticated trainer
 // and the requested active user. Only the client user_id is accepted from the
 // request; the trainer identity is the authenticated one and can never be

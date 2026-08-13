@@ -84,6 +84,7 @@ type ListClientsResult struct {
 // knows about HTTP, Gin or the trainer context.
 type Service interface {
 	ListClients(ctx context.Context, trainerID string, page, limit int) (ListClientsResult, error)
+	GetClient(ctx context.Context, trainerID, userID string) (*Client, error)
 	AddClient(ctx context.Context, trainerID, userID string) (*Client, error)
 	RemoveClient(ctx context.Context, trainerID, userID string) error
 	ReactivateClient(ctx context.Context, trainerID, userID string) (*Client, error)
@@ -160,6 +161,38 @@ func (s *service) ListClients(ctx context.Context, trainerID string, page, limit
 		clients = append(clients, newClient(&relations[i]))
 	}
 	return ListClientsResult{Clients: clients, Total: total, Page: page, Limit: limit}, nil
+}
+
+// GetClient returns the safe profile of one of the trainer's active clients.
+// The active relationship and the linked user are verified together in a single
+// query scoped by both identifiers, so a user that does not exist, is
+// soft-deleted, is not a client of this trainer or whose relationship was
+// soft-deleted is indistinguishable and never revealed. Only the trainer who
+// owns the active relationship can ever receive the linked user's public data.
+func (s *service) GetClient(ctx context.Context, trainerID, userID string) (*Client, error) {
+	if err := validateTrainerID(trainerID); err != nil {
+		return nil, err
+	}
+	if err := validateUserID(userID); err != nil {
+		return nil, err
+	}
+
+	relation, err := s.clients.FindActiveByTrainerAndUser(ctx, trainerID, userID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrClientRelationNotFound) {
+			return nil, ErrClientRelationNotFound
+		}
+		return nil, fmt.Errorf("failed to load trainer-client relationship: %w", err)
+	}
+	// A missing or soft-deleted linked user must be hidden behind the same
+	// not-found error: the profile read never reveals whether the requested
+	// user exists.
+	if relation.User.ID == "" || relation.User.ID != userID {
+		return nil, ErrClientRelationNotFound
+	}
+
+	client := newClient(relation)
+	return &client, nil
 }
 
 // RemoveClient soft-deletes the relationship between the trainer and the user.

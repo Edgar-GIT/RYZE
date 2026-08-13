@@ -420,6 +420,37 @@ Requires `trainer.clients`.
 
 ---
 
+### `GET /api/v1/trainer/clients/:userID`
+
+Returns the safe profile of one of the authenticated trainer's active clients.
+Identity comes exclusively from the authenticated trainer context; the `userID`
+path parameter only identifies the requested resource and never proves access.
+Only an active `trainer_clients` relationship (same trainer and user,
+`deleted_at IS NULL`) grants access, so the profile of a user that is not the
+trainer's client, does not exist or is soft-deleted is never revealed.
+
+Response `data` uses the same shape as a list item: the relationship identity,
+`trainer_id` (always the authenticated trainer), `user_id` and a nested safe
+user object (`id`, `email`, `first_name`, `last_name`, `created_at`,
+`updated_at`). Password hashes, session versions and soft-delete flags are never
+exposed. No trainer-specific fitness data (weight, goals, diet, progress, PRs,
+programs, statistics or payments) is returned.
+
+Responses:
+
+- `200 OK` — the client profile.
+- `400 VALIDATION_ERROR` — malformed identifiers.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication or trainer
+  context.
+- `403 FORBIDDEN` — non-trainer or missing `trainer.clients` permission.
+- `404 CLIENT_RELATION_NOT_FOUND` — the user does not exist, is soft-deleted,
+  is not an active client of this trainer or the relationship was soft-deleted;
+  the response never reveals which case occurred.
+
+Requires `trainer.clients`.
+
+---
+
 ### `POST /api/v1/trainer/clients`
 
 Creates the active relationship between the authenticated trainer and an

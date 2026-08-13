@@ -70,6 +70,7 @@ func newTrainerClientsTestRouter(t *testing.T, permissions ...trainerroles.Permi
 	trainer.Use(middleware.Authenticate(tokenSvc, userRepo))
 	trainer.Use(middleware.TrainerAuthenticate(trainerRepo))
 	trainer.GET("/clients", middleware.RequireTrainerPermission(permissions...), handler.ListClients)
+	trainer.GET("/clients/:userID", middleware.RequireTrainerPermission(permissions...), handler.GetClient)
 	trainer.POST("/clients", middleware.RequireTrainerPermission(permissions...), handler.AddClient)
 	trainer.DELETE("/clients/:userID", middleware.RequireTrainerPermission(permissions...), handler.RemoveClient)
 	trainer.POST("/clients/:userID/reactivate", middleware.RequireTrainerPermission(permissions...), handler.ReactivateClient)
@@ -91,6 +92,7 @@ func newTrainerClientsHandlerRouter(svc trainer_clients.Service, identity any) *
 		c.Next()
 	})
 	trainer.GET("/clients", handler.ListClients)
+	trainer.GET("/clients/:userID", handler.GetClient)
 	trainer.POST("/clients", handler.AddClient)
 	trainer.DELETE("/clients/:userID", handler.RemoveClient)
 	trainer.POST("/clients/:userID/reactivate", handler.ReactivateClient)
@@ -110,6 +112,12 @@ type stubTrainerClientsService struct {
 func (s *stubTrainerClientsService) ListClients(_ context.Context, trainerID string, _, _ int) (trainer_clients.ListClientsResult, error) {
 	s.gotTrainer = trainerID
 	return s.listResult, s.err
+}
+
+func (s *stubTrainerClientsService) GetClient(_ context.Context, trainerID, userID string) (*trainer_clients.Client, error) {
+	s.gotTrainer = trainerID
+	s.gotUserID = userID
+	return s.client, s.err
 }
 
 func (s *stubTrainerClientsService) AddClient(_ context.Context, trainerID, userID string) (*trainer_clients.Client, error) {
@@ -285,6 +293,242 @@ func TestTrainerClientsListIgnoresQueryIdentity(t *testing.T) {
 	}
 }
 
+func TestTrainerClientsGetProfileSuccess(t *testing.T) {
+	router, userRepo, trainerRepo, clientRepo, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	if err := clientRepo.Create(context.Background(), &models.TrainerClient{TrainerID: trainer.ID, UserID: clientUser.ID}); err != nil {
+		t.Fatalf("seed relationship: %v", err)
+	}
+
+	rec, data, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsRemoveRoute+clientUser.ID, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	if trainerID, _ := data["trainer_id"].(string); trainerID != trainer.ID {
+		t.Fatalf("expected trainer_id %q, got %q", trainer.ID, trainerID)
+	}
+	if userID, _ := data["user_id"].(string); userID != clientUser.ID {
+		t.Fatalf("expected user_id %q, got %q", clientUser.ID, userID)
+	}
+	nested, _ := data["user"].(map[string]any)
+	if email, _ := nested["email"].(string); email != clientUser.Email {
+		t.Fatalf("expected nested email %q, got %q", clientUser.Email, email)
+	}
+	if first, _ := nested["first_name"].(string); first != clientUser.FirstName {
+		t.Fatalf("expected nested first_name %q, got %q", clientUser.FirstName, first)
+	}
+}
+
+func TestTrainerClientsGetProfileIDOR(t *testing.T) {
+	router, userRepo, trainerRepo, clientRepo, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+
+	trainerA, _, jwtA := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	trainerB, _, jwtB := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	clientA := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	clientB := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	for _, pair := range [][2]string{{trainerA.ID, clientA.ID}, {trainerB.ID, clientB.ID}} {
+		if err := clientRepo.Create(context.Background(), &models.TrainerClient{TrainerID: pair[0], UserID: pair[1]}); err != nil {
+			t.Fatalf("seed relationship: %v", err)
+		}
+	}
+
+	// Trainer A must never read client B's profile.
+	rec, _, raw := trainerClientsRequest(router, jwtA, http.MethodGet, clientsRemoveRoute+clientB.ID, "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for cross-trainer read, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, clientB.Email) {
+		t.Fatalf("response must never contain the foreign client's data, got %s", raw)
+	}
+
+	// Trainer B must never read client A's profile.
+	rec, _, raw = trainerClientsRequest(router, jwtB, http.MethodGet, clientsRemoveRoute+clientA.ID, "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for cross-trainer read, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, clientA.Email) {
+		t.Fatalf("response must never contain the foreign client's data, got %s", raw)
+	}
+}
+
+func TestTrainerClientsGetProfileIgnoresQueryIdentity(t *testing.T) {
+	router, userRepo, trainerRepo, clientRepo, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	otherTrainer := seedTrainerForUser(t, trainerRepo, seedLoginUser(t, userRepo, uniqueEmail(), "Password123!"))
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	if err := clientRepo.Create(context.Background(), &models.TrainerClient{TrainerID: trainer.ID, UserID: clientUser.ID}); err != nil {
+		t.Fatalf("seed relationship: %v", err)
+	}
+
+	// A client-supplied trainer_id query value must be ignored: the profile is
+	// always resolved for the authenticated trainer only.
+	path := clientsRemoveRoute + clientUser.ID + "?trainer_id=" + otherTrainer.ID
+	rec, data, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, path, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if trainerID, _ := data["trainer_id"].(string); trainerID != trainer.ID {
+		t.Fatalf("authenticated trainer must own the profile, got %q", trainerID)
+	}
+}
+
+func TestTrainerClientsGetProfileIgnoresHeaderIdentity(t *testing.T) {
+	router, userRepo, trainerRepo, clientRepo, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	otherTrainer := seedTrainerForUser(t, trainerRepo, seedLoginUser(t, userRepo, uniqueEmail(), "Password123!"))
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	if err := clientRepo.Create(context.Background(), &models.TrainerClient{TrainerID: trainer.ID, UserID: clientUser.ID}); err != nil {
+		t.Fatalf("seed relationship: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, clientsRemoveRoute+clientUser.ID, nil)
+	req.Header.Set("X-Trainer-Id", otherTrainer.ID)
+	req.AddCookie(&http.Cookie{Name: auth.AccessTokenCookieName, Value: jwtValue})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	var payload map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	raw, _ := json.Marshal(payload)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	data, _ := payload["data"].(map[string]any)
+	if trainerID, _ := data["trainer_id"].(string); trainerID != trainer.ID {
+		t.Fatalf("header trainer id must never change ownership, got %q", trainerID)
+	}
+}
+
+func TestTrainerClientsGetProfileIgnoresBodyIdentity(t *testing.T) {
+	router, userRepo, trainerRepo, clientRepo, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	otherTrainer := seedTrainerForUser(t, trainerRepo, seedLoginUser(t, userRepo, uniqueEmail(), "Password123!"))
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	if err := clientRepo.Create(context.Background(), &models.TrainerClient{TrainerID: trainer.ID, UserID: clientUser.ID}); err != nil {
+		t.Fatalf("seed relationship: %v", err)
+	}
+
+	// A trainer_id in the body must be ignored: the profile is always resolved
+	// for the authenticated trainer only.
+	body := `{"trainer_id":"` + otherTrainer.ID + `"}`
+	rec, data, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsRemoveRoute+clientUser.ID, body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if trainerID, _ := data["trainer_id"].(string); trainerID != trainer.ID {
+		t.Fatalf("body trainer id must never change ownership, got %q", trainerID)
+	}
+}
+
+func TestTrainerClientsGetProfileUserWithoutRelation(t *testing.T) {
+	router, userRepo, trainerRepo, _, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	_ = trainer
+	otherUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	// The user exists but has no relationship with the trainer: the profile
+	// must be denied and no user data may leak.
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsRemoveRoute+otherUser.ID, "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for user without relation, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, otherUser.Email) {
+		t.Fatalf("response must never contain the unrelated user's data, got %s", raw)
+	}
+}
+
+func TestTrainerClientsGetProfileUserNotFound(t *testing.T) {
+	router, userRepo, trainerRepo, _, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	_ = trainer
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsRemoveRoute+uuid.NewString(), "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for unknown user, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"CLIENT_RELATION_NOT_FOUND"`) {
+		t.Fatalf("expected CLIENT_RELATION_NOT_FOUND, got %s", raw)
+	}
+}
+
+func TestTrainerClientsGetProfileSoftDeletedUser(t *testing.T) {
+	router, userRepo, trainerRepo, clientRepo, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	if err := clientRepo.Create(context.Background(), &models.TrainerClient{TrainerID: trainer.ID, UserID: clientUser.ID}); err != nil {
+		t.Fatalf("seed relationship: %v", err)
+	}
+	if err := userRepo.SoftDelete(context.Background(), clientUser.ID); err != nil {
+		t.Fatalf("seed soft-deleted user: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsRemoveRoute+clientUser.ID, "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for soft-deleted user, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, clientUser.Email) {
+		t.Fatalf("response must never contain a soft-deleted user's data, got %s", raw)
+	}
+}
+
+func TestTrainerClientsGetProfileSoftDeletedRelation(t *testing.T) {
+	router, userRepo, trainerRepo, clientRepo, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	relation := &models.TrainerClient{TrainerID: trainer.ID, UserID: clientUser.ID}
+	if err := clientRepo.Create(context.Background(), relation); err != nil {
+		t.Fatalf("seed relationship: %v", err)
+	}
+	if err := clientRepo.SoftDelete(context.Background(), trainer.ID, clientUser.ID); err != nil {
+		t.Fatalf("seed soft-deleted relation: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsRemoveRoute+clientUser.ID, "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for soft-deleted relation, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, clientUser.Email) {
+		t.Fatalf("response must never contain the soft-deleted relation's data, got %s", raw)
+	}
+}
+
+func TestTrainerClientsGetProfileInvalidUserID(t *testing.T) {
+	router, userRepo, trainerRepo, _, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	_ = trainer
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsRemoveRoute+"not-a-uuid", "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for malformed user id, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
+		t.Fatalf("expected VALIDATION_ERROR, got %s", raw)
+	}
+}
+
+func TestTrainerClientsGetProfileInvalidToken(t *testing.T) {
+	router, _, _, _, _ := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+
+	rec, _, raw := trainerClientsRequest(router, "not.a.jwt", http.MethodGet, clientsRemoveRoute+uuid.NewString(), "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
+		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
 func TestTrainerClientsRemoveSuccess(t *testing.T) {
 	router, userRepo, trainerRepo, clientRepo, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
 	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
@@ -352,6 +596,7 @@ func TestTrainerClientsNotAuthenticated(t *testing.T) {
 		body   string
 	}{
 		{name: "list", method: http.MethodGet, path: clientsListRoute},
+		{name: "profile", method: http.MethodGet, path: clientsRemoveRoute + uuid.NewString()},
 		{name: "add", method: http.MethodPost, path: clientsListRoute, body: `{"user_id":"` + uuid.NewString() + `"}`},
 		{name: "remove", method: http.MethodDelete, path: clientsRemoveRoute + uuid.NewString()},
 		{name: "reactivate", method: http.MethodPost, path: clientsRemoveRoute + uuid.NewString() + "/reactivate"},
@@ -379,12 +624,24 @@ func TestTrainerClientsAuthenticatedNonTrainer(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsListRoute, "")
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d (body: %s)", rec.Code, raw)
+	cases := []struct {
+		name string
+		path string
+	}{
+		{name: "list", path: clientsListRoute},
+		{name: "profile", path: clientsRemoveRoute + uuid.NewString()},
 	}
-	if !strings.Contains(raw, `"code":"FORBIDDEN"`) {
-		t.Fatalf("expected FORBIDDEN, got %s", raw)
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, tc.path, "")
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d (body: %s)", rec.Code, raw)
+			}
+			if !strings.Contains(raw, `"code":"FORBIDDEN"`) {
+				t.Fatalf("expected FORBIDDEN, got %s", raw)
+			}
+		})
 	}
 }
 
@@ -393,12 +650,24 @@ func TestTrainerClientsPermissionNotGranted(t *testing.T) {
 	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
 	_ = trainer
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsListRoute, "")
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d (body: %s)", rec.Code, raw)
+	cases := []struct {
+		name string
+		path string
+	}{
+		{name: "list", path: clientsListRoute},
+		{name: "profile", path: clientsRemoveRoute + uuid.NewString()},
 	}
-	if strings.Contains(raw, "trainer.schedule") {
-		t.Fatalf("forbidden error must not reveal the permission, got %s", raw)
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, tc.path, "")
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d (body: %s)", rec.Code, raw)
+			}
+			if strings.Contains(raw, "trainer.schedule") {
+				t.Fatalf("forbidden error must not reveal the permission, got %s", raw)
+			}
+		})
 	}
 }
 
@@ -424,6 +693,120 @@ func TestTrainerClientsHandlerForwardsContextIdentity(t *testing.T) {
 	}
 	if svc.gotTrainer != identity.TrainerID {
 		t.Fatalf("expected context trainer %q, got %q", identity.TrainerID, svc.gotTrainer)
+	}
+}
+
+func TestTrainerClientsGetProfileHandlerForwardsContextIdentity(t *testing.T) {
+	identity := trainercontext.Identity{UserID: uuid.NewString(), TrainerID: uuid.NewString()}
+	svc := &stubTrainerClientsService{
+		client: &trainer_clients.Client{
+			RelationID: uuid.NewString(),
+			TrainerID:  identity.TrainerID,
+			UserID:     identity.UserID,
+			Email:      "client@ryze.local",
+			FirstName:  "Jane",
+			LastName:   "Roe",
+		},
+	}
+	router := newTrainerClientsHandlerRouter(svc, identity)
+
+	pathUserID := uuid.NewString()
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodGet, clientsRemoveRoute+pathUserID, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotTrainer != identity.TrainerID {
+		t.Fatalf("expected context trainer %q, got %q", identity.TrainerID, svc.gotTrainer)
+	}
+	if svc.gotUserID != pathUserID {
+		t.Fatalf("expected path user %q, got %q", pathUserID, svc.gotUserID)
+	}
+}
+
+func TestTrainerClientsGetProfileHandlerMissingContext(t *testing.T) {
+	router := newTrainerClientsHandlerRouter(&stubTrainerClientsService{}, nil)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodGet, clientsRemoveRoute+uuid.NewString(), "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
+		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
+func TestTrainerClientsGetProfileHandlerErrorMapping(t *testing.T) {
+	identity := trainercontext.Identity{UserID: uuid.NewString(), TrainerID: uuid.NewString()}
+
+	cases := []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{name: "invalid input", err: trainer_clients.ErrInvalidInput, status: http.StatusBadRequest, code: "VALIDATION_ERROR"},
+		{name: "relation not found", err: trainer_clients.ErrClientRelationNotFound, status: http.StatusNotFound, code: "CLIENT_RELATION_NOT_FOUND"},
+		{name: "client not found", err: trainer_clients.ErrClientNotFound, status: http.StatusNotFound, code: "CLIENT_NOT_FOUND"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &stubTrainerClientsService{err: tc.err}
+			router := newTrainerClientsHandlerRouter(svc, identity)
+
+			rec, _, raw := trainerClientsRequest(router, "", http.MethodGet, clientsRemoveRoute+uuid.NewString(), "")
+			if rec.Code != tc.status {
+				t.Fatalf("expected %d, got %d (body: %s)", tc.status, rec.Code, raw)
+			}
+			if !strings.Contains(raw, `"code":"`+tc.code+`"`) {
+				t.Fatalf("expected code %s, got %s", tc.code, raw)
+			}
+		})
+	}
+}
+
+func TestTrainerClientsGetProfileHandlerRepositoryFailureNotExposed(t *testing.T) {
+	identity := trainercontext.Identity{UserID: uuid.NewString(), TrainerID: uuid.NewString()}
+	svc := &stubTrainerClientsService{err: errLoginRepoFailure}
+	router := newTrainerClientsHandlerRouter(svc, identity)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodGet, clientsRemoveRoute+uuid.NewString(), "")
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, "repository failure") {
+		t.Fatalf("internal error details must never be exposed, got %s", raw)
+	}
+	if !strings.Contains(raw, `"code":"INTERNAL_ERROR"`) {
+		t.Fatalf("expected INTERNAL_ERROR, got %s", raw)
+	}
+}
+
+func TestTrainerClientsGetProfileNeverExposesSecrets(t *testing.T) {
+	router, userRepo, trainerRepo, clientRepo, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	if err := clientRepo.Create(context.Background(), &models.TrainerClient{TrainerID: trainer.ID, UserID: clientUser.ID}); err != nil {
+		t.Fatalf("seed relationship: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsRemoveRoute+clientUser.ID, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	for _, sensitive := range []string{
+		jwtValue,
+		"access_token",
+		testSecret,
+		"password_hash",
+		"session_version",
+		"deleted_at",
+	} {
+		if strings.Contains(raw, sensitive) {
+			t.Fatalf("response must never contain %q", sensitive)
+		}
 	}
 }
 

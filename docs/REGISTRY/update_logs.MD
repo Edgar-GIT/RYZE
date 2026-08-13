@@ -1,3 +1,73 @@
+# Version 2.17.0
+
+Title: Backend Step 29 — trainer client profile endpoint (`GET /trainer/clients/:userID`)
+
+Date: 2026-08-13
+
+Summary:
+
+Added the single-client profile read so an authenticated trainer can retrieve
+the safe profile of one of their active clients. The endpoint reuses the
+existing `TrainerClientsHandler`, `trainer_clients` service and
+`TrainerClientRepository`; ownership is guaranteed server-side because the
+trainer identity always comes exclusively from `trainercontext` and the query
+is scoped by both the trainer id and the requested user id. The active
+relationship and the linked user are verified together in one query.
+
+Behavior:
+
+- `GET /api/v1/trainer/clients/:userID` returns the same client shape as the
+  list and add endpoints (`id`, `trainer_id`, `user_id`, nested safe `user`,
+  `created_at`/`updated_at`); the `userID` path parameter only identifies the
+  requested resource and never proves access. A client-supplied `trainer_id`
+  query value is ignored.
+- Ownership rule: access exists only when an active `trainer_clients`
+  relationship matches the authenticated trainer and the requested user
+  (`deleted_at IS NULL` on the relationship).
+- A user that does not exist, is soft-deleted, is not an active client of the
+  trainer or whose relationship was soft-deleted all map to the same
+  `404 CLIENT_RELATION_NOT_FOUND`, so the endpoint can never enumerate other
+  users' existence (anti-IDOR, anti-enumeration).
+- Malformed identifiers → `400 VALIDATION_ERROR`; missing/invalid auth or
+  trainer context → `401`; non-trainer or unheld `trainer.clients` → `403`;
+  internal failures → `500 INTERNAL_ERROR` with no details exposed.
+- Response exposes only the client's public user fields; password hashes,
+  session versions, deletion markers and trainer-specific fitness data (weight,
+  goals, diet, progress, PRs, programs, statistics, payments) are never
+  returned.
+- No new migration: the `trainer_clients` table already existed.
+
+Verification: `gofmt -w .`, `go build ./...` and `go vet ./...` clean;
+`go test ./... -count=1` passes. Service tests cover success, invalid
+identifiers, missing relationship and soft-deleted-user hiding; HTTP tests cover
+the success path, the mandatory IDOR test in both directions (trainer A can
+never read trainer B's client and vice versa), query/header/body identity
+ignoring, a user without any relationship, unknown user, soft-deleted user,
+soft-deleted relationship, malformed user id, invalid token, non-trainer,
+permission-missing and no-secret-leak guarantees.
+
+Modified files:
+
+- `main/src/backend/services/trainer_clients/trainer_clients.go`
+- `main/src/backend/services/trainer_clients/trainer_clients_test.go`
+- `main/src/backend/api/auth/trainer_clients_handler.go`
+- `main/src/backend/api/auth/trainer_clients_handler_test.go`
+- `main/src/backend/routes/routes.go`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/INSTRUCTIONS/security.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Trainer client management already exposed list, add, remove and reactivate
+operations; a single-client profile read completes the `trainer.clients` area
+with the smallest coherent change, reusing the existing relationship model,
+ownership guarantees and safe response shape while locking the anti-enumeration
+and IDOR protections with dedicated tests.
+
+---
+
 # Version 2.16.0
 
 Title: Backend Step 28 — trainer client management (relationship, endpoints and tests)
