@@ -634,7 +634,7 @@ which exposes:
 - `IsKnownPermission` / `PermissionFromString` — recognition of official
   permissions and rejection of unknown permission strings (no arbitrary string
   can become a valid trainer permission).
-- `HasPermission` — the centralized grant check used by future trainer
+- `HasPermission` — the centralized grant check used by trainer
   authorization.
 
 The trainer permission model is intentionally small and extensible:
@@ -651,13 +651,17 @@ Security rules:
   and is the single reusable authorization source for the trainer layer.
 - Permissions are never stored or transmitted and are never supplied by the
   client.
-- A future `RequireTrainerPermission` middleware will run strictly after
-  `TrainerAuthenticate`, read the authenticated trainer identity from the
-  context and never trust client-supplied permissions, mirroring the admin
-  authorization layer.
-- Trainer authorization failure will return HTTP 403 `FORBIDDEN` with a
-  generic message that never reveals the required permissions or any internal
-  detail.
+- `middleware.RequireTrainerPermission` runs strictly after
+  `TrainerAuthenticate`, reads the authenticated trainer identity from
+  `trainercontext` and never trusts client-supplied user IDs, trainer IDs,
+  permissions, roles, headers, query or body values. It only depends on
+  `trainercontext`, `trainerroles`, Gin and the shared error envelope; it never
+  touches the database, JWT, token service or any repository.
+- Authorization is fail-closed: missing or invalid trainer identity maps to
+  HTTP 401 `AUTHENTICATION_REQUIRED`, and unknown or unheld required
+  permissions map to HTTP 403 `FORBIDDEN`.
+- Trainer authorization failure returns a generic message that never reveals
+  the required permissions or any internal detail.
 
 ---
 

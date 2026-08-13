@@ -1,3 +1,57 @@
+# Version 2.14.0
+
+Title: Backend Step 26 — trainer authorization middleware
+
+Date: 2026-08-13
+
+Summary:
+
+Implemented `middleware.RequireTrainerPermission`, the trainer route
+authorization middleware that runs strictly after `TrainerAuthenticate` and
+mirrors the admin authorization layer. It reads the authenticated trainer
+identity exclusively from `trainercontext.IdentityFromContext` and never
+trusts client-supplied user IDs, trainer IDs, permissions, roles, headers,
+query or body values.
+
+Behavior:
+
+- Valid trainer identity + granted required permission (at least one is
+  enough, OR semantics) → `c.Next()`.
+- Missing or invalid trainer identity (absent, wrong type, empty `UserID` /
+  `TrainerID` or non-UUID values) → HTTP 401 `AUTHENTICATION_REQUIRED`.
+- Unknown or unheld required permissions → HTTP 403 `FORBIDDEN`, fail-closed,
+  with the generic envelope that never reveals the required permissions or the
+  trainer identity.
+- The middleware depends only on `trainercontext`, `trainerroles`, Gin and the
+  shared error envelope; it never touches the database, JWT, token service or
+  any repository. No trainer routes are protected yet.
+
+Verification: `gofmt -w .`, `go build ./...` and `go vet ./...` clean;
+`go test ./... -count=1` passes. `middleware/trainer_authorization_test.go`
+covers every official permission granted, OR semantics, unknown permissions
+denied, no required permissions denied, request-supplied identity and
+permission claims ignored, missing/wrong-type/empty/invalid identities
+rejected with 401, and fail-closed misconfigured mounts, plus no-leak checks
+for both error codes.
+
+Modified files:
+
+- `main/src/backend/middleware/trainer_authorization.go`
+- `main/src/backend/middleware/trainer_authorization_test.go`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/INSTRUCTIONS/security.MD`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Step 26 of the backend roadmap: enforce trainer route authorization server-side
+before any trainer endpoints exist, reusing the permission model from v2.13.0
+and the trainer authentication chain from v2.12.1, so future trainer routes
+only need to mount `TrainerAuthenticate` + `RequireTrainerPermission`.
+
+---
+
 # Version 2.13.0
 
 Title: Backend Step 25 — trainer permission model foundation

@@ -214,11 +214,15 @@ The initial trainer permission set is deliberately small and extensible:
 - `trainer.statistics` — the trainer's statistics area.
 
 The initial grant mapping grants every base permission to every active trainer;
-there are no trainer tiers or sub-roles yet. A `RequireTrainerPermission`
-middleware is a future step: when it arrives it will run strictly after
-`TrainerAuthenticate`, read the authenticated trainer identity from the
-context and never trust client-supplied permissions, mirroring the admin
-authorization layer.
+there are no trainer tiers or sub-roles yet. The `RequireTrainerPermission`
+middleware (`middleware/trainer_authorization.go`) runs strictly after
+`TrainerAuthenticate`, reads the authenticated trainer identity from the
+trainer context and never trusts client-supplied permissions, mirroring the
+admin authorization layer. It depends only on `trainercontext`, `trainerroles`,
+Gin and the shared error envelope; it never touches the database, JWT, token
+service or any repository. Missing or invalid trainer identity fails closed
+with HTTP 401 `AUTHENTICATION_REQUIRED`; unknown or unheld required permissions
+fail closed with HTTP 403 `FORBIDDEN`.
 
 ---
 

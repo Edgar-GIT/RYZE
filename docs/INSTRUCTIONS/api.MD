@@ -363,9 +363,15 @@ permissions exist today:
 - `trainer.programs` — the trainer's programs area.
 - `trainer.statistics` — the trainer's statistics area.
 
-Every active trainer is granted every base permission. A
-`RequireTrainerPermission` middleware will be added when the trainer endpoints
-are protected.
+Every active trainer is granted every base permission. Route authorization is
+enforced by `middleware.RequireTrainerPermission`, which runs strictly after
+`TrainerAuthenticate`, reads the trainer identity exclusively from
+`trainercontext` and never trusts client-supplied user IDs, trainer IDs,
+permissions, roles, headers, query or body values. Missing or invalid trainer
+identity returns HTTP 401 `AUTHENTICATION_REQUIRED`; unknown or unheld
+required permissions return HTTP 403 `FORBIDDEN` with the generic envelope.
+No trainer routes are protected yet; they will mount
+`RequireTrainerPermission` behind `TrainerAuthenticate`.
 
 ---
 
