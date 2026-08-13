@@ -87,6 +87,27 @@ func TestTrainerRepository(t *testing.T) {
 		t.Fatalf("create second trainer: %v", err)
 	}
 
+	// 5b. FindByIDAndUserID matches only the trainer owned by the given user.
+	matched, err := trainerRepo.FindByIDAndUserID(ctx, trainer.ID, user.ID)
+	if err != nil {
+		t.Fatalf("find trainer by id and user: %v", err)
+	}
+	if matched.ID != trainer.ID || matched.UserID != user.ID {
+		t.Fatalf("find by id and user: expected trainer %q for user %q, got %+v", trainer.ID, user.ID, matched)
+	}
+	if matched.User.ID != user.ID {
+		t.Fatalf("find by id and user: expected linked user %q, got %q", user.ID, matched.User.ID)
+	}
+
+	// 5c. The same trainer id queried with a different owning user is never
+	// returned.
+	if _, err := trainerRepo.FindByIDAndUserID(ctx, trainer.ID, other.ID); !errors.Is(err, repositories.ErrTrainerNotFound) {
+		t.Fatalf("find by id and user with other user: expected ErrTrainerNotFound, got %v", err)
+	}
+	if _, err := trainerRepo.FindByIDAndUserID(ctx, "00000000-0000-0000-0000-000000000000", user.ID); !errors.Is(err, repositories.ErrTrainerNotFound) {
+		t.Fatalf("find by id and user with unknown id: expected ErrTrainerNotFound, got %v", err)
+	}
+
 	// 6. List active trainers includes both and reports the total.
 	active, total, err := trainerRepo.ListActive(ctx, 1, 20)
 	if err != nil {

@@ -34,6 +34,10 @@ func (f fakeTrainerRepository) FindByID(context.Context, string) (*models.Traine
 	return nil, errors.New("not implemented")
 }
 
+func (f fakeTrainerRepository) FindByIDAndUserID(context.Context, string, string) (*models.Trainer, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (f fakeTrainerRepository) FindByIDIncludingDeleted(context.Context, string) (*models.Trainer, error) {
 	return nil, errors.New("not implemented")
 }

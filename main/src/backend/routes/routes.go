@@ -8,6 +8,7 @@ import (
 	"ryze/backend/config"
 	"ryze/backend/middleware"
 	"ryze/backend/middleware/adminroles"
+	"ryze/backend/middleware/trainerroles"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_login"
 	"ryze/backend/services/admin_trainers"
@@ -19,6 +20,7 @@ import (
 	"ryze/backend/services/registration"
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
+	"ryze/backend/services/trainer_profile"
 )
 
 // Setup wires all dependencies and registers the API routes.
@@ -58,6 +60,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminTrainerApplicationHandler := auth.NewAdminTrainerApplicationHandler(trainerApplicationService)
 	trainerApplicationHandler := auth.NewTrainerApplicationHandler(trainerApplicationService)
 
+	trainerProfileService := trainer_profile.NewService(trainerRepository)
+	trainerProfileHandler := auth.NewTrainerProfileHandler(trainerProfileService)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
@@ -68,6 +73,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
+
+	trainer := v1.Group("/trainer")
+	trainer.Use(middleware.Authenticate(tokenService, userRepository))
+	trainer.Use(middleware.TrainerAuthenticate(trainerRepository))
+	trainer.GET("/profile", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerProfileHandler.GetProfile)
 
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))

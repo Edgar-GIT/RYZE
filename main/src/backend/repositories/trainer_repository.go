@@ -26,6 +26,7 @@ var (
 type TrainerRepository interface {
 	Create(ctx context.Context, trainer *models.Trainer) error
 	FindByID(ctx context.Context, id string) (*models.Trainer, error)
+	FindByIDAndUserID(ctx context.Context, id, userID string) (*models.Trainer, error)
 	FindByIDIncludingDeleted(ctx context.Context, id string) (*models.Trainer, error)
 	FindByUserID(ctx context.Context, userID string) (*models.Trainer, error)
 	ListActive(ctx context.Context, page, limit int) ([]models.Trainer, int64, error)
@@ -61,6 +62,24 @@ func (r *trainerRepository) FindByID(ctx context.Context, id string) (*models.Tr
 			return nil, ErrTrainerNotFound
 		}
 		return nil, fmt.Errorf("failed to find trainer by id: %w", err)
+	}
+	return &trainer, nil
+}
+
+// FindByIDAndUserID returns the active trainer matching both the trainer id and
+// the owning user id, with its linked user. The ownership check happens inside
+// the query, so a trainer id that belongs to a different user is never
+// returned. It is used by the trainer profile endpoint, where the identity
+// comes exclusively from the authenticated trainer context.
+func (r *trainerRepository) FindByIDAndUserID(ctx context.Context, id, userID string) (*models.Trainer, error) {
+	var trainer models.Trainer
+	if err := r.db.WithContext(ctx).
+		Preload("User").
+		First(&trainer, "id = ? AND user_id = ?", id, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrTrainerNotFound
+		}
+		return nil, fmt.Errorf("failed to find trainer by id and user: %w", err)
 	}
 	return &trainer, nil
 }

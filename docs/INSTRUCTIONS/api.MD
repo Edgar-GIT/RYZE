@@ -370,8 +370,25 @@ enforced by `middleware.RequireTrainerPermission`, which runs strictly after
 permissions, roles, headers, query or body values. Missing or invalid trainer
 identity returns HTTP 401 `AUTHENTICATION_REQUIRED`; unknown or unheld
 required permissions return HTTP 403 `FORBIDDEN` with the generic envelope.
-No trainer routes are protected yet; they will mount
-`RequireTrainerPermission` behind `TrainerAuthenticate`.
+Protected trainer routes mount `RequireTrainerPermission` behind
+`TrainerAuthenticate`.
+
+### `GET /api/v1/trainer/profile`
+
+Returns the authenticated trainer's own profile with the nested user details.
+Identity comes exclusively from the authenticated trainer context; client
+supplied `user_id` / `trainer_id` query or body values are ignored.
+
+Response `data`:
+
+- `id` — trainer UUID.
+- `user_id` — owner user UUID.
+- `created_at` / `updated_at` — ISO 8601 timestamps.
+- `user` — nested safe user object: `id`, `email`, `first_name`,
+  `last_name`, `created_at`, `updated_at`. Password hashes, session versions
+  and soft-delete flags are never exposed.
+
+Requires `trainer.profile`.
 
 ---
 

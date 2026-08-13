@@ -1,3 +1,56 @@
+# Version 2.15.0
+
+Title: Backend Step 27 — trainer profile endpoint and HTTP test coverage
+
+Date: 2026-08-13
+
+Summary:
+
+Added `GET /api/v1/trainer/profile`, the first trainer-area route protected by
+the trainer authorization chain from v2.14.0 and v2.13.0, and a full HTTP
+test suite for it. The endpoint is served by
+`auth.NewTrainerProfileHandler` over `services/trainer_profile`, reads the
+trainer identity exclusively from `trainercontext.IdentityFromContext`, never
+trusts client-supplied `user_id` / `trainer_id` query values, and returns the
+trainer's own profile with nested safe user details (password hashes, session
+versions and soft-delete flags never leave the server).
+
+Behavior:
+
+- Authenticated active trainer with `trainer.profile` → HTTP 200 with the
+  trainer `id`, `user_id`, `created_at`, `updated_at` and nested `user`
+  object.
+- Missing/invalid token → HTTP 401 `AUTHENTICATION_REQUIRED`.
+- Authenticated non-trainer user → HTTP 403 `FORBIDDEN`.
+- Trainer without the required permission (route mounted with an unheld
+  permission) → HTTP 403 `FORBIDDEN`, no permission leak.
+- Query-supplied `user_id` / `trainer_id` are ignored; the authenticated
+  identity always wins.
+- Missing, wrong-type or empty trainer context identity → HTTP 401.
+- Trainer not found → HTTP 401 `AUTHENTICATION_REQUIRED`.
+- Repository/internal failure → HTTP 500 `INTERNAL_ERROR` with no internal
+  details exposed.
+
+Verification: `gofmt -w .`, `go build ./...` and `go vet ./...` clean;
+`go test ./... -count=1` passes. `api/auth/trainer_profile_handler_test.go`
+covers the full middleware chain (Authenticate + TrainerAuthenticate +
+RequireTrainerPermission) against a database transaction, the handler's own
+error mapping via a stubbed service, identity-ignoring and no-leak checks.
+
+Modified files:
+
+- `main/src/backend/api/auth/trainer_profile_handler_test.go`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+First protected trainer route: prove the authorization chain end-to-end at the
+HTTP level, lock the profile response contract and security guarantees with
+tests, and keep the documentation consistent with the implementation.
+
+---
+
 # Version 2.14.0
 
 Title: Backend Step 26 — trainer authorization middleware
