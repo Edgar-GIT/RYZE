@@ -513,6 +513,100 @@ Requires `trainer.clients`.
 
 ---
 
+### Trainer Client Programs
+
+Program assignment endpoints are grouped under
+`/api/v1/trainer/clients/:userID/programs` and require `trainer.clients` (the
+same permission as the client relationship itself; no new permission is
+invented). A program assignment links one of the authenticated trainer's own
+programs to one of the authenticated trainer's active clients. Identity comes
+exclusively from the authenticated trainer context; a client-supplied
+`trainer_id` (body or query) is always ignored and can never influence which
+assignment is created, listed or removed. A client that does not exist, is not
+an active client of the trainer or whose relationship was soft-deleted is
+indistinguishable from a client without assignments; a program or assignment
+that is missing, soft-deleted or owned by another trainer is indistinguishable
+and returns `NOT_FOUND`.
+
+---
+
+#### `POST /api/v1/trainer/clients/:userID/programs`
+
+Assigns one of the authenticated trainer's own active programs to one of the
+authenticated trainer's active clients. The trainer identity never comes from
+the request body: a client-supplied `trainer_id` value is ignored and the
+assignment is always created for the authenticated trainer.
+
+Request body:
+
+- `program_id` — the program UUID; the program must be active and owned by the
+  trainer.
+
+Response `data`:
+
+- `id` — assignment UUID.
+- `trainer_id` — the authenticated trainer UUID.
+- `program_id` / `user_id` — the assigned program and client user UUIDs.
+- `program` — nested safe program object: `id`, `trainer_id`, `name`,
+  `description`, `type`, `status`, `created_at`, `updated_at`. Deletion
+  markers and internal data are never exposed.
+- `created_at` / `updated_at` — assignment timestamps.
+
+Responses:
+
+- `201 Created` — assignment created.
+- `400 VALIDATION_ERROR` — malformed/missing identifiers or invalid body.
+- `404 CLIENT_RELATION_NOT_FOUND` — the client user does not exist, is
+  soft-deleted or is not an active client of this trainer.
+- `404 PROGRAM_NOT_FOUND` — the program does not exist, is soft-deleted or is
+  not owned by the trainer.
+- `409 ASSIGNMENT_ALREADY_ACTIVE` — the client already holds an active
+  assignment.
+
+Requires `trainer.clients`.
+
+---
+
+#### `GET /api/v1/trainer/clients/:userID/programs`
+
+Returns every active program assignment of one of the authenticated trainer's
+active clients, in assignment order, each with its safe program data. A
+client-supplied `trainer_id` query value is ignored; a client that does not
+exist, is not active or was removed is indistinguishable from a client without
+assignments and yields an empty list.
+
+Response `data`:
+
+- `programs` — array of assignment objects with the same shape as the `POST`
+  response.
+
+Responses:
+
+- `200 OK` — the assignments (empty array for a client without assignments).
+- `400 VALIDATION_ERROR` — malformed identifiers.
+
+Requires `trainer.clients`.
+
+---
+
+#### `DELETE /api/v1/trainer/clients/:userID/programs/:assignmentID`
+
+Soft-deletes ONLY the program assignment between the authenticated trainer and
+the client identified by the path parameters. The program and the
+trainer-client relationship are never deleted; only the assignment row is
+touched and never removed.
+
+Responses:
+
+- `200 OK` — assignment soft-deleted.
+- `400 VALIDATION_ERROR` — malformed identifiers.
+- `404 ASSIGNMENT_NOT_FOUND` — the assignment does not exist, is soft-deleted,
+  belongs to another client or the owning relationship is not active.
+
+Requires `trainer.clients`.
+
+---
+
 ### Trainer Programs
 
 Program management endpoints are grouped under

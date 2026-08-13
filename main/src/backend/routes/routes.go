@@ -18,6 +18,7 @@ import (
 	"ryze/backend/services/exercises"
 	"ryze/backend/services/login"
 	"ryze/backend/services/password"
+	"ryze/backend/services/program_assignments"
 	"ryze/backend/services/program_structure"
 	"ryze/backend/services/programs"
 	"ryze/backend/services/registration"
@@ -72,6 +73,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerClientService := trainer_clients.NewService(trainerClientRepository, userRepository)
 	trainerClientHandler := auth.NewTrainerClientsHandler(trainerClientService)
 
+	programAssignmentRepository := repositories.NewProgramAssignmentRepository(db)
+	programAssignmentService := program_assignments.NewService(programAssignmentRepository)
+	programAssignmentHandler := auth.NewTrainerClientProgramHandler(programAssignmentService)
+
 	trainerProgramRepository := repositories.NewProgramRepository(db)
 	trainerProgramService := programs.NewService(trainerProgramRepository)
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
@@ -112,6 +117,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.POST("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.AddClient)
 	trainer.DELETE("/clients/:userID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.RemoveClient)
 	trainer.POST("/clients/:userID/reactivate", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.ReactivateClient)
+	trainer.POST("/clients/:userID/programs", middleware.RequireTrainerPermission(trainerroles.PermissionClients), programAssignmentHandler.AssignProgram)
+	trainer.GET("/clients/:userID/programs", middleware.RequireTrainerPermission(trainerroles.PermissionClients), programAssignmentHandler.ListClientPrograms)
+	trainer.DELETE("/clients/:userID/programs/:assignmentID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), programAssignmentHandler.RemoveAssignment)
 	trainer.GET("/programs", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.ListPrograms)
 	trainer.POST("/programs", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.CreateProgram)
 	trainer.GET("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.GetProgram)

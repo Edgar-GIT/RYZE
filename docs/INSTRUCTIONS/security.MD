@@ -696,6 +696,37 @@ security model:
   never exposed. No trainer-specific fitness data (weight, goals, diet,
   progress, PRs, programs, statistics or payments) is ever returned.
 
+### Trainer Program Assignment Security
+
+The trainer client program assignment area
+(`/trainer/clients/:userID/programs`) follows the same security model:
+
+- The trainer identity is always resolved exclusively from the authenticated
+  trainer context; a client-supplied `trainer_id` (body or query) is never
+  accepted and can never change which assignment is created, listed or removed.
+- The client `user_id`, `program_id` and `assignment_id` are always validated
+  as canonical UUIDs server-side before any database access.
+- Every assignment query is scoped by the trainer id and by the active
+  trainer-client relationship: a client that does not exist, is soft-deleted or
+  is not an active client of the trainer is indistinguishable from a client
+  without assignments, so the list can never enumerate other clients' data.
+- The assigned program must exist, be active and be owned by the trainer; a
+  missing, soft-deleted or foreign program maps to `404 PROGRAM_NOT_FOUND`.
+- An assignment that is missing, soft-deleted, belongs to another client or
+  whose relationship is not active is indistinguishable and maps to
+  `404 ASSIGNMENT_NOT_FOUND` — enumeration of existence or ownership is
+  impossible.
+- Only the `program_id` is accepted on creation; the trainer identity and the
+  client identity are never accepted from the request.
+- The one-active-assignment rule (at most one active assigned program per
+  client) is enforced as a stored unique generated column, not by application
+  code.
+- Removing an assignment soft-deletes only the assignment row; the program and
+  the trainer-client relationship are never touched.
+- Responses expose only the assignment identity and the safe public program
+  data. Password hashes, session versions, JWT data and deletion markers are
+  never exposed.
+
 ### Trainer Program Structure Security
 
 The program structure and workout exercise management

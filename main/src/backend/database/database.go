@@ -21,7 +21,10 @@ const (
 )
 
 // mysqlConfig builds the go-sql-driver connection configuration. The DSN is
-// never exposed to keep credentials out of errors and logs.
+// never exposed to keep credentials out of errors and logs. MultiStatements is
+// enabled because the migration runner executes every migration file as a
+// single multi-statement batch (golang-migrate requires the connection to have
+// multiStatements=true); GORM itself never uses multi-statement batches.
 func mysqlConfig(cfg config.DatabaseConfig) *gomysql.Config {
 	return &gomysql.Config{
 		User:                 cfg.User,
@@ -35,6 +38,7 @@ func mysqlConfig(cfg config.DatabaseConfig) *gomysql.Config {
 		ReadTimeout:          connectTimeout,
 		WriteTimeout:         connectTimeout,
 		AllowNativePasswords: true,
+		MultiStatements:      true,
 	}
 }
 

@@ -262,6 +262,36 @@ The trainer-client area is a deliberately bounded foundation:
 - The relationship carries no business fields (progress, goals, diet or
   statistics) and no such field is added until a real feature requires it.
 
+### Trainer Program Assignments
+
+A program assignment delivers one of the trainer's own programs to one of the
+trainer's active clients. It is layered like the other trainer modules:
+
+- `TrainerClientProgramHandler` (thin, in `api/auth`) →
+  `program_assignments` service (in `services/program_assignments`) →
+  `ProgramAssignmentRepository` (in `repositories`) over the
+  `program_assignments` table.
+
+The area is guarded by the same single `trainer.clients` permission as the
+client relationship itself; no new permission is invented.
+
+Unlike the program structure area, the trainer id IS stored on every row: the
+assignment is scoped by an explicit trainer id AND by the active
+trainer-client relationship. The trainer identity always comes exclusively from
+the authenticated trainer context — a client-supplied `trainer_id` (body or
+query) can never influence which assignment is created, listed or removed. A
+client that is not the trainer's active client (missing, soft-deleted or
+unrelated) is indistinguishable from a client without assignments, and an
+assignment that is missing, soft-deleted or under another trainer/client pair
+is indistinguishable and maps to the same not-found error, preventing
+enumeration.
+
+The one-active-assignment rule (at most one active assigned program per client)
+is enforced as a stored unique generated column, not by application code.
+Removing an assignment soft-deletes only the assignment row; the program and
+the trainer-client relationship are never touched, and a soft-deleted program
+keeps being returned on historical assignments.
+
 ### Trainer Programs
 
 The trainer programs area is layered like the other trainer modules:
