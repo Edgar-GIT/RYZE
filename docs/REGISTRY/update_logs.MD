@@ -1,3 +1,58 @@
+# Version 2.18.0
+
+Title: Backend Step 30 — trainer client management foundation
+
+Date: 2026-08-13
+
+Summary:
+
+Analysis-first step: audited the trainer→client relationship against the
+documentation and the real implementation to confirm the `trainer_clients`
+table and the `trainer.clients` area already form a complete, consistent
+foundation. No code, schema or behavior changed; the foundation principles
+were made explicit and locked in the architecture documentation.
+
+Analysis conclusions:
+
+- `trainer_clients` (migration `000005`) already represents "trainer manages
+  client": a first-class relationship with an independent lifecycle
+  (active/removed via soft-delete) and stored constraints (unique active
+  relation, no self-relationship).
+- No states or fields are missing: add, list, read, remove and reactivate
+  fully cover the current scope; the relationship carries no business fields
+  and none was added.
+- Docs and code are consistent: `database.MD`, `api.MD`, `security.MD`,
+  `arquitecture.MD` and `project.MD` match the model, repository, service,
+  handler, routes and `trainerroles`.
+- No migration is needed.
+
+Foundation decisions (now explicit in `arquitecture.MD`):
+
+- The `TrainerClient` lifecycle is fully independent of the `User` and
+  `Trainer` lifecycles; relationship operations never touch the account or the
+  profile.
+- A trainer can never create, update or delete a client's user data through the
+  trainer area; the client profile is a read-only safe view.
+- The area is guarded by the single `trainer.clients` permission; no
+  sub-permissions and no branching on finer-grained roles.
+- Business fields (progress, goals, diet, statistics) are only introduced when
+  a real feature requires them.
+
+Modified files:
+
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Client management was built incrementally (Steps 26–29) and the relationship,
+endpoints, security rules and tests already follow the intended model. This
+step locks that model down as an explicit, documented foundation so future
+trainer-client work stays within its bounds and does not duplicate the user
+lifecycle, invent permissions or add speculative fields.
+
+---
+
 # Version 2.17.0
 
 Title: Backend Step 29 — trainer client profile endpoint (`GET /trainer/clients/:userID`)

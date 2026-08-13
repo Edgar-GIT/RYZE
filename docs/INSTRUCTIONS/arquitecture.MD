@@ -250,6 +250,18 @@ the trainer profile are never touched. Reactivation restores the exact same row.
 The active relation is unique per `(trainer_id, user_id)` and a self-relationship
 is impossible, both enforced as stored database constraints.
 
+The trainer-client area is a deliberately bounded foundation:
+
+- Relationship operations never touch the user account or the trainer profile;
+  the `TrainerClient` lifecycle is fully independent of the `User` and `Trainer`
+  lifecycles (see `database.MD`).
+- A trainer can never create, update or delete a client's user data through the
+  trainer area: the client profile is exposed strictly as a read-only safe view.
+- The whole area is guarded by the single `trainer.clients` permission. There
+  are no sub-permissions and operations never branch on finer-grained roles.
+- The relationship carries no business fields (progress, goals, diet or
+  statistics) and no such field is added until a real feature requires it.
+
 ---
 
 ## Email
