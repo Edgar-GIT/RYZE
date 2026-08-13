@@ -21,9 +21,8 @@ const (
 	PermissionProfile Permission = "trainer.profile"
 	// PermissionClients covers the trainer's client management area.
 	PermissionClients Permission = "trainer.clients"
-	// PermissionPacks covers the trainer's plans and programs, which the
-	// platform models as packs (training and nutrition).
-	PermissionPacks Permission = "trainer.packs"
+	// PermissionPrograms covers the trainer's programs area.
+	PermissionPrograms Permission = "trainer.programs"
 	// PermissionStatistics covers the trainer's statistics area.
 	PermissionStatistics Permission = "trainer.statistics"
 )
@@ -35,7 +34,7 @@ const (
 var officialPermissions = []Permission{
 	PermissionProfile,
 	PermissionClients,
-	PermissionPacks,
+	PermissionPrograms,
 	PermissionStatistics,
 }
 

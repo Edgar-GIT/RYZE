@@ -7,11 +7,10 @@ Date: 2026-08-13
 Summary:
 
 Established the trainer authorization foundation as a separate concern from
-trainer authentication. Trainer authentication already existed
-(`middleware/trainercontext` + `middleware.TrainerAuthenticate`, resolving an
-authenticated user into an active trainer and storing the `UserID` +
-`TrainerID` in the trainer context); this step adds the permission model an
-active trainer may hold.
+trainer authentication (implemented in v2.12.1: `middleware/trainercontext` +
+`middleware.TrainerAuthenticate`, resolving an authenticated user into an
+active trainer and storing the `UserID` + `TrainerID` in the trainer context);
+this step adds the permission model an active trainer may hold.
 
 The new `middleware/trainerroles` package follows the same architectural
 pattern as `middleware/adminroles` and depends on no framework, HTTP, database,
@@ -22,8 +21,7 @@ JWT or repository:
   dashboard area.
 - `PermissionClients` / `trainer.clients` — the trainer's client management
   area.
-- `PermissionPacks` / `trainer.packs` — the trainer's plans and programs,
-  which the platform models as packs (training and nutrition).
+- `PermissionPrograms` / `trainer.programs` — the trainer's programs area.
 - `PermissionStatistics` / `trainer.statistics` — the trainer's statistics
   area.
 - `AllPermissions` — the deterministic official permission set.
@@ -62,6 +60,93 @@ definitions and grant mapping the future trainer endpoints and
 `RequireTrainerPermission` middleware will rely on, without introducing
 business logic, middleware or any dependency on the existing admin or trainer
 systems.
+
+---
+
+# Version 2.12.1
+
+Title: Backend Step 24 — trainer authentication
+
+Date: 2026-08-12
+
+Summary:
+
+Implemented trainer authentication as a separate concern from user
+authentication and from trainer authorization. A trainer is an extension of an
+existing user account: trainer authentication proves that the authenticated
+user owns an active trainer profile, and nothing else.
+
+The new `middleware/trainercontext` package stores the authenticated trainer
+identity in the request context through a dedicated context/helper package:
+
+- `Identity` — the authenticated trainer identity (`UserID` + `TrainerID`).
+- `SetIdentity` — stores the identity in the Gin context (used by
+  `TrainerAuthenticate`).
+- `IdentityFromContext` / `UserIDFromContext` / `TrainerIDFromContext` —
+  safe reads; both UUIDs must be valid and non-empty, otherwise
+  `ErrNoAuthenticatedTrainer` is returned.
+
+The new `middleware.TrainerAuthenticate` middleware runs strictly after the
+user authentication middleware (`Authenticate`) and requires the user
+authentication context. It:
+
+- obtains the `UserID` exclusively from the authenticated user context;
+- resolves the trainer through `TrainerRepository.FindByUserID`;
+- only active trainers pass — an authenticated user without a trainer profile
+  receives HTTP 403 `FORBIDDEN`;
+- a soft-deleted trainer also receives HTTP 403 `FORBIDDEN` (the repository
+  only returns active trainers);
+- stores `UserID` + `TrainerID` in the trainer context through
+  `trainercontext.SetIdentity`;
+- never trusts a pre-existing trainer context: any stale identity is
+  overwritten;
+- missing or invalid user authentication receives HTTP 401
+  `AUTHENTICATION_REQUIRED` (handled by `Authenticate` itself);
+- internal repository failures receive HTTP 500 `INTERNAL_ERROR` with a
+  generic message that never leaks internal details.
+
+The layer chain is:
+
+```text
+Authenticate
+    ↓
+TrainerAuthenticate
+    ↓
+Trainer Authorization (separate layer, added in a later step)
+    ↓
+Handler
+```
+
+Trainer authentication only proves the authenticated user is an active
+trainer. Trainer authorization is a separate concern built in a later step
+(`middleware/trainerroles`); no permission checks exist in this version and no
+endpoint is protected by trainer permissions yet.
+
+Verification: `go build ./...` and `go vet ./...` clean;
+`go test ./middleware -count=1` passes. Middleware tests cover: active trainer
+continues with the trainer identity stored in the context, missing user
+authentication 401, invalid user context 401, non-trainer 403, soft-deleted
+trainer 403, internal repository failure 500 with no sensitive leaks, trainer
+context alone never authenticates a request, and stale trainer context is
+overwritten from the repository lookup.
+
+Modified files:
+
+- `main/src/backend/middleware/trainercontext/trainercontext.go`
+- `main/src/backend/middleware/trainer_auth.go`
+- `main/src/backend/middleware/trainer_auth_test.go`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/INSTRUCTIONS/security.MD`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Step 24 of the backend roadmap: prove that an authenticated user owns an active
+trainer profile and expose the trainer identity to downstream layers, keeping
+authentication strictly separate from the future trainer authorization layer.
+This is the authentication foundation the trainer permission model and a future
+`RequireTrainerPermission` middleware will build upon.
 
 ---
 

@@ -55,7 +55,7 @@ func TestUnknownPermissionsDenied(t *testing.T) {
 		"billing",
 		"trainer.billing",
 		"client.profile",
-		"trainer.pack",
+		"trainer.schedule",
 		"TRAINER.PROFILE",
 		"trainer.profile ",
 		"",
@@ -82,7 +82,7 @@ func TestPermissionFromStringRejectsUnknown(t *testing.T) {
 	for _, value := range []string{
 		"billing",
 		"trainer.billing",
-		"trainer.pack",
+		"trainer.schedule",
 		"TRAINER.PROFILE",
 		"",
 	} {

@@ -641,7 +641,7 @@ The trainer permission model is intentionally small and extensible:
 
 - `trainer.profile` — the trainer's own profile and dashboard area.
 - `trainer.clients` — the trainer's client management area.
-- `trainer.packs` — the trainer's plans and programs (packs).
+- `trainer.programs` — the trainer's programs area.
 - `trainer.statistics` — the trainer's statistics area.
 
 Security rules:
