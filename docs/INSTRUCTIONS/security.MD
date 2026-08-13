@@ -618,6 +618,49 @@ The database should be designed to support these features without major structur
 
 ---
 
+## Trainer Authorization
+
+Trainer authorization is a separate layer from trainer authentication.
+Authentication (`middleware/trainercontext` + `middleware.TrainerAuthenticate`)
+resolves an authenticated user into an active trainer and stores the `UserID` +
+`TrainerID` in the request context; authorization decides what an active
+trainer may do.
+
+Permission and role definitions are centralized in `middleware/trainerroles`,
+which exposes:
+
+- `Permission` — the trainer permission type.
+- `AllPermissions` — the deterministic official permission set.
+- `IsKnownPermission` / `PermissionFromString` — recognition of official
+  permissions and rejection of unknown permission strings (no arbitrary string
+  can become a valid trainer permission).
+- `HasPermission` — the centralized grant check used by future trainer
+  authorization.
+
+The trainer permission model is intentionally small and extensible:
+
+- `trainer.profile` — the trainer's own profile and dashboard area.
+- `trainer.clients` — the trainer's client management area.
+- `trainer.packs` — the trainer's plans and programs (packs).
+- `trainer.statistics` — the trainer's statistics area.
+
+Security rules:
+
+- Every active trainer is granted every base permission. There are no trainer
+  tiers or sub-roles yet; the grant mapping lives in `middleware/trainerroles`
+  and is the single reusable authorization source for the trainer layer.
+- Permissions are never stored or transmitted and are never supplied by the
+  client.
+- A future `RequireTrainerPermission` middleware will run strictly after
+  `TrainerAuthenticate`, read the authenticated trainer identity from the
+  context and never trust client-supplied permissions, mirroring the admin
+  authorization layer.
+- Trainer authorization failure will return HTTP 403 `FORBIDDEN` with a
+  generic message that never reveals the required permissions or any internal
+  detail.
+
+---
+
 # API SECURITY
 
 The backend is the only trusted authority.

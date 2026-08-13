@@ -195,6 +195,31 @@ trainer never leaves an approved application without a profile. No
 authorization logic exists in the handlers or services; every admin route runs
 behind `AdminAuthenticate` + `RequireAdminPermission`.
 
+Trainer authorization is a separate concern from trainer authentication.
+Authentication (`middleware/trainercontext` + `middleware.TrainerAuthenticate`)
+resolves an authenticated user into an active trainer and stores the `UserID` +
+`TrainerID` in the trainer context; authorization decides what an active trainer
+may do. The trainer permission model lives in `middleware/trainerroles` and
+follows the same architectural pattern as `middleware/adminroles`: a
+`Permission` type, an official permission set (`AllPermissions`,
+`IsKnownPermission`, `PermissionFromString`) and a centralized grant check
+(`HasPermission`), with no dependency on Gin, HTTP, the database, JWT or any
+repository.
+
+The initial trainer permission set is deliberately small and extensible:
+
+- `trainer.profile` — the trainer's own profile and dashboard area.
+- `trainer.clients` — the trainer's client management area.
+- `trainer.packs` — the trainer's plans and programs (packs).
+- `trainer.statistics` — the trainer's statistics area.
+
+The initial grant mapping grants every base permission to every active trainer;
+there are no trainer tiers or sub-roles yet. A `RequireTrainerPermission`
+middleware is a future step: when it arrives it will run strictly after
+`TrainerAuthenticate`, read the authenticated trainer identity from the
+context and never trust client-supplied permissions, mirroring the admin
+authorization layer.
+
 ---
 
 ## Email

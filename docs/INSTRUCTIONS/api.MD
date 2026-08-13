@@ -353,6 +353,20 @@ Additional permissions:
 - View associated clients
 - Access trainer dashboard
 
+The trainer area is protected by the trainer permission model
+(`middleware/trainerroles`), built separately from trainer authentication
+(`middleware/trainercontext` + `middleware.TrainerAuthenticate`). Four base
+permissions exist today:
+
+- `trainer.profile` — the trainer's own profile and dashboard area.
+- `trainer.clients` — the trainer's client management area.
+- `trainer.packs` — the trainer's plans and programs (packs).
+- `trainer.statistics` — the trainer's statistics area.
+
+Every active trainer is granted every base permission. A
+`RequireTrainerPermission` middleware will be added when the trainer endpoints
+are protected.
+
 ---
 
 ## Technical Administrator

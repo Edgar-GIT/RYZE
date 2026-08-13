@@ -1,3 +1,70 @@
+# Version 2.13.0
+
+Title: Backend Step 25 — trainer permission model foundation
+
+Date: 2026-08-13
+
+Summary:
+
+Established the trainer authorization foundation as a separate concern from
+trainer authentication. Trainer authentication already existed
+(`middleware/trainercontext` + `middleware.TrainerAuthenticate`, resolving an
+authenticated user into an active trainer and storing the `UserID` +
+`TrainerID` in the trainer context); this step adds the permission model an
+active trainer may hold.
+
+The new `middleware/trainerroles` package follows the same architectural
+pattern as `middleware/adminroles` and depends on no framework, HTTP, database,
+JWT or repository:
+
+- `Permission` — the trainer permission type.
+- `PermissionProfile` / `trainer.profile` — the trainer's own profile and
+  dashboard area.
+- `PermissionClients` / `trainer.clients` — the trainer's client management
+  area.
+- `PermissionPacks` / `trainer.packs` — the trainer's plans and programs,
+  which the platform models as packs (training and nutrition).
+- `PermissionStatistics` / `trainer.statistics` — the trainer's statistics
+  area.
+- `AllPermissions` — the deterministic official permission set.
+- `IsKnownPermission` / `PermissionFromString` — official-permission
+  recognition; unknown strings are rejected with `ErrUnknownPermission` so no
+  arbitrary string can become a valid trainer permission.
+- `HasPermission` — the single centralized trainer grant check. The initial
+  grant mapping grants every base permission to every active trainer (there
+  are no trainer tiers or sub-roles yet).
+
+A `RequireTrainerPermission` middleware is intentionally deferred: when it
+arrives it will run strictly after `TrainerAuthenticate`, mirroring the admin
+authorization layer.
+
+Verification: `go build ./...`, `go vet ./middleware/trainerroles/` and
+`gofmt -l` clean; `go test ./middleware/trainerroles/ -count=1` passes. New
+package tests cover the deterministic official set, no duplicates, every
+official permission recognized, valid permissions granted, unknown permissions
+denied, `PermissionFromString` round-trips and rejection of unknown strings,
+and the initial grant mapping covering the official set.
+
+Modified files:
+
+- `main/src/backend/middleware/trainerroles/trainerroles.go`
+- `main/src/backend/middleware/trainerroles/trainerroles_test.go`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/INSTRUCTIONS/security.MD`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Step 25 of the backend roadmap: build the trainer authorization layer
+separately from trainer authentication, providing the centralized permission
+definitions and grant mapping the future trainer endpoints and
+`RequireTrainerPermission` middleware will rely on, without introducing
+business logic, middleware or any dependency on the existing admin or trainer
+systems.
+
+---
+
 # Version 2.12.0
 
 Title: Backend Step 23 — trainer application & approval foundation
