@@ -618,6 +618,15 @@ A week or workout carries no name or content yet: in this foundation the
 position is its identity. Creating always appends to the end; reordering
 replaces the full order and requires the exact active set.
 
+Workout exercises live under
+`/api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises`.
+They assign global catalog exercises to a workout, ordered by `position`
+(1-based). The same exercise may appear more than once in the same workout
+(each assignment is a distinct position). The API only accepts the catalog
+`exercise_id`; the trainer ownership and the target workout always come from
+the authenticated trainer context and the URL path respectively — a client can
+never select another trainer's workout or embed an ownership id in the body.
+
 #### `POST /api/v1/trainer/programs/:programID/weeks`
 
 Appends a new empty week to the end of one of the authenticated trainer's own
@@ -764,6 +773,94 @@ Responses:
 - `200 OK`.
 - `400 VALIDATION_ERROR`.
 - `404 WORKOUT_NOT_FOUND`.
+
+Requires `trainer.programs`.
+
+#### `POST /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises`
+
+Appends one active global catalog exercise to the end of one of the
+authenticated trainer's own program workouts. The exercise is selected only by
+its catalog id; no other per-assignment data exists in this foundation.
+
+Request body:
+
+- `exercise_id` — the global catalog exercise id (required, must be a valid
+  UUID).
+
+Responses:
+
+- `201 Created` — response `data`: `id`, `program_workout_id`, `position`,
+  `exercise` (safe catalog data: `id`, `name`, `description`,
+  `target_muscles`, `equipment`, `difficulty`, `video_url`, `image_url`),
+  `created_at`, `updated_at`.
+- `400 VALIDATION_ERROR` — malformed identifiers, missing or invalid body.
+- `404 WORKOUT_NOT_FOUND` — missing, soft-deleted or foreign workout.
+- `404 EXERCISE_NOT_FOUND` — missing or soft-deleted catalog exercise.
+
+Requires `trainer.programs`.
+
+#### `GET /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises`
+
+Returns every active workout exercise of one of the authenticated trainer's own
+program workouts, in position order, each with its safe exercise data.
+
+Response `data`:
+
+- `exercises` — array of workout exercise objects.
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR`.
+
+Requires `trainer.programs`.
+
+#### `PATCH /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/order`
+
+Replaces the order of every active workout exercise of one of the
+authenticated trainer's own program workouts.
+
+Request body:
+
+- `ids` — array of every active workout exercise id in the new order, each
+  exactly once.
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR`.
+- `404 WORKOUT_NOT_FOUND`.
+- `409 REORDER_CONFLICT` — the list does not match the active workout exercises
+  exactly.
+
+Requires `trainer.programs`.
+
+#### `GET /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID`
+
+Returns one active workout exercise of one of the authenticated trainer's own
+program workouts, with its safe exercise data.
+
+Responses:
+
+- `200 OK` — workout exercise object.
+- `400 VALIDATION_ERROR`.
+- `404 WORKOUT_EXERCISE_NOT_FOUND` — missing, soft-deleted or foreign workout
+  exercise (a workout exercise of another workout, another program or another
+  trainer is indistinguishable from a non-existent one).
+
+Requires `trainer.programs`.
+
+#### `DELETE /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID`
+
+Soft-deletes one of the authenticated trainer's own workout exercises. Only the
+workout exercise row is soft-deleted; the workout, the week, the program and
+the catalog exercise are never touched.
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR`.
+- `404 WORKOUT_EXERCISE_NOT_FOUND`.
 
 Requires `trainer.programs`.
 
@@ -2151,19 +2248,56 @@ Downloads the workout program.
 
 # EXERCISE ENDPOINTS
 
-Exercise library.
-
----
+Implemented backend foundation for the platform exercise library. An exercise
+is a global, platform-owned catalog entry that exists only once and is reused
+across programs and packs. The catalog is **public and read-only**: the three
+endpoints below require no authentication and are identical for every caller.
+There are no write endpoints in this foundation; the catalog is populated
+outside the API (seed data / future admin tooling). Soft-deleted exercises are
+never returned.
 
 ## Exercise Library
 
 ```
-GET /api/v1/exercises
+GET /api/v1/exercises?page=1&limit=20
 ```
 
-Returns every exercise.
+Returns one page of the exercise catalog in alphabetical order by name. Public
+endpoint, no authentication required.
 
----
+Pagination follows the platform rules: page ≥ 1, limit clamped to a maximum of
+100, `data.pagination` reports `page`, `limit`, `total` and `total_pages`.
+`data.exercises` is an array of exercise objects.
+
+```
+GET /api/v1/exercises?limit=2
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Exercises retrieved successfully.",
+  "data": {
+    "exercises": [
+      {
+        "id": "…",
+        "name": "Barbell Squat",
+        "description": "…",
+        "target_muscles": "…",
+        "equipment": "…",
+        "difficulty": "…",
+        "video_url": "…",
+        "image_url": "…",
+        "created_at": "…",
+        "updated_at": "…"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 2, "total": 40, "total_pages": 20 }
+  }
+}
+```
 
 ## Exercise Details
 
@@ -2171,25 +2305,58 @@ Returns every exercise.
 GET /api/v1/exercises/{id}
 ```
 
-Returns complete exercise information.
+Returns complete exercise information for one active catalog entry.
 
 Includes:
 
 - Description
-- Images
-- Videos
+- Images (`image_url`)
+- Videos (`video_url`)
 - Target muscles
 - Equipment
 
----
+A malformed `{id}` returns `400 VALIDATION_ERROR`. An unknown or soft-deleted
+exercise returns `404 EXERCISE_NOT_FOUND`.
+
+```
+GET /api/v1/exercises/51f8b06a-…-a6f1f4b6e257
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Exercise retrieved successfully.",
+  "data": {
+    "id": "51f8b06a-…-a6f1f4b6e257",
+    "name": "Barbell Squat",
+    "description": "…",
+    "target_muscles": "…",
+    "equipment": "…",
+    "difficulty": "…",
+    "video_url": "…",
+    "image_url": "…",
+    "created_at": "…",
+    "updated_at": "…"
+  }
+}
+```
 
 ## Exercise Search
 
 ```
-GET /api/v1/exercises/search
+GET /api/v1/exercises/search?q={query}&page=1&limit=20
 ```
 
-Searches exercises.
+Searches exercises by name, case-insensitively. The `q` parameter is required;
+an empty or blank query returns `400 VALIDATION_ERROR`. LIKE wildcards in the
+query are treated literally. The response shape and pagination are identical to
+`GET /api/v1/exercises`.
+
+```
+GET /api/v1/exercises/search?q=squat
+```
 
 ---
 

@@ -262,6 +262,41 @@ The trainer-client area is a deliberately bounded foundation:
 - The relationship carries no business fields (progress, goals, diet or
   statistics) and no such field is added until a real feature requires it.
 
+### Trainer Programs
+
+The trainer programs area is layered like the other trainer modules:
+
+- `TrainerProgramStructureHandler` and `TrainerWorkoutExerciseHandler` (thin, in
+  `api/auth`) → `program_structure` service (in
+  `services/program_structure`) and `workout_exercises` service (in
+  `services/workout_exercises`) → `ProgramRepository`, `ProgramWeekRepository`,
+  `ProgramWorkoutRepository` and `WorkoutExerciseRepository` (in
+  `repositories`) over the `programs`, `program_weeks`, `program_workouts` and
+  `workout_exercises` tables.
+
+The whole area is guarded by the single `trainer.programs` permission; there
+are no sub-permissions.
+
+Ownership is derived, never stored: no trainer id exists on weeks, workouts or
+workout exercises. Every repository query is scoped through the full chain
+`trainer → program → week → workout → workout_exercise`, and the trainer
+identity always comes exclusively from the authenticated trainer context — a
+client-supplied `trainer_id` (query, body or path) can never influence which
+record is created, listed, read, reordered or deleted. A record that is
+missing, soft-deleted or under a foreign chain is indistinguishable and maps to
+the same not-found error, preventing enumeration of existence or ownership.
+
+Workout exercises are the minimal foundation of the `ProgramWorkout →
+WorkoutExercise → Exercise` relation: each row stores the owning workout id,
+the referenced global catalog exercise id and its 1-based position. The same
+exercise may appear more than once in a workout (position distinguishes the
+assignments). The catalog exercise is platform-owned and global; a soft-deleted
+exercise can never be added to a workout, and deleting a workout exercise never
+touches the catalog or the owning workout. No per-assignment training data
+(sets, reps, rest, tempo, weights, notes, progression) exists yet: the
+documentation defines none, and the assignment entity stays minimal so later
+steps can add it without a schema redesign.
+
 ---
 
 ## Email

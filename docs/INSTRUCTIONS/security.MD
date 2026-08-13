@@ -696,6 +696,45 @@ security model:
   never exposed. No trainer-specific fitness data (weight, goals, diet,
   progress, PRs, programs, statistics or payments) is ever returned.
 
+### Trainer Program Structure Security
+
+The program structure and workout exercise management
+(`/trainer/programs/:programID/weeks.../workouts.../exercises...`) follows the
+same security model, with an ownership chain instead of a flat relationship:
+
+- The trainer identity is always resolved exclusively from the authenticated
+  trainer context; a client-supplied `trainer_id` (query, body, header or
+  path) is never accepted and can never change which program, week, workout or
+  workout exercise is created, listed, read, reordered or deleted.
+- Every identifier in the URL path is validated as a canonical UUID
+  server-side before any database access.
+- No trainer id is stored on the week, workout or workout exercise rows.
+  Ownership is derived exclusively through the tree `programs →
+  program_weeks → program_workouts → workout_exercises`, and every query is
+  scoped by the full chain: a row that is missing, soft-deleted, under a
+  foreign program or under another trainer is indistinguishable and maps to
+  `PROGRAM_NOT_FOUND`, `WEEK_NOT_FOUND`, `WORKOUT_NOT_FOUND` or
+  `WORKOUT_EXERCISE_NOT_FOUND` — enumeration of existence or ownership is
+  impossible.
+- A workout exercise is always read, reordered or deleted through its owning
+  workout id and full chain. Passing a foreign workout exercise id under your
+  own workout, or your own workout exercise under a foreign workout, is
+  indistinguishable from a missing row.
+- Only the global catalog exercise id is accepted on creation. The exercise
+  must exist and be active: a soft-deleted catalog exercise can never be added
+  to a workout. Adding never accepts any ownership, position, timestamps or
+  per-assignment training data from the client; the position is always computed
+  server-side.
+- Reordering accepts the exact active set only. A list with missing, extra,
+  duplicated or foreign ids is rejected before any write.
+- Soft deletion is the only deletion mechanism and is strictly scoped: deleting
+  a workout exercise touches only that row (never the workout, the week, the
+  program or the catalog exercise); deleting a workout, week or program leaves
+  the nested rows preserved but unreachable.
+- Responses expose only the structural fields and the safe public catalog data
+  of the assigned exercise. Password hashes, session versions, JWT data and
+  deletion markers are never exposed.
+
 ---
 
 # API SECURITY

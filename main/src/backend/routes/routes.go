@@ -15,6 +15,7 @@ import (
 	"ryze/backend/services/admin_users"
 	"ryze/backend/services/change_password"
 	"ryze/backend/services/delete_account"
+	"ryze/backend/services/exercises"
 	"ryze/backend/services/login"
 	"ryze/backend/services/password"
 	"ryze/backend/services/program_structure"
@@ -24,6 +25,7 @@ import (
 	"ryze/backend/services/trainer_applications"
 	"ryze/backend/services/trainer_clients"
 	"ryze/backend/services/trainer_profile"
+	"ryze/backend/services/workout_exercises"
 )
 
 // Setup wires all dependencies and registers the API routes.
@@ -79,12 +81,23 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	programStructureService := program_structure.NewService(programWeekRepository, programWorkoutRepository)
 	programStructureHandler := auth.NewTrainerProgramStructureHandler(programStructureService)
 
+	workoutExerciseRepository := repositories.NewWorkoutExerciseRepository(db)
+	workoutExerciseService := workout_exercises.NewService(workoutExerciseRepository)
+	workoutExerciseHandler := auth.NewTrainerWorkoutExerciseHandler(workoutExerciseService)
+
+	exerciseRepository := repositories.NewExerciseRepository(db)
+	exerciseService := exercises.NewService(exerciseRepository)
+	exercisesHandler := auth.NewExercisesHandler(exerciseService)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
 	v1.POST("/auth/logout", logoutHandler.Logout)
 	v1.POST("/admin/auth/login", adminLoginHandler.Login)
 	v1.POST("/admin/auth/verify", adminLoginHandler.Verify)
+	v1.GET("/exercises", exercisesHandler.ListExercises)
+	v1.GET("/exercises/search", exercisesHandler.SearchExercises)
+	v1.GET("/exercises/:exerciseID", exercisesHandler.GetExercise)
 	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
@@ -114,6 +127,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ReorderWorkouts)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.GetWorkout)
 	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.DeleteWorkout)
+	trainer.POST("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.AddExercise)
+	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.ListExercises)
+	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.ReorderExercises)
+	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.GetExercise)
+	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.DeleteExercise)
 
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))
