@@ -513,6 +513,262 @@ Requires `trainer.clients`.
 
 ---
 
+### Trainer Programs
+
+Program management endpoints are grouped under
+`/api/v1/trainer/programs` and require `trainer.programs`. Identity comes
+exclusively from the authenticated trainer context; a client-supplied
+`trainer_id` (body, query, header) is always ignored and can never influence
+which program is created, listed, read, updated, deleted or restructured. A
+program, week or workout that is missing, soft-deleted or owned by another
+trainer is indistinguishable and returns `NOT_FOUND`.
+
+#### `POST /api/v1/trainer/programs`
+
+Creates a new program owned by the authenticated trainer. The `trainer_id` in
+the body is deliberately ignored; the owner is always the authenticated
+trainer.
+
+Request body:
+
+- `name` — required, trimmed, max 255 characters.
+- `description` — optional, max 5000 characters.
+- `type` — one of `free`, `premium`, `personalized`.
+- `status` — one of `draft`, `published`; defaults to `draft` when omitted.
+
+Response:
+
+- `201 Created` — response `data`: `id`, `trainer_id`, `name`,
+  `description`, `type`, `status`, `created_at`, `updated_at`.
+- `400 VALIDATION_ERROR` — invalid or incomplete input.
+- `500 INTERNAL_ERROR`.
+
+Requires `trainer.programs`.
+
+#### `GET /api/v1/trainer/programs`
+
+Returns one page of the authenticated trainer's active programs, newest first,
+with pagination metadata.
+
+Query parameters:
+
+- `page` — page number, 1-based, default `1`.
+- `limit` — page size, default `20`, clamped to `100`.
+
+Response `data`:
+
+- `programs` — array of program objects (same shape as a create response).
+- `pagination` — `page`, `limit`, `total`, `total_pages`.
+
+Requires `trainer.programs`.
+
+#### `GET /api/v1/trainer/programs/:programID`
+
+Returns one of the authenticated trainer's own active programs.
+
+Responses:
+
+- `200 OK` — program object.
+- `400 VALIDATION_ERROR` — malformed program id.
+- `404 PROGRAM_NOT_FOUND` — missing, soft-deleted or foreign program.
+
+Requires `trainer.programs`.
+
+#### `PATCH /api/v1/trainer/programs/:programID`
+
+Updates the whitelisted fields of one of the authenticated trainer's own
+programs. `trainer_id` is immutable and never accepted. Nil fields are left
+unchanged; at least one field must be provided.
+
+Request body (all optional):
+
+- `name`, `description`, `type`, `status`.
+
+Responses:
+
+- `200 OK` — updated program object.
+- `400 VALIDATION_ERROR` — invalid input or empty update.
+- `404 PROGRAM_NOT_FOUND`.
+
+Requires `trainer.programs`.
+
+#### `DELETE /api/v1/trainer/programs/:programID`
+
+Soft-deletes one of the authenticated trainer's own programs. Only the program
+row is soft-deleted; it is never removed from the database. Weeks and workouts
+remain stored but become unreachable.
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR`.
+- `404 PROGRAM_NOT_FOUND`.
+
+Requires `trainer.programs`.
+
+---
+
+### Trainer Program Structure
+
+Program structure endpoints manage the ordered week and workout slots of a
+trainer's own programs. They live under
+`/api/v1/trainer/programs/:programID/weeks` and require `trainer.programs`.
+Weeks are ordered by `week_number`, workouts by `position` (both 1-based).
+A week or workout carries no name or content yet: in this foundation the
+position is its identity. Creating always appends to the end; reordering
+replaces the full order and requires the exact active set.
+
+#### `POST /api/v1/trainer/programs/:programID/weeks`
+
+Appends a new empty week to the end of one of the authenticated trainer's own
+programs.
+
+Responses:
+
+- `201 Created` — response `data`: `id`, `program_id`, `week_number`,
+  `workouts` (empty array), `created_at`, `updated_at`.
+- `400 VALIDATION_ERROR` — malformed identifiers.
+- `404 PROGRAM_NOT_FOUND` — missing, soft-deleted or foreign program.
+
+Requires `trainer.programs`.
+
+#### `GET /api/v1/trainer/programs/:programID/weeks`
+
+Returns every active week of one of the authenticated trainer's own programs,
+in week order, with each week's active workouts in position order.
+
+Response `data`:
+
+- `weeks` — array of week objects; each `workouts` array holds workout objects
+  (`id`, `program_week_id`, `position`, `created_at`, `updated_at`).
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR`.
+
+Requires `trainer.programs`.
+
+#### `PATCH /api/v1/trainer/programs/:programID/weeks/order`
+
+Replaces the order of every active week of one of the authenticated trainer's
+own programs.
+
+Request body:
+
+- `ids` — array of every active week id in the new order, each exactly once.
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR` — empty, malformed or duplicated id list.
+- `404 PROGRAM_NOT_FOUND`.
+- `409 REORDER_CONFLICT` — the list does not match the active weeks exactly.
+
+Requires `trainer.programs`.
+
+#### `GET /api/v1/trainer/programs/:programID/weeks/:weekID`
+
+Returns one active week of one of the authenticated trainer's own programs,
+with its active workouts in position order.
+
+Responses:
+
+- `200 OK` — week object.
+- `400 VALIDATION_ERROR`.
+- `404 WEEK_NOT_FOUND` — missing, soft-deleted or foreign week.
+
+Requires `trainer.programs`.
+
+#### `DELETE /api/v1/trainer/programs/:programID/weeks/:weekID`
+
+Soft-deletes one of the authenticated trainer's own program weeks. Only the
+week row is soft-deleted; its workouts are preserved but become unreachable.
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR`.
+- `404 WEEK_NOT_FOUND`.
+
+Requires `trainer.programs`.
+
+#### `POST /api/v1/trainer/programs/:programID/weeks/:weekID/workouts`
+
+Appends a new empty workout to the end of one of the authenticated trainer's
+own program weeks.
+
+Responses:
+
+- `201 Created` — response `data`: `id`, `program_week_id`, `position`,
+  `created_at`, `updated_at`.
+- `400 VALIDATION_ERROR`.
+- `404 WEEK_NOT_FOUND` — missing, soft-deleted or foreign week.
+
+Requires `trainer.programs`.
+
+#### `GET /api/v1/trainer/programs/:programID/weeks/:weekID/workouts`
+
+Returns every active workout of one of the authenticated trainer's own program
+weeks, in position order.
+
+Response `data`:
+
+- `workouts` — array of workout objects.
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR`.
+
+Requires `trainer.programs`.
+
+#### `PATCH /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/order`
+
+Replaces the order of every active workout of one of the authenticated
+trainer's own program weeks.
+
+Request body:
+
+- `ids` — array of every active workout id in the new order, each exactly
+  once.
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR`.
+- `404 WEEK_NOT_FOUND`.
+- `409 REORDER_CONFLICT` — the list does not match the active workouts exactly.
+
+Requires `trainer.programs`.
+
+#### `GET /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID`
+
+Returns one active workout of one of the authenticated trainer's own program
+weeks.
+
+Responses:
+
+- `200 OK` — workout object.
+- `400 VALIDATION_ERROR`.
+- `404 WORKOUT_NOT_FOUND` — missing, soft-deleted or foreign workout.
+
+Requires `trainer.programs`.
+
+#### `DELETE /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID`
+
+Soft-deletes one of the authenticated trainer's own program workouts.
+
+Responses:
+
+- `200 OK`.
+- `400 VALIDATION_ERROR`.
+- `404 WORKOUT_NOT_FOUND`.
+
+Requires `trainer.programs`.
+
+---
+
 ## Technical Administrator
 
 The configured ADMIN_1 identity. Responsible for the platform's technical

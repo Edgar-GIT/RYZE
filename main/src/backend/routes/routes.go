@@ -17,6 +17,8 @@ import (
 	"ryze/backend/services/delete_account"
 	"ryze/backend/services/login"
 	"ryze/backend/services/password"
+	"ryze/backend/services/program_structure"
+	"ryze/backend/services/programs"
 	"ryze/backend/services/registration"
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
@@ -68,6 +70,15 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerClientService := trainer_clients.NewService(trainerClientRepository, userRepository)
 	trainerClientHandler := auth.NewTrainerClientsHandler(trainerClientService)
 
+	trainerProgramRepository := repositories.NewProgramRepository(db)
+	trainerProgramService := programs.NewService(trainerProgramRepository)
+	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
+
+	programWeekRepository := repositories.NewProgramWeekRepository(db)
+	programWorkoutRepository := repositories.NewProgramWorkoutRepository(db)
+	programStructureService := program_structure.NewService(programWeekRepository, programWorkoutRepository)
+	programStructureHandler := auth.NewTrainerProgramStructureHandler(programStructureService)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
@@ -88,6 +99,21 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.POST("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.AddClient)
 	trainer.DELETE("/clients/:userID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.RemoveClient)
 	trainer.POST("/clients/:userID/reactivate", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.ReactivateClient)
+	trainer.GET("/programs", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.ListPrograms)
+	trainer.POST("/programs", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.CreateProgram)
+	trainer.GET("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.GetProgram)
+	trainer.PATCH("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.UpdateProgram)
+	trainer.DELETE("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.DeleteProgram)
+	trainer.POST("/programs/:programID/weeks", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.CreateWeek)
+	trainer.GET("/programs/:programID/weeks", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ListWeeks)
+	trainer.PATCH("/programs/:programID/weeks/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ReorderWeeks)
+	trainer.GET("/programs/:programID/weeks/:weekID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.GetWeek)
+	trainer.DELETE("/programs/:programID/weeks/:weekID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.DeleteWeek)
+	trainer.POST("/programs/:programID/weeks/:weekID/workouts", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.CreateWorkout)
+	trainer.GET("/programs/:programID/weeks/:weekID/workouts", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ListWorkouts)
+	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ReorderWorkouts)
+	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.GetWorkout)
+	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.DeleteWorkout)
 
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))

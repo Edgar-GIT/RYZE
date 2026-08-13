@@ -1,3 +1,260 @@
+# Version 2.20.0
+
+Title: Backend Step 32 — trainer program structure foundation (weeks and workouts)
+
+Date: 2026-08-13
+
+Summary:
+
+Established the program structure foundation: `program_weeks` and
+`program_workouts` tables plus a complete, tested week/workout CRUD + reorder
+area for the trainer programs endpoint space. A program now contains ordered
+week slots and each week contains ordered workout slots; both are empty
+containers for now (no exercise assignments, sets or names yet) whose ordering
+and lifecycle are the product of this step.
+
+Entity and database:
+
+- Migration `000007_create_program_structure_tables` (`up`/`down`):
+  `program_weeks` table with `id` (UUID), `program_id` (`VARCHAR(36)`, FK
+  `fk_program_weeks_program` referencing `programs(id)`, indexed), `week_number`
+  (`INT NOT NULL`, `CHECK (week_number > 0)`), `created_at`/`updated_at`
+  (`DATETIME(6)`), `deleted_at` for soft-delete and the generated column
+  `active_week` (`IF(deleted_at IS NULL, CONCAT(program_id, ':', week_number),
+  NULL)`, unique `uq_program_weeks_active_week`) — a real stored constraint so
+  the database itself guarantees one active week per `week_number` per program.
+- Migration `000008_create_program_workouts_table` (`up`/`down`):
+  `program_workouts` table with `id` (UUID), `program_week_id` (`VARCHAR(36)`,
+  FK `fk_program_workouts_week` referencing `program_weeks(id)`, indexed),
+  `position` (`INT NOT NULL`, `CHECK (position > 0)`), timestamps, `deleted_at`
+  and the generated column `active_workout` (`IF(deleted_at IS NULL,
+  CONCAT(program_week_id, ':', position), NULL)`, unique
+  `uq_program_workouts_active_workout`).
+- Each migration file carries exactly one statement because the golang-migrate
+  MySQL driver executes one statement per file (the earlier multi-statement
+  draft failed with `Error 1064` and was split into the two migrations above).
+- `models.ProgramWeek` and `models.ProgramWorkout` mirror the tables, generate
+  their UUIDs in `BeforeCreate`; `ProgramWeek.Workouts` preloads the active
+  workouts in position order.
+- Soft-deletes via `deleted_at` everywhere; deleting a week leaves its workouts
+  preserved but unreachable because every workout query is scoped through an
+  active week.
+
+Behavior:
+
+- Week endpoints under `/api/v1/trainer/programs/:programID/weeks`, workout
+  endpoints under `/weeks/:weekID/workouts`, all protected by the chain
+  `Authenticate` → `TrainerAuthenticate` →
+  `RequireTrainerPermission(trainer.programs)`:
+  - `POST .../weeks` — appends an empty week at the end (`week_number` =
+    `max(active)+1`) inside a transaction locking the owning program row
+    (`201`).
+  - `GET .../weeks` — active weeks in week order, each with active workouts in
+    position order.
+  - `PATCH .../weeks/order` (`ids` body) — replaces the order of every active
+    week.
+  - `GET` / `DELETE .../weeks/:weekID` — read one week; soft-delete one week.
+  - `POST .../weeks/:weekID/workouts` — appends an empty workout at the end
+    (`position` = `max(active)+1`) inside a transaction locking the owning week
+    row (`201`).
+  - `GET .../weeks/:weekID/workouts`, `GET`/`DELETE` of
+    `.../workouts/:workoutID` — read/list/soft-delete workouts.
+  - `PATCH .../weeks/:weekID/workouts/order` (`ids` body) — replaces the order
+    of every active workout.
+- Reorder semantics: the list must be the exact set of active entries, each
+  exactly once; anything else is rejected before any write with
+  `409 REORDER_CONFLICT`. The reassignment runs in two phases inside one
+  transaction — every active slot is first released to `slot + 1000000` (a
+  value far outside the final `1..n` range, keeping the `> 0` checks valid),
+  then each entry is assigned its final slot — so the unique generated column
+  never observes a collision.
+- Ownership/IDOR protection follows the programs step: identity always comes
+  exclusively from `trainercontext`; every repository query is scoped by the
+  trainer through program/week subqueries; missing, soft-deleted or foreign
+  weeks/workouts are indistinguishable (`404 WEEK_NOT_FOUND` /
+  `404 WORKOUT_NOT_FOUND`); a foreign program yields `404 PROGRAM_NOT_FOUND`.
+- Errors: malformed identifiers or reorder lists → `400 VALIDATION_ERROR`;
+  reorder mismatch → `409 REORDER_CONFLICT`; missing/invalid auth → `401`;
+  non-trainer or unheld permission → `403 FORBIDDEN`; internal failures →
+  `500 INTERNAL_ERROR` with no details exposed. Responses expose only safe
+  structural metadata (`id`, parent id, `week_number`/`position`, timestamps)
+  and never include deletion markers.
+
+Not implemented yet:
+
+- No exercise assignments, sets, reps, rest or any workout content.
+- No week/workout names or descriptions.
+- No client program assignment, marketplace, purchases or payments.
+- No frontend changes.
+
+Verification: `gofmt -w`, `go build ./...` and `go vet ./...` clean;
+`go test ./... -count=1` passes against MariaDB. Migrations verified
+up/down/up to version 8. Repository tests cover append ordering, owner/week
+scoping, cross-trainer and cross-program isolation, exact-permutation reorder
+(including rejected lists), two-phase reorder persistence, soft-delete hiding
+with row preservation and unreachable-but-preserved workouts after a week
+delete. Service tests cover validation, error mapping, identity forwarding and
+a structural guarantee that the safe `Week`/`Workout` representations expose no
+sensitive fields. HTTP tests cover the success paths, cross-trainer IDOR for
+weeks and workouts, reorder success and conflict, soft-delete effects, 401/403
+paths, invalid JSON, no-secret-leak guarantees and the handler's own error
+mapping and context/path/order forwarding.
+
+Modified files:
+
+- `main/src/backend/database/migrations/000007_create_program_structure_tables.up.sql`
+- `main/src/backend/database/migrations/000007_create_program_structure_tables.down.sql`
+- `main/src/backend/database/migrations/000008_create_program_workouts_table.up.sql`
+- `main/src/backend/database/migrations/000008_create_program_workouts_table.down.sql`
+- `main/src/backend/models/program_week.go`
+- `main/src/backend/models/program_workout.go`
+- `main/src/backend/repositories/program_week_repository.go`
+- `main/src/backend/repositories/program_week_repository_test.go`
+- `main/src/backend/repositories/program_workout_repository.go`
+- `main/src/backend/repositories/program_workout_repository_test.go`
+- `main/src/backend/services/program_structure/program_structure.go`
+- `main/src/backend/services/program_structure/program_structure_test.go`
+- `main/src/backend/api/auth/trainer_program_structure_handler.go`
+- `main/src/backend/api/auth/trainer_program_structure_handler_test.go`
+- `main/src/backend/routes/routes.go`
+- `docs/DATABASE/database.MD`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Programs are a core trainer capability and a program without structure is not
+yet usable by clients. This step gives every trainer program an ordered
+week/workout skeleton with database-enforced ordering integrity (the generated
+unique columns make the `1..n` uniqueness a real constraint, not an application
+rule), safe server-side ownership scoping and a documented reorder contract.
+Keeping weeks and workouts as empty, position-identified containers means the
+future content fields (exercises, sets, rest) extend these entities without
+structural change, and the reorder mechanics are locked by tests before any
+content feature is built on top. The `trainer.programs` permission and the
+middleware chain from Step 31 are reused unchanged, and this step also closes
+the documentation gap by adding the `Programs` database section and the full
+trainer programs API contract that Step 31 had left only in the log.
+
+---
+
+# Version 2.19.0
+
+Title: Backend Step 31 — trainer programs foundation
+
+Date: 2026-08-13
+
+Summary:
+
+Established the `programs` entity as the foundation for trainer program
+management. A program is a training or nutrition offer created by a trainer,
+with an ownership model that is **nullable**: `trainer_id` may be NULL, which
+is structurally reserved for future platform-owned programs, while the trainer
+API always creates programs owned by the authenticated trainer and can never
+produce a platform-owned one. The entity, repository, service, handler and five
+`trainer.programs`-protected routes now form a complete, tested trainer program
+CRUD area.
+
+Entity and database:
+
+- Migration `000006_create_programs_table` (`up`/`down`): `programs` table with
+  `id` (UUID), `trainer_id` (`VARCHAR(36) NULL`, FK `fk_programs_trainer`
+  referencing `trainers(id)`, indexed), `name` (`VARCHAR(255) NOT NULL`),
+  `description` (`TEXT NULL`), `type` (`VARCHAR(20)`, CHECK
+  `('free','premium','personalized')`), `status` (`VARCHAR(20)`, CHECK
+  `('draft','published')`), `created_at`/`updated_at` (`DATETIME(6)`) and
+  `deleted_at` for soft-delete.
+- Nullable ownership model: platform-owned programs are allowed at the database
+  level (`trainer_id = NULL`); a repository test inserts a real NULL via raw SQL
+  and proves such a row is structurally valid yet never leaks into any trainer
+  list.
+- Soft-delete via `deleted_at`: the model uses GORM `DeletedAt`, regular queries
+  exclude soft-deleted rows, and deleting never removes the row from the
+  database.
+- `status` is `draft` or `published`; publishing is only a state and carries no
+  purchase, assignment or access semantics.
+- `models.Program` mirrors the table and generates its UUID in `BeforeCreate`.
+
+Behavior:
+
+- Trainer program CRUD is currently implemented under `/api/v1/trainer`,
+  protected by the chain `Authenticate` → `TrainerAuthenticate` →
+  `RequireTrainerPermission(trainer.programs)`:
+  - `GET /programs` — paginated active programs of the authenticated trainer,
+    newest first, with `data.pagination` (`page`, `limit`, `total`,
+    `total_pages`); the limit is clamped to the platform maximum.
+  - `POST /programs` — creates a program owned by the authenticated trainer
+    (`201`); status defaults to `draft` when omitted; the body never accepts
+    `trainer_id`.
+  - `GET /programs/:programID` — one of the authenticated trainer's own active
+    programs.
+  - `PATCH /programs/:programID` — updates only the whitelisted fields (`name`,
+    `description`, `type`, `status`); at least one field is required and
+    `trainer_id` is immutable.
+  - `DELETE /programs/:programID` — soft-deletes the program row only; the
+    trainer profile is never touched.
+- Ownership/IDOR protection: the trainer identity always comes exclusively from
+  `trainercontext`; client-supplied `trainer_id` values in the body, query or
+  header are ignored; every read/update/delete is scoped by both the owner
+  trainer and the program id; a missing, soft-deleted or foreign program all map
+  to the same `404 PROGRAM_NOT_FOUND` so the endpoints can never enumerate or
+  reveal another trainer's programs.
+- Errors: malformed identifiers, invalid JSON, invalid fields or invalid
+  pagination → `400 VALIDATION_ERROR`; missing/invalid auth → `401`; non-trainer
+  or unheld `trainer.programs` → `403 FORBIDDEN`; internal failures →
+  `500 INTERNAL_ERROR` with no details exposed. Responses expose only safe
+  program metadata and never include deletion markers.
+- The `trainer.programs` permission and the middleware chain already existed
+  (Steps 25/26/27); this step mounts the first program routes on them.
+
+Not implemented yet:
+
+- No program → client assignment relationship.
+- No marketplace, purchases or payments.
+- No platform-owned program creation endpoint, no program content (workouts,
+  nutrition), no admin program management and no frontend changes.
+
+Verification: `gofmt -w`, `go build ./...` and `go vet ./...` clean;
+`go test ./... -count=1` passes against MariaDB. Repository tests cover the
+create/list/find/update/soft-delete lifecycle, newest-first ordering, ownership
+scoping, soft-deleted exclusion, foreign-trainer isolation, NULL `trainer_id`
+structural allowance without list leakage, unknown-trainer FK rejection and the
+`name` NOT NULL invariant. Service tests cover validation, status defaulting,
+pagination clamping, error mapping and a structural guarantee that the safe
+`Program` representation exposes no sensitive fields. HTTP tests cover the
+success paths, the mandatory IDOR tests in both directions for get/update/
+delete, body/query/header identity ignoring, immutable `trainer_id`, soft-delete
+hiding, invalid input/JSON/pagination, 401/403 paths, no-secret-leak guarantees
+and the handler's own error mapping and context forwarding.
+
+Modified files:
+
+- `main/src/backend/database/migrations/000006_create_programs_table.up.sql`
+- `main/src/backend/database/migrations/000006_create_programs_table.down.sql`
+- `main/src/backend/models/program.go`
+- `main/src/backend/repositories/program_repository.go`
+- `main/src/backend/repositories/program_repository_test.go`
+- `main/src/backend/services/programs/programs.go`
+- `main/src/backend/services/programs/programs_test.go`
+- `main/src/backend/api/auth/trainer_programs_handler.go`
+- `main/src/backend/api/auth/trainer_programs_handler_test.go`
+- `main/src/backend/routes/routes.go`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Trainer programs are a core trainer capability (matching the `trainer.programs`
+permission and the "create/manage training and nutrition programs" product
+scope). The program is modeled as an independent, soft-deletable, trainer-owned
+entity so trainer and client lifecycles never couple, ownership is guaranteed
+server-side by the trainer context, and the nullable `trainer_id` leaves a
+documented, DB-validated path for future platform-owned programs. The endpoint
+contract, ownership rules and security guarantees are locked with repository,
+service and HTTP tests before any assignment, marketplace or purchase feature
+is built on top.
+
+---
+
 # Version 2.18.0
 
 Title: Backend Step 30 — trainer client management foundation
