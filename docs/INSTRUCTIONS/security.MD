@@ -663,6 +663,32 @@ Security rules:
 - Trainer authorization failure returns a generic message that never reveals
   the required permissions or any internal detail.
 
+### Trainer Client Management
+
+The trainer-client relationship (`GET`/`POST` `/trainer/clients`,
+`DELETE`/`POST` `/trainer/clients/:userID[/reactivate]`) follows the same
+security model:
+
+- The trainer identity is always resolved exclusively from the authenticated
+  trainer context; a client-supplied `trainer_id` (query, body or path) is
+  never accepted and can never change which relationship is created, listed,
+  removed or reactivated.
+- The client `user_id` is always validated as a canonical UUID server-side
+  before any database access.
+- A trainer can never become their own client; the self-relationship rule is
+  enforced by the service and backed by a stored `CHECK` constraint.
+- Only an active relationship is unique per `(trainer_id, user_id)`; the
+  uniqueness is enforced by a stored generated column, not by application code.
+- Removing a client soft-deletes only the relationship row. The user account
+  and the trainer profile are never deleted; their lifecycles are independent
+  and no endpoint can reach them through the relationship.
+- A soft-deleted user can never be added or re-added as a client; the active
+  relationship invariant is verified server-side before creation and
+  reactivation.
+- Responses expose only the relationship identity and the client's public
+  user fields. Password hashes, session versions and deletion markers are
+  never exposed.
+
 ---
 
 # API SECURITY

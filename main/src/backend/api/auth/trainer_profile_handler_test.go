@@ -43,8 +43,15 @@ func newTrainerProfileTestRouter(t *testing.T, permissions ...trainerroles.Permi
 		t.Fatalf("connect database: %v", err)
 	}
 
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("retrieve database handle: %v", err)
+	}
 	tx := db.Begin()
-	t.Cleanup(func() { tx.Rollback() })
+	t.Cleanup(func() {
+		_ = tx.Rollback()
+		_ = sqlDB.Close()
+	})
 
 	userRepo := repositories.NewUserRepository(tx)
 	trainerRepo := repositories.NewTrainerRepository(tx)

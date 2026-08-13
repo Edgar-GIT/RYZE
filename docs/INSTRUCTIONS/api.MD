@@ -392,6 +392,96 @@ Requires `trainer.profile`.
 
 ---
 
+### `GET /api/v1/trainer/clients`
+
+Returns one page of the authenticated trainer's active clients, newest first,
+with pagination metadata. Identity comes exclusively from the authenticated
+trainer context; a client-supplied `trainer_id` query value is ignored and can
+never change which clients are listed.
+
+Query parameters:
+
+- `page` — page number, 1-based, default `1`.
+- `limit` — page size, default `20`, clamped to `100`.
+
+Response `data`:
+
+- `clients` — array of client relationship objects:
+  - `id` — relationship UUID.
+  - `trainer_id` — owner trainer UUID (always the authenticated trainer).
+  - `user_id` — client user UUID.
+  - `created_at` / `updated_at` — relationship timestamps.
+  - `user` — nested safe user object: `id`, `email`, `first_name`,
+    `last_name`, `created_at`, `updated_at`. Password hashes, session versions
+    and soft-delete flags are never exposed.
+- `pagination` — `page`, `limit`, `total`, `total_pages`.
+
+Requires `trainer.clients`.
+
+---
+
+### `POST /api/v1/trainer/clients`
+
+Creates the active relationship between the authenticated trainer and an
+existing active user. The trainer identity never comes from the request body:
+a client-supplied `trainer_id` value is ignored and the relationship is always
+created for the authenticated trainer.
+
+Request body:
+
+- `user_id` — the client user UUID.
+
+Responses:
+
+- `201 Created` — relationship created; response `data` uses the same shape as
+  a list item.
+- `400 VALIDATION_ERROR` — missing/malformed identifiers, self-relationship,
+  invalid body.
+- `404 CLIENT_NOT_FOUND` — the client user does not exist or is soft-deleted
+  (a soft-deleted user can never be added).
+- `409 CLIENT_ALREADY_ADDED` — an active relationship already exists.
+
+Requires `trainer.clients`.
+
+---
+
+### `DELETE /api/v1/trainer/clients/:userID`
+
+Soft-deletes ONLY the relationship between the authenticated trainer and the
+user identified by the path parameter. The user account and the trainer profile
+are never deleted and remain active; their lifecycles are independent of the
+relationship.
+
+Responses:
+
+- `200 OK` — relationship soft-deleted.
+- `400 VALIDATION_ERROR` — malformed identifiers.
+- `404 CLIENT_RELATION_NOT_FOUND` — no relationship exists for this pair.
+
+Requires `trainer.clients`.
+
+---
+
+### `POST /api/v1/trainer/clients/:userID/reactivate`
+
+Restores the exact same previously removed relationship row between the
+authenticated trainer and the user identified by the path parameter. The client
+must still exist and be active, and an already-active relationship can never be
+reactivated.
+
+Responses:
+
+- `200 OK` — relationship restored; response `data` uses the same shape as a
+  list item.
+- `400 VALIDATION_ERROR` — malformed identifiers.
+- `404 CLIENT_NOT_FOUND` — the client user does not exist or is soft-deleted.
+- `404 CLIENT_RELATION_NOT_FOUND` — no previously removed relationship exists.
+- `409 CLIENT_ALREADY_ADDED` — the relationship is already active.
+
+Requires `trainer.clients`.
+
+---
+
 ## Technical Administrator
 
 The configured ADMIN_1 identity. Responsible for the platform's technical

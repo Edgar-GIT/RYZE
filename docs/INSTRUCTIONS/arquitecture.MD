@@ -224,6 +224,28 @@ service or any repository. Missing or invalid trainer identity fails closed
 with HTTP 401 `AUTHENTICATION_REQUIRED`; unknown or unheld required permissions
 fail closed with HTTP 403 `FORBIDDEN`.
 
+### Trainer Clients
+
+The trainer-client relationship (a trainer managing a user as their client) is
+a first-class entity, not a side effect of the user or trainer tables. It
+follows the same layering as the trainer profile:
+
+- `TrainerClientsHandler` (thin, in `api/auth`) → `trainer_clients` service
+  (in `services/trainer_clients`) → `TrainerClientRepository` (in
+  `repositories`) over the `trainer_clients` table, reusing the existing
+  `UserRepository` for the active-client check.
+
+The trainer identity never comes from the client: every operation receives the
+authenticated trainer id exclusively from `trainercontext`, so a client-supplied
+`trainer_id` (query, body or path) can never influence which relationship is
+created, listed, removed or reactivated. Ownership is therefore guaranteed by
+the trainer context, never trusted from request data.
+
+Removing a client soft-deletes only the relationship row; the user account and
+the trainer profile are never touched. Reactivation restores the exact same row.
+The active relation is unique per `(trainer_id, user_id)` and a self-relationship
+is impossible, both enforced as stored database constraints.
+
 ---
 
 ## Email

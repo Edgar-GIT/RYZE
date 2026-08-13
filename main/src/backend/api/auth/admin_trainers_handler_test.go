@@ -51,8 +51,15 @@ func newAdminTrainersTestRouter(t *testing.T, secure bool) (*gin.Engine, reposit
 		t.Fatalf("connect database: %v", err)
 	}
 
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("retrieve database handle: %v", err)
+	}
 	tx := db.Begin()
-	t.Cleanup(func() { tx.Rollback() })
+	t.Cleanup(func() {
+		_ = tx.Rollback()
+		_ = sqlDB.Close()
+	})
 
 	userRepo := repositories.NewUserRepository(tx)
 	trainerRepo := repositories.NewTrainerRepository(tx)

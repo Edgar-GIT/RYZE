@@ -379,6 +379,17 @@ Current API surface (versioned under `/api/v1`):
 - `POST /api/v1/trainer/apply` — submits a trainer application for the
   authenticated user (requires the `ryze_access_token` cookie); the applicant
   is always resolved from the session.
+- `GET /api/v1/trainer/profile` — returns the authenticated trainer's own
+  profile; requires an active trainer session with `trainer.profile`.
+- `GET /api/v1/trainer/clients` — lists the authenticated trainer's active
+  clients (pagination); requires `trainer.clients`.
+- `POST /api/v1/trainer/clients` — adds an active user as a client of the
+  authenticated trainer; requires `trainer.clients`.
+- `DELETE /api/v1/trainer/clients/{userID}` — removes (soft-deletes) only the
+  relationship between the authenticated trainer and the user; requires
+  `trainer.clients`.
+- `POST /api/v1/trainer/clients/{userID}/reactivate` — restores the exact same
+  previously removed relationship; requires `trainer.clients`.
 - `GET /api/v1/admin/trainer-applications` — lists trainer applications
   (pagination + optional `status` filter); requires `trainer_applications.read`
   (both roles).

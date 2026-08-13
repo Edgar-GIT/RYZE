@@ -20,6 +20,7 @@ import (
 	"ryze/backend/services/registration"
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
+	"ryze/backend/services/trainer_clients"
 	"ryze/backend/services/trainer_profile"
 )
 
@@ -63,6 +64,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerProfileService := trainer_profile.NewService(trainerRepository)
 	trainerProfileHandler := auth.NewTrainerProfileHandler(trainerProfileService)
 
+	trainerClientRepository := repositories.NewTrainerClientRepository(db)
+	trainerClientService := trainer_clients.NewService(trainerClientRepository, userRepository)
+	trainerClientHandler := auth.NewTrainerClientsHandler(trainerClientService)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
@@ -78,6 +83,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.Use(middleware.Authenticate(tokenService, userRepository))
 	trainer.Use(middleware.TrainerAuthenticate(trainerRepository))
 	trainer.GET("/profile", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerProfileHandler.GetProfile)
+	trainer.GET("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.ListClients)
+	trainer.POST("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.AddClient)
+	trainer.DELETE("/clients/:userID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.RemoveClient)
+	trainer.POST("/clients/:userID/reactivate", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.ReactivateClient)
 
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))

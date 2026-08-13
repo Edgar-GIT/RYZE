@@ -1,3 +1,95 @@
+# Version 2.16.0
+
+Title: Backend Step 28 — trainer client management (relationship, endpoints and tests)
+
+Date: 2026-08-13
+
+Summary:
+
+Implemented the trainer→client relationship as a first-class entity: the
+`trainer_clients` table (migration `000005`, with a MariaDB stored generated
+unique column enforcing one **active** relation per `(trainer_id, user_id)` and
+a `CHECK` constraint forbidding self-relationships), the `TrainerClient` model,
+`TrainerClientRepository`, the `trainer_clients` service and four trainer-area
+routes under `trainer.clients`. The trainer identity always comes exclusively
+from `trainercontext`; client-supplied `trainer_id` values (query, body or
+path) are never accepted. Removing a client soft-deletes only the relationship
+row — the user account and trainer profile are never touched — and
+reactivation restores the exact same row.
+
+Behavior:
+
+- `GET /api/v1/trainer/clients` — paginated active clients, newest first;
+  client-supplied `trainer_id` query values are ignored.
+- `POST /api/v1/trainer/clients` — adds an existing active user as a client
+  (`201`); soft-deleted or missing user → `404 CLIENT_NOT_FOUND`; duplicate
+  active relation → `409 CLIENT_ALREADY_ADDED`.
+- `DELETE /api/v1/trainer/clients/:userID` — soft-deletes only the relation;
+  missing relation → `404 CLIENT_RELATION_NOT_FOUND`.
+- `POST /api/v1/trainer/clients/:userID/reactivate` — restores the same row;
+  an already-active relation can never be reactivated.
+- Malformed identifiers, invalid JSON body or invalid pagination →
+  `400 VALIDATION_ERROR`; missing/invalid auth → `401`; non-trainer or unheld
+  `trainer.clients` → `403`; internal failures → `500 INTERNAL_ERROR` with no
+  details exposed.
+- Responses expose only the relationship identity and the client's public user
+  fields; password hashes, session versions and deletion markers never leave
+  the server.
+
+Also fixed a test-suite-wide connection leak: every `api/auth` handler-test
+router opened a fresh `database.Connect` pool and never closed it, so the
+cumulative open connections exceeded MariaDB's `max_connections` (151) and the
+package failed with `Error 1040 (08004): Too many connections`. The ten router
+helpers now close the `*sql.DB` handle in their cleanup; the whole suite passes
+again.
+
+Verification: `gofmt -w .`, `go build ./...` and `go vet ./...` clean;
+`go test ./... -count=1` passes. The migration was applied to the development
+MariaDB and validated with a down/up cycle (version 5, dirty=false, table
+restored). Repository, service and HTTP tests cover lifecycle, isolation
+(other trainers can never reach a relation), self-relationship rejection,
+active-user invariants and no-leak/security guarantees.
+
+Modified files:
+
+- `main/src/backend/database/migrations/000005_create_trainer_clients_table.up.sql`
+- `main/src/backend/database/migrations/000005_create_trainer_clients_table.down.sql`
+- `main/src/backend/models/trainer_client.go`
+- `main/src/backend/repositories/trainer_client_repository.go`
+- `main/src/backend/repositories/trainer_client_repository_test.go`
+- `main/src/backend/services/trainer_clients/trainer_clients.go`
+- `main/src/backend/services/trainer_clients/trainer_clients_test.go`
+- `main/src/backend/api/auth/trainer_clients_handler.go`
+- `main/src/backend/api/auth/trainer_clients_handler_test.go`
+- `main/src/backend/routes/routes.go`
+- `main/src/backend/api/auth/admin_trainers_handler_test.go`
+- `main/src/backend/api/auth/admin_users_handler_test.go`
+- `main/src/backend/api/auth/change_password_handler_test.go`
+- `main/src/backend/api/auth/delete_account_handler_test.go`
+- `main/src/backend/api/auth/login_handler_test.go`
+- `main/src/backend/api/auth/me_handler_test.go`
+- `main/src/backend/api/auth/register_handler_test.go`
+- `main/src/backend/api/auth/trainer_application_handler_test.go`
+- `main/src/backend/api/auth/trainer_profile_handler_test.go`
+- `docs/DATABASE/database.MD`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/INSTRUCTIONS/security.MD`
+- `docs/INSTRUCTIONS/project.MD`
+- `docs/how_to_run.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Trainer client management is a core trainer capability (matching the
+`trainer.clients` permission and the "manage clients" product scope). The
+relationship is modeled as an independent, soft-deletable entity so trainer and
+client lifecycles never couple, ownership is guaranteed server-side by the
+trainer context, and the endpoint contract and security guarantees are locked
+with repository, service and HTTP tests.
+
+---
+
 # Version 2.15.0
 
 Title: Backend Step 27 — trainer profile endpoint and HTTP test coverage

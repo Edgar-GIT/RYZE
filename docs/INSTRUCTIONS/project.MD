@@ -240,6 +240,12 @@ Trainers can:
 Trainer applications are created by authenticated users through
 `POST /api/v1/trainer/apply` and reviewed by both administrators.
 
+Client management is a first-class trainer capability (under `trainer.clients`):
+an active trainer can list their clients and add or remove the relationship with
+any active user. The relationship has its own lifecycle and is independent of
+the user account and the trainer profile (see the Trainer Clients sections in
+`database.MD` and `api.MD`).
+
 ---
 
 ## Management Administrator
