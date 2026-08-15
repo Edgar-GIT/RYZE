@@ -33,6 +33,7 @@ type ProgramAssignmentRepository interface {
 	Create(ctx context.Context, trainerID, userID, programID string, assignment *models.ProgramAssignment) error
 	ListByClient(ctx context.Context, trainerID, userID string) ([]models.ProgramAssignment, error)
 	FindByIDAndClient(ctx context.Context, trainerID, userID, assignmentID string) (*models.ProgramAssignment, error)
+	FindAssignedProgram(ctx context.Context, userID string) (*models.Program, error)
 	SoftDelete(ctx context.Context, trainerID, userID, assignmentID string) error
 }
 
@@ -138,6 +139,43 @@ func (r *programAssignmentRepository) FindByIDAndClient(ctx context.Context, tra
 		return nil, fmt.Errorf("failed to find program assignment: %w", err)
 	}
 	return &assignment, nil
+}
+
+// FindAssignedProgram returns the program of the authenticated user's most
+// recent active assignment, with its full active structure (weeks, workouts,
+// workout exercises and catalog exercises) preloaded in display order. The
+// query is scoped solely by the user id resolved from the authentication
+// context; the assignment itself is the grant, so no trainer-client
+// relationship is checked and no program status filter is applied (publishing
+// carries no access semantics). A user can be the client of several trainers
+// and hold several active assignments, so the most recently created one wins.
+// Soft-deleted assignments, programs, weeks, workouts and workout exercises are
+// excluded through GORM's default scope. A user without an active assignment
+// maps to ErrAssignmentNotFound; an assignment whose program was soft-deleted
+// maps to ErrProgramNotFound.
+func (r *programAssignmentRepository) FindAssignedProgram(ctx context.Context, userID string) (*models.Program, error) {
+	var assignment models.ProgramAssignment
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Preload("Program", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Preload("Weeks", func(db *gorm.DB) *gorm.DB { return db.Order("week_number ASC, id ASC") }).
+				Preload("Weeks.Workouts", func(db *gorm.DB) *gorm.DB { return db.Order("position ASC, id ASC") }).
+				Preload("Weeks.Workouts.Exercises", func(db *gorm.DB) *gorm.DB { return db.Order("position ASC, id ASC") }).
+				Preload("Weeks.Workouts.Exercises.Exercise")
+		}).
+		Order("created_at DESC, id DESC").
+		First(&assignment).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAssignmentNotFound
+		}
+		return nil, fmt.Errorf("failed to find the assigned program: %w", err)
+	}
+
+	if assignment.Program.ID == "" {
+		return nil, ErrProgramNotFound
+	}
+	return &assignment.Program, nil
 }
 
 // SoftDelete soft-deletes one of the trainer's own client assignments. Only the

@@ -16,12 +16,13 @@ import (
 // Soft-deleted workouts are excluded from regular queries through GORM's
 // DeletedAt handling.
 type ProgramWorkout struct {
-	ID            string         `gorm:"type:varchar(36);primaryKey" json:"id"`
-	ProgramWeekID string         `gorm:"column:program_week_id;type:varchar(36);not null" json:"program_week_id"`
-	Position      int            `gorm:"column:position;not null" json:"position"`
-	CreatedAt     time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
-	UpdatedAt     time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"deleted_at"`
+	ID            string            `gorm:"type:varchar(36);primaryKey" json:"id"`
+	ProgramWeekID string            `gorm:"column:program_week_id;type:varchar(36);not null" json:"program_week_id"`
+	Position      int               `gorm:"column:position;not null" json:"position"`
+	Exercises     []WorkoutExercise `gorm:"foreignKey:ProgramWorkoutID" json:"-"`
+	CreatedAt     time.Time         `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
+	UpdatedAt     time.Time         `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
+	DeletedAt     gorm.DeletedAt    `gorm:"column:deleted_at;type:datetime(6)" json:"deleted_at"`
 }
 
 func (w *ProgramWorkout) BeforeCreate(_ *gorm.DB) error {

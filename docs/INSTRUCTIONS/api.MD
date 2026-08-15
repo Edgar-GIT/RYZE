@@ -316,7 +316,7 @@ Examples:
 
 ---
 
-## Authenticated User
+ ## Authenticated User
 
 Accessible after login.
 
@@ -327,6 +327,128 @@ Examples:
 - Notifications
 - Messages
 - Current pack
+
+### Client Program Read
+
+`GET /api/v1/me/program` returns the full active structure of the program
+currently assigned to the authenticated user, read-only.
+
+Identity comes exclusively from the authentication context. A client-supplied
+`user_id`, `client_id` or `trainer_id` (query, body or header) is always ignored
+and can never influence which program is returned. The endpoint is read-only: a
+client can never create, modify or delete programs, weeks, workouts, workout
+exercises, exercises or assignments.
+
+The owning `trainer_id` and every parent identifier (`program_id`,
+`program_week_id`, `program_workout_id`) are never exposed. Weeks, workouts,
+workout exercises and exercises are returned in display order
+(`week_number` / `position` ascending). Soft-deleted programs, weeks, workouts,
+workout exercises, exercises and assignments are excluded. The program `status`
+carries no access semantics: a draft program is as readable as a published one.
+A user holding several active assignments (one per trainer) reads the most
+recently created one.
+
+---
+
+#### `GET /api/v1/me/program`
+
+Returns the program of the authenticated user's most recent active assignment
+with its full active structure (weeks, workouts, workout exercises and their
+catalog exercises).
+
+Response `data`:
+
+- `id` / `name` / `description` / `type` / `status` — public program metadata.
+- `created_at` / `updated_at` — program timestamps.
+- `weeks` — array of week objects, each with:
+  - `id` / `week_number` / `created_at` / `updated_at`.
+  - `workouts` — array of workout objects, each with:
+    - `id` / `position` / `created_at` / `updated_at`.
+    - `exercises` — array of workout exercise objects, each with:
+      - `id` / `position` / `created_at` / `updated_at`.
+      - `exercise` — safe catalog summary: `id`, `name`, `description`,
+        `target_muscles`, `equipment`, `difficulty`, `video_url`, `image_url`.
+
+Responses:
+
+- `200 OK` — the assigned program with its full structure; programs without
+  weeks, workouts or workout exercises yet return empty arrays.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
+- `404 PROGRAM_NOT_FOUND` — no active assignment or the assigned program is not
+  readable; both cases are indistinguishable and never reveal why.
+
+---
+
+### Client Workout History
+
+`POST /api/v1/me/workouts/{workoutID}/complete` records that the authenticated
+user completed one workout of their currently assigned program.
+`GET /api/v1/me/workouts/history` returns the user's own completed workouts,
+newest first, with pagination.
+
+Identity comes exclusively from the authentication context. A client-supplied
+`user_id`, `client_id` or `trainer_id` (query, body or header) is always ignored
+and can never influence which workout is completed or which history is returned.
+A workout is only executable when it belongs to the active structure of the
+user's most recent active assignment; a foreign, soft-deleted or unknown workout
+and a missing assignment are all indistinguishable and map to a single
+`404 WORKOUT_NOT_FOUND`. The owning user id, trainer id and every parent
+identifier (`program_id`, `program_week_id`) are never exposed.
+
+Repeated executions are preserved: completing the same workout more than once
+creates a new history entry. Completion is recorded server-side; no
+client-supplied timestamp or identity is ever accepted. This foundation records
+only the completion itself — no per-exercise data (sets, reps, rest, weights,
+duration) is stored yet.
+
+---
+
+#### `POST /api/v1/me/workouts/{workoutID}/complete`
+
+Marks a workout of the authenticated user's currently assigned program as
+completed. The `workoutID` path parameter identifies the requested resource and
+never proves access: only workouts belonging to the active structure of the
+user's most recent active assignment are executable.
+
+Response `data`:
+
+- `id` — the generated history entry id.
+- `program_workout_id` — the completed workout id.
+- `completed_at` — server-side completion timestamp.
+- `created_at` / `updated_at` — entry timestamps.
+
+Responses:
+
+- `201 Created` — the history entry was created.
+- `400 VALIDATION_ERROR` — malformed workout id.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
+- `404 WORKOUT_NOT_FOUND` — no active assignment, or the workout does not belong
+  to the assigned program's active structure; both cases are indistinguishable
+  and never reveal why.
+
+---
+
+#### `GET /api/v1/me/workouts/history`
+
+Returns one page of the authenticated user's own completed workouts, newest
+first.
+
+Query parameters:
+
+- `page` — page number, defaults to `1`.
+- `limit` — page size, defaults to `20`, capped at `100`.
+
+Response `data`:
+
+- `entries` — array of history entry objects, each with `id`,
+  `program_workout_id`, `completed_at`, `created_at`, `updated_at`.
+- `pagination` — `page`, `limit`, `total`, `total_pages`.
+
+Responses:
+
+- `200 OK` — the user's own history; a user without entries gets an empty array.
+- `400 VALIDATION_ERROR` — invalid pagination values.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
 
 ---
 
@@ -2302,11 +2424,9 @@ Returns today's workout.
 
 ## Workout History
 
-```
-GET /api/v1/workouts/history
-```
-
-Returns completed workouts.
+Implemented. `GET /api/v1/me/workouts/history` returns the authenticated user's
+completed workouts, newest first, with pagination. See "Client Workout History"
+under "Authenticated User" for the full contract.
 
 ---
 
@@ -2322,11 +2442,9 @@ Returns a completed workout.
 
 ## Complete Workout
 
-```
-POST /api/v1/workouts/{id}/complete
-```
-
-Marks a workout as completed.
+Implemented. `POST /api/v1/me/workouts/{workoutID}/complete` marks a workout of
+the authenticated user's currently assigned program as completed. See "Client
+Workout History" under "Authenticated User" for the full contract.
 
 ---
 

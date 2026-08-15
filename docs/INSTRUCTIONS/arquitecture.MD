@@ -327,6 +327,56 @@ touches the catalog or the owning workout. No per-assignment training data
 documentation defines none, and the assignment entity stays minimal so later
 steps can add it without a schema redesign.
 
+### Client Program Read
+
+The client-side view of an assigned program is deliberately narrower than the
+trainer-facing module and lives in the authenticated-user area, not the trainer
+area:
+
+- The client identity always comes exclusively from the authenticated user
+  context. A client-supplied `user_id`, `client_id` or `trainer_id` (query,
+  body or header) can never influence which program is returned.
+- The read is derived from the assignment tree `assignments → programs →
+  program_weeks → program_workouts → workout_exercises → exercises`; the owning
+  trainer id and every parent identifier are never exposed.
+- The view is strictly read-only: no client operation can create, modify or
+  delete programs, weeks, workouts, workout exercises, exercises or
+  assignments.
+- A user holding several active assignments (one per trainer) reads the most
+  recently created one; no endpoint addresses or enumerates the others.
+- Missing, soft-deleted or unreadable assignments/programs are indistinguishable
+  and map to the same not-found error, preventing enumeration.
+
+### Client Workout History
+
+The client workout history module is the execution counterpart of the
+assigned-program read and lives in the same authenticated-user area:
+
+- The client identity always comes exclusively from the authenticated user
+  context. A client-supplied `user_id`, `client_id` or `trainer_id` (query,
+  body or header) can never influence which workout is completed or which
+  history is returned.
+- Completion access is derived from the assignment tree `assignments → programs
+  → program_weeks → program_workouts`: a workout is only executable when it
+  belongs to the active structure of the user's most recent active assignment.
+  The history is stored per user (`workout_history`) and the read is strictly
+  the authenticated user's own.
+- The write path is deliberately minimal and append-only: `CompleteWorkout`
+  creates one history entry per completion (repeated executions are preserved),
+  records the completion server-side and accepts no client-supplied timestamp or
+  identity. No entry can be modified, removed or reordered by the client.
+- Missing, soft-deleted or foreign workouts and missing assignments are
+  indistinguishable and map to the same not-found error, preventing enumeration.
+- The response never exposes the owning user id, the trainer id or any parent
+  identifier (`program_id`, `program_week_id`); only the entry id, the completed
+  workout reference and the lifecycle timestamps are returned.
+
+The module follows the standard request flow:
+`WorkoutHistoryHandler` (in `api/auth`) → `workout_history` service (in
+`services/workout_history`) → `WorkoutHistoryRepository` (in `repositories`)
+over the `workout_history` table, reusing `ErrWorkoutNotFound` and the same
+pagination conventions as the trainer-facing list endpoints.
+
 ---
 
 ## Email

@@ -1,3 +1,183 @@
+# Version 2.25.0
+
+Title: Backend Step 37 — client workout history (workout completion and history read)
+
+Date: 2026-08-13
+
+Summary:
+
+Added the client workout history foundation: a `workout_history` table plus two
+authenticated-user endpoints — `POST /api/v1/me/workouts/{workoutID}/complete`
+records that the authenticated user completed one workout of their currently
+assigned program, and `GET /api/v1/me/workouts/history` returns the user's own
+completed workouts, newest first, with pagination. Completion access is derived
+exclusively from the assignment tree `assignments → programs → program_weeks →
+program_workouts`: a workout is only executable when it belongs to the active
+structure of the user's most recent active assignment. The client identity
+always comes exclusively from the authentication context; a client-supplied
+`user_id`, `client_id` or `trainer_id` (query, body or header) is ignored and
+can never influence which workout is completed or which history is returned.
+Repeated executions are preserved as separate append-only entries; completion is
+recorded server-side. Missing, soft-deleted or foreign workouts and missing
+assignments are all indistinguishable and map to `404 WORKOUT_NOT_FOUND`.
+
+Database:
+
+- New migration `000012_create_workout_history_table` (up/down): the
+  `workout_history` table with `id`, `user_id` (FK `users.id`), `program_workout_id`
+  (FK `program_workouts.id`), `completed_at`, `created_at`, `updated_at`,
+  `deleted_at`. Indexes on `user_id` and `program_workout_id`. No unique
+  constraint on `(user_id, program_workout_id)` because repeated executions are
+  preserved. No cascade in either direction so historical references stay
+  coherent.
+- New `models/workout_history.go` with a `BeforeCreate` hook that generates the
+  UUID and sets the server-side `completed_at`, and an explicit
+  `TableName` returning `workout_history`.
+
+Behavior:
+
+- `POST /api/v1/me/workouts/{workoutID}/complete`, mounted behind `Authenticate`
+  only (no trainer permission): verifies the chain
+  `user → most recent active assignment → active program → active week → active
+  workout` and inserts one append-only entry. Returns `201 Created` with `id`,
+  `program_workout_id`, `completed_at`, `created_at`, `updated_at`.
+- `GET /api/v1/me/workouts/history`, mounted behind `Authenticate` only: returns
+  one page of the authenticated user's own entries ordered by `completed_at DESC`
+  plus `pagination` (`page`, `limit`, `total`, `total_pages`). Defaults
+  `page=1`, `limit=20`, capped at `100`.
+- Repository `Create(userID, programWorkoutID)` reuses `ErrWorkoutNotFound` (the
+  existing trainer-area error) for every break in the chain; `ListByUser(userID,
+  page, limit)` is scoped strictly to the authenticated user.
+- Errors: `400 VALIDATION_ERROR`, `401 AUTHENTICATION_REQUIRED`,
+  `404 WORKOUT_NOT_FOUND` (no active assignment, soft-deleted assignment/program/
+  week/workout, foreign workout and unknown workout id are all
+  indistinguishable), `500 INTERNAL_ERROR` (details never exposed).
+- Security: identity always comes from the authentication context; the entry and
+  history responses never expose the owning `user_id`, the trainer id or any
+  parent identifier. IDOR tests verify a stranger can never complete another
+  user's workout or read another user's history, that client-supplied identity
+  is ignored, and that no secrets leak.
+
+Architecture notes:
+
+- No new frameworks or libraries. The `services/workout_history` service and
+  `api/auth/workout_history_handler.go` follow the existing
+  service/handler/repository layering, the safe-representation pattern and the
+  pagination conventions of the trainer-facing list endpoints.
+- The endpoints live in the authenticated-user area (`/api/v1/me/...`), matching
+  the Step 36 client program read convention; the aspirational `# WORKOUT
+  ENDPOINTS` paths in api.MD were updated to match.
+- The write path is deliberately minimal and append-only: no entry can be
+  modified, removed or reordered by the client, and no per-exercise training
+  data (sets, reps, rest, weights, duration) exists yet — the entity stays
+  minimal so later steps can add it without a schema redesign.
+
+Files:
+
+- `main/src/backend/database/migrations/000012_create_workout_history_table.up.sql`,
+  `...down.sql`
+- `main/src/backend/models/workout_history.go`
+- `main/src/backend/repositories/workout_history_repository.go`
+- `main/src/backend/services/workout_history/workout_history.go`
+- `main/src/backend/api/auth/workout_history_handler.go`
+- `main/src/backend/routes/routes.go`
+- Tests: `repositories/workout_history_repository_test.go`,
+  `services/workout_history/workout_history_test.go`,
+  `api/auth/workout_history_handler_test.go`,
+  `routes/workout_history_e2e_test.go`
+- Docs: `docs/INSTRUCTIONS/api.MD`, `docs/INSTRUCTIONS/security.MD`,
+  `docs/INSTRUCTIONS/arquitecture.MD`, `docs/DATABASE/database.MD`,
+  `docs/REGISTRY/update_logs.MD`
+
+---
+
+# Version 2.24.0
+
+Title: Backend Step 36 — client program read (the client's view of the assigned program)
+
+Date: 2026-08-13
+
+Summary:
+
+Added a read-only, authenticated-user endpoint `GET /api/v1/me/program` that
+returns the full active structure of the program currently assigned to the
+authenticated user: weeks, workouts, workout exercises and the safe public
+catalog summary of each exercise. The client identity always comes exclusively
+from the authentication context; a client-supplied `user_id`, `client_id` or
+`trainer_id` (query, body or header) is ignored and can never influence which
+program is returned. The view is strictly read-only and reuses the existing
+assignment tree — no schema, table or migration was added. A user holding
+several active assignments (one per trainer) reads the most recently created
+one; missing, soft-deleted or unreadable assignments/programs are
+indistinguishable and map to `404 PROGRAM_NOT_FOUND`.
+
+Database:
+
+- No migration. The read reuses the existing `program_assignments`,
+  `programs`, `program_weeks`, `program_workouts`, `workout_exercises` and
+  `exercises` tables.
+- The `Program` and `ProgramWorkout` models gained the `Weeks` and `Exercises`
+  preload associations (mapped columns already existed), so the whole structure
+  is loaded in one tree via GORM preloading.
+
+Behavior:
+
+- `GET /api/v1/me/program`, mounted behind `Authenticate` only (no trainer
+  permission): returns `200 OK` with the assigned program (`id`, `name`,
+  `description`, `type`, `status`, `created_at`, `updated_at`, `weeks`), each
+  week with `id`, `week_number`, `created_at`, `updated_at`, `workouts`, each
+  workout with `id`, `position`, `created_at`, `updated_at`, `exercises`, each
+  workout exercise with `id`, `position`, `created_at`, `updated_at` and the
+  safe public `exercise` summary (`id`, `name`, `description`,
+  `target_muscles`, `equipment`, `difficulty`, `video_url`, `image_url`).
+- Weeks, workouts and workout exercises are returned in display order
+  (`week_number`/`position` ascending). Programs without structure yet return
+  empty arrays. Soft-deleted programs, weeks, workouts, workout exercises,
+  exercises and assignments are excluded.
+- The program `status` carries no access semantics: a draft program is as
+  readable as a published one.
+- The owning `trainer_id` and every parent identifier (`program_id`,
+  `program_week_id`, `program_workout_id`) are never exposed; only the leaf
+  node ids of the returned tree appear.
+- Repository `FindAssignedProgram(userID)` returns the most recent active
+  assignment of the user (no trainer scope, no trainer-client relationship
+  check — the user owns the read on their own account) with the full program
+  structure preloaded.
+- Errors: `401 AUTHENTICATION_REQUIRED`, `404 PROGRAM_NOT_FOUND` (covers no
+  active assignment, a soft-deleted assignment and a soft-deleted/unreadable
+  program, all indistinguishable), `500 INTERNAL_ERROR` (details never
+  exposed).
+- Security: identity always comes from the authentication context; IDOR tests
+  verify a stranger's cookie can never read another user's program, that
+  client-supplied identity is ignored, and that no secrets leak.
+
+Architecture notes:
+
+- No new frameworks or libraries. The `services/client_programs` service and
+  `api/auth/client_program_handler.go` follow the existing
+  service/handler/repository layering and the safe-representation pattern,
+  reusing `trainerExerciseSummary`.
+- The endpoint lives in the authenticated-user area, not the trainer area: it
+  is the client's own read view and is guarded by the user authentication alone.
+- The one-active-assignment rule keeps living in the database (unique generated
+  column); the client read just picks the most recent active assignment.
+
+Files:
+
+- `main/src/backend/models/program.go`, `models/program_workout.go`
+- `main/src/backend/repositories/program_assignment_repository.go`
+- `main/src/backend/services/client_programs/client_programs.go`
+- `main/src/backend/api/auth/client_program_handler.go`
+- `main/src/backend/routes/routes.go`
+- Tests: `services/client_programs/client_programs_test.go`,
+  `api/auth/client_program_handler_test.go`,
+  `routes/client_program_e2e_test.go`,
+  `repositories/program_assignment_repository_test.go`
+- Docs: `docs/INSTRUCTIONS/api.MD`, `docs/INSTRUCTIONS/security.MD`,
+  `docs/INSTRUCTIONS/arquitecture.MD`, `docs/REGISTRY/update_logs.MD`
+
+---
+
 # Version 2.23.0
 
 Title: Backend Step 35 — trainer program assignments (one active assigned program per client)

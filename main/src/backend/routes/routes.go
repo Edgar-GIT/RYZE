@@ -14,6 +14,7 @@ import (
 	"ryze/backend/services/admin_trainers"
 	"ryze/backend/services/admin_users"
 	"ryze/backend/services/change_password"
+	"ryze/backend/services/client_programs"
 	"ryze/backend/services/delete_account"
 	"ryze/backend/services/exercises"
 	"ryze/backend/services/login"
@@ -27,6 +28,7 @@ import (
 	"ryze/backend/services/trainer_clients"
 	"ryze/backend/services/trainer_profile"
 	"ryze/backend/services/workout_exercises"
+	"ryze/backend/services/workout_history"
 )
 
 // Setup wires all dependencies and registers the API routes.
@@ -77,6 +79,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	programAssignmentService := program_assignments.NewService(programAssignmentRepository)
 	programAssignmentHandler := auth.NewTrainerClientProgramHandler(programAssignmentService)
 
+	clientProgramService := client_programs.NewService(programAssignmentRepository)
+	clientProgramHandler := auth.NewClientProgramHandler(clientProgramService)
+
 	trainerProgramRepository := repositories.NewProgramRepository(db)
 	trainerProgramService := programs.NewService(trainerProgramRepository)
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
@@ -94,6 +99,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	exerciseService := exercises.NewService(exerciseRepository)
 	exercisesHandler := auth.NewExercisesHandler(exerciseService)
 
+	workoutHistoryRepository := repositories.NewWorkoutHistoryRepository(db)
+	workoutHistoryService := workout_history.NewService(workoutHistoryRepository)
+	workoutHistoryHandler := auth.NewWorkoutHistoryHandler(workoutHistoryService)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
@@ -106,6 +115,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
+	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
+	v1.POST("/me/workouts/:workoutID/complete", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.CompleteWorkout)
+	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
 
 	trainer := v1.Group("/trainer")

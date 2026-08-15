@@ -34,6 +34,7 @@ type Program struct {
 	Description string         `gorm:"column:description;type:text" json:"description"`
 	Type        string         `gorm:"column:type;type:varchar(20);not null" json:"type"`
 	Status      string         `gorm:"column:status;type:varchar(20);not null" json:"status"`
+	Weeks       []ProgramWeek  `gorm:"foreignKey:ProgramID" json:"-"`
 	CreatedAt   time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
 	UpdatedAt   time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"deleted_at"`

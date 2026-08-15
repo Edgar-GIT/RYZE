@@ -189,10 +189,10 @@ func TestProgramAssignmentRepository(t *testing.T) {
 	// 8. A foreign client, an unknown client and a removed client are all
 	// indistinguishable from a client without assignments.
 	for name, pair := range map[string][2]string{
-		"foreign client":  {otherTrainer.ID, otherClient.ID},
-		"unknown client":  {trainer.ID, "00000000-0000-0000-0000-000000000000"},
-		"removed client":  {trainer.ID, removedClient.ID},
-		"unrelated pair":  {otherTrainer.ID, client.ID},
+		"foreign client": {otherTrainer.ID, otherClient.ID},
+		"unknown client": {trainer.ID, "00000000-0000-0000-0000-000000000000"},
+		"removed client": {trainer.ID, removedClient.ID},
+		"unrelated pair": {otherTrainer.ID, client.ID},
 	} {
 		entries, err := assignmentRepo.ListByClient(ctx, pair[0], pair[1])
 		if err != nil {
@@ -345,5 +345,254 @@ func TestProgramAssignmentRepository(t *testing.T) {
 	}
 	if len(otherEntries) != 1 || otherEntries[0].ID != otherClientAssignment.ID {
 		t.Fatalf("other trainer assignments must be untouched, got %d", len(otherEntries))
+	}
+}
+
+// TestProgramAssignmentRepositoryFindAssignedProgram exercises the client-side
+// read surface: the user's most recent active assignment resolves the assigned
+// program with its full active structure preloaded in display order, and every
+// missing or soft-deleted component maps to an indistinguishable not-found
+// outcome.
+func TestProgramAssignmentRepositoryFindAssignedProgram(t *testing.T) {
+	config.LoadEnvFile()
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	db, err := database.Connect(cfg)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+
+	tx := db.Begin()
+	defer tx.Rollback()
+
+	userRepo := repositories.NewUserRepository(tx)
+	trainerRepo := repositories.NewTrainerRepository(tx)
+	programRepo := repositories.NewProgramRepository(tx)
+	clientRepo := repositories.NewTrainerClientRepository(tx)
+	assignmentRepo := repositories.NewProgramAssignmentRepository(tx)
+	weekRepo := repositories.NewProgramWeekRepository(tx)
+	workoutRepo := repositories.NewProgramWorkoutRepository(tx)
+	workoutExerciseRepo := repositories.NewWorkoutExerciseRepository(tx)
+	ctx := context.Background()
+
+	seedUser := func() *models.User {
+		user := &models.User{
+			Email:        fmt.Sprintf("assigned-program-repo-%d@ryze.local", time.Now().UnixNano()),
+			PasswordHash: "prepared-hash-outside-repository-scope",
+			FirstName:    "Jane",
+			LastName:     "Roe",
+		}
+		if err := userRepo.Create(ctx, user); err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		return user
+	}
+
+	seedTrainer := func() *models.Trainer {
+		trainer := &models.Trainer{UserID: seedUser().ID}
+		if err := trainerRepo.Create(ctx, trainer); err != nil {
+			t.Fatalf("create trainer: %v", err)
+		}
+		return trainer
+	}
+
+	seedProgram := func(trainerID, name string) *models.Program {
+		program := &models.Program{
+			TrainerID: trainerID,
+			Name:      name,
+			Type:      models.ProgramTypePremium,
+			Status:    models.ProgramStatusDraft,
+		}
+		if err := programRepo.Create(ctx, program); err != nil {
+			t.Fatalf("create program: %v", err)
+		}
+		return program
+	}
+
+	seedRelation := func(trainerID, userID string) {
+		if err := clientRepo.Create(ctx, &models.TrainerClient{TrainerID: trainerID, UserID: userID}); err != nil {
+			t.Fatalf("create trainer-client relationship: %v", err)
+		}
+	}
+
+	seedExercise := func(name string) *models.Exercise {
+		exercise := &models.Exercise{
+			Name:          name,
+			Description:   "A catalog exercise",
+			TargetMuscles: "Chest",
+			Equipment:     "Barbell",
+			Difficulty:    "Intermediate",
+		}
+		if err := tx.Create(exercise).Error; err != nil {
+			t.Fatalf("create exercise: %v", err)
+		}
+		return exercise
+	}
+
+	seedWeek := func(trainerID, programID string) *models.ProgramWeek {
+		week := &models.ProgramWeek{}
+		if err := weekRepo.Create(ctx, trainerID, programID, week); err != nil {
+			t.Fatalf("create program week: %v", err)
+		}
+		return week
+	}
+
+	seedWorkout := func(trainerID, programID, weekID string) *models.ProgramWorkout {
+		workout := &models.ProgramWorkout{}
+		if err := workoutRepo.Create(ctx, trainerID, programID, weekID, workout); err != nil {
+			t.Fatalf("create program workout: %v", err)
+		}
+		return workout
+	}
+
+	seedWorkoutExercise := func(trainerID, programID, weekID, workoutID string, exercise *models.Exercise) *models.WorkoutExercise {
+		workoutExercise := &models.WorkoutExercise{ExerciseID: exercise.ID}
+		if err := workoutExerciseRepo.AddExercise(ctx, trainerID, programID, weekID, workoutID, workoutExercise); err != nil {
+			t.Fatalf("add workout exercise: %v", err)
+		}
+		return workoutExercise
+	}
+
+	trainer := seedTrainer()
+	client := seedUser()
+	seedRelation(trainer.ID, client.ID)
+	program := seedProgram(trainer.ID, "Strength Builder")
+
+	week1 := seedWeek(trainer.ID, program.ID)
+	week2 := seedWeek(trainer.ID, program.ID)
+	workout1 := seedWorkout(trainer.ID, program.ID, week1.ID)
+	workout2 := seedWorkout(trainer.ID, program.ID, week2.ID)
+	exercise := seedExercise("Bench Press")
+	workoutExercise := seedWorkoutExercise(trainer.ID, program.ID, week1.ID, workout1.ID, exercise)
+
+	assignment := &models.ProgramAssignment{}
+	if err := assignmentRepo.Create(ctx, trainer.ID, client.ID, program.ID, assignment); err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+
+	// 1. The assigned program is returned with its full active structure.
+	assigned, err := assignmentRepo.FindAssignedProgram(ctx, client.ID)
+	if err != nil {
+		t.Fatalf("find assigned program: %v", err)
+	}
+	if assigned.ID != program.ID || assigned.Name != "Strength Builder" {
+		t.Fatalf("expected the assigned program, got %+v", assigned)
+	}
+	if len(assigned.Weeks) != 2 {
+		t.Fatalf("expected 2 weeks, got %d", len(assigned.Weeks))
+	}
+	if assigned.Weeks[0].ID != week1.ID || assigned.Weeks[0].WeekNumber != 1 {
+		t.Fatalf("expected week 1 first, got %+v", assigned.Weeks[0])
+	}
+	if assigned.Weeks[1].ID != week2.ID || assigned.Weeks[1].WeekNumber != 2 {
+		t.Fatalf("expected week 2 second, got %+v", assigned.Weeks[1])
+	}
+	if len(assigned.Weeks[0].Workouts) != 1 || assigned.Weeks[0].Workouts[0].ID != workout1.ID {
+		t.Fatalf("expected workout 1 inside week 1, got %+v", assigned.Weeks[0].Workouts)
+	}
+	if len(assigned.Weeks[1].Workouts) != 1 || assigned.Weeks[1].Workouts[0].ID != workout2.ID {
+		t.Fatalf("expected workout 2 inside week 2, got %+v", assigned.Weeks[1].Workouts)
+	}
+	if len(assigned.Weeks[0].Workouts[0].Exercises) != 1 || assigned.Weeks[0].Workouts[0].Exercises[0].ID != workoutExercise.ID {
+		t.Fatalf("expected the workout exercise inside workout 1, got %+v", assigned.Weeks[0].Workouts[0].Exercises)
+	}
+	loaded := assigned.Weeks[0].Workouts[0].Exercises[0].Exercise
+	if loaded == nil || loaded.ID != exercise.ID || loaded.Name != "Bench Press" {
+		t.Fatalf("expected the catalog exercise embedded, got %+v", loaded)
+	}
+
+	// 2. A user without an active assignment is indistinguishable from a user
+	// without any assignment.
+	stranger := seedUser()
+	if _, err := assignmentRepo.FindAssignedProgram(ctx, stranger.ID); !errors.Is(err, repositories.ErrAssignmentNotFound) {
+		t.Fatalf("no assignment: expected ErrAssignmentNotFound, got %v", err)
+	}
+	if _, err := assignmentRepo.FindAssignedProgram(ctx, "00000000-0000-0000-0000-000000000000"); !errors.Is(err, repositories.ErrAssignmentNotFound) {
+		t.Fatalf("unknown user: expected ErrAssignmentNotFound, got %v", err)
+	}
+
+	// 3. A soft-deleted assignment removes the program from the read surface.
+	deletedClient := seedUser()
+	seedRelation(trainer.ID, deletedClient.ID)
+	deletedAssignment := &models.ProgramAssignment{}
+	if err := assignmentRepo.Create(ctx, trainer.ID, deletedClient.ID, program.ID, deletedAssignment); err != nil {
+		t.Fatalf("create deletable assignment: %v", err)
+	}
+	if err := assignmentRepo.SoftDelete(ctx, trainer.ID, deletedClient.ID, deletedAssignment.ID); err != nil {
+		t.Fatalf("soft delete assignment: %v", err)
+	}
+	if _, err := assignmentRepo.FindAssignedProgram(ctx, deletedClient.ID); !errors.Is(err, repositories.ErrAssignmentNotFound) {
+		t.Fatalf("soft-deleted assignment: expected ErrAssignmentNotFound, got %v", err)
+	}
+
+	// 4. A soft-deleted program makes the assignment unreadable.
+	deletedProgramClient := seedUser()
+	seedRelation(trainer.ID, deletedProgramClient.ID)
+	deletedProgram := seedProgram(trainer.ID, "Soon Deleted")
+	if err := assignmentRepo.Create(ctx, trainer.ID, deletedProgramClient.ID, deletedProgram.ID, &models.ProgramAssignment{}); err != nil {
+		t.Fatalf("create deleted-program assignment: %v", err)
+	}
+	if err := programRepo.SoftDelete(ctx, trainer.ID, deletedProgram.ID); err != nil {
+		t.Fatalf("soft delete program: %v", err)
+	}
+	if _, err := assignmentRepo.FindAssignedProgram(ctx, deletedProgramClient.ID); !errors.Is(err, repositories.ErrProgramNotFound) {
+		t.Fatalf("soft-deleted program: expected ErrProgramNotFound, got %v", err)
+	}
+
+	// 5. Soft-deleted structure entries are excluded from the read surface.
+	prunedClient := seedUser()
+	seedRelation(trainer.ID, prunedClient.ID)
+	prunedProgram := seedProgram(trainer.ID, "Pruned")
+	prunedWeek := seedWeek(trainer.ID, prunedProgram.ID)
+	prunedWorkout := seedWorkout(trainer.ID, prunedProgram.ID, prunedWeek.ID)
+	if err := workoutExerciseRepo.AddExercise(ctx, trainer.ID, prunedProgram.ID, prunedWeek.ID, prunedWorkout.ID, &models.WorkoutExercise{ExerciseID: exercise.ID}); err != nil {
+		t.Fatalf("add pruned workout exercise: %v", err)
+	}
+	if err := weekRepo.SoftDelete(ctx, trainer.ID, prunedProgram.ID, prunedWeek.ID); err != nil {
+		t.Fatalf("soft delete week: %v", err)
+	}
+	if err := assignmentRepo.Create(ctx, trainer.ID, prunedClient.ID, prunedProgram.ID, &models.ProgramAssignment{}); err != nil {
+		t.Fatalf("create pruned assignment: %v", err)
+	}
+	pruned, err := assignmentRepo.FindAssignedProgram(ctx, prunedClient.ID)
+	if err != nil {
+		t.Fatalf("find pruned program: %v", err)
+	}
+	if len(pruned.Weeks) != 0 {
+		t.Fatalf("a soft-deleted week must be excluded, got %d weeks", len(pruned.Weeks))
+	}
+	if err := workoutExerciseRepo.SoftDelete(ctx, trainer.ID, program.ID, week1.ID, workout1.ID, workoutExercise.ID); err != nil {
+		t.Fatalf("soft delete workout exercise: %v", err)
+	}
+	if err := workoutRepo.SoftDelete(ctx, trainer.ID, program.ID, week1.ID, workout1.ID); err != nil {
+		t.Fatalf("soft delete workout: %v", err)
+	}
+	afterPrune, err := assignmentRepo.FindAssignedProgram(ctx, client.ID)
+	if err != nil {
+		t.Fatalf("find after prune: %v", err)
+	}
+	if len(afterPrune.Weeks[0].Workouts) != 0 {
+		t.Fatalf("a soft-deleted workout must be excluded, got %d workouts", len(afterPrune.Weeks[0].Workouts))
+	}
+
+	// 6. A user with several active assignments (one per trainer) always reads
+	// the most recently created one.
+	trainer2 := seedTrainer()
+	otherProgram := seedProgram(trainer2.ID, "HIIT Blaster")
+	seedRelation(trainer2.ID, client.ID)
+	time.Sleep(2 * time.Millisecond)
+	if err := assignmentRepo.Create(ctx, trainer2.ID, client.ID, otherProgram.ID, &models.ProgramAssignment{}); err != nil {
+		t.Fatalf("create second assignment: %v", err)
+	}
+	latest, err := assignmentRepo.FindAssignedProgram(ctx, client.ID)
+	if err != nil {
+		t.Fatalf("find latest assignment: %v", err)
+	}
+	if latest.ID != otherProgram.ID || latest.Name != "HIIT Blaster" {
+		t.Fatalf("expected the most recent assignment to win, got %+v", latest)
 	}
 }
