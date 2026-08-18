@@ -203,6 +203,29 @@ func (h *TrainerProgramsHandler) UpdateProgram(c *gin.Context) {
 	})
 }
 
+// PublishProgram transitions a draft program to published. The program id in
+// the path only identifies the requested resource and never proves access: only
+// a draft program owned by the authenticated trainer can be published. A
+// client-supplied trainer_id is deliberately ignored.
+func (h *TrainerProgramsHandler) PublishProgram(c *gin.Context) {
+	trainerID, ok := requireTrainerContext(c)
+	if !ok {
+		return
+	}
+
+	program, err := h.service.PublishProgram(c.Request.Context(), trainerID, c.Param("programID"))
+	if err != nil {
+		h.respondProgramsError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Program published successfully.",
+		"data":    newTrainerProgramResponse(program),
+	})
+}
+
 // DeleteProgram soft-deletes one of the authenticated trainer's own programs.
 // Only the program row is soft-deleted; it is never removed from the database.
 func (h *TrainerProgramsHandler) DeleteProgram(c *gin.Context) {
@@ -232,6 +255,8 @@ func (h *TrainerProgramsHandler) respondProgramsError(c *gin.Context, err error)
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 	case errors.Is(err, programs.ErrProgramNotFound):
 		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
+	case errors.Is(err, programs.ErrProgramAlreadyPublished):
+		RespondError(c, http.StatusConflict, "PROGRAM_ALREADY_PUBLISHED", "Program is already published.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}

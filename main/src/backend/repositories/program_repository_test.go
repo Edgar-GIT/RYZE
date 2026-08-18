@@ -284,4 +284,50 @@ func TestProgramRepository(t *testing.T) {
 			t.Fatal("platform-owned program must never leak into a trainer list")
 		}
 	}
+
+	// 17. Publish transitions a draft program to published.
+	publishTarget := seedProgram(trainer.ID, "Publish Target", time.Now())
+	if err := programRepo.Publish(ctx, trainer.ID, publishTarget.ID); err != nil {
+		t.Fatalf("publish draft program: %v", err)
+	}
+	published, err := programRepo.FindByIDAndTrainer(ctx, trainer.ID, publishTarget.ID)
+	if err != nil {
+		t.Fatalf("find published program: %v", err)
+	}
+	if published.Status != models.ProgramStatusPublished {
+		t.Fatalf("expected published status, got %q", published.Status)
+	}
+
+	// 18. Publishing an already published program returns ErrProgramNotFound
+	// (the conditional WHERE status='draft' does not match).
+	if err := programRepo.Publish(ctx, trainer.ID, publishTarget.ID); !errors.Is(err, repositories.ErrProgramNotFound) {
+		t.Fatalf("publish already published: expected ErrProgramNotFound, got %v", err)
+	}
+	// The program must remain published after the failed publish attempt.
+	unchanged, err := programRepo.FindByIDAndTrainer(ctx, trainer.ID, publishTarget.ID)
+	if err != nil {
+		t.Fatalf("find unchanged program: %v", err)
+	}
+	if unchanged.Status != models.ProgramStatusPublished {
+		t.Fatalf("program must remain published after idempotent publish, got %q", unchanged.Status)
+	}
+
+	// 19. Publishing a foreign program returns ErrProgramNotFound.
+	if err := programRepo.Publish(ctx, otherTrainer.ID, publishTarget.ID); !errors.Is(err, repositories.ErrProgramNotFound) {
+		t.Fatalf("publish foreign program: expected ErrProgramNotFound, got %v", err)
+	}
+
+	// 20. Publishing an unknown program returns ErrProgramNotFound.
+	if err := programRepo.Publish(ctx, trainer.ID, "00000000-0000-0000-0000-000000000000"); !errors.Is(err, repositories.ErrProgramNotFound) {
+		t.Fatalf("publish unknown program: expected ErrProgramNotFound, got %v", err)
+	}
+
+	// 21. Publishing a soft-deleted program returns ErrProgramNotFound.
+	softDeletedPublish := seedProgram(trainer.ID, "Soft Deleted Publish", time.Now())
+	if err := programRepo.SoftDelete(ctx, trainer.ID, softDeletedPublish.ID); err != nil {
+		t.Fatalf("soft delete for publish test: %v", err)
+	}
+	if err := programRepo.Publish(ctx, trainer.ID, softDeletedPublish.ID); !errors.Is(err, repositories.ErrProgramNotFound) {
+		t.Fatalf("publish soft-deleted program: expected ErrProgramNotFound, got %v", err)
+	}
 }

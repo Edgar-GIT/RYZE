@@ -23,11 +23,11 @@ import (
 	"ryze/backend/services/program_structure"
 	"ryze/backend/services/programs"
 	"ryze/backend/services/registration"
+	"ryze/backend/services/statistics"
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
 	"ryze/backend/services/trainer_clients"
 	"ryze/backend/services/trainer_profile"
-	"ryze/backend/services/statistics"
 	"ryze/backend/services/workout_exercises"
 	"ryze/backend/services/workout_history"
 )
@@ -142,6 +142,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.POST("/programs", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.CreateProgram)
 	trainer.GET("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.GetProgram)
 	trainer.PATCH("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.UpdateProgram)
+	trainer.POST("/programs/:programID/publish", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.PublishProgram)
 	trainer.DELETE("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.DeleteProgram)
 	trainer.POST("/programs/:programID/weeks", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.CreateWeek)
 	trainer.GET("/programs/:programID/weeks", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ListWeeks)

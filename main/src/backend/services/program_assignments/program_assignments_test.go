@@ -137,12 +137,12 @@ func TestAssignProgramInvalidInput(t *testing.T) {
 	svc := newService(&stubRepo{})
 
 	cases := map[string][3]string{
-		"empty trainer":  {"", clientID, programID},
-		"bad trainer":    {"not-a-uuid", clientID, programID},
-		"empty client":   {trainerID, "", programID},
-		"bad client":     {trainerID, "not-a-uuid", programID},
-		"empty program":  {trainerID, clientID, ""},
-		"bad program":    {trainerID, clientID, "not-a-uuid"},
+		"empty trainer": {"", clientID, programID},
+		"bad trainer":   {"not-a-uuid", clientID, programID},
+		"empty client":  {trainerID, "", programID},
+		"bad client":    {trainerID, "not-a-uuid", programID},
+		"empty program": {trainerID, clientID, ""},
+		"bad program":   {trainerID, clientID, "not-a-uuid"},
 	}
 	for name, ids := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -300,12 +300,12 @@ func TestRemoveAssignmentInvalidInput(t *testing.T) {
 	svc := newService(&stubRepo{})
 
 	cases := map[string][3]string{
-		"empty trainer":       {"", clientID, assignmentID},
-		"bad trainer":         {"not-a-uuid", clientID, assignmentID},
-		"empty client":        {trainerID, "", assignmentID},
-		"bad client":          {trainerID, "not-a-uuid", assignmentID},
-		"empty assignment":    {trainerID, clientID, ""},
-		"bad assignment":      {trainerID, clientID, "not-a-uuid"},
+		"empty trainer":    {"", clientID, assignmentID},
+		"bad trainer":      {"not-a-uuid", clientID, assignmentID},
+		"empty client":     {trainerID, "", assignmentID},
+		"bad client":       {trainerID, "not-a-uuid", assignmentID},
+		"empty assignment": {trainerID, clientID, ""},
+		"bad assignment":   {trainerID, clientID, "not-a-uuid"},
 	}
 	for name, ids := range cases {
 		t.Run(name, func(t *testing.T) {

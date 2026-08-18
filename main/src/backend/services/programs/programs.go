@@ -20,6 +20,9 @@ var (
 	// ErrProgramNotFound indicates the program does not exist, is soft-deleted
 	// or is not owned by the trainer performing the operation.
 	ErrProgramNotFound = errors.New("program not found")
+	// ErrProgramAlreadyPublished indicates the program is already in the
+	// published state and cannot be published again.
+	ErrProgramAlreadyPublished = errors.New("program already published")
 )
 
 const (
@@ -39,6 +42,7 @@ type ProgramRepository interface {
 	FindByIDAndTrainer(ctx context.Context, trainerID, programID string) (*models.Program, error)
 	ListByTrainer(ctx context.Context, trainerID string, page, limit int) ([]models.Program, int64, error)
 	Update(ctx context.Context, trainerID, programID string, updates map[string]any) error
+	Publish(ctx context.Context, trainerID, programID string) error
 	SoftDelete(ctx context.Context, trainerID, programID string) error
 }
 
@@ -95,6 +99,11 @@ type Service interface {
 	ListPrograms(ctx context.Context, trainerID string, page, limit int) (ListProgramsResult, error)
 	GetProgram(ctx context.Context, trainerID, programID string) (*Program, error)
 	UpdateProgram(ctx context.Context, trainerID, programID string, input UpdateProgramInput) (*Program, error)
+	// PublishProgram transitions a draft program to published. The transition
+	// draft → published is the only allowed transition; publishing an already
+	// published program returns ErrProgramAlreadyPublished. A missing,
+	// soft-deleted or foreign program maps to ErrProgramNotFound.
+	PublishProgram(ctx context.Context, trainerID, programID string) (*Program, error)
 	DeleteProgram(ctx context.Context, trainerID, programID string) error
 }
 
@@ -247,6 +256,45 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 
 	if err := s.programs.Update(ctx, trainerID, programID, updates); err != nil {
 		return nil, fmt.Errorf("failed to update program: %w", err)
+	}
+
+	return s.GetProgram(ctx, trainerID, programID)
+}
+
+// PublishProgram transitions a draft program to published. The transition
+// draft → published is the only allowed state change through this operation;
+// publishing an already published program returns ErrProgramAlreadyPublished.
+// A missing, soft-deleted or foreign program is indistinguishable and maps to
+// ErrProgramNotFound. The client identity always comes from the authenticated
+// trainer context.
+func (s *service) PublishProgram(ctx context.Context, trainerID, programID string) (*Program, error) {
+	if err := validateTrainerID(trainerID); err != nil {
+		return nil, err
+	}
+	if err := validateProgramID(programID); err != nil {
+		return nil, err
+	}
+
+	err := s.programs.Publish(ctx, trainerID, programID)
+	if err != nil {
+		switch {
+		case errors.Is(err, repositories.ErrProgramNotFound):
+			// The repository returns ErrProgramNotFound for missing,
+			// soft-deleted, foreign and already-published programs. To
+			// distinguish "already published" we reload the program: if it
+			// exists and is owned by the trainer but has a non-draft status,
+			// it was already published.
+			existing, findErr := s.programs.FindByIDAndTrainer(ctx, trainerID, programID)
+			if findErr != nil {
+				return nil, ErrProgramNotFound
+			}
+			if existing.Status != models.ProgramStatusDraft {
+				return nil, ErrProgramAlreadyPublished
+			}
+			return nil, ErrProgramNotFound
+		default:
+			return nil, fmt.Errorf("failed to publish program: %w", err)
+		}
 	}
 
 	return s.GetProgram(ctx, trainerID, programID)

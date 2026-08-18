@@ -23,13 +23,13 @@ type StatisticsRepository interface {
 // reference; the owning user id, assignment id and deletion markers are never
 // exposed.
 type ClientStatisticsResponse struct {
-	HasActiveAssignment   bool    `json:"has_active_assignment"`
-	CurrentProgramName    string  `json:"current_program_name"`
-	TotalExecutions       int64   `json:"total_executions"`
-	UniqueWorkoutsCompleted int64 `json:"unique_workouts_completed"`
-	TotalWorkoutsInProgram int64  `json:"total_workouts_in_program"`
-	CompletionPercentage  float64 `json:"completion_percentage"`
-	LastWorkoutDate       *string `json:"last_workout_date"`
+	HasActiveAssignment     bool    `json:"has_active_assignment"`
+	CurrentProgramName      string  `json:"current_program_name"`
+	TotalExecutions         int64   `json:"total_executions"`
+	UniqueWorkoutsCompleted int64   `json:"unique_workouts_completed"`
+	TotalWorkoutsInProgram  int64   `json:"total_workouts_in_program"`
+	CompletionPercentage    float64 `json:"completion_percentage"`
+	LastWorkoutDate         *string `json:"last_workout_date"`
 }
 
 // Service implements the client-facing statistics flow. The requesting user

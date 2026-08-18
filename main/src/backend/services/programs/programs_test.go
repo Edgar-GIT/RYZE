@@ -27,19 +27,22 @@ var errRepoFailure = errors.New("repository failure")
 // passed to every operation, so tests can prove the service forwards the
 // trainer context identity and never invents or accepts a client-supplied one.
 type stubProgramRepo struct {
-	program            *models.Program
-	deleted            bool
-	create             func(program *models.Program) error
-	find               func(trainerID, programID string) (*models.Program, error)
-	list               func(trainerID string, page, limit int) ([]models.Program, int64, error)
-	update             func(trainerID, programID string, updates map[string]any) error
-	softDelete         func(trainerID, programID string) error
-	createGotTrainerID string
-	updateGotTrainerID string
-	updateGotProgramID string
-	updateGotUpdates   map[string]any
-	deleteGotTrainerID string
-	deleteGotProgramID string
+	program             *models.Program
+	deleted             bool
+	create              func(program *models.Program) error
+	find                func(trainerID, programID string) (*models.Program, error)
+	list                func(trainerID string, page, limit int) ([]models.Program, int64, error)
+	update              func(trainerID, programID string, updates map[string]any) error
+	publish             func(trainerID, programID string) error
+	softDelete          func(trainerID, programID string) error
+	createGotTrainerID  string
+	updateGotTrainerID  string
+	updateGotProgramID  string
+	updateGotUpdates    map[string]any
+	publishGotTrainerID string
+	publishGotProgramID string
+	deleteGotTrainerID  string
+	deleteGotProgramID  string
 }
 
 func (s *stubProgramRepo) Create(_ context.Context, program *models.Program) error {
@@ -105,6 +108,25 @@ func (s *stubProgramRepo) Update(_ context.Context, trainerID, programID string,
 			s.program.Status = value.(string)
 		}
 	}
+	return nil
+}
+
+func (s *stubProgramRepo) Publish(_ context.Context, trainerID, programID string) error {
+	s.publishGotTrainerID = trainerID
+	s.publishGotProgramID = programID
+	if s.publish != nil {
+		return s.publish(trainerID, programID)
+	}
+	if s.program == nil || s.deleted {
+		return repositories.ErrProgramNotFound
+	}
+	if s.program.TrainerID != trainerID || s.program.ID != programID {
+		return repositories.ErrProgramNotFound
+	}
+	if s.program.Status != models.ProgramStatusDraft {
+		return repositories.ErrProgramNotFound
+	}
+	s.program.Status = models.ProgramStatusPublished
 	return nil
 }
 
@@ -538,6 +560,91 @@ func TestDeleteProgramRepositoryFailure(t *testing.T) {
 
 	err := svc.DeleteProgram(context.Background(), trainerID, programID)
 	if errors.Is(err, programs.ErrProgramNotFound) || errors.Is(err, programs.ErrInvalidInput) {
+		t.Fatalf("repository failure must not map to a domain error, got %v", err)
+	}
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+}
+
+func TestPublishProgramSuccess(t *testing.T) {
+	draftProgram := validProgram()
+	draftProgram.Status = models.ProgramStatusDraft
+	repo := &stubProgramRepo{program: draftProgram}
+	svc := newService(repo)
+
+	program, err := svc.PublishProgram(context.Background(), trainerID, programID)
+	if err != nil {
+		t.Fatalf("PublishProgram: %v", err)
+	}
+	if program.Status != models.ProgramStatusPublished {
+		t.Fatalf("expected published, got %q", program.Status)
+	}
+	if repo.publishGotTrainerID != trainerID || repo.publishGotProgramID != programID {
+		t.Fatalf("expected publish on %q/%q, got %q/%q", trainerID, programID, repo.publishGotTrainerID, repo.publishGotProgramID)
+	}
+}
+
+func TestPublishProgramAlreadyPublished(t *testing.T) {
+	publishedProgram := validProgram()
+	publishedProgram.Status = models.ProgramStatusPublished
+	repo := &stubProgramRepo{
+		program: publishedProgram,
+		publish: func(_, _ string) error {
+			return repositories.ErrProgramNotFound
+		},
+	}
+	svc := newService(repo)
+
+	_, err := svc.PublishProgram(context.Background(), trainerID, programID)
+	if !errors.Is(err, programs.ErrProgramAlreadyPublished) {
+		t.Fatalf("expected ErrProgramAlreadyPublished, got %v", err)
+	}
+}
+
+func TestPublishProgramNotFound(t *testing.T) {
+	repo := &stubProgramRepo{
+		publish: func(_, _ string) error {
+			return repositories.ErrProgramNotFound
+		},
+		find: func(_, _ string) (*models.Program, error) {
+			return nil, repositories.ErrProgramNotFound
+		},
+	}
+	svc := newService(repo)
+
+	_, err := svc.PublishProgram(context.Background(), trainerID, programID)
+	if !errors.Is(err, programs.ErrProgramNotFound) {
+		t.Fatalf("expected ErrProgramNotFound, got %v", err)
+	}
+}
+
+func TestPublishProgramRejectsInvalidIDs(t *testing.T) {
+	svc := newService(&stubProgramRepo{})
+
+	for name, ids := range map[string][2]string{
+		"empty trainer": {"", programID},
+		"bad program":   {trainerID, "not-a-uuid"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := svc.PublishProgram(context.Background(), ids[0], ids[1])
+			if !errors.Is(err, programs.ErrInvalidInput) {
+				t.Fatalf("expected ErrInvalidInput, got %v", err)
+			}
+		})
+	}
+}
+
+func TestPublishProgramRepositoryFailure(t *testing.T) {
+	repo := &stubProgramRepo{
+		publish: func(_, _ string) error {
+			return errRepoFailure
+		},
+	}
+	svc := newService(repo)
+
+	_, err := svc.PublishProgram(context.Background(), trainerID, programID)
+	if errors.Is(err, programs.ErrProgramNotFound) || errors.Is(err, programs.ErrInvalidInput) || errors.Is(err, programs.ErrProgramAlreadyPublished) {
 		t.Fatalf("repository failure must not map to a domain error, got %v", err)
 	}
 	if err == nil {

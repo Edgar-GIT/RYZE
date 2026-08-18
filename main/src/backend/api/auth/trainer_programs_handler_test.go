@@ -73,6 +73,7 @@ func newTrainerProgramsTestRouter(t *testing.T, permissions ...trainerroles.Perm
 	trainer.POST("/programs", middleware.RequireTrainerPermission(permissions...), handler.CreateProgram)
 	trainer.GET("/programs/:programID", middleware.RequireTrainerPermission(permissions...), handler.GetProgram)
 	trainer.PATCH("/programs/:programID", middleware.RequireTrainerPermission(permissions...), handler.UpdateProgram)
+	trainer.POST("/programs/:programID/publish", middleware.RequireTrainerPermission(permissions...), handler.PublishProgram)
 	trainer.DELETE("/programs/:programID", middleware.RequireTrainerPermission(permissions...), handler.DeleteProgram)
 
 	return router, userRepo, trainerRepo, programRepo, tokenSvc
@@ -95,6 +96,7 @@ func newTrainerProgramsHandlerRouter(svc programs.Service, identity any) *gin.En
 	trainer.POST("/programs", handler.CreateProgram)
 	trainer.GET("/programs/:programID", handler.GetProgram)
 	trainer.PATCH("/programs/:programID", handler.UpdateProgram)
+	trainer.POST("/programs/:programID/publish", handler.PublishProgram)
 	trainer.DELETE("/programs/:programID", handler.DeleteProgram)
 	return router
 }
@@ -139,6 +141,12 @@ func (s *stubTrainerProgramsService) UpdateProgram(_ context.Context, trainerID,
 	return s.program, s.err
 }
 
+func (s *stubTrainerProgramsService) PublishProgram(_ context.Context, trainerID, programID string) (*programs.Program, error) {
+	s.gotTrainer = trainerID
+	s.gotProgramID = programID
+	return s.program, s.err
+}
+
 func (s *stubTrainerProgramsService) DeleteProgram(_ context.Context, trainerID, programID string) error {
 	s.gotTrainer = trainerID
 	s.gotProgramID = programID
@@ -175,6 +183,22 @@ func seedTestProgram(t *testing.T, programRepo repositories.ProgramRepository, t
 	}
 	if err := programRepo.Create(context.Background(), program); err != nil {
 		t.Fatalf("seed program: %v", err)
+	}
+	return program
+}
+
+// seedTestDraftProgram creates a draft program owned by the given trainer.
+func seedTestDraftProgram(t *testing.T, programRepo repositories.ProgramRepository, trainerID, name string) *models.Program {
+	t.Helper()
+	program := &models.Program{
+		TrainerID:   trainerID,
+		Name:        name,
+		Description: "A training program.",
+		Type:        models.ProgramTypePremium,
+		Status:      models.ProgramStatusDraft,
+	}
+	if err := programRepo.Create(context.Background(), program); err != nil {
+		t.Fatalf("seed draft program: %v", err)
 	}
 	return program
 }
@@ -627,6 +651,7 @@ func TestTrainerProgramsNotAuthenticated(t *testing.T) {
 		{name: "create", method: http.MethodPost, path: programsRoute, body: `{"name":"P","type":"free"}`},
 		{name: "get", method: http.MethodGet, path: programsRouteProgram + uuid.NewString()},
 		{name: "update", method: http.MethodPatch, path: programsRouteProgram + uuid.NewString(), body: `{"name":"P"}`},
+		{name: "publish", method: http.MethodPost, path: programsRouteProgram + uuid.NewString() + "/publish"},
 		{name: "delete", method: http.MethodDelete, path: programsRouteProgram + uuid.NewString()},
 	}
 
@@ -847,6 +872,7 @@ func TestTrainerProgramsHandlerMissingContext(t *testing.T) {
 		{name: "create", method: http.MethodPost, path: programsRoute, body: `{"name":"P","type":"free"}`},
 		{name: "get", method: http.MethodGet, path: programsRouteProgram + uuid.NewString()},
 		{name: "update", method: http.MethodPatch, path: programsRouteProgram + uuid.NewString(), body: `{"name":"P"}`},
+		{name: "publish", method: http.MethodPost, path: programsRouteProgram + uuid.NewString() + "/publish"},
 		{name: "delete", method: http.MethodDelete, path: programsRouteProgram + uuid.NewString()},
 	}
 
@@ -874,6 +900,7 @@ func TestTrainerProgramsHandlerErrorMapping(t *testing.T) {
 	}{
 		{name: "invalid input", err: programs.ErrInvalidInput, status: http.StatusBadRequest, code: "VALIDATION_ERROR"},
 		{name: "program not found", err: programs.ErrProgramNotFound, status: http.StatusNotFound, code: "PROGRAM_NOT_FOUND"},
+		{name: "program already published", err: programs.ErrProgramAlreadyPublished, status: http.StatusConflict, code: "PROGRAM_ALREADY_PUBLISHED"},
 	}
 
 	for _, tc := range cases {
@@ -945,5 +972,133 @@ func TestTrainerProgramsHandlerInvalidPagination(t *testing.T) {
 	}
 	if !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
 		t.Fatalf("expected VALIDATION_ERROR, got %s", raw)
+	}
+}
+
+func TestTrainerProgramsPublishSuccess(t *testing.T) {
+	router, userRepo, trainerRepo, programRepo, tokenSvc := newTrainerProgramsTestRouter(t, trainerroles.PermissionPrograms)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	program := seedTestDraftProgram(t, programRepo, trainer.ID, "Draft Program")
+
+	rec, data, raw := trainerProgramsRequest(router, jwtValue, http.MethodPost, programsRouteProgram+program.ID+"/publish", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if status, _ := data["status"].(string); status != "published" {
+		t.Fatalf("expected published status, got %q", status)
+	}
+	if trainerID, _ := data["trainer_id"].(string); trainerID != trainer.ID {
+		t.Fatalf("expected trainer_id %q, got %q", trainer.ID, trainerID)
+	}
+
+	persisted, err := programRepo.FindByIDAndTrainer(context.Background(), trainer.ID, program.ID)
+	if err != nil {
+		t.Fatalf("expected persisted program: %v", err)
+	}
+	if persisted.Status != models.ProgramStatusPublished {
+		t.Fatalf("expected persisted published status, got %q", persisted.Status)
+	}
+}
+
+func TestTrainerProgramsPublishIDOR(t *testing.T) {
+	router, userRepo, trainerRepo, programRepo, tokenSvc := newTrainerProgramsTestRouter(t, trainerroles.PermissionPrograms)
+
+	trainerA, _, jwtA := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	trainerB, _, _ := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	draftB := seedTestDraftProgram(t, programRepo, trainerB.ID, "Trainer B Draft")
+
+	// Trainer A must never publish trainer B's program.
+	rec, _, raw := trainerProgramsRequest(router, jwtA, http.MethodPost, programsRouteProgram+draftB.ID+"/publish", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for cross-trainer publish, got %d (body: %s)", rec.Code, raw)
+	}
+
+	// The program must remain draft.
+	persisted, err := programRepo.FindByIDAndTrainer(context.Background(), trainerB.ID, draftB.ID)
+	if err != nil {
+		t.Fatalf("find persisted program: %v", err)
+	}
+	if persisted.Status != models.ProgramStatusDraft {
+		t.Fatalf("cross-trainer publish must not change status, got %q", persisted.Status)
+	}
+
+	_ = trainerA
+}
+
+func TestTrainerProgramsPublishAlreadyPublished(t *testing.T) {
+	router, userRepo, trainerRepo, programRepo, tokenSvc := newTrainerProgramsTestRouter(t, trainerroles.PermissionPrograms)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	program := seedTestProgram(t, programRepo, trainer.ID, "Already Published")
+
+	rec, _, raw := trainerProgramsRequest(router, jwtValue, http.MethodPost, programsRouteProgram+program.ID+"/publish", "")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"PROGRAM_ALREADY_PUBLISHED"`) {
+		t.Fatalf("expected PROGRAM_ALREADY_PUBLISHED, got %s", raw)
+	}
+}
+
+func TestTrainerProgramsPublishMissing(t *testing.T) {
+	router, userRepo, trainerRepo, _, tokenSvc := newTrainerProgramsTestRouter(t, trainerroles.PermissionPrograms)
+	_, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+
+	rec, _, raw := trainerProgramsRequest(router, jwtValue, http.MethodPost, programsRouteProgram+uuid.NewString()+"/publish", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"PROGRAM_NOT_FOUND"`) {
+		t.Fatalf("expected PROGRAM_NOT_FOUND, got %s", raw)
+	}
+}
+
+func TestTrainerProgramsPublishInvalidProgramID(t *testing.T) {
+	router, userRepo, trainerRepo, _, tokenSvc := newTrainerProgramsTestRouter(t, trainerroles.PermissionPrograms)
+	_, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+
+	rec, _, raw := trainerProgramsRequest(router, jwtValue, http.MethodPost, programsRouteProgram+"not-a-uuid/publish", "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
+		t.Fatalf("expected VALIDATION_ERROR, got %s", raw)
+	}
+}
+
+func TestTrainerProgramsPublishSoftDeleted(t *testing.T) {
+	router, userRepo, trainerRepo, programRepo, tokenSvc := newTrainerProgramsTestRouter(t, trainerroles.PermissionPrograms)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	program := seedTestDraftProgram(t, programRepo, trainer.ID, "To Be Deleted")
+
+	if err := programRepo.SoftDelete(context.Background(), trainer.ID, program.ID); err != nil {
+		t.Fatalf("soft delete: %v", err)
+	}
+
+	rec, _, raw := trainerProgramsRequest(router, jwtValue, http.MethodPost, programsRouteProgram+program.ID+"/publish", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for soft-deleted program, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"PROGRAM_NOT_FOUND"`) {
+		t.Fatalf("expected PROGRAM_NOT_FOUND, got %s", raw)
+	}
+}
+
+func TestTrainerProgramsHandlerPublishForwardsPathProgramID(t *testing.T) {
+	identity := trainercontext.Identity{UserID: uuid.NewString(), TrainerID: uuid.NewString()}
+	publishedProgram := stubProgramResponse(identity.TrainerID)
+	publishedProgram.Status = models.ProgramStatusPublished
+	svc := &stubTrainerProgramsService{program: publishedProgram}
+	router := newTrainerProgramsHandlerRouter(svc, identity)
+
+	pathProgramID := uuid.NewString()
+	rec, _, raw := trainerProgramsRequest(router, "", http.MethodPost, programsRouteProgram+pathProgramID+"/publish", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotTrainer != identity.TrainerID {
+		t.Fatalf("expected context trainer %q, got %q", identity.TrainerID, svc.gotTrainer)
+	}
+	if svc.gotProgramID != pathProgramID {
+		t.Fatalf("expected path program %q, got %q", pathProgramID, svc.gotProgramID)
 	}
 }

@@ -24,6 +24,11 @@ type ProgramRepository interface {
 	FindByIDAndTrainer(ctx context.Context, trainerID, programID string) (*models.Program, error)
 	ListByTrainer(ctx context.Context, trainerID string, page, limit int) ([]models.Program, int64, error)
 	Update(ctx context.Context, trainerID, programID string, updates map[string]any) error
+	// Publish transitions a draft program to published through a conditional
+	// update. It returns nil on success, ErrProgramNotFound if the program
+	// does not exist, is soft-deleted, is owned by another trainer, or is
+	// already published.
+	Publish(ctx context.Context, trainerID, programID string) error
 	SoftDelete(ctx context.Context, trainerID, programID string) error
 }
 
@@ -110,6 +115,26 @@ func (r *programRepository) SoftDelete(ctx context.Context, trainerID, programID
 		Delete(&models.Program{}, "id = ? AND trainer_id = ?", programID, trainerID)
 	if result.Error != nil {
 		return fmt.Errorf("failed to soft delete program: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrProgramNotFound
+	}
+	return nil
+}
+
+// Publish transitions a draft program to published through a conditional update.
+// The WHERE clause enforces status = 'draft' so the operation is idempotent and
+// race-safe: two concurrent publish requests for the same program will both
+// observe exactly one success. A zero RowsAffected result maps to
+// ErrProgramNotFound, which covers every failure mode (missing, soft-deleted,
+// foreign, already published) as a single indistinguishable domain error.
+func (r *programRepository) Publish(ctx context.Context, trainerID, programID string) error {
+	result := r.db.WithContext(ctx).
+		Model(&models.Program{}).
+		Where("id = ? AND trainer_id = ? AND deleted_at IS NULL AND status = ?", programID, trainerID, models.ProgramStatusDraft).
+		Update("status", models.ProgramStatusPublished)
+	if result.Error != nil {
+		return fmt.Errorf("failed to publish program: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return ErrProgramNotFound

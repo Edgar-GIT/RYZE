@@ -1,3 +1,68 @@
+# Version 2.27.0
+
+Title: Backend Step 39 — trainer program publishing foundation
+
+Date: 2026-08-18
+
+Summary:
+
+Added a dedicated publish endpoint `POST /api/v1/trainer/programs/:programID/publish`
+that transitions a draft program to published through a race-safe conditional
+update. The operation is scoped exclusively to the authenticated trainer; the
+program id in the URL path identifies the requested resource and never proves
+access. A client-supplied `trainer_id`, `user_id` or `client_id` (query, body or
+header) is ignored and can never influence the publish operation. The only
+allowed transition is draft → published; publishing an already-published program
+returns a deterministic 409 Conflict (`PROGRAM_ALREADY_PUBLISHED`). A missing,
+soft-deleted or foreign program returns 404 Not Found (`PROGRAM_NOT_FOUND`).
+
+Database:
+
+- No new tables or migrations. The existing `programs.status` CHECK constraint
+  already supports `draft` and `published` values.
+
+Behavior:
+
+- `POST /api/v1/trainer/programs/:programID/publish`, mounted behind
+  `Authenticate → TrainerAuthenticate → RequireTrainerPermission(trainer.programs)`:
+  returns `200 OK` with the updated program data on success; returns `400 Bad
+  Request` (`VALIDATION_ERROR`) for a malformed program id; returns `404 Not
+  Found` (`PROGRAM_NOT_FOUND`) for missing, soft-deleted or foreign programs;
+  returns `409 Conflict` (`PROGRAM_ALREADY_PUBLISHED`) when the program is
+  already in published state; returns `401 Unauthorized`
+  (`AUTHENTICATION_REQUIRED`) when unauthenticated; returns `403 Forbidden`
+  (`FORBIDDEN`) when the trainer role does not include `trainer.programs`.
+
+Files:
+
+- `repositories/program_repository.go` — added `Publish(ctx, trainerID, programID)`
+  method with conditional `UPDATE ... SET status='published' WHERE id=? AND
+  trainer_id=? AND deleted_at IS NULL AND status='draft'` query.
+- `services/programs/programs.go` — added `ErrProgramAlreadyPublished` error,
+  `PublishProgram` method on both the `Service` interface and `service`
+  implementation. Distinguishes "already published" from other failure modes by
+  reloading the program after a repository `ErrProgramNotFound` response.
+- `api/auth/trainer_programs_handler.go` — added `PublishProgram` handler
+  method and `PROGRAM_ALREADY_PUBLISHED` error mapping (409 Conflict).
+- `routes/routes.go` — wired `POST /programs/:programID/publish` in the trainer
+  programs route group.
+- `repositories/program_repository_test.go` — added tests for successful
+  publish, idempotent already-published, foreign publish, missing program and
+  soft-deleted program scenarios.
+- `services/programs/programs_test.go` — added `TestPublishProgramSuccess`,
+  `TestPublishProgramAlreadyPublished`, `TestPublishProgramNotFound`,
+  `TestPublishProgramRejectsInvalidIDs`, `TestPublishProgramRepositoryFailure`.
+- `api/auth/trainer_programs_handler_test.go` — added `TestTrainerProgramsPublishSuccess`,
+  `TestTrainerProgramsPublishIDOR`, `TestTrainerProgramsPublishAlreadyPublished`,
+  `TestTrainerProgramsPublishMissing`, `TestTrainerProgramsPublishInvalidProgramID`,
+  `TestTrainerProgramsPublishSoftDeleted`,
+  `TestTrainerProgramsHandlerPublishForwardsPathProgramID`; updated
+  `TestTrainerProgramsNotAuthenticated` and
+  `TestTrainerProgramsHandlerMissingContext` with publish cases; added
+  `ErrProgramAlreadyPublished` to `TestTrainerProgramsHandlerErrorMapping`.
+
+---
+
 # Version 2.26.0
 
 Title: Backend Step 38 — client workout statistics foundation
