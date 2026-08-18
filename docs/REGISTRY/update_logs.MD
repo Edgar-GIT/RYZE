@@ -1,3 +1,71 @@
+# Version 2.26.0
+
+Title: Backend Step 38 — client workout statistics foundation
+
+Date: 2026-08-18
+
+Summary:
+
+Added a read-only statistics endpoint `GET /api/v1/me/statistics` that returns
+derived workout statistics for the authenticated client. Statistics are computed
+entirely from existing tables — no new database tables or migrations were added.
+The client identity always comes exclusively from the authentication context; a
+client-supplied `user_id`, `client_id` or `trainer_id` (query, body or header)
+is ignored and can never influence which statistics are returned. The response
+distinguishes total executions from unique workouts completed, computes a
+completion percentage based on the number of unique workouts completed against
+the total active workouts in the currently assigned program, and reports the
+last workout date. A user with no active assignment receives zero-value stats
+with `has_active_assignment=false`.
+
+Database:
+
+- No new tables or migrations. All statistics are derived from existing tables
+  (`workout_history`, `program_assignments`, `programs`, `program_weeks`,
+  `program_workouts`) through SQL aggregation.
+
+Behavior:
+
+- `GET /api/v1/me/statistics`, mounted behind `Authenticate` only (no trainer
+  permission): returns `200 OK` with `has_active_assignment`,
+  `current_program_name`, `total_executions`, `unique_workouts_completed`,
+  `total_workouts_in_program`, `completion_percentage` and `last_workout_date`.
+- Repository `GetClientStats(userID)` finds the user's most recent active
+  assignment, resolves the assigned program, counts active workouts in the
+  program through the week chain, counts total executions and distinct completed
+  workouts from history, and finds the most recent completion timestamp.
+- Errors: `400 VALIDATION_ERROR`, `401 AUTHENTICATION_REQUIRED`,
+  `500 INTERNAL_ERROR` (details never exposed).
+- Security: identity always comes from the authentication context; the response
+  never exposes the owning `user_id`, assignment id, trainer id or any deletion
+  markers. IDOR tests verify a stranger can never see another user's statistics.
+
+Architecture notes:
+
+- No new frameworks or libraries. The `services/statistics` service and
+  `api/auth/statistics_handler.go` follow the existing service/handler/repository
+  layering, the safe-representation pattern and the response conventions of the
+  client-facing endpoints.
+- The endpoint lives in the authenticated-user area (`/api/v1/me/statistics`),
+  matching the Step 36/37 client endpoints convention.
+- The statistics layer is deliberately minimal and read-only: no speculative
+  metrics (sets, reps, weight, RPE, calories, duration, HR, PRs, body
+  measurements) are included. The layer stays extensible so later steps can add
+  richer metrics without a schema redesign.
+
+Files:
+
+- `main/src/backend/repositories/statistics_repository.go`
+- `main/src/backend/services/statistics/statistics.go`
+- `main/src/backend/api/auth/statistics_handler.go`
+- `main/src/backend/routes/routes.go`
+- Tests: `repositories/statistics_repository_test.go`,
+  `services/statistics/statistics_test.go`,
+  `api/auth/statistics_handler_test.go`
+- Docs: `docs/REGISTRY/update_logs.MD`
+
+---
+
 # Version 2.25.0
 
 Title: Backend Step 37 — client workout history (workout completion and history read)

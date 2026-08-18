@@ -27,6 +27,7 @@ import (
 	"ryze/backend/services/trainer_applications"
 	"ryze/backend/services/trainer_clients"
 	"ryze/backend/services/trainer_profile"
+	"ryze/backend/services/statistics"
 	"ryze/backend/services/workout_exercises"
 	"ryze/backend/services/workout_history"
 )
@@ -103,6 +104,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	workoutHistoryService := workout_history.NewService(workoutHistoryRepository)
 	workoutHistoryHandler := auth.NewWorkoutHistoryHandler(workoutHistoryService)
 
+	statisticsRepository := repositories.NewStatisticsRepository(db)
+	statisticsService := statistics.NewService(statisticsRepository)
+	statisticsHandler := auth.NewStatisticsHandler(statisticsService)
+
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
@@ -118,6 +123,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
 	v1.POST("/me/workouts/:workoutID/complete", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.CompleteWorkout)
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
+	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
 
 	trainer := v1.Group("/trainer")
