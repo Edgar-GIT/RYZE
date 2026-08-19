@@ -16,6 +16,7 @@ import (
 	"ryze/backend/services/change_password"
 	"ryze/backend/services/client_programs"
 	"ryze/backend/services/delete_account"
+	"ryze/backend/services/entitlements"
 	"ryze/backend/services/exercises"
 	"ryze/backend/services/login"
 	"ryze/backend/services/password"
@@ -84,6 +85,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	clientProgramService := client_programs.NewService(programAssignmentRepository)
 	clientProgramHandler := auth.NewClientProgramHandler(clientProgramService)
 
+	entitlementRepository := repositories.NewEntitlementRepository(db)
+	entitlementService := entitlements.NewService(entitlementRepository)
+	entitlementHandler := auth.NewEntitlementsHandler(entitlementService)
+
 	trainerProgramRepository := repositories.NewProgramRepository(db)
 	trainerProgramService := programs.NewService(trainerProgramRepository)
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
@@ -127,6 +132,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
+	v1.GET("/me/entitlements", middleware.Authenticate(tokenService, userRepository), entitlementHandler.ListEntitlements)
 	v1.POST("/me/workouts/:workoutID/complete", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.CompleteWorkout)
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)

@@ -453,6 +453,32 @@ Responses:
 
 ---
 
+### Client Entitlements
+
+#### `GET /api/v1/me/entitlements`
+
+Returns the safe entitlement metadata for every active entitlement held by the
+authenticated user. Each entitlement carries only its own id, the associated
+program id and a safe nested Program object. Entitlements do NOT grant access
+to `GET /me/program` — assignment remains the sole access mechanism.
+
+Response `data`:
+
+- array of entitlement objects, each with:
+  - `id` — entitlement UUID.
+  - `program_id` — the entitlement program reference.
+  - `program` — safe Program object: `id`, `name`, `description`, `type`,
+    `status`, `created_at`, `updated_at`.
+  - `created_at`, `updated_at` — entitlement lifecycle timestamps.
+
+Responses:
+
+- `200 OK` — the user's entitlements; a user without entitlements gets an
+  empty array.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
+
+---
+
 ## Client
 
 Additional permissions:

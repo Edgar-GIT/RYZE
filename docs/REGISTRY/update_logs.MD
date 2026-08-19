@@ -1,3 +1,75 @@
+# Version 2.29.0
+
+Title: Backend Step 41 — program purchase / entitlement foundation
+
+Date: 2026-08-19
+
+Summary:
+
+Established the domain separation between published programs, purchases and
+entitlements without implementing real payment processing. Added `purchases`
+and `entitlements` tables, `EntitlementRepository`, entitlements service,
+`GET /api/v1/me/entitlements` endpoint and comprehensive tests. Entitlements
+currently provide only safe metadata (entitlement id + nested safe Program);
+they do NOT yet grant client access to `GET /me/program` — assignment remains
+the sole access mechanism.
+
+Database:
+
+- Migration `000013` — created `purchases` and `entitlements` tables.
+- `purchases` — records a user's purchase of a published program with status
+  (`pending`, `completed`, `failed`, `refunded`), CHECK-constrained. No
+  price/currency/amount/provider fields yet. No creation path exists; the table
+  is prepared for future commerce integration.
+- `entitlements` — records that a user has a purchase-backed right to access a
+  program. The `active_entitlement` generated column enforces at most one active
+  entitlement per `(user_id, program_id)` pair. Foreign keys reference `users`
+  and `programs`.
+
+Behavior:
+
+- `GET /api/v1/me/entitlements`, mounted behind `Authenticate`:
+  returns `200 OK` with a safe entitlement metadata array (entitlement id,
+  program_id, nested safe Program object with id, name, description, type,
+  status, created_at, updated_at); returns `401 AUTHENTICATION_REQUIRED` when
+  unauthenticated. Entitlements do NOT grant access to `GET /me/program` — the
+  regression test `TestClientProgramReadEntitlementDoesNotGrantAccess` proves
+  an entitlement without an assignment yields 404 on `/me/program`.
+
+Files:
+
+- `database/migrations/000013_create_purchases_and_entitlements_tables.up.sql` —
+  purchases and entitlements DDL.
+- `database/migrations/000013_create_purchases_and_entitlements_tables.down.sql` —
+  rollback.
+- `models/purchase.go` — `Purchase` model with status constants, foreign keys
+  and `BeforeCreate` UUID generation.
+- `models/entitlement.go` — `Entitlement` model with foreign keys and
+  `BeforeCreate` UUID generation.
+- `repositories/entitlement_repository.go` — dedicated
+  `EntitlementRepository` interface and implementation with `Create`,
+  `ListByUser`, `FindByIDAndUser`, `SoftDelete`. Uses `isDuplicateEntry` for
+  the generated-column unique constraint.
+- `repositories/entitlement_repository_test.go` — 12 tests covering create,
+  duplicate rejection, list by user, find by id, cross-user isolation, soft
+  delete, re-creation after delete and empty list.
+- `services/entitlements/entitlements.go` — entitlements service providing
+  `ListEntitlements`, `CreateEntitlement`, `RevokeEntitlement` with input
+  validation and domain error mapping.
+- `services/entitlements/entitlements_test.go` — 11 stub-repo unit tests
+  covering success, empty list, invalid input, duplicate collapse, not-found
+  collapse and repository failure non-exposure.
+- `api/auth/entitlements_handler.go` — `EntitlementsHandler` exposing
+  `ListEntitlements` with standard auth-context identity extraction.
+- `api/auth/entitlements_handler_test.go` — 9 tests: E2E (success, empty list,
+  unauthenticated, IDOR isolation), handler-only (context forwarding, missing
+  context, error mapping, repo failure non-exposure, secrets never exposed).
+- `routes/routes.go` — wired `GET /me/entitlements` behind `Authenticate`.
+- `api/auth/client_program_handler_test.go` — added
+  `TestClientProgramReadEntitlementDoesNotGrantAccess` regression test.
+
+---
+
 # Version 2.28.0
 
 Title: Backend Step 40 — public program discovery foundation

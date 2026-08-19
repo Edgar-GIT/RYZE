@@ -504,3 +504,56 @@ func TestClientProgramReadNeverExposesSecrets(t *testing.T) {
 		}
 	}
 }
+
+func TestClientProgramReadEntitlementDoesNotGrantAccess(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newClientProgramTestRouter(t)
+
+	trainerUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	programRepo := repositories.NewProgramRepository(tx)
+	trainerRepo := repositories.NewTrainerRepository(tx)
+	trainer := seedTrainerForUser(t, trainerRepo, trainerUser)
+	program := &models.Program{
+		TrainerID: trainer.ID,
+		Name:      "Premium Program",
+		Type:      models.ProgramTypePremium,
+		Status:    models.ProgramStatusPublished,
+	}
+	if err := programRepo.Create(context.Background(), program); err != nil {
+		t.Fatalf("seed program: %v", err)
+	}
+
+	entitlementRepo := repositories.NewEntitlementRepository(tx)
+	if err := entitlementRepo.Create(context.Background(), clientUser.ID, program.ID, &models.Entitlement{}); err != nil {
+		t.Fatalf("seed entitlement: %v", err)
+	}
+
+	entitlements, err := entitlementRepo.ListByUser(context.Background(), clientUser.ID)
+	if err != nil || len(entitlements) != 1 {
+		t.Fatalf("expected 1 active entitlement, got %d (err: %v)", len(entitlements), err)
+	}
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientProgramRoute, "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"PROGRAM_NOT_FOUND"`) {
+		t.Fatalf("expected PROGRAM_NOT_FOUND, got %s", raw)
+	}
+
+	for _, sensitive := range []string{
+		program.Name,
+		"Premium Program",
+		program.ID,
+	} {
+		if strings.Contains(raw, sensitive) {
+			t.Fatalf("an entitlement must not leak program data on /me/program, got %s", raw)
+		}
+	}
+}

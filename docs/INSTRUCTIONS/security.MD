@@ -822,6 +822,27 @@ client-side write path:
   the lifecycle timestamps. The owning user id, the trainer id, password
   hashes, session versions, JWT data and deletion markers are never exposed.
 
+### Client Entitlements Security
+
+The client entitlements endpoint (`GET /api/v1/me/entitlements`) follows the
+same security model as other authenticated-user read endpoints:
+
+- The client identity is always resolved exclusively from the authenticated user
+  context. A client-supplied `user_id`, `client_id` or `trainer_id` (query,
+  body or header) is never accepted and can never change which entitlements are
+  returned.
+- The entitlement list is strictly the authenticated user's own; there is no way
+  to address or enumerate another user's entitlements. Cross-user isolation is
+  enforced by scoping all queries by `user_id`.
+- A missing or soft-deleted entitlement is indistinguishable from a non-existent
+  one and never revealed. Cross-user lookups return the same not-found response.
+- Entitlements currently provide only safe metadata (entitlement id, program_id,
+  nested safe Program). They do NOT grant access to `GET /me/program` —
+  assignment remains the sole access mechanism. The ownership-trainer id and
+  parent identifiers are never exposed.
+- The `purchases` and `entitlements` tables have no creation API yet; the schema
+  is prepared for future commerce integration but no write path is exposed.
+
 ---
 
 # API SECURITY

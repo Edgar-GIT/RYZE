@@ -395,6 +395,32 @@ The module follows the standard request flow:
 over the `workout_history` table, reusing `ErrWorkoutNotFound` and the same
 pagination conventions as the trainer-facing list endpoints.
 
+### Client Entitlements
+
+The client entitlements module is a read-only counterpart to the assigned-program
+read, providing safe entitlement metadata without granting access:
+
+- The client identity always comes exclusively from the authenticated user
+  context. A client-supplied `user_id`, `client_id` or `trainer_id` (query,
+  body or header) can never influence which entitlements are returned.
+- Entitlements currently provide safe metadata only (entitlement id, program_id,
+  nested safe Program). They do NOT grant access to `GET /me/program` — the
+  assignment mechanism is the sole access path and remains unmodified.
+- The `EntitlementRepository` is a dedicated repository for the `entitlements`
+  table, separate from `ProgramAssignmentRepository`. No entitlement methods are
+  added to the assignment repository.
+- `Create` and `Revoke` operations exist in the repository and service layers
+  for test purposes and future commerce integration, but no API write path is
+  exposed. No purchase creation, checkout or webhook handling exists.
+- The `purchases` table is a schema-only preparation for future commerce:
+  it stores purchase status (`pending`, `completed`, `failed`, `refunded`) with
+  CHECK constraint, but no price, currency, amount or provider fields exist.
+
+The module follows the standard request flow:
+`EntitlementsHandler` (in `api/auth`) → `entitlements` service (in
+`services/entitlements`) → `EntitlementRepository` (in `repositories`) over the
+`entitlements` table, with safe Program data preloaded from the `programs` table.
+
 ---
 
 ## Email
