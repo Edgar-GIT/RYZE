@@ -130,3 +130,51 @@ func TestLoadAdminDoesNotTrimPasswords(t *testing.T) {
 		t.Fatalf("password must be preserved verbatim, got %q", cfg.Admins[0].Password)
 	}
 }
+
+func TestLoadPricingDefault(t *testing.T) {
+	cfg, err := config.LoadPricing()
+	if err != nil {
+		t.Fatalf("LoadPricing: %v", err)
+	}
+	if cfg.MinProgramPriceMinorUnits != 100 {
+		t.Fatalf("expected default min price 100, got %d", cfg.MinProgramPriceMinorUnits)
+	}
+}
+
+func TestLoadPricingCustomValue(t *testing.T) {
+	t.Setenv("MIN_PROGRAM_PRICE_MINOR_UNITS", "250")
+	cfg, err := config.LoadPricing()
+	if err != nil {
+		t.Fatalf("LoadPricing: %v", err)
+	}
+	if cfg.MinProgramPriceMinorUnits != 250 {
+		t.Fatalf("expected min price 250, got %d", cfg.MinProgramPriceMinorUnits)
+	}
+}
+
+func TestLoadPricingZeroAllowed(t *testing.T) {
+	t.Setenv("MIN_PROGRAM_PRICE_MINOR_UNITS", "0")
+	cfg, err := config.LoadPricing()
+	if err != nil {
+		t.Fatalf("LoadPricing: %v", err)
+	}
+	if cfg.MinProgramPriceMinorUnits != 0 {
+		t.Fatalf("expected min price 0, got %d", cfg.MinProgramPriceMinorUnits)
+	}
+}
+
+func TestLoadPricingRejectsNegative(t *testing.T) {
+	t.Setenv("MIN_PROGRAM_PRICE_MINOR_UNITS", "-1")
+	_, err := config.LoadPricing()
+	if err == nil {
+		t.Fatal("expected error for negative value")
+	}
+}
+
+func TestLoadPricingRejectsNonNumeric(t *testing.T) {
+	t.Setenv("MIN_PROGRAM_PRICE_MINOR_UNITS", "abc")
+	_, err := config.LoadPricing()
+	if err == nil {
+		t.Fatal("expected error for non-numeric value")
+	}
+}

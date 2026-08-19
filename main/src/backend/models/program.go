@@ -22,22 +22,32 @@ const (
 	ProgramStatusPublished = "published"
 )
 
+// ProgramCurrency is the ISO 4217 currency code accepted for program pricing.
+// Only EUR is supported initially; additional currencies can be added later.
+type ProgramCurrency string
+
+const (
+	ProgramCurrencyEUR ProgramCurrency = "EUR"
+)
+
 // Program corresponds to the programs table. A program is a training or
 // nutrition offer created by a trainer (trainer-owned) or, in the future, by
 // the platform itself (platform-owned, trainer_id NULL). The client keeps being
 // a regular User; no assignment or access relationship exists yet. Soft-deleted
 // programs are excluded from regular queries through GORM's DeletedAt handling.
 type Program struct {
-	ID          string         `gorm:"type:varchar(36);primaryKey" json:"id"`
-	TrainerID   string         `gorm:"column:trainer_id;type:varchar(36)" json:"trainer_id"`
-	Name        string         `gorm:"column:name;type:varchar(255);not null" json:"name"`
-	Description string         `gorm:"column:description;type:text" json:"description"`
-	Type        string         `gorm:"column:type;type:varchar(20);not null" json:"type"`
-	Status      string         `gorm:"column:status;type:varchar(20);not null" json:"status"`
-	Weeks       []ProgramWeek  `gorm:"foreignKey:ProgramID" json:"-"`
-	CreatedAt   time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
-	UpdatedAt   time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"deleted_at"`
+	ID               string         `gorm:"type:varchar(36);primaryKey" json:"id"`
+	TrainerID        string         `gorm:"column:trainer_id;type:varchar(36)" json:"trainer_id"`
+	Name             string         `gorm:"column:name;type:varchar(255);not null" json:"name"`
+	Description      string         `gorm:"column:description;type:text" json:"description"`
+	Type             string         `gorm:"column:type;type:varchar(20);not null" json:"type"`
+	Status           string         `gorm:"column:status;type:varchar(20);not null" json:"status"`
+	PriceMinorUnits  int64          `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
+	Currency         string         `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
+	Weeks            []ProgramWeek  `gorm:"foreignKey:ProgramID" json:"-"`
+	CreatedAt        time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
+	UpdatedAt        time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"deleted_at"`
 }
 
 func (p *Program) BeforeCreate(_ *gorm.DB) error {

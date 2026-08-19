@@ -173,7 +173,7 @@ func newE2ERouter(t *testing.T) (*gin.Engine, *gorm.DB, config.AdminConfig) {
 	tx := db.Begin()
 	t.Cleanup(func() { tx.Rollback() })
 
-	return Setup(tx, jwtCfg, corsCfg, adminCfg), tx, adminCfg
+	return Setup(tx, jwtCfg, corsCfg, adminCfg, config.PricingConfig{MinProgramPriceMinorUnits: 100}), tx, adminCfg
 }
 
 // TestTrainerApplicationLifecycleE2E exercises the full trainer-application

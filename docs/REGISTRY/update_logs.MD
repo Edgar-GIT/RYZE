@@ -1,3 +1,69 @@
+# Version 2.30.0
+
+Title: Backend Step 42 — Program Pricing & Currency Foundation
+
+Date: 2026-08-19
+
+Summary:
+
+Added configurable selling price and currency to programs using the integer
+minor-unit model (cents for EUR). Programs now carry `price_minor_units`
+(`BIGINT`) and `currency` (`VARCHAR(3)`, EUR only initially). Free programs
+must have price 0; paid programs must meet the configurable minimum. Both
+trainers (via existing PATCH) and authorized administrators (Management
+Administrator via `plans` permission) can change prices. Pricing is exposed in
+all public, client and entitlement responses. No payment processing or purchase
+creation is implemented — this is a foundation for future commerce.
+
+Database:
+
+- Migration `000014` — added `price_minor_units BIGINT NOT NULL DEFAULT 0`
+  and `currency VARCHAR(3) NOT NULL DEFAULT 'EUR'` to the `programs` table,
+  with an index on `currency`. Existing programs receive default values
+  (price=0, currency='EUR').
+
+Behavior:
+
+- `POST /api/v1/trainer/programs` — accepts optional `price_minor_units` and
+  `currency` fields. Free programs must have price 0; paid programs must meet
+  the configured minimum.
+- `PATCH /api/v1/trainer/programs/:programID` — accepts optional
+  `price_minor_units` and `currency` fields with the same validation.
+- `GET /api/v1/programs` (public) — includes `price_minor_units` and `currency`
+  in response.
+- `GET /api/v1/programs/:programID` (public) — includes pricing in response.
+- `GET /api/v1/me/program` (client) — includes pricing in response.
+- `GET /api/v1/me/entitlements` — nested program includes pricing.
+- `GET /api/v1/admin/programs/:programID` (admin, `plans` permission) — returns
+  program with pricing.
+- `PATCH /api/v1/admin/programs/:programID/pricing` (admin, `plans` permission)
+  — updates `price_minor_units` and `currency` of any active program.
+- Environment variable `MIN_PROGRAM_PRICE_MINOR_UNITS` controls the minimum
+  price for paid programs (default 100 = €1.00).
+
+Files:
+
+- `database/migrations/000014_add_pricing_to_programs.up.sql`
+- `database/migrations/000014_add_pricing_to_programs.down.sql`
+- `models/program.go` — added `PriceMinorUnits`, `Currency` fields and
+  `ProgramCurrencyEUR` constant.
+- `config/config.go` — added `PricingConfig` struct.
+- `config/env.go` — added `LoadPricing()` function.
+- `repositories/program_repository.go` — added `FindByID` and `UpdatePricing`.
+- `services/programs/programs.go` — extended DTOs, added pricing validation,
+  `UpdateProgramPricing`, `GetProgramByID`.
+- `services/admin_program_pricing/admin_program_pricing.go` — new service for
+  admin pricing operations.
+- `api/auth/trainer_programs_handler.go` — extended request/response DTOs.
+- `api/auth/admin_program_pricing_handler.go` — new handler for admin pricing.
+- `api/auth/public_programs_handler.go` — exposed pricing in response.
+- `api/auth/client_program_handler.go` — exposed pricing in response.
+- `api/auth/entitlements_handler.go` — exposed pricing in safe Program DTO.
+- `routes/routes.go` — wired admin pricing routes.
+- `main.go` — loads pricing config and passes to routes.
+
+---
+
 # Version 2.29.0
 
 Title: Backend Step 41 — program purchase / entitlement foundation

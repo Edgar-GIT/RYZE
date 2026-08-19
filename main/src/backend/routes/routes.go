@@ -11,6 +11,7 @@ import (
 	"ryze/backend/middleware/trainerroles"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_login"
+	"ryze/backend/services/admin_program_pricing"
 	"ryze/backend/services/admin_trainers"
 	"ryze/backend/services/admin_users"
 	"ryze/backend/services/change_password"
@@ -35,7 +36,7 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 
@@ -90,11 +91,14 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	entitlementHandler := auth.NewEntitlementsHandler(entitlementService)
 
 	trainerProgramRepository := repositories.NewProgramRepository(db)
-	trainerProgramService := programs.NewService(trainerProgramRepository)
+	trainerProgramService := programs.NewService(trainerProgramRepository, pricingCfg)
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
 
 	publicProgramService := public_programs.NewService(trainerProgramRepository)
 	publicProgramHandler := auth.NewPublicProgramsHandler(publicProgramService)
+
+	adminProgramPricingService := admin_program_pricing.NewService(trainerProgramService)
+	adminProgramPricingHandler := auth.NewAdminProgramPricingHandler(adminProgramPricingService)
 
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
 	programWorkoutRepository := repositories.NewProgramWorkoutRepository(db)
@@ -211,6 +215,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminApplicationMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsManage))
 	adminApplicationMutate.POST("/trainer-applications/:id/approve", adminTrainerApplicationHandler.ApproveApplication)
 	adminApplicationMutate.POST("/trainer-applications/:id/reject", adminTrainerApplicationHandler.RejectApplication)
+
+	adminPricing := admin.Group("")
+	adminPricing.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
+	adminPricing.GET("/programs/:programID", adminProgramPricingHandler.GetProgram)
+	adminPricing.PATCH("/programs/:programID/pricing", adminProgramPricingHandler.UpdatePricing)
 
 	return router
 }

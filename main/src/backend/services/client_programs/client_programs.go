@@ -77,14 +77,16 @@ type Week struct {
 // exposes the owning trainer, parent identifiers, deletion markers or any
 // internal data.
 type Program struct {
-	ID          string
-	Name        string
-	Description string
-	Type        string
-	Status      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Weeks       []Week
+	ID              string
+	Name            string
+	Description     string
+	Type            string
+	Status          string
+	PriceMinorUnits int64
+	Currency        string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Weeks           []Week
 }
 
 // Service implements the client-facing assigned program read flow. The
@@ -127,14 +129,16 @@ func (s *service) GetProgram(ctx context.Context, userID string) (*Program, erro
 
 func newProgram(model *models.Program) *Program {
 	program := &Program{
-		ID:          model.ID,
-		Name:        model.Name,
-		Description: model.Description,
-		Type:        model.Type,
-		Status:      model.Status,
-		CreatedAt:   model.CreatedAt,
-		UpdatedAt:   model.UpdatedAt,
-		Weeks:       make([]Week, 0, len(model.Weeks)),
+		ID:              model.ID,
+		Name:            model.Name,
+		Description:     model.Description,
+		Type:            model.Type,
+		Status:          model.Status,
+		PriceMinorUnits: model.PriceMinorUnits,
+		Currency:        model.Currency,
+		CreatedAt:       model.CreatedAt,
+		UpdatedAt:       model.UpdatedAt,
+		Weeks:           make([]Week, 0, len(model.Weeks)),
 	}
 	for i := range model.Weeks {
 		program.Weeks = append(program.Weeks, newWeek(&model.Weeks[i]))

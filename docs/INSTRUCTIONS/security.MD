@@ -793,6 +793,33 @@ security model with a client-side read view:
   data. Password hashes, session versions, JWT data and deletion markers are
   never exposed.
 
+### Program Pricing Security
+
+Program pricing follows the existing security model with specific pricing
+constraints:
+
+- Pricing fields (`price_minor_units`, `currency`) are exposed in all public,
+  client and entitlement responses alongside the existing program metadata.
+  No internal data is exposed.
+- Trainers can set pricing through the existing `POST /trainer/programs` and
+  `PATCH /trainer/programs/:programID` endpoints. The trainer identity always
+  comes from the authenticated trainer context; ownership is verified
+  server-side.
+- The Management Administrator (ADMIN_2) can update pricing through
+  `PATCH /admin/programs/:programID/pricing`, protected by the `plans`
+  permission. The administrator identity is resolved from the admin
+  authentication middleware and never from the request body.
+- Free programs must always have a price of 0. Paid programs (premium,
+  personalized) must meet the configurable minimum
+  (`MIN_PROGRAM_PRICE_MINOR_UNITS` env var, default 100 = €1.00).
+- Currency is validated against the supported set (currently EUR only). An
+  unsupported currency is rejected before any database access.
+- The integer minor-unit model (`BIGINT`) avoids floating-point rounding issues.
+  No float or double types are used anywhere in the pricing path.
+- No purchase creation or payment processing exists yet. The pricing fields are
+  a foundation for future commerce; purchase snapshot fields are intentionally
+  absent from the `purchases` table.
+
 ### Client Workout History Security
 
 The client workout history endpoints (`POST /api/v1/me/workouts/{workoutID}/complete`

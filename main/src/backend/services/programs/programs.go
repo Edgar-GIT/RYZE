@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
@@ -40,8 +41,10 @@ const (
 type ProgramRepository interface {
 	Create(ctx context.Context, program *models.Program) error
 	FindByIDAndTrainer(ctx context.Context, trainerID, programID string) (*models.Program, error)
+	FindByID(ctx context.Context, programID string) (*models.Program, error)
 	ListByTrainer(ctx context.Context, trainerID string, page, limit int) ([]models.Program, int64, error)
 	Update(ctx context.Context, trainerID, programID string, updates map[string]any) error
+	UpdatePricing(ctx context.Context, programID string, priceMinorUnits int64, currency string) error
 	Publish(ctx context.Context, trainerID, programID string) error
 	SoftDelete(ctx context.Context, trainerID, programID string) error
 }
@@ -50,34 +53,47 @@ type ProgramRepository interface {
 // public program metadata and never exposes deletion markers or any internal
 // data.
 type Program struct {
-	ID          string
-	TrainerID   string
-	Name        string
-	Description string
-	Type        string
-	Status      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID              string
+	TrainerID       string
+	Name            string
+	Description     string
+	Type            string
+	Status          string
+	PriceMinorUnits int64
+	Currency        string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // CreateProgramInput carries the fields accepted when creating a program. The
 // trainer id never comes from the input: it is always the authenticated
 // trainer.
 type CreateProgramInput struct {
-	Name        string
-	Description string
-	Type        string
-	Status      string
+	Name            string
+	Description     string
+	Type            string
+	Status          string
+	PriceMinorUnits int64
+	Currency        string
 }
 
 // UpdateProgramInput carries the optional whitelisted fields accepted when
 // updating a program. Nil values mean "leave unchanged"; at least one field
 // must be provided.
 type UpdateProgramInput struct {
-	Name        *string
-	Description *string
-	Type        *string
-	Status      *string
+	Name            *string
+	Description     *string
+	Type            *string
+	Status          *string
+	PriceMinorUnits *int64
+	Currency        *string
+}
+
+// UpdatePricingInput carries the pricing fields accepted when updating a
+// program's price. Both fields are required.
+type UpdatePricingInput struct {
+	PriceMinorUnits int64
+	Currency        string
 }
 
 // ListProgramsResult carries one page of programs plus the pagination metadata
@@ -105,14 +121,23 @@ type Service interface {
 	// soft-deleted or foreign program maps to ErrProgramNotFound.
 	PublishProgram(ctx context.Context, trainerID, programID string) (*Program, error)
 	DeleteProgram(ctx context.Context, trainerID, programID string) error
+	// UpdateProgramPricing updates the price of any active program. The caller
+	// (trainer owner or authorized administrator) is responsible for
+	// authorization before calling this method. Free programs must have a price
+	// of 0; paid programs must meet the configured minimum.
+	UpdateProgramPricing(ctx context.Context, programID string, input UpdatePricingInput) (*Program, error)
+	// GetProgramByID returns one active program by its id without ownership
+	// scoping. This is used by the admin pricing path.
+	GetProgramByID(ctx context.Context, programID string) (*Program, error)
 }
 
 type service struct {
 	programs ProgramRepository
+	pricing  config.PricingConfig
 }
 
-func NewService(programs ProgramRepository) Service {
-	return &service{programs: programs}
+func NewService(programs ProgramRepository, pricing config.PricingConfig) Service {
+	return &service{programs: programs, pricing: pricing}
 }
 
 // CreateProgram creates a new program owned by the authenticated trainer. The
@@ -142,12 +167,25 @@ func (s *service) CreateProgram(ctx context.Context, trainerID string, input Cre
 		return nil, err
 	}
 
+	currency := strings.TrimSpace(input.Currency)
+	if currency == "" {
+		currency = string(models.ProgramCurrencyEUR)
+	}
+	if err := validateCurrency(currency); err != nil {
+		return nil, err
+	}
+	if err := validatePriceForType(input.Type, input.PriceMinorUnits, currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
+		return nil, err
+	}
+
 	program := &models.Program{
-		TrainerID:   trainerID,
-		Name:        strings.TrimSpace(input.Name),
-		Description: input.Description,
-		Type:        input.Type,
-		Status:      status,
+		TrainerID:       trainerID,
+		Name:            strings.TrimSpace(input.Name),
+		Description:     input.Description,
+		Type:            input.Type,
+		Status:          status,
+		PriceMinorUnits: input.PriceMinorUnits,
+		Currency:        currency,
 	}
 	if err := s.programs.Create(ctx, program); err != nil {
 		return nil, fmt.Errorf("failed to create program: %w", err)
@@ -218,7 +256,8 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 		return nil, err
 	}
 
-	if _, err := s.programs.FindByIDAndTrainer(ctx, trainerID, programID); err != nil {
+	existing, err := s.programs.FindByIDAndTrainer(ctx, trainerID, programID)
+	if err != nil {
 		if errors.Is(err, repositories.ErrProgramNotFound) {
 			return nil, ErrProgramNotFound
 		}
@@ -250,6 +289,31 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 		}
 		updates["status"] = *input.Status
 	}
+
+	effectiveType := existing.Type
+	if t, ok := updates["type"]; ok {
+		effectiveType = t.(string)
+	}
+
+	if input.PriceMinorUnits != nil || input.Currency != nil {
+		price := existing.PriceMinorUnits
+		if input.PriceMinorUnits != nil {
+			price = *input.PriceMinorUnits
+		}
+		currency := existing.Currency
+		if input.Currency != nil {
+			currency = strings.TrimSpace(*input.Currency)
+		}
+		if err := validateCurrency(currency); err != nil {
+			return nil, err
+		}
+		if err := validatePriceForType(effectiveType, price, currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
+			return nil, err
+		}
+		updates["price_minor_units"] = price
+		updates["currency"] = currency
+	}
+
 	if len(updates) == 0 {
 		return nil, fmt.Errorf("%w: at least one field must be provided", ErrInvalidInput)
 	}
@@ -321,16 +385,76 @@ func (s *service) DeleteProgram(ctx context.Context, trainerID, programID string
 	return nil
 }
 
+// UpdateProgramPricing updates the price of any active program. The caller
+// (trainer owner or authorized administrator) is responsible for authorization
+// before calling this method. Free programs must have a price of 0; paid
+// programs must meet the configured minimum.
+func (s *service) UpdateProgramPricing(ctx context.Context, programID string, input UpdatePricingInput) (*Program, error) {
+	if err := validateProgramID(programID); err != nil {
+		return nil, err
+	}
+
+	program, err := s.programs.FindByID(ctx, programID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to load program: %w", err)
+	}
+
+	currency := strings.TrimSpace(input.Currency)
+	if currency == "" {
+		currency = program.Currency
+	}
+	if err := validateCurrency(currency); err != nil {
+		return nil, err
+	}
+	if err := validatePriceForType(program.Type, input.PriceMinorUnits, currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
+		return nil, err
+	}
+
+	if err := s.programs.UpdatePricing(ctx, programID, input.PriceMinorUnits, currency); err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to update program pricing: %w", err)
+	}
+
+	program.PriceMinorUnits = input.PriceMinorUnits
+	program.Currency = currency
+	return newProgram(program), nil
+}
+
+// GetProgramByID returns one active program by its id without ownership
+// scoping. This is used by the admin pricing path.
+func (s *service) GetProgramByID(ctx context.Context, programID string) (*Program, error) {
+	if err := validateProgramID(programID); err != nil {
+		return nil, err
+	}
+
+	model, err := s.programs.FindByID(ctx, programID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to load program: %w", err)
+	}
+
+	return newProgram(model), nil
+}
+
 func newProgram(model *models.Program) *Program {
 	return &Program{
-		ID:          model.ID,
-		TrainerID:   model.TrainerID,
-		Name:        model.Name,
-		Description: model.Description,
-		Type:        model.Type,
-		Status:      model.Status,
-		CreatedAt:   model.CreatedAt,
-		UpdatedAt:   model.UpdatedAt,
+		ID:              model.ID,
+		TrainerID:       model.TrainerID,
+		Name:            model.Name,
+		Description:     model.Description,
+		Type:            model.Type,
+		Status:          model.Status,
+		PriceMinorUnits: model.PriceMinorUnits,
+		Currency:        model.Currency,
+		CreatedAt:       model.CreatedAt,
+		UpdatedAt:       model.UpdatedAt,
 	}
 }
 
@@ -411,4 +535,35 @@ func validateStatus(status string) error {
 	default:
 		return fmt.Errorf("%w: invalid program status", ErrInvalidInput)
 	}
+}
+
+// validateCurrency rejects any currency code outside the supported set.
+func validateCurrency(currency string) error {
+	switch models.ProgramCurrency(currency) {
+	case models.ProgramCurrencyEUR:
+		return nil
+	default:
+		return fmt.Errorf("%w: unsupported currency", ErrInvalidInput)
+	}
+}
+
+// validatePriceForType enforces the pricing rules: free programs must have a
+// price of 0, while paid programs (premium/personalized) must meet the
+// configured minimum.
+func validatePriceForType(programType string, priceMinorUnits int64, currency string, minPrice int64) error {
+	if err := validateCurrency(currency); err != nil {
+		return err
+	}
+
+	switch programType {
+	case models.ProgramTypeFree:
+		if priceMinorUnits != 0 {
+			return fmt.Errorf("%w: free programs must have a price of 0", ErrInvalidInput)
+		}
+	default:
+		if priceMinorUnits < minPrice {
+			return fmt.Errorf("%w: price must be at least %d minor units", ErrInvalidInput, minPrice)
+		}
+	}
+	return nil
 }

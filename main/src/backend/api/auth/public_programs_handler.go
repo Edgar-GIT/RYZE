@@ -15,26 +15,30 @@ import (
 // the lifecycle timestamps. Deletion markers, draft programs and any
 // internal data are never exposed.
 type publicProgramResponse struct {
-	ID          string    `json:"id"`
-	TrainerID   string    `json:"trainer_id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Type        string    `json:"type"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID              string    `json:"id"`
+	TrainerID       string    `json:"trainer_id"`
+	Name            string    `json:"name"`
+	Description     string    `json:"description"`
+	Type            string    `json:"type"`
+	Status          string    `json:"status"`
+	PriceMinorUnits int64     `json:"price_minor_units"`
+	Currency        string    `json:"currency"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 func newPublicProgramResponse(program *public_programs.Program) publicProgramResponse {
 	return publicProgramResponse{
-		ID:          program.ID,
-		TrainerID:   program.TrainerID,
-		Name:        program.Name,
-		Description: program.Description,
-		Type:        program.Type,
-		Status:      program.Status,
-		CreatedAt:   program.CreatedAt,
-		UpdatedAt:   program.UpdatedAt,
+		ID:              program.ID,
+		TrainerID:       program.TrainerID,
+		Name:            program.Name,
+		Description:     program.Description,
+		Type:            program.Type,
+		Status:          program.Status,
+		PriceMinorUnits: program.PriceMinorUnits,
+		Currency:        program.Currency,
+		CreatedAt:       program.CreatedAt,
+		UpdatedAt:       program.UpdatedAt,
 	}
 }
 

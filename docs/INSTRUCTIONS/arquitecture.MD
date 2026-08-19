@@ -195,6 +195,17 @@ trainer never leaves an approved application without a profile. No
 authorization logic exists in the handlers or services; every admin route runs
 behind `AdminAuthenticate` + `RequireAdminPermission`.
 
+The admin program pricing foundation follows the same layering:
+`AdminProgramPricingHandler` (thin, in `api/auth`) → `admin_program_pricing`
+service (in `services/admin_program_pricing`) → `ProgramRepository` (via the
+`programs` service). The handler validates request bodies and maps service
+errors; the admin pricing service delegates pricing operations to the programs
+service, which owns all pricing validation (price/currency consistency rules,
+minimum price enforcement). Authorization is enforced by
+`RequireAdminPermission(PermissionPlans)` at the route level; the handler and
+service perform no authorization checks. The `plans` permission is exclusive to
+the Management Administrator (ADMIN_2).
+
 Trainer authorization is a separate concern from trainer authentication.
 Authentication (`middleware/trainercontext` + `middleware.TrainerAuthenticate`)
 resolves an authenticated user into an active trainer and stores the `UserID` +
@@ -364,6 +375,32 @@ soft-deleted and unknown programs all return the same generic 404 to prevent
 information leakage. The service layer validates program ids and pagination
 parameters; the repository layer applies `WHERE status = 'published'` and
 GORM's default soft-delete scope. No write operation is exposed.
+
+### Program Pricing
+
+Program pricing is a cross-cutting concern that extends the existing program
+entity with selling price and currency fields. The architecture follows the
+existing layered pattern:
+
+- Pricing fields (`price_minor_units BIGINT`, `currency VARCHAR(3)`) live on
+  the `programs` table. No separate pricing table is introduced.
+- The `programs` service (`services/programs`) owns pricing validation: free
+  programs must have price 0, paid programs must meet the configurable minimum,
+  and currency is validated against the supported set (EUR only initially).
+- The minimum price is configurable via `MIN_PROGRAM_PRICE_MINOR_UNITS` env var
+  (loaded through `config.PricingConfig`). This avoids hard-coding business
+  rules.
+- Trainers set pricing through the existing `CreateProgram` and `UpdateProgram`
+  methods. The admin pricing path uses a dedicated `admin_program_pricing`
+  service that delegates to the programs service.
+- The `ProgramRepository` gains `FindByID` (no ownership scoping) and
+  `UpdatePricing` methods. `FindByID` is used by the admin path; ownership is
+  verified at the handler/middleware level, not in the repository.
+- The integer minor-unit model avoids floating-point rounding. No float or
+  double types are used.
+- No purchase creation or payment processing exists yet. Pricing is a
+  foundation for future commerce; purchase snapshot fields are intentionally
+  absent.
 
 ### Client Workout History
 

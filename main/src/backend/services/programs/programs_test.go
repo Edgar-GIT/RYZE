@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/programs"
@@ -76,6 +77,16 @@ func (s *stubProgramRepo) FindByIDAndTrainer(_ context.Context, trainerID, progr
 	return s.program, nil
 }
 
+func (s *stubProgramRepo) FindByID(_ context.Context, programID string) (*models.Program, error) {
+	if s.program == nil || s.deleted {
+		return nil, repositories.ErrProgramNotFound
+	}
+	if s.program.ID != programID {
+		return nil, repositories.ErrProgramNotFound
+	}
+	return s.program, nil
+}
+
 func (s *stubProgramRepo) ListByTrainer(_ context.Context, trainerID string, page, limit int) ([]models.Program, int64, error) {
 	if s.list != nil {
 		return s.list(trainerID, page, limit)
@@ -106,8 +117,21 @@ func (s *stubProgramRepo) Update(_ context.Context, trainerID, programID string,
 			s.program.Type = value.(string)
 		case "status":
 			s.program.Status = value.(string)
+		case "price_minor_units":
+			s.program.PriceMinorUnits = value.(int64)
+		case "currency":
+			s.program.Currency = value.(string)
 		}
 	}
+	return nil
+}
+
+func (s *stubProgramRepo) UpdatePricing(_ context.Context, programID string, priceMinorUnits int64, currency string) error {
+	if s.program == nil || s.deleted || s.program.ID != programID {
+		return repositories.ErrProgramNotFound
+	}
+	s.program.PriceMinorUnits = priceMinorUnits
+	s.program.Currency = currency
 	return nil
 }
 
@@ -145,19 +169,21 @@ func (s *stubProgramRepo) SoftDelete(_ context.Context, trainerID, programID str
 
 func validProgram() *models.Program {
 	return &models.Program{
-		ID:          programID,
-		TrainerID:   trainerID,
-		Name:        "Strength Builder",
-		Description: "A 12 week strength program.",
-		Type:        models.ProgramTypePremium,
-		Status:      models.ProgramStatusDraft,
-		CreatedAt:   time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		UpdatedAt:   time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+		ID:              programID,
+		TrainerID:       trainerID,
+		Name:            "Strength Builder",
+		Description:     "A 12 week strength program.",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusDraft,
+		PriceMinorUnits: 1449,
+		Currency:        string(models.ProgramCurrencyEUR),
+		CreatedAt:       time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		UpdatedAt:       time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
 	}
 }
 
 func newService(repo *stubProgramRepo) programs.Service {
-	return programs.NewService(repo)
+	return programs.NewService(repo, config.PricingConfig{MinProgramPriceMinorUnits: 100})
 }
 
 func TestCreateProgramSuccess(t *testing.T) {
@@ -165,10 +191,12 @@ func TestCreateProgramSuccess(t *testing.T) {
 	svc := newService(repo)
 
 	program, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
-		Name:        "  Strength Builder  ",
-		Description: "A 12 week strength program.",
-		Type:        models.ProgramTypePremium,
-		Status:      models.ProgramStatusPublished,
+		Name:            "  Strength Builder  ",
+		Description:     "A 12 week strength program.",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 1449,
+		Currency:        string(models.ProgramCurrencyEUR),
 	})
 	if err != nil {
 		t.Fatalf("CreateProgram: %v", err)
@@ -678,5 +706,138 @@ func TestProgramNeverExposesSecrets(t *testing.T) {
 				t.Fatalf("Program must not expose %q", field)
 			}
 		}
+	}
+}
+
+func TestCreateProgramFreeMustHaveZeroPrice(t *testing.T) {
+	svc := newService(&stubProgramRepo{})
+	_, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
+		Name:            "Free Program",
+		Type:            models.ProgramTypeFree,
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+	})
+	if !errors.Is(err, programs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestCreateProgramPaidMustMeetMinimum(t *testing.T) {
+	svc := newService(&stubProgramRepo{})
+	_, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
+		Name:            "Cheap Program",
+		Type:            models.ProgramTypePremium,
+		PriceMinorUnits: 50,
+		Currency:        "EUR",
+	})
+	if !errors.Is(err, programs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestCreateProgramInvalidCurrency(t *testing.T) {
+	svc := newService(&stubProgramRepo{})
+	_, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
+		Name:            "Program",
+		Type:            models.ProgramTypePremium,
+		PriceMinorUnits: 1449,
+		Currency:        "USD",
+	})
+	if !errors.Is(err, programs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestCreateProgramFreeDefaultsZeroPrice(t *testing.T) {
+	repo := &stubProgramRepo{}
+	svc := newService(repo)
+	program, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
+		Name: "Free Program",
+		Type: models.ProgramTypeFree,
+	})
+	if err != nil {
+		t.Fatalf("CreateProgram: %v", err)
+	}
+	if program.PriceMinorUnits != 0 {
+		t.Fatalf("expected price 0 for free program, got %d", program.PriceMinorUnits)
+	}
+	if program.Currency != "EUR" {
+		t.Fatalf("expected default currency EUR, got %q", program.Currency)
+	}
+}
+
+func TestUpdateProgramPricingSuccess(t *testing.T) {
+	repo := &stubProgramRepo{program: validProgram()}
+	svc := newService(repo)
+
+	program, err := svc.UpdateProgramPricing(context.Background(), programID, programs.UpdatePricingInput{
+		PriceMinorUnits: 2999,
+		Currency:        "EUR",
+	})
+	if err != nil {
+		t.Fatalf("UpdateProgramPricing: %v", err)
+	}
+	if program.PriceMinorUnits != 2999 {
+		t.Fatalf("expected price 2999, got %d", program.PriceMinorUnits)
+	}
+}
+
+func TestUpdateProgramPricingFreeMustBeZero(t *testing.T) {
+	freeProgram := validProgram()
+	freeProgram.Type = models.ProgramTypeFree
+	freeProgram.PriceMinorUnits = 0
+	repo := &stubProgramRepo{program: freeProgram}
+	svc := newService(repo)
+
+	_, err := svc.UpdateProgramPricing(context.Background(), programID, programs.UpdatePricingInput{
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+	})
+	if !errors.Is(err, programs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestUpdateProgramPricingNotFound(t *testing.T) {
+	repo := &stubProgramRepo{program: validProgram()}
+	svc := newService(repo)
+
+	_, err := svc.UpdateProgramPricing(context.Background(), "00000000-0000-0000-0000-000000000000", programs.UpdatePricingInput{
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+	})
+	if !errors.Is(err, programs.ErrProgramNotFound) {
+		t.Fatalf("expected ErrProgramNotFound, got %v", err)
+	}
+}
+
+func TestGetProgramByIDSuccess(t *testing.T) {
+	repo := &stubProgramRepo{program: validProgram()}
+	svc := newService(repo)
+
+	program, err := svc.GetProgramByID(context.Background(), programID)
+	if err != nil {
+		t.Fatalf("GetProgramByID: %v", err)
+	}
+	if program.ID != programID {
+		t.Fatalf("expected program id %q, got %q", programID, program.ID)
+	}
+}
+
+func TestGetProgramByIDNotFound(t *testing.T) {
+	repo := &stubProgramRepo{}
+	svc := newService(repo)
+
+	_, err := svc.GetProgramByID(context.Background(), programID)
+	if !errors.Is(err, programs.ErrProgramNotFound) {
+		t.Fatalf("expected ErrProgramNotFound, got %v", err)
+	}
+}
+
+func TestGetProgramByIDInvalidID(t *testing.T) {
+	svc := newService(&stubProgramRepo{})
+	_, err := svc.GetProgramByID(context.Background(), "")
+	if !errors.Is(err, programs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }

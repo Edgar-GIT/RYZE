@@ -62,7 +62,7 @@ func newTrainerProgramsTestRouter(t *testing.T, permissions ...trainerroles.Perm
 	programRepo := repositories.NewProgramRepository(tx)
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
 
-	service := programs.NewService(programRepo)
+	service := programs.NewService(programRepo, config.PricingConfig{MinProgramPriceMinorUnits: 100})
 	handler := auth.NewTrainerProgramsHandler(service)
 
 	router := gin.New()
@@ -151,6 +151,16 @@ func (s *stubTrainerProgramsService) DeleteProgram(_ context.Context, trainerID,
 	s.gotTrainer = trainerID
 	s.gotProgramID = programID
 	return s.err
+}
+
+func (s *stubTrainerProgramsService) UpdateProgramPricing(_ context.Context, programID string, input programs.UpdatePricingInput) (*programs.Program, error) {
+	s.gotProgramID = programID
+	return s.program, s.err
+}
+
+func (s *stubTrainerProgramsService) GetProgramByID(_ context.Context, programID string) (*programs.Program, error) {
+	s.gotProgramID = programID
+	return s.program, s.err
 }
 
 func trainerProgramsRequest(router http.Handler, cookieValue, method, path, body string) (*httptest.ResponseRecorder, map[string]any, string) {

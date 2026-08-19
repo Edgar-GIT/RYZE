@@ -817,6 +817,14 @@ The implemented `programs` table contains:
   `CHECK`-constrained.
 - `status` — `draft` or `published`, `CHECK`-constrained. Publishing is only a
   state and carries no purchase, assignment or access semantics.
+- `price_minor_units` — program price in minor currency units (cents for EUR),
+  `BIGINT NOT NULL DEFAULT 0`. Free programs must always have a value of 0; paid
+  programs (premium/personalized) must meet the configurable minimum (env var
+  `MIN_PROGRAM_PRICE_MINOR_UNITS`, default 100 = €1.00). The integer
+  minor-unit model avoids floating-point rounding issues.
+- `currency` — ISO 4217 currency code (`VARCHAR(3) NOT NULL DEFAULT 'EUR'`).
+  Initially only `EUR` is supported. The database index `idx_programs_currency`
+  is present for future multi-currency queries.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
 

@@ -48,3 +48,10 @@ type Admin struct {
 type AdminConfig struct {
 	Admins []Admin
 }
+
+// PricingConfig holds the configurable pricing boundaries for program
+// products. The minimum price is expressed in minor currency units (cents
+// for EUR) so the business can adjust the floor without a code change.
+type PricingConfig struct {
+	MinProgramPriceMinorUnits int64
+}

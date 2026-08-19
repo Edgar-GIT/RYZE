@@ -22,12 +22,16 @@ var ErrProgramNotFound = errors.New("program not found")
 type ProgramRepository interface {
 	Create(ctx context.Context, program *models.Program) error
 	FindByIDAndTrainer(ctx context.Context, trainerID, programID string) (*models.Program, error)
+	// FindByID returns one active (non-deleted) program by its id without
+	// ownership scoping. This is used by the admin pricing path where the
+	// caller is authorized but does not own the program.
+	FindByID(ctx context.Context, programID string) (*models.Program, error)
 	ListByTrainer(ctx context.Context, trainerID string, page, limit int) ([]models.Program, int64, error)
 	Update(ctx context.Context, trainerID, programID string, updates map[string]any) error
-	// Publish transitions a draft program to published through a conditional
-	// update. It returns nil on success, ErrProgramNotFound if the program
-	// does not exist, is soft-deleted, is owned by another trainer, or is
-	// already published.
+	// UpdatePricing updates the pricing fields of any active program. The
+	// caller (trainer owner or authorized administrator) is responsible for
+	// authorization before calling this method.
+	UpdatePricing(ctx context.Context, programID string, priceMinorUnits int64, currency string) error
 	Publish(ctx context.Context, trainerID, programID string) error
 	SoftDelete(ctx context.Context, trainerID, programID string) error
 
@@ -65,6 +69,20 @@ func (r *programRepository) FindByIDAndTrainer(ctx context.Context, trainerID, p
 	var program models.Program
 	if err := r.db.WithContext(ctx).
 		First(&program, "id = ? AND trainer_id = ?", programID, trainerID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to find program: %w", err)
+	}
+	return &program, nil
+}
+
+// FindByID returns one active (non-deleted) program by its id without ownership
+// scoping. An unknown or soft-deleted program maps to ErrProgramNotFound.
+func (r *programRepository) FindByID(ctx context.Context, programID string) (*models.Program, error) {
+	var program models.Program
+	if err := r.db.WithContext(ctx).
+		First(&program, "id = ?", programID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrProgramNotFound
 		}
@@ -111,6 +129,27 @@ func (r *programRepository) Update(ctx context.Context, trainerID, programID str
 		Updates(updates)
 	if result.Error != nil {
 		return fmt.Errorf("failed to update program: %w", result.Error)
+	}
+	return nil
+}
+
+// UpdatePricing updates the pricing fields of any active program. The caller
+// (trainer owner or authorized administrator) is responsible for authorization
+// before calling this method. A zero RowsAffected means the program is missing
+// or soft-deleted.
+func (r *programRepository) UpdatePricing(ctx context.Context, programID string, priceMinorUnits int64, currency string) error {
+	result := r.db.WithContext(ctx).
+		Model(&models.Program{}).
+		Where("id = ?", programID).
+		Updates(map[string]any{
+			"price_minor_units": priceMinorUnits,
+			"currency":          currency,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("failed to update program pricing: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrProgramNotFound
 	}
 	return nil
 }

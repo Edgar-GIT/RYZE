@@ -39,14 +39,16 @@ type ProgramRepository interface {
 // only the public product metadata and never exposes deletion markers,
 // draft programs, or any internal data.
 type Program struct {
-	ID          string
-	TrainerID   string
-	Name        string
-	Description string
-	Type        string
-	Status      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID              string
+	TrainerID       string
+	Name            string
+	Description     string
+	Type            string
+	Status          string
+	PriceMinorUnits int64
+	Currency        string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // ListProgramsResult carries one page of published programs plus the
@@ -117,14 +119,16 @@ func (s *service) GetPublishedProgram(ctx context.Context, programID string) (*P
 
 func toSafe(model *models.Program) *Program {
 	return &Program{
-		ID:          model.ID,
-		TrainerID:   model.TrainerID,
-		Name:        model.Name,
-		Description: model.Description,
-		Type:        model.Type,
-		Status:      model.Status,
-		CreatedAt:   model.CreatedAt,
-		UpdatedAt:   model.UpdatedAt,
+		ID:              model.ID,
+		TrainerID:       model.TrainerID,
+		Name:            model.Name,
+		Description:     model.Description,
+		Type:            model.Type,
+		Status:          model.Status,
+		PriceMinorUnits: model.PriceMinorUnits,
+		Currency:        model.Currency,
+		CreatedAt:       model.CreatedAt,
+		UpdatedAt:       model.UpdatedAt,
 	}
 }
 

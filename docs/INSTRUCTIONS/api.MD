@@ -778,11 +778,16 @@ Request body:
 - `description` — optional, max 5000 characters.
 - `type` — one of `free`, `premium`, `personalized`.
 - `status` — one of `draft`, `published`; defaults to `draft` when omitted.
+- `price_minor_units` — integer, price in minor currency units (cents for EUR).
+  Free programs must have 0; paid programs must meet the configured minimum
+  (env `MIN_PROGRAM_PRICE_MINOR_UNITS`, default 100 = €1.00). Defaults to 0.
+- `currency` — ISO 4217 code, currently only `EUR`. Defaults to `EUR`.
 
 Response:
 
 - `201 Created` — response `data`: `id`, `trainer_id`, `name`,
-  `description`, `type`, `status`, `created_at`, `updated_at`.
+  `description`, `type`, `status`, `price_minor_units`, `currency`,
+  `created_at`, `updated_at`.
 - `400 VALIDATION_ERROR` — invalid or incomplete input.
 - `500 INTERNAL_ERROR`.
 
@@ -825,7 +830,7 @@ unchanged; at least one field must be provided.
 
 Request body (all optional):
 
-- `name`, `description`, `type`, `status`.
+- `name`, `description`, `type`, `status`, `price_minor_units`, `currency`.
 
 Responses:
 
@@ -1821,7 +1826,8 @@ Query parameters:
 Response `data`:
 
 - `programs` — array of program objects: `id`, `trainer_id`, `name`,
-  `description`, `type`, `status`, `created_at`, `updated_at`.
+  `description`, `type`, `status`, `price_minor_units`, `currency`,
+  `created_at`, `updated_at`.
 - `pagination` — `page`, `limit`, `total`, `total_pages`.
 
 ### `GET /api/v1/programs/:programID`
@@ -1834,7 +1840,7 @@ Public endpoint. No authentication required.
 Response `data`:
 
 - `id`, `trainer_id`, `name`, `description`, `type`, `status`,
-  `created_at`, `updated_at`.
+  `price_minor_units`, `currency`, `created_at`, `updated_at`.
 
 ---
 
@@ -3158,6 +3164,58 @@ Rejects a `PENDING` application. The row is kept in history with status
 Errors mirror the approve endpoint (`APPLICATION_NOT_FOUND`,
 `APPLICATION_STATE_CONFLICT`). Accessible by both roles
 (`trainer_applications.manage`).
+
+---
+
+## Admin Program Pricing
+
+Program pricing endpoints allow the Management Administrator to view and update
+the selling price of any active program. These endpoints are protected by the
+`plans` permission, which is exclusive to the Management Administrator (ADMIN_2).
+
+Both the program owner (trainer via existing PATCH) and the Management
+Administrator can change prices. The pricing model uses integer minor-units
+(cents for EUR) to avoid floating-point rounding issues. Free programs must
+always have a price of 0; paid programs must meet the configurable minimum.
+
+```
+GET /api/v1/admin/programs/:programID
+PATCH /api/v1/admin/programs/:programID/pricing
+```
+
+### `GET /api/v1/admin/programs/:programID`
+
+Returns one active program by its id (no ownership scoping). Protected by
+`plans` permission.
+
+Response `data`:
+
+- `id`, `trainer_id`, `name`, `description`, `type`, `status`,
+  `price_minor_units`, `currency`, `created_at`, `updated_at`.
+
+Responses:
+
+- `200 OK` — program object.
+- `400 VALIDATION_ERROR` — malformed program id.
+- `403 FORBIDDEN` — insufficient permissions.
+- `404 PROGRAM_NOT_FOUND` — missing or soft-deleted program.
+
+### `PATCH /api/v1/admin/programs/:programID/pricing`
+
+Updates the price of one active program. Protected by `plans` permission.
+
+Request body:
+
+- `price_minor_units` — integer, price in minor currency units. Free programs
+  must have 0; paid programs must meet the configured minimum.
+- `currency` — ISO 4217 code, currently only `EUR`.
+
+Responses:
+
+- `200 OK` — updated program object.
+- `400 VALIDATION_ERROR` — invalid pricing input.
+- `403 FORBIDDEN` — insufficient permissions.
+- `404 PROGRAM_NOT_FOUND` — missing or soft-deleted program.
 
 # ADMIN USER MANAGEMENT
 

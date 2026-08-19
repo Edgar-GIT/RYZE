@@ -12,13 +12,14 @@ import (
 )
 
 const (
-	defaultHost           = "127.0.0.1"
-	defaultPort           = "3306"
-	defaultTokenTTL       = 15 * time.Minute
-	minJWTSecretLength    = 32
-	defaultAllowedOrigin  = "http://localhost:5173,http://127.0.0.1:5173"
-	minAdminPasswordLen   = 6
-	minAdminAccessCodeLen = 8
+	defaultHost                    = "127.0.0.1"
+	defaultPort                    = "3306"
+	defaultTokenTTL                = 15 * time.Minute
+	minJWTSecretLength             = 32
+	defaultAllowedOrigin           = "http://localhost:5173,http://127.0.0.1:5173"
+	minAdminPasswordLen            = 6
+	minAdminAccessCodeLen          = 8
+	defaultMinProgramPriceMinorUnits = 100
 )
 
 // LoadEnvFile loads the repository .env file so environment variables defined
@@ -167,4 +168,21 @@ func LoadCORS() (CORSConfig, error) {
 	}
 
 	return CORSConfig{AllowedOrigins: origins}, nil
+}
+
+// LoadPricing reads the pricing configuration from environment variables.
+// MIN_PROGRAM_PRICE_MINOR_UNITS sets the minimum price in minor currency units
+// (cents for EUR) that a paid program may have. When unset it defaults to 100
+// (€1.00). Free programs always have a price of 0 regardless of this setting.
+func LoadPricing() (PricingConfig, error) {
+	minPrice := int64(defaultMinProgramPriceMinorUnits)
+	if raw := strings.TrimSpace(os.Getenv("MIN_PROGRAM_PRICE_MINOR_UNITS")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed < 0 {
+			return PricingConfig{}, fmt.Errorf("MIN_PROGRAM_PRICE_MINOR_UNITS must be a non-negative integer, got %q", raw)
+		}
+		minPrice = parsed
+	}
+
+	return PricingConfig{MinProgramPriceMinorUnits: minPrice}, nil
 }
