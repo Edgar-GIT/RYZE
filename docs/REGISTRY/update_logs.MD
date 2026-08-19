@@ -1,3 +1,75 @@
+# Version 2.28.0
+
+Title: Backend Step 40 — public program discovery foundation
+
+Date: 2026-08-18
+
+Summary:
+
+Added two unauthenticated, read-only public endpoints for program discovery:
+`GET /api/v1/programs` (paginated list) and `GET /api/v1/programs/:programID`
+(single program). These endpoints expose only published, non-deleted programs
+and require no authentication. The catalog is global: programs from all trainers
+are visible to every caller. Draft, soft-deleted and unknown programs all return
+the same generic 404 Not Found (`PROGRAM_NOT_FOUND`) to prevent information
+leakage. No purchase, assignment, payment or access semantics are introduced.
+
+Database:
+
+- No new tables or migrations. The existing `programs.status` CHECK constraint
+  already supports the `published` value used by the public catalog.
+
+Behavior:
+
+- `GET /api/v1/programs`, mounted without authentication on the public `v1`
+  group: returns `200 OK` with a paginated array of published programs and
+  pagination metadata (`page`, `limit`, `total`, `total_pages`); returns `400
+  Bad Request` (`VALIDATION_ERROR`) for invalid pagination parameters.
+- `GET /api/v1/programs/:programID`, mounted without authentication: returns
+  `200 OK` with one published program; returns `404 Not Found`
+  (`PROGRAM_NOT_FOUND`) for missing, draft, soft-deleted or unknown programs;
+  returns `400 Bad Request` (`VALIDATION_ERROR`) for a malformed program id.
+
+Files:
+
+- `repositories/program_repository.go` — added `ListPublished(ctx, page, limit)`
+  and `FindPublishedByID(ctx, programID)` methods to the `ProgramRepository`
+  interface and `programRepository` implementation. `ListPublished` returns only
+  programs with `status = 'published'` ordered by `created_at DESC`. Both
+  methods are unscoped: no trainer ownership is checked.
+- `services/public_programs/public_programs.go` — new service package providing
+  `ListPublishedPrograms` and `GetPublishedProgram` through a read-only
+  `ProgramRepository` interface limited to the two public methods.
+- `api/auth/public_programs_handler.go` — new handler exposing
+  `ListPublishedPrograms` and `GetPublishedProgram` with the same pagination and
+  error-mapping conventions as the exercises handler.
+- `routes/routes.go` — wired `GET /programs` and `GET /programs/:programID` in
+  the public `v1` route group, outside any authentication middleware.
+- `repositories/program_repository_test.go` — added tests for `ListPublished`
+  (published programs only, excludes drafts, excludes soft-deleted, pagination,
+  cross-trainer visibility) and `FindPublishedByID` (published, draft hidden,
+  soft-deleted hidden, unknown id, platform-owned draft).
+- `services/public_programs/public_programs_test.go` — added unit tests for
+  `ListPublishedPrograms` (success, limit clamping, invalid input, repository
+  failure) and `GetPublishedProgram` (success, invalid IDs, not found,
+  repository failure, no secrets exposed).
+- `api/auth/public_programs_handler_test.go` — added E2E and unit tests:
+  `TestPublicProgramsListSuccess`, `TestPublicProgramsListExcludesDrafts`,
+  `TestPublicProgramsListInvalidPagination`, `TestPublicProgramsGetSuccess`,
+  `TestPublicProgramsGetNotFound`, `TestPublicProgramsGetDraftHidden`,
+  `TestPublicProgramsGetSoftDeletedHidden`, `TestPublicProgramsGetInvalidProgramID`,
+  `TestPublicProgramsNeverRequireAuthentication`,
+  `TestPublicProgramsHandlerErrorMapping`,
+  `TestPublicProgramsHandlerRepositoryFailureNotExposed`,
+  `TestPublicProgramsHandlerGetForwardsPathProgramID`,
+  `TestPublicProgramsHandlerListForwardsPagination`,
+  `TestPublicProgramsHandlerInvalidPagination`,
+  `TestPublicProgramsHandlerInvalidPathID`,
+  `TestPublicProgramsNeverExposesSecrets`,
+  `TestPublicProgramsFindsCrossTrainerPrograms`.
+
+---
+
 # Version 2.27.0
 
 Title: Backend Step 39 — trainer program publishing foundation

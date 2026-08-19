@@ -330,4 +330,146 @@ func TestProgramRepository(t *testing.T) {
 	if err := programRepo.Publish(ctx, trainer.ID, softDeletedPublish.ID); !errors.Is(err, repositories.ErrProgramNotFound) {
 		t.Fatalf("publish soft-deleted program: expected ErrProgramNotFound, got %v", err)
 	}
+
+	// 22. ListPublished returns only published programs from all trainers,
+	// ordered newest first. Draft programs and soft-deleted programs are
+	// never included.
+	_, baselineTotal, err := programRepo.ListPublished(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("list published baseline: %v", err)
+	}
+
+	pubA := seedProgram(trainer.ID, "Published A", time.Now().Add(-2*time.Second))
+	pubA.Status = models.ProgramStatusPublished
+	if err := programRepo.Update(ctx, trainer.ID, pubA.ID, map[string]any{"status": models.ProgramStatusPublished}); err != nil {
+		t.Fatalf("publish pubA: %v", err)
+	}
+	pubB := seedProgram(otherTrainer.ID, "Published B", time.Now().Add(-1*time.Second))
+	pubB.Status = models.ProgramStatusPublished
+	if err := programRepo.Update(ctx, otherTrainer.ID, pubB.ID, map[string]any{"status": models.ProgramStatusPublished}); err != nil {
+		t.Fatalf("publish pubB: %v", err)
+	}
+
+	publishedPrograms, total, err := programRepo.ListPublished(ctx, 1, 10)
+	if err != nil {
+		t.Fatalf("list published: %v", err)
+	}
+	if total != baselineTotal+2 {
+		t.Fatalf("list published: expected total %d, got %d", baselineTotal+2, total)
+	}
+	if len(publishedPrograms) == 0 {
+		t.Fatal("list published: expected at least 1 program on first page")
+	}
+	for _, p := range publishedPrograms {
+		if p.Status != models.ProgramStatusPublished {
+			t.Fatalf("list published: expected only published programs, got status %q", p.Status)
+		}
+	}
+	pubAIdx, pubBIdx := -1, -1
+	for i, p := range publishedPrograms {
+		if p.ID == pubA.ID {
+			pubAIdx = i
+		}
+		if p.ID == pubB.ID {
+			pubBIdx = i
+		}
+	}
+	if pubAIdx == -1 {
+		t.Fatal("list published: pubA not found in results")
+	}
+	if pubBIdx == -1 {
+		t.Fatal("list published: pubB not found in results")
+	}
+	if pubBIdx >= pubAIdx {
+		t.Fatalf("list published: pubB (newer) should appear before pubA, got pubB at %d, pubA at %d", pubBIdx, pubAIdx)
+	}
+
+	// 23. ListPublished excludes draft programs.
+	draftOnly := seedProgram(trainer.ID, "Draft Hidden", time.Now())
+	if draftOnly.Status != models.ProgramStatusDraft {
+		t.Fatalf("expected draft status, got %q", draftOnly.Status)
+	}
+	publishedPrograms, total, err = programRepo.ListPublished(ctx, 1, 10)
+	if err != nil {
+		t.Fatalf("list published after draft: %v", err)
+	}
+	if total != baselineTotal+2 {
+		t.Fatalf("list published after draft: expected total %d, got %d", baselineTotal+2, total)
+	}
+	for _, p := range publishedPrograms {
+		if p.ID == draftOnly.ID {
+			t.Fatal("list published must never include draft programs")
+		}
+	}
+
+	// 24. ListPublished excludes soft-deleted published programs.
+	softDeletedPub := seedProgram(trainer.ID, "Deleted Published", time.Now())
+	if err := programRepo.Update(ctx, trainer.ID, softDeletedPub.ID, map[string]any{"status": models.ProgramStatusPublished}); err != nil {
+		t.Fatalf("publish softDeletedPub: %v", err)
+	}
+	if err := programRepo.SoftDelete(ctx, trainer.ID, softDeletedPub.ID); err != nil {
+		t.Fatalf("soft delete published program: %v", err)
+	}
+	publishedPrograms, total, err = programRepo.ListPublished(ctx, 1, 10)
+	if err != nil {
+		t.Fatalf("list published after soft-delete: %v", err)
+	}
+	if total != baselineTotal+2 {
+		t.Fatalf("list published after soft-delete: expected total %d, got %d", baselineTotal+2, total)
+	}
+	for _, p := range publishedPrograms {
+		if p.ID == softDeletedPub.ID {
+			t.Fatal("list published must never include soft-deleted programs")
+		}
+	}
+
+	// 25. ListPublished pagination works correctly.
+	publishedPrograms, total, err = programRepo.ListPublished(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("list published page: %v", err)
+	}
+	if total != baselineTotal+2 || len(publishedPrograms) != 1 {
+		t.Fatalf("expected page total %d size 1, got %d/%d", baselineTotal+2, total, len(publishedPrograms))
+	}
+
+	// 26. FindPublishedByID returns a published program regardless of
+	// trainer ownership.
+	found, err = programRepo.FindPublishedByID(ctx, pubA.ID)
+	if err != nil {
+		t.Fatalf("find published: %v", err)
+	}
+	if found.ID != pubA.ID || found.Name != "Published A" {
+		t.Fatalf("unexpected published program %+v", found)
+	}
+
+	// Cross-trainer lookup succeeds: the public catalog is global.
+	found, err = programRepo.FindPublishedByID(ctx, pubB.ID)
+	if err != nil {
+		t.Fatalf("find published cross-trainer: %v", err)
+	}
+	if found.ID != pubB.ID || found.Name != "Published B" {
+		t.Fatalf("unexpected published program %+v", found)
+	}
+
+	// 27. FindPublishedByID returns ErrProgramNotFound for a draft program.
+	if _, err := programRepo.FindPublishedByID(ctx, draftOnly.ID); !errors.Is(err, repositories.ErrProgramNotFound) {
+		t.Fatalf("find published draft: expected ErrProgramNotFound, got %v", err)
+	}
+
+	// 28. FindPublishedByID returns ErrProgramNotFound for a soft-deleted
+	// program.
+	if _, err := programRepo.FindPublishedByID(ctx, softDeletedPub.ID); !errors.Is(err, repositories.ErrProgramNotFound) {
+		t.Fatalf("find published soft-deleted: expected ErrProgramNotFound, got %v", err)
+	}
+
+	// 29. FindPublishedByID returns ErrProgramNotFound for an unknown id.
+	if _, err := programRepo.FindPublishedByID(ctx, "00000000-0000-0000-0000-000000000000"); !errors.Is(err, repositories.ErrProgramNotFound) {
+		t.Fatalf("find published unknown: expected ErrProgramNotFound, got %v", err)
+	}
+
+	// 30. FindPublishedByID returns ErrProgramNotFound for a platform-owned
+	// draft program.
+	if _, err := programRepo.FindPublishedByID(ctx, platformProgram.ID); !errors.Is(err, repositories.ErrProgramNotFound) {
+		t.Fatalf("find published platform draft: expected ErrProgramNotFound, got %v", err)
+	}
 }

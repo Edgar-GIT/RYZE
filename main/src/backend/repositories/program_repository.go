@@ -30,6 +30,14 @@ type ProgramRepository interface {
 	// already published.
 	Publish(ctx context.Context, trainerID, programID string) error
 	SoftDelete(ctx context.Context, trainerID, programID string) error
+
+	// ListPublished returns one page of published, non-deleted programs
+	// ordered by creation time, plus the total count. This method is
+	// unscoped: it returns programs from all trainers and ignores ownership.
+	ListPublished(ctx context.Context, page, limit int) ([]models.Program, int64, error)
+	// FindPublishedByID returns one published, non-deleted program by its
+	// id. Ownership is never checked: the catalog is global.
+	FindPublishedByID(ctx context.Context, programID string) (*models.Program, error)
 }
 
 type programRepository struct {
@@ -120,6 +128,47 @@ func (r *programRepository) SoftDelete(ctx context.Context, trainerID, programID
 		return ErrProgramNotFound
 	}
 	return nil
+}
+
+// ListPublished returns one page of published, non-deleted programs ordered by
+// creation time (newest first), plus the total number of published programs.
+// Ownership is never checked: the catalog is global and every published program
+// is visible to every caller.
+func (r *programRepository) ListPublished(ctx context.Context, page, limit int) ([]models.Program, int64, error) {
+	var programs []models.Program
+	var total int64
+
+	if err := r.db.WithContext(ctx).
+		Model(&models.Program{}).
+		Where("status = ?", models.ProgramStatusPublished).
+		Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count published programs: %w", err)
+	}
+
+	if err := r.db.WithContext(ctx).
+		Where("status = ?", models.ProgramStatusPublished).
+		Order("created_at DESC, id ASC").
+		Limit(limit).
+		Offset((page - 1) * limit).
+		Find(&programs).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list published programs: %w", err)
+	}
+	return programs, total, nil
+}
+
+// FindPublishedByID returns one published, non-deleted program by its id. An
+// unknown or non-published program maps to ErrProgramNotFound; there is no way
+// to distinguish between the two.
+func (r *programRepository) FindPublishedByID(ctx context.Context, programID string) (*models.Program, error) {
+	var program models.Program
+	if err := r.db.WithContext(ctx).
+		First(&program, "id = ? AND status = ?", programID, models.ProgramStatusPublished).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to find published program: %w", err)
+	}
+	return &program, nil
 }
 
 // Publish transitions a draft program to published through a conditional update.

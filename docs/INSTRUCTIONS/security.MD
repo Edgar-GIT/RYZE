@@ -1145,6 +1145,8 @@ Registration
 
 Search
 
+Public program catalog
+
 Comments
 
 Feedback

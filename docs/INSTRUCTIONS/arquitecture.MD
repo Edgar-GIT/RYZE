@@ -347,6 +347,24 @@ area:
 - Missing, soft-deleted or unreadable assignments/programs are indistinguishable
   and map to the same not-found error, preventing enumeration.
 
+### Public Program Catalog
+
+The public program catalog provides unauthenticated, read-only discovery of
+published trainer programs. It reuses the same `ProgramRepository` as the
+trainer module but exposes only two read-only methods (`ListPublished` and
+`FindPublishedByID`) through a separate read-only interface:
+
+- `PublicProgramsHandler` (thin, in `api/auth`) → `public_programs` service (in
+  `services/public_programs`) → `ProgramRepository` (in `repositories`) over the
+  `programs` table.
+
+No authentication, authorization or ownership checks are performed: the catalog
+is global and every published program is visible to every caller. Draft,
+soft-deleted and unknown programs all return the same generic 404 to prevent
+information leakage. The service layer validates program ids and pagination
+parameters; the repository layer applies `WHERE status = 'published'` and
+GORM's default soft-delete scope. No write operation is exposed.
+
 ### Client Workout History
 
 The client workout history module is the execution counterpart of the

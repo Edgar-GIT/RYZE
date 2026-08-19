@@ -22,6 +22,7 @@ import (
 	"ryze/backend/services/program_assignments"
 	"ryze/backend/services/program_structure"
 	"ryze/backend/services/programs"
+	"ryze/backend/services/public_programs"
 	"ryze/backend/services/registration"
 	"ryze/backend/services/statistics"
 	"ryze/backend/services/token"
@@ -87,6 +88,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerProgramService := programs.NewService(trainerProgramRepository)
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
 
+	publicProgramService := public_programs.NewService(trainerProgramRepository)
+	publicProgramHandler := auth.NewPublicProgramsHandler(publicProgramService)
+
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
 	programWorkoutRepository := repositories.NewProgramWorkoutRepository(db)
 	programStructureService := program_structure.NewService(programWeekRepository, programWorkoutRepository)
@@ -117,6 +121,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/exercises", exercisesHandler.ListExercises)
 	v1.GET("/exercises/search", exercisesHandler.SearchExercises)
 	v1.GET("/exercises/:exerciseID", exercisesHandler.GetExercise)
+	v1.GET("/programs", publicProgramHandler.ListPublishedPrograms)
+	v1.GET("/programs/:programID", publicProgramHandler.GetPublishedProgram)
 	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)

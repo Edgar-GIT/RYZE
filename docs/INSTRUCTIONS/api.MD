@@ -312,6 +312,7 @@ Examples:
 - Landing page
 - Public trainer profiles
 - Generic packs
+- Public program catalog
 - Authentication endpoints
 
 ---
@@ -1774,6 +1775,40 @@ GET /api/v1/users/{username}/packs
 Returns packs published by a trainer.
 
 Public endpoint.
+
+---
+
+## Public Programs
+
+### `GET /api/v1/programs`
+
+Returns one page of published programs from all trainers, newest first, with
+pagination metadata.
+
+Public endpoint. No authentication required.
+
+Query parameters:
+
+- `page` — page number, 1-based, default `1`.
+- `limit` — page size, default `20`, clamped to `100`.
+
+Response `data`:
+
+- `programs` — array of program objects: `id`, `trainer_id`, `name`,
+  `description`, `type`, `status`, `created_at`, `updated_at`.
+- `pagination` — `page`, `limit`, `total`, `total_pages`.
+
+### `GET /api/v1/programs/:programID`
+
+Returns one published program. Draft, soft-deleted and unknown programs all
+return the same generic 404 to prevent information leakage.
+
+Public endpoint. No authentication required.
+
+Response `data`:
+
+- `id`, `trainer_id`, `name`, `description`, `type`, `status`,
+  `created_at`, `updated_at`.
 
 ---
 
