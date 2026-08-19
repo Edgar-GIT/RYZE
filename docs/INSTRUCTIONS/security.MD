@@ -820,6 +820,42 @@ constraints:
   a foundation for future commerce; purchase snapshot fields are intentionally
   absent from the `purchases` table.
 
+### Commission Rules Security
+
+Commission rule management follows the existing security model with specific
+commercial constraints:
+
+- Commission rule management is protected by the `plans.commission.manage`
+  permission, granted exclusively to the Management Administrator (ADMIN_2).
+  The Technical Administrator (ADMIN_1) has no access to commission
+  configuration.
+- The administrator identity is resolved from the admin authentication
+  middleware and never from the request body.
+- Commission values (`commission_bps`) are validated against the allowed range
+  [0, 10000] before any database access. A value exceeding 10000 is rejected
+  as invalid input.
+- The trainer identity in the URL path (`:id`) identifies the target resource
+  only; there is no ownership scoping. Authorization is enforced by the
+  permission middleware.
+- The `valid_from` and `valid_until` fields enable temporal commission validity
+  in the future. Currently only the most recent active override is used; the
+  database structure supports time-based resolution without migration.
+- The unique generated column `active_commission_rule` guarantees at most one
+  active override per trainer at the database level. A race condition between
+  concurrent upserts is resolved by the transactional upsert: the previous
+  active rule is soft-deleted before the new one is inserted.
+- Commission calculation uses integer arithmetic exclusively. The platform
+  amount is computed with floor division (`price * bps / 10000`), and the
+  trainer receives the exact remainder. No float or double types are used.
+- The `ResolveCommission` endpoint returns the effective commission for a
+  trainer (override or global default). This is a read-only resolution with
+  no side effects.
+- Deleting a commission rule soft-deletes the active override; the trainer
+  falls back to the global default commission (`DEFAULT_PLATFORM_COMMISSION_BPS`
+  env var, default 2000 = 20%).
+- No payment processing, purchase creation, revenue tracking or payout logic
+  exists yet. The commission rules are a foundation for future commerce.
+
 ### Client Workout History Security
 
 The client workout history endpoints (`POST /api/v1/me/workouts/{workoutID}/complete`

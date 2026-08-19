@@ -16,6 +16,7 @@ import (
 	"ryze/backend/services/admin_users"
 	"ryze/backend/services/change_password"
 	"ryze/backend/services/client_programs"
+	"ryze/backend/services/commission_rules"
 	"ryze/backend/services/delete_account"
 	"ryze/backend/services/entitlements"
 	"ryze/backend/services/exercises"
@@ -36,7 +37,7 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 
@@ -99,6 +100,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	adminProgramPricingService := admin_program_pricing.NewService(trainerProgramService)
 	adminProgramPricingHandler := auth.NewAdminProgramPricingHandler(adminProgramPricingService)
+
+	commissionRuleRepository := repositories.NewCommissionRuleRepository(db)
+	commissionRulesService := commission_rules.NewService(commissionRuleRepository, trainerRepository, commissionCfg)
+	adminCommissionHandler := auth.NewAdminCommissionHandler(commissionRulesService)
 
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
 	programWorkoutRepository := repositories.NewProgramWorkoutRepository(db)
@@ -220,6 +225,13 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminPricing.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
 	adminPricing.GET("/programs/:programID", adminProgramPricingHandler.GetProgram)
 	adminPricing.PATCH("/programs/:programID/pricing", adminProgramPricingHandler.UpdatePricing)
+
+	adminCommission := admin.Group("")
+	adminCommission.Use(middleware.RequireAdminPermission(adminroles.PermissionPlansCommissionManage))
+	adminCommission.GET("/trainers/:id/commission", adminCommissionHandler.GetCommissionRule)
+	adminCommission.PATCH("/trainers/:id/commission", adminCommissionHandler.UpsertCommissionRule)
+	adminCommission.DELETE("/trainers/:id/commission", adminCommissionHandler.DeleteCommissionRule)
+	adminCommission.GET("/trainers/:id/commission/resolve", adminCommissionHandler.GetCommissionResolution)
 
 	return router
 }

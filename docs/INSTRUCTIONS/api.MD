@@ -3217,6 +3217,116 @@ Responses:
 - `403 FORBIDDEN` — insufficient permissions.
 - `404 PROGRAM_NOT_FOUND` — missing or soft-deleted program.
 
+# ADMIN COMMISSION RULES
+
+Trainer-specific commission overrides for the commercial rules system. The
+Management Administrator (ADMIN_2) manages commission rules through the
+`plans.commission.manage` permission.
+
+Every commission rule expresses the platform commission in basis points (1 bps =
+0.01%). When a trainer-specific override is active it replaces the global
+default commission (env var `DEFAULT_PLATFORM_COMMISSION_BPS`, default 2000 =
+20%). The rule resolution is deterministic: trainer-specific active override →
+global default.
+
+Commission calculation uses floor division so the platform amount is never
+larger than the actual proportional share:
+
+```
+platform_amount = floor(price * commission_bps / 10000)
+trainer_amount  = price - platform_amount
+```
+
+The flow is:
+
+```
+Admin Login
+    ↓
+Admin Verify (access code)
+    ↓
+RequireAdminPermission(plans.commission.manage)
+    ↓
+AdminCommissionHandler → CommissionRulesService → CommissionRuleRepository → MariaDB
+```
+
+The endpoints are:
+
+```
+GET    /api/v1/admin/trainers/:id/commission
+PATCH  /api/v1/admin/trainers/:id/commission
+DELETE /api/v1/admin/trainers/:id/commission
+GET    /api/v1/admin/trainers/:id/commission/resolve
+```
+
+### `GET /api/v1/admin/trainers/:id/commission`
+
+Returns the active commission rule for a given trainer. Protected by
+`plans.commission.manage` permission.
+
+Response `data`:
+
+- `id`, `trainer_id`, `commission_bps`, `valid_from`, `valid_until`,
+  `created_at`, `updated_at`.
+
+Responses:
+
+- `200 OK` — commission rule object.
+- `403 FORBIDDEN` — insufficient permissions.
+- `404 TRAINER_NOT_FOUND` — trainer not found or soft-deleted.
+- `404 COMMISSION_RULE_NOT_FOUND` — no active rule for this trainer.
+
+### `PATCH /api/v1/admin/trainers/:id/commission`
+
+Creates or replaces the active commission rule for a given trainer. Any
+previous active rule for the same trainer is soft-deleted. Protected by
+`plans.commission.manage` permission.
+
+Request body:
+
+- `commission_bps` — unsigned integer, platform commission in basis points.
+  Maximum 10000 (100%). A value of 0 means the trainer keeps the full price.
+
+Response `data`:
+
+- `id`, `trainer_id`, `commission_bps`, `valid_from`, `valid_until`,
+  `created_at`, `updated_at`.
+
+Responses:
+
+- `200 OK` — upserted commission rule object.
+- `400 VALIDATION_ERROR` — invalid commission input or malformed request body.
+- `403 FORBIDDEN` — insufficient permissions.
+- `404 TRAINER_NOT_FOUND` — trainer not found or soft-deleted.
+
+### `DELETE /api/v1/admin/trainers/:id/commission`
+
+Soft-deletes the active commission rule for a given trainer. The trainer falls
+back to the global default commission after deletion. Protected by
+`plans.commission.manage` permission.
+
+Responses:
+
+- `200 OK` — deletion successful.
+- `403 FORBIDDEN` — insufficient permissions.
+- `404 COMMISSION_RULE_NOT_FOUND` — no active rule for this trainer.
+
+### `GET /api/v1/admin/trainers/:id/commission/resolve`
+
+Returns the resolved commission for a given trainer, whether from a
+trainer-specific override or the global default. Protected by
+`plans.commission.manage` permission.
+
+Response `data`:
+
+- `commission_bps` — the applicable commission in basis points.
+- `is_override` — `true` when the resolution comes from a trainer-specific
+  override, `false` when the global default is used.
+
+Responses:
+
+- `200 OK` — commission resolution object.
+- `403 FORBIDDEN` — insufficient permissions.
+
 # ADMIN USER MANAGEMENT
 
 Implemented backend foundation for managing regular client accounts. The user

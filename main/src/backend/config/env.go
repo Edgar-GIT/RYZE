@@ -12,14 +12,15 @@ import (
 )
 
 const (
-	defaultHost                    = "127.0.0.1"
-	defaultPort                    = "3306"
-	defaultTokenTTL                = 15 * time.Minute
-	minJWTSecretLength             = 32
-	defaultAllowedOrigin           = "http://localhost:5173,http://127.0.0.1:5173"
-	minAdminPasswordLen            = 6
-	minAdminAccessCodeLen          = 8
-	defaultMinProgramPriceMinorUnits = 100
+	defaultHost                             = "127.0.0.1"
+	defaultPort                             = "3306"
+	defaultTokenTTL                         = 15 * time.Minute
+	minJWTSecretLength                      = 32
+	defaultAllowedOrigin                    = "http://localhost:5173,http://127.0.0.1:5173"
+	minAdminPasswordLen                     = 6
+	minAdminAccessCodeLen                   = 8
+	defaultMinProgramPriceMinorUnits        = 100
+	defaultPlatformCommissionBPS     uint32 = 2000
 )
 
 // LoadEnvFile loads the repository .env file so environment variables defined
@@ -185,4 +186,22 @@ func LoadPricing() (PricingConfig, error) {
 	}
 
 	return PricingConfig{MinProgramPriceMinorUnits: minPrice}, nil
+}
+
+// LoadCommission reads the commission configuration from environment variables.
+// DEFAULT_PLATFORM_COMMISSION_BPS sets the global platform commission in basis
+// points (1 bps = 0.01%). When unset it defaults to 2000 (20%). Values above
+// 10000 (100%) are rejected because a platform commission cannot exceed the
+// full price.
+func LoadCommission() (CommissionConfig, error) {
+	bps := defaultPlatformCommissionBPS
+	if raw := strings.TrimSpace(os.Getenv("DEFAULT_PLATFORM_COMMISSION_BPS")); raw != "" {
+		parsed, err := strconv.ParseUint(raw, 10, 32)
+		if err != nil || parsed > 10000 {
+			return CommissionConfig{}, fmt.Errorf("DEFAULT_PLATFORM_COMMISSION_BPS must be a non-negative integer no greater than 10000, got %q", raw)
+		}
+		bps = uint32(parsed)
+	}
+
+	return CommissionConfig{DefaultPlatformCommissionBPS: bps}, nil
 }

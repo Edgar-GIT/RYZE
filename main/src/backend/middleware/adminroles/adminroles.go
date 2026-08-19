@@ -50,6 +50,7 @@ const (
 	PermissionTrainerApplicationsManage Permission = "trainer_applications.manage"
 	PermissionStatistics                Permission = "statistics"
 	PermissionPlans                     Permission = "plans"
+	PermissionPlansCommissionManage     Permission = "plans.commission.manage"
 	PermissionFinance                   Permission = "finance"
 	PermissionMarketing                 Permission = "marketing"
 	PermissionSystem                    Permission = "system"
@@ -100,6 +101,7 @@ var rolePermissions = map[Role][]Permission{
 		PermissionTrainerApplicationsManage,
 		PermissionStatistics,
 		PermissionPlans,
+		PermissionPlansCommissionManage,
 		PermissionFinance,
 		PermissionMarketing,
 	},

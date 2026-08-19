@@ -206,6 +206,19 @@ minimum price enforcement). Authorization is enforced by
 service perform no authorization checks. The `plans` permission is exclusive to
 the Management Administrator (ADMIN_2).
 
+The admin commission rules foundation follows the same layering:
+`AdminCommissionHandler` (thin, in `api/auth`) → `commission_rules` service
+(in `services/commission_rules`) → `CommissionRuleRepository` (in
+`repositories`) over the `commission_rules` table, reusing the existing
+`TrainerRepository` for the active-trainer check. The handler validates request
+bodies and maps service errors; the commission rules service owns all commission
+validation (BPS range, trainer existence), rule resolution (override → default),
+and deterministic calculation (floor division). Authorization is enforced by
+`RequireAdminPermission(PermissionPlansCommissionManage)` at the route level;
+the handler and service perform no authorization checks. The
+`plans.commission.manage` permission is exclusive to the Management
+Administrator (ADMIN_2).
+
 Trainer authorization is a separate concern from trainer authentication.
 Authentication (`middleware/trainercontext` + `middleware.TrainerAuthenticate`)
 resolves an authenticated user into an active trainer and stores the `UserID` +

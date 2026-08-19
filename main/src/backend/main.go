@@ -37,6 +37,11 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
+	commissionCfg, err := config.LoadCommission()
+	if err != nil {
+		fail("configuration error: %v", err)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		runMigrateCommand(cfg, os.Args[2:])
 		return
@@ -60,7 +65,7 @@ func main() {
 		port = "8080"
 	}
 
-	if err := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg).Run(":" + port); err != nil {
+	if err := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg).Run(":" + port); err != nil {
 		fail("http server error: %v", err)
 	}
 }

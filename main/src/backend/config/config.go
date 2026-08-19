@@ -55,3 +55,12 @@ type AdminConfig struct {
 type PricingConfig struct {
 	MinProgramPriceMinorUnits int64
 }
+
+// CommissionConfig holds the configurable commission parameters for the
+// commercial rules system. DefaultPlatformCommissionBPS is the global platform
+// commission expressed in basis points (1 bps = 0.01%). When no trainer-specific
+// override exists, this default is used for every purchase. The business can
+// adjust the default without a code change.
+type CommissionConfig struct {
+	DefaultPlatformCommissionBPS uint32
+}

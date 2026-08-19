@@ -1,3 +1,71 @@
+# Version 2.31.0
+
+Title: Backend Step 43 — Commercial Rules & Trainer Commission Foundation
+
+Date: 2026-08-19
+
+Summary:
+
+Added the trainer commission rules system as the foundation for commercial
+rules. The platform now supports trainer-specific commission overrides expressed
+as basis points (1 bps = 0.01%). When no override exists for a trainer, the
+global default commission applies (env var `DEFAULT_PLATFORM_COMMISSION_BPS`,
+default 2000 = 20%). Commission resolution is deterministic: trainer-specific
+active override → global default. Commission calculation uses floor division to
+avoid rounding ambiguity: `platform = floor(price * bps / 10000)`,
+`trainer = price - platform`. The Management Administrator (ADMIN_2) manages
+commission rules through the `plans.commission.manage` permission. No payment
+processing, purchase creation, revenue tracking or payout logic is implemented
+— this is a foundation for future commerce.
+
+Database:
+
+- Migration `000015` — created the `commission_rules` table with `id`
+  (UUID PK), `trainer_id` (FK to `trainers.id`), `commission_bps`
+  (`INT UNSIGNED NOT NULL`), `valid_from` (`DATETIME(6)`, default now),
+  `valid_until` (`DATETIME(6) NULL`), timestamps, soft-delete, and a
+  generated `active_commission_rule` column with a unique index enforcing
+  at most one active override per trainer. Check constraint ensures
+  `commission_bps <= 10000`.
+
+Behavior:
+
+- `GET /api/v1/admin/trainers/:id/commission` (admin,
+  `plans.commission.manage` permission) — returns the active commission rule
+  for a trainer, or 404 when no override exists.
+- `PATCH /api/v1/admin/trainers/:id/commission` (admin,
+  `plans.commission.manage` permission) — creates or replaces the active
+  commission rule for a trainer. Previous active rules are soft-deleted.
+- `DELETE /api/v1/admin/trainers/:id/commission` (admin,
+  `plans.commission.manage` permission) — soft-deletes the active commission
+  rule; the trainer falls back to the global default.
+- `GET /api/v1/admin/trainers/:id/commission/resolve` (admin,
+  `plans.commission.manage` permission) — returns the resolved commission
+  (override or default) with `is_override` flag.
+- Environment variable `DEFAULT_PLATFORM_COMMISSION_BPS` controls the global
+  default commission (default 2000 = 20%, max 10000 = 100%).
+
+Files:
+
+- `database/migrations/000015_create_commission_rules_table.up.sql`
+- `database/migrations/000015_create_commission_rules_table.down.sql`
+- `models/commission_rule.go` — new model.
+- `config/config.go` — added `CommissionConfig` struct.
+- `config/env.go` — added `LoadCommission()` function.
+- `repositories/commission_rule_repository.go` — new repository.
+- `services/commission_rules/commission_rules.go` — new service with
+  validation, rule resolution and deterministic calculation.
+- `api/auth/admin_commission_handler.go` — new handler for admin commission
+  operations.
+- `middleware/adminroles/adminroles.go` — added
+  `PermissionPlansCommissionManage` permission.
+- `routes/routes.go` — wired admin commission routes.
+- `main.go` — loads commission config and passes to routes.
+- `services/commission_rules/commission_rules_test.go` — 22 service tests.
+- `api/auth/admin_commission_handler_test.go` — 13 handler tests.
+
+---
+
 # Version 2.30.0
 
 Title: Backend Step 42 — Program Pricing & Currency Foundation

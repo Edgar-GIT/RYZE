@@ -44,7 +44,7 @@ func (s *stubProgramRepo) UpdatePricing(_ context.Context, programID string, pri
 	s.program.Currency = currency
 	return nil
 }
-func (s *stubProgramRepo) Publish(_ context.Context, _, _ string) error  { return nil }
+func (s *stubProgramRepo) Publish(_ context.Context, _, _ string) error    { return nil }
 func (s *stubProgramRepo) SoftDelete(_ context.Context, _, _ string) error { return nil }
 
 func validProgram() *models.Program {
