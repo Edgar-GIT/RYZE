@@ -865,10 +865,45 @@ follows a strict security model:
 - Provider internal details (API keys, provider-specific error messages,
   raw provider responses) are never exposed to the client. Provider failures
   surface a generic 502 error.
-- A `notConfiguredPaymentProvider` placeholder is wired in production until a
-  real provider is integrated. It returns a generic error for every request.
+- When `STRIPE_SECRET_KEY` is configured, the Stripe provider is used. The
+  Stripe secret key is loaded from environment variables and set on the global
+  `stripe.Key` at startup. The key is never logged, exposed to the client, or
+  stored in the database.
+- When `STRIPE_SECRET_KEY` is not set, the `notConfiguredPaymentProvider`
+  placeholder returns a generic error for every request, preventing accidental
+  payment processing.
 - The `FakeProvider` is test-only and must never be exposed in production
   configuration.
+
+### Stripe Checkout Security
+
+The Stripe Checkout provider (`services/payments/stripe_provider.go`) follows
+a strict security model:
+
+- The Stripe secret key is loaded exclusively from the `STRIPE_SECRET_KEY`
+  environment variable. It is never accepted from the request, database, or
+  any other runtime source.
+- The Checkout Session amount comes exclusively from the immutable purchase
+  snapshot (`AmountMinorUnits`). No client-supplied amount is ever forwarded
+  to Stripe.
+- The Checkout Session currency comes exclusively from the immutable purchase
+  snapshot. The currency is lowercased to meet Stripe API requirements.
+- Stripe idempotency keys are derived from the RYZE purchase ID
+  (`ryze-purchase-{purchaseID}`), preventing duplicate session creation for
+  the same purchase.
+- The `ClientReferenceID` is set to the RYZE purchase ID for server-side
+  reconciliation. It is never accepted from client input.
+- The `metadata` field on the Stripe session stores `purchase_id` and
+  `program_id` for internal reconciliation only. No sensitive data is stored
+  in Stripe metadata.
+- Success and cancel URLs are configured via environment variables
+  (`STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`). Both are optional; when empty,
+  Stripe uses its default redirect behaviour.
+- All Stripe API errors are wrapped with `ErrProviderFailure` and surfaced as
+  a generic 502 error. Stripe-specific error details (error codes, request
+  IDs, decline reasons) are logged server-side but never exposed to the client.
+- The Stripe API backend can be replaced for testing via `stripe.SetBackend`,
+  avoiding real network requests and credentials in the test suite.
 
 ### Purchase Completion Security
 

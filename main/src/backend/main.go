@@ -42,6 +42,8 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
+	stripeCfg := config.LoadStripe()
+
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		runMigrateCommand(cfg, os.Args[2:])
 		return
@@ -65,7 +67,7 @@ func main() {
 		port = "8080"
 	}
 
-	if err := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg).Run(":" + port); err != nil {
+	if err := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg).Run(":" + port); err != nil {
 		fail("http server error: %v", err)
 	}
 }

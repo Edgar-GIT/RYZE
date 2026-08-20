@@ -64,3 +64,13 @@ type PricingConfig struct {
 type CommissionConfig struct {
 	DefaultPlatformCommissionBPS uint32
 }
+
+// StripeConfig holds the Stripe Checkout provider configuration. The provider
+// is optional: when the secret key is empty the payment provider falls back to
+// the not-configured placeholder. SuccessURL and CancelURL control where the
+// user is redirected after the Stripe Checkout flow completes or is cancelled.
+type StripeConfig struct {
+	SecretKey  string
+	SuccessURL string
+	CancelURL  string
+}

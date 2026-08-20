@@ -1,3 +1,67 @@
+# Version 2.35.0
+
+Title: Backend Step 47 — Stripe Checkout Provider Integration
+
+Date: 2026-08-20
+
+Summary:
+
+Integrated Stripe Checkout as the first real payment provider behind the
+`payments.Provider` abstraction created in Step 46. A new `StripeProvider`
+struct implements the `Provider` interface using Stripe Checkout Sessions in
+payment mode. Each initiation request creates a Checkout Session with a single
+line item whose amount and currency come exclusively from the immutable purchase
+snapshot, and returns the hosted Checkout URL for client-side redirect. The
+provider uses Stripe idempotency keys derived from the purchase ID to prevent
+duplicate session creation. The `notConfiguredPaymentProvider` placeholder is
+replaced by a conditional `resolvePaymentProvider` function in routes that
+selects the Stripe provider when `STRIPE_SECRET_KEY` is set, or falls back to
+the placeholder otherwise. A `StripeConfig` struct and `LoadStripe` function
+follow the existing config conventions.
+
+Database:
+
+- No new migration.
+
+Behavior:
+
+- `services/payments/stripe_provider.go` — `StripeProvider` struct implementing
+  the `Provider` interface. Creates Stripe Checkout Sessions in payment mode
+  with a single line item. Returns the Checkout URL as `CheckoutURL` and the
+  Stripe session ID as `PaymentID`. Status is always `PaymentStatusRequiresAction`
+  since the user must visit the Checkout URL. Uses idempotency keys
+  `ryze-purchase-{purchaseID}`. Validates request fields (purchase ID, amount,
+  currency) before calling Stripe. Wraps all Stripe API errors with
+  `ErrProviderFailure`.
+- `config/config.go` — `StripeConfig` struct with `SecretKey`, `SuccessURL`,
+  `CancelURL` fields.
+- `config/env.go` — `LoadStripe()` reads `STRIPE_SECRET_KEY`,
+  `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL` from environment. All optional.
+- `main.go` — loads `StripeConfig` and passes it to routes.
+- `routes/routes.go` — `resolvePaymentProvider` function conditionally creates
+  a `StripeProvider` when `STRIPE_SECRET_KEY` is set, otherwise returns the
+  `notConfiguredPaymentProvider` placeholder. Sets `stripe.Key` when Stripe is
+  configured. `Setup` now accepts `config.StripeConfig` parameter.
+
+Tests:
+
+- 8 Stripe provider unit tests (success, empty purchase ID, zero amount, empty
+  currency, Stripe API error, empty checkout URL, idempotency key, no URLs).
+- All tests use a mock HTTP server configured via `stripe.SetBackend` to avoid
+  network access and real credentials.
+
+Modified files:
+
+- services/payments/stripe_provider.go (new)
+- services/payments/stripe_provider_test.go (new)
+- config/config.go (modified)
+- config/env.go (modified)
+- main.go (modified)
+- routes/routes.go (modified)
+- routes/trainer_application_e2e_test.go (modified)
+- .env.example (modified)
+- docs/REGISTRY/update_logs.MD (modified)
+
 # Version 2.34.0
 
 Title: Backend Step 46 — Payment Provider Abstraction & Payment Initiation

@@ -507,8 +507,8 @@ service types to the purchase service types without coupling the two packages.
 ### Payment Provider Abstraction
 
 The `services/payments` package provides a provider-independent payment
-abstraction layer. Concrete payment providers (Stripe, Mollie, etc.) will
-implement the `Provider` interface in future steps.
+abstraction layer. Stripe Checkout is the first concrete provider; additional
+providers (Mollie, etc.) can be added by implementing the `Provider` interface.
 
 The abstraction is designed to:
 
@@ -527,10 +527,37 @@ Components:
   `PaymentStatus` types.
 - `services/payments/errors.go` — `ErrProviderFailure` sentinel error.
 - `services/payments/fake_provider.go` — deterministic test-only provider.
+- `services/payments/stripe_provider.go` — Stripe Checkout Sessions provider.
 
 The `purchases` service holds a `payments.Provider` dependency injected at
-construction time. A `notConfiguredPaymentProvider` placeholder is used in
-production routes until a real provider is integrated.
+construction time. The `resolvePaymentProvider` function in routes selects the
+Stripe provider when `STRIPE_SECRET_KEY` is set, otherwise falls back to the
+`notConfiguredPaymentProvider` placeholder.
+
+### Stripe Checkout Provider
+
+The `StripeProvider` implements the `Provider` interface using Stripe Checkout
+Sessions in payment mode:
+
+- Creates a Checkout Session with a single line item whose amount and currency
+  come from the immutable purchase snapshot.
+- Returns the Stripe Checkout Session ID as `PaymentID` and the hosted Checkout
+  URL as `CheckoutURL`.
+- Uses idempotency keys derived from the purchase ID to prevent duplicate
+  session creation.
+- Sets `ClientReferenceID` and `metadata` with the RYZE purchase ID for
+  server-side reconciliation.
+- Always returns `PaymentStatusRequiresAction` since the user must visit the
+  Checkout URL to complete payment.
+
+Configuration:
+
+- `STRIPE_SECRET_KEY` — Stripe API secret key (required to enable Stripe).
+- `STRIPE_SUCCESS_URL` — redirect URL after successful payment (optional).
+- `STRIPE_CANCEL_URL` — redirect URL when user cancels (optional).
+- The Stripe SDK global key (`stripe.Key`) is set from the environment at
+  startup. The key is never logged, exposed to the client, or stored in the
+  database.
 
 The full payment lifecycle follows three distinct phases:
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	stripe "github.com/stripe/stripe-go/v82"
 	"gorm.io/gorm"
 
 	"ryze/backend/api/auth"
@@ -42,7 +43,7 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 
@@ -111,7 +112,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminCommissionHandler := auth.NewAdminCommissionHandler(commissionRulesService)
 
 	purchaseRepository := repositories.NewPurchaseRepository(db)
-	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService}, &notConfiguredPaymentProvider{})
+	paymentProvider := resolvePaymentProvider(stripeCfg)
+	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService}, paymentProvider)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
@@ -269,6 +271,18 @@ type notConfiguredPaymentProvider struct{}
 
 func (p *notConfiguredPaymentProvider) InitiatePayment(_ context.Context, _ payments.PaymentRequest) (payments.PaymentResult, error) {
 	return payments.PaymentResult{}, fmt.Errorf("no payment provider configured")
+}
+
+// resolvePaymentProvider returns a Stripe provider when a valid Stripe secret
+// key is configured, otherwise it falls back to the not-configured placeholder.
+// The Stripe global key is set here so the provider can make API calls.
+func resolvePaymentProvider(cfg config.StripeConfig) payments.Provider {
+	if cfg.SecretKey == "" {
+		return &notConfiguredPaymentProvider{}
+	}
+
+	stripe.Key = cfg.SecretKey
+	return payments.NewStripeProvider(cfg.SuccessURL, cfg.CancelURL)
 }
 
 // commissionAdapter adapts the commission_rules.Service to the

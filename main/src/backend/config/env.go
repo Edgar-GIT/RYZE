@@ -205,3 +205,16 @@ func LoadCommission() (CommissionConfig, error) {
 
 	return CommissionConfig{DefaultPlatformCommissionBPS: bps}, nil
 }
+
+// LoadStripe reads the Stripe Checkout provider configuration from environment
+// variables. All values are optional: when STRIPE_SECRET_KEY is empty the
+// payment provider falls back to the not-configured placeholder. SuccessURL and
+// CancelURL default to empty strings, which causes the Stripe SDK to use the
+// default redirect behaviour.
+func LoadStripe() StripeConfig {
+	return StripeConfig{
+		SecretKey:  strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
+		SuccessURL: strings.TrimSpace(os.Getenv("STRIPE_SUCCESS_URL")),
+		CancelURL:  strings.TrimSpace(os.Getenv("STRIPE_CANCEL_URL")),
+	}
+}

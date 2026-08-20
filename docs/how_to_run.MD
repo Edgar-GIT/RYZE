@@ -314,6 +314,32 @@ ADMIN_2_ACCESS_CODE=...
 The access code is a secret: generate it locally and never commit a real
 value. Changing the values in `.env` takes effect on the next server restart.
 
+## Stripe Checkout Provider (Optional)
+
+The payment system supports Stripe Checkout Sessions as the first real payment
+provider. The provider is optional: when `STRIPE_SECRET_KEY` is not set, the
+backend uses a placeholder that rejects all payment requests.
+
+```text
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_SUCCESS_URL=http://localhost:5173/purchase/success
+STRIPE_CANCEL_URL=http://localhost:5173/purchase/cancel
+```
+
+- `STRIPE_SECRET_KEY` — Stripe API secret key. Required to enable payment
+  processing. Use `sk_test_...` for development, `sk_live_...` for production.
+  The key is loaded from the `.env` file and set on the global Stripe SDK key
+  at startup. It is never logged or exposed to the client.
+- `STRIPE_SUCCESS_URL` — URL where the user is redirected after a successful
+  Stripe Checkout payment. Optional; when empty, Stripe uses its default
+  redirect behaviour.
+- `STRIPE_CANCEL_URL` — URL where the user is redirected when they cancel the
+  Stripe Checkout flow. Optional; when empty, Stripe uses its default redirect
+  behaviour.
+
+Real money is never processed during development. Use Stripe test keys and
+test card numbers from the Stripe Dashboard.
+
 ## Verify the Database Connection
 
 From the backend directory, run:
