@@ -16,6 +16,10 @@ import (
 // never marks a purchase as completed: that responsibility belongs to the
 // verified provider event → CompletePurchase() flow.
 //
+// StripeProvider supports card and MB WAY payment methods. MB WAY is configured
+// via the PaymentMethodTypes parameter; the Stripe SDK does not have a
+// dedicated constant for it, so the raw string is used.
+//
 // StripeProvider is safe for concurrent use by multiple goroutines.
 type StripeProvider struct {
 	successURL string
@@ -39,6 +43,11 @@ func NewStripeProvider(successURL, cancelURL string) *StripeProvider {
 // The purchase ID is used as the client reference for reconciliation and as
 // the Stripe idempotency key to prevent duplicate session creation for the
 // same purchase.
+//
+// The payment method from the request determines which Stripe payment method
+// types are enabled on the Checkout Session:
+//   - card: standard card payments
+//   - mbway: MB WAY mobile payments (EUR only)
 //
 // On success, the returned PaymentResult contains the Stripe Checkout Session
 // ID as PaymentID and the hosted Checkout URL for client redirect. The status
@@ -73,8 +82,13 @@ func (p *StripeProvider) InitiatePayment(_ context.Context, request PaymentReque
 		Metadata: map[string]string{
 			"purchase_id": request.PurchaseID,
 			"program_id":  request.ProgramID,
+			"method":      string(request.Method),
 		},
 	}
+
+	params.PaymentMethodTypes = stripe.StringSlice([]string{
+		stripeMethodTypeForPaymentMethod(request.Method),
+	})
 
 	if p.successURL != "" {
 		params.SuccessURL = stripe.String(p.successURL)
@@ -101,4 +115,15 @@ func (p *StripeProvider) InitiatePayment(_ context.Context, request PaymentReque
 		Provider:    "stripe",
 		PurchaseID:  request.PurchaseID,
 	}, nil
+}
+
+// stripeMethodTypeForPaymentMethod maps a RYZE payment method to the
+// corresponding Stripe payment method type string for Checkout Sessions.
+func stripeMethodTypeForPaymentMethod(method PaymentMethod) string {
+	switch method {
+	case PaymentMethodMBWay:
+		return "mb_way"
+	default:
+		return "card"
+	}
 }

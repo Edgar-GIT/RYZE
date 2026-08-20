@@ -89,6 +89,7 @@ func TestStripeProvider_Success(t *testing.T) {
 		AmountMinorUnits: 4999,
 		Currency:         "EUR",
 		ProgramID:        "prog-abc",
+		Method:           payments.PaymentMethodCard,
 	})
 
 	if err != nil {
@@ -122,6 +123,7 @@ func TestStripeProvider_EmptyPurchaseID(t *testing.T) {
 		AmountMinorUnits: 100,
 		Currency:         "EUR",
 		ProgramID:        "prog-1",
+		Method:           payments.PaymentMethodCard,
 	})
 
 	if err == nil {
@@ -144,6 +146,7 @@ func TestStripeProvider_ZeroAmount(t *testing.T) {
 		AmountMinorUnits: 0,
 		Currency:         "EUR",
 		ProgramID:        "prog-1",
+		Method:           payments.PaymentMethodCard,
 	})
 
 	if err == nil {
@@ -166,6 +169,7 @@ func TestStripeProvider_EmptyCurrency(t *testing.T) {
 		AmountMinorUnits: 100,
 		Currency:         "",
 		ProgramID:        "prog-1",
+		Method:           payments.PaymentMethodCard,
 	})
 
 	if err == nil {
@@ -190,6 +194,7 @@ func TestStripeProvider_StripeAPIError(t *testing.T) {
 		AmountMinorUnits: 100,
 		Currency:         "EUR",
 		ProgramID:        "prog-1",
+		Method:           payments.PaymentMethodCard,
 	})
 
 	if err == nil {
@@ -220,6 +225,7 @@ func TestStripeProvider_EmptyCheckoutURL(t *testing.T) {
 		AmountMinorUnits: 100,
 		Currency:         "EUR",
 		ProgramID:        "prog-1",
+		Method:           payments.PaymentMethodCard,
 	})
 
 	if err == nil {
@@ -251,6 +257,7 @@ func TestStripeProvider_IdempotencyKey(t *testing.T) {
 		AmountMinorUnits: 2999,
 		Currency:         "EUR",
 		ProgramID:        "prog-idem",
+		Method:           payments.PaymentMethodCard,
 	})
 
 	if err != nil {
@@ -285,6 +292,7 @@ func TestStripeProvider_NoURLs(t *testing.T) {
 		AmountMinorUnits: 500,
 		Currency:         "usd",
 		ProgramID:        "prog-nourls",
+		Method:           payments.PaymentMethodCard,
 	})
 
 	if err != nil {
@@ -296,5 +304,107 @@ func TestStripeProvider_NoURLs(t *testing.T) {
 	}
 	if strings.Contains(capturedBody, "cancel_url") {
 		t.Errorf("expected no cancel_url when empty, body contains: %s", capturedBody)
+	}
+}
+
+func TestStripeProvider_MBWayMethod(t *testing.T) {
+	sessionID := "cs_test_mbway123"
+	checkoutURL := "https://checkout.stripe.com/c/pay/cs_test_mbway123"
+
+	var capturedBody string
+
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		capturedBody = string(body)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(mockStripeSessionResponse(sessionID, checkoutURL)))
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("https://example.com/success", "https://example.com/cancel")
+	result, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-mbway",
+		AmountMinorUnits: 2500,
+		Currency:         "EUR",
+		ProgramID:        "prog-mbway",
+		Method:           payments.PaymentMethodMBWay,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.PaymentID != sessionID {
+		t.Errorf("expected PaymentID %q, got %q", sessionID, result.PaymentID)
+	}
+	if !strings.Contains(capturedBody, "mb_way") {
+		t.Errorf("expected mb_way in payment_method_types, body: %s", capturedBody)
+	}
+	if strings.Contains(capturedBody, "payment_method_types") && strings.Contains(capturedBody, "payment_method_types%5B0%5D=card") {
+		t.Errorf("expected card not present when mbway selected, body: %s", capturedBody)
+	}
+}
+
+func TestStripeProvider_PaymentMethodTypesCard(t *testing.T) {
+	sessionID := "cs_test_card"
+	checkoutURL := "https://checkout.stripe.com/c/pay/cs_test_card"
+
+	var capturedBody string
+
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		capturedBody = string(body)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(mockStripeSessionResponse(sessionID, checkoutURL)))
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("https://example.com/success", "https://example.com/cancel")
+	_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-card",
+		AmountMinorUnits: 5000,
+		Currency:         "EUR",
+		ProgramID:        "prog-card",
+		Method:           payments.PaymentMethodCard,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(capturedBody, "payment_method_types[0]=card") {
+		t.Errorf("expected card in payment_method_types, body: %s", capturedBody)
+	}
+}
+
+func TestStripeProvider_MetadataIncludesMethod(t *testing.T) {
+	sessionID := "cs_test_meta"
+	checkoutURL := "https://checkout.stripe.com/c/pay/cs_test_meta"
+
+	var capturedBody string
+
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		capturedBody = string(body)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(mockStripeSessionResponse(sessionID, checkoutURL)))
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("https://example.com/success", "https://example.com/cancel")
+	_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-meta",
+		AmountMinorUnits: 3000,
+		Currency:         "EUR",
+		ProgramID:        "prog-meta",
+		Method:           payments.PaymentMethodMBWay,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(capturedBody, "metadata[method]=mbway") {
+		t.Errorf("expected method=mbway in metadata, body: %s", capturedBody)
 	}
 }

@@ -218,3 +218,33 @@ func LoadStripe() StripeConfig {
 		CancelURL:  strings.TrimSpace(os.Getenv("STRIPE_CANCEL_URL")),
 	}
 }
+
+// LoadPayPal reads the PayPal provider configuration from environment
+// variables. All values are optional: when PAYPAL_CLIENT_ID is empty the
+// payment provider falls back to the not-configured placeholder. Mode defaults
+// to "sandbox" when not provided.
+func LoadPayPal() PayPalConfig {
+	mode := strings.TrimSpace(os.Getenv("PAYPAL_MODE"))
+	if mode == "" {
+		mode = "sandbox"
+	}
+
+	return PayPalConfig{
+		ClientID: strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_ID")),
+		Secret:   strings.TrimSpace(os.Getenv("PAYPAL_SECRET")),
+		Mode:     mode,
+	}
+}
+
+// LoadWebhooks reads the webhook verification configuration from environment
+// variables. Both values are optional: when empty the corresponding webhook
+// endpoint is not registered. STRIPE_WEBHOOK_SECRET is the Stripe webhook
+// signing secret used to verify incoming Stripe webhook signatures.
+// PAYPAL_WEBHOOK_ID is the PayPal webhook ID used to verify incoming PayPal
+// webhook authenticity.
+func LoadWebhooks() WebhookConfig {
+	return WebhookConfig{
+		StripeWebhookSecret: strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
+		PayPalWebhookID:     strings.TrimSpace(os.Getenv("PAYPAL_WEBHOOK_ID")),
+	}
+}

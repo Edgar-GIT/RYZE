@@ -1,5 +1,19 @@
 package payments
 
+// PaymentMethod represents the payment method selected by the client. The
+// server maps each method to the appropriate provider; the client never
+// selects a provider directly.
+type PaymentMethod string
+
+const (
+	// PaymentMethodCard selects card payment via Stripe Checkout.
+	PaymentMethodCard PaymentMethod = "card"
+	// PaymentMethodMBWay selects MB WAY payment via Stripe Checkout.
+	PaymentMethodMBWay PaymentMethod = "mbway"
+	// PaymentMethodPayPal selects PayPal payment via the PayPal provider.
+	PaymentMethodPayPal PaymentMethod = "paypal"
+)
+
 // PaymentStatus represents the minimal provider-independent status of a
 // payment. This is NOT the same as the RYZE Purchase status. A provider saying
 // "paid" must eventually flow through the verified provider event to
@@ -34,6 +48,9 @@ type PaymentRequest struct {
 	// ProgramID is the purchased program identifier, provided for provider
 	// metadata purposes.
 	ProgramID string
+	// Method is the payment method selected by the client. The service
+	// validates this value before it reaches the provider.
+	Method PaymentMethod
 }
 
 // PaymentResult is the provider-independent representation of the outcome of

@@ -875,6 +875,78 @@ follows a strict security model:
 - The `FakeProvider` is test-only and must never be exposed in production
   configuration.
 
+### Payment Method Validation
+
+The payment initiation endpoint validates the payment method server-side before
+any provider interaction:
+
+- The payment method is validated against an allowlist: `card`, `mbway`,
+  `paypal`. Any other value is rejected with `400 VALIDATION_ERROR` before any
+  provider is resolved.
+- The client never selects a provider directly — only the payment method. The
+  server routes the method to the correct provider via a centralized
+  `MethodProviderMap` (PaymentMethod → Provider).
+- MB WAY is validated as a Stripe-specific payment method type; it is routed to
+  the Stripe provider internally.
+- PayPal credentials (`PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`) follow the same
+  secrets management as Stripe: loaded from environment variables at startup,
+  never logged, never exposed to the client, never stored in the database.
+- Provider routing prevents clients from accessing unconfigured providers. If a
+  method maps to a provider whose credentials are not configured, the request is
+  rejected rather than forwarded to an uninitialized provider.
+
+### Webhook Security
+
+Webhooks are the ONLY mechanism that may complete a purchase. The following
+principles are enforced:
+
+- **Checkout initiation does not complete a purchase.** Creating a Stripe
+  Checkout Session or PayPal Order only starts the payment flow.
+- **Browser redirects do not complete a purchase.** Success/cancel URLs from
+  providers are purely UX redirects; they are never trusted as payment
+  confirmation.
+- **Only verified provider events can trigger CompletePurchase().**
+  Cryptographic signature verification is mandatory before any completion.
+
+**Stripe Webhook Security:**
+
+- Signature verification using `webhook.ConstructEvent` with the configured
+  signing secret
+- Missing or invalid signatures are rejected with 400
+- The webhook signing secret must be configured via `STRIPE_WEBHOOK_SECRET`
+- Events are parsed only AFTER signature verification succeeds
+
+**PayPal Webhook Security:**
+
+- Authenticity verification using PayPal's official `VerifyWebhookSignature` API
+- Invalid verification is rejected with 400
+- The webhook ID must be configured via `PAYPAL_WEBHOOK_ID`
+- Events are parsed only AFTER verification succeeds
+
+**Amount/Currency Verification:**
+
+- Provider-confirmed payment amounts are compared against the immutable purchase
+  snapshot
+- Currency codes are compared case-insensitively
+- Mismatches are logged and return 500 (triggering provider retry) — the
+  purchase is NOT completed
+- This is defense-in-depth against configuration/provider mistakes
+
+**Idempotency:**
+
+- Duplicate webhook deliveries are safe — CompletePurchase() is idempotent
+- Already-completed purchases return 200 without re-processing
+- No duplicate entitlements are created
+
+**What webhook handlers never do:**
+
+- Trust client-supplied purchase IDs
+- Trust client-supplied payment status
+- Modify purchase snapshots
+- Recalculate commissions
+- Create entitlements directly (only CompletePurchase does this)
+- Expose internal errors, stack traces, or provider details
+
 ### Stripe Checkout Security
 
 The Stripe Checkout provider (`services/payments/stripe_provider.go`) follows

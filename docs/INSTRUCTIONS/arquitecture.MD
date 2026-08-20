@@ -569,6 +569,41 @@ The full payment lifecycle follows three distinct phases:
    verified provider event, atomically transitions status and provisions
    entitlement.
 
+### Provider Routing Architecture
+
+The payment service routes payment methods to providers through a centralized
+`MethodProviderMap` (PaymentMethod → Provider):
+
+1. The client sends a `payment_method` value (card, mbway or paypal).
+2. The payment service validates the method against the allowlist.
+3. The `MethodProviderMap` resolves the method to the correct provider.
+4. The provider creates the checkout session using the immutable purchase
+   snapshot.
+
+The mapping:
+
+- `card` → Stripe provider.
+- `mbway` → Stripe provider (MB WAY is a Stripe payment method type).
+- `paypal` → PayPal provider.
+
+PayPal provider:
+
+- Uses the PayPal Orders API v2 with OAuth2 client credentials.
+- Configuration: `PayPalConfig` struct with `ClientID`, `Secret`, `Mode`
+  (sandbox / live).
+- PayPal is optional; when credentials are empty, the PayPal method is
+  rejected at routing time.
+
+Stripe provider:
+
+- Now configures payment method types on Checkout Sessions based on the
+  requested method (card or mbway).
+
+The `purchases` service holds a `payments.Provider` dependency injected at
+construction time. The `resolvePaymentProvider` function in routes selects the
+Stripe provider when `STRIPE_SECRET_KEY` is set, otherwise falls back to the
+`notConfiguredPaymentProvider` placeholder.
+
 ### Purchase Completion (Internal)
 
 The `CompletePurchase` service operation provides the internal completion
@@ -602,6 +637,37 @@ The service re-reads the purchase via `FindByID` before any mutation, ensuring
 the snapshot fields (price, currency, commission split) are never recomputed.
 Completion is purely a status transition and entitlement provision; the
 commercial snapshot is immutable after creation.
+
+### Webhook Architecture
+
+The webhook layer connects verified provider payment confirmations to the
+existing atomic CompletePurchase() flow.
+
+**Request flow (Stripe):**
+
+```
+Stripe → POST /api/v1/webhooks/stripe → Read raw body → Read Stripe-Signature header → webhook.ConstructEvent (verify signature) → Parse event → Handle checkout.session.completed → Extract purchase_id from metadata → GetPurchaseByID (verify snapshot) → Verify amount/currency → CompletePurchase()
+```
+
+**Request flow (PayPal):**
+
+```
+PayPal → POST /api/v1/webhooks/paypal → Read raw body → VerifyWebhookSignature (PayPal API) → Parse event → Handle CHECKOUT.ORDER.APPROVED → Extract reference_id → GetPurchaseByID (verify snapshot) → Verify amount/currency → CompletePurchase()
+```
+
+**Key architectural decisions:**
+
+- Webhook handlers live in `api/webhooks/` package (separate from authenticated
+  handlers)
+- No authentication middleware — signature verification replaces JWT
+  authentication
+- Only registered when corresponding secrets are configured in environment
+- CompletePurchase() remains the ONLY completion mechanism — no parallel paths
+- GetPurchaseByID provides read-only access for verification without exposing
+  modification capabilities
+- Purchase snapshots are immutable — the webhook verifies against them, never
+  modifies them
+- Commission calculations are never recalculated during webhook handling
 
 ---
 

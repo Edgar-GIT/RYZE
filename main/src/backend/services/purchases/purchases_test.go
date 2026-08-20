@@ -115,6 +115,14 @@ func (s *stubPaymentProvider) InitiatePayment(_ context.Context, req payments.Pa
 	return s.result, s.err
 }
 
+// stubResolver returns a ProviderResolver that always resolves to the given
+// provider, enabling InitiatePayment tests without a real routing layer.
+func stubResolver(provider payments.Provider) payments.ProviderResolver {
+	return func(_ context.Context, _ payments.PaymentMethod) (payments.Provider, error) {
+		return provider, nil
+	}
+}
+
 // --- tests ---
 
 func TestCreatePurchaseIntentSuccess(t *testing.T) {
@@ -136,7 +144,7 @@ func TestCreatePurchaseIntentSuccess(t *testing.T) {
 		calc:       purchases.CommissionCalculation{PlatformAmount: 2000, TrainerAmount: 8000},
 	}
 
-	svc := purchases.NewService(programs, purchasesRepo, entitlements, commission, &stubPaymentProvider{})
+	svc := purchases.NewService(programs, purchasesRepo, entitlements, commission, &stubPaymentProvider{}, nil)
 
 	purchase, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
 	if err != nil {
@@ -170,6 +178,7 @@ func TestCreatePurchaseIntentEmptyUserID(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CreatePurchaseIntent(context.Background(), "", "11111111-1111-1111-1111-111111111111")
@@ -188,6 +197,7 @@ func TestCreatePurchaseIntentEmptyProgramID(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "")
@@ -207,6 +217,7 @@ func TestCreatePurchaseIntentProgramNotFound(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
@@ -233,6 +244,7 @@ func TestCreatePurchaseIntentFreeProgram(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
@@ -268,6 +280,7 @@ func TestCreatePurchaseIntentDuplicateEntitlement(t *testing.T) {
 		entitlements,
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
@@ -301,6 +314,7 @@ func TestCreatePurchaseIntentDuplicatePurchase(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
@@ -329,6 +343,7 @@ func TestCreatePurchaseIntentCommissionResolutionFailure(t *testing.T) {
 		&stubEntitlementRepository{},
 		commission,
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
@@ -361,6 +376,7 @@ func TestCreatePurchaseIntentCreateFailure(t *testing.T) {
 		&stubEntitlementRepository{},
 		commission,
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
@@ -392,6 +408,7 @@ func TestCreatePurchaseIntentOverrideCommission(t *testing.T) {
 		&stubEntitlementRepository{},
 		commission,
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	purchase, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
@@ -482,6 +499,7 @@ func TestCompletePurchaseSuccess(t *testing.T) {
 		entitlementsRepo,
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	result, err := svc.CompletePurchase(context.Background(), purchase.ID)
@@ -521,6 +539,7 @@ func TestCompletePurchaseIdempotentSuccess(t *testing.T) {
 		entitlementsRepo,
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	result, err := svc.CompletePurchase(context.Background(), purchase.ID)
@@ -557,6 +576,7 @@ func TestCompletePurchaseEntitlementIntegrityError(t *testing.T) {
 		entitlementsRepo,
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CompletePurchase(context.Background(), purchase.ID)
@@ -576,6 +596,7 @@ func TestCompletePurchaseNotFound(t *testing.T) {
 		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CompletePurchase(context.Background(), "00000000-0000-0000-0000-000000000000")
@@ -591,6 +612,7 @@ func TestCompletePurchaseEmptyID(t *testing.T) {
 		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CompletePurchase(context.Background(), "")
@@ -616,6 +638,7 @@ func TestCompletePurchaseFailedStatus(t *testing.T) {
 		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CompletePurchase(context.Background(), purchase.ID)
@@ -641,6 +664,7 @@ func TestCompletePurchaseRefundedStatus(t *testing.T) {
 		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CompletePurchase(context.Background(), purchase.ID)
@@ -668,6 +692,7 @@ func TestCompletePurchaseEntitlementReactivation(t *testing.T) {
 		entitlementsRepo,
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	result, err := svc.CompletePurchase(context.Background(), purchase.ID)
@@ -713,6 +738,7 @@ func TestCompletePurchaseSnapshotPreserved(t *testing.T) {
 		entitlementsRepo,
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	result, err := svc.CompletePurchase(context.Background(), purchase.ID)
@@ -753,6 +779,7 @@ func TestCompletePurchaseInternalErrorNotExposed(t *testing.T) {
 		entitlementsRepo,
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	_, err := svc.CompletePurchase(context.Background(), purchase.ID)
@@ -793,9 +820,10 @@ func TestInitiatePaymentSuccess(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		payment,
+		stubResolver(payment),
 	)
 
-	result, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001")
+	result, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001", "card")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -823,9 +851,10 @@ func TestInitiatePaymentEmptyUserID(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
-	_, err := svc.InitiatePayment(context.Background(), "", "purchase-001")
+	_, err := svc.InitiatePayment(context.Background(), "", "purchase-001", "card")
 	if err == nil {
 		t.Fatal("expected error for empty user id")
 	}
@@ -841,9 +870,10 @@ func TestInitiatePaymentEmptyPurchaseID(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
-	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "")
+	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "", "card")
 	if err == nil {
 		t.Fatal("expected error for empty purchase id")
 	}
@@ -863,9 +893,10 @@ func TestInitiatePaymentPurchaseNotFound(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
-	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "nonexistent")
+	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "nonexistent", "card")
 	if err == nil {
 		t.Fatal("expected error for nonexistent purchase")
 	}
@@ -885,9 +916,10 @@ func TestInitiatePaymentRepositoryFailureNotExposed(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
-	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001")
+	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001", "card")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -916,10 +948,11 @@ func TestInitiatePaymentIDOR(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		&stubPaymentProvider{},
+		nil,
 	)
 
 	differentUserID := "44444444-4444-4444-4444-444444444444"
-	_, err := svc.InitiatePayment(context.Background(), differentUserID, "purchase-001")
+	_, err := svc.InitiatePayment(context.Background(), differentUserID, "purchase-001", "card")
 	if err == nil {
 		t.Fatal("expected error for IDOR")
 	}
@@ -959,9 +992,10 @@ func TestInitiatePaymentNotPending(t *testing.T) {
 				&stubEntitlementRepository{},
 				&stubCommissionResolver{},
 				&stubPaymentProvider{},
+				nil,
 			)
 
-			_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001")
+			_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001", "card")
 			if err == nil {
 				t.Fatal("expected error for non-pending purchase")
 			}
@@ -995,9 +1029,10 @@ func TestInitiatePaymentProviderFailure(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		payment,
+		stubResolver(payment),
 	)
 
-	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001")
+	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001", "card")
 	if err == nil {
 		t.Fatal("expected error when provider fails")
 	}
@@ -1037,9 +1072,10 @@ func TestInitiatePaymentUsesSnapshotValues(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		payment,
+		stubResolver(payment),
 	)
 
-	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-snapshot")
+	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-snapshot", "card")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1055,5 +1091,8 @@ func TestInitiatePaymentUsesSnapshotValues(t *testing.T) {
 	}
 	if capturedRequest.PurchaseID != "purchase-snapshot" {
 		t.Fatalf("expected purchase id purchase-snapshot, got %q", capturedRequest.PurchaseID)
+	}
+	if capturedRequest.Method != payments.PaymentMethodCard {
+		t.Fatalf("expected method %q, got %q", payments.PaymentMethodCard, capturedRequest.Method)
 	}
 }

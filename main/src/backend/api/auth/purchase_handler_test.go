@@ -62,7 +62,9 @@ func newPurchaseTestRouter(t *testing.T) (*gin.Engine, repositories.UserReposito
 	commissionCfg := config.CommissionConfig{DefaultPlatformCommissionBPS: 2000}
 	commissionSvc := commission_rules.NewService(commissionRuleRepo, trainerRepo, commissionCfg)
 
-	svc := purchases.NewService(programRepo, purchaseRepo, entitlementRepo, &commissionAdapter{svc: commissionSvc}, payments.NewFakeProvider())
+	svc := purchases.NewService(programRepo, purchaseRepo, entitlementRepo, &commissionAdapter{svc: commissionSvc}, payments.NewFakeProvider(), func(_ context.Context, _ payments.PaymentMethod) (payments.Provider, error) {
+		return payments.NewFakeProvider(), nil
+	})
 	handler := auth.NewPurchaseHandler(svc)
 
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
@@ -112,13 +114,17 @@ func (s *stubPurchaseService) CreatePurchaseIntent(_ context.Context, userID, pr
 	return s.purchase, s.err
 }
 
-func (s *stubPurchaseService) InitiatePayment(_ context.Context, userID, purchaseID string) (*purchases.PaymentResult, error) {
+func (s *stubPurchaseService) InitiatePayment(_ context.Context, userID, purchaseID, paymentMethod string) (*purchases.PaymentResult, error) {
 	s.gotUser = userID
 	s.gotPurchaseID = purchaseID
 	return s.paymentResult, s.err
 }
 
 func (s *stubPurchaseService) CompletePurchase(_ context.Context, _ string) (*purchases.Purchase, error) {
+	return s.purchase, s.err
+}
+
+func (s *stubPurchaseService) GetPurchaseByID(_ context.Context, _ string) (*purchases.Purchase, error) {
 	return s.purchase, s.err
 }
 
@@ -599,7 +605,7 @@ func TestPaymentHandlerForwardsContextIdentity(t *testing.T) {
 	}
 	router := newPurchaseHandlerRouter(svc, identity)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", "")
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -614,7 +620,7 @@ func TestPaymentHandlerForwardsContextIdentity(t *testing.T) {
 func TestPaymentHandlerMissingContext(t *testing.T) {
 	router := newPurchaseHandlerRouter(&stubPurchaseService{}, nil)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", "")
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
 	}
@@ -643,7 +649,7 @@ func TestPaymentHandlerErrorMapping(t *testing.T) {
 			svc := &stubPurchaseService{err: tc.err}
 			router := newPurchaseHandlerRouter(svc, identity)
 
-			rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", "")
+			rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
 			if rec.Code != tc.status {
 				t.Fatalf("expected %d, got %d (body: %s)", tc.status, rec.Code, raw)
 			}
@@ -658,7 +664,7 @@ func TestPaymentHandlerRepositoryFailureNotExposed(t *testing.T) {
 	svc := &stubPurchaseService{err: errLoginRepoFailure}
 	router := newPurchaseHandlerRouter(svc, "33333333-3333-3333-3333-333333333333")
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", "")
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d (body: %s)", rec.Code, raw)
 	}
@@ -683,7 +689,7 @@ func TestPaymentHandlerResponseNeverExposesSensitiveData(t *testing.T) {
 	}
 	router := newPurchaseHandlerRouter(svc, identity)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", "")
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -739,7 +745,7 @@ func TestPaymentIntegrationSuccess(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, data, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", "")
+	rec, data, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -779,7 +785,7 @@ func TestPaymentIntegrationPurchaseNotFound(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/payment", "")
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/payment", `{"payment_method":"card"}`)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d (body: %s)", rec.Code, raw)
 	}
@@ -826,7 +832,7 @@ func TestPaymentIntegrationNotPending(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", "")
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("expected 409, got %d (body: %s)", rec.Code, raw)
 	}
@@ -874,7 +880,7 @@ func TestPaymentIntegrationIDOR(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", "")
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d (body: %s)", rec.Code, raw)
 	}
@@ -921,7 +927,7 @@ func TestPaymentIntegrationNeverExposesSensitiveData(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", "")
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}

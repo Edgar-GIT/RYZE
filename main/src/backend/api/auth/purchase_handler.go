@@ -119,8 +119,9 @@ func (h *PurchaseHandler) respondError(c *gin.Context, err error) {
 // InitiatePayment requests a provider payment for an existing pending purchase.
 // The purchase must belong to the authenticated user and be in pending status.
 // The immutable purchase snapshot is used to construct the provider request; no
-// client-supplied commercial values are accepted. The purchase status is NOT
-// modified during initiation.
+// client-supplied commercial values are accepted. The client must provide a
+// valid payment method in the request body. The purchase status is NOT modified
+// during initiation.
 func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
 	userID, err := authcontext.UserIDFromContext(c)
 	if err != nil {
@@ -134,7 +135,20 @@ func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.InitiatePayment(c.Request.Context(), userID, purchaseID)
+	var body struct {
+		PaymentMethod string `json:"payment_method"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+
+	if body.PaymentMethod == "" {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+
+	result, err := h.service.InitiatePayment(c.Request.Context(), userID, purchaseID, body.PaymentMethod)
 	if err != nil {
 		h.respondError(c, err)
 		return

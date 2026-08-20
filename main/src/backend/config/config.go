@@ -74,3 +74,21 @@ type StripeConfig struct {
 	SuccessURL string
 	CancelURL  string
 }
+
+// PayPalConfig holds the PayPal provider configuration. The provider is
+// optional: when the client ID is empty the payment provider falls back to the
+// not-configured placeholder. Mode must be "sandbox" or "live" to select the
+// appropriate PayPal API base URL.
+type PayPalConfig struct {
+	ClientID string
+	Secret   string
+	Mode     string
+}
+
+// WebhookConfig holds the provider webhook verification configuration. Webhooks
+// are the ONLY mechanism that may complete a purchase. Both configurations are
+// optional: when empty the corresponding webhook endpoint is not registered.
+type WebhookConfig struct {
+	StripeWebhookSecret string
+	PayPalWebhookID     string
+}

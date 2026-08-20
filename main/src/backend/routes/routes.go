@@ -3,12 +3,15 @@ package routes
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	paypal "github.com/plutov/paypal/v4"
 	stripe "github.com/stripe/stripe-go/v82"
 	"gorm.io/gorm"
 
 	"ryze/backend/api/auth"
+	"ryze/backend/api/webhooks"
 	"ryze/backend/config"
 	"ryze/backend/middleware"
 	"ryze/backend/middleware/adminroles"
@@ -43,7 +46,7 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 
@@ -112,8 +115,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminCommissionHandler := auth.NewAdminCommissionHandler(commissionRulesService)
 
 	purchaseRepository := repositories.NewPurchaseRepository(db)
-	paymentProvider := resolvePaymentProvider(stripeCfg)
-	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService}, paymentProvider)
+	stripeProvider, paypalProvider := resolvePaymentProviders(stripeCfg, paypalCfg)
+	methodMap := payments.NewMethodProviderMap(stripeProvider, paypalProvider)
+	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService}, nil, methodMap.Resolve)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
@@ -246,6 +250,18 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminCommission.DELETE("/trainers/:id/commission", adminCommissionHandler.DeleteCommissionRule)
 	adminCommission.GET("/trainers/:id/commission/resolve", adminCommissionHandler.GetCommissionResolution)
 
+	if webhookCfg.StripeWebhookSecret != "" {
+		stripeWebhookHandler := webhooks.NewStripeWebhookHandler(webhookCfg.StripeWebhookSecret, purchaseService)
+		v1.POST("/webhooks/stripe", stripeWebhookHandler.Handle)
+	}
+	if webhookCfg.PayPalWebhookID != "" && paypalCfg.ClientID != "" {
+		paypalVerifier, err := createPayPalWebhookVerifier(paypalCfg)
+		if err == nil {
+			paypalWebhookHandler := webhooks.NewPayPalWebhookHandler(paypalVerifier, webhookCfg.PayPalWebhookID, purchaseService)
+			v1.POST("/webhooks/paypal", paypalWebhookHandler.Handle)
+		}
+	}
+
 	return router
 }
 
@@ -273,16 +289,48 @@ func (p *notConfiguredPaymentProvider) InitiatePayment(_ context.Context, _ paym
 	return payments.PaymentResult{}, fmt.Errorf("no payment provider configured")
 }
 
-// resolvePaymentProvider returns a Stripe provider when a valid Stripe secret
-// key is configured, otherwise it falls back to the not-configured placeholder.
-// The Stripe global key is set here so the provider can make API calls.
-func resolvePaymentProvider(cfg config.StripeConfig) payments.Provider {
-	if cfg.SecretKey == "" {
-		return &notConfiguredPaymentProvider{}
+// resolvePaymentProviders returns the configured payment providers. When a
+// valid secret key / client ID is configured the corresponding provider is
+// created; otherwise nil is returned for that provider. The Stripe global key
+// is set here so the provider can make API calls.
+func resolvePaymentProviders(stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig) (payments.Provider, payments.Provider) {
+	var stripeProvider payments.Provider
+	if stripeCfg.SecretKey != "" {
+		stripe.Key = stripeCfg.SecretKey
+		stripeProvider = payments.NewStripeProvider(stripeCfg.SuccessURL, stripeCfg.CancelURL)
 	}
 
-	stripe.Key = cfg.SecretKey
-	return payments.NewStripeProvider(cfg.SuccessURL, cfg.CancelURL)
+	var pp payments.Provider
+	if paypalCfg.ClientID != "" {
+		provider, err := payments.NewPayPalProvider(paypalCfg.ClientID, paypalCfg.Secret, paypalCfg.Mode)
+		if err == nil {
+			pp = provider
+		}
+	}
+
+	return stripeProvider, pp
+}
+
+// createPayPalWebhookVerifier creates a PayPal client suitable for webhook
+// signature verification. The client is separate from the payment-initiation
+// provider to maintain clean separation of concerns.
+func createPayPalWebhookVerifier(cfg config.PayPalConfig) (*paypal.Client, error) {
+	mode := strings.TrimSpace(strings.ToLower(cfg.Mode))
+	var apiBase string
+	switch mode {
+	case "sandbox":
+		apiBase = paypal.APIBaseSandBox
+	case "live":
+		apiBase = paypal.APIBaseLive
+	default:
+		apiBase = paypal.APIBaseSandBox
+	}
+
+	client, err := paypal.NewClient(cfg.ClientID, cfg.Secret, apiBase)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create PayPal webhook verifier: %w", err)
+	}
+	return client, nil
 }
 
 // commissionAdapter adapts the commission_rules.Service to the

@@ -340,6 +340,49 @@ STRIPE_CANCEL_URL=http://localhost:5173/purchase/cancel
 Real money is never processed during development. Use Stripe test keys and
 test card numbers from the Stripe Dashboard.
 
+## PayPal Provider (Optional)
+
+PayPal is an alternative payment provider. When `PAYPAL_CLIENT_ID` and
+`PAYPAL_SECRET` are left empty, PayPal payments are disabled and the payment
+service rejects any request that selects the `paypal` method.
+
+```text
+PAYPAL_CLIENT_ID=...
+PAYPAL_SECRET=...
+PAYPAL_MODE=sandbox
+```
+
+- `PAYPAL_CLIENT_ID` — PayPal OAuth2 client ID. Required to enable PayPal
+  payments. Leave empty to disable.
+- `PAYPAL_SECRET` — PayPal OAuth2 client secret. Required to enable PayPal
+  payments. Leave empty to disable.
+- `PAYPAL_MODE` — PayPal environment mode. Defaults to `sandbox`. Use `live`
+  for production.
+
+The PayPal credentials follow the same secrets management as Stripe: loaded from
+the `.env` file at startup, never logged, never exposed to the client.
+
+## Webhook Configuration (Optional)
+
+Webhooks enable server-to-server payment confirmation. Leave these empty to
+disable webhook endpoints.
+
+```env
+# Stripe webhook signing secret (from Stripe dashboard → Webhooks → signing secret)
+STRIPE_WEBHOOK_SECRET=
+
+# PayPal webhook ID (from PayPal dashboard → Webhooks → webhook details)
+PAYPAL_WEBHOOK_ID=
+```
+
+When both a provider secret AND a webhook secret are configured, the
+corresponding webhook endpoint is registered:
+
+- `POST /api/v1/webhooks/stripe` — requires `STRIPE_SECRET_KEY` AND
+  `STRIPE_WEBHOOK_SECRET`
+- `POST /api/v1/webhooks/paypal` — requires `PAYPAL_CLIENT_ID` AND
+  `PAYPAL_WEBHOOK_ID`
+
 ## Verify the Database Connection
 
 From the backend directory, run:

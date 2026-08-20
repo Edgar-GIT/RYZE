@@ -119,8 +119,9 @@ type PaymentResult struct {
 // the authentication context.
 type Service interface {
 	CreatePurchaseIntent(ctx context.Context, userID, programID string) (*Purchase, error)
-	InitiatePayment(ctx context.Context, userID, purchaseID string) (*PaymentResult, error)
+	InitiatePayment(ctx context.Context, userID, purchaseID, paymentMethod string) (*PaymentResult, error)
 	CompletePurchase(ctx context.Context, purchaseID string) (*Purchase, error)
+	GetPurchaseByID(ctx context.Context, purchaseID string) (*Purchase, error)
 }
 
 type service struct {
@@ -129,6 +130,7 @@ type service struct {
 	entitlements EntitlementRepository
 	commission   CommissionResolver
 	payment      payments.Provider
+	resolver     payments.ProviderResolver
 }
 
 func NewService(
@@ -137,6 +139,7 @@ func NewService(
 	entitlements EntitlementRepository,
 	commission CommissionResolver,
 	payment payments.Provider,
+	resolver payments.ProviderResolver,
 ) Service {
 	return &service{
 		programs:     programs,
@@ -144,6 +147,7 @@ func NewService(
 		entitlements: entitlements,
 		commission:   commission,
 		payment:      payment,
+		resolver:     resolver,
 	}
 }
 
@@ -212,15 +216,21 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 // InitiatePayment requests a provider payment for an existing pending purchase.
 // The purchase must belong to the authenticated user and be in "pending" status.
 // The immutable purchase snapshot is used to construct the provider request; no
-// client-supplied commercial values are accepted. The purchase status is NOT
-// modified during initiation — it remains "pending" until a verified provider
-// event flows through CompletePurchase().
-func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID string) (*PaymentResult, error) {
+// client-supplied commercial values are accepted. The payment method is validated
+// and resolved to the appropriate provider before initiation. The purchase status
+// is NOT modified during initiation — it remains "pending" until a verified
+// provider event flows through CompletePurchase().
+func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, paymentMethod string) (*PaymentResult, error) {
 	if err := validateUserID(userID); err != nil {
 		return nil, err
 	}
 	if err := validatePurchaseID(purchaseID); err != nil {
 		return nil, err
+	}
+
+	method := payments.PaymentMethod(paymentMethod)
+	if err := payments.ValidatePaymentMethod(paymentMethod); err != nil {
+		return nil, ErrInvalidInput
 	}
 
 	purchase, err := s.purchases.FindByID(ctx, purchaseID)
@@ -239,14 +249,20 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID string
 		return nil, ErrPurchaseNotPending
 	}
 
+	provider, err := s.resolver(ctx, method)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
+	}
+
 	request := payments.PaymentRequest{
 		PurchaseID:       purchase.ID,
 		AmountMinorUnits: purchase.PriceMinorUnits,
 		Currency:         purchase.Currency,
 		ProgramID:        purchase.ProgramID,
+		Method:           method,
 	}
 
-	result, err := s.payment.InitiatePayment(ctx, request)
+	result, err := provider.InitiatePayment(ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
 	}
@@ -352,6 +368,26 @@ func (s *service) completeAndCreateEntitlement(ctx context.Context, purchase *mo
 		return fmt.Errorf("failed to complete purchase with entitlement: %w", err)
 	}
 	return nil
+}
+
+// GetPurchaseByID returns the safe representation of a purchase by its
+// identifier. It is a read-only query intended for internal verification
+// flows such as webhook processing, where the caller needs to inspect the
+// immutable commercial snapshot before triggering completion.
+func (s *service) GetPurchaseByID(ctx context.Context, purchaseID string) (*Purchase, error) {
+	if err := validatePurchaseID(purchaseID); err != nil {
+		return nil, err
+	}
+
+	purchase, err := s.purchases.FindByID(ctx, purchaseID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrPurchaseNotFound) {
+			return nil, ErrPurchaseNotFound
+		}
+		return nil, fmt.Errorf("failed to load purchase: %w", err)
+	}
+
+	return newPurchase(purchase), nil
 }
 
 func newPurchase(model *models.Purchase) *Purchase {

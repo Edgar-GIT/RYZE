@@ -1,3 +1,145 @@
+# Version 2.37.0
+
+Title: Backend Step 49 — Payment Webhook Verification & Completion
+
+Date: 2026-08-20
+
+Summary:
+
+Connected verified provider webhooks to the existing atomic CompletePurchase() flow, completing the payment pipeline from initiation to fulfillment. Implemented Stripe and PayPal webhook handlers that verify cryptographic signatures, extract purchase identifiers from trusted provider metadata, validate payment amounts and currencies against immutable purchase snapshots, and call CompletePurchase as the sole completion mechanism. Checkout initiation and browser redirects never complete a purchase — only verified provider events trigger completion.
+
+Database:
+
+- No new migration. The existing Purchase and Entitlement schema is sufficient for webhook-driven completion.
+
+Behavior:
+
+- `services/purchases/purchases.go` — Added `GetPurchaseByID` method to Service interface and implementation. Read-only query that returns the safe purchase representation, enabling webhook handlers to inspect the immutable commercial snapshot before triggering completion.
+- `api/webhooks/stripe_handler.go` — NEW: `StripeWebhookHandler` verifies incoming Stripe webhooks using `webhook.ConstructEvent` with the configured signing secret. Handles `checkout.session.completed` and `checkout.session.async_payment_succeeded` events. Extracts `purchase_id` from trusted Stripe session metadata, validates `amount_total` and `currency` against the purchase snapshot, then calls CompletePurchase(). Unsupported events are acknowledged with 200 to prevent infinite retries. Amount/currency mismatches return 500 for retry.
+- `api/webhooks/paypal_handler.go` — NEW: `PayPalWebhookHandler` verifies incoming PayPal webhooks using PayPal's official `VerifyWebhookSignature` API with the configured webhook ID. Handles `CHECKOUT.ORDER.APPROVED` events. Extracts purchase identifier from the verified order's `purchase_units[0].reference_id`, validates amount and currency against the purchase snapshot, then calls CompletePurchase(). PayPalSignatureVerifier interface enables testability.
+- `config/config.go` — Added `WebhookConfig` struct with `StripeWebhookSecret` and `PayPalWebhookID` fields.
+- `config/env.go` — Added `LoadWebhooks()` function reading `STRIPE_WEBHOOK_SECRET` and `PAYPAL_WEBHOOK_ID` from environment.
+- `routes/routes.go` — Added `webhookCfg config.WebhookConfig` parameter to `Setup`. Registers `POST /api/v1/webhooks/stripe` and `POST /api/v1/webhooks/paypal` without authentication middleware. Added `createPayPalWebhookVerifier` helper for webhook signature verification client. Only registers endpoints when corresponding secrets are configured.
+- `main.go` — Loads `WebhookConfig` via `config.LoadWebhooks()` and passes to routes.
+- `.env.example` — Added `STRIPE_WEBHOOK_SECRET` and `PAYPAL_WEBHOOK_ID` with documentation.
+
+Tests:
+
+- `api/webhooks/stripe_handler_test.go` — 13 tests: valid completed event, invalid signature, missing signature header, malformed payload, unsupported event type, no purchase_id in metadata, purchase not found, amount mismatch, currency mismatch, already completed, not pending, CompletePurchase failure, duplicate delivery idempotency, async payment succeeded, case-insensitive currency match.
+- `api/webhooks/paypal_handler_test.go` — 14 tests: valid approved event, invalid verification, verification error, malformed payload, unsupported event type, no reference_id, purchase not found, amount mismatch, currency mismatch, already completed, not pending, CompletePurchase failure, duplicate delivery idempotency, no webhook ID configured, uppercase currency match, amount conversion edge cases.
+
+Modified files:
+
+- services/purchases/purchases.go
+- services/purchases/purchases_test.go
+- api/auth/purchase_handler_test.go
+- config/config.go
+- config/env.go
+- routes/routes.go
+- routes/trainer_application_e2e_test.go
+- main.go
+- .env.example
+
+New files:
+
+- api/webhooks/stripe_handler.go
+- api/webhooks/stripe_handler_test.go
+- api/webhooks/paypal_handler.go
+- api/webhooks/paypal_handler_test.go
+
+# Version 2.36.0
+
+Title: Backend Step 48 — Payment Method Selection & Provider Routing
+
+Date: 2026-08-20
+
+Summary:
+
+Extended the payment abstraction to support payment method selection (card,
+mbway, paypal) and provider routing (card→Stripe, mbway→Stripe,
+paypal→PayPal). A new `PayPalProvider` implements the `Provider` interface
+using PayPal Orders API v2, creating CAPTURE orders with idempotency via
+`PayPal-Request-Id` headers. A `ProviderResolver` function type and
+`MethodProviderMap` allow routes to select the correct provider based on the
+chosen payment method. The Stripe provider is updated to configure payment
+method types on Checkout Sessions and attach the method to session metadata.
+The purchase initiation endpoint now requires a `payment_method` field in the
+request body and validates it before resolving the provider.
+
+Database:
+
+- No new migration.
+
+Behavior:
+
+- `services/payments/types.go` — Added `PaymentMethod` type with constants
+  `MethodCard`, `MethodMBWay`, `MethodPayPal`. Added `Method` field to
+  `PaymentRequest`.
+- `services/payments/errors.go` — Added `ErrInvalidPaymentMethod` and
+  `ErrNoProviderAvailable` sentinel errors.
+- `services/payments/provider_routing.go` (new) — `ProviderResolver` function
+  type, `ValidatePaymentMethod` function, `MethodProviderMap` type with `Resolve`
+  method that returns the provider for a given payment method.
+- `services/payments/stripe_provider.go` — Updated to configure payment method
+  types on Checkout Sessions based on the selected method. MB WAY uses the
+  `"mb_way"` string literal since the Stripe SDK lacks a constant. Attaches
+  `metadata[method]` to session metadata.
+- `services/payments/paypal_provider.go` (new) — `PayPalProvider` struct
+  implementing the `Provider` interface. Creates CAPTURE orders via PayPal Orders
+  API v2. Uses `PayPal-Request-Id` header for idempotency. Converts minor units
+  to decimal strings for PayPal amounts. Finds approval URL from response links.
+  Returns order ID as `PaymentID`.
+- `config/config.go` — Added `PayPalConfig` struct with `ClientID`, `Secret`,
+  `Mode` fields.
+- `config/env.go` — Added `LoadPayPal()` reading `PAYPAL_CLIENT_ID`,
+  `PAYPAL_SECRET`, `PAYPAL_MODE` from environment. All optional.
+- `services/purchases/purchases.go` — `InitiatePayment` now accepts
+  `paymentMethod string` parameter, validates the method, and resolves the
+  provider via `ProviderResolver`. `NewService` accepts a `ProviderResolver`
+  parameter.
+- `api/auth/purchase_handler.go` — `InitiatePayment` handler now parses
+  `payment_method` from the JSON request body. Returns 400 when missing or
+  invalid.
+- `routes/routes.go` — `resolvePaymentProvider` replaced by
+  `resolvePaymentProviders` returning both Stripe and PayPal providers.
+  `Setup` now accepts `config.PayPalConfig` parameter. `MethodProviderMap`
+  used for payment method routing.
+- `main.go` — Loads `PayPalConfig` and passes it to routes.
+- `.env.example` — Added `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`, `PAYPAL_MODE`.
+- `go.mod` — Added `github.com/plutov/paypal/v4 v4.17.0` as direct
+  dependency.
+
+Tests:
+
+- `services/payments/provider_routing_test.go` (new) — 10 tests covering method
+  validation, provider mapping, and unconfigured provider scenarios.
+- `services/payments/paypal_provider_test.go` (new) — 14 tests covering
+  success, validation, idempotency, amount conversion, API errors, and
+  configuration.
+- `services/payments/stripe_provider_test.go` (extended) — 3 new tests for MB
+  WAY method, card method types, and metadata.
+
+Modified files:
+
+- services/payments/types.go (modified)
+- services/payments/errors.go (modified)
+- services/payments/provider_routing.go (new)
+- services/payments/provider_routing_test.go (new)
+- services/payments/stripe_provider.go (modified)
+- services/payments/stripe_provider_test.go (modified)
+- services/payments/paypal_provider.go (new)
+- services/payments/paypal_provider_test.go (new)
+- services/purchases/purchases.go (modified)
+- api/auth/purchase_handler.go (modified)
+- routes/routes.go (modified)
+- config/config.go (modified)
+- config/env.go (modified)
+- main.go (modified)
+- .env.example (modified)
+- go.mod (modified)
+- go.sum (modified)
+- docs/REGISTRY/update_logs.MD (modified)
+
 # Version 2.35.0
 
 Title: Backend Step 47 — Stripe Checkout Provider Integration

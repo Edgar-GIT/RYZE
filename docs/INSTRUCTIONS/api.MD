@@ -543,9 +543,11 @@ Error codes (service-level, not HTTP):
 
 Initiates a payment for an existing pending purchase via the configured payment
 provider. The purchase must belong to the authenticated user and be in "pending"
-status. The immutable purchase snapshot is used to construct the provider
-request; no client-supplied commercial values are accepted. The purchase status
-is NOT modified during initiation — it remains "pending" until a verified
+status. The client selects the payment method (card, mbway or paypal); the
+server routes the method to the correct provider via a centralized
+`MethodProviderMap`. The immutable purchase snapshot is used to construct the
+provider request; no client-supplied commercial values are accepted. The purchase
+status is NOT modified during initiation — it remains "pending" until a verified
 provider event flows through `CompletePurchase()`.
 
 Authentication: required (client session).
@@ -553,6 +555,15 @@ Authentication: required (client session).
 Parameters:
 
 - `purchaseID` (path) — purchase UUID.
+
+Request body:
+
+- `payment_method` (required) — one of `"card"`, `"mbway"`, `"paypal"`.
+
+Validation:
+
+- `payment_method` is required and must be one of the allowed values. Any other
+  value or a missing field returns `400 VALIDATION_ERROR`.
 
 Response `200 OK`:
 
@@ -565,13 +576,75 @@ Response `200 OK`:
 
 Error codes:
 
+- `400 VALIDATION_ERROR` — empty purchase id, missing or invalid
+  `payment_method`.
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid session.
 - `404 PURCHASE_NOT_FOUND` — purchase does not exist, is soft-deleted or does
   not belong to the authenticated user.
 - `409 PURCHASE_NOT_PENDING` — the purchase is not in "pending" status.
 - `502 PAYMENT_PROVIDER_ERROR` — the payment provider could not initiate the
   payment. Internal provider details are never exposed.
-- `400 VALIDATION_ERROR` — empty purchase id.
+
+---
+
+### Webhook Endpoints
+
+#### `POST /api/v1/webhooks/stripe`
+
+Stripe webhook endpoint. Receives verified Stripe events and triggers purchase
+completion when appropriate.
+
+No authentication middleware — verification is performed via Stripe-Signature
+cryptographic verification.
+
+Request:
+
+- Header: `Stripe-Signature` (required) — Stripe webhook signature for
+  verification
+- Body: raw Stripe event payload
+
+Supported event types:
+
+- `checkout.session.completed` — primary payment success event
+- `checkout.session.async_payment_succeeded` — async payment methods (e.g.
+  bank transfers)
+
+All other event types are safely acknowledged with 200.
+
+Responses:
+
+- `200` — event processed (completed, already completed, unsupported, unknown
+  purchase)
+- `400` — invalid signature, missing header, malformed payload
+- `500` — amount/currency mismatch, completion failure
+
+**Checkout initiation does not complete a purchase. Browser redirects do not
+complete a purchase. Only verified provider events can trigger
+CompletePurchase().**
+
+#### `POST /api/v1/webhooks/paypal`
+
+PayPal webhook endpoint. Receives verified PayPal events and triggers purchase
+completion when appropriate.
+
+No authentication middleware — verification is performed via PayPal's
+VerifyWebhookSignature API.
+
+Request:
+
+- Body: PayPal webhook event payload (with PayPal verification headers)
+
+Supported event types:
+
+- `CHECKOUT.ORDER.APPROVED` — buyer approved the order
+
+All other event types are safely acknowledged with 200.
+
+Responses:
+
+- `200` — event processed
+- `400` — invalid verification, malformed payload
+- `500` — amount/currency mismatch, completion failure
 
 ---
 
