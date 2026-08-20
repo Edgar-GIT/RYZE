@@ -518,6 +518,61 @@ Responses:
 - `409 DUPLICATE_PURCHASE` — a purchase for this program is already in
   progress.
 
+#### Internal: `CompletePurchase`
+
+The `CompletePurchase` service method is an internal-only operation with no
+HTTP endpoint. It is designed to be called by a future payment-provider adapter
+or webhook handler once external payment confirmation is received.
+
+The method accepts a purchase id, loads the purchase, and atomically transitions
+it to "completed" while provisioning the entitlement. It is idempotent:
+calling it on an already-completed purchase with an existing entitlement
+returns a success; if the entitlement is missing, an integrity error is raised.
+
+Error codes (service-level, not HTTP):
+
+- `ErrPurchaseNotFound` — purchase does not exist, is soft-deleted or not in a
+  completable state.
+- `ErrPurchaseNotCompleted` — purchase is in a terminal state (failed, refunded)
+  that prevents completion.
+- `ErrEntitlementIntegrity` — purchase is completed but entitlement is missing;
+  a data consistency violation.
+- `ErrInvalidInput` — empty purchase id.
+
+#### `POST /api/v1/me/purchases/:purchaseID/payment`
+
+Initiates a payment for an existing pending purchase via the configured payment
+provider. The purchase must belong to the authenticated user and be in "pending"
+status. The immutable purchase snapshot is used to construct the provider
+request; no client-supplied commercial values are accepted. The purchase status
+is NOT modified during initiation — it remains "pending" until a verified
+provider event flows through `CompletePurchase()`.
+
+Authentication: required (client session).
+
+Parameters:
+
+- `purchaseID` (path) — purchase UUID.
+
+Response `200 OK`:
+
+- `payment_id` — provider-specific payment identifier.
+- `checkout_url` — optional redirect URL for the user to complete payment
+  (omitted when the provider does not use redirect-based flows).
+- `status` — provider-independent payment status (`pending`,
+  `requires_action`, `failed`).
+- `purchase_id` — RYZE purchase identifier.
+
+Error codes:
+
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid session.
+- `404 PURCHASE_NOT_FOUND` — purchase does not exist, is soft-deleted or does
+  not belong to the authenticated user.
+- `409 PURCHASE_NOT_PENDING` — the purchase is not in "pending" status.
+- `502 PAYMENT_PROVIDER_ERROR` — the payment provider could not initiate the
+  payment. Internal provider details are never exposed.
+- `400 VALIDATION_ERROR` — empty purchase id.
+
 ---
 
 ## Client

@@ -504,6 +504,78 @@ service for commission resolution.
 A `commissionAdapter` in `routes/routes.go` bridges the commission rules
 service types to the purchase service types without coupling the two packages.
 
+### Payment Provider Abstraction
+
+The `services/payments` package provides a provider-independent payment
+abstraction layer. Concrete payment providers (Stripe, Mollie, etc.) will
+implement the `Provider` interface in future steps.
+
+The abstraction is designed to:
+
+- Receive only trusted server-side commercial information extracted from the
+  immutable purchase snapshot.
+- Return a provider-independent `PaymentResult` with a minimal status model.
+- Remain stateless regarding purchase lifecycle — initiating a payment does not
+  modify the purchase status.
+- Be safe for concurrent use by multiple goroutines.
+
+Components:
+
+- `services/payments/provider.go` — `Provider` interface with a single
+  `InitiatePayment` method.
+- `services/payments/types.go` — `PaymentRequest`, `PaymentResult`, and
+  `PaymentStatus` types.
+- `services/payments/errors.go` — `ErrProviderFailure` sentinel error.
+- `services/payments/fake_provider.go` — deterministic test-only provider.
+
+The `purchases` service holds a `payments.Provider` dependency injected at
+construction time. A `notConfiguredPaymentProvider` placeholder is used in
+production routes until a real provider is integrated.
+
+The full payment lifecycle follows three distinct phases:
+
+1. Purchase creation (`POST /api/v1/me/programs/:programID/purchase`) —
+   snapshots the commercial terms and creates a pending purchase.
+2. Payment initiation (`POST /api/v1/me/purchases/:purchaseID/payment`) —
+   delegates to the provider, returns checkout URL if applicable.
+3. Purchase completion (internal `CompletePurchase()`) — triggered by a
+   verified provider event, atomically transitions status and provisions
+   entitlement.
+
+### Purchase Completion (Internal)
+
+The `CompletePurchase` service operation provides the internal completion
+mechanism that a future payment-provider adapter or webhook handler will
+invoke. It is not exposed through any HTTP endpoint.
+
+Completion flow:
+
+1. Validate the purchase id is non-empty.
+2. Load the purchase by id via `FindByID`.
+3. If already completed — check for an existing active entitlement:
+   - Entitlement exists → return idempotent success.
+   - Entitlement missing → return `ErrEntitlementIntegrity`.
+4. If not pending (failed, refunded) → return `ErrPurchaseNotCompleted`.
+5. If pending — attempt entitlement reactivation:
+   - `RestoreByUserAndProgram` succeeds → `Complete` (status only).
+   - `RestoreByUserAndProgram` returns NOT FOUND → `CompleteWithEntitlement`
+     (purchase status + new entitlement in single DB transaction).
+
+The repository layer provides two atomic primitives:
+
+- `Complete(purchaseID)` — status transition only, no entitlement side effects.
+- `CompleteWithEntitlement(purchaseID, entitlement)` — purchase status and
+  entitlement insert inside a single `gorm.DB.Transaction`, guaranteeing
+  atomicity.
+
+Both methods guard the status update with `WHERE status = 'pending'`, so a
+concurrent or repeated call is safe — at most one row is touched.
+
+The service re-reads the purchase via `FindByID` before any mutation, ensuring
+the snapshot fields (price, currency, commission split) are never recomputed.
+Completion is purely a status transition and entitlement provision; the
+commercial snapshot is immutable after creation.
+
 ---
 
 ## Email

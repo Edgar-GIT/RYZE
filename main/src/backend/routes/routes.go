@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -24,6 +25,7 @@ import (
 	"ryze/backend/services/exercises"
 	"ryze/backend/services/login"
 	"ryze/backend/services/password"
+	"ryze/backend/services/payments"
 	"ryze/backend/services/program_assignments"
 	"ryze/backend/services/program_structure"
 	"ryze/backend/services/programs"
@@ -109,7 +111,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminCommissionHandler := auth.NewAdminCommissionHandler(commissionRulesService)
 
 	purchaseRepository := repositories.NewPurchaseRepository(db)
-	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService})
+	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService}, &notConfiguredPaymentProvider{})
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
@@ -150,6 +152,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
 	v1.GET("/me/entitlements", middleware.Authenticate(tokenService, userRepository), entitlementHandler.ListEntitlements)
 	v1.POST("/me/programs/:programID/purchase", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CreatePurchase)
+	v1.POST("/me/purchases/:purchaseID/payment", middleware.Authenticate(tokenService, userRepository), purchaseHandler.InitiatePayment)
 	v1.POST("/me/workouts/:workoutID/complete", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.CompleteWorkout)
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
@@ -257,6 +260,15 @@ func adminCredentials(cfg config.AdminConfig) []admin_login.AdminCredential {
 		})
 	}
 	return credentials
+}
+
+// notConfiguredPaymentProvider is a placeholder used when no real payment
+// provider is configured. It returns an error for every payment initiation
+// request. A real provider must be injected before enabling payment flows.
+type notConfiguredPaymentProvider struct{}
+
+func (p *notConfiguredPaymentProvider) InitiatePayment(_ context.Context, _ payments.PaymentRequest) (payments.PaymentResult, error) {
+	return payments.PaymentResult{}, fmt.Errorf("no payment provider configured")
 }
 
 // commissionAdapter adapts the commission_rules.Service to the

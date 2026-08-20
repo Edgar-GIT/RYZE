@@ -844,6 +844,64 @@ follows the same security model as other authenticated-user endpoints:
 - No payment is processed; the purchase status is always "pending". A future
   payment provider will transition the purchase to "completed" atomically.
 
+### Payment Initiation Security
+
+The payment initiation endpoint (`POST /api/v1/me/purchases/:purchaseID/payment`)
+follows a strict security model:
+
+- Authentication is required. The user identity comes exclusively from the
+  authentication context; no client-supplied identity is accepted.
+- Ownership is verified server-side: the purchase must belong to the
+  authenticated user. A cross-user purchase lookup returns the same generic
+  "purchase not found" response as a missing purchase, preventing information
+  leakage.
+- Only pending purchases can accept payment initiation. Completed, failed or
+  refunded purchases are rejected with a clear error code.
+- The payment request is constructed exclusively from the immutable purchase
+  snapshot (amount, currency, program ID). No client-supplied commercial values
+  are ever forwarded to the provider.
+- The purchase status is NOT modified during initiation. The status remains
+  "pending" until a verified provider event flows through `CompletePurchase()`.
+- Provider internal details (API keys, provider-specific error messages,
+  raw provider responses) are never exposed to the client. Provider failures
+  surface a generic 502 error.
+- A `notConfiguredPaymentProvider` placeholder is wired in production until a
+  real provider is integrated. It returns a generic error for every request.
+- The `FakeProvider` is test-only and must never be exposed in production
+  configuration.
+
+### Purchase Completion Security
+
+The internal `CompletePurchase` service operation follows a strict security
+model designed for future payment-provider adapter integration:
+
+- No user identity is accepted. The operation is scoped purely by the purchase
+  id, which is provided by the internal adapter layer, never by a client.
+- No HTTP endpoint exposes `CompletePurchase`. There is no client-accessible
+  path to self-confirm a payment.
+- The purchase status snapshot fields (price, currency, commission split) are
+  read from the existing purchase row and never recomputed during completion.
+  Snapshot immutability is enforced by design: the completion only changes the
+  `status` column.
+- The entitlement is provisioned inside the same database transaction as the
+  purchase status change (`CompleteWithEntitlement`), guaranteeing atomicity.
+  A failure in either operation rolls back the entire transaction.
+- The unique `active_entitlement` generated column is the final backstop
+  against duplicate active entitlements. If the database constraint rejects the
+  insert, an `ErrEntitlementIntegrity` error is surfaced instead of raw driver
+  details.
+- Idempotency is enforced at the service layer: calling `CompletePurchase` on
+  an already-completed purchase with an existing entitlement is a no-op that
+  returns the existing purchase. An already-completed purchase without an
+  entitlement surfaces `ErrEntitlementIntegrity`, requiring investigation.
+- Entitlement reactivation is handled atomically: if a previously soft-deleted
+  entitlement exists for the same (user, program) pair, it is restored via
+  `RestoreByUserAndProgram` before the purchase is completed. The `active`
+  entitlement constraint prevents double-restoration.
+- Repository-level errors are never exposed to the caller. Internal details
+  (database driver errors, connection failures) are wrapped and only surface as
+  opaque internal errors.
+
 ### Commission Rules Security
 
 Commission rule management follows the existing security model with specific

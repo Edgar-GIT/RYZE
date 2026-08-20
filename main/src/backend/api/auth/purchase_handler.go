@@ -25,6 +25,16 @@ type purchaseResponse struct {
 	Status          string `json:"status"`
 }
 
+// paymentInitiationResponse is the safe representation of a payment initiation
+// result. It carries only public payment metadata required by the client to
+// redirect the user when a checkout URL is present.
+type paymentInitiationResponse struct {
+	PaymentID   string `json:"payment_id"`
+	CheckoutURL string `json:"checkout_url,omitempty"`
+	Status      string `json:"status"`
+	PurchaseID  string `json:"purchase_id"`
+}
+
 func newPurchaseResponse(p *purchases.Purchase) purchaseResponse {
 	return purchaseResponse{
 		ID:              p.ID,
@@ -95,7 +105,49 @@ func (h *PurchaseHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusConflict, "DUPLICATE_ENTITLEMENT", "You already own this program.", nil)
 	case errors.Is(err, purchases.ErrDuplicatePurchase):
 		RespondError(c, http.StatusConflict, "DUPLICATE_PURCHASE", "A purchase for this program is already in progress.", nil)
+	case errors.Is(err, purchases.ErrPurchaseNotFound):
+		RespondError(c, http.StatusNotFound, "PURCHASE_NOT_FOUND", "Purchase not found.", nil)
+	case errors.Is(err, purchases.ErrPurchaseNotPending):
+		RespondError(c, http.StatusConflict, "PURCHASE_NOT_PENDING", "This purchase is not pending.", nil)
+	case errors.Is(err, purchases.ErrPaymentProvider):
+		RespondError(c, http.StatusBadGateway, "PAYMENT_PROVIDER_ERROR", "Payment provider unavailable. Please try again later.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}
+}
+
+// InitiatePayment requests a provider payment for an existing pending purchase.
+// The purchase must belong to the authenticated user and be in pending status.
+// The immutable purchase snapshot is used to construct the provider request; no
+// client-supplied commercial values are accepted. The purchase status is NOT
+// modified during initiation.
+func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
+	userID, err := authcontext.UserIDFromContext(c)
+	if err != nil {
+		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
+		return
+	}
+
+	purchaseID := c.Param("purchaseID")
+	if purchaseID == "" {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+
+	result, err := h.service.InitiatePayment(c.Request.Context(), userID, purchaseID)
+	if err != nil {
+		h.respondError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Payment initiated successfully.",
+		"data": paymentInitiationResponse{
+			PaymentID:   result.PaymentID,
+			CheckoutURL: result.CheckoutURL,
+			Status:      string(result.Status),
+			PurchaseID:  result.PurchaseID,
+		},
+	})
 }

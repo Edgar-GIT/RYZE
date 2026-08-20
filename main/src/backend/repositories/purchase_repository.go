@@ -23,6 +23,8 @@ type PurchaseRepository interface {
 	Create(ctx context.Context, purchase *models.Purchase) error
 	FindByID(ctx context.Context, purchaseID string) (*models.Purchase, error)
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Purchase, error)
+	Complete(ctx context.Context, purchaseID string) error
+	CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
 }
 
 type purchaseRepository struct {
@@ -54,6 +56,56 @@ func (r *purchaseRepository) FindByID(ctx context.Context, purchaseID string) (*
 		return nil, fmt.Errorf("failed to find purchase: %w", err)
 	}
 	return &purchase, nil
+}
+
+// Complete atomically transitions a pending purchase to the completed status.
+// It only touches rows currently in "pending" state; the WHERE clause ensures
+// exactly one row is updated. When the purchase does not exist, is
+// soft-deleted or is already in a non-pending state, ErrPurchaseNotFound is
+// returned because the caller cannot distinguish between "not found" and
+// "already processed" at this layer — the service is responsible for the
+// idempotency semantics.
+func (r *purchaseRepository) Complete(ctx context.Context, purchaseID string) error {
+	result := r.db.WithContext(ctx).
+		Model(&models.Purchase{}).
+		Where("id = ? AND status = ?", purchaseID, models.PurchaseStatusPending).
+		Update("status", models.PurchaseStatusCompleted)
+	if result.Error != nil {
+		return fmt.Errorf("failed to complete purchase: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrPurchaseNotFound
+	}
+	return nil
+}
+
+// CompleteWithEntitlement atomically transitions a pending purchase to
+// completed and creates the entitlement row inside a single database
+// transaction. If the purchase is not pending or does not exist,
+// ErrPurchaseNotFound is returned and no row is modified. Duplicate entry
+// errors on the entitlement are mapped to ErrEntitlementAlreadyExists so the
+// service can react with an integrity error rather than exposing raw driver
+// details.
+func (r *purchaseRepository) CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&models.Purchase{}).
+			Where("id = ? AND status = ?", purchaseID, models.PurchaseStatusPending).
+			Update("status", models.PurchaseStatusCompleted)
+		if result.Error != nil {
+			return fmt.Errorf("failed to complete purchase: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return ErrPurchaseNotFound
+		}
+
+		if err := tx.Create(entitlement).Error; err != nil {
+			if isDuplicateEntry(err) {
+				return ErrEntitlementAlreadyExists
+			}
+			return fmt.Errorf("failed to create entitlement: %w", err)
+		}
+		return nil
+	})
 }
 
 // FindActiveByUserAndProgram returns the most recently created active

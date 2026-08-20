@@ -31,6 +31,7 @@ type EntitlementRepository interface {
 	ListByUser(ctx context.Context, userID string) ([]models.Entitlement, error)
 	FindByIDAndUser(ctx context.Context, userID, entitlementID string) (*models.Entitlement, error)
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Entitlement, error)
+	RestoreByUserAndProgram(ctx context.Context, userID, programID string) error
 	SoftDelete(ctx context.Context, userID, entitlementID string) error
 }
 
@@ -102,6 +103,27 @@ func (r *entitlementRepository) FindActiveByUserAndProgram(ctx context.Context, 
 		return nil, fmt.Errorf("failed to find active entitlement: %w", err)
 	}
 	return &entitlement, nil
+}
+
+// RestoreByUserAndProgram clears deleted_at on a soft-deleted entitlement for
+// the given (user, program) pair, effectively reactivating it. If no
+// soft-deleted entitlement exists, ErrEntitlementNotFound is returned. If an
+// active entitlement already exists, ErrEntitlementAlreadyExists is returned.
+// This method is intended for the purchase completion flow where a previously
+// revoked entitlement may need to be restored when the user repurchases.
+func (r *entitlementRepository) RestoreByUserAndProgram(ctx context.Context, userID, programID string) error {
+	result := r.db.WithContext(ctx).
+		Unscoped().
+		Where("user_id = ? AND program_id = ? AND deleted_at IS NOT NULL", userID, programID).
+		Model(&models.Entitlement{}).
+		Update("deleted_at", nil)
+	if result.Error != nil {
+		return fmt.Errorf("failed to restore entitlement: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrEntitlementNotFound
+	}
+	return nil
 }
 
 // SoftDelete soft-deletes one of the user's entitlements. Only the entitlement

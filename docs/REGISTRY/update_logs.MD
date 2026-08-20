@@ -1,4 +1,145 @@
-# Version 2.32.0
+# Version 2.34.0
+
+Title: Backend Step 46 — Payment Provider Abstraction & Payment Initiation
+
+Date: 2026-08-20
+
+Summary:
+
+Introduced a provider-independent payment abstraction layer. A new
+`services/payments` package defines the `Provider` interface, payment request
+and result types, and a test-only `FakeProvider`. The `purchases` service gains
+an `InitiatePayment` operation that validates an existing pending purchase
+belonging to the authenticated user, builds a trusted payment request from the
+immutable purchase snapshot, and delegates to the configured payment provider.
+An HTTP endpoint (`POST /api/v1/me/purchases/:purchaseID/payment`) exposes
+payment initiation to the client. The purchase status is NOT modified during
+initiation — it remains "pending" until a verified provider event flows through
+`CompletePurchase()`. No real payment provider is implemented; a
+`notConfiguredPaymentProvider` placeholder is wired in production routes.
+
+Database:
+
+- No new migration. The existing `purchases` and `entitlements` tables already
+  contain the required fields.
+
+Behavior:
+
+- `services/payments/provider.go` — `Provider` interface with a single
+  `InitiatePayment(ctx, PaymentRequest) (PaymentResult, error)` method.
+- `services/payments/types.go` — `PaymentRequest`, `PaymentResult`, and
+  `PaymentStatus` types (`pending`, `requires_action`, `failed`).
+- `services/payments/errors.go` — `ErrProviderFailure` sentinel error.
+- `services/payments/fake_provider.go` — deterministic test-only fake provider.
+- `services/purchases/purchases.go` — `InitiatePayment(userID, purchaseID)`
+  validates ownership and pending status, calls the provider, returns the
+  result. Errors: `ErrPurchaseNotFound`, `ErrPurchaseNotPending`,
+  `ErrPaymentProvider`.
+- `api/auth/purchase_handler.go` — `InitiatePayment` handler maps service
+  errors to HTTP responses (404, 409, 502, 500).
+- `routes/routes.go` — wired with `notConfiguredPaymentProvider` placeholder.
+  New route: `POST /api/v1/me/purchases/:purchaseID/payment` behind
+  `Authenticate` middleware.
+
+Tests:
+
+- 3 provider unit tests (success, deterministic ids, failure).
+- 9 service unit tests (success, empty inputs, not found, repo failure, IDOR,
+  not pending, provider failure, snapshot values).
+- 5 handler unit tests (identity forwarding, missing context, error mapping,
+  repo failure not exposed, no sensitive data).
+- 5 handler integration tests (success, unauthenticated, not found, not
+  pending, IDOR).
+
+Modified files:
+
+- services/payments/provider.go (new)
+- services/payments/types.go (new)
+- services/payments/errors.go (new)
+- services/payments/fake_provider.go (new)
+- services/payments/provider_test.go (new)
+- services/purchases/purchases.go (modified)
+- services/purchases/purchases_test.go (modified)
+- api/auth/purchase_handler.go (modified)
+- api/auth/purchase_handler_test.go (modified)
+- routes/routes.go (modified)
+- docs/REGISTRY/update_logs.MD (modified)
+
+# Version 2.33.0
+
+Title: Backend Step 45 — Purchase Completion Foundation
+
+Date: 2026-08-20
+
+Summary:
+
+Added the internal `CompletePurchase` service operation that a future payment
+provider adapter will call once external payment confirmation is received. The
+method atomically transitions a pending purchase to "completed" and provisions
+the corresponding entitlement. Idempotency is guaranteed: calling
+`CompletePurchase` on an already-completed purchase with an existing entitlement
+returns a success; if the entitlement is missing a data-integrity error is
+raised. Entitlement reactivation is supported for previously soft-deleted
+entitlements. No client-facing endpoint is exposed; the operation is
+internal-only and designed for webhook or adapter invocation.
+
+Database:
+
+- No new migration. The existing `purchases` and `entitlements` tables already
+  contain the required fields.
+
+Behavior:
+
+- `CompletePurchase(purchaseID)` — internal service method (no HTTP endpoint).
+  Loads the purchase, validates it is in "pending" status, provisions the
+  entitlement atomically and returns the updated purchase snapshot. Returns
+  `ErrPurchaseNotFound` for missing or soft-deleted purchases,
+  `ErrPurchaseNotCompleted` for terminal states (failed, refunded),
+  `ErrEntitlementIntegrity` when the purchase is completed but the entitlement
+  is missing. Idempotent when called repeatedly on the same completed purchase
+  with an existing entitlement.
+- `RestoreByUserAndProgram` — new entitlement repository method that clears
+  `deleted_at` on a soft-deleted entitlement, enabling reactivation when a user
+  repurchases a program.
+- `Complete` — new purchase repository method that atomically transitions a
+  pending purchase to "completed".
+- `CompleteWithEntitlement` — new purchase repository method that atomically
+  completes the purchase and creates the entitlement inside a single database
+  transaction.
+
+Files:
+
+- `repositories/purchase_repository.go` — added `Complete` and
+  `CompleteWithEntitlement` methods.
+- `repositories/entitlement_repository.go` — added `RestoreByUserAndProgram`
+  method.
+- `services/purchases/purchases.go` — added `CompletePurchase` service method,
+  `completeAndCreateEntitlement` private helper, expanded repository interfaces,
+  added completion-specific error types (`ErrPurchaseNotFound`,
+  `ErrPurchaseNotCompleted`, `ErrEntitlementIntegrity`), added
+  `validatePurchaseID` validator.
+- `api/auth/purchase_handler_test.go` — extended stub to satisfy the expanded
+  `Service` interface.
+
+Tests:
+
+- 10 existing `CreatePurchaseIntent` tests pass unchanged.
+- 10 new `CompletePurchase` service tests covering: success via
+  `CompleteWithEntitlement`, idempotent success (already completed + existing
+  entitlement), entitlement integrity error (completed + missing entitlement),
+  purchase not found, empty purchase ID validation, failed status rejection,
+  refunded status rejection, entitlement reactivation path, snapshot
+  preservation, internal error non-exposure.
+- 15 existing handler tests (7 integration with real DB) pass unchanged.
+
+Reason:
+
+Establishes the internal purchase completion operation that bridges the
+commercial transaction foundation (Step 44) with a future payment-provider
+adapter. The idempotency semantics and atomic entitlement provisioning ensure
+the system remains consistent under retries and partial failures.
+
+---
 
 Title: Backend Step 44 — Purchase & Entitlement Transaction Foundation
 

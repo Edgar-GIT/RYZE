@@ -440,6 +440,23 @@ rules change later. The status defaults to `pending`; no payment is processed
 at creation time. A future payment provider will transition the purchase to
 `completed` and create the entitlement atomically.
 
+The repository provides:
+
+- `Create` — persists a new purchase record.
+- `FindByID` — one active purchase by id without user scoping (used by the
+  internal completion flow).
+- `FindActiveByUserAndProgram` — the most recently created active purchase for
+  a given (user, program) pair.
+- `Complete` — atomically transitions a pending purchase to "completed" status.
+  Guards the update with `WHERE status = 'pending'` so concurrent calls are
+  safe. Returns `ErrPurchaseNotFound` when the purchase is missing, soft-deleted
+  or not pending.
+- `CompleteWithEntitlement` — atomically completes the purchase and creates the
+  entitlement inside a single database transaction (`gorm.DB.Transaction`).
+  Guarantees that both the status change and the entitlement row are committed
+  together or neither is persisted. Duplicate entry errors on the entitlement
+  are mapped to `ErrEntitlementAlreadyExists`.
+
 ---
 
 ## Entitlements
@@ -471,8 +488,9 @@ Additional constraints:
 
 Lifecycle rules:
 
-- A purchase completes → an active entitlement row is created (future commerce
-  integration).
+- A purchase completes → an active entitlement row is created (or a
+  previously soft-deleted one is reactivated) atomically within the same
+  database transaction as the purchase status change.
 - An entitlement is revoked → only the entitlement row is soft-deleted. The
   program is never touched.
 - A soft-deleted entitlement no longer blocks a new entitlement for the same
@@ -486,6 +504,12 @@ The repository provides:
 - `ListByUser` — every active entitlement for the given user, with the
   associated program data preloaded.
 - `FindByIDAndUser` — one active entitlement scoped by user and entitlement id.
+- `FindActiveByUserAndProgram` — the active entitlement for a given (user,
+  program) pair, or `ErrEntitlementNotFound`.
+- `RestoreByUserAndProgram` — clears `deleted_at` on a soft-deleted entitlement
+  for a given (user, program) pair, effectively reactivating it. Returns
+  `ErrEntitlementNotFound` when no soft-deleted row exists. Used by the purchase
+  completion flow when a user repurchases a previously revoked program.
 - `SoftDelete` — clears `deleted_at` on the entitlement row only, guarded by
   the user scope.
 
