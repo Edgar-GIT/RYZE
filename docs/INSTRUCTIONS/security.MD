@@ -820,6 +820,30 @@ constraints:
   a foundation for future commerce; purchase snapshot fields are intentionally
   absent from the `purchases` table.
 
+### Client Purchase Security
+
+The client purchase endpoint (`POST /api/v1/me/programs/:programID/purchase`)
+follows the same security model as other authenticated-user endpoints:
+
+- The client identity is always resolved exclusively from the authenticated user
+  context. A client-supplied `user_id` in the body is always ignored.
+- The purchase is always created for the authenticated user; there is no way to
+  create a purchase for another user.
+- Only published, non-free programs can be purchased. Draft and soft-deleted
+  programs are invisible (404). Free programs return 409.
+- Duplicate active entitlements per (user, program) are prevented at the
+  service layer before any purchase creation.
+- Duplicate active purchases per (user, program) are prevented at the service
+  layer before any purchase creation.
+- The commission is resolved server-side from the program's trainer; the
+  client has no influence over the commission rate or split.
+- The response exposes only safe commercial metadata (purchase id, program_id,
+  price snapshot, commission snapshot, status). The owning user id, trainer id,
+  password hashes, session versions, JWT data and deletion markers are never
+  exposed.
+- No payment is processed; the purchase status is always "pending". A future
+  payment provider will transition the purchase to "completed" atomically.
+
 ### Commission Rules Security
 
 Commission rule management follows the existing security model with specific
@@ -903,8 +927,10 @@ same security model as other authenticated-user read endpoints:
   nested safe Program). They do NOT grant access to `GET /me/program` —
   assignment remains the sole access mechanism. The ownership-trainer id and
   parent identifiers are never exposed.
-- The `purchases` and `entitlements` tables have no creation API yet; the schema
-  is prepared for future commerce integration but no write path is exposed.
+- The `purchases` table now has a creation API (`POST
+  /api/v1/me/programs/:programID/purchase`) that creates pending purchase
+  records. The `entitlements` table has no creation API yet; entitlements will
+  be created when a payment provider transitions a purchase to "completed".
 
 ---
 

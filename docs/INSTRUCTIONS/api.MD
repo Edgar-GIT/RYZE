@@ -479,6 +479,47 @@ Responses:
 
 ---
 
+### Client Purchase
+
+#### `POST /api/v1/me/programs/:programID/purchase`
+
+Creates a pending purchase transaction for the authenticated user. The endpoint
+validates the program, snapshots the current price and currency, resolves the
+applicable commission, calculates the deterministic split, and persists a
+pending purchase record. The purchase status is always "pending"; no payment is
+processed and no entitlement is created. A future payment provider will
+transition the purchase to "completed" and create the entitlement atomically.
+
+Identity comes exclusively from the authentication context. A client-supplied
+`user_id` or `program_id` in the body is always ignored.
+
+Request: no body required.
+
+Response `data`:
+
+- `id` — purchase UUID.
+- `program_id` — the purchased program reference.
+- `price_minor_units` — snapshot of the program price at creation time.
+- `currency` — snapshot of the program currency at creation time.
+- `commission_bps` — the applicable commission in basis points.
+- `platform_amount` — the platform's share in minor currency units.
+- `trainer_amount` — the trainer's share in minor currency units.
+- `status` — always `"pending"`.
+
+Responses:
+
+- `201 CREATED` — the pending purchase snapshot.
+- `400 VALIDATION_ERROR` — invalid program id.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
+- `404 PROGRAM_NOT_FOUND` — program does not exist, is soft-deleted or is
+  not published.
+- `409 PROGRAM_NOT_PURCHASABLE` — the program is free and cannot be purchased.
+- `409 DUPLICATE_ENTITLEMENT` — the user already owns this program.
+- `409 DUPLICATE_PURCHASE` — a purchase for this program is already in
+  progress.
+
+---
+
 ## Client
 
 Additional permissions:

@@ -1,3 +1,74 @@
+# Version 2.32.0
+
+Title: Backend Step 44 — Purchase & Entitlement Transaction Foundation
+
+Date: 2026-08-20
+
+Summary:
+
+Connected program pricing, commission rules, and entitlement creation into a
+trusted purchase transaction. The `POST /api/v1/me/programs/:programID/purchase`
+endpoint validates the program, snapshots the current price and currency,
+resolves the applicable commission (trainer-specific override or global default),
+calculates the deterministic split, and persists a pending purchase record. The
+purchase status is always "pending"; no payment is processed and no entitlement
+is created. A future payment provider will transition the purchase to "completed"
+and create the entitlement atomically. Duplicate active entitlements and
+duplicate pending purchases per (user, program) pair are prevented.
+
+Database:
+
+- Migration `000016` — extended the `purchases` table with snapshot fields:
+  `price_minor_units` (`BIGINT NOT NULL DEFAULT 0`), `currency`
+  (`VARCHAR(3) NOT NULL DEFAULT 'EUR'`), `commission_bps`
+  (`INT UNSIGNED NOT NULL DEFAULT 0`), `platform_amount`
+  (`BIGINT NOT NULL DEFAULT 0`), `trainer_amount`
+  (`BIGINT NOT NULL DEFAULT 0`). Changed default `status` from `'completed'`
+  to `'pending'` and migrated existing rows.
+
+Behavior:
+
+- `POST /api/v1/me/programs/:programID/purchase` (authenticated client) —
+  validates the program is published and not free, checks no active entitlement
+  exists, checks no active purchase exists, snapshots price/currency/commission,
+  calculates split, persists a pending purchase. Returns 201 with the purchase
+  snapshot or appropriate error codes: `PROGRAM_NOT_FOUND` (404),
+  `PROGRAM_NOT_PURCHASABLE` (409), `DUPLICATE_ENTITLEMENT` (409),
+  `DUPLICATE_PURCHASE` (409).
+- Free programs cannot be purchased through the commercial transaction path.
+- Draft or soft-deleted programs are invisible (404).
+- The response never exposes the owning user id or any internal data.
+
+Files:
+
+- `database/migrations/000016_extend_purchases_with_commercial_snapshots.up.sql`
+- `database/migrations/000016_extend_purchases_with_commercial_snapshots.down.sql`
+- `models/purchase.go` — added snapshot fields and changed default status.
+- `repositories/purchase_repository.go` — new repository with `Create`,
+  `FindByID`, `FindActiveByUserAndProgram`.
+- `repositories/entitlement_repository.go` — added
+  `FindActiveByUserAndProgram`.
+- `services/purchases/purchases.go` — new service with validation, program
+  lookup, duplicate checks, commission resolution and purchase creation.
+- `api/auth/purchase_handler.go` — new handler for purchase creation.
+- `routes/routes.go` — wired purchase service, handler and route; added
+  `commissionAdapter` to bridge commission and purchase types.
+
+Tests:
+
+- 10 service tests covering success, validation, duplicate detection,
+  commission resolution and error handling.
+- 13 handler tests covering authentication, error mapping, identity
+  forwarding, security, and integration scenarios.
+
+Reason:
+
+Establishes the internal commercial transaction correctly so that a future
+payment provider can plug into it. No payment processing, checkout or webhook
+handling is implemented — this is a foundation for future commerce.
+
+---
+
 # Version 2.31.0
 
 Title: Backend Step 43 — Commercial Rules & Trainer Commission Foundation

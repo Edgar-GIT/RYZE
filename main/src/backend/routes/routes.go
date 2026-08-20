@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
@@ -26,6 +28,7 @@ import (
 	"ryze/backend/services/program_structure"
 	"ryze/backend/services/programs"
 	"ryze/backend/services/public_programs"
+	"ryze/backend/services/purchases"
 	"ryze/backend/services/registration"
 	"ryze/backend/services/statistics"
 	"ryze/backend/services/token"
@@ -105,6 +108,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	commissionRulesService := commission_rules.NewService(commissionRuleRepository, trainerRepository, commissionCfg)
 	adminCommissionHandler := auth.NewAdminCommissionHandler(commissionRulesService)
 
+	purchaseRepository := repositories.NewPurchaseRepository(db)
+	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService})
+	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
+
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
 	programWorkoutRepository := repositories.NewProgramWorkoutRepository(db)
 	programStructureService := program_structure.NewService(programWeekRepository, programWorkoutRepository)
@@ -142,6 +149,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
 	v1.GET("/me/entitlements", middleware.Authenticate(tokenService, userRepository), entitlementHandler.ListEntitlements)
+	v1.POST("/me/programs/:programID/purchase", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CreatePurchase)
 	v1.POST("/me/workouts/:workoutID/complete", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.CompleteWorkout)
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
@@ -249,4 +257,34 @@ func adminCredentials(cfg config.AdminConfig) []admin_login.AdminCredential {
 		})
 	}
 	return credentials
+}
+
+// commissionAdapter adapts the commission_rules.Service to the
+// purchases.CommissionResolver interface, bridging the different types used
+// by each package without coupling them.
+type commissionAdapter struct {
+	svc commission_rules.Service
+}
+
+func (a *commissionAdapter) ResolveCommission(ctx context.Context, trainerID string) (purchases.CommissionResolution, error) {
+	res, err := a.svc.ResolveCommission(ctx, trainerID)
+	if err != nil {
+		return purchases.CommissionResolution{}, err
+	}
+	return purchases.CommissionResolution{
+		CommissionBPS: res.CommissionBPS,
+		IsOverride:    res.IsOverride,
+	}, nil
+}
+
+func (a *commissionAdapter) CalculateCommissionSplit(priceMinorUnits int64, resolution purchases.CommissionResolution) purchases.CommissionCalculation {
+	res := commission_rules.CommissionResolution{
+		CommissionBPS: resolution.CommissionBPS,
+		IsOverride:    resolution.IsOverride,
+	}
+	calc := a.svc.CalculateCommissionSplit(priceMinorUnits, res)
+	return purchases.CommissionCalculation{
+		PlatformAmount: calc.PlatformAmount,
+		TrainerAmount:  calc.TrainerAmount,
+	}
 }

@@ -30,6 +30,7 @@ type EntitlementRepository interface {
 	Create(ctx context.Context, userID, programID string, entitlement *models.Entitlement) error
 	ListByUser(ctx context.Context, userID string) ([]models.Entitlement, error)
 	FindByIDAndUser(ctx context.Context, userID, entitlementID string) (*models.Entitlement, error)
+	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Entitlement, error)
 	SoftDelete(ctx context.Context, userID, entitlementID string) error
 }
 
@@ -84,6 +85,21 @@ func (r *entitlementRepository) FindByIDAndUser(ctx context.Context, userID, ent
 			return nil, ErrEntitlementNotFound
 		}
 		return nil, fmt.Errorf("failed to find entitlement: %w", err)
+	}
+	return &entitlement, nil
+}
+
+// FindActiveByUserAndProgram returns the active (non-deleted) entitlement for
+// the given user and program pair, or ErrEntitlementNotFound when none exists.
+func (r *entitlementRepository) FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Entitlement, error) {
+	var entitlement models.Entitlement
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ? AND program_id = ?", userID, programID).
+		First(&entitlement).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrEntitlementNotFound
+		}
+		return nil, fmt.Errorf("failed to find active entitlement: %w", err)
 	}
 	return &entitlement, nil
 }

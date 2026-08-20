@@ -461,15 +461,48 @@ read, providing safe entitlement metadata without granting access:
   added to the assignment repository.
 - `Create` and `Revoke` operations exist in the repository and service layers
   for test purposes and future commerce integration, but no API write path is
-  exposed. No purchase creation, checkout or webhook handling exists.
-- The `purchases` table is a schema-only preparation for future commerce:
-  it stores purchase status (`pending`, `completed`, `failed`, `refunded`) with
-  CHECK constraint, but no price, currency, amount or provider fields exist.
+  exposed for entitlements. No checkout or webhook handling exists.
+- The `purchases` table now stores commercial snapshots (price, currency,
+  commission split) captured at creation time. The `POST
+  /api/v1/me/programs/:programID/purchase` endpoint creates pending purchase
+  records; no payment is processed and no entitlement is created.
 
 The module follows the standard request flow:
 `EntitlementsHandler` (in `api/auth`) → `entitlements` service (in
 `services/entitlements`) → `EntitlementRepository` (in `repositories`) over the
 `entitlements` table, with safe Program data preloaded from the `programs` table.
+
+### Client Purchase Transaction
+
+The client purchase transaction module connects program pricing, commission
+rules, and entitlement creation into a trusted atomic purchase flow:
+
+- The client identity always comes exclusively from the authenticated user
+  context. A client-supplied `user_id` in the body is always ignored.
+- The purchase validates the program exists, is published, and is not free.
+- Duplicate active entitlements and duplicate active purchases per
+  (user, program) pair are prevented before any purchase creation.
+- The commission is resolved server-side using the existing commission rules
+  system: trainer-specific active override → global default.
+- The commission split is deterministic: `platform = floor(price * bps / 10000)`,
+  `trainer = price - platform`.
+- The purchase snapshots the price, currency, commission_bps, platform_amount
+  and trainer_amount at creation time so the transaction remains historically
+  accurate even if program pricing or commission rules change later.
+- The purchase status is always "pending"; no payment is processed and no
+  entitlement is created. A future payment provider will transition the
+  purchase to "completed" and create the entitlement atomically.
+- The response never exposes the owning user id or any internal data.
+
+The module follows the standard request flow:
+`PurchaseHandler` (in `api/auth`) → `purchases` service (in
+`services/purchases`) → `PurchaseRepository` (in `repositories`) over the
+`purchases` table, `ProgramRepository` over the `programs` table,
+`EntitlementRepository` over the `entitlements` table, and the commission rules
+service for commission resolution.
+
+A `commissionAdapter` in `routes/routes.go` bridges the commission rules
+service types to the purchase service types without coupling the two packages.
 
 ---
 
