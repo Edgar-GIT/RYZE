@@ -402,6 +402,27 @@ func TestNewPayPalProvider_LiveMode(t *testing.T) {
 	}
 }
 
+func TestPayPalProvider_NegativeAmount(t *testing.T) {
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Error("should not reach PayPal API")
+	})
+	defer server.Close()
+
+	_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-neg",
+		AmountMinorUnits: -100,
+		Currency:         "EUR",
+		ProgramID:        "prog-neg",
+		Method:           payments.PaymentMethodPayPal,
+	})
+	if err == nil {
+		t.Fatal("expected error for negative amount")
+	}
+	if !errors.Is(err, payments.ErrProviderFailure) {
+		t.Errorf("expected ErrProviderFailure, got: %v", err)
+	}
+}
+
 // --- helper ---
 
 func setupPayPalTestServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *payments.PayPalProvider) {

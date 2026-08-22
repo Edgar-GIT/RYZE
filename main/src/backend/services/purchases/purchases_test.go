@@ -54,8 +54,11 @@ func (s *stubPurchaseRepository) FindByID(_ context.Context, _ string) (*models.
 }
 
 func (s *stubPurchaseRepository) FindActiveByUserAndProgram(_ context.Context, _, _ string) (*models.Purchase, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
 	if s.existing != nil {
-		return s.existing, s.findErr
+		return s.existing, nil
 	}
 	return nil, repositories.ErrPurchaseNotFound
 }
@@ -78,8 +81,11 @@ func (s *stubEntitlementRepository) Create(_ context.Context, _, _ string, _ *mo
 }
 
 func (s *stubEntitlementRepository) FindActiveByUserAndProgram(_ context.Context, _, _ string) (*models.Entitlement, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
 	if s.existing != nil {
-		return s.existing, s.err
+		return s.existing, nil
 	}
 	return nil, repositories.ErrEntitlementNotFound
 }
@@ -673,6 +679,88 @@ func TestCompletePurchaseRefundedStatus(t *testing.T) {
 	}
 }
 
+func TestCreatePurchaseIntentEntitlementCheckFailure(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 5000,
+		Currency:        "EUR",
+	}
+
+	entitlements := &stubEntitlementRepository{
+		existing: nil,
+		err:      errors.New("database connection lost"),
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		&stubPurchaseRepository{},
+		entitlements,
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
+	if err == nil {
+		t.Fatal("expected error for entitlement check failure")
+	}
+	if errors.Is(err, purchases.ErrInvalidInput) || errors.Is(err, purchases.ErrProgramNotFound) {
+		t.Fatalf("internal error must not map to user-facing error: %v", err)
+	}
+}
+
+func TestCreatePurchaseIntentPurchaseCheckFailure(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 5000,
+		Currency:        "EUR",
+	}
+
+	purchasesRepo := &stubPurchaseRepository{
+		findErr: errors.New("database connection lost"),
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
+	if err == nil {
+		t.Fatal("expected error for purchase check failure")
+	}
+	if errors.Is(err, purchases.ErrInvalidInput) || errors.Is(err, purchases.ErrProgramNotFound) {
+		t.Fatalf("internal error must not map to user-facing error: %v", err)
+	}
+}
+
+func TestInitiatePaymentInvalidMethod(t *testing.T) {
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		&stubPurchaseRepository{},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001", "bitcoin")
+	if err == nil {
+		t.Fatal("expected error for invalid payment method")
+	}
+	if !errors.Is(err, purchases.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
 func TestCompletePurchaseEntitlementReactivation(t *testing.T) {
 	purchase := &models.Purchase{
 		ID:              "aaaa1111-1111-1111-1111-111111111111",
@@ -1228,6 +1316,96 @@ func TestInitiatePaymentProviderFailureDoesNotComplete(t *testing.T) {
 	}
 }
 
+func TestCompletePurchaseEntitlementAlreadyActiveDuringPending(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "aaaa1111-1111-1111-1111-111111111111",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+
+	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase}
+	activeEntitlement := &models.Entitlement{
+		ID:        "bbbb1111-1111-1111-1111-111111111111",
+		UserID:    purchase.UserID,
+		ProgramID: purchase.ProgramID,
+	}
+	entitlementsRepo := &completionEntitlementRepo{activeEntitlement: activeEntitlement, restoreErr: repositories.ErrEntitlementNotFound}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlementsRepo,
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	_, err := svc.CompletePurchase(context.Background(), purchase.ID)
+	if !errors.Is(err, purchases.ErrDuplicateEntitlement) {
+		t.Fatalf("expected ErrDuplicateEntitlement when active entitlement exists, got %v", err)
+	}
+	if purchasesRepo.completedWithEntID != "" {
+		t.Fatal("CompleteWithEntitlement must not be called when active entitlement already exists")
+	}
+}
+
+func TestCompletePurchaseRepositoryLoadFailure(t *testing.T) {
+	purchasesRepo := &completionPurchaseRepo{
+		findByIDErr: errors.New("database connection lost"),
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&completionEntitlementRepo{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	_, err := svc.CompletePurchase(context.Background(), "aaaa1111-1111-1111-1111-111111111111")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errors.Is(err, purchases.ErrPurchaseNotFound) || errors.Is(err, purchases.ErrInvalidInput) {
+		t.Fatalf("internal error must not map to user-facing error: %v", err)
+	}
+}
+
+func TestCompletePurchaseEntitlementReactivationFailure(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "aaaa1111-1111-1111-1111-111111111111",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+
+	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase}
+	entitlementsRepo := &completionEntitlementRepo{restoreErr: errors.New("database failure")}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlementsRepo,
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	_, err := svc.CompletePurchase(context.Background(), purchase.ID)
+	if err == nil {
+		t.Fatal("expected error when entitlement restoration fails")
+	}
+	if errors.Is(err, purchases.ErrPurchaseNotFound) || errors.Is(err, purchases.ErrInvalidInput) {
+		t.Fatalf("internal error must not map to user-facing error: %v", err)
+	}
+}
+
 func TestInitiatePaymentUsesSnapshotValues(t *testing.T) {
 	purchase := &models.Purchase{
 		ID:              "purchase-snapshot",
@@ -1281,5 +1459,202 @@ func TestInitiatePaymentUsesSnapshotValues(t *testing.T) {
 	}
 	if capturedRequest.Method != payments.PaymentMethodCard {
 		t.Fatalf("expected method %q, got %q", payments.PaymentMethodCard, capturedRequest.Method)
+	}
+}
+
+func TestInitiatePaymentMBWayAccepted(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "purchase-mbway",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "program-mbway",
+		PriceMinorUnits: 1500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+
+	var capturedRequest payments.PaymentRequest
+	purchasesRepo := &stubPurchaseRepository{
+		findByIDPurchase: purchase,
+	}
+	payment := &stubPaymentProvider{
+		result: payments.PaymentResult{
+			PaymentID:   "pay_mbway_001",
+			Status:      payments.PaymentStatusPending,
+			CheckoutURL: "https://checkout.example.com/mbway/001",
+			Provider:    "fake",
+			PurchaseID:  purchase.ID,
+		},
+		captureRequest: &capturedRequest,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		payment,
+		stubResolver(payment),
+	)
+
+	result, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-mbway", "mbway")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.PaymentID != "pay_mbway_001" {
+		t.Fatalf("expected payment id %q, got %q", "pay_mbway_001", result.PaymentID)
+	}
+	if result.CheckoutURL != "https://checkout.example.com/mbway/001" {
+		t.Fatalf("expected checkout url, got %q", result.CheckoutURL)
+	}
+	if capturedRequest.Method != payments.PaymentMethodMBWay {
+		t.Fatalf("expected method %q, got %q", payments.PaymentMethodMBWay, capturedRequest.Method)
+	}
+	if capturedRequest.AmountMinorUnits != 1500 {
+		t.Fatalf("expected amount 1500, got %d", capturedRequest.AmountMinorUnits)
+	}
+	if capturedRequest.Currency != "EUR" {
+		t.Fatalf("expected currency EUR, got %q", capturedRequest.Currency)
+	}
+}
+
+func TestInitiatePaymentPayPalAccepted(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "purchase-paypal",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "program-paypal",
+		PriceMinorUnits: 5000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+
+	var capturedRequest payments.PaymentRequest
+	purchasesRepo := &stubPurchaseRepository{
+		findByIDPurchase: purchase,
+	}
+	payment := &stubPaymentProvider{
+		result: payments.PaymentResult{
+			PaymentID:   "pay_pal_order_001",
+			Status:      payments.PaymentStatusPending,
+			CheckoutURL: "https://paypal.com/approve/001",
+			Provider:    "fake",
+			PurchaseID:  purchase.ID,
+		},
+		captureRequest: &capturedRequest,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		payment,
+		stubResolver(payment),
+	)
+
+	result, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-paypal", "paypal")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.PaymentID != "pay_pal_order_001" {
+		t.Fatalf("expected payment id %q, got %q", "pay_pal_order_001", result.PaymentID)
+	}
+	if result.CheckoutURL != "https://paypal.com/approve/001" {
+		t.Fatalf("expected checkout url, got %q", result.CheckoutURL)
+	}
+	if capturedRequest.Method != payments.PaymentMethodPayPal {
+		t.Fatalf("expected method %q, got %q", payments.PaymentMethodPayPal, capturedRequest.Method)
+	}
+	if capturedRequest.AmountMinorUnits != 5000 {
+		t.Fatalf("expected amount 5000, got %d", capturedRequest.AmountMinorUnits)
+	}
+	if capturedRequest.Currency != "EUR" {
+		t.Fatalf("expected currency EUR, got %q", capturedRequest.Currency)
+	}
+	if capturedRequest.ProgramID != "program-paypal" {
+		t.Fatalf("expected program id program-paypal, got %q", capturedRequest.ProgramID)
+	}
+}
+
+func TestInitiatePaymentProviderResolutionError(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "purchase-001",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+
+	purchasesRepo := &stubPurchaseRepository{
+		findByIDPurchase: purchase,
+	}
+
+	failingResolver := func(_ context.Context, _ payments.PaymentMethod) (payments.Provider, error) {
+		return nil, payments.ErrNoProviderAvailable
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		failingResolver,
+	)
+
+	_, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-001", "card")
+	if err == nil {
+		t.Fatal("expected error when resolver fails")
+	}
+	if !errors.Is(err, purchases.ErrPaymentProvider) {
+		t.Fatalf("expected ErrPaymentProvider, got %v", err)
+	}
+}
+
+func TestInitiatePaymentMethodCannotAlterSnapshot(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "purchase-snapshot2",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "program-snapshot2",
+		PriceMinorUnits: 9900,
+		Currency:        "GBP",
+		Status:          models.PurchaseStatusPending,
+	}
+
+	purchasesRepo := &stubPurchaseRepository{
+		findByIDPurchase: purchase,
+	}
+	payment := &stubPaymentProvider{
+		result: payments.PaymentResult{
+			PaymentID:   "pay_test",
+			Status:      payments.PaymentStatusPending,
+			CheckoutURL: "https://checkout.example.com/pay/test",
+			Provider:    "fake",
+			PurchaseID:  purchase.ID,
+		},
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		payment,
+		stubResolver(payment),
+	)
+
+	methods := []string{"card", "mbway", "paypal"}
+	for _, method := range methods {
+		result, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-snapshot2", method)
+		if err != nil {
+			t.Fatalf("unexpected error for method %q: %v", method, err)
+		}
+		if result.PurchaseID != "purchase-snapshot2" {
+			t.Fatalf("expected purchase id purchase-snapshot2 for method %q, got %q", method, result.PurchaseID)
+		}
+	}
+
+	if purchase.Status != models.PurchaseStatusPending {
+		t.Fatalf("InitiatePayment must not mutate purchase status, got %q", purchase.Status)
 	}
 }

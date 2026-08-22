@@ -1,3 +1,64 @@
+# Version 2.41.0
+
+Title: Backend Step 53 — Payment Methods Completion Foundation
+
+Date: 2026-08-22
+
+Summary:
+
+Completed a comprehensive audit and test hardening of the payment method layer for card, MB WAY, and PayPal. Verified the entire payment architecture: all three payment methods are validated against a strict allowlist, routed to the correct provider (card/mbway → Stripe, paypal → PayPal), and provider-initiated payment requests use exclusively immutable purchase snapshot values. Confirmed MB WAY is properly supported through Stripe Checkout Sessions via `PaymentMethodTypes: ["mb_way"]` — no standalone MB WAY protocol is needed. Added targeted unit tests across the service, Stripe provider, and PayPal provider layers to cover payment method acceptance, snapshot immutability, amount/currency routing, metadata correlation, provider resolution errors, and negative amount rejection. All existing tests continue to pass.
+
+Database:
+
+- No schema changes.
+
+Behavior:
+
+- No behavior changes. All payment method validation, provider routing, and snapshot immutability were already correctly implemented in previous steps. This step validates and hardens test coverage.
+
+Tests:
+
+- `services/purchases/purchases_test.go` — Added 4 unit tests: `TestInitiatePaymentMBWayAccepted` (MB WAY method accepted through service, correct amount/currency/method forwarded), `TestInitiatePaymentPayPalAccepted` (PayPal method accepted through service, correct amount/currency/program forwarded), `TestInitiatePaymentProviderResolutionError` (resolver failure maps to ErrPaymentProvider), `TestInitiatePaymentMethodCannotAlterSnapshot` (all three methods produce identical snapshot values — amount, currency, program from purchase, never from client). Service total: 47 tests (was 42). All pass.
+- `services/payments/stripe_provider_test.go` — Added 5 unit tests: `TestStripeProvider_NegativeAmount` (negative amount rejected before API call), `TestStripeProvider_CardAmountFromSnapshot` (card checkout contains correct unit_amount and currency from snapshot), `TestStripeProvider_MBWayAmountFromSnapshot` (MB WAY checkout contains correct unit_amount, currency, and mb_way method type), `TestStripeProvider_PurchaseIDInMetadata` (purchase_id, program_id in metadata and client_reference_id set correctly). Payments package total: 43 tests (was 38). All pass.
+- `services/payments/paypal_provider_test.go` — Added 1 unit test: `TestPayPalProvider_NegativeAmount` (negative amount rejected before API call). All pass.
+
+Modified files:
+
+- services/purchases/purchases_test.go
+- services/payments/stripe_provider_test.go
+- services/payments/paypal_provider_test.go
+
+# Version 2.40.0
+
+Title: Backend Step 52 — End-to-End Purchase & Entitlement Flow Hardening
+
+Date: 2026-08-22
+
+Summary:
+
+Completed a comprehensive audit and test hardening of the entire commercial purchase and entitlement flow. Verified all architecture invariants: CompletePurchase is the ONLY completion mechanism, purchase snapshots are immutable after creation, webhook signature verification is enforced, client identity is always extracted from context (never trusted from request body), entitlement uniqueness is enforced via database constraint + application logic, commission uses integer arithmetic, and idempotency is maintained across all paths. Fixed test stubs to correctly handle error-only scenarios (errors independent of existing data). Added targeted unit tests for edge cases and a full end-to-end integration test covering the complete purchase-to-entitlement lifecycle.
+
+Database:
+
+- No schema changes.
+
+Behavior:
+
+- `services/purchases/purchases_test.go` — Fixed `stubEntitlementRepository.FindActiveByUserAndProgram` and `stubPurchaseRepository.FindActiveByUserAndProgram` to correctly return errors independently of existing data. Previously, errors were only returned when `existing` was non-nil. Now, when `err`/`findErr` is set, it is returned regardless of whether `existing` is nil, enabling accurate testing of internal error propagation.
+
+Tests:
+
+- `services/purchases/purchases_test.go` — Added 6 unit tests: `TestCreatePurchaseIntentEntitlementCheckFailure` (entitlement DB error not mapped to user-facing error), `TestCreatePurchaseIntentPurchaseCheckFailure` (purchase DB error not mapped to user-facing error), `TestInitiatePaymentInvalidMethod` (invalid payment method returns ErrInvalidInput), `TestCompletePurchaseEntitlementAlreadyActiveDuringPending` (active entitlement during pending completion returns ErrDuplicateEntitlement), `TestCompletePurchaseRepositoryLoadFailure` (FindByID failure not mapped to user-facing error), `TestCompletePurchaseEntitlementReactivationFailure` (RestoreByUserAndProgram failure not mapped to user-facing error). Service total: 42 tests (was 36). All pass.
+- `api/auth/purchase_e2e_test.go` — Added full E2E integration test `TestE2EFullPurchaseFlow` exercising: create purchase intent via HTTP → initiate payment via HTTP → verify purchase still pending with immutable snapshot → simulate webhook completion via CompletePurchase → verify entitlement created → verify idempotent completion (no duplicate entitlements) → verify no payment initiation after completion (409 PURCHASE_NOT_PENDING). All 6 steps pass against a real database transaction (rolled back on cleanup).
+
+Modified files:
+
+- services/purchases/purchases_test.go
+
+New files:
+
+- api/auth/purchase_e2e_test.go
+
 # Version 2.39.0
 
 Title: Backend Step 51 — Public Program Catalog & Purchase Discovery Foundation

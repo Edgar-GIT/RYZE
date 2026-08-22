@@ -180,6 +180,29 @@ func TestStripeProvider_EmptyCurrency(t *testing.T) {
 	}
 }
 
+func TestStripeProvider_NegativeAmount(t *testing.T) {
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Error("should not reach Stripe API")
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("", "")
+	_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-neg",
+		AmountMinorUnits: -500,
+		Currency:         "EUR",
+		ProgramID:        "prog-neg",
+		Method:           payments.PaymentMethodCard,
+	})
+
+	if err == nil {
+		t.Fatal("expected error for negative amount")
+	}
+	if !errors.Is(err, payments.ErrProviderFailure) {
+		t.Errorf("expected ErrProviderFailure, got: %v", err)
+	}
+}
+
 func TestStripeProvider_StripeAPIError(t *testing.T) {
 	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -406,5 +429,116 @@ func TestStripeProvider_MetadataIncludesMethod(t *testing.T) {
 	}
 	if !strings.Contains(capturedBody, "metadata[method]=mbway") {
 		t.Errorf("expected method=mbway in metadata, body: %s", capturedBody)
+	}
+}
+
+func TestStripeProvider_CardAmountFromSnapshot(t *testing.T) {
+	sessionID := "cs_test_amt_card"
+	checkoutURL := "https://checkout.stripe.com/c/pay/cs_test_amt_card"
+
+	var capturedBody string
+
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		capturedBody = string(body)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(mockStripeSessionResponse(sessionID, checkoutURL)))
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("https://example.com/success", "https://example.com/cancel")
+	_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-amt-card",
+		AmountMinorUnits: 7500,
+		Currency:         "EUR",
+		ProgramID:        "prog-amt-card",
+		Method:           payments.PaymentMethodCard,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(capturedBody, "unit_amount]=7500") {
+		t.Errorf("expected unit_amount=7500 in body, got: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "currency]=eur") {
+		t.Errorf("expected currency=eur in body, got: %s", capturedBody)
+	}
+}
+
+func TestStripeProvider_MBWayAmountFromSnapshot(t *testing.T) {
+	sessionID := "cs_test_amt_mbway"
+	checkoutURL := "https://checkout.stripe.com/c/pay/cs_test_amt_mbway"
+
+	var capturedBody string
+
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		capturedBody = string(body)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(mockStripeSessionResponse(sessionID, checkoutURL)))
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("https://example.com/success", "https://example.com/cancel")
+	_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-amt-mbway",
+		AmountMinorUnits: 3250,
+		Currency:         "EUR",
+		ProgramID:        "prog-amt-mbway",
+		Method:           payments.PaymentMethodMBWay,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(capturedBody, "unit_amount]=3250") {
+		t.Errorf("expected unit_amount=3250 in body, got: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "currency]=eur") {
+		t.Errorf("expected currency=eur in body, got: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "mb_way") {
+		t.Errorf("expected mb_way in payment_method_types, body: %s", capturedBody)
+	}
+}
+
+func TestStripeProvider_PurchaseIDInMetadata(t *testing.T) {
+	sessionID := "cs_test_pid"
+	checkoutURL := "https://checkout.stripe.com/c/pay/cs_test_pid"
+
+	var capturedBody string
+
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		capturedBody = string(body)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(mockStripeSessionResponse(sessionID, checkoutURL)))
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("https://example.com/success", "https://example.com/cancel")
+	_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-meta-pid",
+		AmountMinorUnits: 2000,
+		Currency:         "EUR",
+		ProgramID:        "prog-meta-pid",
+		Method:           payments.PaymentMethodCard,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(capturedBody, "metadata[purchase_id]=purchase-meta-pid") {
+		t.Errorf("expected purchase_id in metadata, body: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "metadata[program_id]=prog-meta-pid") {
+		t.Errorf("expected program_id in metadata, body: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "client_reference_id=purchase-meta-pid") {
+		t.Errorf("expected client_reference_id, body: %s", capturedBody)
 	}
 }
