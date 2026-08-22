@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -42,6 +43,13 @@ type ProgramRepository interface {
 	// FindPublishedByID returns one published, non-deleted program by its
 	// id. Ownership is never checked: the catalog is global.
 	FindPublishedByID(ctx context.Context, programID string) (*models.Program, error)
+	// SearchPublished returns published, non-deleted programs matching the
+	// given filters. An empty query skips the name filter. An empty
+	// programType skips the type filter. sortBy is whitelisted to
+	// "created_at" and "name"; any other value falls back to "created_at".
+	// order is whitelisted to "asc" and "desc"; any other value falls back
+	// to "desc".
+	SearchPublished(ctx context.Context, query string, programType string, sortBy string, order string, page, limit int) ([]models.Program, int64, error)
 }
 
 type programRepository struct {
@@ -208,6 +216,61 @@ func (r *programRepository) FindPublishedByID(ctx context.Context, programID str
 		return nil, fmt.Errorf("failed to find published program: %w", err)
 	}
 	return &program, nil
+}
+
+// SearchPublished returns published, non-deleted programs matching the given
+// filters. An empty query skips the name filter. An empty programType skips the
+// type filter. sortBy is whitelisted to "created_at" and "name"; any other
+// value falls back to "created_at". order is whitelisted to "asc" and "desc";
+// any other value falls back to "desc". SQL LIKE wildcards in the query are
+// escaped to prevent unintended pattern matching.
+func (r *programRepository) SearchPublished(ctx context.Context, query string, programType string, sortBy string, order string, page, limit int) ([]models.Program, int64, error) {
+	var programs []models.Program
+	var total int64
+
+	db := r.db.WithContext(ctx).Model(&models.Program{}).
+		Where("status = ?", models.ProgramStatusPublished)
+
+	if query != "" {
+		escaped := escapeSQLLike(query)
+		db = db.Where("name LIKE ?", "%"+escaped+"%")
+	}
+
+	if programType != "" {
+		db = db.Where("type = ?", programType)
+	}
+
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count published programs: %w", err)
+	}
+
+	orderClause := "created_at DESC, id ASC"
+	switch sortBy {
+	case "name":
+		orderClause = "name ASC, id ASC"
+	}
+	if order == "asc" && sortBy == "name" {
+		orderClause = "name ASC, id ASC"
+	} else if order == "asc" && sortBy == "created_at" {
+		orderClause = "created_at ASC, id ASC"
+	}
+
+	if err := db.Order(orderClause).
+		Limit(limit).
+		Offset((page - 1) * limit).
+		Find(&programs).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to search published programs: %w", err)
+	}
+	return programs, total, nil
+}
+
+// escapeSQLLike escapes the % and _ wildcards in a SQL LIKE pattern so they
+// are treated as literal characters.
+func escapeSQLLike(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
 }
 
 // Publish transitions a draft program to published through a conditional update.

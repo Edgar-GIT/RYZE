@@ -25,6 +25,26 @@ var (
 const (
 	// MaxPageSize caps the number of programs returned in a single page.
 	MaxPageSize = admin_users.MaxPageSize
+
+	// MaxSearchQueryLength caps the maximum number of characters in a search
+	// query to prevent excessive LIKE pattern matching.
+	MaxSearchQueryLength = 200
+)
+
+var (
+	allowedSortFields = map[string]bool{
+		"created_at": true,
+		"name":       true,
+	}
+	allowedSortOrders = map[string]bool{
+		"asc":  true,
+		"desc": true,
+	}
+	allowedProgramTypes = map[string]bool{
+		models.ProgramTypeFree:         true,
+		models.ProgramTypePremium:      true,
+		models.ProgramTypePersonalized: true,
+	}
 )
 
 // ProgramRepository is the read-only data-access surface required by the
@@ -33,6 +53,7 @@ const (
 type ProgramRepository interface {
 	ListPublished(ctx context.Context, page, limit int) ([]models.Program, int64, error)
 	FindPublishedByID(ctx context.Context, programID string) (*models.Program, error)
+	SearchPublished(ctx context.Context, query string, programType string, sortBy string, order string, page, limit int) ([]models.Program, int64, error)
 }
 
 // Program is the safe representation of one published program. It carries
@@ -66,6 +87,12 @@ type ListProgramsResult struct {
 type Service interface {
 	ListPublishedPrograms(ctx context.Context, page, limit int) (ListProgramsResult, error)
 	GetPublishedProgram(ctx context.Context, programID string) (*Program, error)
+	// SearchPublishedPrograms returns published programs matching optional
+	// search query, type filter, and sort parameters. An empty query returns
+	// all published programs (equivalent to ListPublishedPrograms). The
+	// programType filter restricts to one of the allowed program types. sortBy
+	// and order control deterministic sorting with safe defaults.
+	SearchPublishedPrograms(ctx context.Context, query string, programType string, sortBy string, order string, page, limit int) (ListProgramsResult, error)
 }
 
 type service struct {
@@ -115,6 +142,44 @@ func (s *service) GetPublishedProgram(ctx context.Context, programID string) (*P
 	}
 
 	return toSafe(model), nil
+}
+
+// SearchPublishedPrograms returns published programs matching optional search
+// query, type filter, and sort parameters. The query is validated for length
+// and the type/sort/order values are whitelisted. Repository errors are mapped
+// to safe domain errors without exposing internal details.
+func (s *service) SearchPublishedPrograms(ctx context.Context, query string, programType string, sortBy string, order string, page, limit int) (ListProgramsResult, error) {
+	page, limit, err := normalizePagination(page, limit)
+	if err != nil {
+		return ListProgramsResult{}, err
+	}
+
+	query = strings.TrimSpace(query)
+	if len([]rune(query)) > MaxSearchQueryLength {
+		return ListProgramsResult{}, fmt.Errorf("%w: search query exceeds maximum length", ErrInvalidInput)
+	}
+
+	if programType != "" && !allowedProgramTypes[programType] {
+		return ListProgramsResult{}, fmt.Errorf("%w: invalid program type", ErrInvalidInput)
+	}
+
+	if sortBy != "" && !allowedSortFields[sortBy] {
+		sortBy = ""
+	}
+	if order != "" && !allowedSortOrders[strings.ToLower(order)] {
+		order = ""
+	}
+
+	models, total, err := s.programs.SearchPublished(ctx, query, programType, sortBy, order, page, limit)
+	if err != nil {
+		return ListProgramsResult{}, fmt.Errorf("failed to search published programs: %w", err)
+	}
+
+	programs := make([]Program, 0, len(models))
+	for i := range models {
+		programs = append(programs, *toSafe(&models[i]))
+	}
+	return ListProgramsResult{Programs: programs, Total: total, Page: page, Limit: limit}, nil
 }
 
 func toSafe(model *models.Program) *Program {

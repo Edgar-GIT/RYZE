@@ -1,3 +1,83 @@
+# Version 2.39.0
+
+Title: Backend Step 51 — Public Program Catalog & Purchase Discovery Foundation
+
+Date: 2026-08-20
+
+Summary:
+
+Extended the public program catalog with search, type filtering, and deterministic sorting. Added SearchPublished repository method with SQL LIKE pattern matching (wildcards safely escaped), search query length validation, type whitelist enforcement, sort field/order whitelisting with safe fallback to defaults, and pagination clamping. The existing `GET /api/v1/programs` endpoint now accepts optional `q`, `type`, `sort`, and `order` query parameters — when any are provided the search path is used, otherwise the default catalog path is preserved. No new database migration required. No new tables, columns, or indexes. The program remains the commercial product; no products or marketplace tables are introduced.
+
+Database:
+
+- No schema changes. The existing programs table supports search via LIKE on the `name` column. Performance is acceptable for the current catalog scale.
+
+Behavior:
+
+- `repositories/program_repository.go` — Added `SearchPublished` to `ProgramRepository` interface and implementation. Accepts optional query (name LIKE with escaped wildcards), programType filter, sortBy/order whitelists, and pagination. Added `escapeSQLLike` helper to safely escape `%` and `_` wildcards in user queries. Empty query returns all published programs.
+- `services/public_programs/public_programs.go` — Extended `ProgramRepository` interface and `Service` interface with `SearchPublished`/`SearchPublishedPrograms`. Added `MaxSearchQueryLength` constant (200), `allowedSortFields` (`created_at`, `name`), `allowedSortOrders` (`asc`, `desc`), and `allowedProgramTypes` (`free`, `premium`, `personalized`). `SearchPublishedPrograms` validates pagination, trims and length-checks query, validates type against whitelist, silently falls back invalid sort/order to defaults, and maps repository results to safe DTOs.
+- `api/auth/public_programs_handler.go` — Extended `ListPublishedPrograms` handler to parse `q`, `type`, `sort`, and `order` query parameters. When any search parameter is non-empty, the handler delegates to `SearchPublishedPrograms`; otherwise it calls `ListPublishedPrograms` preserving existing behavior.
+
+Tests:
+
+- `repositories/program_repository_test.go` — Added 8 tests (31–38): SearchPublished name query, empty query, type filter, name sort ascending, soft-deleted exclusion, wildcard escaping, pagination, total count correctness.
+- `services/public_programs/public_programs_test.go` — Added 10 tests: SearchPublishedPrograms success (forwards all params), limit clamping, invalid pagination, long query rejection, max-length trimmed query, invalid type rejection, valid types (free/premium/personalized), sort fallback for invalid values, repository failure isolation, safe DTO mapping. Service total: 18 tests (was 8). All pass.
+- `api/auth/public_programs_handler_test.go` — Added 10 tests: search param forwarding (q/type/sort/order), query-only, type-only, no-search-params falls back to list, search error mapping, repository failure isolation, query trimming, pagination forwarding, no-auth access, no sensitive data in search response. Handler total: 25 tests (was 15). All pass.
+
+Modified files:
+
+- repositories/program_repository.go
+- services/public_programs/public_programs.go
+- services/public_programs/public_programs_test.go
+- api/auth/public_programs_handler.go
+- api/auth/public_programs_handler_test.go
+- repositories/program_repository_test.go
+
+New files:
+
+- (none)
+
+# Version 2.38.0
+
+Title: Backend Step 50 — Payment Integration & Testability Hardening
+
+Date: 2026-08-20
+
+Summary:
+
+Comprehensive audit and hardening of the complete payment pipeline for sandbox readiness. Verified configuration safety (no hardcoded secrets, safe failure modes), Stripe and PayPal sandbox flows, idempotency/concurrency protections, amount/currency security, and no-payment-bypass integrity. Added targeted test coverage for previously untested invariants: GetPurchaseByID service method, InitiatePayment status immutability guarantee, and provider-failure side-effect isolation. Full audit confirms the payment system is ready for sandbox testing without code changes.
+
+Database:
+
+- No schema changes. Existing Purchase and Entitlement constraints are sufficient.
+
+Behavior:
+
+- `services/purchases/purchases_test.go` — Added 7 new tests: TestGetPurchaseByIDSuccess (verifies safe purchase representation), TestGetPurchaseByIDEmptyID (validates input rejection), TestGetPurchaseByIDNotFound (validates not-found mapping), TestGetPurchaseByIDRepositoryFailureNotExposed (validates internal error isolation), TestInitiatePaymentStatusNotMutated (verifies purchase status remains "pending" after successful initiation), TestInitiatePaymentProviderFailureDoesNotComplete (verifies provider failures do not mutate purchase state).
+
+Tests:
+
+- `services/purchases/purchases_test.go` — 36 total tests (was 29). All 36 pass. Added GetPurchaseByID coverage and InitiatePayment invariant tests.
+- `api/webhooks/stripe_handler_test.go` — 15 tests pass unchanged.
+- `api/webhooks/paypal_handler_test.go` — 16 tests pass unchanged.
+- `api/auth/purchase_handler_test.go` — All handler tests pass unchanged.
+
+Audit findings (v2.38.0):
+
+- Configuration: All secrets loaded from environment variables. No hardcoded credentials. Missing config produces safe failure (placeholder provider or endpoint not registered). Stripe webhook endpoint requires both STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET. PayPal webhook endpoint requires both PAYPAL_CLIENT_ID and PAYPAL_WEBHOOK_ID.
+- Test mode: MIN_PROGRAM_PRICE_MINOR_UNITS defaults to 100 (€1.00). Stripe defaults to sandbox (sk_test_...). PayPal defaults to sandbox mode. No auto-complete or free-payment bypass exists.
+- Idempotency: Stripe uses idempotency key per purchase. PayPal uses PayPal-Request-Id per purchase. CompletePurchase is idempotent. Duplicate purchase intent blocked at service layer. Entitlement uniqueness enforced by database generated column.
+- Amount/currency security: Both providers receive amount and currency exclusively from immutable purchase snapshot. Webhook handlers verify provider values against snapshot before completion. No client-supplied commercial values accepted.
+- No-payment-bypass: Purchase status transitions only via verified webhook events. No client endpoint completes purchases. No redirect URL completes purchases. InitiatePayment does not modify purchase status.
+
+Modified files:
+
+- services/purchases/purchases_test.go
+
+New files:
+
+- (none)
+
 # Version 2.37.0
 
 Title: Backend Step 49 — Payment Webhook Verification & Completion

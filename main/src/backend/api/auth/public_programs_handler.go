@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -54,8 +55,10 @@ func NewPublicProgramsHandler(svc public_programs.Service) *PublicProgramsHandle
 	return &PublicProgramsHandler{service: svc}
 }
 
-// ListPublishedPrograms returns one page of the published program catalog
-// ordered by creation time (newest first).
+// ListPublishedPrograms returns one page of the published program catalog.
+// When search, filter, or sort query parameters are provided, the endpoint
+// delegates to SearchPublishedPrograms for enhanced discovery. Otherwise it
+// returns the default catalog ordered by creation time (newest first).
 func (h *PublicProgramsHandler) ListPublishedPrograms(c *gin.Context) {
 	page, err := queryInt(c, "page", 1)
 	if err != nil {
@@ -68,7 +71,19 @@ func (h *PublicProgramsHandler) ListPublishedPrograms(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ListPublishedPrograms(c.Request.Context(), page, limit)
+	query := strings.TrimSpace(c.Query("q"))
+	programType := strings.TrimSpace(c.Query("type"))
+	sortBy := strings.TrimSpace(c.Query("sort"))
+	order := strings.TrimSpace(c.Query("order"))
+
+	hasSearchParams := query != "" || programType != "" || sortBy != "" || order != ""
+
+	var result public_programs.ListProgramsResult
+	if hasSearchParams {
+		result, err = h.service.SearchPublishedPrograms(c.Request.Context(), query, programType, sortBy, order, page, limit)
+	} else {
+		result, err = h.service.ListPublishedPrograms(c.Request.Context(), page, limit)
+	}
 	if err != nil {
 		h.respondPublicProgramsError(c, err)
 		return

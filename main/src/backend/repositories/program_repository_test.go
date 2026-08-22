@@ -472,4 +472,150 @@ func TestProgramRepository(t *testing.T) {
 	if _, err := programRepo.FindPublishedByID(ctx, platformProgram.ID); !errors.Is(err, repositories.ErrProgramNotFound) {
 		t.Fatalf("find published platform draft: expected ErrProgramNotFound, got %v", err)
 	}
+
+	// 31. SearchPublished returns published programs matching a name query.
+	searchPubA := seedProgram(trainer.ID, "Hypertrophy Max", time.Now())
+	if err := programRepo.Update(ctx, trainer.ID, searchPubA.ID, map[string]any{"status": models.ProgramStatusPublished}); err != nil {
+		t.Fatalf("publish searchPubA: %v", err)
+	}
+	searchPubB := seedProgram(trainer.ID, "Cardio Blast", time.Now())
+	if err := programRepo.Update(ctx, trainer.ID, searchPubB.ID, map[string]any{"status": models.ProgramStatusPublished}); err != nil {
+		t.Fatalf("publish searchPubB: %v", err)
+	}
+	searchDraft := seedProgram(trainer.ID, "Hypertrophy Draft", time.Now())
+	_ = searchDraft
+
+	results, total, err := programRepo.SearchPublished(ctx, "Hypertrophy", "", "", "", 1, 10)
+	if err != nil {
+		t.Fatalf("search published: %v", err)
+	}
+	if total < 1 {
+		t.Fatalf("search published: expected at least 1 match, got %d", total)
+	}
+	foundHypertrophy := false
+	for _, p := range results {
+		if p.Status != models.ProgramStatusPublished {
+			t.Fatalf("search published: expected only published programs, got status %q", p.Status)
+		}
+		if p.Name == "Hypertrophy Max" {
+			foundHypertrophy = true
+		}
+		if p.ID == searchDraft.ID {
+			t.Fatal("search published must never include draft programs")
+		}
+	}
+	if !foundHypertrophy {
+		t.Fatal("search published: expected to find 'Hypertrophy Max'")
+	}
+
+	// 32. SearchPublished with empty query returns all published.
+	results, total, err = programRepo.SearchPublished(ctx, "", "", "", "", 1, 100)
+	if err != nil {
+		t.Fatalf("search published empty query: %v", err)
+	}
+	if total < 2 {
+		t.Fatalf("search published empty query: expected at least 2 published programs, got %d", total)
+	}
+	if len(results) < 2 {
+		t.Fatalf("search published empty query: expected at least 2 results, got %d", len(results))
+	}
+
+	// 33. SearchPublished with type filter restricts results.
+	freePub := seedProgram(trainer.ID, "Free Fitness", time.Now())
+	if err := programRepo.Update(ctx, trainer.ID, freePub.ID, map[string]any{
+		"status":            models.ProgramStatusPublished,
+		"type":              models.ProgramTypeFree,
+		"price_minor_units": 0,
+	}); err != nil {
+		t.Fatalf("publish freePub: %v", err)
+	}
+
+	results, total, err = programRepo.SearchPublished(ctx, "", models.ProgramTypeFree, "", "", 1, 10)
+	if err != nil {
+		t.Fatalf("search published type filter: %v", err)
+	}
+	if total < 1 {
+		t.Fatalf("search published type filter: expected at least 1 free program, got %d", total)
+	}
+	for _, p := range results {
+		if p.Type != models.ProgramTypeFree {
+			t.Fatalf("search published type filter: expected only free programs, got type %q", p.Type)
+		}
+	}
+
+	// 34. SearchPublished with name sort returns results alphabetically.
+	results, _, err = programRepo.SearchPublished(ctx, "", "", "name", "asc", 1, 100)
+	if err != nil {
+		t.Fatalf("search published name sort: %v", err)
+	}
+	if len(results) < 2 {
+		t.Fatalf("search published name sort: expected at least 2 results, got %d", len(results))
+	}
+	for i := 1; i < len(results); i++ {
+		if results[i-1].Name > results[i].Name {
+			t.Fatalf("search published name sort: expected ascending order, got %q before %q", results[i-1].Name, results[i].Name)
+		}
+	}
+
+	// 35. SearchPublished excludes soft-deleted programs.
+	softDeletedSearch := seedProgram(trainer.ID, "Delete Me Search", time.Now())
+	if err := programRepo.Update(ctx, trainer.ID, softDeletedSearch.ID, map[string]any{"status": models.ProgramStatusPublished}); err != nil {
+		t.Fatalf("publish softDeletedSearch: %v", err)
+	}
+	if err := programRepo.SoftDelete(ctx, trainer.ID, softDeletedSearch.ID); err != nil {
+		t.Fatalf("soft delete search program: %v", err)
+	}
+
+	results, _, err = programRepo.SearchPublished(ctx, "Delete Me", "", "", "", 1, 10)
+	if err != nil {
+		t.Fatalf("search published soft-deleted: %v", err)
+	}
+	for _, p := range results {
+		if p.ID == softDeletedSearch.ID {
+			t.Fatal("search published must never include soft-deleted programs")
+		}
+	}
+
+	// 36. SearchPublished SQL LIKE wildcard escaping: a query containing %
+	// and _ is treated as literal characters.
+	wildcardPub := seedProgram(trainer.ID, "100% Gainz", time.Now())
+	if err := programRepo.Update(ctx, trainer.ID, wildcardPub.ID, map[string]any{"status": models.ProgramStatusPublished}); err != nil {
+		t.Fatalf("publish wildcardPub: %v", err)
+	}
+	results, _, err = programRepo.SearchPublished(ctx, "100% Gainz", "", "", "", 1, 10)
+	if err != nil {
+		t.Fatalf("search published wildcard: %v", err)
+	}
+	foundWildcard := false
+	for _, p := range results {
+		if p.ID == wildcardPub.ID {
+			foundWildcard = true
+		}
+	}
+	if !foundWildcard {
+		t.Fatal("search published: expected to find '100% Gainz' with escaped wildcards")
+	}
+
+	// 37. SearchPublished pagination: page 1 with limit 1 returns exactly 1.
+	results, total, err = programRepo.SearchPublished(ctx, "", "", "", "", 1, 1)
+	if err != nil {
+		t.Fatalf("search published pagination: %v", err)
+	}
+	if total < 2 {
+		t.Fatalf("search published pagination: expected total >= 2, got %d", total)
+	}
+	if len(results) != 1 {
+		t.Fatalf("search published pagination: expected 1 result, got %d", len(results))
+	}
+
+	// 38. SearchPublished total count excludes drafts and soft-deleted.
+	results, total, err = programRepo.SearchPublished(ctx, "", "", "", "", 1, 100)
+	if err != nil {
+		t.Fatalf("search published total count: %v", err)
+	}
+	for _, p := range results {
+		if p.Status != models.ProgramStatusPublished {
+			t.Fatalf("search published total count: expected only published, got status %q for %q", p.Status, p.Name)
+		}
+	}
 }

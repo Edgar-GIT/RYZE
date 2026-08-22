@@ -84,6 +84,10 @@ type stubPublicProgramsService struct {
 	gotID      string
 	gotPage    int
 	gotLimit   int
+	gotQuery   string
+	gotType    string
+	gotSort    string
+	gotOrder   string
 }
 
 func (s *stubPublicProgramsService) ListPublishedPrograms(_ context.Context, page, limit int) (public_programs.ListProgramsResult, error) {
@@ -95,6 +99,16 @@ func (s *stubPublicProgramsService) ListPublishedPrograms(_ context.Context, pag
 func (s *stubPublicProgramsService) GetPublishedProgram(_ context.Context, programID string) (*public_programs.Program, error) {
 	s.gotID = programID
 	return s.program, s.err
+}
+
+func (s *stubPublicProgramsService) SearchPublishedPrograms(_ context.Context, query string, programType string, sortBy string, order string, page, limit int) (public_programs.ListProgramsResult, error) {
+	s.gotQuery = query
+	s.gotType = programType
+	s.gotSort = sortBy
+	s.gotOrder = order
+	s.gotPage = page
+	s.gotLimit = limit
+	return s.listResult, s.err
 }
 
 func stubPublicProgramResponse() *public_programs.Program {
@@ -523,4 +537,205 @@ func TestPublicProgramsFindsCrossTrainerPrograms(t *testing.T) {
 		t.Fatalf("expected 2 programs from both trainers, got %d", len(programs))
 	}
 	_ = tx
+}
+
+func TestPublicProgramsHandlerSearchForwardsParams(t *testing.T) {
+	svc := &stubPublicProgramsService{
+		listResult: public_programs.ListProgramsResult{
+			Programs: []public_programs.Program{*stubPublicProgramResponse()},
+			Total:    1,
+			Page:     1,
+			Limit:    20,
+		},
+	}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?q=strength&type=premium&sort=name&order=asc", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotQuery != "strength" {
+		t.Fatalf("expected query 'strength', got %q", svc.gotQuery)
+	}
+	if svc.gotType != "premium" {
+		t.Fatalf("expected type 'premium', got %q", svc.gotType)
+	}
+	if svc.gotSort != "name" {
+		t.Fatalf("expected sort 'name', got %q", svc.gotSort)
+	}
+	if svc.gotOrder != "asc" {
+		t.Fatalf("expected order 'asc', got %q", svc.gotOrder)
+	}
+}
+
+func TestPublicProgramsHandlerSearchWithOnlyQuery(t *testing.T) {
+	svc := &stubPublicProgramsService{
+		listResult: public_programs.ListProgramsResult{
+			Programs: []public_programs.Program{},
+			Total:    0,
+			Page:     1,
+			Limit:    20,
+		},
+	}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?q=cardio", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotQuery != "cardio" {
+		t.Fatalf("expected query 'cardio', got %q", svc.gotQuery)
+	}
+}
+
+func TestPublicProgramsHandlerSearchWithOnlyType(t *testing.T) {
+	svc := &stubPublicProgramsService{
+		listResult: public_programs.ListProgramsResult{
+			Programs: []public_programs.Program{},
+			Total:    0,
+			Page:     1,
+			Limit:    20,
+		},
+	}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?type=free", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotType != "free" {
+		t.Fatalf("expected type 'free', got %q", svc.gotType)
+	}
+}
+
+func TestPublicProgramsHandlerListWithoutSearchParams(t *testing.T) {
+	svc := &stubPublicProgramsService{
+		listResult: public_programs.ListProgramsResult{
+			Programs: []public_programs.Program{*stubPublicProgramResponse()},
+			Total:    1,
+			Page:     1,
+			Limit:    20,
+		},
+	}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?page=1&limit=10", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotQuery != "" || svc.gotType != "" || svc.gotSort != "" || svc.gotOrder != "" {
+		t.Fatalf("expected ListPublishedPrograms to be called (not search), got query=%q type=%q sort=%q order=%q", svc.gotQuery, svc.gotType, svc.gotSort, svc.gotOrder)
+	}
+}
+
+func TestPublicProgramsHandlerSearchErrorMapping(t *testing.T) {
+	svc := &stubPublicProgramsService{err: public_programs.ErrInvalidInput}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?q=test", "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
+		t.Fatalf("expected VALIDATION_ERROR, got %s", raw)
+	}
+}
+
+func TestPublicProgramsHandlerSearchRepositoryFailureNotExposed(t *testing.T) {
+	svc := &stubPublicProgramsService{err: errLoginRepoFailure}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?q=test", "")
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, "repository failure") {
+		t.Fatalf("internal error details must never be exposed, got %s", raw)
+	}
+}
+
+func TestPublicProgramsHandlerSearchTrimsQuery(t *testing.T) {
+	svc := &stubPublicProgramsService{
+		listResult: public_programs.ListProgramsResult{
+			Programs: []public_programs.Program{},
+			Total:    0,
+			Page:     1,
+			Limit:    20,
+		},
+	}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?q=%20%20strength%20%20", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotQuery != "strength" {
+		t.Fatalf("expected trimmed query 'strength', got %q", svc.gotQuery)
+	}
+}
+
+func TestPublicProgramsHandlerSearchPaginationForwarded(t *testing.T) {
+	svc := &stubPublicProgramsService{
+		listResult: public_programs.ListProgramsResult{
+			Programs: []public_programs.Program{},
+			Total:    0,
+			Page:     2,
+			Limit:    5,
+		},
+	}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?q=yoga&page=2&limit=5", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotPage != 2 || svc.gotLimit != 5 {
+		t.Fatalf("expected page 2 limit 5, got %d/%d", svc.gotPage, svc.gotLimit)
+	}
+}
+
+func TestPublicProgramsHandlerSearchNoAuthRequired(t *testing.T) {
+	svc := &stubPublicProgramsService{
+		listResult: public_programs.ListProgramsResult{
+			Programs: []public_programs.Program{},
+			Total:    0,
+			Page:     1,
+			Limit:    20,
+		},
+	}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?q=test&type=free&sort=name&order=asc", "")
+	if rec.Code == http.StatusUnauthorized {
+		t.Fatalf("search endpoint must not require authentication, got 401 (body: %s)", raw)
+	}
+}
+
+func TestPublicProgramsHandlerSearchResponseHasNoSensitiveData(t *testing.T) {
+	svc := &stubPublicProgramsService{
+		listResult: public_programs.ListProgramsResult{
+			Programs: []public_programs.Program{*stubPublicProgramResponse()},
+			Total:    1,
+			Page:     1,
+			Limit:    20,
+		},
+	}
+	router := newPublicProgramsHandlerRouter(svc)
+
+	rec, _, raw := doPublicProgramsRequest(router, http.MethodGet, publicProgramsRoute+"?q=strength", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	for _, sensitive := range []string{
+		"access_token",
+		testSecret,
+		"password_hash",
+		"session_version",
+		"deleted_at",
+	} {
+		if strings.Contains(raw, sensitive) {
+			t.Fatalf("search response must never contain %q", sensitive)
+		}
+	}
 }

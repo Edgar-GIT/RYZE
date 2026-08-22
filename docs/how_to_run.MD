@@ -512,3 +512,88 @@ go run . migrate version
 
 The migration commands must be executed from the `main/src/backend`
 directory.
+
+---
+
+# Testing
+
+The Go backend uses the standard `testing` package. No external test framework
+is required.
+
+## Run All Unit Tests
+
+From the backend directory:
+
+```bash
+cd main/src/backend
+go test ./services/... ./repositories/... -count=1
+```
+
+## Run All Tests Including Integration Tests
+
+Integration tests require a running MariaDB instance and a valid `.env` file:
+
+```bash
+cd main/src/backend
+go test ./... -count=1
+```
+
+Integration tests use database transactions that roll back automatically — no
+manual cleanup is needed.
+
+## Run a Specific Test
+
+```bash
+cd main/src/backend
+go test ./services/purchases/ -run TestGetPurchaseByID -count=1
+go test ./api/webhooks/ -run TestStripeWebhook -count=1
+```
+
+## Payment Testing with Stripe CLI
+
+For local development with Stripe webhooks, use the Stripe CLI to forward
+webhook events to the local server:
+
+1. Install the Stripe CLI: https://docs.stripe.com/stripe-cli
+2. Login: `stripe login`
+3. Start forwarding:
+
+```bash
+stripe listen --forward-to localhost:8080/api/v1/webhooks/stripe
+```
+
+4. Copy the webhook signing secret printed by the CLI and set it in `.env`:
+
+```text
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+5. Use Stripe test card numbers from the Stripe Dashboard to complete a
+   Checkout Session. The CLI forwards the `checkout.session.completed` event
+   to the local server, which verifies the signature and completes the
+   purchase.
+
+## Payment Testing with PayPal Sandbox
+
+PayPal sandbox webhooks can be configured in the PayPal Developer Dashboard:
+
+1. Create a sandbox application at https://developer.paypal.com
+2. Set `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`, and `PAYPAL_MODE=sandbox` in
+   `.env`
+3. Create a webhook in the PayPal dashboard pointing to your local server
+   (use ngrok or similar for local tunneling):
+
+```bash
+ngrok http 8080
+```
+
+4. Set the webhook URL in the PayPal dashboard to
+   `https://<ngrok-id>.ngrok.io/api/v1/webhooks/paypal`
+5. Copy the webhook ID and set `PAYPAL_WEBHOOK_ID` in `.env`
+
+## Testing Without Real Providers
+
+When `STRIPE_SECRET_KEY` and `PAYPAL_CLIENT_ID` are both empty, the payment
+service uses a placeholder provider that rejects all payment initiation
+requests. This is the default state and is safe for development without real
+provider accounts.
