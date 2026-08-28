@@ -3,6 +3,7 @@ import { Container } from "@/components/container/container";
 import { Hero } from "@/components/hero/hero";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PlatformSection } from "@/components/platform_section/platform_section";
+import { ProgramsOverviewSection } from "@/components/programs_overview_section/programs_overview_section";
 import { Reveal } from "@/components/reveal/reveal";
 import { SectionTitle } from "@/components/section_title/section_title";
 import { ServiceCard } from "@/components/service_card/service_card";
@@ -35,6 +36,8 @@ const techFeatures = [
 export const HomePage = () => (
   <PageWrapper>
     <Hero />
+
+    <ProgramsOverviewSection />
 
     <section className={`${styles.section} ${styles.sectionTech}`}>
       <img
