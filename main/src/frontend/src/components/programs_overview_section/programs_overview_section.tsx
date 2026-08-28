@@ -1,4 +1,4 @@
-import { ArrowRight, BarChart3, Dumbbell, Flame, Gift, ShieldCheck, Star, Users } from "lucide-react";
+import { ArrowRight, Dumbbell, Flame, Gift } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 
@@ -39,13 +39,6 @@ const programs = [
     image: advert3,
     Icon: Gift
   }
-] as const;
-
-const stats = [
-  { value: "10K+", label: "Active Members", Icon: Users },
-  { value: "4.9/5", label: "Average Rating", Icon: Star },
-  { value: "150+", label: "Training Programs", Icon: BarChart3 },
-  { value: "100%", label: "Secure & Private", Icon: ShieldCheck }
 ] as const;
 
 export const ProgramsOverviewSection = () => {
@@ -96,27 +89,6 @@ export const ProgramsOverviewSection = () => {
             );
           })}
         </div>
-
-        <Reveal delay={0.3}>
-          <div className={styles.statsContainer}>
-            <div className={styles.statsBar}>
-              {stats.map((stat, index) => {
-                const Icon = stat.Icon;
-
-                return (
-                  <div key={stat.label} className={styles.statItem}>
-                    {index > 0 && <span className={styles.statDivider} aria-hidden="true" />}
-                    <Icon className={styles.statIcon} aria-hidden="true" strokeWidth={1.6} />
-                    <div className={styles.statText}>
-                      <strong>{stat.value}</strong>
-                      <span>{stat.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </Reveal>
       </Container>
     </section>
   );
