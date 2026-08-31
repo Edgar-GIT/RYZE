@@ -2,45 +2,13 @@
 
 .section {
   position: relative;
-  overflow: hidden;
-  padding: 7rem 0 6.5rem;
-  background:
-    radial-gradient(90% 55% at 50% 0%, rgba(16, 28, 42, 0.55), transparent 62%),
-    var(--bg-primary);
-}
-
-.section::before {
-  position: absolute;
-  inset: 0;
-  content: "";
-  background:
-    radial-gradient(ellipse 38% 46% at 16% 56%, rgba(42, 140, 255, 0.09), transparent 68%),
-    radial-gradient(ellipse 38% 46% at 50% 56%, rgba(248, 140, 40, 0.055), transparent 68%),
-    radial-gradient(ellipse 38% 46% at 84% 56%, rgba(40, 194, 160, 0.07), transparent 68%),
-    radial-gradient(ellipse 70% 30% at 50% 100%, rgba(24, 216, 255, 0.035), transparent 70%);
-  filter: blur(12px);
-  pointer-events: none;
-}
-
-.section::after {
-  position: absolute;
-  inset: 0;
-  content: "";
-  background: linear-gradient(
-    180deg,
-    rgba(5, 7, 11, 0.4) 0%,
-    transparent 10%,
-    transparent 88%,
-    rgba(5, 7, 11, 0.45) 100%
-  );
-  pointer-events: none;
+  padding: 6.5rem 0;
+  background: var(--bg-primary);
 }
 
 .inner {
-  position: relative;
-  z-index: 1;
   display: grid;
-  gap: 3.5rem;
+  gap: 3.25rem;
 }
 
 /* --- Header --- */
@@ -143,7 +111,7 @@
   flex-direction: column;
   gap: 0.8rem;
   flex: 1;
-  padding: 2rem 1.85rem 1.8rem;
+  padding: 1.75rem 1.85rem 1.8rem;
 }
 
 /* --- Card accent variants --- */
@@ -189,10 +157,10 @@
 .iconBadge {
   display: grid;
   place-items: center;
-  width: 3.6rem;
-  height: 3.6rem;
+  width: 4rem;
+  height: 4rem;
   border-radius: 999px;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.7rem;
 }
 
 .blue .iconBadge {
@@ -223,8 +191,8 @@
 }
 
 .iconBadge svg {
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 1.6rem;
+  height: 1.6rem;
 }
 
 /* --- Card text --- */
@@ -261,22 +229,30 @@
   font-weight: 750;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  box-shadow: 0 0 18px rgba(24, 216, 255, 0.06);
   transition:
     gap var(--transition-fast),
     background var(--transition-fast),
-    border-color var(--transition-fast);
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .blue .cardLink {
   color: #2a8cff;
   border: 1px solid rgba(42, 140, 255, 0.24);
   background: rgba(42, 140, 255, 0.07);
+  box-shadow:
+    0 0 18px rgba(42, 140, 255, 0.12),
+    inset 0 1px 0 rgba(42, 140, 255, 0.12);
 }
 
 .blue .cardLink:hover {
   color: #6db4ff;
   border-color: rgba(42, 140, 255, 0.42);
   background: rgba(42, 140, 255, 0.12);
+  box-shadow:
+    0 0 26px rgba(42, 140, 255, 0.22),
+    inset 0 1px 0 rgba(42, 140, 255, 0.18);
   gap: 0.75rem;
 }
 
@@ -284,12 +260,18 @@
   color: #f88c28;
   border: 1px solid rgba(248, 140, 40, 0.24);
   background: rgba(248, 140, 40, 0.07);
+  box-shadow:
+    0 0 18px rgba(248, 140, 40, 0.12),
+    inset 0 1px 0 rgba(248, 140, 40, 0.12);
 }
 
 .orange .cardLink:hover {
   color: #ffb05e;
   border-color: rgba(248, 140, 40, 0.42);
   background: rgba(248, 140, 40, 0.12);
+  box-shadow:
+    0 0 26px rgba(248, 140, 40, 0.22),
+    inset 0 1px 0 rgba(248, 140, 40, 0.18);
   gap: 0.75rem;
 }
 
@@ -297,12 +279,18 @@
   color: #28c2a0;
   border: 1px solid rgba(40, 194, 160, 0.24);
   background: rgba(40, 194, 160, 0.07);
+  box-shadow:
+    0 0 18px rgba(40, 194, 160, 0.12),
+    inset 0 1px 0 rgba(40, 194, 160, 0.12);
 }
 
 .teal .cardLink:hover {
   color: #4ddfc0;
   border-color: rgba(40, 194, 160, 0.42);
   background: rgba(40, 194, 160, 0.12);
+  box-shadow:
+    0 0 26px rgba(40, 194, 160, 0.22),
+    inset 0 1px 0 rgba(40, 194, 160, 0.18);
   gap: 0.75rem;
 }
 

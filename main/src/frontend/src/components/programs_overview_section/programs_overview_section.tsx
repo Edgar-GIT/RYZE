@@ -14,7 +14,8 @@ import styles from "./programs_overview_section.module.css";
 const programs = [
   {
     title: "BUILD MUSCLE",
-    description: "Hypertrophy programs built around progressive overload and structured periodization.",
+    description:
+      "Hypertrophy programs built around progressive overload. Structured volume, smart periodization and weekly progression that help you grow stronger, block after block.",
     ctaLabel: "EXPLORE",
     to: "/services/premium-level-1",
     accent: "blue",
@@ -23,7 +24,8 @@ const programs = [
   },
   {
     title: "LOSE FAT",
-    description: "Calibrated intensity and metabolic circuits for fat loss and conditioning.",
+    description:
+      "Structured training programs for fat loss and conditioning. Calibrated intensity, metabolic circuits and recovery-aware scheduling that keep you cutting without burning out.",
     ctaLabel: "EXPLORE",
     to: "/services/premium-level-2",
     accent: "orange",
@@ -32,7 +34,8 @@ const programs = [
   },
   {
     title: "TRAIN FOR FREE",
-    description: "A complete training plan built on the fundamentals — no subscription, no catch.",
+    description:
+      "A complete, ready-made training plan built on the fundamentals. No questionnaire, no subscription and no catch — start training today, completely free.",
     ctaLabel: "START FREE",
     to: "/services/generic-program",
     accent: "teal",

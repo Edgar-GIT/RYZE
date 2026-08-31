@@ -13,11 +13,9 @@ import {
   Heart,
   Hexagon,
   Layers3,
-  Leaf,
   Link2,
   MonitorSmartphone,
   Network,
-  Play,
   Rocket,
   ShieldCheck,
   Sprout,
@@ -194,13 +192,6 @@ const joinFeatures = [
   }
 ] as const;
 
-const heroBadges = [
-  { icon: Dumbbell, label: "Training" },
-  { icon: Utensils, label: "Nutrition" },
-  { icon: Leaf, label: "Recovery" },
-  { icon: ChartNoAxesCombined, label: "Progress" }
-] as const;
-
 interface RevealProps {
   children: ReactNode;
   className?: string;
@@ -221,34 +212,6 @@ const Reveal = ({ children, className, delay = 0 }: RevealProps) => {
     >
       {children}
     </motion.div>
-  );
-};
-
-const HeroBadges = () => {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <ul className={styles.heroBadges}>
-      {heroBadges.map((badge, index) => {
-        const Icon = badge.icon;
-
-        return (
-          <motion.li
-            key={badge.label}
-            className={styles.heroBadge}
-            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.6 }}
-            transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 + index * 0.05 }}
-          >
-            <span className={styles.heroBadgeIcon}>
-              <Icon aria-hidden="true" />
-            </span>
-            <span className={styles.heroBadgeLabel}>{badge.label}</span>
-          </motion.li>
-        );
-      })}
-    </ul>
   );
 };
 
@@ -357,15 +320,6 @@ export const OurVisionPage = () => (
           <p className={styles.lead}>
             Modern training should adapt to you, not force you to adapt to static programs.
           </p>
-
-          <HeroBadges />
-
-          <a className={styles.visionLink} href="#vision-roadmap">
-            <span className={styles.visionPlay}>
-              <Play aria-hidden="true" />
-            </span>
-            Our vision
-          </a>
         </Reveal>
       </Container>
     </section>
@@ -421,9 +375,7 @@ export const OurVisionPage = () => (
           </a>
         </Reveal>
 
-        <Reveal className={styles.whyPanel} delay={0.12}>
-          <WhyFeatureGrid />
-        </Reveal>
+        <WhyFeatureGrid />
       </Container>
     </section>
 
