@@ -916,13 +916,16 @@
   text-align: left;
 }
 
-.evolutionSide[data-side="right"] > :nth-child(1) {
-  margin-top: -3rem;
-  margin-left: -1rem;
+.evolutionSide[data-side="right"] > :nth-child(1) .evolutionItem {
+  transform: translateX(2rem);
 }
 
-.evolutionSide[data-side="right"] > :nth-child(2) {
-  margin-top: -2rem;
+.evolutionSide[data-side="right"] > :nth-child(2) .evolutionItem {
+  transform: translateX(2rem);
+}
+
+.evolutionSide[data-side="right"] > :nth-child(3) .evolutionItem {
+  transform: translateX(2rem);
 }
 
 .evolutionCenter {
@@ -998,7 +1001,7 @@
   align-items: center;
   gap: clamp(2rem, 4vw, 4rem);
   width: 100%;
-  margin-top: clamp(4.5rem, 9vh, 7rem);
+  margin-top: clamp(11rem, 22vh, 16rem);
   padding: 2.25rem clamp(2rem, 4vw, 3.25rem);
   border: 1px solid rgba(52, 152, 255, 0.16);
   border-radius: 1.35rem;
@@ -1228,6 +1231,10 @@
 
   .evolutionSide[data-side="right"] .evolutionItem {
     flex-direction: row;
+  }
+
+  .evolutionSide[data-side="right"] :nth-child(-n + 3) .evolutionItem {
+    transform: none;
   }
 
   .evolutionBanner {
