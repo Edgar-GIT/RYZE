@@ -25,13 +25,13 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { CONTACT_WHATSAPP_URL } from "@/constants/contact";
 import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
 import fitnessOsBackground from "@resources/img/hero/evo_man_bg.png";
+import ryzeIconBanner from "@resources/img/logo/ryze_icon2.png";
 import futureBackground from "@resources/img/hero/future_bg.png";
 import howItWorksBackground from "@resources/img/hero/how_bg.png";
 import joinBackground from "@resources/img/hero/join_bg.png";
@@ -508,9 +508,17 @@ export const OurVisionPage = () => (
         </div>
 
         <Reveal className={styles.evolutionBanner}>
-          <BrandMark size="navigation" className={styles.evolutionBannerMark} />
+          <img
+            className={styles.evolutionBannerMark}
+            src={ryzeIconBanner}
+            alt=""
+            aria-hidden="true"
+          />
           <div className={styles.evolutionBannerCopy}>
-            <h3>The Future of Fitness is Adaptive</h3>
+            <h3>
+              The Future of Fitness is{" "}
+              <span className={styles.accentPhrase}>Adaptive</span>
+            </h3>
             <p>We're building more than a platform - We're building the Future.</p>
           </div>
           <a className={styles.evolutionBannerCta} href="#vision-roadmap">

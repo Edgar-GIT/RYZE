@@ -932,41 +932,14 @@
   max-width: 24rem;
 }
 
-.evolutionItem::before {
-  position: absolute;
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px rgba(24, 216, 255, 0.9);
-}
-
-.evolutionItem::after {
-  position: absolute;
-  content: "";
-  border-top: 1px dashed rgba(24, 216, 255, 0.28);
-  width: 3rem;
-  top: 1.9rem;
-  opacity: 0.6;
-}
-
 .evolutionSide[data-side="left"] .evolutionItem::before {
   right: -1.3rem;
   top: 1.6rem;
 }
 
-.evolutionSide[data-side="left"] .evolutionItem::after {
-  right: -4.2rem;
-}
-
 .evolutionSide[data-side="right"] .evolutionItem::before {
   left: -1.3rem;
   top: 1.6rem;
-}
-
-.evolutionSide[data-side="right"] .evolutionItem::after {
-  left: -4.2rem;
 }
 
 .evolutionIcon {
@@ -1018,20 +991,25 @@
   width: 100%;
   margin-top: 2rem;
   padding: 1.75rem 2.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(42, 140, 255, 0.22);
   border-radius: 1.1rem;
   background:
-    linear-gradient(120deg, rgba(42, 140, 255, 0.16), transparent 55%),
-    rgba(8, 14, 24, 0.45);
-  box-shadow: 0 14px 40px rgba(5, 7, 11, 0.35);
-  backdrop-filter: blur(12px);
+    radial-gradient(120% 120% at 0% 0%, rgba(42, 140, 255, 0.14), transparent 55%),
+    linear-gradient(120deg, rgba(42, 140, 255, 0.12), transparent 55%),
+    rgba(6, 10, 18, 0.82);
+  box-shadow:
+    0 0 40px rgba(42, 140, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 44px rgba(5, 7, 11, 0.45);
+  backdrop-filter: blur(14px);
 }
 
 .evolutionBannerMark {
-  display: flex;
   justify-self: center;
-  width: 72px;
-  height: 72px;
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  object-position: center;
 }
 
 .evolutionBannerCopy {
@@ -1208,21 +1186,8 @@
     text-align: left;
   }
 
-  .evolutionSide[data-side="left"] .evolutionItem::before {
-    right: auto;
-    left: -1.15rem;
-  }
-
-  .evolutionSide[data-side="left"] .evolutionItem::after {
-    display: none;
-  }
-
   .evolutionSide[data-side="right"] .evolutionItem {
     flex-direction: row;
-  }
-
-  .evolutionSide[data-side="right"] .evolutionItem::after {
-    display: none;
   }
 
   .evolutionBanner {
