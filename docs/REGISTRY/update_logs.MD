@@ -1,3 +1,42 @@
+# Version 2.42.0
+
+Title: Revamp "Software is never finished." section on Our Vision
+
+Date: 2026-08-31
+
+Summary:
+
+Rebuilt the "Software is never finished." section on the Our Vision page
+around its existing background image, planet visual, and heading. The
+section now reads as a technology vision statement: a cyan eyebrow with a
+leading line ("Continuous evolution"), a two-line heading ("Software is" /
+accent-highlighted "never finished."), a supporting description, and a
+larger cyan-outlined "See what's next" CTA. Below, the six evolution items
+were split into two left/right columns (NEW AI CAPABILITIES,
+PERFORMANCE IMPROVEMENTS, BETTER PERSONALIZATION on the left; BETTER
+ANALYTICS, NEW TRAINER TOOLS, NEW INTEGRATIONS on the right) framing the
+centered planet, each item using an outlined cyan circular icon, white
+title, muted description, and subtle dashed connector + glowing node
+toward the planet. A full-width bottom banner was added featuring the RYZE
+navbar icon, a centered "The Future of Fitness is Adaptive" headline with
+supporting copy, and a large filled dark-purple "Join the Journey" button.
+Responsive behavior stacks the layout on tablet/mobile while keeping the
+planet visible.
+
+The background image (conti_bg.png) was restored to its committed version
+so the planet renders centered.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `main/src/resources/img/hero/conti_bg.png` (restored to committed version)
+
+Reason:
+
+Align the section's composition with the RYZE reference design: framed
+central planet, balanced feature lists, and a clear bottom CTA banner.
+
 # Version 2.41.0
 
 Title: Backend Step 53 — Payment Methods Completion Foundation

@@ -8,11 +8,9 @@ import {
   ChevronRight,
   Crosshair,
   Dumbbell,
-  Gauge,
   Globe2,
   Heart,
   Hexagon,
-  Layers3,
   Link2,
   MonitorSmartphone,
   Network,
@@ -27,6 +25,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
@@ -131,31 +130,34 @@ const roadmap = [
   { icon: Network, label: "Horizon", title: "Complete Fitness Ecosystem" }
 ] as const;
 
-const evolutionCards = [
+const leftEvolution = [
   {
     icon: Brain,
     title: "New AI capabilities",
     text: "Smarter models, deeper insights, endless potential."
   },
   {
-    icon: Gauge,
+    icon: Zap,
     title: "Performance improvements",
     text: "Faster, lighter, stronger. Built for what's next."
-  },
-  {
-    icon: Layers3,
-    title: "New trainer tools",
-    text: "Powerful tools to train smarter and scale faster."
   },
   {
     icon: User,
     title: "Better personalization",
     text: "Tailored experiences that adapt to you."
-  },
+  }
+] as const;
+
+const rightEvolution = [
   {
     icon: BarChart3,
     title: "Better analytics",
     text: "More data, clearer insights, smarter decisions."
+  },
+  {
+    icon: Dumbbell,
+    title: "New trainer tools",
+    text: "Powerful tools to train smarter and scale faster."
   },
   {
     icon: Link2,
@@ -442,35 +444,79 @@ export const OurVisionPage = () => (
 
       <Container className={styles.evolutionLayout}>
         <Reveal className={styles.evolutionIntro}>
-          <p className={styles.eyebrow}>Continuous evolution</p>
-          <h2>
-            Software is never finished<span className={styles.accentPhrase}>.</span>
-          </h2>
-          <p className={styles.sectionLead}>
-            RYZE keeps receiving new capability while the product stays one coherent system.
+          <p className={styles.evolutionEyebrow}>
+            <span className={styles.evolutionEyebrowLine} aria-hidden="true" />
+            Continuous evolution
           </p>
+          <h2>
+            <span className={styles.evolutionLine}>Software is</span>
+            <span className={`${styles.evolutionLine} ${styles.accentPhrase}`}>
+              never finished.
+            </span>
+          </h2>
+          <p className={styles.evolutionLead}>
+            RYZE keeps receiving new capabilities while the product stays one coherent system.
+          </p>
+          <a className={styles.evolutionCta} href="#vision-roadmap">
+            See what's next
+            <ArrowRight aria-hidden="true" />
+          </a>
         </Reveal>
 
-        <div className={styles.evolutionGrid}>
-          {evolutionCards.map((card, index) => {
-            const Icon = card.icon;
+        <div className={styles.evolutionSystem}>
+          <div className={styles.evolutionSide} data-side="left">
+            {leftEvolution.map((card, index) => {
+              const Icon = card.icon;
 
-            return (
-              <Reveal key={card.title} delay={index * 0.05}>
-                <article className={styles.evolutionCard}>
-                  <span className={styles.evolutionIcon}>
-                    <Icon aria-hidden="true" />
-                  </span>
-                  <div className={styles.evolutionCopy}>
-                    <h3>{card.title}</h3>
-                    <p>{card.text}</p>
-                  </div>
-                  <ChevronRight className={styles.evolutionChevron} aria-hidden="true" />
-                </article>
-              </Reveal>
-            );
-          })}
+              return (
+                <Reveal key={card.title} delay={index * 0.06}>
+                  <article className={styles.evolutionItem}>
+                    <span className={styles.evolutionIcon}>
+                      <Icon aria-hidden="true" strokeWidth={1.6} />
+                    </span>
+                    <div className={styles.evolutionCopy}>
+                      <h3>{card.title}</h3>
+                      <p>{card.text}</p>
+                    </div>
+                  </article>
+                </Reveal>
+              );
+            })}
+          </div>
+
+          <div className={styles.evolutionCenter} aria-hidden="true" />
+
+          <div className={styles.evolutionSide} data-side="right">
+            {rightEvolution.map((card, index) => {
+              const Icon = card.icon;
+
+              return (
+                <Reveal key={card.title} delay={index * 0.06}>
+                  <article className={styles.evolutionItem}>
+                    <span className={styles.evolutionIcon}>
+                      <Icon aria-hidden="true" strokeWidth={1.6} />
+                    </span>
+                    <div className={styles.evolutionCopy}>
+                      <h3>{card.title}</h3>
+                      <p>{card.text}</p>
+                    </div>
+                  </article>
+                </Reveal>
+              );
+            })}
+          </div>
         </div>
+
+        <Reveal className={styles.evolutionBanner}>
+          <BrandMark size="navigation" className={styles.evolutionBannerMark} />
+          <div className={styles.evolutionBannerCopy}>
+            <h3>The Future of Fitness is Adaptive</h3>
+            <p>We're building more than a platform - We're building the Future.</p>
+          </div>
+          <a className={styles.evolutionBannerCta} href="#vision-roadmap">
+            Join the Journey
+          </a>
+        </Reveal>
       </Container>
     </section>
 
