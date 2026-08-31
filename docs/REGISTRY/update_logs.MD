@@ -26,6 +26,16 @@ planet visible.
 The background image (conti_bg.png) was restored to its committed version
 so the planet renders centered.
 
+The final closing banner is a premium cinematic CTA: a wide, compact
+container with a very dark navy gradient background, subtle blue/cyan
+ambient glows and a thin low-opacity cyan border. It holds the circular
+RYZE icon (ryze_icon2.png) on the left inside a thin cyan ring with a soft
+glow, a left-aligned editorial title ("The Future of Fitness is Adaptive."
+with "Adaptive." in the RYZE cyan accent) above a light-gray subtitle, and
+a filled cyan-gradient "JOIN THE JOURNEY" button on the right with a subtle
+glow and smooth hover lift. Layout balances generous negative space and
+stacks elegantly on mobile without dropping content.
+
 Files modified:
 
 - `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx`
