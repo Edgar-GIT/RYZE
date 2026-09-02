@@ -1,3 +1,77 @@
+# Version 2.44.0
+
+Title: Revamp Services page header and feature panel
+
+Date: 2026-09-02
+
+Summary:
+
+Revamped the top section of the Services (/services) page. The heading
+changed from "Available RYZE program categories." to "Choose how you want
+to RYZE" with "RYZE" using the accent gradient, kept on a single line. The
+three highlight badges to the right of the heading (Built by experts,
+Instant access, Always evolving) were removed, simplifying the header to a
+single-column intro block. The bottom trust row (Secure & private,
+Satisfaction guarantee, Support 24/7) was replaced by a four-item evolution
+panel: Train Smarter (Dumbbell icon), Reach your Goals (Heart icon),
+Progress Faster (Zap icon), Get Stronger (Trophy icon), each with a short
+descriptive phrase. The panel reuses the navbar visual language (glass dark
+gradient background, thin cyan border, rounded 1.15rem radius, cyan glow,
+backdrop blur) with the icon beside the title and vertical cyan gradient
+dividers between items. Responsive: 2x2 grid on tablet (with a horizontal
+separator row) and stacked on mobile.
+
+Files modified:
+
+- `main/src/frontend/src/pages/services_page/services_page.tsx`
+- `main/src/frontend/src/pages/services_page/services_page.module.css`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+Simplify the services page header and replace generic trust badges with
+feature-focused evolution items that communicate the platform's value
+proposition more directly.
+
+# Version 2.43.0
+
+Title: System Evolution HUD for the continuous-evolution section
+
+Date: 2026-09-02
+
+Summary:
+
+Added a small, compact "System Evolution" progress HUD floating in the
+upper-right area of the "Software is never finished." section on the Our
+Vision page. The element sits above the section background via absolute
+positioning and is purely decorative (`pointer-events: none`,
+`aria-hidden`). The HUD contains a header row ("SYSTEM EVOLUTION" left,
+"● LIVE" right) and three progress rows: AI CAPABILITIES (54%),
+FUNCTIONALITIES (30%), INTEGRATIONS (41%). Each row has a label, a thin
+segmented progress bar (cyan repeating-linear-gradient segments masked to
+the active width with a subtle neon glow), and a right-aligned percentage
+value. The panel uses a very dark translucent background
+(`rgba(3,6,12,0.92)`) with thin cyan border, larger border-radius
+(0.85rem), deep layered box-shadows, small corner accent marks, and a
+slight glass blur so the starfield remains visible behind it. Monospace font
+keeps the diagnostic/terminal feel. Responsive: scales down at 1100px,
+hidden entirely at 960px.
+
+New files:
+
+- `main/src/frontend/src/components/system_evolution_hud/system_evolution_hud.tsx`
+- `main/src/frontend/src/components/system_evolution_hud/system_evolution_hud.module.css`
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.tsx` (import + mount)
+
+Reason:
+
+Add a supporting futuristic visual element that reinforces the "constantly
+evolving platform" message of the section without distracting from the
+planet or existing content.
+
 # Version 2.42.1
 
 Title: Composition revamp of the "Software is never finished." section

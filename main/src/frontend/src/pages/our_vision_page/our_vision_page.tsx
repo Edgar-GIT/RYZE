@@ -28,6 +28,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { SystemEvolutionHud } from "@/components/system_evolution_hud/system_evolution_hud";
 import { CONTACT_WHATSAPP_URL } from "@/constants/contact";
 import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
 import fitnessOsBackground from "@resources/img/hero/evo_man_bg.png";
@@ -441,6 +442,8 @@ export const OurVisionPage = () => (
         alt=""
         aria-hidden="true"
       />
+
+      <SystemEvolutionHud />
 
       <Container className={styles.evolutionLayout}>
         <Reveal className={styles.evolutionIntro}>

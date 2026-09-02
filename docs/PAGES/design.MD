@@ -423,11 +423,12 @@ Displays every available product offered by the platform.
 Catalog landing
 
 - Full-bleed `bg_services.png` background
-- Eyebrow “Catalog”, headline with accent on “categories.”
-- Three highlight points: Built by experts / Instant access / Always evolving
+- Eyebrow "Catalog", headline "Choose how you want to RYZE" with accent on "RYZE"
+- Four evolution items in a glass panel with vertical dividers: Train Smarter
+  (Dumbbell), Reach your Goals (Heart), Progress Faster (Zap), Get Stronger
+  (Trophy), each with a short descriptive phrase
 - Three modern glass program cards (shared `ServiceCard`) with independent logos
   (`logo_card1.png`, `logo_card2.png`, `logo_card3.png`)
-- Bottom trust row: Secure & private / Satisfaction guarantee / Support 24/7
 
 Each card contains:
 
