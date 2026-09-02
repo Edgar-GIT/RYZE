@@ -554,9 +554,15 @@ Sections:
 4. Our vision — full-bleed `future_bg.png` background with two-column
    roadmap: left intro with phase tags (Today / Next / Soon / Later /
    Horizon), right vertical timeline with numbered milestone cards.
-5. Continuous evolution — full-bleed `conti_bg.png` background with left
-   intro and a 2×3 grid of glowing capability cards (icon well, title,
-   description, chevron).
+5. Continuous evolution — full-bleed `conti_bg.png` background (large
+   centered planet). Left intro: eyebrow ("Continuous evolution"), two-line
+   headline with accent on "never finished.", one-line lead and a cyan-outline
+   "See what's next" CTA. Around the planet, three left feature items and
+   three right feature items (icon ring + title + description) frame the
+   planet across its vertical span, connected by a faint radial nebula glow
+   and thin connector stubs. Bottom: an integrated glass CTA panel with the
+   RYZE icon, "The Future of Fitness is Adaptive" headline and a filled cyan
+   "Join the Journey" button.
 6. Join the movement — full-bleed `join_bg.png` background. Fully centered
    composition on the central vertical axis: eyebrow ("The journey
    continues"), two-line headline with accent on "join us now.", short

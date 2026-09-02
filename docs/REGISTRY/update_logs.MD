@@ -1,3 +1,47 @@
+# Version 2.42.1
+
+Title: Composition revamp of the "Software is never finished." section
+
+Date: 2026-09-02
+
+Summary:
+
+Refined the composition, spacing and hierarchy of the continuous-evolution
+section on the Our Vision page. No content, heading, planet background image
+or section purpose was changed. The top padding was reduced so the eyebrow
+starts closer to the section boundary and the intro gap was tightened; the
+eyebrow/heading/lead/CTA spacing now follows an ordered hierarchy with the
+heading as the dominant element. The six feature items now surround the
+planet: each side column is a flex column stretched across the planet's
+vertical span with `space-between`, so the top feature aligns with the
+planet's upper area, the middle feature with its center and the bottom
+feature with its lower area (true responsive "orbit" framing of the
+baked-in planet, no fixed pixel offsets). A faint radial cyan nebula glow
+was added behind the planet and a thin, low-opacity 1px connector stub
+fades from the middle feature of each side toward the planet to bind the
+features to the planet. Feature items were refined (tighter icon-to-copy
+alignment, slightly larger icon ring, stronger title weight, more compact
+descriptions). The bottom CTA panel was restyled as an integrated glass
+panel -- much closer to the planet (its oversized top margin was removed),
+more translucent, thinner cyan border, subtler inner glow, smaller radius,
+refined 112px icon ring and a tighter gap between icon/copy/CTA. Dead
+connector selectors and the previous right-column hack transform were
+removed. Responsive behavior at 1100px/960px was updated so the stacked
+mobile layout no longer spreads the features.
+
+Files modified:
+
+- `main/src/frontend/src/pages/our_vision_page/our_vision_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+Bring the section closer to the intended reference composition: the planet
+as the central visual anchor with the six features naturally framing/orbiting
+it, tighter vertical rhythm from eyebrow to bottom panel, and a less heavy,
+better-integrated bottom CTA panel.
+
 # Version 2.42.0
 
 Title: Revamp "Software is never finished." section on Our Vision
