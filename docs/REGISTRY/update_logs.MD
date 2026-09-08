@@ -15,11 +15,16 @@ single-column intro block. The bottom trust row (Secure & private,
 Satisfaction guarantee, Support 24/7) was replaced by a four-item evolution
 panel: Train Smarter (Dumbbell icon), Reach your Goals (Heart icon),
 Progress Faster (Zap icon), Get Stronger (Trophy icon), each with a short
-descriptive phrase. The panel reuses the navbar visual language (glass dark
-gradient background, thin cyan border, rounded 1.15rem radius, cyan glow,
-backdrop blur) with the icon beside the title and vertical cyan gradient
-dividers between items. Responsive: 2x2 grid on tablet (with a horizontal
-separator row) and stacked on mobile.
+descriptive phrase. The panel reuses the Our Vision "Join the movement"
+feature-panel visual language: dark translucent glass (`rgba(6,10,18,0.72)`),
+thin white border, cyan inner/outer glow, backdrop blur, and unboxed icons
+(accent-colored with a glow drop-shadow instead of a filled square). The 4
+column layout, vertical dividers and rectangular container are kept, with
+more compact content. The "Catalog" eyebrow was removed and the intro
+heading/lead are centered, plus a hover animation on the features (subtle
+background tint, glow, icon lift) and slightly larger icon/text sizes.
+Responsive: 2x2 grid on tablet (with a horizontal separator row) and
+stacked on mobile.
 
 Files modified:
 

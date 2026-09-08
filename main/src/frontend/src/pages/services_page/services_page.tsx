@@ -44,7 +44,6 @@ export const ServicesPage = () => (
 
       <Container className={styles.catalogInner}>
         <Reveal className={styles.intro}>
-          <p className={styles.eyebrow}>Catalog</p>
           <h1>
             Choose how you want to <span className={styles.accent}>RYZE</span>
           </h1>
