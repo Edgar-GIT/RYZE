@@ -70,7 +70,7 @@
   padding: 0.5rem 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 1rem;
-  background: rgba(6, 10, 18, 0.72);
+  background: rgba(6, 10, 18, 0.85);
   box-shadow:
     0 0 0 1px rgba(24, 216, 255, 0.04) inset,
     0 0 32px rgba(24, 216, 255, 0.1),
@@ -88,20 +88,6 @@
   padding: 0.6rem 1rem;
   text-align: left;
   min-width: 0;
-  transition:
-    background 220ms ease,
-    border-color 220ms ease,
-    transform 220ms ease,
-    box-shadow 220ms ease;
-}
-
-.evolutionItem:hover {
-  background: rgba(24, 216, 255, 0.05);
-  box-shadow: 0 0 24px rgba(24, 216, 255, 0.12);
-}
-
-.evolutionItem:hover .evolutionIcon {
-  transform: translateY(-2px);
 }
 
 .evolutionIcon {
@@ -111,12 +97,11 @@
   height: 2.6rem;
   flex-shrink: 0;
   color: var(--accent);
-  transition: transform 220ms ease;
 }
 
 .evolutionIcon svg {
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 2rem;
+  height: 2rem;
   filter: drop-shadow(0 0 8px rgba(24, 216, 255, 0.5));
 }
 
@@ -228,12 +213,5 @@
 
   .evolutionItem + .evolutionItem {
     border-top: 1px solid rgba(24, 216, 255, 0.1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .evolutionItem:hover,
-  .evolutionItem:hover .evolutionIcon {
-    transform: none;
   }
 }
