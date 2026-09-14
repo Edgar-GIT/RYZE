@@ -799,6 +799,14 @@ Important public UI building blocks currently include:
 - hero / showcase sections / product demos
 - service cards / CTA band / contact experience
 - glass panels and shared primitives
+- generic training plans marketplace: search bar (displays total catalog count),
+  filter sidebar, program rows, program cards and bidirectional carousel arrows
+  (page at `/services/generic-program`); features an independently scrollable +
+  collapsible desktop filter rail (also reused as the mobile filter drawer) and
+  a static page-based 3-card carousel per row with direction-aware slide
+  animation (old cards slide out, new slide in; arrows vertically centered
+  against the card column; no horizontal scrollable track; cards swapped via
+  array slice on a page index; back arrow allows returning to previous pages)
 
 Frontend tooling files live at the repository root:
 

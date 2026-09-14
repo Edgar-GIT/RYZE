@@ -7,7 +7,7 @@ import styles from "./container.module.css";
 interface ContainerProps {
   children: ReactNode;
   className?: string;
-  size?: "default" | "narrow";
+  size?: "default" | "narrow" | "wide";
 }
 
 export const Container = ({

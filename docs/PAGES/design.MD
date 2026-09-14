@@ -451,13 +451,132 @@ the homepage programs preview.
 
 ### Free
 
-Displays generic training packs.
+Leads into the Generic Training Plans Marketplace (see below) — the searchable,
+filterable catalog of free/generic training plans.
 
-Includes:
+### Generic Training Plans Marketplace
 
-- Search
-- Filters
-- Four-column responsive grid
+Reached from the free program CTA on the Services area
+(`/services/generic-program`). A product-like, Lyfta-inspired browsing
+experience built on the RYZE dark/cyan identity — not a promotional landing
+page. The existing navbar is untouched; all marketplace content starts below it.
+
+Layout hierarchy:
+
+```
+NAVBAR
+SEARCH (sticky)                          128 programs
+TITLE + SUBTITLE
+FILTER RESULTS COUNT (when filters active)
+
+[FILTERS]  TRAINING PLANS
+ (left)     Find a program built around your goals, schedule and experience.
+
+            Most Popular
+            ← [ CARD ][ CARD ][ CARD ] →
+               (click arrow → smooth fade-in, next group of 3)
+
+            ← [ CARD ][ CARD ][ CARD ] →
+               (click arrow → next group of 3)
+
+            Trending This Week
+            ← [ CARD ][ CARD ][ CARD ] →
+            ...
+            End of list
+            ───── You have seen all 128 training programs ─────
+```
+
+- **Search bar** — sticky pill under the navbar. Stronger at the top of the
+  page (more opaque, subtle cyan border + soft RYZE glow); becomes
+  translucent/subtle after scrolling so it blends into the page. Contains a
+  search icon (placeholder "Search training plans..."), a total catalog count
+  at the right side (e.g. "128 programs", hidden on mobile) and a `Filters`
+  button on mobile only.
+- **Page heading** — sits outside the filter/content grid, immediately above the
+  layout. Displays "Training plans" as a confident heading with a muted
+  supporting line beneath it. A small filter-results indicator
+  ("0 results for your filters — N filters active") appears inline below the
+  heading whenever any filters are selected; it disappears when all filters are
+  cleared. This keeps the heading visually separated from the first row with
+  enough breathing room.
+- **Filter sidebar (desktop)** — compact vertical filter panel, sticky beneath
+  the navbar/search area, with its own independent vertical scroll
+  (`max-height` capped to the viewport below the search bar, wheel scroll stays
+  inside the panel and does not drag the whole page). Plain square checkboxes
+  that fill in RYZE cyan when selected. Groups: Training Type (Hypertrophy,
+  Strength, HYROX, CrossFit, Fat Loss, At Home), Training Frequency
+  (1–7 days / week), Level (Beginner, Intermediate, Advanced), Plan Duration
+  (1–2 / 3–4 / 5–8 / 9–12 weeks). A small "Clear all" pill at the bottom resets
+  the selection. Typography is small and compact (uppercase muted group
+  headings, thin dividers); no boxes around option rows.
+- **Collapsible desktop filters** — the sidebar has two states. EXPANDED shows
+  the "Filters" title, a collapse control and all filter groups. COLLAPSED
+  reduces it to a slim vertical "Filters" control (rotated label + icon) that
+  re-expands on click. The program area grows to fill the freed space, and the
+  grid column transitions smoothly. On tablet widths the sidebar starts
+  collapsed by default; on mobile it is replaced by the drawer.
+- **Program area** — vertical list of `ProgramRow` sections flowing naturally
+  beneath the page heading and filter-results indicator. Each row is
+  independently stateful. After the last row, an end-of-catalog footer displays
+  a divider and a small centered line ("You have seen all N training programs")
+  so users know the full catalog has been reached.
+- **Program rows** — static page-based carousels. Each row shows EXACTLY three
+  large cards side by side with a circular arrow centered vertically on each
+  side (← back, forward →). Cards are NOT scrollable: no horizontal track, no
+  drag, no `scrollBy`. Browsing works purely by page index — each row keeps its
+  own `currentPage` state, and arrows swap the visible set via `slice`. The CSS
+  grid is `grid-template-columns: auto 1fr auto` where the left/right arrow
+  columns are `auto` with `align-self: center` (arrows vertically centered
+  against the card column), and the center card column is `1fr` containing
+  three equal slots in a sub-grid (`repeat(3, minmax(0, 1fr))`). When the page
+  changes, a direction-aware slide animation plays: the current cards slide out
+  (forward → exit left, back → exit right), then the new set slides in from
+  the opposite edge. This two-phase animation uses four CSS keyframes
+  (`slideInForward`, `slideOutForward`, `slideInBack`, `slideOutBack`) at 400ms
+  eased, giving a literal swipe effect. Both arrows are disabled at the
+  boundaries (back at page 0, forward at the last page). Each row is
+  independent: advancing "Most Popular" never moves any other row. Rows: Most
+  Popular, Trending This Week, New & Noteworthy (discovery), then category
+  rows: Build Strength, Build Muscle, Fat Loss, Train at Home, Performance &
+  Conditioning. Row title is large and confident, with an optional small muted
+  supporting line for discovery rows.
+- **Program cards** — large portrait covers (4:5 image area) that visually
+  dominate the page: dark placeholder with a subtle centered RYZE logo and
+  faint cyan lighting until real imagery exists, program title below
+  (prominent, readable), then a muted metadata row ([download] 0 downloads ·
+  [heart] 0/5). No prices, no CTAs, no badges. Hover: gentle lift, subtle image
+  scale, brighter border and faint cyan shadow — restrained, not glowy. Cards
+  are sized purely by the CSS grid (no JavaScript measurement); all cards in a
+  row share an equal height.
+- **No horizontal overflow** — the page must NEVER scroll horizontally. Card
+  columns use `minmax(0, 1fr)`, there is no scrollable track and no fixed card
+  width; `overflow-x: clip` is applied defensively at the application level
+  (`body`, `#root`) and on the marketplace section, but the layout itself
+  genuinely fits the container.
+- **Vertical flow** — the page flows naturally from navbar → search → header →
+  rows → footer, all in normal document flow. The marketplace section has no
+  forced viewport height, so the document ends exactly after the footer with no
+  empty scroll space below it.
+- **Infinity scroll concept** — the marketplace is structured as endless
+  vertical page scrolling; no numbered pagination and no load-more button.
+- **Background** — near-black with very subtle radial blue glows at the top
+  corners. Deliberately less noisy than the homepage.
+- **Responsive** — desktop: three large cards per row with arrows on both sides,
+  vertically centered against the card column, beside the sticky, scrollable,
+  collapsible filter rail in the wide (1500px) program area. Tablet: sidebar
+  starts collapsed so three large cards are preserved. Mobile: "Filters" button
+  opens the existing slide-in drawer; a single large card at a time is shown
+  next to the forward arrow so covers never become tiny; the carousel mechanism
+  (button-controlled page swap with direction-aware slide animation) is
+  identical at every breakpoint and the page never scrolls horizontally. All
+  respects `prefers-reduced-motion`.
+
+Components: `SearchBar`, `FilterSidebar`, `ProgramRow`, `ProgramCard`,
+`CarouselArrow` under `components/`, data in `constants/marketplace.ts`.
+The marketplace uses the shared `Container` in its `wide` sizing.
+
+Non-goals for this stage: real search/filter execution, purchases, payment,
+pricing, program detail pages, reviews or social features.
 
 ---
 

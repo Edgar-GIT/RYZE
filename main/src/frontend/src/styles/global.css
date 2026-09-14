@@ -89,12 +89,14 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  overflow-x: clip;
   color: var(--text-primary);
   background: var(--bg-primary);
 }
 
 #root {
   min-height: 100vh;
+  overflow-x: clip;
   isolation: isolate;
 }
 

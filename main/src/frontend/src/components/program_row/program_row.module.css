@@ -1,0 +1,148 @@
+.row {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.15rem, 1.5vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.description {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.87rem;
+  line-height: 1.5;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.grid > button {
+  align-self: center;
+}
+
+.cards {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cardRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.slideEnterForward {
+  animation: slideInForward 400ms ease both;
+}
+
+.slideExitForward {
+  animation: slideOutForward 400ms ease both;
+}
+
+.slideEnterBack {
+  animation: slideInBack 400ms ease both;
+}
+
+.slideExitBack {
+  animation: slideOutBack 400ms ease both;
+}
+
+@keyframes slideInForward {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutForward {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+}
+
+@keyframes slideInBack {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutBack {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
+.slot {
+  min-width: 0;
+  display: flex;
+  align-self: stretch;
+}
+
+.placeholder {
+  align-self: flex-start;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-md);
+  background: rgba(16, 24, 38, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardRow {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .grid {
+    gap: 0.55rem;
+  }
+
+  .cardRow {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .slot:not(:first-child) {
+    display: none;
+  }
+}

@@ -1,0 +1,126 @@
+.search {
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 0px) + 4.9rem);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.6rem 0.55rem 1rem;
+  border: 1px solid rgba(24, 216, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(13, 20, 31, 0.85);
+  box-shadow:
+    0 12px 36px rgba(5, 7, 11, 0.34),
+    0 0 24px rgba(24, 216, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition:
+    background 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease;
+}
+
+.searchScrolled {
+  border-color: rgba(24, 216, 255, 0.1);
+  background: rgba(9, 14, 22, 0.5);
+  box-shadow:
+    0 6px 22px rgba(5, 7, 11, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.search:focus-within {
+  border-color: rgba(24, 216, 255, 0.4);
+  box-shadow:
+    0 0 0 3px rgba(24, 216, 255, 0.08),
+    0 0 26px rgba(24, 216, 255, 0.16),
+    0 10px 32px rgba(5, 7, 11, 0.32);
+}
+
+.field {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  background: transparent;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.filtersButton {
+  display: none;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    background 200ms ease;
+}
+
+.filtersButton svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.filtersButton:hover {
+  color: var(--text-primary);
+  border-color: rgba(24, 216, 255, 0.4);
+  background: rgba(24, 216, 255, 0.08);
+}
+
+.actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.totalCount {
+  display: inline-flex;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 560px) {
+  .totalCount {
+    display: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .filtersButton {
+    display: inline-flex;
+  }
+}

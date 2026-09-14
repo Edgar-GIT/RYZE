@@ -1,0 +1,37 @@
+.arrow {
+  display: grid;
+  flex: 0 0 auto;
+  width: 3.15rem;
+  height: 3.15rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(16, 24, 38, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition:
+    color 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.arrow:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: rgba(24, 216, 255, 0.45);
+  background: rgba(24, 216, 255, 0.08);
+  box-shadow: 0 0 18px rgba(24, 216, 255, 0.16);
+}
+
+.arrow svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.disabled {
+  color: var(--text-disabled);
+  opacity: 0.4;
+  cursor: default;
+}

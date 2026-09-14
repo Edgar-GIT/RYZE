@@ -3,6 +3,7 @@ import { Redirect, Route, Switch, useLocation } from "react-router-dom";
 
 import { ContactPage } from "@/pages/contact_page/contact_page";
 import { FeedbackPage } from "@/pages/feedback_page/feedback_page";
+import { GenericPlanMarketplacePage } from "@/pages/generic_plan_marketplace_page/generic_plan_marketplace_page";
 import { HomePage } from "@/pages/home_page/home_page";
 import { LoginPage } from "@/pages/login_page/login_page";
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
@@ -19,6 +20,7 @@ export const AppRoutes = () => {
       <Switch location={location} key={location.pathname}>
         <Route exact path="/" component={HomePage} />
         <Route exact path="/services" component={ServicesPage} />
+        <Route exact path="/services/generic-program" component={GenericPlanMarketplacePage} />
         <Route
           path="/services/:serviceSlug"
           render={() => (

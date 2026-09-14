@@ -10,3 +10,7 @@
 .narrow {
   --container-width: 880px;
 }
+
+.wide {
+  --container-width: 1500px;
+}

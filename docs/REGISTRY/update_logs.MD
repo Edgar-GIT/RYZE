@@ -1,3 +1,324 @@
+# Version 2.50.0
+
+Title: Marketplace carousel — true slide animation and vertically centered
+arrows
+
+Date: 2026-09-14
+
+Summary:
+
+Follow-up polish to the Generic Training Plans Marketplace carousel. The
+animation is now a direction-aware slide (old cards slide out, new cards slide
+in — literally like a swipe) replacing the previous crossfade. Arrow buttons
+are now vertically centered against the card column instead of anchoring to the
+top corner.
+
+Main changes:
+
+- **Vertically centered arrows** — `.grid > button { align-self: center }` so
+  the circular arrow buttons are centered against the card column rather than
+  anchoring to the top of the (full-height) grid row. The `.cards` column still
+  stretches to drive row height; the arrows center within their cells.
+- **Two-phase slide animation** — on page change, `ProgramRow` enters a two-phase
+  cycle: (1) EXIT: the current cards slide out with a 400ms ease animation
+  (forward → slides left off-screen, back → slides right); (2) ENTER: the page
+  state updates, new cards slide in from the opposite edge. Four CSS keyframes:
+  `slideInForward`, `slideOutForward`, `slideInBack`, `slideOutBack`. The
+  `.cards` container uses `overflow: hidden` to clip the sliding content. After
+  both phases complete, the component returns to `idle`.
+- **Direction state** — `ProgramRow` tracks both `direction` ("forward" | "back")
+  and `phase` ("idle" | "exit" | "enter") to select the correct keyframe pair.
+  Rapid clicks are safe: `travel()` clears all pending timers before starting
+  a new cycle.
+- **prefers-reduced-motion** — all slide animations are disabled; cards swap
+  instantly.
+- Removed the previous `cardFadeIn` crossfade animation and `cardRowVisible`
+  class.
+
+Files modified:
+
+- `main/src/frontend/src/components/program_row/program_row.tsx`
+- `main/src/frontend/src/components/program_row/program_row.module.css`
+- `docs/PAGES/design.MD`
+
+Architectural notes:
+
+- The two-phase animation pattern (exit → swap → enter) ensures the old cards
+  are visible during their exit animation and the new cards are visible during
+  their enter animation. The swap happens exactly at the boundary between
+  phases.
+- All timer management is centralized in `travel()` to handle rapid or
+  interrupted navigation cleanly.
+
+---
+
+# Version 2.49.0
+
+Title: Marketplace polish — back arrow, crossfade animation, catalog footer,
+filter-results indicator, title spacing
+
+Date: 2026-09-14
+
+Summary:
+
+Visual and interaction improvements to the Generic Training Plans Marketplace
+based on user feedback. The carousel now supports bidirectional navigation with
+smooth page-swap animation, the title is properly spaced above the rows, an
+end-of-catalog message shows the total program count, and active filters surface
+a results indicator below the heading.
+
+Main changes:
+
+- **Back arrow**: `CarouselArrow` now accepts a `direction` prop (`"back"` |
+  `"forward"`, default `"forward"`). Renders `ChevronLeft` or `ChevronRight`
+  accordingly. `ProgramRow` renders both a back and forward arrow; the back
+  arrow is disabled on page 0.
+- **Crossfade animation**: when the page index changes, the card container
+  plays a CSS `cardFadeIn` keyframe (420ms ease, 0→1 opacity, 6px upward slide)
+  on the new set of cards. `prefers-reduced-motion` disables the animation.
+  A `requestAnimationFrame` double-raf ensures the animation triggers on every
+  page change.
+- **Grid layout for arrows**: `ProgramRow` uses
+  `grid-template-columns: auto 1fr auto` — left arrow, card container, right
+  arrow. The card container holds three equal slots in
+  `repeat(3, minmax(0, 1fr))`. On mobile (≤560px) the grid collapses to
+  `1fr` and only the first slot is visible.
+- **Title repositioned above the grid**: the "Training plans" heading and
+  supporting subtitle are now placed in a `.contentArea` section between the
+  search bar and the layout grid, giving the heading proper breathing room
+  before the first program row.
+- **Filter-results indicator**: a small inline badge ("0 results for your
+  filters — N filters active") appears below the heading whenever any filters
+  are selected. Hidden when all filters are cleared.
+- **Total program count in search bar**: `SearchBar` accepts an optional
+  `totalPrograms` prop; when provided, it displays the count (e.g. "128
+  programs") at the right side of the pill, hidden on mobile (≤560px).
+- **End-of-catalog footer**: after the last `ProgramRow`, a subtle divider and
+  centered text ("You have seen all N training programs") signals the full
+  catalog has been reached.
+
+Files modified:
+
+- `main/src/frontend/src/components/carousel_arrow/carousel_arrow.tsx`
+- `main/src/frontend/src/components/program_row/program_row.tsx`
+- `main/src/frontend/src/components/program_row/program_row.module.css`
+- `main/src/frontend/src/components/search_bar/search_bar.tsx`
+- `main/src/frontend/src/components/search_bar/search_bar.module.css`
+- `main/src/frontend/src/pages/generic_plan_marketplace_page/generic_plan_marketplace_page.tsx`
+- `main/src/frontend/src/pages/generic_plan_marketplace_page/generic_plan_marketplace_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+
+---
+
+# Version 2.48.0
+
+Title: Marketplace carousel rewrite — static page-based 3-card rows, no
+horizontal overflow, stable vertical layout
+
+Date: 2026-09-14
+
+Summary:
+
+Complete rewrite of the Generic Training Plans Marketplace carousel from a
+scroll-track model (horizontal `overflow-x: auto`, `ResizeObserver` card
+sizing, `scrollBy`) to a simple page-based 3-card grid. All layout bugs
+reported in the previous implementation are resolved.
+
+Main changes:
+
+- The carousel is now a static CSS grid (`grid-template-columns:
+  repeat(3, minmax(0, 1fr)) auto`). No horizontal scroll track, no drag
+  scrolling, no native/sub-container horizontal scrolling, no JavaScript
+  measurement. Each row keeps an independent `currentPage` state; clicking the
+  right arrow replaces the three visible cards with the next three programs
+  (`slice`). The arrow is disabled once there are no more programs.
+- On small screens the grid collapses to show one card + arrow (remaining
+  card slots hidden via CSS `display: none`); the carousel mechanism is
+  identical at every breakpoint and the page never scrolls horizontally.
+- Defensive `overflow-x: clip` added to `body`, `#root`, the marketplace
+  `.marketplace` section and each `.row` to prevent any accidental horizontal
+  scroll. The layout itself genuinely fits the container.
+- Removed `min-height: 100vh` from the marketplace section so the page ends
+  naturally after the footer with no empty scroll area below it.
+- Cards are equal-height (`.slot { display: flex; align-self: stretch }`,
+  `.card { height: 100% }`); the arrow is vertically centered beside the
+  third card (`.arrowSlot { align-self: center }`).
+- Added `height: 100%` to `ProgramCard` for consistent equal card heights
+  within each row.
+- Slots for programs that do not exist (e.g. final page with <3 remaining)
+  render a subtle empty placeholder that preserves the 3-column layout.
+
+Files modified:
+
+- `main/src/frontend/src/components/program_row/program_row.tsx`
+- `main/src/frontend/src/components/program_row/program_row.module.css`
+- `main/src/frontend/src/components/program_card/program_card.module.css`
+- `main/src/frontend/src/pages/generic_plan_marketplace_page/generic_plan_marketplace_page.module.css`
+- `main/src/frontend/src/styles/global.css`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+
+Architectural notes:
+
+- `ProgramRow` no longer uses `ResizeObserver`, `scrollBy`, `scrollLeft` or
+  any horizontal scrolling primitives. The carousel is a pure React state
+  change swapping visible data in a fixed 3-column CSS grid.
+- `Container`'s `wide` size (1500px) is retained so the three large cards
+  dominate the marketplace content area.
+
+Reason:
+
+The scroll-track carousel introduced layout instability, horizontal overflow
+into the document, missing cards and a floating footer. The simple page-based
+model eliminates all these issues, requires no JavaScript measurement or
+scroll observation, and produces a stable, predictable marketplace where the
+cards are always visible and the page never scrolls horizontally.
+
+# Version 2.47.0
+
+Title: Marketplace visual revamp — large cards, collapsible + independently
+scrollable filters, Lyfta-inspired RYZE browsing
+
+Date: 2026-09-14
+
+Summary:
+
+Substantial visual/layout refinement of the Generic Training Plans Marketplace
+(`/services/generic-program`) modeled on a premium Lyfta-style browsing
+experience, adapted to RYZE's dark/cyan identity. No backend logic, real
+program imagery or marketplace data added; routing, navbar, data structure and
+all existing functionality (sticky search, filter state, checkboxes, clear
+filters, mobile drawer, three-card carousel, arrow advancing by three, disabled
+arrow at the end) are preserved.
+
+Main changes:
+
+- Program cards are now large portrait covers (4:5 image area) placed tight
+  together (0.75rem gap) so three cards dominate the row; title below is more
+  prominent, metadata stays muted (0 downloads / 0/5). Placeholder art
+  (RYZE logo + faint cyan lighting) kept. Restrained hover instead of glowy.
+- Marketplace uses the shared `Container` in a new `wide` sizing (1500px) so
+  the program area holds three large cards; card width is measured from the
+  row viewport via ResizeObserver (replaces window-resize-only measurement) and
+  includes a minimum card width so covers stay large on small screens.
+- Filter sidebar is now a compact sticky panel beneath the search bar with its
+  OWN independent vertical scroll (max-height capped to the viewport,
+  overscroll contained), cleaner hierarchy (uppercase muted group headings,
+  tighter spacing, thinner dividers), and a "Clear all" pill at the bottom.
+- Desktop filter rail is collapsible: EXPANDED shows Filters + groups,
+  COLLAPSED becomes a slim vertical "Filters" control; the program area expands
+  to fill the space with a smooth grid-column transition. On tablet widths the
+  sidebar starts collapsed by default; on mobile the existing drawer is kept
+  (drawer header is now fixed and the filter list scrolls within the drawer).
+- Search bar more integrated: stronger opaque presence + subtle cyan border/glow
+  at the top of the page, becoming translucent on scroll.
+- Tighter header/rows spacing so the first "Most Popular" row appears quickly;
+  header ("Training plans") reduced in size; larger, confident row titles.
+- Responsive: 3 large cards per row on desktop/tablet (sidebar collapsed where
+  needed), full-width program area + drawer on mobile, minimum card cover size
+  respected, `prefers-reduced-motion` honored throughout.
+
+Files added:
+
+- `main/src/frontend/src/components/carousel_arrow/carousel_arrow.module.css` (existing component restyled)
+
+Files modified:
+
+- `main/src/frontend/src/components/container/container.tsx`
+- `main/src/frontend/src/components/container/container.module.css`
+- `main/src/frontend/src/components/program_card/program_card.tsx` (unchanged logic)
+- `main/src/frontend/src/components/program_card/program_card.module.css`
+- `main/src/frontend/src/components/program_row/program_row.tsx`
+- `main/src/frontend/src/components/program_row/program_row.module.css`
+- `main/src/frontend/src/components/search_bar/search_bar.module.css`
+- `main/src/frontend/src/components/filter_sidebar/filter_sidebar.tsx`
+- `main/src/frontend/src/components/filter_sidebar/filter_sidebar.module.css`
+- `main/src/frontend/src/pages/generic_plan_marketplace_page/generic_plan_marketplace_page.tsx`
+- `main/src/frontend/src/pages/generic_plan_marketplace_page/generic_plan_marketplace_page.module.css`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+
+Architectural notes:
+
+- `Container` gained a `size="wide"` variant (1500px) used by the marketplace.
+- `ProgramRow` sizing is driven by ResizeObserver on the row viewport so cards
+  reflow when the desktop filter rail collapses/expands.
+- `FilterSidebar` no longer renders its own header; the "Filters" heading and
+  collapse control live at the container level (desktop panel / mobile drawer).
+
+Reason:
+
+The initial marketplace UI read as a sparse dashboard prototype. This revamp
+makes the program cards the dominant element, gives filters a proper
+marketplace behavior (independently scrollable, minimizable) and composes the
+page so it reads as a real training-program marketplace, while keeping the
+architecture ready for search/filter/purchase wiring later.
+
+# Version 2.46.0
+
+Title: First visual version of the RYZE Generic Training Plans Marketplace
+
+Date: 2026-09-09
+
+Summary:
+
+Added the first visual implementation of the Generic Training Plans
+Marketplace at `/services/generic-program` (reached from the free program CTA
+on the Services area). The experience follows a marketplace browsing pattern
+search on top, filter column on the left, and horizontally grouped rows of
+program cards on the right while staying within RYZE's existing dark/cyan
+visual language. The navbar is unchanged; marketplace content starts below it.
+
+Structure established:
+
+- Sticky search pill ("Search training plans...") that is stronger at the top
+  of the page and becomes subtler while scrolling, plus a Filters button on
+  mobile.
+- Sticky filter sidebar with simple square checkboxes (cyan when checked) in
+  four groups: Training Type, Training Frequency, Level, Plan Duration, plus a
+  "Clear all" action. No backend filtering yet, only visual/UI state.
+- Understated "Training plans" intro heading and muted supporting line.
+- Horizontal program rows showing exactly three program cards per view, each
+  with a carousel arrow placed after the third card that advances by three and
+  disables at the end. Rows: Most Popular, Trending This Week, New & Noteworthy,
+  Build Strength, Build Muscle, Fat Loss, Train at Home, Performance &
+  Conditioning.
+- Simple program cards: portrait placeholder image (dark surface, subtle RYZE
+  logo and faint cyan lighting), title, muted metadata (0 downloads / 0/5).
+  No prices, badges or CTAs.
+- Endless vertical browsing structure (no pagination / load-more).
+- Responsive: sidebar becomes a slide-in drawer on tablet/mobile; three-card
+  carousel is preserved on small screens.
+
+Files added:
+
+- `main/src/frontend/src/pages/generic_plan_marketplace_page/generic_plan_marketplace_page.tsx`
+- `main/src/frontend/src/pages/generic_plan_marketplace_page/generic_plan_marketplace_page.module.css`
+- `main/src/frontend/src/components/search_bar/search_bar.tsx`
+- `main/src/frontend/src/components/search_bar/search_bar.module.css`
+- `main/src/frontend/src/components/filter_sidebar/filter_sidebar.tsx`
+- `main/src/frontend/src/components/filter_sidebar/filter_sidebar.module.css`
+- `main/src/frontend/src/components/program_row/program_row.tsx`
+- `main/src/frontend/src/components/program_row/program_row.module.css`
+- `main/src/frontend/src/components/program_card/program_card.tsx`
+- `main/src/frontend/src/components/program_card/program_card.module.css`
+- `main/src/frontend/src/components/carousel_arrow/carousel_arrow.tsx`
+- `main/src/frontend/src/components/carousel_arrow/carousel_arrow.module.css`
+- `main/src/frontend/src/constants/marketplace.ts`
+
+Files modified:
+
+- `main/src/frontend/src/routes/app_routes.tsx`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+
+Reason:
+
+Establish the visual/structural foundation of the free training program
+marketplace so search, filtering, purchase and program-detail functionality
+can be connected later without another UI reshape.
+
 # Version 2.45.0
 
 Title: Revamp service cards into image-backed media cards
