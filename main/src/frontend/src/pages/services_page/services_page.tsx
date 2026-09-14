@@ -54,10 +54,8 @@ export const ServicesPage = () => (
         </Reveal>
 
         <div className={styles.grid}>
-          {SERVICE_PROGRAMS.map((service, index) => (
-            <Reveal key={service.title} delay={0.1 + index * 0.08}>
-              <ServiceCard service={service} />
-            </Reveal>
+          {SERVICE_PROGRAMS.map((service) => (
+            <ServiceCard key={service.title} service={service} />
           ))}
         </div>
 

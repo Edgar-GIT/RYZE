@@ -1,3 +1,41 @@
+# Version 2.45.0
+
+Title: Revamp service cards into image-backed media cards
+
+Date: 2026-09-09
+
+Summary:
+
+Revamped the shared `ServiceCard` component. All internal content was removed
+(logo, title, description, feature checklist); the cards now only show the
+highlight badge and the price + CTA footer, exactly as before. The card
+background became a full-bleed program image (`rcc1.png`, `rcc2.png`,
+`rcc3.png` in order) covered by a dark gradient overlay for readability. The
+featured Premium Level 1 card keeps its stronger cyan glow, is taller than the
+others (different aspect ratio, grids aligned center so it stands out), and
+gains a floating "Most Popular" mini rectangle above its top edge. The badge
+pills ("Base program", "Train & Nutrition", "Coach reviewed") were removed from
+all cards. Cards on
+`/services` now animate in with a staggered fade-up on page load (CSS keyframes
+on the grid children, disabled under prefer-reduced-motion). The home page
+preview uses the same revamped cards.
+
+Files modified:
+
+- `main/src/frontend/src/components/service_card/service_card.tsx`
+- `main/src/frontend/src/components/service_card/service_card.module.css`
+- `main/src/frontend/src/constants/services.ts`
+- `main/src/frontend/src/pages/services_page/services_page.tsx`
+- `main/src/frontend/src/pages/services_page/services_page.module.css`
+- `main/src/frontend/src/pages/home_page/home_page.module.css`
+- `docs/PAGES/design.MD`
+
+Reason:
+
+Move the program cards away from information-dense glass panels toward a
+visual, image-led presentation while keeping the same ordering, highlights and
+CTAs — aligning with the media-forward direction of the product.
+
 # Version 2.44.0
 
 Title: Revamp Services page header and feature panel

@@ -1,4 +1,4 @@
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import type { ServiceProgram } from "@/constants/services";
@@ -12,33 +12,15 @@ interface ServiceCardProps {
 
 export const ServiceCard = ({ service }: ServiceCardProps) => (
   <article className={joinClassNames(styles.card, service.featured && styles.featured)}>
-    <header className={styles.header}>
-      <img
-        className={styles.logo}
-        src={service.logoSrc}
-        alt={service.logoAlt}
-        loading="lazy"
-      />
+    <img
+      className={styles.background}
+      src={service.imageSrc}
+      alt=""
+      aria-hidden="true"
+    />
+    <span className={styles.overlay} aria-hidden="true" />
 
-      <div className={styles.copy}>
-        <span className={joinClassNames(styles.badge, service.featured && styles.badgeFeatured)}>
-          {service.badge}
-        </span>
-        <h3>{service.title}</h3>
-        <p>{service.description}</p>
-      </div>
-    </header>
-
-    <ul className={styles.features} aria-label={`${service.title} features`}>
-      {service.features.map((feature) => (
-        <li key={feature}>
-          <span className={styles.check}>
-            <Check aria-hidden="true" strokeWidth={2.6} />
-          </span>
-          <span>{feature}</span>
-        </li>
-      ))}
-    </ul>
+    {service.featured && <span className={styles.mostPopular}>Most Popular</span>}
 
     <div className={styles.footer}>
       <p className={styles.price}>{service.price}</p>

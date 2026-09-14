@@ -217,8 +217,12 @@ Secondary
 
 ## Service cards
 
-- Compact glass panels with logo mark, badge, feature list and full-width CTA
-- Featured program uses solid cyan badge + primary CTA
+- Rectangular image-backed cards using `rcc1.png`, `rcc2.png`, `rcc3.png` as
+  full-bleed backgrounds, covered by a readable dark gradient overlay
+- Content is minimal: compact right-aligned price above a full-width CTA
+- Featured program (`Premium Level 1`) is taller (different aspect ratio),
+  keeps the stronger cyan glow, and shows a floating "Most Popular" mini
+  rectangle above the top edge
 - Hover: lift + cyan border glow
 - Same card language on homepage preview and `/services`
 
@@ -423,20 +427,22 @@ Displays every available product offered by the platform.
 Catalog landing
 
 - Full-bleed `bg_services.png` background
-- Eyebrow "Catalog", headline "Choose how you want to RYZE" with accent on "RYZE"
+- Headline "Choose how you want to RYZE" with accent on "RYZE"
 - Four evolution items in a glass panel with vertical dividers: Train Smarter
   (Dumbbell), Reach your Goals (Heart), Progress Faster (Zap), Get Stronger
   (Trophy), each with a short descriptive phrase
-- Three modern glass program cards (shared `ServiceCard`) with independent logos
-  (`logo_card1.png`, `logo_card2.png`, `logo_card3.png`)
+- Three image-backed program cards (shared `ServiceCard`) using `rcc1.png`,
+  `rcc2.png`, `rcc3.png` as backgrounds in order, each animating in with a
+  staggered fade-up on page load
 
 Each card contains:
 
-- Large floating program logo on the left (`logo_card1`–`3`), not boxed
-- Badge, title and description to the right of the logo
-- Three feature bullets with cyan circular checks
+- Full-bleed program background image (`rcc1`–`rcc3`) with a dark gradient
+  overlay for readability
 - Compact right-aligned price above the CTA
 - Call To Action (primary on featured Premium Level 1, outline on others)
+- Featured Premium Level 1 card is taller, glows stronger and carries a
+  floating "Most Popular" tag above its top edge
 
 Each product redirects to its own page.
 

@@ -1,60 +1,37 @@
-import logoCardOne from "@resources/img/program_cards/logo_card1.png";
-import logoCardTwo from "@resources/img/program_cards/logo_card2.png";
-import logoCardThree from "@resources/img/program_cards/logo_card3.png";
+import rccImageOne from "@resources/img/program_cards/rcc1.png";
+import rccImageTwo from "@resources/img/program_cards/rcc2.png";
+import rccImageThree from "@resources/img/program_cards/rcc3.png";
 
 export interface ServiceProgram {
   title: string;
-  description: string;
   price: string;
   ctaLabel: string;
   to: string;
-  logoSrc: string;
-  logoAlt: string;
-  badge: string;
-  features: string[];
+  imageSrc: string;
   featured?: boolean;
 }
 
 export const SERVICE_PROGRAMS: ServiceProgram[] = [
   {
     title: "Generic Program",
-    description:
-      "Ready-to-use training packs. No questionnaire, no waiting — start training today.",
     price: "FREE",
     ctaLabel: "Start now for FREE",
     to: "/services/generic-program",
-    logoSrc: logoCardOne,
-    logoAlt: "RYZE Generic Program logo",
-    badge: "Base program",
-    features: ["Ready-made workouts", "Exercise guidance", "Instant Access"]
+    imageSrc: rccImageOne
   },
   {
     title: "Premium Level 1",
-    description:
-      "A guided program with a personalized training pack and automatically assigned nutrition program.",
     price: "14,49€",
     ctaLabel: "Get my program",
     to: "/services/premium-level-1",
-    logoSrc: logoCardTwo,
-    logoAlt: "RYZE Premium Level 1 logo",
-    badge: "Train & Nutrition",
-    features: [
-      "Program built around your goal",
-      "Nutrition matched to your training",
-      "Immediate delivery"
-    ],
+    imageSrc: rccImageTwo,
     featured: true
   },
   {
     title: "Premium Level 2",
-    description:
-      "Your training and nutrition program prepared and reviewed by a real coach. Exclusive to your needs.",
     price: "19,49€",
     ctaLabel: "Start now with a Coach",
     to: "/services/premium-level-2",
-    logoSrc: logoCardThree,
-    logoAlt: "RYZE Premium Level 2 logo",
-    badge: "Coach reviewed",
-    features: ["Trainer reviewed", "Every detail accounted for", "Ongoing adjustments"]
+    imageSrc: rccImageThree
   }
 ];
