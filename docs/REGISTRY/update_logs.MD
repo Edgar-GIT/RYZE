@@ -1,3 +1,61 @@
+# Version 2.51.0
+
+Title: Marketplace search — live dropdown with debounced query, filter-aware
+result count
+
+Date: 2026-09-14
+
+Summary:
+
+The search bar now behaves like a real catalog search. Typing opens a live
+dropdown below the pill listing matching programs (plan name, downloads, star
+rating) or a "No results found" row. The result count in the pill reflects the
+active filters. Because no program records exist in the database (the
+marketplace renders placeholders), queries currently always resolve empty — the
+component is fully wired and will return matches once the backend endpoint is
+available.
+
+Main changes:
+
+- **`services/program_search.ts`** — new frontend service exposing the
+  `ProgramSearchResult` contract (`{ id, title, downloads, rating }`) and a
+  `searchPrograms(query)` resolver. It currently returns an empty list with a
+  documented reason (no program records exist yet). It is the single seam where
+  the backend search endpoint will be wired (via `@utils/http_client`) once it
+  exists.
+- **Live search dropdown** — `SearchBar` now holds query state and runs a
+  debounced (220ms) search while typing. The dropdown panel renders below the
+  pill with a "Searching..." row while pending, one row per match (plan title +
+  download count + star rating) when there are results, or a single
+  "No results found" row when the query matches nothing. The dropdown closes on
+  outside click, on Escape, and when the input is cleared.
+- **Filter-aware count** — the pill count now reflects the selected filters.
+  The marketplace page passes `totalPrograms={0}` when any filter is active
+  (the placeholder pipeline yields zero results) and the full catalog total
+  otherwise. Count is pluralized ("1 program" / "N programs").
+- **Accessibility** — dropdown uses `aria-live="polite"`, outside-click and
+  Escape handling, and existing `aria-label` on the input.
+
+Files modified:
+
+- `main/src/frontend/src/services/program_search.ts` (new)
+- `main/src/frontend/src/components/search_bar/search_bar.tsx`
+- `main/src/frontend/src/components/search_bar/search_bar.module.css`
+- `main/src/frontend/src/pages/generic_plan_marketplace_page/generic_plan_marketplace_page.tsx`
+- `docs/PAGES/design.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+
+Architectural notes:
+
+- Search stays UI-only: no computed matching on the placeholder cards. The
+  resolver contract is stable so the backend can populate it without touching
+  the component.
+- Debounce + request lifecycle are intentionally simple (single pending query);
+  a cancellation/abort mechanism should be added together with the real
+  endpoint if the API becomes slow.
+
+---
+
 # Version 2.50.0
 
 Title: Marketplace carousel — true slide animation and vertically centered

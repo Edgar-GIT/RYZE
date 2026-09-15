@@ -32,6 +32,8 @@ export const GenericPlanMarketplacePage = () => {
     0
   );
 
+  const resultCount = activeFilterCount > 0 ? 0 : TOTAL_PROGRAMS;
+
   const toggleFilter = (groupId: string, option: string) => {
     setSelected((prev) => {
       const current = prev[groupId] ?? [];
@@ -50,7 +52,7 @@ export const GenericPlanMarketplacePage = () => {
         <Container size="wide" className={styles.container}>
           <SearchBar
             onFiltersClick={() => setFiltersOpen((open) => !open)}
-            totalPrograms={TOTAL_PROGRAMS}
+            totalPrograms={resultCount}
           />
 
           <div className={styles.contentArea}>

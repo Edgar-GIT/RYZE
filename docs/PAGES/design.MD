@@ -489,9 +489,20 @@ FILTER RESULTS COUNT (when filters active)
 - **Search bar** — sticky pill under the navbar. Stronger at the top of the
   page (more opaque, subtle cyan border + soft RYZE glow); becomes
   translucent/subtle after scrolling so it blends into the page. Contains a
-  search icon (placeholder "Search training plans..."), a total catalog count
-  at the right side (e.g. "128 programs", hidden on mobile) and a `Filters`
-  button on mobile only.
+  search icon (placeholder "Search training plans..."), a results count at the
+  right side reflecting the current filter state (e.g. "128 programs" with no
+  filters, "0 programs" when a filter is active, hidden on mobile) and a
+  `Filters` button on mobile only.
+- **Live program search** — while the user types, a debounced query (220ms)
+  resolves against `services/program_search.ts` and renders a dropdown panel
+  below the pill. Each result row shows the plan name plus a small metadata
+  line (downloads count and star rating). When the query matches nothing, a
+  single "No results found" row is shown; while a query is pending, a
+  "Searching..." row is shown. The dropdown closes on outside click or Escape
+  and when the input is cleared. The backend search endpoint does not exist
+  yet and no real program records exist (the marketplace renders placeholders),
+  so every query currently resolves empty — the component is fully wired and
+  will start returning matches once the API is available.
 - **Page heading** — sits outside the filter/content grid, immediately above the
   layout. Displays "Training plans" as a confident heading with a muted
   supporting line beneath it. A small filter-results indicator
@@ -572,10 +583,11 @@ FILTER RESULTS COUNT (when filters active)
   respects `prefers-reduced-motion`.
 
 Components: `SearchBar`, `FilterSidebar`, `ProgramRow`, `ProgramCard`,
-`CarouselArrow` under `components/`, data in `constants/marketplace.ts`.
+`CarouselArrow` under `components/`, the search resolver in
+`services/program_search.ts`, data in `constants/marketplace.ts`.
 The marketplace uses the shared `Container` in its `wide` sizing.
 
-Non-goals for this stage: real search/filter execution, purchases, payment,
+Non-goals for this stage: backend search/filter execution, purchases, payment,
 pricing, program detail pages, reviews or social features.
 
 ---
