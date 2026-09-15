@@ -53,27 +53,3 @@
   color: var(--color-accent-300);
   text-shadow: 0 0 12px rgba(24, 216, 255, 0.6);
 }
-
-.success {
-  display: grid;
-  gap: 1.25rem;
-  justify-items: center;
-  text-align: center;
-}
-
-.successIcon {
-  display: grid;
-  width: 56px;
-  height: 56px;
-  place-items: center;
-  border: 1px solid rgba(24, 216, 255, 0.35);
-  border-radius: 50%;
-  color: var(--color-accent-300);
-  background: rgba(24, 216, 255, 0.08);
-  box-shadow: 0 0 24px rgba(24, 216, 255, 0.18);
-}
-
-.successIcon svg {
-  width: 26px;
-  height: 26px;
-}

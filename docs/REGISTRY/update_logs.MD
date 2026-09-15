@@ -1,3 +1,235 @@
+# Version 2.54.0
+
+Title: Management Administrator console (ADMIN_2) — business administration
+
+Date: 2026-09-15
+
+Summary:
+
+Introduced the Management Administrator console under `/admin2`. A dedicated
+shell (`Admin2Layout` + `Admin2SessionProvider`) implements the business-facing
+administration with real backend data where the API exists and honest
+unavailable states where it does not. The admin login now resolves the role and
+routes each administrator to their own console.
+
+Main changes:
+
+**Frontend (React + Vite)**
+
+- **`services/admin2_api.ts`** — single adapter for ADMIN_2 business calls:
+  marketplace programs (`GET /programs`, type filter), program detail and
+  pricing (`GET/PATCH /admin/programs/:id[/pricing]`), exercise catalog
+  (`GET /exercises`, `/exercises/search`), trainer commission
+  (resolve/update/delete). Purchase and feedback lists resolve through typed
+  fetchers that report the data as unavailable — the backend has no admin
+  sales/feedback endpoints yet, so nothing is fabricated.
+- **`utils/http_client.ts`** — added `apiDelete` for the admin commission
+  removal call.
+- **ADMIN_2 shell** — `Admin2Layout` (sidebar, brand pill, role badge,
+  grouped navigation, sign-out, mobile drawer, role guard with a restricted
+  screen) and `Admin2SessionProvider`. Unauthenticated or expired sessions
+  redirect to `/admin/login`.
+- **Login flow** — after the second factor the page calls `GET /admin/auth/me`
+  and redirects `MANAGEMENT_ADMINISTRATOR` to `/admin2/dashboard` and
+  `TECHNICAL_ADMINISTRATOR` to `/admin/dashboard`.
+- **Routing** — new `/admin2` route tree in `app_routes.tsx` placed before
+  `/admin`; inner routes cover dashboard, plans, the Plan creation workspace,
+  marketplace, trainers, clients, sales, analytics, feedback and settings.
+  Public chrome stays hidden because `isAdminRoute` matches every `/admin*`
+  path.
+- **Plans management** — marketplace programs with type tabs (All / Free /
+  Premium / Personalized) and an inline pricing editor (free locked at €0.00,
+  paid floor €1.00, patched to `PATCH /admin/programs/:id/pricing`).
+- **Plan creation workspace** (`/admin2/plans/create`) — dedicated 4-step
+  wizard to build a Generic Plan: basic info, program structure (weeks/days
+  from the real entity model, 12-week cap, exercise catalog picker), a live
+  RYZE marketplace-style card preview, and review with unsaved-changes guard
+  (`history.block` + `beforeunload`). Publishing honestly reports the missing
+  program-creation API instead of pretending to save.
+- **Marketplace page** — public published catalog with grouped filter chips
+  and a curated-curation notice.
+- **Trainers (business)** — trainer profiles with a commission manager
+  (resolve current commission, apply a per-trainer override, remove it;
+  expressed in basis points, default 2000, max 10000).
+- **Clients page** — paginated member accounts (read-only analytics view).
+- **Sales / Feedback** — honest unavailable states explaining the missing
+  backend capability.
+- **Analytics** — real aggregates (clients, trainers, published programs,
+  product mix, average paid price) plus a reserved chart placeholder for
+  purchase/revenue analytics.
+- **Settings** — read-only commercial configuration (currency EUR, pricing
+  floor, default commission 20%, cap 100%).
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+- Live backend checks confirm authorization separation: ADMIN_1 receives 403
+  on `/admin/programs/:id/pricing`, program detail and commission endpoints;
+  ADMIN_2 succeeds (commission override round-trip verified against the live
+  database).
+
+**Documentation**
+
+- `docs/INSTRUCTIONS/arquitecture.MD` — Admin Console section now describes
+  the two route shells, their services layers and honest-stub fetchers.
+- `docs/PAGES/design.MD` — Admin Console section lists the `/admin2` routes,
+  the per-role login redirect and the implemented ADMIN_2 pages.
+
+---
+
+# Version 2.53.0
+
+Title: Administrator console — auth endpoints + complete admin shell
+
+Date: 2026-09-15
+
+Summary:
+
+Introduced the full Technical Administrator console. The backend provides two
+new endpoints to support the admin shell identity resolution and clean logout,
+and the frontend implements a dedicated `/admin` layout with role-based
+navigation, real data pages for Users/Trainers/Trainer Applications and a
+dashboard with live platform totals.
+
+Main changes:
+
+**Backend (Go)**
+
+- **`GET /api/v1/admin/auth/me`** — returns `{ id, role }` for the
+  authenticated administrator, used by the frontend guard on mount. Implemented
+  in `api/auth/admin_me_handler_test.go`.
+- **`POST /api/v1/admin/auth/logout`** — clears both admin cookies
+  (`ryze_admin_access_token`, `ryze_admin_stage_token`) intentionally without
+  requiring an active session so expired sessions can still end cleanly.
+  Registered on the public `v1` group (no admin middleware).
+- **Tests** — new handler tests in `api/auth/admin_me_handler_test.go`:
+  `TestAdminMeWithoutSessionRejected`, `TestAdminMeIdentityAndRole`,
+  `TestAdminMeRejectsUserToken`, `TestAdminLogoutClearsSessionCookies`,
+  `TestAdminLogoutClearsSessionCookiesInsecureLocalHTTP`,
+  `TestAdminLogoutResponseNeverExposesSecrets`. All pass; full auth suite
+  pre-existing failures remain unchanged.
+- **`routes/routes.go`** — `/admin/auth/logout` wired without
+  `AdminAuthenticate`; `/admin/auth/me` wired inside the admin group after
+  `AdminAuthenticate`.
+
+**Frontend (React + Vite)**
+
+- **`AdminLayout`** — sidebar shell with brand pill, role badge, grouped
+  navigation, sign-out, and responsive mobile drawer. Resolves admin identity
+  on mount via `GET /api/v1/admin/auth/me` and redirects unauthenticated
+  visitors to `/admin/login`. Provided `AdminSessionContext` for downstream
+  pages.
+- **`AdminNavigation`** — navigation groups shared by both administrator
+  roles; the Technical nav group renders only when `role ===
+  TECHNICAL_ADMINISTRATOR`.
+- **`AdminDashboardPage`** — real totals (users, trainers, pending trainer
+  applications) via `Promise.allSettled`, system overview card, recent activity
+  placeholder.
+- **`AdminUsersPage`** — active/deleted tabs, client-side page search,
+  create/edit/reset-password modals, disable/reactivate actions, pagination.
+- **`AdminTrainersPage`** — active/deleted tabs, status badges,
+  disable/reactivate actions, pagination.
+- **`AdminTrainerApplicationsPage`** — status filter tabs (All/Pending/
+  Approved/Rejected), approve/reject actions for pending entries.
+- **Placeholder pages** — System & Infrastructure, Technical Configuration,
+  Development, Audit Log, ready for future implementation.
+- **`services/admin_api.ts`** — typed admin types, list helpers, create/update/
+  disable/reactivate/password reset adapters, role formatting and shared
+  constants.
+- **`http_client`** — added `apiPatch<T>` to support admin PATCH calls.
+- **`app.tsx` / `app_routes.tsx`** — `/admin` excluded from public chrome;
+  admin routes rendered in a dedicated inner Switch with login outside the
+  shell and all other pages inside it.
+- **`admin_login_page.tsx`** — success step now redirects to
+  `/admin/dashboard`; unused previous-step code removed.
+- Typecheck and Vite build pass clean; no public pages affected.
+
+Files modified/added:
+
+Backend:
+- `api/auth/admin_me_handler.go` (new)
+- `api/auth/admin_me_handler_test.go` (new)
+- `api/auth/admin_logout_handler.go` (new)
+- `routes/routes.go`
+
+Frontend:
+- `services/admin_api.ts` (new)
+- `utils/http_client.ts`
+- `app.tsx`
+- `routes/app_routes.tsx`
+- `components/admin/admin_layout/admin_layout.tsx` + `.module.css` (new)
+- `components/admin/admin_navigation.ts` (new)
+- `components/admin/admin_session_context.ts` (new)
+- `components/admin/admin_placeholder/admin_placeholder.tsx` + `.module.css` (new)
+- `pages/admin/admin_dashboard_page/admin_dashboard_page.tsx` + `.module.css` (new)
+- `pages/admin/admin_users_page/admin_users_page.tsx` + `.module.css` (new)
+- `pages/admin/admin_trainers_page/admin_trainers_page.tsx` + `.module.css` (new)
+- `pages/admin/admin_trainer_applications_page/admin_trainer_applications_page.tsx` + `.module.css` (new)
+- `pages/admin/admin_system_page/admin_system_page.tsx` (new)
+- `pages/admin/admin_configuration_page/admin_configuration_page.tsx` (new)
+- `pages/admin/admin_development_page/admin_development_page.tsx` (new)
+- `pages/admin/admin_audit_page/admin_audit_page.tsx` (new)
+- `pages/admin_login_page/admin_login_page.tsx`
+- `pages/admin_login_page/admin_login_page.module.css`
+
+Docs:
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/PAGES/design.MD`
+
+Architectural notes:
+
+- The admin session guard is intentionally lightweight: one HTTP call on mount,
+  loading screen while pending, redirect on failure. Session expiry during
+  active use is handled by the individual page API calls returning 401.
+- The logout endpoint is registered outside the admin middleware so an expired
+  session can still log out cleanly — this is a deliberate design decision,
+  not a security exception.
+- No Zustand is used for admin state; the `AdminSessionContext` in
+  `AdminLayout` is sufficient and keeps the console dependency-free.
+
+---
+
+# Version 2.52.0
+
+Title: Local test account — seeded regular user + documented credentials
+
+Date: 2026-09-15
+
+Summary:
+
+Added a regular test user account for local development and documented the
+local test credentials so any developer can log in without guessing. The
+account is a normal `users` row created through the public registration
+endpoint (`POST /api/v1/auth/register`), not an admin or a seeded resource.
+
+Main changes:
+
+- **Test user created**: `teste1@gmail.com` / `test1` registered in the local
+  `ryze` database (name "Teste Um"). Verified end-to-end against the running
+  backend (`POST /api/v1/auth/login` returns success).
+- **`.env`** — added `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` documenting the
+  local regular test account (file is git ignored).
+- **`.env.example`** — added the same variables as template placeholders.
+- **`docs/how_to_run.MD`** — new "Local Test Accounts" section covering the
+  regular user (credentials, how to recreate it via curl after a DB reset) and
+  clarifying that administrators are configuration-only accounts in `.env`.
+
+Files modified:
+
+- `.env`
+- `.env.example`
+- `docs/how_to_run.MD`
+
+Architectural notes:
+
+- The test user is intentionally NOT seeded by migrations or a startup script:
+  registration is the single source of truth for user creation, so the seed
+  stays reproducible through an existing API call and no new helper code was
+  added.
+
+---
+
 # Version 2.51.0
 
 Title: Marketplace search — live dropdown with debounced query, filter-aware

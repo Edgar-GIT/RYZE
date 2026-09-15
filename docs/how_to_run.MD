@@ -314,6 +314,37 @@ ADMIN_2_ACCESS_CODE=...
 The access code is a secret: generate it locally and never commit a real
 value. Changing the values in `.env` takes effect on the next server restart.
 
+## Local Test Accounts
+
+Local development credentials for test accounts live in the repository `.env`
+file (git ignored).
+
+### Regular user
+
+A normal user account for exercising the product flows. The credentials are
+defined in `.env` under `TEST_USER_EMAIL` / `TEST_USER_PASSWORD`. Current local
+development values:
+
+- Email: `teste1@gmail.com`
+- Password: `test1`
+
+The account is not seeded by migrations — it is created through the public
+registration endpoint. After a database reset, recreate it with the same
+endpoint (or simply register it again in the frontend):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"teste1@gmail.com","password":"test1","first_name":"Teste","last_name":"Um"}'
+```
+
+### Administrator accounts
+
+Platform administrators are configuration-only accounts defined entirely in
+`.env` (`ADMIN_1_*` / `ADMIN_2_*`): username, password and access code. There
+is no registration endpoint; the values only take effect after a backend
+restart. See "Admin Authentication Configuration" above.
+
 ## Stripe Checkout Provider (Optional)
 
 The payment system supports Stripe Checkout Sessions as the first real payment

@@ -60,6 +60,42 @@ Users can install the website as a desktop or mobile application.
 
 No native mobile application is planned for the initial release.
 
+### Admin Console (Frontend)
+
+The administrator console shares the same React + Vite application and lives
+under two route trees: `/admin` for Technical Administrators (ADMIN_1) and
+`/admin2` for Management Administrators (ADMIN_2). Public-facing navigation
+(Navbar and Footer) is hidden on every path whose prefix starts with `/admin`,
+which covers both consoles.
+
+Core pieces:
+
+- **Route shells** — `AdminLayout` (ADMIN_1) and `Admin2Layout` (ADMIN_2) are
+  dedicated sidebar layouts. Each resolves the admin identity once on mount via
+  `GET /api/v1/admin/auth/me`, exposes it through its session provider
+  (`AdminSessionContext` / `Admin2SessionProvider`), and renders an
+  authenticated-only layout. Unauthenticated or expired sessions are
+  redirected to `/admin/login`.
+- **Login flow** — the existing two-stage admin authentication is used; on
+  success the page resolves the authenticated role and redirects
+  `TECHNICAL_ADMINISTRATOR` to `/admin/dashboard` and
+  `MANAGEMENT_ADMINISTRATOR` to `/admin2/dashboard`.
+- **Services layer** — `services/admin_api.ts` adapts all ADMIN_1 calls and
+  `services/admin2_api.ts` adapts all ADMIN_2 calls. All admin requests go
+  through the same `http_client` utilities (`apiGet`, `apiPost`, `apiPatch`,
+  `apiDelete`) with `credentials: "include"`, so cookie handling and envelope
+  parsing stay consistent with the rest of the application. Business features
+  without a backend contract (sales, feedback) resolve through dedicated
+  fetchers that report the data as unavailable instead of fabricating records.
+- **Role-based navigation** — each navigation tree is statically defined
+  (`components/admin/admin_navigation.ts` and
+  `components/admin2/admin2_navigation.ts`). The layouts render each group and
+  entry conditioned on the server-provided role; only the sections granted to
+  that role appear.
+- **Shared design tokens** — the admin consoles use the same global CSS
+  variables as every other page. No admin-specific design language is
+  introduced.
+
 ---
 
 ## Backend

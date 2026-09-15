@@ -1667,6 +1667,44 @@ cookie validated as an `admin`-kind token carrying a configured admin identity
 (`ADMIN_1`/`ADMIN_2`). Stage tokens, user tokens and any invalid token are
 rejected with HTTP 401 `AUTHENTICATION_REQUIRED`.
 
+```
+GET /api/v1/admin/auth/me
+```
+
+Returns the identity of the authenticated administrator, used by the admin
+console to resolve which sections to display. Requires the
+`ryze_admin_access_token` cookie.
+
+Response `data`:
+
+```json
+{
+  "id": "ADMIN_1",
+  "role": "TECHNICAL_ADMINISTRATOR"
+}
+```
+
+`id` is the configured administrator identity (`ADMIN_1`/`ADMIN_2`); `role` is
+the mapped role (`TECHNICAL_ADMINISTRATOR` for ADMIN_1,
+`MANAGEMENT_ADMINISTRATOR` for ADMIN_2). The role is derived server-side from
+the identity; the client must never interpret the id itself. A missing,
+invalid or expired admin cookie returns HTTP 401 `AUTHENTICATION_REQUIRED`.
+User tokens and stage tokens are rejected. No secrets are ever returned.
+
+Authenticated endpoint (admin session required).
+
+```
+POST /api/v1/admin/auth/logout
+```
+
+Ends the current administrator session. Clears both admin cookies
+(`ryze_admin_access_token` and `ryze_admin_stage_token`) and returns HTTP 200
+with an empty `data` object. It intentionally does NOT require an active admin
+session: an expired or already-ended session can still log out cleanly. A user
+session (the `ryze_access_token` cookie) is never affected.
+
+Public endpoint.
+
 ---
 
 ## Register

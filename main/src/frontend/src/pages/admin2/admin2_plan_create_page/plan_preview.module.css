@@ -1,0 +1,87 @@
+.card {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.cover {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-color);
+  background:
+    radial-gradient(circle at 50% 36%, rgba(24, 216, 255, 0.12), transparent 58%),
+    radial-gradient(circle at 50% 112%, rgba(16, 87, 115, 0.4), transparent 62%),
+    #05070b;
+}
+
+.logo {
+  width: 28%;
+  max-width: 100px;
+  opacity: 0.45;
+}
+
+.body {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(0.92rem, 1.2vw, 1.05rem);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.titlePlaceholder {
+  color: var(--text-muted);
+}
+
+.description {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.descPlaceholder {
+  color: var(--text-muted);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.7rem 1rem 0.9rem;
+  border-top: var(--border);
+}
+
+.stat {
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-hover);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

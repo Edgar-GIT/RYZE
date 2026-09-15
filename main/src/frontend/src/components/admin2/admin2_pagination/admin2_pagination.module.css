@@ -1,0 +1,27 @@
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1.15rem;
+  border-top: var(--border);
+}
+
+.info {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pageIndicator {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}

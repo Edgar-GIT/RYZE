@@ -57,6 +57,40 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return handleResponse<T>(response);
 }
 
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  let response: Response;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    response = res;
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "Unable to reach the server.");
+  }
+
+  return handleResponse<T>(response);
+}
+
+export async function apiDelete<T>(path: string): Promise<T> {
+  let response: Response;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method: "DELETE",
+      credentials: "include"
+    });
+    response = res;
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "Unable to reach the server.");
+  }
+
+  return handleResponse<T>(response);
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
   const envelope = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
 

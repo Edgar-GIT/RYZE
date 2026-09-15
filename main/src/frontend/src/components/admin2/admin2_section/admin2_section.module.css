@@ -1,0 +1,51 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.15rem;
+  border-bottom: var(--border);
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0.4rem;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}

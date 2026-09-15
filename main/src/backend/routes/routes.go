@@ -64,6 +64,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	meHandler := auth.NewMeHandler(userRepository)
 	logoutHandler := auth.NewLogoutHandler(jwtCfg.CookieSecure)
 
+	adminMeHandler := auth.NewAdminMeHandler()
+	adminLogoutHandler := auth.NewAdminLogoutHandler(jwtCfg.CookieSecure)
+
 	changePasswordService := change_password.NewChangePasswordService(userRepository, password.Verifier{}, password.Hasher{})
 	changePasswordHandler := auth.NewChangePasswordHandler(changePasswordService, jwtCfg.CookieSecure)
 
@@ -147,6 +150,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/auth/logout", logoutHandler.Logout)
 	v1.POST("/admin/auth/login", adminLoginHandler.Login)
 	v1.POST("/admin/auth/verify", adminLoginHandler.Verify)
+	v1.POST("/admin/auth/logout", adminLogoutHandler.Logout)
 	v1.GET("/exercises", exercisesHandler.ListExercises)
 	v1.GET("/exercises/search", exercisesHandler.SearchExercises)
 	v1.GET("/exercises/:exerciseID", exercisesHandler.GetExercise)
@@ -200,6 +204,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))
+	admin.GET("/auth/me", adminMeHandler.GetMe)
 
 	adminRead := admin.Group("")
 	adminRead.Use(middleware.RequireAdminPermission(adminroles.PermissionUsersRead))

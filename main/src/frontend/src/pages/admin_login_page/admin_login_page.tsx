@@ -1,14 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Eye, EyeOff, KeyRound, Lock, ShieldCheck, User } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Lock, User } from "lucide-react";
 import type { FormEvent } from "react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Redirect } from "react-router-dom";
 
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { Button } from "@/components/button/button";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import loginStyles from "@/pages/login_page/login_page.module.css";
 import { ApiError, apiPost } from "@utils/http_client";
+import { fetchAdminIdentity, MANAGEMENT_ADMINISTRATOR } from "@/services/admin_api";
 import loginBackground from "@resources/img/login_create/background.png";
 
 import styles from "./admin_login_page.module.css";
@@ -32,6 +33,7 @@ const AdminLoginPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showCode, setShowCode] = useState(false);
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
 
   const handleCredentials = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -80,6 +82,10 @@ const AdminLoginPage = () => {
 
     try {
       await apiPost("/admin/auth/verify", { access_code: accessCode });
+      const identity = await fetchAdminIdentity();
+      const destination =
+        identity?.role === MANAGEMENT_ADMINISTRATOR ? "/admin2/dashboard" : "/admin/dashboard";
+      setRedirectPath(destination);
       setStep("authenticated");
     } catch (error) {
       setStep("credentials");
@@ -239,29 +245,7 @@ const AdminLoginPage = () => {
               </motion.form>
             ) : null}
 
-            {step === "authenticated" ? (
-              <motion.div
-                key="authenticated"
-                className={styles.success}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }}
-                exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
-              >
-                <div className={styles.successIcon} aria-hidden="true">
-                  <ShieldCheck />
-                </div>
-                <div className={loginStyles.header}>
-                  <h2>Admin authenticated</h2>
-                  <p>
-                    Your administrator session is active. The admin console will be added in a
-                    future step.
-                  </p>
-                </div>
-                <Button to="/" variant="secondary" size="medium">
-                  Back to site
-                </Button>
-              </motion.div>
-            ) : null}
+            {step === "authenticated" && redirectPath ? <Redirect to={redirectPath} /> : null}
           </AnimatePresence>
         </div>
 

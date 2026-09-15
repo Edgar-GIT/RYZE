@@ -13,11 +13,16 @@ export const App = () => {
   const isInitialLoading = useInitialLoading();
   const { pathname } = useLocation();
 
+  // Admin routes render inside their own dedicated shell (AdminLayout) and the
+  // public chrome (navbar/footer) never appears in the admin area.
+  const isAdminRoute = pathname.startsWith("/admin");
+  const showChrome = !isAdminRoute && !CHROME_FREE_PATHNAMES.has(pathname);
+
   return (
     <>
       <AnimatePresence>{isInitialLoading ? <LoadingScreen /> : null}</AnimatePresence>
       <ScrollToTop />
-      <Layout showChrome={!CHROME_FREE_PATHNAMES.has(pathname)}>
+      <Layout showChrome={showChrome}>
         <AppRoutes />
       </Layout>
     </>

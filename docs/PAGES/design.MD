@@ -975,14 +975,121 @@ Functions include:
 
 # Technical Dashboard
 
-Responsible for platform administration.
+## Admin Console
 
-Functions include:
+The admin console implements the Technical and Management dashboards as two
+responsive shells: `/admin` for Technical Administrators (ADMIN_1) and
+`/admin2` for Management Administrators (ADMIN_2). Each shell shares one
+sidebar with the brand, the current administrator role, section groups and a
+sign-out action, and hides public-facing navigation and footer.
+
+Available to Technical Administrators (ADMIN_1):
 
 - User Management
+- Trainer Management
 - Maintenance
 - System Monitoring
 - Infrastructure Management
+- Technical Configuration
+- Security & Authentication administration
+- Development
+
+Available to Management Administrators (ADMIN_2):
+
+- Plans / Packs
+- Finance
+- Marketing
+- Trainer Management
+- Client Management
+- Marketplace management
+- Platform statistics
+
+The respective page is only shown when the administrator role grants it; the
+navigation is filtered by the server-provided role (`TECHNICAL_ADMINISTRATOR`
+or `MANAGEMENT_ADMINISTRATOR`) and the sections not granted are never rendered.
+The admin login page resolves the role after the second factor and redirects
+ADMIN_1 to `/admin/dashboard` and ADMIN_2 to `/admin2/dashboard`.
+
+### Routes
+
+```
+/admin/login
+/admin/dashboard
+/admin/users
+/admin/trainers
+/admin/trainer-applications
+/admin/system
+/admin/configuration
+/admin/development
+/admin/audit
+```
+
+```
+/admin2/dashboard
+/admin2/plans
+/admin2/plans/create
+/admin2/plans/:programId
+/admin2/marketplace
+/admin2/trainers
+/admin2/clients
+/admin2/sales
+/admin2/analytics
+/admin2/feedback
+/admin2/settings
+```
+
+`/admin/login` renders the two-step administrator authentication only (no
+sidebar shell). Every other `/admin` route renders inside the `AdminLayout`
+shell, and every `/admin2` route inside the `Admin2Layout` shell; both resolve
+the admin identity before rendering and redirect unauthenticated visitors to
+`/admin/login`.
+
+Pages implemented in the current cycle:
+
+- **ADMIN_1 Dashboard** — live totals for users, trainers and pending trainer
+  applications, plus a system overview card (current administrator, API and
+  database reachability, session lifetime).
+- **ADMIN_1 Users** — active/deleted tabs, page search, create/edit, password
+  reset, disable/reactivate, pagination.
+- **ADMIN_1 Trainers** — active/deleted tabs, disable/reactivate, pagination.
+- **ADMIN_1 Trainer applications** — status filter (All / Pending / Approved /
+  Rejected), approve/reject actions.
+- **ADMIN_1 System, Technical configuration, Development, Audit log** —
+  placeholder pages ready for future implementation.
+- **ADMIN_2 Dashboard** — live platform totals (clients, trainers, pending
+  applications, published programs), product mix bars and a recently published
+  programs table.
+- **ADMIN_2 Plans** — marketplace programs with type tabs (All / Free /
+  Premium / Personalized) and a pricing editor for each program.
+- **ADMIN_2 Plan creation workspace** — a dedicated `/admin2/plans/create`
+  flow to build a Generic Plan: 4-step wizard (basic info, program structure,
+  marketplace, review & publish) with a live RYZE marketplace card preview and
+  an exercise catalog picker.
+- **ADMIN_2 Marketplace** — published catalog with filter chips grouped by
+  product type, price and currency.
+- **ADMIN_2 Trainers (business)** — trainer profiles with a commission manager
+  (default 20%, per-trainer override, max 10000 bps) backed by the platform
+  commission endpoints.
+- **ADMIN_2 Clients** — paginated member accounts (read-only analytics view).
+- **ADMIN_2 Sales / Feedback** — honest unavailable states: the backend has no
+  admin sales or feedback endpoints yet, so the pages explain the gap instead
+  of fabricating data.
+- **ADMIN_2 Analytics** — real aggregates (total accounts, product mix, average
+  paid price) with a placeholder reserved for purchase/revenue charts.
+- **ADMIN_2 Settings** — read-only commercial configuration (currency, pricing
+  floor, default commission, cap).
+
+### UI Principles
+
+- The console is content-focused: one table per primary action, no cards
+  around cards, no decorative clutter on data screens.
+- Actions use the existing reusable `Button` component and the shared design
+  token palette; nothing is invented outside the design language.
+- The sidebar collapses into a drawer with an overlay scrim on mobile.
+- Data loads through the existing frontend services layer; the admin API
+  endpoints are documented in `docs/INSTRUCTIONS/api.MD`.
+- Unimplemented backend capabilities surface as honest empty states with a
+  clear explanation; the console never fabricates business data.
 
 ---
 
