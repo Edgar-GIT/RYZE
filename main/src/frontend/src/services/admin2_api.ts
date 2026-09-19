@@ -43,22 +43,6 @@ export interface AdminProgramsList {
   pagination: AdminPagination;
 }
 
-export interface Exercise {
-  id: string;
-  name: string;
-  description: string;
-  target_muscles: string;
-  equipment: string;
-  difficulty: string;
-  video_url: string | null;
-  image_url: string | null;
-}
-
-export interface ExercisesList {
-  exercises: Exercise[];
-  pagination: AdminPagination;
-}
-
 export interface AdminCommissionRule {
   id: string;
   trainer_id: string;
@@ -155,15 +139,6 @@ export const fetchAdminProgram = (id: string) => apiGet<AdminProgram>(`/admin/pr
 
 export const updateAdminProgramPricing = (id: string, input: AdminPricingInput) =>
   apiPatch<AdminProgram>(`/admin/programs/${id}/pricing`, input);
-
-export const fetchExercises = (page: number, limit: number) =>
-  apiGet<ExercisesList>(`/exercises?page=${page}&limit=${limit}`);
-
-export const searchExercises = (query: string, page: number, limit: number) => {
-  const q = encodeURIComponent(query.trim());
-  const queryString = q ? `&q=${q}` : "";
-  return apiGet<ExercisesList>(`/exercises/search?page=${page}&limit=${limit}${queryString}`);
-};
 
 export const updateCommissionRule = (trainerId: string, commissionBps: number) =>
   apiPatch<AdminCommissionRule>(`/admin/trainers/${trainerId}/commission`, {

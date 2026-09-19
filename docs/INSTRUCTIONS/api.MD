@@ -2731,16 +2731,27 @@ GET /api/v1/workouts/pdf
 Downloads the workout program.
 
 ---
-
 # EXERCISE ENDPOINTS
 
 Implemented backend foundation for the platform exercise library. An exercise
 is a global, platform-owned catalog entry that exists only once and is reused
 across programs and packs. The catalog is **public and read-only**: the three
+
 endpoints below require no authentication and are identical for every caller.
 There are no write endpoints in this foundation; the catalog is populated
 outside the API (seed data / future admin tooling). Soft-deleted exercises are
 never returned.
+
+Every exercise object now carries the structured training description:
+
+- `instructions` — step-by-step movement text;
+- `primary_muscle_group` — the target muscle group (controlled vocabulary);
+- `secondary_muscle_groups` — comma-separated secondary groups (optional);
+- `movement_category` — movement classification (`Compound`, `Isolation`,
+  `Core`, `Plyometric`, `Cardio`, `Mobility`, `Stretching`);
+- `difficulty` — `Beginner`, `Intermediate` or `Advanced`;
+- plus the original fields: `name`, `description`, `target_muscles`,
+  `equipment`, `video_url`, `image_url`, `created_at`, `updated_at`.
 
 ## Exercise Library
 
@@ -2751,12 +2762,26 @@ GET /api/v1/exercises?page=1&limit=20
 Returns one page of the exercise catalog in alphabetical order by name. Public
 endpoint, no authentication required.
 
+Optional filters, combinable together and with `q` on search:
+
+- `muscle` — matches the primary or secondary muscle group (substring on the
+  controlled-group values);
+- `equipment` — substring match on the equipment value;
+- `difficulty` — `Beginner`, `Intermediate`, `Advanced`; any other value
+  returns `400 VALIDATION_ERROR`;
+- `category` — one of the controlled movement categories; any other value
+  returns `400 VALIDATION_ERROR`.
+
+Unknown parameter values never error except for `difficulty`/`category`, which
+are validated against the controlled vocabulary so typos cannot silently empty
+the catalog.
+
 Pagination follows the platform rules: page ≥ 1, limit clamped to a maximum of
 100, `data.pagination` reports `page`, `limit`, `total` and `total_pages`.
 `data.exercises` is an array of exercise objects.
 
 ```
-GET /api/v1/exercises?limit=2
+GET /api/v1/exercises?muscle=Quads&difficulty=Intermediate&limit=2
 ```
 
 Response:
@@ -2771,16 +2796,20 @@ Response:
         "id": "…",
         "name": "Barbell Squat",
         "description": "…",
+        "instructions": "…",
         "target_muscles": "…",
-        "equipment": "…",
-        "difficulty": "…",
+        "primary_muscle_group": "Quads",
+        "secondary_muscle_groups": "Glutes, Core, Hamstrings",
+        "equipment": "Barbell",
+        "difficulty": "Intermediate",
+        "movement_category": "Compound",
         "video_url": "…",
         "image_url": "…",
         "created_at": "…",
         "updated_at": "…"
       }
     ],
-    "pagination": { "page": 1, "limit": 2, "total": 40, "total_pages": 20 }
+    "pagination": { "page": 1, "limit": 2, "total": 48, "total_pages": 24 }
   }
 }
 ```
@@ -2791,15 +2820,24 @@ Response:
 GET /api/v1/exercises/{id}
 ```
 
-Returns complete exercise information for one active catalog entry.
+Returns complete exercise information for one active catalog entry, including
+its linked alternatives.
 
 Includes:
 
 - Description
+- Instructions
 - Images (`image_url`)
 - Videos (`video_url`)
 - Target muscles
+- Primary / secondary muscle groups
+- Movement category
+- Difficulty
 - Equipment
+- Alternatives — `alternatives` is an array of `{ id, exercise_id,
+  alternative_exercise_id, alternative_name }`; `alternative_name` is the
+  resolved name of the alternative catalog entry. Alternatives belong only to
+  active exercises and reference active entries.
 
 A malformed `{id}` returns `400 VALIDATION_ERROR`. An unknown or soft-deleted
 exercise returns `404 EXERCISE_NOT_FOUND`.
@@ -2815,16 +2853,30 @@ Response:
   "success": true,
   "message": "Exercise retrieved successfully.",
   "data": {
-    "id": "51f8b06a-…-a6f1f4b6e257",
-    "name": "Barbell Squat",
-    "description": "…",
-    "target_muscles": "…",
-    "equipment": "…",
-    "difficulty": "…",
-    "video_url": "…",
-    "image_url": "…",
-    "created_at": "…",
-    "updated_at": "…"
+    "exercise": {
+      "id": "51f8b06a-…-a6f1f4b6e257",
+      "name": "Barbell Squat",
+      "description": "…",
+      "instructions": "…",
+      "target_muscles": "…",
+      "primary_muscle_group": "Quads",
+      "secondary_muscle_groups": "Glutes, Core, Hamstrings",
+      "equipment": "Barbell",
+      "difficulty": "Intermediate",
+      "movement_category": "Compound",
+      "video_url": "…",
+      "image_url": "…",
+      "created_at": "…",
+      "updated_at": "…"
+    },
+    "alternatives": [
+      {
+        "id": "…",
+        "exercise_id": "51f8b06a-…-a6f1f4b6e257",
+        "alternative_exercise_id": "…",
+        "alternative_name": "Leg Press Machine"
+      }
+    ]
   }
 }
 ```
@@ -2837,11 +2889,12 @@ GET /api/v1/exercises/search?q={query}&page=1&limit=20
 
 Searches exercises by name, case-insensitively. The `q` parameter is required;
 an empty or blank query returns `400 VALIDATION_ERROR`. LIKE wildcards in the
-query are treated literally. The response shape and pagination are identical to
-`GET /api/v1/exercises`.
+query are treated literally. The same muscle / equipment / difficulty /
+category filters as the library endpoint can be combined with the query. The
+response shape and pagination are identical to `GET /api/v1/exercises`.
 
 ```
-GET /api/v1/exercises/search?q=squat
+GET /api/v1/exercises/search?q=bench&category=Compound
 ```
 
 ---

@@ -1064,7 +1064,14 @@ Pages implemented in the current cycle:
 - **ADMIN_2 Plan creation workspace** — a dedicated `/admin2/plans/create`
   flow to build a Generic Plan: 4-step wizard (basic info, program structure,
   marketplace, review & publish) with a live RYZE marketplace card preview and
-  an exercise catalog picker.
+  a two-pane exercise library picker. Weeks contain training days; a day holds
+  structured exercise assignments — each assignment references one catalog
+  exercise (never a copy), carries its position, an optional per-day tailored
+  instruction, and its full set prescription (reps, weight, RIR, RPE, rest,
+  tempo, set type). Clicking an assignment opens the detailed editor where the
+  instructor tailors the instruction, edits or adds sets, replaces the exercise
+  with a catalog alternative and removes it; assignments reorder within the day
+  and remain immutable references so a catalog update is reflected everywhere.
 - **ADMIN_2 Marketplace** — published catalog with filter chips grouped by
   product type, price and currency.
 - **ADMIN_2 Trainers (business)** — trainer profiles with a commission manager

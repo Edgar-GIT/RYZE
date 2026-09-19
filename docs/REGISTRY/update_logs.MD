@@ -1,3 +1,92 @@
+# Version 2.55.0
+
+Title: Exercise Library + Exercise Builder (ADMIN_2 Generic Plan workspace)
+
+Date: 2026-09-16
+
+Summary:
+
+Elevated the RYZE exercise catalog from a flat list into the platform's core
+exercise library with structured training data and alternatives, and rewired
+the ADMIN_2 plan-creation workspace around it. The backend now exposes a
+searchable, filterable public catalog with instruction / muscle / movement /
+difficulty data, per-assignment training prescriptions (instruction, notes and
+a full set table) and an original seeded starter catalog. The frontend moves
+the library domain out of the admin adapter into a reusable picker/preview UI
+and upgrades the plan builder from exercise id chips to structured assignments
+with editable sets and per-day instructions.
+
+Main changes:
+
+**Backend (Go)**
+
+- **`exercises` extension** — new fields on the global catalog:
+  `instructions`, `primary_muscle_group`, `secondary_muscle_groups` and
+  `movement_category` (controlled vocabulary `Compound | Isolation | Core |
+  Plyometric | Cardio | Mobility | Stretching`), with supporting indexes.
+- **`exercise_alternatives`** — new table linking interchangeable catalog
+  exercises (self-FKs, no cascade, distinct-pair check, unique active position
+  per source). Detail responses include resolved `alternative_name`.
+- **`workout_exercises` extension** — per-assignment `instructions` and `notes`.
+- **`workout_exercise_sets`** — new table for the per-assignment set
+  prescription (set_number, reps, weight_kg, rir, rpe, rest_seconds, tempo,
+  set_type controlled `warmup | working | drop | backoff | failure`), with
+  value checks and unique active set_number per assignment.
+- **Migrations** — `000017` (schema extension above) and `000018` (seed) ship
+  an original RYZE starter catalog: 48 exercises with fixed UUIDs
+  (`d91e2f00-…-0001..0048`) and 26 alternative links. No third-party content.
+- **Exercise API** — `GET /exercises` and `/exercises/search` accept combined
+  `muscle` / `equipment` / `difficulty` / `category` filters; `difficulty` and
+  `category` validate against the controlled vocabulary (400 otherwise);
+  search still rejects empty queries. `GET /exercises/:id` now returns
+  `data.exercise` plus `data.alternatives`. Exercises also matched by secondary
+  muscle groups. All three endpoints stay public and read-only.
+- **Repository/service** — `ExerciseRepository.Library` and `ListAlternatives`
+  (LIKE-escaped search), rewrite of the `exercises` service with filter
+  normalization and vocabulary validation, plus a full test pass for service,
+  repository and handler suites (seed-relative tests).
+
+**Frontend (React + Vite)**
+
+- **`services/exercise_library.ts`** — new service holding the library domain:
+  controlled vocabularies, filter model, page fetchers, detail fetcher and
+  `exerciseMetaLine` helper. The old `Exercise` / `fetchExercises` /
+  `searchExercises` exports were removed from `services/admin2_api.ts`.
+- **`components/exercise_library`** — reusable two-pane picker dialog
+  (search + muscle / equipment / difficulty / category filters, live list,
+  preview, alternatives, add action), a read-only `ExercisePreviewBody` and a
+  RYZE-branded media placeholder.
+- **Plan builder rework** — `plan_builder_model.ts` now models
+  `PlanDraftExercise` assignments (catalog reference, position, set array,
+  instructions, notes) with immutable helpers for add, remove, move, replace,
+  set add/remove/update; `countSets` added. The create page renders compact
+  assignment rows per day with a detailed editor modal (catalogue preview,
+  editable instruction, set grid with type/reps/weight/RIR/RPE/rest/tempo,
+  add/remove sets, replace with catalog alternative, remove from day) and
+  reorder/remove actions; review step now reports total sets.
+
+**Verification**
+
+- `go test ./services/exercises/... ./repositories/... ./api/auth/...` pass
+  (only the two known pre-existing failures remain).
+- `npm run typecheck` and `npm run build` pass.
+- Live backend checks: muscle/difficulty filters (secondary-muscle matches),
+  combined search, detail alternatives payload, and 400 responses for invalid
+  difficulty and empty search queries.
+
+**Documentation**
+
+- `docs/DATABASE/database.MD` — exercises extension, `exercise_alternatives`,
+  `workout_exercises` additions and the `workout_exercise_sets` table.
+- `docs/INSTRUCTIONS/api.MD` — updated exercise library / details / search
+  contracts (filters, new fields, alternatives, detail envelope).
+- `docs/INSTRUCTIONS/arquitecture.MD` — trainer programs section reflects the
+  set prescription and scoping chain.
+- `docs/PAGES/design.MD` — ADMIN_2 plan creation workspace describes the
+  structured assignments and two-pane library picker.
+
+---
+
 # Version 2.54.0
 
 Title: Management Administrator console (ADMIN_2) — business administration

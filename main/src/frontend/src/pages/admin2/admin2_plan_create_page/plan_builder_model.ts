@@ -1,9 +1,31 @@
 import { ProgramStatusEnum, ProgramType, type ProgramStatusValue, type ProgramTypeValue } from "@/services/admin2_api";
+import type { SetType } from "@/services/exercise_library";
+
+export interface PlanDraftSet {
+  id: string;
+  set_number: number;
+  reps: string;
+  weight_kg: string;
+  rir: string;
+  rpe: string;
+  rest_seconds: string;
+  tempo: string;
+  set_type: SetType;
+}
+
+export interface PlanDraftExercise {
+  id: string;
+  exercise_id: string;
+  position: number;
+  sets: PlanDraftSet[];
+  instructions: string;
+  notes: string;
+}
 
 export interface PlanDraftWorkout {
   id: string;
   position: number;
-  exercise_ids: string[];
+  exercises: PlanDraftExercise[];
 }
 
 export interface PlanDraftWeek {
@@ -33,6 +55,50 @@ export const uid = (): string => {
   }
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 };
+
+const createSet = (setNumber: number): PlanDraftSet => ({
+  id: uid(),
+  set_number: setNumber,
+  reps: "",
+  weight_kg: "",
+  rir: "",
+  rpe: "",
+  rest_seconds: "",
+  tempo: "",
+  set_type: "working"
+});
+
+const createExerciseAssignment = (exerciseId: string, position: number): PlanDraftExercise => ({
+  id: uid(),
+  exercise_id: exerciseId,
+  position,
+  sets: [createSet(1)],
+  instructions: "",
+  notes: ""
+});
+
+const mapWorkout = (
+  draft: PlanDraft,
+  weekId: string,
+  workoutId: string,
+  update: (workout: PlanDraftWorkout) => PlanDraftWorkout
+): PlanDraft => ({
+  ...draft,
+  weeks: draft.weeks.map((week) =>
+    week.id === weekId
+      ? {
+          ...week,
+          workouts: week.workouts.map((workout) => (workout.id === workoutId ? update(workout) : workout))
+        }
+      : week
+  )
+});
+
+const renumberSets = (sets: PlanDraftSet[]): PlanDraftSet[] =>
+  sets.map((set, index) => ({
+    ...set,
+    set_number: index + 1
+  }));
 
 export const createPlanDraft = (): PlanDraft => ({
   name: "",
@@ -71,7 +137,7 @@ export const addDay = (draft: PlanDraft, weekId: string): PlanDraft => ({
           ...week,
           workouts: [
             ...week.workouts,
-            { id: uid(), position: week.workouts.length + 1, exercise_ids: [] }
+            { id: uid(), position: week.workouts.length + 1, exercises: [] }
           ]
         }
       : week
@@ -96,49 +162,160 @@ export const addExerciseToDay = (
   weekId: string,
   workoutId: string,
   exerciseId: string
-): PlanDraft => ({
-  ...draft,
-  weeks: draft.weeks.map((week) =>
-    week.id === weekId
-      ? {
-          ...week,
-          workouts: week.workouts.map((workout) =>
-            workout.id === workoutId && !workout.exercise_ids.includes(exerciseId)
-              ? { ...workout, exercise_ids: [...workout.exercise_ids, exerciseId] }
-              : workout
-          )
-        }
-      : week
-  )
-});
+): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => {
+    if (workout.exercises.some((assignment) => assignment.exercise_id === exerciseId)) {
+      return workout;
+    }
+    return {
+      ...workout,
+      exercises: [
+        ...workout.exercises,
+        createExerciseAssignment(exerciseId, workout.exercises.length + 1)
+      ]
+    };
+  });
 
 export const removeExerciseFromDay = (
   draft: PlanDraft,
   weekId: string,
   workoutId: string,
+  assignmentId: string
+): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => {
+    const exercises = workout.exercises
+      .filter((assignment) => assignment.id !== assignmentId)
+      .map((assignment, index) => ({ ...assignment, position: index + 1 }));
+    return { ...workout, exercises };
+  });
+
+export const moveExerciseInDay = (
+  draft: PlanDraft,
+  weekId: string,
+  workoutId: string,
+  assignmentId: string,
+  direction: -1 | 1
+): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => {
+    const index = workout.exercises.findIndex((assignment) => assignment.id === assignmentId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= workout.exercises.length) {
+      return workout;
+    }
+    const reordered = [...workout.exercises];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    return {
+      ...workout,
+      exercises: reordered.map((assignment, position) => ({ ...assignment, position: position + 1 }))
+    };
+  });
+
+export const replaceExerciseInDay = (
+  draft: PlanDraft,
+  weekId: string,
+  workoutId: string,
+  assignmentId: string,
   exerciseId: string
-): PlanDraft => ({
-  ...draft,
-  weeks: draft.weeks.map((week) =>
-    week.id === weekId
-      ? {
-          ...week,
-          workouts: week.workouts.map((workout) =>
-            workout.id === workoutId
-              ? { ...workout, exercise_ids: workout.exercise_ids.filter((id) => id !== exerciseId) }
-              : workout
-          )
-        }
-      : week
-  )
-});
+): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => ({
+    ...workout,
+    exercises: workout.exercises.map((assignment) =>
+      assignment.id === assignmentId && assignment.exercise_id !== exerciseId
+        ? { ...assignment, exercise_id: exerciseId, sets: [createSet(1)] }
+        : assignment
+    )
+  }));
+
+export const updateExerciseAssignment = (
+  draft: PlanDraft,
+  weekId: string,
+  workoutId: string,
+  assignmentId: string,
+  patch: Partial<Pick<PlanDraftExercise, "instructions" | "notes">>
+): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => ({
+    ...workout,
+    exercises: workout.exercises.map((assignment) =>
+      assignment.id === assignmentId ? { ...assignment, ...patch } : assignment
+    )
+  }));
+
+export const addSetToExercise = (
+  draft: PlanDraft,
+  weekId: string,
+  workoutId: string,
+  assignmentId: string
+): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => ({
+    ...workout,
+    exercises: workout.exercises.map((assignment) => {
+      if (assignment.id !== assignmentId) {
+        return assignment;
+      }
+      return {
+        ...assignment,
+        sets: [...assignment.sets, createSet(assignment.sets.length + 1)]
+      };
+    })
+  }));
+
+export const removeSetFromExercise = (
+  draft: PlanDraft,
+  weekId: string,
+  workoutId: string,
+  assignmentId: string,
+  setId: string
+): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => ({
+    ...workout,
+    exercises: workout.exercises.map((assignment) => {
+      if (assignment.id !== assignmentId || assignment.sets.length <= 1) {
+        return assignment;
+      }
+      return {
+        ...assignment,
+        sets: renumberSets(assignment.sets.filter((set) => set.id !== setId))
+      };
+    })
+  }));
+
+export const updateSetInExercise = (
+  draft: PlanDraft,
+  weekId: string,
+  workoutId: string,
+  assignmentId: string,
+  setId: string,
+  patch: Partial<Omit<PlanDraftSet, "id" | "set_number">>
+): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => ({
+    ...workout,
+    exercises: workout.exercises.map((assignment) => {
+      if (assignment.id !== assignmentId) {
+        return assignment;
+      }
+      return {
+        ...assignment,
+        sets: assignment.sets.map((set) => (set.id === setId ? { ...set, ...patch } : set))
+      };
+    })
+  }));
 
 export const countWeeks = (draft: PlanDraft): number => draft.weeks.length;
 export const countDays = (draft: PlanDraft): number =>
   draft.weeks.reduce((acc, week) => acc + week.workouts.length, 0);
 export const countExercises = (draft: PlanDraft): number =>
   draft.weeks.reduce(
-    (acc, week) => acc + week.workouts.reduce((inner, workout) => inner + workout.exercise_ids.length, 0),
+    (acc, week) => acc + week.workouts.reduce((inner, workout) => inner + workout.exercises.length, 0),
+    0
+  );
+export const countSets = (draft: PlanDraft): number =>
+  draft.weeks.reduce(
+    (acc, week) =>
+      acc +
+      week.workouts.reduce(
+        (inner, workout) => inner + workout.exercises.reduce((sets, assignment) => sets + assignment.sets.length, 0),
+        0
+      ),
     0
   );
 

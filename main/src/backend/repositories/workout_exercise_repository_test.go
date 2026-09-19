@@ -104,9 +104,9 @@ func TestWorkoutExerciseRepository(t *testing.T) {
 	workout := seedWorkout(trainer.ID, program.ID, week.ID)
 	otherWorkout := seedWorkout(trainer.ID, program.ID, week.ID)
 
-	squat := seedExercise("Barbell Squat")
-	deadlift := seedExercise("Deadlift")
-	pushUp := seedExercise("Push-Up")
+	squat := seedExercise("WE-Test A")
+	deadlift := seedExercise("WE-Test B")
+	pushUp := seedExercise("WE-Test C")
 
 	// 1. AddExercise appends one active exercise to the end of the workout.
 	entry1 := &models.WorkoutExercise{ExerciseID: squat.ID}
@@ -144,7 +144,7 @@ func TestWorkoutExerciseRepository(t *testing.T) {
 	}
 
 	// 3. A soft-deleted exercise of the global catalog can never be assigned.
-	deletedExercise := seedExercise("Soon Deleted")
+	deletedExercise := seedExercise("WE-Test Soon Deleted")
 	if err := tx.Delete(&models.Exercise{}, "id = ?", deletedExercise.ID).Error; err != nil {
 		t.Fatalf("soft delete exercise: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestWorkoutExerciseRepository(t *testing.T) {
 			t.Fatalf("list workout exercises: entry %d must embed its exercise", i)
 		}
 	}
-	if entries[0].Exercise.ID != squat.ID || entries[0].Exercise.Name != "Barbell Squat" {
+	if entries[0].Exercise.ID != squat.ID || entries[0].Exercise.Name != "WE-Test A" {
 		t.Fatalf("list workout exercises: unexpected embedded exercise %+v", entries[0].Exercise)
 	}
 	if entries[2].Exercise.ID != squat.ID {

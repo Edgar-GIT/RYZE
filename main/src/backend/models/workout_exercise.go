@@ -21,6 +21,8 @@ type WorkoutExercise struct {
 	ProgramWorkoutID string         `gorm:"column:program_workout_id;type:varchar(36);not null" json:"program_workout_id"`
 	ExerciseID       string         `gorm:"column:exercise_id;type:varchar(36);not null" json:"exercise_id"`
 	Position         int            `gorm:"column:position;not null" json:"position"`
+	Instructions     string         `gorm:"column:instructions;type:text" json:"instructions"`
+	Notes            string         `gorm:"column:notes;type:text" json:"notes"`
 	Exercise         *Exercise      `gorm:"foreignKey:ExerciseID;references:ID" json:"exercise"`
 	CreatedAt        time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
 	UpdatedAt        time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`

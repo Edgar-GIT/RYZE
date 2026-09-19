@@ -1,47 +1,59 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useHistory } from "react-router-dom";
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   Check,
   CheckCircle2,
   ChevronRight,
   Info,
   Plus,
+  Repeat,
   RotateCcw,
   Search,
-  Trash2,
-  X
+  Trash2
 } from "lucide-react";
 
 import { Admin2PageHeader } from "@/components/admin2/admin2_page_header/admin2_page_header";
 import { Admin2Section } from "@/components/admin2/admin2_section/admin2_section";
-import { Admin2Modal } from "@/components/admin2/admin2_modal/admin2_modal";
 import { Button } from "@/components/button/button";
+import { ExerciseLibraryDialog } from "@/components/exercise_library/exercise_library_dialog";
 import { joinClassNames } from "@utils/class_names";
+import { ProgramStatusEnum, ProgramType, type ProgramTypeValue } from "@/services/admin2_api";
 import {
-  Exercise,
-  fetchExercises,
-  ProgramStatusEnum,
-  ProgramType,
-  type ProgramTypeValue
-} from "@/services/admin2_api";
+  exerciseMetaLine,
+  fetchExerciseDetail,
+  fetchExerciseLibrary,
+  type ExerciseCatalogEntry,
+  type ExerciseDetail
+} from "@/services/exercise_library";
 import { PlanPreview } from "./plan_preview";
+import { PlanExerciseEditorModal } from "./plan_exercise_editor";
 import {
   addDay,
   addExerciseToDay,
+  addSetToExercise,
   addWeek,
   countDays,
   countExercises,
+  countSets,
   countWeeks,
   createPlanDraft,
+  moveExerciseInDay,
   removeDay,
   removeExerciseFromDay,
+  removeSetFromExercise,
   removeWeek,
+  replaceExerciseInDay,
+  updateExerciseAssignment,
+  updateSetInExercise,
   validatePlan,
   type PlanDraft,
+  type PlanDraftExercise,
   type PlanDraftWorkout,
   type PlanDraftWeek
 } from "./plan_builder_model";
@@ -61,81 +73,31 @@ const NotSavedNotice = () => (
   </div>
 );
 
-const ExercisePickerDialog = ({
-  catalog,
-  onClose,
-  onPick
-}: {
-  catalog: Exercise[];
-  onClose: () => void;
-  onPick: (exerciseId: string) => void;
-}) => {
-  const [query, setQuery] = useState("");
+interface AssignmentLocation {
+  weekId: string;
+  workoutId: string;
+  assignment: PlanDraftExercise;
+}
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) {
-      return catalog;
+type PickerTarget =
+  | { mode: "add"; weekId: string; workoutId: string }
+  | { mode: "replace"; weekId: string; workoutId: string; assignmentId: string };
+
+interface EditorTarget {
+  weekId: string;
+  workoutId: string;
+  assignmentId: string;
+}
+
+const findAssignment = (draft: PlanDraft, workoutId: string, assignmentId: string): AssignmentLocation | null => {
+  for (const week of draft.weeks) {
+    const workout = week.workouts.find((entry) => entry.id === workoutId);
+    const assignment = workout?.exercises.find((entry) => entry.id === assignmentId);
+    if (workout && assignment) {
+      return { weekId: week.id, workoutId: workout.id, assignment };
     }
-    return catalog.filter((exercise) =>
-      [exercise.name, exercise.target_muscles, exercise.equipment, exercise.difficulty]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(q))
-    );
-  }, [catalog, query]);
-
-  return (
-    <Admin2Modal
-      title="Add exercises"
-      description="Pick exercises from the RYZE catalog. They are assigned to the selected training day."
-      onClose={onClose}
-    >
-      <div className={styles.formRow}>
-        <label className={styles.formLabel} htmlFor="exercise-search">
-          Search the catalog
-        </label>
-        <div className={styles.pickerSearch}>
-          <input
-            id="exercise-search"
-            className={styles.formInput}
-            type="search"
-            placeholder="Name, muscle group, equipment…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label="Search exercises"
-          />
-        </div>
-      </div>
-
-      <div className={styles.pickerResults}>
-        {filtered.length === 0 ? (
-          <p className={styles.pickerEmpty}>No exercises match your search.</p>
-        ) : (
-          filtered.map((exercise) => (
-            <div key={exercise.id} className={styles.pickerItem}>
-              <div className={styles.pickerItemBody}>
-                <p className={styles.pickerItemName}>{exercise.name}</p>
-                <p className={styles.pickerItemMeta}>
-                  {[exercise.target_muscles, exercise.equipment, exercise.difficulty]
-                    .filter(Boolean)
-                    .join(" · ") || "Generic exercise"}
-                </p>
-              </div>
-              <Button variant="secondary" size="small" onClick={() => onPick(exercise.id)}>
-                Add
-              </Button>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className={styles.submitBar}>
-        <Button type="button" variant="ghost" size="small" onClick={onClose}>
-          Done
-        </Button>
-      </div>
-    </Admin2Modal>
-  );
+  }
+  return null;
 };
 
 const WeekEditor = ({
@@ -144,16 +106,22 @@ const WeekEditor = ({
   onRemoveWeek,
   onAddDay,
   onRemoveDay,
-  onOpenPicker,
-  onRemoveExercise
+  onAddExercise,
+  onEditAssignment,
+  onMoveAssignment,
+  onReplaceAssignment,
+  onRemoveAssignment
 }: {
   week: PlanDraftWeek;
-  exerciseMap: Record<string, Exercise>;
+  exerciseMap: Record<string, ExerciseCatalogEntry>;
   onRemoveWeek: () => void;
   onAddDay: () => void;
   onRemoveDay: (workoutId: string) => void;
-  onOpenPicker: (workoutId: string) => void;
-  onRemoveExercise: (workoutId: string, exerciseId: string) => void;
+  onAddExercise: (workoutId: string) => void;
+  onEditAssignment: (workoutId: string, assignmentId: string) => void;
+  onMoveAssignment: (workoutId: string, assignmentId: string, direction: -1 | 1) => void;
+  onReplaceAssignment: (workoutId: string, assignmentId: string) => void;
+  onRemoveAssignment: (workoutId: string, assignmentId: string) => void;
 }) => (
   <div className={styles.weekCard}>
     <div className={styles.weekHead}>
@@ -178,8 +146,11 @@ const WeekEditor = ({
           workout={workout}
           exerciseMap={exerciseMap}
           onRemoveDay={onRemoveDay}
-          onOpenPicker={onOpenPicker}
-          onRemoveExercise={onRemoveExercise}
+          onAddExercise={onAddExercise}
+          onEditAssignment={onEditAssignment}
+          onMoveAssignment={onMoveAssignment}
+          onReplaceAssignment={onReplaceAssignment}
+          onRemoveAssignment={onRemoveAssignment}
         />
       ))}
     </div>
@@ -202,80 +173,128 @@ const DayEditor = ({
   workout,
   exerciseMap,
   onRemoveDay,
-  onOpenPicker,
-  onRemoveExercise
+  onAddExercise,
+  onEditAssignment,
+  onMoveAssignment,
+  onReplaceAssignment,
+  onRemoveAssignment
 }: {
   workout: PlanDraftWorkout;
-  exerciseMap: Record<string, Exercise>;
+  exerciseMap: Record<string, ExerciseCatalogEntry>;
   onRemoveDay: (workoutId: string) => void;
-  onOpenPicker: (workoutId: string) => void;
-  onRemoveExercise: (workoutId: string, exerciseId: string) => void;
-}) => {
-  const removeExercise = (exerciseId: string) => {
-    onRemoveExercise(workout.id, exerciseId);
-  };
+  onAddExercise: (workoutId: string) => void;
+  onEditAssignment: (workoutId: string, assignmentId: string) => void;
+  onMoveAssignment: (workoutId: string, assignmentId: string, direction: -1 | 1) => void;
+  onReplaceAssignment: (workoutId: string, assignmentId: string) => void;
+  onRemoveAssignment: (workoutId: string, assignmentId: string) => void;
+}) => (
+  <div className={styles.dayCard}>
+    <div className={styles.dayHead}>
+      <p className={styles.dayTitle}>Day {workout.position}</p>
+      <button
+        type="button"
+        className={joinClassNames(styles.iconButton, styles.iconButtonDanger)}
+        onClick={() => onRemoveDay(workout.id)}
+        aria-label={`Remove day ${workout.position}`}
+        title="Remove day"
+      >
+        <Trash2 size={14} aria-hidden="true" />
+      </button>
+    </div>
 
-  return (
-    <div className={styles.dayCard}>
-      <div className={styles.dayHead}>
-        <p className={styles.dayTitle}>Day {workout.position}</p>
-        <button
-          type="button"
-          className={joinClassNames(styles.iconButton, styles.iconButtonDanger)}
-          onClick={() => onRemoveDay(workout.id)}
-          aria-label={`Remove day ${workout.position}`}
-          title="Remove day"
-        >
-          <Trash2 size={14} aria-hidden="true" />
-        </button>
-      </div>
-
-      <div className={styles.chips}>
-        {workout.exercise_ids.length === 0 ? (
-          <p className={styles.chipsEmpty}>No exercises assigned yet.</p>
-        ) : (
-          workout.exercise_ids.map((exerciseId) => (
-            <span key={exerciseId} className={styles.chip}>
-              <span className={styles.chipName}>
-                {exerciseMap[exerciseId]?.name ?? "Exercise"}
-              </span>
+    {workout.exercises.length === 0 ? (
+      <p className={styles.chipsEmpty}>No exercises assigned yet.</p>
+    ) : (
+      <div className={styles.exerciseList}>
+        {workout.exercises.map((assignment) => {
+          const exercise = exerciseMap[assignment.exercise_id];
+          const setCount = assignment.sets.length;
+          return (
+            <div key={assignment.id} className={styles.exerciseRow}>
+              <span className={styles.exercisePos}>{assignment.position}</span>
               <button
                 type="button"
-                className={styles.chipRemove}
-                onClick={() => removeExercise(exerciseId)}
-                aria-label={`Remove ${exerciseMap[exerciseId]?.name ?? "exercise"}`}
+                className={styles.exerciseInfo}
+                onClick={() => onEditAssignment(workout.id, assignment.id)}
+                aria-label={`Edit ${exercise?.name ?? "exercise"} details`}
               >
-                <X size={13} aria-hidden="true" />
+                <span className={styles.exerciseName}>{exercise?.name ?? "Exercise"}</span>
+                <span className={styles.exerciseMeta}>
+                  {setCount} set{setCount === 1 ? "" : "s"}
+                  {exercise ? ` · ${exerciseMetaLine(exercise)}` : ""}
+                </span>
               </button>
-            </span>
-          ))
-        )}
+              <div className={styles.exerciseActions}>
+                <button
+                  type="button"
+                  className={styles.iconButton}
+                  disabled={assignment.position === 1}
+                  onClick={() => onMoveAssignment(workout.id, assignment.id, -1)}
+                  aria-label={`Move ${exercise?.name ?? "exercise"} up`}
+                  title="Move up"
+                >
+                  <ArrowUp size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={styles.iconButton}
+                  disabled={assignment.position === workout.exercises.length}
+                  onClick={() => onMoveAssignment(workout.id, assignment.id, 1)}
+                  aria-label={`Move ${exercise?.name ?? "exercise"} down`}
+                  title="Move down"
+                >
+                  <ArrowDown size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={styles.iconButton}
+                  onClick={() => onReplaceAssignment(workout.id, assignment.id)}
+                  aria-label={`Replace ${exercise?.name ?? "exercise"}`}
+                  title="Replace exercise"
+                >
+                  <Repeat size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={joinClassNames(styles.iconButton, styles.iconButtonDanger)}
+                  onClick={() => onRemoveAssignment(workout.id, assignment.id)}
+                  aria-label={`Remove ${exercise?.name ?? "exercise"} from day`}
+                  title="Remove from day"
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
+    )}
 
-      <div className={styles.addRow}>
-        <Button
-          type="button"
-          variant="ghost"
-          size="small"
-          icon={<Search size={14} />}
-          onClick={() => onOpenPicker(workout.id)}
-        >
-          Add exercises
-        </Button>
-      </div>
+    <div className={styles.addRow}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="small"
+        icon={<Search size={14} />}
+        onClick={() => onAddExercise(workout.id)}
+      >
+        Add exercises
+      </Button>
     </div>
-  );
-};
+  </div>
+);
 
 export default function Admin2PlanCreatePage() {
   const history = useHistory();
   const [draft, setDraft] = useState<PlanDraft>(createPlanDraft);
   const [step, setStep] = useState(0);
   const [dirty, setDirty] = useState(false);
-  const [catalog, setCatalog] = useState<Exercise[]>([]);
-  const [exerciseMap, setExerciseMap] = useState<Record<string, Exercise>>({});
-  const [pickerTarget, setPickerTarget] = useState<{ workoutId: string } | null>(null);
+  const [exerciseMap, setExerciseMap] = useState<Record<string, ExerciseCatalogEntry>>({});
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
+  const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(null);
+  const [editorDetail, setEditorDetail] = useState<ExerciseDetail | null>(null);
   const [attemptMessage, setAttemptMessage] = useState("");
+  const editorRef = useRef<EditorTarget | null>(null);
 
   const update = useCallback((producer: (current: PlanDraft) => PlanDraft) => {
     setDraft((current) => producer(current));
@@ -286,22 +305,19 @@ export default function Admin2PlanCreatePage() {
   useEffect(() => {
     let cancelled = false;
 
-    fetchExercises(1, 100)
+    fetchExerciseLibrary({}, 1, 100)
       .then((result) => {
         if (cancelled) {
           return;
         }
-        setCatalog(result.exercises);
-        const map: Record<string, Exercise> = {};
+        const map: Record<string, ExerciseCatalogEntry> = {};
         result.exercises.forEach((exercise) => {
           map[exercise.id] = exercise;
         });
         setExerciseMap(map);
       })
       .catch(() => {
-        if (!cancelled) {
-          setCatalog([]);
-        }
+        // The workspace remains usable; unknown references fall back to "Exercise".
       });
 
     return () => {
@@ -337,7 +353,7 @@ export default function Admin2PlanCreatePage() {
     true
   ];
 
-  const pickerTargetWorkout = useMemo(() => {
+  const pickerLocation = useMemo(() => {
     if (!pickerTarget) {
       return null;
     }
@@ -349,6 +365,56 @@ export default function Admin2PlanCreatePage() {
     }
     return null;
   }, [pickerTarget, draft.weeks]);
+
+  const pickerAddedIds = useMemo(() => {
+    if (!pickerTarget || !pickerLocation) {
+      return [];
+    }
+    if (pickerTarget.mode === "replace") {
+      const assignment = pickerLocation.workout.exercises.find(
+        (entry) => entry.id === pickerTarget.assignmentId
+      );
+      return assignment ? [assignment.exercise_id] : [];
+    }
+    return pickerLocation.workout.exercises.map((assignment) => assignment.exercise_id);
+  }, [pickerTarget, pickerLocation]);
+
+  const editorLocation = useMemo(() => {
+    if (!editorTarget) {
+      return null;
+    }
+    return findAssignment(draft, editorTarget.workoutId, editorTarget.assignmentId);
+  }, [editorTarget, draft]);
+
+  const closeEditor = () => {
+    editorRef.current = null;
+    setEditorTarget(null);
+    setEditorDetail(null);
+  };
+
+  const openEditor = (workoutId: string, assignmentId: string) => {
+    const location = findAssignment(draft, workoutId, assignmentId);
+    if (!location) {
+      return;
+    }
+    const target: EditorTarget = {
+      weekId: location.weekId,
+      workoutId: location.workoutId,
+      assignmentId: location.assignment.id
+    };
+    editorRef.current = target;
+    setEditorTarget(target);
+    setEditorDetail(null);
+    fetchExerciseDetail(location.assignment.exercise_id)
+      .then((detail) => {
+        if (editorRef.current?.assignmentId === assignmentId) {
+          setEditorDetail(detail);
+        }
+      })
+      .catch(() => {
+        // The set editor remains usable without catalogue details.
+      });
+  };
 
   const discard = () => {
     setDraft(createPlanDraft());
@@ -427,10 +493,23 @@ export default function Admin2PlanCreatePage() {
                   onRemoveDay={(workoutId) =>
                     update((current) => removeDay(current, week.id, workoutId))
                   }
-                  onOpenPicker={(workoutId) => setPickerTarget({ workoutId })}
-                  onRemoveExercise={(workoutId, exerciseId) =>
+                  onAddExercise={(workoutId) =>
+                    setPickerTarget({ mode: "add", weekId: week.id, workoutId })
+                  }
+                  onEditAssignment={(workoutId, assignmentId) =>
+                    openEditor(workoutId, assignmentId)
+                  }
+                  onMoveAssignment={(workoutId, assignmentId, direction) =>
                     update((current) =>
-                      removeExerciseFromDay(current, week.id, workoutId, exerciseId)
+                      moveExerciseInDay(current, week.id, workoutId, assignmentId, direction)
+                    )
+                  }
+                  onReplaceAssignment={(workoutId, assignmentId) =>
+                    setPickerTarget({ mode: "replace", weekId: week.id, workoutId, assignmentId })
+                  }
+                  onRemoveAssignment={(workoutId, assignmentId) =>
+                    update((current) =>
+                      removeExerciseFromDay(current, week.id, workoutId, assignmentId)
                     )
                   }
                 />
@@ -563,6 +642,9 @@ export default function Admin2PlanCreatePage() {
             <span className={styles.chip}>{countDays(draft)} day{countDays(draft) === 1 ? "" : "s"}</span>
             <span className={styles.chip}>
               {countExercises(draft)} exercise{countExercises(draft) === 1 ? "" : "s"}
+            </span>
+            <span className={styles.chip}>
+              {countSets(draft)} set{countSets(draft) === 1 ? "" : "s"}
             </span>
           </div>
 
@@ -699,15 +781,90 @@ export default function Admin2PlanCreatePage() {
         </div>
       </div>
 
-      {pickerTarget && pickerTargetWorkout ? (
-        <ExercisePickerDialog
-          catalog={catalog}
+      {pickerTarget && pickerLocation ? (
+        <ExerciseLibraryDialog
+          title={pickerTarget.mode === "replace" ? "Replace exercise" : "Add exercises"}
+          description={
+            pickerTarget.mode === "replace"
+              ? "Swap the assigned exercise while keeping its position and prescription in the day."
+              : "Search the RYZE catalogue and assign exercises to this training day."
+          }
+          addedExerciseIds={pickerAddedIds}
+          actionLabel={pickerTarget.mode === "replace" ? "Replace" : "Add to day"}
+          addedLabel={pickerTarget.mode === "replace" ? "Already used" : "Already added"}
           onClose={() => setPickerTarget(null)}
-          onPick={(exerciseId) =>
+          onAdd={(exercise) => {
+            if (pickerTarget.mode === "replace") {
+              update((current) =>
+                replaceExerciseInDay(
+                  current,
+                  pickerLocation.weekId,
+                  pickerLocation.workout.id,
+                  pickerTarget.assignmentId,
+                  exercise.id
+                )
+              );
+              setPickerTarget(null);
+            } else {
+              update((current) =>
+                addExerciseToDay(current, pickerLocation.weekId, pickerLocation.workout.id, exercise.id)
+              );
+            }
+          }}
+        />
+      ) : null}
+
+      {editorLocation ? (
+        <PlanExerciseEditorModal
+          assignment={editorLocation.assignment}
+          exercise={editorDetail?.exercise ?? null}
+          alternatives={editorDetail?.alternatives ?? []}
+          onClose={closeEditor}
+          onUpdateInstructions={(assignmentId, value) =>
             update((current) =>
-              addExerciseToDay(current, pickerTargetWorkout.weekId, pickerTarget.workoutId, exerciseId)
+              updateExerciseAssignment(current, editorLocation.weekId, editorLocation.workoutId, assignmentId, {
+                instructions: value
+              })
             )
           }
+          onUpdateSet={(assignmentId, setId, patch) =>
+            update((current) =>
+              updateSetInExercise(current, editorLocation.weekId, editorLocation.workoutId, assignmentId, setId, patch)
+            )
+          }
+          onRemoveSet={(assignmentId, setId) =>
+            update((current) =>
+              removeSetFromExercise(current, editorLocation.weekId, editorLocation.workoutId, assignmentId, setId)
+            )
+          }
+          onAddSet={(assignmentId) =>
+            update((current) =>
+              addSetToExercise(current, editorLocation.weekId, editorLocation.workoutId, assignmentId)
+            )
+          }
+          onReplace={(assignmentId) => {
+            const target = editorRef.current;
+            if (!target) {
+              return;
+            }
+            setPickerTarget({
+              mode: "replace",
+              weekId: target.weekId,
+              workoutId: target.workoutId,
+              assignmentId
+            });
+            closeEditor();
+          }}
+          onRemove={(assignmentId) => {
+            const target = editorRef.current;
+            if (!target) {
+              return;
+            }
+            update((current) =>
+              removeExerciseFromDay(current, target.weekId, target.workoutId, assignmentId)
+            );
+            closeEditor();
+          }}
         />
       ) : null}
     </>

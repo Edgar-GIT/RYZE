@@ -301,7 +301,7 @@ func TestTrainerWorkoutExerciseListSuccess(t *testing.T) {
 	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
 	program, week, workout := seedWorkoutExerciseProgram(t, programRepo, weekRepo, workoutRepo, trainer.ID)
 	squat := seedWorkoutExerciseCatalog(t, db, "Barbell Squat")
-	deadlift := seedWorkoutExerciseCatalog(t, db, "Deadlift")
+	deadlift := seedWorkoutExerciseCatalog(t, db, "Deadlift Variant")
 	for _, exercise := range []*models.Exercise{squat, deadlift} {
 		entry := &models.WorkoutExercise{ExerciseID: exercise.ID}
 		if err := workoutExerciseRepo.AddExercise(context.Background(), trainer.ID, program.ID, week.ID, workout.ID, entry); err != nil {
@@ -418,8 +418,8 @@ func TestTrainerWorkoutExerciseReorderSuccess(t *testing.T) {
 	program, week, workout := seedWorkoutExerciseProgram(t, programRepo, weekRepo, workoutRepo, trainer.ID)
 	exercises := []*models.Exercise{
 		seedWorkoutExerciseCatalog(t, db, "Barbell Squat"),
-		seedWorkoutExerciseCatalog(t, db, "Deadlift"),
-		seedWorkoutExerciseCatalog(t, db, "Push-Up"),
+		seedWorkoutExerciseCatalog(t, db, "Deadlift Variant"),
+		seedWorkoutExerciseCatalog(t, db, "Push-Up Variant"),
 	}
 	var entryIDs []string
 	for _, exercise := range exercises {

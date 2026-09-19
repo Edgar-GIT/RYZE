@@ -376,16 +376,17 @@ record is created, listed, read, reordered or deleted. A record that is
 missing, soft-deleted or under a foreign chain is indistinguishable and maps to
 the same not-found error, preventing enumeration of existence or ownership.
 
-Workout exercises are the minimal foundation of the `ProgramWorkout →
-WorkoutExercise → Exercise` relation: each row stores the owning workout id,
-the referenced global catalog exercise id and its 1-based position. The same
-exercise may appear more than once in a workout (position distinguishes the
-assignments). The catalog exercise is platform-owned and global; a soft-deleted
-exercise can never be added to a workout, and deleting a workout exercise never
-touches the catalog or the owning workout. No per-assignment training data
-(sets, reps, rest, tempo, weights, notes, progression) exists yet: the
-documentation defines none, and the assignment entity stays minimal so later
-steps can add it without a schema redesign.
+Workout exercises are the foundation of the `ProgramWorkout → WorkoutExercise →
+Exercise` relation: each row stores the owning workout id, the referenced
+global catalog exercise id, its 1-based position and the structured
+per-assignment training data (`instructions`, `notes` and the set prescription
+in `workout_exercise_sets`). The same exercise may appear more than once in a
+workout (position distinguishes the assignments). The catalog exercise is
+platform-owned and global; a soft-deleted exercise can never be added to a
+workout, and deleting a workout exercise never touches the catalog or the
+owning workout. The set prescription (`workout_exercise_sets`) is guarded by
+the same scoping chain (`trainer → program → week → workout → workout_exercise
+→ set`) and every set is only reachable through an active assignment.
 
 ### Client Program Read
 

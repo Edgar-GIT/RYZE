@@ -27,7 +27,18 @@ const (
 	MaxPageSize = admin_users.MaxPageSize
 	// MaxSearchLength caps the length of the exercise search query.
 	MaxSearchLength = 100
+	// MaxFilterLength caps the length of any free-text browse filter value.
+	MaxFilterLength = 255
 )
+
+// Difficulty vocabulary of the catalog. Values are stored verbatim and every
+// filter value is validated against them.
+var DifficultyValues = []string{"Beginner", "Intermediate", "Advanced"}
+
+// MovementCategoryValues is the controlled vocabulary of the catalog's
+// movement categories. Values are stored verbatim and every filter value is
+// validated against them.
+var MovementCategoryValues = []string{"Compound", "Isolation", "Core", "Cardio", "Plyometric", "Mobility", "Stretching"}
 
 // ExerciseRepository is the read-only data-access surface required by the
 // exercises service. Writing the catalog is intentionally not part of it: the
@@ -36,22 +47,43 @@ type ExerciseRepository interface {
 	FindByID(ctx context.Context, exerciseID string) (*models.Exercise, error)
 	List(ctx context.Context, page, limit int) ([]models.Exercise, int64, error)
 	Search(ctx context.Context, query string, page, limit int) ([]models.Exercise, int64, error)
+	Library(ctx context.Context, filter repositories.ExerciseSearchFilter, page, limit int) ([]models.Exercise, int64, error)
+	ListAlternatives(ctx context.Context, exerciseID string) ([]repositories.ExerciseAlternativeLink, error)
 }
 
 // Exercise is the safe representation of one exercise catalog entry. It
 // carries only the public descriptive metadata and never exposes deletion
 // markers or any internal data.
 type Exercise struct {
-	ID            string
-	Name          string
-	Description   string
-	TargetMuscles string
-	Equipment     string
-	Difficulty    string
-	VideoURL      string
-	ImageURL      string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID                    string
+	Name                  string
+	Description           string
+	Instructions          string
+	TargetMuscles         string
+	PrimaryMuscleGroup    string
+	SecondaryMuscleGroups string
+	Equipment             string
+	Difficulty            string
+	MovementCategory      string
+	VideoURL              string
+	ImageURL              string
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+}
+
+// ExerciseAlternative is the safe representation of one directed alternative
+// link. AlternativeName is resolved from the global catalog at read time.
+type ExerciseAlternative struct {
+	ID                    string
+	ExerciseID            string
+	AlternativeExerciseID string
+	AlternativeName       string
+}
+
+// ExerciseDetail is one catalog entry plus its curated alternatives.
+type ExerciseDetail struct {
+	Exercise     Exercise
+	Alternatives []ExerciseAlternative
 }
 
 // ListExercisesResult carries one page of exercises plus the pagination
@@ -68,8 +100,9 @@ type ListExercisesResult struct {
 // same data is served to every caller, and no write operation is exposed.
 type Service interface {
 	ListExercises(ctx context.Context, page, limit int) (ListExercisesResult, error)
-	GetExercise(ctx context.Context, exerciseID string) (*Exercise, error)
+	GetExercise(ctx context.Context, exerciseID string) (*ExerciseDetail, error)
 	SearchExercises(ctx context.Context, query string, page, limit int) (ListExercisesResult, error)
+	BrowseExercises(ctx context.Context, filter repositories.ExerciseSearchFilter, page, limit int) (ListExercisesResult, error)
 }
 
 type service struct {
@@ -82,27 +115,12 @@ func NewService(exercises ExerciseRepository) Service {
 
 // ListExercises returns one page of the catalog ordered alphabetically by name.
 func (s *service) ListExercises(ctx context.Context, page, limit int) (ListExercisesResult, error) {
-	page, limit, err := normalizePagination(page, limit)
-	if err != nil {
-		return ListExercisesResult{}, err
-	}
-
-	exerciseModels, total, err := s.exercises.List(ctx, page, limit)
-	if err != nil {
-		return ListExercisesResult{}, fmt.Errorf("failed to list exercises: %w", err)
-	}
-
-	return ListExercisesResult{
-		Exercises: toSafeList(exerciseModels),
-		Total:     total,
-		Page:      page,
-		Limit:     limit,
-	}, nil
+	return s.BrowseExercises(ctx, repositories.ExerciseSearchFilter{}, page, limit)
 }
 
-// GetExercise returns one active catalog entry. Soft-deleted exercises are
-// indistinguishable from missing ones.
-func (s *service) GetExercise(ctx context.Context, exerciseID string) (*Exercise, error) {
+// GetExercise returns one active catalog entry together with its curated
+// alternatives. Soft-deleted exercises are indistinguishable from missing ones.
+func (s *service) GetExercise(ctx context.Context, exerciseID string) (*ExerciseDetail, error) {
 	if err := validateExerciseID(exerciseID); err != nil {
 		return nil, err
 	}
@@ -117,13 +135,33 @@ func (s *service) GetExercise(ctx context.Context, exerciseID string) (*Exercise
 		}
 	}
 
-	return toSafe(exerciseModel), nil
+	alternativeLinks, err := s.exercises.ListAlternatives(ctx, exerciseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list exercise alternatives: %w", err)
+	}
+
+	return &ExerciseDetail{
+		Exercise:     *toSafe(exerciseModel),
+		Alternatives: toSafeAlternativeList(alternativeLinks),
+	}, nil
 }
 
 // SearchExercises returns one page of catalog entries whose name contains the
-// query, case-insensitively.
+// query, case-insensitively. It is kept as a convenience for callers that only
+// match on free text and delegates to the full browse surface.
 func (s *service) SearchExercises(ctx context.Context, query string, page, limit int) (ListExercisesResult, error) {
 	if err := validateSearchQuery(query); err != nil {
+		return ListExercisesResult{}, err
+	}
+	return s.BrowseExercises(ctx, repositories.ExerciseSearchFilter{Query: strings.TrimSpace(query)}, page, limit)
+}
+
+// BrowseExercises returns one page of catalog entries narrowed by the filter.
+// Empty filter fields are ignored; vocabulary and length are validated here
+// before any repository access.
+func (s *service) BrowseExercises(ctx context.Context, filter repositories.ExerciseSearchFilter, page, limit int) (ListExercisesResult, error) {
+	filter = normalizeFilter(filter)
+	if err := validateFilter(filter); err != nil {
 		return ListExercisesResult{}, err
 	}
 	page, limit, err := normalizePagination(page, limit)
@@ -131,9 +169,9 @@ func (s *service) SearchExercises(ctx context.Context, query string, page, limit
 		return ListExercisesResult{}, err
 	}
 
-	exerciseModels, total, err := s.exercises.Search(ctx, strings.TrimSpace(query), page, limit)
+	exerciseModels, total, err := s.exercises.Library(ctx, filter, page, limit)
 	if err != nil {
-		return ListExercisesResult{}, fmt.Errorf("failed to search exercises: %w", err)
+		return ListExercisesResult{}, fmt.Errorf("failed to browse exercises: %w", err)
 	}
 
 	return ListExercisesResult{
@@ -146,16 +184,20 @@ func (s *service) SearchExercises(ctx context.Context, query string, page, limit
 
 func toSafe(model *models.Exercise) *Exercise {
 	return &Exercise{
-		ID:            model.ID,
-		Name:          model.Name,
-		Description:   model.Description,
-		TargetMuscles: model.TargetMuscles,
-		Equipment:     model.Equipment,
-		Difficulty:    model.Difficulty,
-		VideoURL:      model.VideoURL,
-		ImageURL:      model.ImageURL,
-		CreatedAt:     model.CreatedAt,
-		UpdatedAt:     model.UpdatedAt,
+		ID:                    model.ID,
+		Name:                  model.Name,
+		Description:           model.Description,
+		Instructions:          model.Instructions,
+		TargetMuscles:         model.TargetMuscles,
+		PrimaryMuscleGroup:    model.PrimaryMuscleGroup,
+		SecondaryMuscleGroups: model.SecondaryMuscleGroups,
+		Equipment:             model.Equipment,
+		Difficulty:            model.Difficulty,
+		MovementCategory:      model.MovementCategory,
+		VideoURL:              model.VideoURL,
+		ImageURL:              model.ImageURL,
+		CreatedAt:             model.CreatedAt,
+		UpdatedAt:             model.UpdatedAt,
 	}
 }
 
@@ -163,6 +205,22 @@ func toSafeList(models []models.Exercise) []Exercise {
 	list := make([]Exercise, 0, len(models))
 	for i := range models {
 		list = append(list, *toSafe(&models[i]))
+	}
+	return list
+}
+
+// toSafeAlternativeList maps the repository links into safe values. Names are
+// already resolved by the repository, so no extra lookup is needed here.
+func toSafeAlternativeList(links []repositories.ExerciseAlternativeLink) []ExerciseAlternative {
+	list := make([]ExerciseAlternative, 0, len(links))
+	for i := range links {
+		link := &links[i]
+		list = append(list, ExerciseAlternative{
+			ID:                    link.ID,
+			ExerciseID:            link.ExerciseID,
+			AlternativeExerciseID: link.AlternativeExerciseID,
+			AlternativeName:       link.AlternativeName,
+		})
 	}
 	return list
 }
@@ -203,4 +261,58 @@ func validateSearchQuery(query string) error {
 		return fmt.Errorf("%w: search query exceeds the maximum length", ErrInvalidInput)
 	}
 	return nil
+}
+
+// validateFilter rejects oversized free-text values and any difficulty or
+// movement-category value outside the documented catalog vocabulary. Name
+// queries keep the legacy search cap; the remaining filters use the general one.
+func validateFilter(filter repositories.ExerciseSearchFilter) error {
+	limits := map[string]int{
+		"query":      MaxSearchLength,
+		"muscle":     MaxFilterLength,
+		"equipment":  MaxFilterLength,
+		"difficulty": MaxFilterLength,
+		"category":   MaxFilterLength,
+	}
+	for label, value := range map[string]string{
+		"query":      filter.Query,
+		"muscle":     filter.Muscle,
+		"equipment":  filter.Equipment,
+		"difficulty": filter.Difficulty,
+		"category":   filter.Category,
+	} {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		if len([]rune(strings.TrimSpace(value))) > limits[label] {
+			return fmt.Errorf("%w: filter %q exceeds the maximum length", ErrInvalidInput, label)
+		}
+	}
+	if filter.Difficulty != "" && !contains(DifficultyValues, filter.Difficulty) {
+		return fmt.Errorf("%w: invalid difficulty filter value", ErrInvalidInput)
+	}
+	if filter.Category != "" && !contains(MovementCategoryValues, filter.Category) {
+		return fmt.Errorf("%w: invalid movement category filter value", ErrInvalidInput)
+	}
+	return nil
+}
+
+func contains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+// normalizeFilter trims every free-text filter value so leading and trailing
+// whitespace can never alter the lookup.
+func normalizeFilter(filter repositories.ExerciseSearchFilter) repositories.ExerciseSearchFilter {
+	filter.Query = strings.TrimSpace(filter.Query)
+	filter.Muscle = strings.TrimSpace(filter.Muscle)
+	filter.Equipment = strings.TrimSpace(filter.Equipment)
+	filter.Difficulty = strings.TrimSpace(filter.Difficulty)
+	filter.Category = strings.TrimSpace(filter.Category)
+	return filter
 }
