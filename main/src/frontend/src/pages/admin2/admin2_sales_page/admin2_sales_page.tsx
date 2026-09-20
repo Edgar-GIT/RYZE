@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Banknote, Receipt, RotateCcw, ShoppingBag } from "lucide-react";
+import { AlertTriangle, Banknote, Receipt, ShoppingBag } from "lucide-react";
 
 import { Admin2PageHeader } from "@/components/admin2/admin2_page_header/admin2_page_header";
 import { Admin2MetricCard } from "@/components/admin2/admin2_metric_card/admin2_metric_card";
@@ -33,7 +33,7 @@ export default function Admin2SalesPage() {
       <Admin2PageHeader
         eyebrow="Business"
         title="Sales"
-        description="Revenue, transactions and refunds across the platform."
+        description="Revenue and transactions across the platform."
       />
 
       {unavailable ? (
@@ -49,7 +49,6 @@ export default function Admin2SalesPage() {
       <div className={styles.metrics}>
         <Admin2MetricCard label="Revenue" value="—" hint="Awaiting the admin sales API" icon={Banknote} />
         <Admin2MetricCard label="Transactions" value="—" hint="Completed purchases only" icon={Receipt} />
-        <Admin2MetricCard label="Refunds" value="—" hint="Amount refunded this period" icon={RotateCcw} />
       </div>
 
       <Admin2Section title="Recent transactions" subtitle="The purchases model this page will render">

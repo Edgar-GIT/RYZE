@@ -136,7 +136,6 @@ Critical operations should use database transactions.
 Examples:
 
 - Purchases
-- Refunds
 - Trainer approval
 - Account deletion
 - Payment confirmation
@@ -429,8 +428,9 @@ The implemented `purchases` table contains:
   (`BIGINT NOT NULL DEFAULT 0`).
 - `trainer_amount` — the trainer's share in minor currency units
   (`BIGINT NOT NULL DEFAULT 0`).
-- `status` — purchase lifecycle status (`pending`, `completed`, `failed`,
-  `refunded`), `CHECK`-constrained, defaults to `pending`.
+- `status` — purchase lifecycle status (`pending`, `completed`, `failed`),
+  `CHECK`-constrained, defaults to `pending`. RYZE purchases are final: there
+  is no refund workflow, so `refunded` is not a valid status.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
 

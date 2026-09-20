@@ -1,3 +1,205 @@
+# Version 2.67.0
+
+Title: Remove refund functionality completely
+
+Date: 2026-09-20
+
+Summary:
+
+RYZE purchases are final: a customer purchases a plan once and the purchase is
+final. The product does not expose or support refunds. This version removes all
+refund functionality and refund-related concepts from the application.
+
+Main changes:
+
+- Backend service (`services/purchases`): `PurchaseStatusRefunded` removed from
+  `models/purchase.go`; `ErrPurchaseNotCompleted` comment no longer references
+  `refunded`. No refund endpoint, service, repository or permission ever
+  existed — purchase flow unchanged.
+- Backend tests: removed `TestCompletePurchaseRefundedStatus` and the
+  `refunded` row from `TestInitiatePaymentNotPending`.
+- Database: `refunded` removed from the `chk_purchases_status` CHECK constraint
+  in migration `000013`; new migration
+  `000020_remove_refunded_purchase_status` alters existing databases plus its
+  down migration. No purchase/entitlement records are modified.
+- Frontend: `REFUNDED` removed from `PurchaseStatusEnum` in `admin2_api.ts`;
+  ADMIN_2 Sales page now describes "Revenue and transactions" only and the
+  refits `Refunds` metric card was removed (`RotateCcw` import dropped);
+  ADMIN_2 Analytics empty-state no longer mentions refunds. The sales metrics
+  row now shows Revenue and Transactions only — no invented metrics added.
+- Documentation: `docs/INSTRUCTIONS/api.MD` purchase section documents that
+  RYZE purchases are final and no refund workflow exists; `docs/DATABASE/
+  database.MD` status list and transaction examples updated.
+
+Validation:
+
+- `gofmt`, `go vet`, `go test ./...` and backend build pass (note: pre-existing
+  DB-dependent failures in `TestTrainerRepository` and ADM approved/paid
+  program tests are unrelated and remain).
+- `npm run typecheck` and `npm run build` pass.
+
+Deliberately retained:
+
+- `paypal_handler_test.go` still uses the PayPal event `PAYMENT.CAPTURE.REFUNDED`
+  as an unsupported-event fixture: RYZE must continue to safely ignore refund
+  events from the external provider and never process them.
+
+---
+
+# Version 2.66.0
+
+Title: Fix contact section scroll glitch on the homepage
+
+Date: 2026-09-20
+
+Summary:
+
+The homepage contact section showed a visible "cut"/seam while scrolling. The
+cause: the whole section was wrapped in a `Reveal` motion layer (`opacity: 0` +
+`translateY(24px)`, triggered when 22% of the section entered view), which
+created an extra GPU compositing layer over a full-bleed section and produced a
+popping, sliced appearance during scroll.
+
+Main changes:
+
+- **Homepage (`home_page.ts`)** — removed the `<Reveal y={24}>` wrapper around
+  `<ContactPreview />`; the section now renders as a plain static section with
+  no transform/composite layer.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+
+**Documentation**
+
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
+# Version 2.65.0
+
+Title: Start Faster artwork nudged bigger and further left
+
+Date: 2026-09-20
+
+Summary:
+
+Nudged the Start Faster artwork once more: slightly larger and shifted a bit
+further toward the section's left.
+
+Main changes:
+
+- **Homepage Start Faster (`platform_section`)** — `.backgroundImage` width
+  `min(40vw, 28rem)` → `min(44vw, 30rem)` and right inset `clamp(1rem, 3vw,
+  2rem)` → `clamp(2rem, 5vw, 4rem)`. Responsive overrides: ≤ 960px
+  `min(66vw, 26rem)`, ≤ 560px `min(76vw, 21rem)`.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+
+**Documentation**
+
+- `docs/PAGES/design.MD` — Product showcase sections updated.
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
+# Version 2.64.0
+
+Title: Start Faster artwork corrected sizing / position
+
+Date: 2026-09-20
+
+Summary:
+
+Corrected the previous Start Faster artwork change: back to the right-anchored
+composition, but slightly larger than the original and slightly inset from the
+right edge.
+
+Main changes:
+
+- **Homepage Start Faster (`platform_section`)** — `.backgroundImage` returns
+  to the right side (`object-position: right center`, vertically centered) with
+  `right: clamp(1rem, 3vw, 2rem)` (a little inset from the edge) and a slightly
+  bigger `width: min(40vw, 28rem)`. Responsive overrides: ≤ 960px
+  `min(64vw, 23rem)`, ≤ 560px `min(72vw, 19rem)`.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+
+**Documentation**
+
+- `docs/PAGES/design.MD` — Product showcase sections updated (right-anchored,
+  slightly inset, slightly enlarged Start Faster artwork).
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
+# Version 2.63.0
+
+Title: Start Faster artwork enlarged and left-anchored
+
+Date: 2026-09-20
+
+Summary:
+
+Moved the Start Faster `start_sec_bg.png` artwork to the left side of the
+section and enlarged it.
+
+Main changes:
+
+- **Homepage Start Faster (`platform_section`)** — `.backgroundImage` now sits
+  on the left (`left: 0`, `object-position: left center`) and is bigger:
+  `width: min(52vw, 40rem)`. Responsive overrides: ≤ 960px `min(70vw, 30rem)`,
+  ≤ 560px `min(80vw, 26rem)`.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+
+**Documentation**
+
+- `docs/PAGES/design.MD` — Product showcase sections updated (left-anchored,
+  enlarged Start Faster artwork).
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
+# Version 2.62.0
+
+Title: Start Faster artwork shrunk and right-anchored
+
+Date: 2026-09-20
+
+Summary:
+
+The Start Faster section's `start_sec_bg.png` image now renders as a compact
+visual anchored flush to the right edge of the section instead of a full-bleed
+background, per the site direction.
+
+Main changes:
+
+- **Homepage Start Faster (`platform_section`)** — `.backgroundImage` changed
+  from `inset: 0; width/height: 100%; object-fit: cover; object-position:
+  center top` to a right-anchored decorative element: `right: 0`,
+  `top: 50%` + `translateY(-50%)`, `width: min(38vw, 26rem)`, `height: auto`,
+  `object-fit: contain` (no distortion). Responsive overrides: ≤ 960px
+  `min(64vw, 22rem)`, ≤ 560px `min(70vw, 18rem)`.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+
+**Documentation**
+
+- `docs/PAGES/design.MD` — Product showcase sections updated to describe the
+  compact right-anchored Start Faster artwork.
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
 # Version 2.61.0
 
 Title: Space-like random star field (Our Vision)

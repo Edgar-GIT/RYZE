@@ -30,7 +30,7 @@ var (
 	// soft-deleted or is not in a completable state.
 	ErrPurchaseNotFound = errors.New("purchase not found")
 	// ErrPurchaseNotCompleted indicates the purchase is in an unexpected
-	// terminal state (failed, refunded) that prevents completion.
+	// terminal state (failed) that prevents completion.
 	ErrPurchaseNotCompleted = errors.New("purchase is not in a completable state")
 	// ErrEntitlementIntegrity indicates the purchase is already completed but
 	// the corresponding entitlement is missing — a data consistency violation

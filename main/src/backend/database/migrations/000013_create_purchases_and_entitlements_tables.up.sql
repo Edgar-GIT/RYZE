@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS purchases (
     deleted_at DATETIME(6) NULL,
     CONSTRAINT fk_purchases_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT fk_purchases_program FOREIGN KEY (program_id) REFERENCES programs(id),
-    CONSTRAINT chk_purchases_status CHECK (status IN ('pending', 'completed', 'failed', 'refunded'))
+    CONSTRAINT chk_purchases_status CHECK (status IN ('pending', 'completed', 'failed'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_purchases_user_id ON purchases (user_id);

@@ -653,32 +653,6 @@ func TestCompletePurchaseFailedStatus(t *testing.T) {
 	}
 }
 
-func TestCompletePurchaseRefundedStatus(t *testing.T) {
-	purchase := &models.Purchase{
-		ID:              "aaaa1111-1111-1111-1111-111111111111",
-		UserID:          "33333333-3333-3333-3333-333333333333",
-		ProgramID:       "11111111-1111-1111-1111-111111111111",
-		PriceMinorUnits: 10000,
-		Currency:        "EUR",
-		Status:          models.PurchaseStatusRefunded,
-	}
-
-	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase}
-	svc := purchases.NewService(
-		&stubProgramRepository{},
-		purchasesRepo,
-		&completionEntitlementRepo{},
-		&stubCommissionResolver{},
-		&stubPaymentProvider{},
-		nil,
-	)
-
-	_, err := svc.CompletePurchase(context.Background(), purchase.ID)
-	if !errors.Is(err, purchases.ErrPurchaseNotCompleted) {
-		t.Fatalf("expected ErrPurchaseNotCompleted, got %v", err)
-	}
-}
-
 func TestCreatePurchaseIntentEntitlementCheckFailure(t *testing.T) {
 	program := &models.Program{
 		ID:              "11111111-1111-1111-1111-111111111111",
@@ -1056,7 +1030,6 @@ func TestInitiatePaymentNotPending(t *testing.T) {
 	}{
 		{"completed", models.PurchaseStatusCompleted},
 		{"failed", models.PurchaseStatusFailed},
-		{"refunded", models.PurchaseStatusRefunded},
 	}
 
 	for _, tc := range testCases {

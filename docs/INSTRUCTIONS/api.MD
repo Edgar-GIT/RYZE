@@ -481,6 +481,12 @@ Responses:
 
 ### Client Purchase
 
+**RYZE purchases are final.** A customer purchases a plan once and the purchase
+is final: the product does not expose or support a refund workflow. There are no
+refund endpoints, no refund status, and no refund management. The purchase
+lifecycle only moves through `pending` → `completed` (or `failed`, when payment
+does not complete).
+
 #### `POST /api/v1/me/programs/:programID/purchase`
 
 Creates a pending purchase transaction for the authenticated user. The endpoint
@@ -533,8 +539,8 @@ Error codes (service-level, not HTTP):
 
 - `ErrPurchaseNotFound` — purchase does not exist, is soft-deleted or not in a
   completable state.
-- `ErrPurchaseNotCompleted` — purchase is in a terminal state (failed, refunded)
-  that prevents completion.
+- `ErrPurchaseNotCompleted` — purchase is in a terminal state (failed) that
+  prevents completion.
 - `ErrEntitlementIntegrity` — purchase is completed but entitlement is missing;
   a data consistency violation.
 - `ErrInvalidInput` — empty purchase id.

@@ -39,8 +39,6 @@ export const HomePage = () => (
       </Container>
     </section>
 
-    <Reveal y={24}>
-      <ContactPreview />
-    </Reveal>
+    <ContactPreview />
   </PageWrapper>
 );

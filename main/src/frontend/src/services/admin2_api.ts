@@ -17,11 +17,12 @@ export const ProgramStatusEnum = {
 
 export type ProgramStatusValue = typeof ProgramStatusEnum[keyof typeof ProgramStatusEnum];
 
+// RYZE purchases are final: there is no refund workflow, so "refunded" is not
+// a valid purchase status.
 export const PurchaseStatusEnum = {
   PENDING: "pending",
   COMPLETED: "completed",
-  FAILED: "failed",
-  REFUNDED: "refunded"
+  FAILED: "failed"
 } as const;
 
 export type PurchaseStatus = typeof PurchaseStatusEnum[keyof typeof PurchaseStatusEnum];

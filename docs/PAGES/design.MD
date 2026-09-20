@@ -346,17 +346,16 @@ The Platform section is a dedicated visual moment after the hero.
 
 It uses:
 
-- Full-width section near `100vh` with a 45% / 55% two-column grid
+- Full-width section near `100vh`
 - Left column with eyebrow, multi-line heading (`without waiting.` in accent
   gradient), short supporting paragraph, primary CTA and secondary link
 - Horizontal four-step process under the CTAs with glowing circular icons
   (deliberately compact, 3.4rem) and thin connectors
-- Right column with the detailed premium phone mockup (original dense screen UI)
-  sized to fit the section — not oversized — with soft blue glow and realistic
-  glass reflection
-- Atmosphere aligned with the Hero: deep black / navy, cyan nebula, tiny
-  particles, faint planetary arc and subtle grid/noise
-- No floating marketing cards around the phone
+- The `start_sec_bg.png` artwork rendered as a compact right-anchored visual:
+  enlarged again (≤ 30rem wide) and further inset from the right edge of the
+  section, vertically centered, instead of a full-bleed cover
+- Atmosphere aligned with the Hero: deep black / navy background
+- No floating marketing cards around the artwork
 - No random decorative blobs or abstract shapes
 
 Other major sections after Platform should:

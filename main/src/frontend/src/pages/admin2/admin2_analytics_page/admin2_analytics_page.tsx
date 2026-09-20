@@ -152,7 +152,7 @@ export default function Admin2AnalyticsPage() {
           <Admin2EmptyState
             icon={BarChart3}
             title="Purchase analytics are not implemented yet."
-            message="This chart will visualize completed transactions, revenue and refunds once the admin sales API exists."
+            message="This chart will visualize completed transactions and revenue once the admin sales API exists."
           />
         </Admin2Section>
 

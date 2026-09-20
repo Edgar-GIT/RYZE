@@ -9,11 +9,14 @@ import (
 
 // PurchaseStatus values describe the lifecycle of a purchase record. This is
 // a schema-only preparation: no purchase creation path exists yet.
+// PurchaseStatus values describe the lifecycle of a purchase record. RYZE
+// purchases are final: there is no refund workflow, so "refunded" is not a
+// valid status. This is a schema-only preparation: no purchase creation path
+// exists yet.
 const (
 	PurchaseStatusPending   = "pending"
 	PurchaseStatusCompleted = "completed"
 	PurchaseStatusFailed    = "failed"
-	PurchaseStatusRefunded  = "refunded"
 )
 
 // Purchase corresponds to the purchases table. It records a user's commercial
