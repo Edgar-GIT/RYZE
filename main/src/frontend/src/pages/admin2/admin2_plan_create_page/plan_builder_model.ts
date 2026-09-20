@@ -1,4 +1,4 @@
-import { ProgramStatusEnum, ProgramType, type ProgramStatusValue, type ProgramTypeValue } from "@/services/admin2_api";
+import { ProgramStatusEnum, ProgramType, type GenericProgramInput, type ProgramStatusValue, type ProgramTypeValue } from "@/services/admin2_api";
 import type { SetType } from "@/services/exercise_library";
 
 export interface PlanDraftSet {
@@ -343,3 +343,47 @@ export const validatePlan = (draft: PlanDraft): PlanValidation => {
 
   return { valid: messages.length === 0, messages };
 };
+
+const optionalNumber = (value: string): number | null => {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+// toGenericProgramInput serializes the client-side PlanDraft into the generic
+// program API payload. Structural ordering keys (week/week workout/exercise
+// position) are derived server-side from array order and are never sent; the
+// optional level and duration/frequency metadata are intentionally left unset
+// because the builder does not expose them yet.
+export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => ({
+  name: draft.name.trim(),
+  description: draft.description.trim(),
+  type: draft.type,
+  status: draft.status,
+  level: "",
+  duration_weeks: 0,
+  frequency_per_week: 0,
+  price_minor_units: draft.type === ProgramType.FREE ? 0 : Math.round(Number(draft.price) * 100),
+  currency: draft.currency || "EUR",
+  weeks: draft.weeks.map((week) => ({
+    workouts: week.workouts.map((workout) => ({
+      exercises: workout.exercises.map((assignment) => ({
+        exercise_id: assignment.exercise_id,
+        instructions: assignment.instructions,
+        notes: assignment.notes,
+        sets: assignment.sets.map((set) => ({
+          set_type: set.set_type,
+          reps: optionalNumber(set.reps),
+          weight_kg: optionalNumber(set.weight_kg),
+          rir: optionalNumber(set.rir),
+          rpe: optionalNumber(set.rpe),
+          rest_seconds: optionalNumber(set.rest_seconds),
+          tempo: set.tempo
+        }))
+      }))
+    }))
+  }))
+});

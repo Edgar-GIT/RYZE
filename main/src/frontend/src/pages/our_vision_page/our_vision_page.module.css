@@ -113,16 +113,33 @@
   background: var(--bg-primary);
 }
 
-.missionBackground {
+.starField {
   position: absolute;
   inset: 0;
   z-index: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center center;
+  overflow: hidden;
   pointer-events: none;
   user-select: none;
+}
+
+.starField span {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(224, 240, 255, 0.9);
+  box-shadow: 0 0 6px rgba(24, 216, 255, 0.5);
+  opacity: 0.12;
+  animation: visionStarTwinkle 6s ease-in-out infinite;
+}
+
+@keyframes visionStarTwinkle {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .missionLayout {
@@ -331,212 +348,6 @@
   line-height: 1.35;
 }
 
-.sectionWhy {
-  position: relative;
-  overflow: hidden;
-  min-height: 100svh;
-  display: grid;
-  align-items: stretch;
-  padding: 5rem var(--space-page-x) 3.5rem;
-  background:
-    radial-gradient(80% 70% at 85% 15%, rgba(42, 140, 255, 0.07), transparent 62%),
-    radial-gradient(90% 60% at 5% 90%, rgba(24, 216, 255, 0.05), transparent 60%),
-    linear-gradient(180deg, #05070b 0%, #0b1524 50%, #05070b 100%);
-}
-
-.sectionWhy::before {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  content: "";
-  background:
-    linear-gradient(
-      180deg,
-      transparent 42%,
-      rgba(5, 7, 11, 0.5) 66%,
-      rgba(5, 7, 11, 0.82) 100%
-    ),
-    radial-gradient(42% 36% at 78% 28%, rgba(42, 140, 255, 0.1), transparent 65%),
-    radial-gradient(55% 45% at 12% 88%, rgba(24, 216, 255, 0.06), transparent 65%),
-    linear-gradient(90deg, rgba(5, 7, 11, 0.5) 0%, rgba(5, 7, 11, 0.12) 42%, transparent 70%),
-    linear-gradient(180deg, rgba(5, 7, 11, 0.28) 0%, transparent 14%, transparent 82%, rgba(5, 7, 11, 0.32) 100%);
-  pointer-events: none;
-}
-
-.whyBackground {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center center;
-  pointer-events: none;
-  user-select: none;
-}
-
-.sectionWhy .whyLayout {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  align-content: stretch;
-  gap: clamp(2.5rem, 8vh, 5rem);
-  width: 100%;
-  max-width: 100%;
-  min-height: calc(100svh - 8.5rem);
-}
-
-.whyIntro {
-  display: grid;
-  gap: 1rem;
-  justify-items: start;
-  max-width: 34rem;
-}
-
-.whyIntro h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: clamp(2.1rem, 4.4vw, 3.45rem);
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.06;
-  max-width: 14ch;
-  text-transform: uppercase;
-}
-
-.whyIntro .sectionLead {
-  max-width: 40ch;
-  color: rgba(210, 222, 238, 0.8);
-}
-
-.whyCta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin-top: 0.35rem;
-  min-height: 2.9rem;
-  padding: 0.6rem 1.5rem;
-  border: 1px solid transparent;
-  border-radius: 0.75rem;
-  color: #05070b;
-  font-size: 0.8rem;
-  font-weight: 750;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  background: linear-gradient(180deg, #3fe0ff 0%, var(--accent) 55%, #12c4eb 100%);
-  box-shadow:
-    0 0 18px rgba(24, 216, 255, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition:
-    border-color 220ms ease,
-    background 220ms ease,
-    box-shadow 220ms ease,
-    transform 220ms ease;
-}
-
-.whyCta svg {
-  width: 1.15rem;
-  height: 1.15rem;
-  color: #05070b;
-}
-
-.whyCta:hover {
-  box-shadow:
-    0 0 26px rgba(24, 216, 255, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  transform: translateY(-1px);
-}
-
-.whyGrid {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: 1fr;
-  gap: 1rem;
-  padding-top: 1.1rem;
-}
-
-.whyGrid::before {
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  z-index: 2;
-  height: 1px;
-  content: "";
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.16) 18%,
-    rgba(24, 216, 255, 0.28) 50%,
-    rgba(255, 255, 255, 0.16) 82%,
-    transparent 100%
-  );
-}
-
-.whyCard {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 1rem;
-  row-gap: 0.55rem;
-  align-items: start;
-  min-height: 100%;
-  padding: 1.6rem 1.4rem;
-  border-radius: 1rem;
-  background:
-    radial-gradient(140% 140% at 0% 0%, rgba(24, 216, 255, 0.06), transparent 55%),
-    rgba(10, 17, 30, 0.72);
-  backdrop-filter: blur(14px);
-  transition:
-    background 240ms ease,
-    box-shadow 240ms ease;
-}
-
-.whyCard:hover {
-  background:
-    radial-gradient(140% 140% at 0% 0%, rgba(24, 216, 255, 0.09), transparent 55%),
-    rgba(14, 23, 39, 0.72);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
-}
-
-.whyIcon {
-  display: grid;
-  place-items: center;
-  width: 2.2rem;
-  height: 2.2rem;
-  color: var(--accent);
-  flex-shrink: 0;
-}
-
-.whyIcon svg {
-  width: 1.15rem;
-  height: 1.15rem;
-  filter: drop-shadow(0 0 6px rgba(24, 216, 255, 0.35));
-}
-
-.whyCopy {
-  display: grid;
-  gap: 0.32rem;
-  min-width: 0;
-}
-
-.whyCopy h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 750;
-  letter-spacing: -0.015em;
-  line-height: 1.25;
-}
-
-.whyCopy p {
-  margin: 0;
-  color: rgba(160, 176, 200, 0.82);
-  font-size: 0.79rem;
-  line-height: 1.5;
-}
-
 .sectionEvolution {
   position: relative;
   overflow: hidden;
@@ -680,18 +491,6 @@
   position: relative;
   overflow: hidden;
   background: var(--bg-primary);
-}
-
-.roadmapBackground {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center center;
-  pointer-events: none;
-  user-select: none;
 }
 
 .roadmapIntro {
@@ -1313,6 +1112,11 @@
 @media (prefers-reduced-motion: reduce) {
   .roadmapItem:hover {
     transform: none;
+  }
+
+  .starField span {
+    animation: none;
+    opacity: 0.3;
   }
 }
 

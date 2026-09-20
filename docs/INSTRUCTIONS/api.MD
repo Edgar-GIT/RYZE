@@ -1319,6 +1319,7 @@ Permissions include:
   `trainer_applications.manage`, shared with the Technical Administrator)
 - Statistics
 - Plans management and creation
+- Generic program management (platform-owned programs, `plans` permission)
 - Financial management
 - Marketing (promotions)
 
@@ -3476,6 +3477,188 @@ Responses:
 - `400 VALIDATION_ERROR` — invalid pricing input.
 - `403 FORBIDDEN` — insufficient permissions.
 - `404 PROGRAM_NOT_FOUND` — missing or soft-deleted program.
+
+# GENERIC PROGRAMS (PLATFORM-OWNED)
+
+Generic programs are pre-built, platform-owned programs created by the RYZE
+team. They reuse the same Program → Week → Workout → Exercise structure as
+trainer programs, but their `trainer_id` is always `NULL` and they can never be
+converted into trainer-owned content. They hold no commission: a generic program
+is never involved in trainer revenue.
+
+## Ownership & Authorization
+
+- Protected by `AdminAuthenticate` and `RequireAdminPermission(plans)` — the
+  `plans` permission is exclusive to the Management Administrator (ADMIN_2).
+- The platform is the owner. There is no trainer ownership to verify; client
+  identity is never trusted — the server derives everything from the session.
+
+## Endpoints
+
+```
+GET    /api/v1/programs/generic
+POST   /api/v1/programs/generic
+GET    /api/v1/programs/generic/:programID
+PATCH  /api/v1/programs/generic/:programID
+POST   /api/v1/programs/generic/:programID/publish
+DELETE /api/v1/programs/generic/:programID
+```
+
+## Cap Limits
+
+Every create and update is validated against these hard caps; exceeding any of
+them returns `400 VALIDATION_ERROR`:
+
+- Maximum 52 weeks per program (`duration_weeks` ≤ 52).
+- Maximum 14 workouts per week.
+- Maximum 50 exercises per workout.
+- Maximum 50 sets per exercise.
+- `tempo` ≤ 20 characters.
+- `rpe` between 1 and 10.
+- `name` ≤ 255 characters; `description` ≤ 5000 characters.
+- `search` ≤ 100 characters; `duration` filter ≤ 52; `frequency` filter ≤ 7.
+
+## Structure & Ordering
+
+Within one program the server derives ordering and uniqueness server-side:
+
+- `week_number`, workout `position`, exercise `position` and `set_number` are
+  always the sequence `1..n` in body order (never client-chosen).
+- Structural consistency (draft/published) uses: weeks → workouts → exercises →
+  sets → catalog exercise lookup.
+- At most one assignment of a given catalog exercise per workout; the same
+  exercise may appear in different workouts.
+
+## Status & Pricing
+
+- `status`: `draft` | `published`. Only a `draft` generic program can be
+  published; publishing is irreversible without a new update cycle.
+- `type`: `free` | `premium` | `personalized`.
+  - `free` → `price_minor_units` must be 0.
+  - `premium`/`personalized` → must meet the configured minimum price.
+  - `currency` is always `EUR` (ISO 4217, integer minor units, no floats).
+- Downwards pricing changes are not restricted for platform-owned programs.
+
+## `GET /api/v1/programs/generic`
+
+Paginated list with optional search and filters. Protected by `plans`.
+
+Query parameters:
+
+- `page` — page number, default 1.
+- `limit` — page size, default 20.
+- `search` — substring match on program name.
+- `type` — `free` | `premium` | `personalized`.
+- `level` — `Beginner` | `Intermediate` | `Advanced`.
+- `duration` — exact `duration_weeks`.
+- `frequency` — exact `frequency_per_week`.
+
+Response `data`:
+
+- `page`, `limit`, `total`, `total_pages`, `items` — array of program summaries
+  (no nested structure).
+
+Responses:
+
+- `200 OK` — paginated summaries.
+- `400 VALIDATION_ERROR` — malformed query parameters.
+- `403 FORBIDDEN` — insufficient permissions (ADMIN_1).
+
+## `POST /api/v1/programs/generic`
+
+Creates a generic program (always `draft`, `trainer_id` NULL) and its full
+week/workout/exercise/set tree in one transaction. Protected by `plans`.
+
+Request body:
+
+- `name` — string ≤ 255.
+- `description` — string ≤ 5000.
+- `type` — `free` | `premium` | `personalized`.
+- `level` — `Beginner` | `Intermediate` | `Advanced` (nullable).
+- `duration_weeks` — integer, ≤ 52 (nullable).
+- `frequency_per_week` — integer, ≤ 7 (nullable).
+- `price_minor_units` — integer minor units; 0 for `free`, minimum for paid.
+- `currency` — `EUR`.
+- `weeks` — array of week objects:
+  - `week_number` (ignored, derived server-side), `workouts`:
+    - `name`, `description`, `exercises`:
+      - `exercise_id` — catalog exercise id.
+      - `instructions`, `notes` (optional per-assignment copy).
+      - `sets` — array of: `set_type` (`warmup`|`working`|`drop`|`backoff`|
+        `failure`), `reps`, `weight_kg`, `rir`, `rpe` (1–10), `rest_seconds`,
+        `tempo` (≤ 20).
+
+Responses:
+
+- `201 CREATED` — full generic program object.
+- `400 VALIDATION_ERROR` — invalid body or any cap exceeded.
+- `403 FORBIDDEN` — insufficient permissions.
+- `422 EXERCISE_NOT_FOUND` — unknown catalog `exercise_id`.
+- `409 DUPLICATE_EXERCISE` — same catalog exercise twice in one workout.
+
+## `GET /api/v1/programs/generic/:programID`
+
+Returns one generic program with its full nested structure (weeks, workouts,
+exercises and sets). Protected by `plans`.
+
+Response `data`:
+
+- Program fields (`id`, `name`, `description`, `type`, `status`, `level`,
+  `duration_weeks`, `frequency_per_week`, `price_minor_units`, `currency`,
+  `created_at`, `updated_at`) plus `weeks` (each with ordered `workouts`);
+  each exercise exposes `catalog_instructions`, `target_muscles`, `equipment`,
+  `difficulty`, `video_url`, `image_url`, per-assignment `instructions` and
+  `notes`, and its `sets`. Only `draft`/`published` programs are returned; the
+  `trainer_id` field is never exposed.
+
+Responses:
+
+- `200 OK` — full program object.
+- `400 VALIDATION_ERROR` — malformed program id.
+- `403 FORBIDDEN` — insufficient permissions.
+- `404 PROGRAM_NOT_FOUND` — missing, soft-deleted generic program, or a
+  trainer-owned program id addressed through this endpoint.
+
+## `PATCH /api/v1/programs/generic/:programID`
+
+Full hierarchy update, applied transactionally. Weeks/workouts/exercises/sets
+already present keep their ids; structure in the body is matched by position;
+missing children are soft-deleted; new ones are created. Protected by `plans`.
+
+Request body: same shape as `POST /api/v1/programs/generic`.
+
+Responses:
+
+- `200 OK` — updated full program object.
+- `400 VALIDATION_ERROR` — invalid body, cap exceeded, or structural
+  inconsistency (referencing non-existing week/workout/exercise).
+- `403 FORBIDDEN` — insufficient permissions.
+- `404 PROGRAM_NOT_FOUND` — program not found.
+- `422 EXERCISE_NOT_FOUND` — unknown catalog `exercise_id`.
+- `409 DUPLICATE_EXERCISE` — same catalog exercise twice in one workout.
+
+## `POST /api/v1/programs/generic/:programID/publish`
+
+Transitions a `draft` generic program to `published` via a guarded conditional
+update. Protected by `plans`.
+
+Responses:
+
+- `200 OK` — `{ "status": "published" }`.
+- `403 FORBIDDEN` — insufficient permissions.
+- `404 PROGRAM_NOT_FOUND` — program missing, not `draft`, trainer-owned, or
+  already published.
+
+## `DELETE /api/v1/programs/generic/:programID`
+
+Soft-deletes a generic program (`deleted_at` set; structure preserved).
+Protected by `plans`.
+
+Responses:
+
+- `200 OK` — deletion successful.
+- `403 FORBIDDEN` — insufficient permissions.
+- `404 PROGRAM_NOT_FOUND` — missing or already deleted program.
 
 # ADMIN COMMISSION RULES
 

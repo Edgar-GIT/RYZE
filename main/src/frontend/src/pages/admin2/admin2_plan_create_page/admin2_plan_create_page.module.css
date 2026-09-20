@@ -528,6 +528,15 @@
   color: #ffb454;
 }
 
+.noticeSuccess {
+  border-color: rgba(96, 216, 141, 0.3);
+  background: rgba(96, 216, 141, 0.08);
+}
+
+.noticeSuccess .noticeIcon {
+  color: #60d88d;
+}
+
 /* --- Exercise assignments --- */
 
 .exerciseList {

@@ -10,7 +10,6 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
-  Info,
   Plus,
   Repeat,
   RotateCcw,
@@ -22,8 +21,14 @@ import { Admin2PageHeader } from "@/components/admin2/admin2_page_header/admin2_
 import { Admin2Section } from "@/components/admin2/admin2_section/admin2_section";
 import { Button } from "@/components/button/button";
 import { ExerciseLibraryDialog } from "@/components/exercise_library/exercise_library_dialog";
+import { ApiError } from "@utils/http_client";
 import { joinClassNames } from "@utils/class_names";
-import { ProgramStatusEnum, ProgramType, type ProgramTypeValue } from "@/services/admin2_api";
+import {
+  createGenericProgram,
+  ProgramStatusEnum,
+  ProgramType,
+  type ProgramTypeValue
+} from "@/services/admin2_api";
 import {
   exerciseMetaLine,
   fetchExerciseDetail,
@@ -49,6 +54,7 @@ import {
   removeSetFromExercise,
   removeWeek,
   replaceExerciseInDay,
+  toGenericProgramInput,
   updateExerciseAssignment,
   updateSetInExercise,
   validatePlan,
@@ -62,16 +68,25 @@ import styles from "./admin2_plan_create_page.module.css";
 
 const STEPS = ["Basic information", "Program structure", "Marketplace", "Review & publish"];
 
-const NotSavedNotice = () => (
-  <div className={styles.notice}>
-    <Info size={15} className={styles.noticeIcon} aria-hidden="true" />
-    <span>
-      <strong>Workspace preview.</strong> The backend program-creation API is not implemented yet.
-      This workspace is a complete client-side design; nothing is persisted until the endpoint
-      ships.
-    </span>
-  </div>
-);
+const describeSaveError = (error: unknown): string => {
+  if (!(error instanceof ApiError)) {
+    return "Unable to save the plan. Please try again.";
+  }
+  switch (error.code) {
+    case "EXERCISE_NOT_FOUND":
+      return "A referenced exercise no longer exists in the catalogue. Remove it and try again.";
+    case "DUPLICATE_EXERCISE":
+      return "The same exercise cannot appear twice in a single training day.";
+    case "PROGRAM_NOT_FOUND":
+      return "The plan no longer exists.";
+    case "PROGRAM_ALREADY_PUBLISHED":
+      return "This plan is already published.";
+    case "VALIDATION_ERROR":
+      return "The plan could not be saved. Review the validation issues and try again.";
+    default:
+      return error.message || "Unable to save the plan. Please try again.";
+  }
+};
 
 interface AssignmentLocation {
   weekId: string;
@@ -294,12 +309,15 @@ export default function Admin2PlanCreatePage() {
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(null);
   const [editorDetail, setEditorDetail] = useState<ExerciseDetail | null>(null);
   const [attemptMessage, setAttemptMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const editorRef = useRef<EditorTarget | null>(null);
 
   const update = useCallback((producer: (current: PlanDraft) => PlanDraft) => {
     setDraft((current) => producer(current));
     setDirty(true);
     setAttemptMessage("");
+    setSuccessMessage("");
   }, []);
 
   useEffect(() => {
@@ -421,17 +439,31 @@ export default function Admin2PlanCreatePage() {
     setDirty(false);
     setStep(0);
     setAttemptMessage("");
+    setSuccessMessage("");
   };
 
-  const handlePublishAttempt = () => {
+  const handlePublishAttempt = async () => {
     if (!validation.valid) {
       setAttemptMessage("Fix the validation issues below before publishing.");
       setStep(3);
       return;
     }
-    setAttemptMessage(
-      "Publishing is not available yet: the backend program-creation API is not implemented. This workspace is a complete client-side design that will persist through the create endpoint in a later milestone."
-    );
+    setAttemptMessage("");
+    setSuccessMessage("");
+    setIsSaving(true);
+    try {
+      const created = await createGenericProgram(toGenericProgramInput(draft));
+      setDirty(false);
+      setSuccessMessage(
+        created.status === ProgramStatusEnum.PUBLISHED
+          ? `Plan "${created.name}" published successfully.`
+          : `Plan "${created.name}" saved as a draft.`
+      );
+    } catch (error) {
+      setAttemptMessage(describeSaveError(error));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderStep = (): ReactNode => {
@@ -664,6 +696,13 @@ export default function Admin2PlanCreatePage() {
             )}
           </div>
 
+          {successMessage ? (
+            <div className={joinClassNames(styles.notice, styles.noticeSuccess)}>
+              <CheckCircle2 size={15} className={styles.noticeIcon} aria-hidden="true" />
+              <span>{successMessage}</span>
+            </div>
+          ) : null}
+
           {attemptMessage ? (
             <div className={joinClassNames(styles.notice, styles.noticeWarn)}>
               <AlertTriangle size={15} className={styles.noticeIcon} aria-hidden="true" />
@@ -693,8 +732,6 @@ export default function Admin2PlanCreatePage() {
           </Button>
         }
       />
-
-      <NotSavedNotice />
 
       <div className={styles.topBar}>
         <div className={styles.topBarLeft}>
@@ -767,9 +804,13 @@ export default function Admin2PlanCreatePage() {
                 type="button"
                 size="small"
                 onClick={handlePublishAttempt}
-                disabled={!dirty}
+                disabled={!dirty || isSaving}
               >
-                {draft.status === ProgramStatusEnum.PUBLISHED ? "Publish plan" : "Save draft"}
+                {isSaving
+                  ? "Saving…"
+                  : draft.status === ProgramStatusEnum.PUBLISHED
+                    ? "Publish plan"
+                    : "Save draft"}
               </Button>
             )}
           </div>

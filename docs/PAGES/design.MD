@@ -349,8 +349,8 @@ It uses:
 - Full-width section near `100vh` with a 45% / 55% two-column grid
 - Left column with eyebrow, multi-line heading (`without waiting.` in accent
   gradient), short supporting paragraph, primary CTA and secondary link
-- Horizontal four-step process under the CTAs with glowing circular icons and
-  thin connectors
+- Horizontal four-step process under the CTAs with glowing circular icons
+  (deliberately compact, 3.4rem) and thin connectors
 - Right column with the detailed premium phone mockup (original dense screen UI)
   sized to fit the section — not oversized — with soft blue glow and realistic
   glass reflection
@@ -409,6 +409,9 @@ Level 1 is featured.
 ### Contact preview
 
 Contact channels plus two CTAs side by side: Contact us and Join for Free.
+Preview sits directly on the plain website background (`--bg-primary`); its
+decorative radial glow is suppressed so it blends into the page like the
+sections around it.
 
 ### Footer
 
@@ -446,8 +449,9 @@ Each card contains:
 
 Each product redirects to its own page.
 
-The same `ServiceCard` language and `bg_services.png` background are used on
-the homepage programs preview.
+The same `ServiceCard` language is used on the homepage programs preview,
+which now sits on a plain dark background; only the Services page keeps the
+full-bleed `bg_services.png` background.
 
 ### Free
 
@@ -680,19 +684,16 @@ Sections:
    eyebrow, thesis headline with accent on “software.”, short lead, horizontal
    capability chips (AI / Training / Nutrition / Recovery / Progress), and an
    Our Vision jump link. No stock gym photography.
-2. Get started — full-bleed `how_bg.png` background with left intro
-   (eyebrow “Get started”, headline with accent on “minutes.”, short lead)
-   and a bottom “How RYZE works” panel: five numbered steps connected by a
-   glowing rail (Sign up → goals → AI program → track → weekly improvement).
-3. Fitness operating system — full-bleed `evo_man_bg.png` background with
-   left intro (eyebrow, headline with accent on “operating system”, lead,
-   Explore RYZE CTA) and a bottom bordered 2×4 feature panel of compact
-   icon+copy cells (Adaptive Programs, AI Coaching, Nutrition, Progress,
-   Devices, Accountability, Community, Results).
-4. Our vision — full-bleed `future_bg.png` background with two-column
-   roadmap: left intro with phase tags (Today / Next / Soon / Later /
-   Horizon), right vertical timeline with numbered milestone cards.
-5. Continuous evolution — full-bleed `conti_bg.png` background (large
+2. Get started — solid dark background populated with a sparse field of tiny
+   glowing star points (animated twinkle, deterministic spread, disabled under
+   `prefers-reduced-motion`) behind a left intro (eyebrow “Get started”,
+   headline with accent on “minutes.”, short lead) and a bottom “How RYZE
+   works” panel: five numbered steps connected by a glowing rail (Sign up →
+   goals → AI program → track → weekly improvement).
+3. Our vision — solid dark background with the same star-point field behind a
+   two-column roadmap: left intro with phase tags (Today / Next / Soon /
+   Later / Horizon), right vertical timeline with numbered milestone cards.
+4. Continuous evolution — full-bleed `conti_bg.png` background (large
    centered planet). Left intro: eyebrow ("Continuous evolution"), two-line
    headline with accent on "never finished.", one-line lead and a cyan-outline
    "See what's next" CTA. Around the planet, three left feature items and
@@ -701,7 +702,7 @@ Sections:
    and thin connector stubs. Bottom: an integrated glass CTA panel with the
    RYZE icon, "The Future of Fitness is Adaptive" headline and a filled cyan
    "Join the Journey" button.
-6. Join the movement — full-bleed `join_bg.png` background. Fully centered
+5. Join the movement — full-bleed `join_bg.png` background. Fully centered
    composition on the central vertical axis: eyebrow ("The journey
    continues"), two-line headline with accent on "join us now.", short
    description, neon outline CTA ("JOIN RYZE →" to `/register`), a wide
@@ -1072,6 +1073,13 @@ Pages implemented in the current cycle:
   instructor tailors the instruction, edits or adds sets, replaces the exercise
   with a catalog alternative and removes it; assignments reorder within the day
   and remain immutable references so a catalog update is reflected everywhere.
+  The Publish & Save action now talks to the generic program API: it maps the
+  local draft to the create payload, disables the button until a change is
+  dirty and while a request is in flight (`Saving…`), and surfaces the outcome
+  as an inline notice — green on success, and per-code friendly errors
+  (e.g. missing catalog exercise, duplicate exercise inside a workout, program
+  not found, already-published conflict, validation details) instead of a raw
+  failure.
 - **ADMIN_2 Marketplace** — published catalog with filter chips grouped by
   product type, price and currency.
 - **ADMIN_2 Trainers (business)** — trainer profiles with a commission manager

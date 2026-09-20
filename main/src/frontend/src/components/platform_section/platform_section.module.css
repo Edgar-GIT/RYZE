@@ -139,8 +139,8 @@
 .processIcon {
   display: grid;
   place-items: center;
-  width: 4.5rem;
-  height: 4.5rem;
+  width: 3.4rem;
+  height: 3.4rem;
   border: 1px solid rgba(24, 216, 255, 0.35);
   border-radius: 999px;
   color: var(--accent);
@@ -159,8 +159,8 @@
 }
 
 .processIcon svg {
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
 .processLabel {
@@ -173,7 +173,7 @@
 
 .processConnector {
   position: absolute;
-  top: 1.15rem;
+  top: 0.9rem;
   right: -0.85rem;
   display: flex;
   align-items: center;

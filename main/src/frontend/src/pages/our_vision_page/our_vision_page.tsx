@@ -10,17 +10,13 @@ import {
   Dumbbell,
   Globe2,
   Heart,
-  Hexagon,
   Link2,
-  MonitorSmartphone,
   Network,
   Rocket,
-  ShieldCheck,
   Sprout,
   User,
   UserPlus,
   Users,
-  Utensils,
   Zap
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -28,13 +24,9 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
-import { SystemEvolutionHud } from "@/components/system_evolution_hud/system_evolution_hud";
 import { CONTACT_WHATSAPP_URL } from "@/constants/contact";
 import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
-import fitnessOsBackground from "@resources/img/hero/evo_man_bg.png";
 import ryzeIconBanner from "@resources/img/logo/ryze_icon2.png";
-import futureBackground from "@resources/img/hero/future_bg.png";
-import howItWorksBackground from "@resources/img/hero/how_bg.png";
 import joinBackground from "@resources/img/hero/join_bg.png";
 import ourVisionBackground from "@resources/img/hero/our_view.png";
 
@@ -75,49 +67,6 @@ const howItWorksSteps = [
     icon: Rocket,
     title: "Get better every week",
     text: "Smart adjustments keep you moving forward."
-  }
-] as const;
-
-const whyCards = [
-  {
-    icon: Hexagon,
-    title: "Adaptive Programs",
-    text: "Programs that adapt in real-time based on your progress, recovery and goals."
-  },
-  {
-    icon: Brain,
-    title: "AI-Powered Coaching",
-    text: "Advanced AI that analyzes your data and gives you smarter recommendations."
-  },
-  {
-    icon: Utensils,
-    title: "Smart Nutrition",
-    text: "Nutrition programs that fit your lifestyle and evolve with your training."
-  },
-  {
-    icon: ChartNoAxesCombined,
-    title: "Progress Intelligence",
-    text: "Track what matters with powerful analytics and actionable insights."
-  },
-  {
-    icon: MonitorSmartphone,
-    title: "All Your Devices",
-    text: "Seamless sync across phone, watch, desktop and more."
-  },
-  {
-    icon: ShieldCheck,
-    title: "Built-In Accountability",
-    text: "Stay consistent with built-in reminders, check-ins and streak tracking."
-  },
-  {
-    icon: Users,
-    title: "Coach & Community",
-    text: "Connect with elite coaches and a community that pushes you forward."
-  },
-  {
-    icon: Zap,
-    title: "Results, Faster",
-    text: "Everything working together so you get results in less time."
   }
 ] as const;
 
@@ -218,6 +167,64 @@ const Reveal = ({ children, className, delay = 0 }: RevealProps) => {
   );
 };
 
+const mulberry32 = (seed: number) => {
+  let state = seed;
+
+  return () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+interface StarPoint {
+  top: number;
+  left: number;
+  size: number;
+  delay: number;
+  duration: number;
+  glow: string;
+}
+
+const starRandom = mulberry32(20260920);
+
+const starPoints: StarPoint[] = Array.from({ length: 150 }, () => {
+  const size = [1, 1.4, 1.8, 2.4][Math.floor(starRandom() * 4)];
+
+  return {
+    top: +(starRandom() * 100).toFixed(2),
+    left: +(starRandom() * 100).toFixed(2),
+    size,
+    delay: +(starRandom() * 3).toFixed(2),
+    duration: 4.5 + Math.floor(starRandom() * 4),
+    glow:
+      size >= 1.8
+        ? "0 0 8px rgba(24, 216, 255, 0.85)"
+        : "0 0 4px rgba(24, 216, 255, 0.45)"
+  };
+});
+
+const StarField = () => (
+  <div className={styles.starField} aria-hidden="true">
+    {starPoints.map((star, index) => (
+      <span
+        key={index}
+        style={{
+          top: `${star.top}%`,
+          left: `${star.left}%`,
+          width: `${star.size}px`,
+          height: `${star.size}px`,
+          boxShadow: star.glow,
+          animationDelay: `${star.delay}s`,
+          animationDuration: `${star.duration}s`
+        }}
+      />
+    ))}
+  </div>
+);
+
 const HowWorksPanel = () => {
   const reduceMotion = useReducedMotion();
 
@@ -272,37 +279,6 @@ const HowWorksPanel = () => {
   );
 };
 
-const WhyFeatureGrid = () => {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <div className={styles.whyGrid}>
-      {whyCards.map((card, index) => {
-        const Icon = card.icon;
-
-        return (
-          <motion.article
-            key={card.title}
-            className={styles.whyCard}
-            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.35 }}
-            transition={{ duration: 0.45, ease: "easeOut", delay: 0.08 + index * 0.05 }}
-          >
-            <span className={styles.whyIcon}>
-              <Icon aria-hidden="true" strokeWidth={1.6} />
-            </span>
-            <div className={styles.whyCopy}>
-              <h3>{card.title}</h3>
-              <p>{card.text}</p>
-            </div>
-          </motion.article>
-        );
-      })}
-    </div>
-  );
-};
-
 export const OurVisionPage = () => (
   <PageWrapper className={styles.page}>
     <section className={styles.hero}>
@@ -328,12 +304,7 @@ export const OurVisionPage = () => (
     </section>
 
     <section className={`${styles.section} ${styles.sectionMission}`}>
-      <img
-        className={styles.missionBackground}
-        src={howItWorksBackground}
-        alt=""
-        aria-hidden="true"
-      />
+      <StarField />
 
       <Container className={styles.missionLayout}>
         <Reveal className={styles.missionIntro}>
@@ -353,48 +324,14 @@ export const OurVisionPage = () => (
       </Container>
     </section>
 
-    <section className={`${styles.section} ${styles.sectionWhy}`}>
-      <img
-        className={styles.whyBackground}
-        src={fitnessOsBackground}
-        alt=""
-        aria-hidden="true"
-      />
-
-      <Container className={styles.whyLayout}>
-        <Reveal className={styles.whyIntro}>
-          <p className={styles.eyebrow}>Built different. For real results.</p>
-          <h2>
-            A fitness <span className={styles.accentPhrase}>operating system</span>, not another
-            program.
-          </h2>
-          <p className={styles.sectionLead}>
-            Training, nutrition, recovery and progress in one connected system — built to adapt with
-            you, not force you into a static template.
-          </p>
-          <a className={styles.whyCta} href="#vision-roadmap">
-            Explore RYZE
-            <ChevronRight aria-hidden="true" />
-          </a>
-        </Reveal>
-
-        <WhyFeatureGrid />
-      </Container>
-    </section>
-
     <section className={`${styles.section} ${styles.sectionRoadmap}`} id="vision-roadmap">
-      <img
-        className={styles.roadmapBackground}
-        src={futureBackground}
-        alt=""
-        aria-hidden="true"
-      />
+      <StarField />
 
       <Container className={styles.roadmapLayout}>
         <Reveal className={styles.roadmapIntro}>
           <p className={styles.eyebrow}>Our vision</p>
           <h2>
-            Where RYZE is going<span className={styles.accentPhrase}>.</span>
+            Where <span className={styles.accentPhrase}>RYZE</span> is going.
           </h2>
           <p className={styles.sectionLead}>
             The roadmap is the story. Each step expands the ecosystem without abandoning the core.
@@ -442,8 +379,6 @@ export const OurVisionPage = () => (
         alt=""
         aria-hidden="true"
       />
-
-      <SystemEvolutionHud />
 
       <Container className={styles.evolutionLayout}>
         <Reveal className={styles.evolutionIntro}>

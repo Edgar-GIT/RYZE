@@ -388,6 +388,46 @@ owning workout. The set prescription (`workout_exercise_sets`) is guarded by
 the same scoping chain (`trainer → program → week → workout → workout_exercise
 → set`) and every set is only reachable through an active assignment.
 
+### Generic Programs (Platform-Owned)
+
+Generic programs are the platform-owned counterpart of trainer programs and
+reuse the exact same hierarchy (`programs → program_weeks → program_workouts →
+workout_exercises → workout_exercise_sets`). They are the realization of the
+`trainer_id NULL` invariant documented in the database: a generic program is
+created with no owner and can never become trainer-owned.
+
+The area is layered like the other modules:
+
+- `GenericProgramsHandler` (in `api/auth`, thin) → `generic_programs` service
+  (in `services/generic_programs`) → `GenericProgramRepository` (in
+  `repositories`) over the existing program tables.
+
+It is guarded by `AdminAuthenticate` + `RequireAdminPermission(plans)`, so only
+the Management Administrator (ADMIN_2) can manage generic programs; the
+Technical Administrator (ADMIN_1) gets `403` on every generic endpoint. There is
+no trainer ownership to verify server-side: the platform is the single owner
+and the id of the acting administrator always comes from the authenticated
+session, never from the client.
+
+Key architectural decisions:
+
+- **Full-structure transactions.** Create and update build the whole
+  `weeks → workouts → exercises → sets` tree inside a single transaction that
+  rolls back on any error. `UpdateFull` locks the parent program row, matches
+  children pairwise by their ordering field, reuses untouched child ids, and
+  soft-deletes removed children; catalog existence is verified before any write.
+- **Server-derived ordering.** `week_number`, `position` and `set_number` are
+  computed server-side (`1..n`) and are never trusted from the client, which
+  keeps the unique active-slot constraints safe by construction.
+- **Not-found equivalence.** Every generic-program query is scoped by
+  `trainer_id IS NULL`; a trainer-owned id addressed through a generic endpoint
+  is indistinguishable from a missing or soft-deleted one (`PROGRAM_NOT_FOUND`).
+- **No commission involvement.** Generic programs are platform-owned and never
+  participate in trainer revenue or commission resolution.
+
+The frontend counterpart is the admin2 plan builder, which creates and updates
+generic programs through this API instead of a trainer-scoped one.
+
 ### Client Program Read
 
 The client-side view of an assigned program is deliberately narrower than the
@@ -845,6 +885,11 @@ Important public UI building blocks currently include:
   animation (old cards slide out, new slide in; arrows vertically centered
   against the card column; no horizontal scrollable track; cards swapped via
   array slice on a page index; back arrow allows returning to previous pages)
+- admin2 plan builder (`/admin2/plans/{id}/edit` + `/admin2/plans/create`):
+  the builder saves and publishes platform-owned generic programs through the
+  generic program API (see `services/admin2_api.ts`), converting the local
+  draft into the `wrapped weeks → workouts → exercises → sets` payload used by
+  both `POST` and `PATCH` generic endpoints
 
 Frontend tooling files live at the repository root:
 

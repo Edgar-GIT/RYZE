@@ -1,5 +1,6 @@
-import { apiDelete, apiGet, apiPatch } from "@utils/http_client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@utils/http_client";
 import { AdminPagination } from "./admin_api";
+import type { SetType } from "./exercise_library";
 
 export const ProgramType = {
   FREE: "free",
@@ -150,6 +151,151 @@ export const deleteCommissionRule = (trainerId: string) =>
 
 export const fetchCommissionResolution = (trainerId: string) =>
   apiGet<AdminCommissionResolution>(`/admin/trainers/${trainerId}/commission/resolve`);
+
+/* ------------------------------------------------------------------ */
+/* Generic programs (platform-owned catalogue plans)                   */
+/* ------------------------------------------------------------------ */
+
+export type GenericProgramLevel = "Beginner" | "Intermediate" | "Advanced";
+
+export interface GenericProgramSummary {
+  id: string;
+  name: string;
+  description: string;
+  type: ProgramTypeValue;
+  status: ProgramStatusValue;
+  level: GenericProgramLevel | null;
+  duration_weeks: number | null;
+  frequency_per_week: number | null;
+  price_minor_units: number;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GenericProgramSet {
+  set_number: number;
+  set_type: SetType;
+  reps: number | null;
+  weight_kg: number | null;
+  rir: number | null;
+  rpe: number | null;
+  rest_seconds: number | null;
+  tempo: string;
+}
+
+export interface GenericProgramExercise {
+  id: string;
+  name: string;
+  description: string;
+  catalog_instructions: string;
+  target_muscles: string;
+  equipment: string;
+  difficulty: string;
+  video_url: string;
+  image_url: string;
+  position: number;
+  instructions: string;
+  notes: string;
+  sets: GenericProgramSet[];
+}
+
+export interface GenericProgramWorkout {
+  position: number;
+  exercises: GenericProgramExercise[];
+}
+
+export interface GenericProgramWeek {
+  week_number: number;
+  workouts: GenericProgramWorkout[];
+}
+
+export interface GenericProgramDetail extends GenericProgramSummary {
+  weeks: GenericProgramWeek[];
+}
+
+export interface GenericProgramSetInput {
+  set_type: SetType;
+  reps: number | null;
+  weight_kg: number | null;
+  rir: number | null;
+  rpe: number | null;
+  rest_seconds: number | null;
+  tempo: string;
+}
+
+export interface GenericProgramExerciseInput {
+  exercise_id: string;
+  instructions: string;
+  notes: string;
+  sets: GenericProgramSetInput[];
+}
+
+export interface GenericProgramWorkoutInput {
+  exercises: GenericProgramExerciseInput[];
+}
+
+export interface GenericProgramWeekInput {
+  workouts: GenericProgramWorkoutInput[];
+}
+
+export interface GenericProgramInput {
+  name: string;
+  description: string;
+  type: ProgramTypeValue;
+  status: ProgramStatusValue;
+  level: GenericProgramLevel | "";
+  duration_weeks: number;
+  frequency_per_week: number;
+  price_minor_units: number;
+  currency: string;
+  weeks: GenericProgramWeekInput[];
+}
+
+export interface GenericProgramsList {
+  programs: GenericProgramSummary[];
+  pagination: AdminPagination;
+}
+
+export interface GenericProgramListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  type?: ProgramTypeValue;
+  level?: GenericProgramLevel;
+}
+
+export const fetchGenericPrograms = (params: GenericProgramListParams): Promise<GenericProgramsList> => {
+  const query = new URLSearchParams({
+    page: String(params.page),
+    limit: String(params.limit)
+  });
+  if (params.search) {
+    query.set("search", params.search);
+  }
+  if (params.type) {
+    query.set("type", params.type);
+  }
+  if (params.level) {
+    query.set("level", params.level);
+  }
+  return apiGet<GenericProgramsList>(`/programs/generic?${query.toString()}`);
+};
+
+export const fetchGenericProgram = (id: string) =>
+  apiGet<GenericProgramDetail>(`/programs/generic/${id}`);
+
+export const createGenericProgram = (input: GenericProgramInput) =>
+  apiPost<GenericProgramDetail>("/programs/generic", input);
+
+export const updateGenericProgram = (id: string, input: GenericProgramInput) =>
+  apiPatch<GenericProgramDetail>(`/programs/generic/${id}`, input);
+
+export const publishGenericProgram = (id: string) =>
+  apiPost<GenericProgramSummary>(`/programs/generic/${id}/publish`, {});
+
+export const deleteGenericProgram = (id: string) =>
+  apiDelete<never>(`/programs/generic/${id}`);
 
 /**
  * Resolves the admin purchase list. There is no admin sales endpoint in the

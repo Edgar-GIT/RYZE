@@ -1,3 +1,287 @@
+# Version 2.61.0
+
+Title: Space-like random star field (Our Vision)
+
+Date: 2026-09-20
+
+Summary:
+
+Reworked the Our Vision `StarField` to look like a real space background: the
+previous position formulas were linear `% 100` sequences, which made stars
+align diagonally. Positions are now generated with a seeded `mulberry32` PRNG
+(fixed seed `20260920`), so every star sits at an independent, uncorrelated
+spot. Added star-magnitude variety: 4 sizes, randomized twinkle delay/duration
+and a stronger cyan glow halo for the brighter stars.
+
+Main changes:
+
+- **Our Vision (`our_vision_page`)** — `StarField` now renders a module-level
+  `starPoints` array produced by a seeded pseudo-random generator: independent
+  `top`/`left` percentages, sizes `1 / 1.4 / 1.8 / 2.4 px`, per-star glow
+  (`0 0 8px` for bright, `0 0 4px` otherwise), delay `0–3s`, duration
+  `4.5–8.5s`. Deterministic across renders; the twinkle animation and
+  `prefers-reduced-motion` handling are unchanged.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+
+**Documentation**
+
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
+# Version 2.60.0
+
+Title: Get in touch section scaled up + even denser star field
+
+Date: 2026-09-20
+
+Summary:
+
+Enlarged every element of the homepage "Get in touch" section so it occupies
+the available space better, and increased the Our Vision star-point field
+density again.
+
+Main changes:
+
+- **Homepage contact preview (`contact_preview`)** — section padding
+  `4.5rem` → `6.5rem`; content column widened `720px` → `920px` with larger
+  gaps; eyebrow `0.76rem` → `0.9rem`, headline to `clamp(2.1, 4.6vw, 3.1rem)`,
+  description to `1.15rem` (max 60ch); channel chips up to `60px` min-height
+  with `1.05rem` labels and `1.4rem` icons; CTAs widened to `13rem` min-width.
+  Mobile breakpoint adjusted to keep proportions.
+- **Our Vision (`our_vision_page`)** — `StarField` density increased from 100
+  to 150 stars.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+
+**Documentation**
+
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
+# Version 2.59.0
+
+Title: Homepage contact preview on plain background + denser star field
+
+Date: 2026-09-20
+
+Summary:
+
+Removed the special background from the homepage "Get in touch" section so it
+matches the real website background, and increased the Our Vision star-point
+field density again.
+
+Main changes:
+
+- **Homepage contact preview (`contact_preview`)** — the section now renders on
+  the plain `--bg-primary` background. Its inherited decorative radial-glow
+  `::before` (from the shared `SectionWrapper`) is suppressed locally via a
+  specificity-safe override (`contact_preview.module.css`); the shared
+  `SectionWrapper` component is untouched so other consumers keep the glow.
+- **Our Vision (`our_vision_page`)** — `StarField` density increased from 74 to
+  100 stars.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+
+**Documentation**
+
+- `docs/PAGES/design.MD` — Contact preview section documents the plain
+  background.
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
+# Version 2.58.0
+
+Title: Homepage catalog background removed + denser Our Vision star field
+
+Date: 2026-09-20
+
+Summary:
+
+Removed the `bg_services.png` full-bleed background from the RYZE program
+categories preview on the homepage (the Services page keeps it) and increased
+the Our Vision star-point field density.
+
+Main changes:
+
+- **Homepage (`home_page`)** — the RYZE program categories preview now renders
+  on a plain `var(--bg-primary)` background: the `servicesBackground` `<img>`
+  and its import were removed from `home_page.tsx` and the unused
+  `.servicesBackground` rule from `home_page.module.css`. The Services page is
+  untouched and keeps its full-bleed `bg_services.png` background.
+- **Our Vision (`our_vision_page`)** — `StarField` density increased from 46 to
+  74 stars; positions now use non-correlated fractional spreads
+  (`(i * 47.3) % 100` / `(i * 61.8) % 100`) so the denser field stays evenly
+  scattered without vertical streak artifacts.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass.
+- `grep` confirms `bg_services.png` is now referenced only by
+  `services_page.tsx`.
+
+**Documentation**
+
+- `docs/PAGES/design.MD` — Services section clarified that only the Services
+  page keeps the `bg_services.png` background; homepage preview sits on plain
+  dark background.
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
+# Version 2.57.0
+
+Title: Our Vision star-field background + Start Faster step-icon refinement
+
+Date: 2026-09-20
+
+Summary:
+
+Added a subtle animated "star points" background to the two Our Vision sections
+that no longer carry background images (Get started and Our Vision roadmap) and
+reduced the size of the four circular step icons in the homepage "Start Faster"
+section.
+
+Main changes:
+
+- **Our Vision (`our_vision_page`)** — new local `StarField` component: 46 tiny
+  glowing dots deterministically spread across the section, varying size,
+  opacity and twinkle duration/delay; rendered at `z-index 0` behind content in
+  `sectionMission` and `sectionRoadmap`; animation disabled under
+  `prefers-reduced-motion`.
+- **Homepage Start Faster (`platform_section`)** — process step circles reduced
+  from `4.5rem` to `3.4rem` (icons `1.7rem` → `1.3rem`), connector height
+  realigned (`top: 0.9rem`). No layout changes; hover treatment unchanged.
+
+**Verification**
+
+- `npm run typecheck` and `npm run build` pass (only pre-existing chunk-size
+  warning).
+
+**Documentation**
+
+- `docs/PAGES/design.MD` — Our Vision section list updated (removed the deleted
+  "Fitness operating system" section, removed stale `how_bg` / `evo_man_bg` /
+  `future_bg` background references, documented the star-point background);
+  Platform section documents the compact 3.4rem step icons.
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
+# Version 2.56.0
+
+Title: Generic (Platform-Owned) Programs API + Builder Wiring + Website Content Cleanup
+
+Date: 2026-09-20
+
+Summary:
+
+Added a transactional generic-program API so the platform itself can create,
+read, list, update, publish and soft-delete platform-owned programs
+(`trainer_id NULL`) over the existing Program → Week → Workout → Exercise → Set
+hierarchy, and wired the ADMIN_2 plan builder to it (publish now really creates
+a program). Website content: dropped outdated technology/section copy and the
+remaining background-image/starlight consumers while keeping the asset files on
+disk.
+
+Main changes:
+
+**Backend (Go)**
+
+- **Migration `000019`** — `programs` gains nullable `level` (`Beginner |
+  Intermediate | Advanced` vocabulary, service-validated), `duration_weeks` and
+  `frequency_per_week` (positive when set), each with an index.
+- **Generic program API** — new `AdminAuthenticate` +
+  `RequireAdminPermission(plans)` group (Management Administrator only; ADMIN_1
+  gets 403):
+  - `GET /api/v1/programs/generic` — paginated search + type/level/duration/
+    frequency filters.
+  - `POST /api/v1/programs/generic` — full-tree create in one transaction,
+    always `draft`.
+  - `GET /api/v1/programs/generic/:programID` — full nested read (never exposes
+    `trainer_id`).
+  - `PATCH /api/v1/programs/generic/:programID` — transactional full update
+    (position-matched, preserves ids, soft-deletes removed children).
+  - `POST /api/v1/programs/generic/:programID/publish` — guarded conditional
+    publish (draft only).
+  - `DELETE /api/v1/programs/generic/:programID` — soft delete.
+- **Cap limits enforced server-side** — weeks ≤ 52, workouts/week ≤ 14,
+  exercises/workout ≤ 50, sets/exercise ≤ 50, tempo ≤ 20, rpe 1–10,
+  name ≤ 255, description ≤ 5000; ordering (`week_number`/`position`/
+  `set_number`) is always derived server-side `1..n`.
+- **GenericProgramRepository** — scoped by `trainer_id IS NULL`; not-found
+  equivalence for trainer-owned ids; `CreateFull`/`UpdateFull` reuse the
+  existing tree; catalog exercises verified before any write
+  (`ErrExerciseNotFound`).
+- **Bug fix** — `UpdateFull` new-branch creates in `applyWeeks`/`applyWorkouts`/
+  `applyExercises` now Omit their associations (GORM was auto-saving nested
+  children and reproducing primary keys). Covered by a rewritten repository
+  test suite.
+- **Exercises read-only note** — `ExerciseRepository` has no Create; tests seed
+  via the transaction directly; NULL `trainer_id` scanned via struct pointers.
+
+**Frontend (React + Vite)**
+
+- **`services/admin2_api.ts`** — generic-program API surface: types
+  (`GenericProgram*`, matching the handler DTOs) and `fetchGenericPrograms` /
+  `fetchGenericProgram` / `createGenericProgram` / `updateGenericProgram` /
+  `publishGenericProgram` / `deleteGenericProgram` (list returns
+  `AdminPagination` = `{ page, limit, total, total_pages, items }`).
+- **`plan_builder_model.ts`** — `toGenericProgramInput(draft)` maps the builder
+  draft to the create/update payload (string numeric fields → numbers, free →
+  price 0, paid → integer cents, currency default `EUR`).
+- **`admin2_plan_create_page.tsx`** — publish action now calls the API:
+  `isSaving`/`successMessage` state, button disabled while not dirty or in
+  flight (`Saving…`), green success notice, and `describeSaveError` turning API
+  error codes (`EXERCISE_NOT_FOUND`, `DUPLICATE_EXERCISE`,
+  `PROGRAM_NOT_FOUND`, `PROGRAM_ALREADY_PUBLISHED`, `VALIDATION_ERROR`) into
+  friendly copy.
+- **Home page** — removed the "Technology first" section and its 16 unused
+  icon imports; page is now Hero → Programs → Platform → Services preview →
+  Contact; CSS trimmed to the remaining sections.
+- **Our Vision page** — removed the "A FITNESS OPERATING SYSTEM" section (and
+  `WhyFeatureGrid`), the mission/roadmap background images and the
+  `SystemEvolutionHud`; roadmap heading now highlights "RYZE"; the component
+  and its CSS module were deleted.
+- **Part B asset policy** — all five stripped images keep their files on disk
+  (`tech_bg`, `how_bg`, `future_bg`, `evo_man_bg`, `starlight`) but are no
+  longer referenced; verified absent from the production bundle.
+
+**Verification**
+
+- `gofmt`/`go vet`/`go build ./...` clean; `go test ./...` passes except the
+  four pre-existing DB-data-dependent failures
+  (`TestTrainerRepository`, `TestAdminApproveApplicationAlreadyApproved`,
+  `TestAdminApproveApplicationAlreadyTrainerAtomicity`,
+  `TestAdminRejectThenReapplyApproved`, `TestTrainerProgramsCreateSuccess`).
+- New GenericPrograms service, repository and handler tests pass;
+  `-run GenericPrograms` passes inside the otherwise-failing api/auth package.
+- `npm run typecheck` and `npm run build` pass (only pre-existing chunk-size
+  warning); stripped assets verified absent from `dist/assets`.
+
+**Documentation**
+
+- `docs/INSTRUCTIONS/api.MD` — generic-programs endpoints, ownership model,
+  cap limits and per-endpoint error mapping; Management Administrator
+  permissions list updated.
+- `docs/DATABASE/database.MD` — `programs` new columns, `trainer_id NULL`
+  realized for generic programs, new "Generic Programs" note.
+- `docs/INSTRUCTIONS/arquitecture.MD` — "Generic Programs (Platform-Owned)"
+  section; admin2 builder wiring bullet.
+- `docs/PAGES/design.MD` — plan creation workspace publish/save behavior.
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+---
+
 # Version 2.55.0
 
 Title: Exercise Library + Exercise Builder (ADMIN_2 Generic Plan workspace)

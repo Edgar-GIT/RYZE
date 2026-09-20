@@ -27,6 +27,7 @@ import (
 	"ryze/backend/services/delete_account"
 	"ryze/backend/services/entitlements"
 	"ryze/backend/services/exercises"
+	"ryze/backend/services/generic_programs"
 	"ryze/backend/services/login"
 	"ryze/backend/services/password"
 	"ryze/backend/services/payments"
@@ -112,6 +113,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	adminProgramPricingService := admin_program_pricing.NewService(trainerProgramService)
 	adminProgramPricingHandler := auth.NewAdminProgramPricingHandler(adminProgramPricingService)
+
+	genericProgramRepository := repositories.NewGenericProgramRepository(db)
+	genericProgramService := generic_programs.NewService(genericProgramRepository, pricingCfg)
+	genericProgramHandler := auth.NewGenericProgramsHandler(genericProgramService)
 
 	commissionRuleRepository := repositories.NewCommissionRuleRepository(db)
 	commissionRulesService := commission_rules.NewService(commissionRuleRepository, trainerRepository, commissionCfg)
@@ -201,6 +206,21 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.ReorderExercises)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.GetExercise)
 	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.DeleteExercise)
+
+	// Generic programs are the platform-owned counterpart of trainer programs.
+	// They live in the public program namespace (published versions are
+	// product catalog entries) but every operation is restricted to
+	// administrators holding the plans permission. The owning trainer id is
+	// never involved: generic programs are always trainer_id NULL.
+	genericPrograms := v1.Group("/programs/generic")
+	genericPrograms.Use(middleware.AdminAuthenticate(tokenService))
+	genericPrograms.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
+	genericPrograms.GET("", genericProgramHandler.ListPrograms)
+	genericPrograms.POST("", genericProgramHandler.CreateProgram)
+	genericPrograms.GET("/:programID", genericProgramHandler.GetProgram)
+	genericPrograms.PATCH("/:programID", genericProgramHandler.UpdateProgram)
+	genericPrograms.POST("/:programID/publish", genericProgramHandler.PublishProgram)
+	genericPrograms.DELETE("/:programID", genericProgramHandler.DeleteProgram)
 
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))
