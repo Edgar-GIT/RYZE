@@ -1128,7 +1128,9 @@ trainer programs.
   forbidden for any generic program).
 - `level`, `duration_weeks` and `frequency_per_week` describe the target
   audience (nullable; `NULL` means "not set" and is excluded from exact
-  filters).
+  filters). They are populated through the ADMIN_2 plan builder's Marketplace
+  step (Level, Duration in weeks, Frequency in days per week) and carried by
+  `create` and `update` payloads.
 - A generic program is identified from any other program by `trainer_id IS
   NULL`. Every generic-program query is scoped to this invariant server-side;
   trainer-owned ids addressed through the generic endpoints are

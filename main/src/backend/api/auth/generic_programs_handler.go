@@ -22,6 +22,7 @@ type genericProgramResponse struct {
 	Level            *string   `json:"level"`
 	DurationWeeks    *int      `json:"duration_weeks"`
 	FrequencyPerWeek *int      `json:"frequency_per_week"`
+	TrainingType     *string   `json:"training_type"`
 	PriceMinorUnits  int64     `json:"price_minor_units"`
 	Currency         string    `json:"currency"`
 	CreatedAt        time.Time `json:"created_at"`
@@ -38,6 +39,7 @@ func newGenericProgramResponse(program generic_programs.Program) genericProgramR
 		Level:            program.Level,
 		DurationWeeks:    program.DurationWeeks,
 		FrequencyPerWeek: program.FrequencyPerWeek,
+		TrainingType:     program.TrainingType,
 		PriceMinorUnits:  program.PriceMinorUnits,
 		Currency:         program.Currency,
 		CreatedAt:        program.CreatedAt,
@@ -201,6 +203,7 @@ type genericProgramRequest struct {
 	Level            string               `json:"level"`
 	DurationWeeks    int                  `json:"duration_weeks"`
 	FrequencyPerWeek int                  `json:"frequency_per_week"`
+	TrainingType     string               `json:"training_type"`
 	PriceMinorUnits  int64                `json:"price_minor_units"`
 	Currency         string               `json:"currency"`
 	Weeks            []genericWeekRequest `json:"weeks"`
@@ -215,6 +218,7 @@ func toGenericProgramInput(req *genericProgramRequest) generic_programs.ProgramI
 		Level:            req.Level,
 		DurationWeeks:    req.DurationWeeks,
 		FrequencyPerWeek: req.FrequencyPerWeek,
+		TrainingType:     req.TrainingType,
 		PriceMinorUnits:  req.PriceMinorUnits,
 		Currency:         req.Currency,
 		Weeks:            make([]generic_programs.WeekInput, 0, len(req.Weeks)),
@@ -318,6 +322,7 @@ func (h *GenericProgramsHandler) ListPrograms(c *gin.Context) {
 		Level:            c.Query("level"),
 		DurationWeeks:    duration,
 		FrequencyPerWeek: frequency,
+		TrainingType:     c.Query("training_type"),
 	}, page, limit)
 	if err != nil {
 		h.respondGenericProgramsError(c, err)

@@ -43,13 +43,35 @@ type ProgramRepository interface {
 	// FindPublishedByID returns one published, non-deleted program by its
 	// id. Ownership is never checked: the catalog is global.
 	FindPublishedByID(ctx context.Context, programID string) (*models.Program, error)
+	// FindPublishedByIDWithStructure returns one published, non-deleted
+	// program with its complete nested structure (weeks → workouts →
+	// workout exercises → sets and the catalog exercise summary). Ownership
+	// is never checked: the catalog is global.
+	FindPublishedByIDWithStructure(ctx context.Context, programID string) (*models.Program, error)
 	// SearchPublished returns published, non-deleted programs matching the
-	// given filters. An empty query skips the name filter. An empty
-	// programType skips the type filter. sortBy is whitelisted to
-	// "created_at" and "name"; any other value falls back to "created_at".
-	// order is whitelisted to "asc" and "desc"; any other value falls back
-	// to "desc".
-	SearchPublished(ctx context.Context, query string, programType string, sortBy string, order string, page, limit int) ([]models.Program, int64, error)
+	// given catalog filter. Every filter value is optional; empty values are
+	// ignored. ScopeGeneric restricts the catalog to platform-owned programs
+	// (trainer_id IS NULL). sortBy is whitelisted to "created_at" and "name";
+	// any other value falls back to "created_at". order is whitelisted to
+	// "asc" and "desc"; any other value falls back to "desc".
+	SearchPublished(ctx context.Context, filter PublicCatalogFilter, page, limit int) ([]models.Program, int64, error)
+}
+
+// PublicCatalogFilter narrows the public program catalog. Every value is
+// optional; empty values (and zero integers) are ignored. ScopeGeneric
+// restricts the catalog to platform-owned (trainer_id IS NULL) programs, which
+// is the foundation of the generic training plans marketplace.
+type PublicCatalogFilter struct {
+	Query            string
+	ProgramType      string
+	TrainingType     string
+	Level            string
+	FrequencyPerWeek int
+	DurationMin      int
+	DurationMax      int
+	SortBy           string
+	Order            string
+	ScopeGeneric     bool
 }
 
 type programRepository struct {
@@ -218,26 +240,87 @@ func (r *programRepository) FindPublishedByID(ctx context.Context, programID str
 	return &program, nil
 }
 
+// FindPublishedByIDWithStructure returns one published, non-deleted program
+// together with its complete nested structure. Catalog exercise summaries are
+// preloaded so a public detail view can render the full program without
+// touching internal identifiers.
+func (r *programRepository) FindPublishedByIDWithStructure(ctx context.Context, programID string) (*models.Program, error) {
+	var program models.Program
+	if err := r.db.WithContext(ctx).
+		Preload("Weeks", orderedByWeekNumber()).
+		Preload("Weeks.Workouts", orderedByPosition()).
+		Preload("Weeks.Workouts.Exercises", orderedByPosition()).
+		Preload("Weeks.Workouts.Exercises.Exercise").
+		Preload("Weeks.Workouts.Exercises.Sets", orderedBySetNumber()).
+		First(&program, "id = ? AND status = ?", programID, models.ProgramStatusPublished).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to find published program structure: %w", err)
+	}
+	return &program, nil
+}
+
 // SearchPublished returns published, non-deleted programs matching the given
-// filters. An empty query skips the name filter. An empty programType skips the
-// type filter. sortBy is whitelisted to "created_at" and "name"; any other
-// value falls back to "created_at". order is whitelisted to "asc" and "desc";
-// any other value falls back to "desc". SQL LIKE wildcards in the query are
-// escaped to prevent unintended pattern matching.
-func (r *programRepository) SearchPublished(ctx context.Context, query string, programType string, sortBy string, order string, page, limit int) ([]models.Program, int64, error) {
+// catalog filter. Empty query skips the name filter; ScopeGeneric restricts the
+// catalog to platform-owned programs (trainer_id IS NULL); level, training
+// type and frequency match exactly; duration narrows by range. sortBy is
+// whitelisted to "created_at" and "name"; any other value falls back to
+// "created_at". order is whitelisted to "asc" and "desc"; any other value
+// falls back to "desc". SQL LIKE wildcards in the query are escaped to prevent
+// unintended pattern matching.
+func (r *programRepository) SearchPublished(ctx context.Context, filter PublicCatalogFilter, page, limit int) ([]models.Program, int64, error) {
 	var programs []models.Program
 	var total int64
 
 	db := r.db.WithContext(ctx).Model(&models.Program{}).
 		Where("status = ?", models.ProgramStatusPublished)
 
-	if query != "" {
-		escaped := escapeSQLLike(query)
+	if filter.ScopeGeneric {
+		db = db.Where("trainer_id IS NULL")
+	}
+
+	if filter.Query != "" {
+		escaped := escapeSQLLike(filter.Query)
 		db = db.Where("name LIKE ?", "%"+escaped+"%")
 	}
 
-	if programType != "" {
-		db = db.Where("type = ?", programType)
+	if filter.ProgramType != "" {
+		db = db.Where("type = ?", filter.ProgramType)
+	}
+
+	if filter.TrainingType != "" {
+		db = db.Where("training_type = ?", filter.TrainingType)
+	}
+
+	if filter.Level != "" {
+		db = db.Where("level = ?", filter.Level)
+	}
+
+	if filter.FrequencyPerWeek > 0 {
+		db = db.Where("frequency_per_week = ?", filter.FrequencyPerWeek)
+	}
+
+	if filter.DurationMin > 0 || filter.DurationMax > 0 {
+		if filter.DurationMax < filter.DurationMin {
+			// An inverted range simply matches nothing.
+			db = db.Where("FALSE")
+		} else {
+			durationClause := ""
+			var durationArgs []any
+			if filter.DurationMin > 0 {
+				durationClause += "duration_weeks >= ?"
+				durationArgs = append(durationArgs, filter.DurationMin)
+			}
+			if filter.DurationMax > 0 {
+				if durationClause != "" {
+					durationClause += " AND "
+				}
+				durationClause += "duration_weeks <= ?"
+				durationArgs = append(durationArgs, filter.DurationMax)
+			}
+			db = db.Where(durationClause, durationArgs...)
+		}
 	}
 
 	if err := db.Count(&total).Error; err != nil {
@@ -245,13 +328,13 @@ func (r *programRepository) SearchPublished(ctx context.Context, query string, p
 	}
 
 	orderClause := "created_at DESC, id ASC"
-	switch sortBy {
+	switch filter.SortBy {
 	case "name":
 		orderClause = "name ASC, id ASC"
 	}
-	if order == "asc" && sortBy == "name" {
+	if filter.Order == "asc" && filter.SortBy == "name" {
 		orderClause = "name ASC, id ASC"
-	} else if order == "asc" && sortBy == "created_at" {
+	} else if filter.Order == "asc" && filter.SortBy == "created_at" {
 		orderClause = "created_at ASC, id ASC"
 	}
 
@@ -262,6 +345,15 @@ func (r *programRepository) SearchPublished(ctx context.Context, query string, p
 		return nil, 0, fmt.Errorf("failed to search published programs: %w", err)
 	}
 	return programs, total, nil
+}
+
+// orderedByWeekNumber returns a GORM preload clause ordering weeks. Workout,
+// exercise and set preload ordering is shared with the generic program path via
+// orderedByPosition and orderedBySetNumber.
+func orderedByWeekNumber() func(*gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		return db.Order("week_number ASC")
+	}
 }
 
 // escapeSQLLike escapes the % and _ wildcards in a SQL LIKE pattern so they

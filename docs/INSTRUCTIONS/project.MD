@@ -42,10 +42,11 @@ vision surface focused on the platform and roadmap, not founder biographies.
 
 # Current Status
 
-The project has moved from planning into active frontend implementation.
-
-The public visual frontend is under development first. Backend, authentication,
-database migrations and purchase flows are documented but not implemented yet.
+The project is under active development. The public visual frontend, the
+authentication, database migrations, purchase flows and the ADMIN_1 / ADMIN_2
+administration consoles are implemented; ADMIN_2 manages platform-owned Generic
+Programs end to end (create, list, search, open, edit and soft delete) against
+the generic program API.
 
 ---
 

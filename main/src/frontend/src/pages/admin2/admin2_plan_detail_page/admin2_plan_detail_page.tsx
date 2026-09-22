@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, Edit, RefreshCw } from "lucide-react";
-import type { FormEvent } from "react";
+import { Link, useHistory, useParams } from "react-router-dom";
+import { ArrowLeft, Edit, RefreshCw, Trash2 } from "lucide-react";
 
 import { Admin2PageHeader } from "@/components/admin2/admin2_page_header/admin2_page_header";
 import { Admin2Section } from "@/components/admin2/admin2_section/admin2_section";
@@ -9,128 +8,114 @@ import { Admin2StatusBadge } from "@/components/admin2/admin2_status_badge/admin
 import { Admin2Modal } from "@/components/admin2/admin2_modal/admin2_modal";
 import { Button } from "@/components/button/button";
 import {
-  AdminProgram,
-  fetchAdminProgram,
+  deleteGenericProgram,
+  fetchGenericProgram,
   formatAdminPrice,
   programTypeLabel,
-  ProgramType,
-  updateAdminProgramPricing
+  ProgramStatusEnum,
+  type GenericProgramDetail,
+  type GenericProgramSet
 } from "@/services/admin2_api";
 import { formatAdminDate } from "@/services/admin_api";
 
 import styles from "./admin2_plan_detail_page.module.css";
 
-const PricingDialog = ({
+const optionalValue = (value: number | null): string => (value === null ? "—" : String(value));
+
+const setCell = (value: string): string => (value.trim() === "" ? "—" : value);
+
+const SetTable = ({ sets }: { sets: GenericProgramSet[] }) => (
+  <div className={styles.setTableWrap}>
+    <table className={styles.setTable}>
+      <thead>
+        <tr>
+          <th>Set</th>
+          <th>Type</th>
+          <th>Reps</th>
+          <th>Weight</th>
+          <th>RIR</th>
+          <th>RPE</th>
+          <th>Rest</th>
+          <th>Tempo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sets.map((set) => (
+          <tr key={set.set_number}>
+            <td>{set.set_number}</td>
+            <td>{setCell(set.set_type)}</td>
+            <td>{optionalValue(set.reps)}</td>
+            <td>{optionalValue(set.weight_kg)}</td>
+            <td>{optionalValue(set.rir)}</td>
+            <td>{optionalValue(set.rpe)}</td>
+            <td>{optionalValue(set.rest_seconds)}</td>
+            <td>{setCell(set.tempo)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+const DeleteDialog = ({
   program,
   onClose,
-  onSaved
+  onConfirm,
+  submitting,
+  errorMessage
 }: {
-  program: AdminProgram;
+  program: GenericProgramDetail;
   onClose: () => void;
-  onSaved: () => void;
-}) => {
-  const isFree = program.type === ProgramType.FREE;
-  const [price, setPrice] = useState(String(program.price_minor_units / 100));
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  onConfirm: () => void;
+  submitting: boolean;
+  errorMessage: string;
+}) => (
+  <Admin2Modal
+    title="Delete plan"
+    description={`Remove "${program.name}" from the RYZE catalogue.`}
+    onClose={onClose}
+  >
+    <p className={styles.formHint}>
+      The plan is soft-deleted: it disappears from the catalogue and the admin list, but its data is
+      preserved and can be restored by the platform.
+    </p>
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (submitting || isFree) {
-      return;
-    }
+    {errorMessage ? (
+      <p className={styles.formError} role="alert" style={{ marginTop: "0.5rem" }}>
+        {errorMessage}
+      </p>
+    ) : null}
 
-    const parsedPrice = Number(price);
-    const minorUnits = Math.round(parsedPrice * 100);
-    if (Number.isNaN(parsedPrice) || minorUnits < 100) {
-      setErrorMessage("Paid programs must have a price of at least €1.00.");
-      return;
-    }
-
-    setSubmitting(true);
-    setErrorMessage("");
-
-    try {
-      await updateAdminProgramPricing(program.id, {
-        price_minor_units: minorUnits,
-        currency: program.currency
-      });
-      onSaved();
-      onClose();
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Unable to update the price. Please try again."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Admin2Modal
-      title="Edit pricing"
-      description={`Update the marketplace price for ${program.name}.`}
-      onClose={onClose}
-    >
-      <form onSubmit={handleSubmit} noValidate>
-        <div className={styles.formRow}>
-          <label className={styles.formLabel} htmlFor="detail-price">
-            Price
-          </label>
-          <input
-            id="detail-price"
-            className={styles.formInput}
-            type="number"
-            min="0"
-            step="0.01"
-            value={isFree ? "0.00" : price}
-            disabled={isFree}
-            onChange={(event) => setPrice(event.target.value)}
-            aria-label="Price in euros"
-          />
-        </div>
-
-        {isFree ? (
-          <p className={styles.formError} style={{ marginTop: "0.5rem" }}>
-            Free programs are always €0.00.
-          </p>
-        ) : null}
-
-        {errorMessage ? (
-          <p className={styles.formError} role="alert" style={{ marginTop: "0.5rem" }}>
-            {errorMessage}
-          </p>
-        ) : null}
-
-        <div className={styles.modalActions}>
-          <Button type="button" variant="ghost" size="small" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" size="small" disabled={submitting || isFree}>
-            {submitting ? "Saving…" : "Save price"}
-          </Button>
-        </div>
-      </form>
-    </Admin2Modal>
-  );
-};
+    <div className={styles.modalActions}>
+      <Button type="button" variant="ghost" size="small" onClick={onClose}>
+        Cancel
+      </Button>
+      <Button type="button" variant="danger" size="small" onClick={onConfirm} disabled={submitting}>
+        {submitting ? "Deleting…" : "Delete plan"}
+      </Button>
+    </div>
+  </Admin2Modal>
+);
 
 export default function Admin2PlanDetailPage() {
   const { programId } = useParams<{ programId: string }>();
-  const [program, setProgram] = useState<AdminProgram | null>(null);
+  const history = useHistory();
+  const [program, setProgram] = useState<GenericProgramDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [showPricing, setShowPricing] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
 
     try {
-      const result = await fetchAdminProgram(programId);
+      const result = await fetchGenericProgram(programId);
       setProgram(result);
     } catch {
-      setErrorMessage("Unable to load this program. Please try again.");
+      setErrorMessage("Unable to load this plan. It may have been removed.");
     } finally {
       setLoading(false);
     }
@@ -139,6 +124,25 @@ export default function Admin2PlanDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const confirmDelete = async () => {
+    if (!program) {
+      return;
+    }
+    setDeleting(true);
+    setDeleteError("");
+
+    try {
+      await deleteGenericProgram(program.id);
+      history.push("/admin2/plans");
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "Unable to delete the plan. Please try again."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <>
@@ -167,23 +171,70 @@ export default function Admin2PlanDetailPage() {
         <div className={styles.pageState}>
           <p className={styles.formError}>{errorMessage}</p>
           <div style={{ marginTop: "0.75rem" }}>
-            <Button variant="secondary" size="small" onClick={() => void load()} icon={<RefreshCw size={15} />}>
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={() => void load()}
+              icon={<RefreshCw size={15} />}
+            >
               Retry
             </Button>
           </div>
         </div>
       ) : (
         <div className={styles.split}>
-<Admin2Section title="Program structure" subtitle="Where the plan content lives">
-              <div className={styles.notice}>
-                <AlertTriangle size={15} className={styles.noticeIcon} aria-hidden="true" />
-                <span>
-                  <strong>Not exposed yet.</strong> The admin program endpoint returns program
-                  metadata only; weeks, workouts and exercises are not part of the response until the
-                  structure API ships.
-                </span>
-              </div>
-            </Admin2Section>
+          <Admin2Section
+            title="Program structure"
+            subtitle="Weeks, training days, exercises and their set prescriptions"
+          >
+            <div className={styles.structureBody}>
+              {program.weeks.length === 0 ? (
+                <p className={styles.structureEmpty}>This plan has no weeks yet.</p>
+              ) : (
+                program.weeks.map((week) => (
+                  <div key={week.week_number} className={styles.weekCard}>
+                    <p className={styles.weekTitle}>Week {week.week_number}</p>
+
+                    {week.workouts.length === 0 ? (
+                      <p className={styles.structureEmpty}>No training days in this week.</p>
+                    ) : (
+                      week.workouts.map((workout) => (
+                        <div key={workout.position} className={styles.dayCard}>
+                          <p className={styles.dayTitle}>Day {workout.position}</p>
+
+                          {workout.exercises.length === 0 ? (
+                            <p className={styles.structureEmpty}>No exercises assigned.</p>
+                          ) : (
+                            workout.exercises.map((exercise) => (
+                              <div key={exercise.id} className={styles.exerciseBlock}>
+                                <div className={styles.exerciseHead}>
+                                  <span className={styles.exercisePos}>{exercise.position}</span>
+                                  <span className={styles.exerciseName}>{exercise.name}</span>
+                                  <span className={styles.exerciseMeta}>
+                                    {exercise.sets.length} set
+                                    {exercise.sets.length === 1 ? "" : "s"}
+                                  </span>
+                                </div>
+
+                                {exercise.instructions ? (
+                                  <p className={styles.exerciseNote}>{exercise.instructions}</p>
+                                ) : null}
+                                {exercise.notes ? (
+                                  <p className={styles.exerciseNote}>{exercise.notes}</p>
+                                ) : null}
+
+                                <SetTable sets={exercise.sets} />
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </Admin2Section>
 
           <Admin2Section title="Summary" subtitle="Program facts">
             <div className={styles.detailList}>
@@ -194,16 +245,37 @@ export default function Admin2PlanDetailPage() {
               <div className={styles.row}>
                 <p className={styles.rowLabel}>Status</p>
                 <div className={styles.rowValue}>
-                  <Admin2StatusBadge label={program.status === "published" ? "Published" : "Draft"} tone={program.status === "published" ? "success" : "warning"} />
+                  <Admin2StatusBadge
+                    label={program.status === ProgramStatusEnum.PUBLISHED ? "Published" : "Draft"}
+                    tone={program.status === ProgramStatusEnum.PUBLISHED ? "success" : "warning"}
+                  />
                 </div>
               </div>
               <div className={styles.row}>
-                <p className={styles.rowLabel}>Price</p>
-                <p className={styles.rowValue}>{formatAdminPrice(program.price_minor_units, program.currency)}</p>
+                <p className={styles.rowLabel}>Level</p>
+                <p className={styles.rowValue}>{program.level ?? "—"}</p>
               </div>
               <div className={styles.row}>
-                <p className={styles.rowLabel}>Currency</p>
-                <p className={styles.rowValue}>{program.currency}</p>
+                <p className={styles.rowLabel}>Frequency</p>
+                <p className={styles.rowValue}>
+                  {program.frequency_per_week === null
+                    ? "—"
+                    : `${program.frequency_per_week} day${program.frequency_per_week === 1 ? "" : "s"}/week`}
+                </p>
+              </div>
+              <div className={styles.row}>
+                <p className={styles.rowLabel}>Duration</p>
+                <p className={styles.rowValue}>
+                  {program.duration_weeks === null
+                    ? "—"
+                    : `${program.duration_weeks} week${program.duration_weeks === 1 ? "" : "s"}`}
+                </p>
+              </div>
+              <div className={styles.row}>
+                <p className={styles.rowLabel}>Price</p>
+                <p className={styles.rowValue}>
+                  {formatAdminPrice(program.price_minor_units, program.currency)}
+                </p>
               </div>
               <div className={styles.row}>
                 <p className={styles.rowLabel}>Created</p>
@@ -217,15 +289,25 @@ export default function Admin2PlanDetailPage() {
 
             <div className={styles.actions}>
               <Button
+                to={`/admin2/plans/create?edit=${program.id}`}
                 variant="secondary"
                 size="small"
                 icon={<Edit size={14} />}
-                onClick={() => setShowPricing(true)}
-                disabled={program.type === ProgramType.FREE}
               >
-                Edit pricing
+                Edit plan
               </Button>
-              <Link className={styles.formError} to="/admin2/plans" style={{ textDecoration: "none" }}>
+              <Button
+                variant="ghost"
+                size="small"
+                icon={<Trash2 size={14} />}
+                onClick={() => {
+                  setDeleteError("");
+                  setShowDelete(true);
+                }}
+              >
+                Delete
+              </Button>
+              <Link className={styles.backLink} to="/admin2/plans">
                 Back to the plan list
               </Link>
             </div>
@@ -233,11 +315,13 @@ export default function Admin2PlanDetailPage() {
         </div>
       )}
 
-      {program && showPricing ? (
-        <PricingDialog
+      {program && showDelete ? (
+        <DeleteDialog
           program={program}
-          onClose={() => setShowPricing(false)}
-          onSaved={() => void load()}
+          onClose={() => setShowDelete(false)}
+          onConfirm={() => void confirmDelete()}
+          submitting={deleting}
+          errorMessage={deleteError}
         />
       ) : null}
     </>

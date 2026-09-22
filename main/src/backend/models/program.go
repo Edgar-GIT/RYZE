@@ -45,6 +45,7 @@ type Program struct {
 	Level            *string        `gorm:"column:level;type:varchar(20)" json:"level"`
 	DurationWeeks    *int           `gorm:"column:duration_weeks" json:"duration_weeks"`
 	FrequencyPerWeek *int           `gorm:"column:frequency_per_week" json:"frequency_per_week"`
+	TrainingType     *string        `gorm:"column:training_type;type:varchar(40)" json:"training_type"`
 	PriceMinorUnits  int64          `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
 	Currency         string         `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
 	Weeks            []ProgramWeek  `gorm:"foreignKey:ProgramID" json:"-"`

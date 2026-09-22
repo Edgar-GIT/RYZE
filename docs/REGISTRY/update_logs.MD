@@ -1,3 +1,67 @@
+# Version 2.68.0
+
+Title: Generic Program management lifecycle in ADMIN_2
+
+Date: 2026-09-21
+
+Summary:
+
+ADMIN_2 now manages platform-owned Generic Programs through the whole lifecycle
+against the real generic program backend: CREATE → SAVE → LIST → SEARCH → OPEN →
+EDIT → SOFT DELETE. The backend area was already complete; this version wires
+the ADMIN_2 frontend to it end to end.
+
+Main changes:
+
+- **Backend** — no endpoint changes. Verified `programs/generic` routes, service
+  and repository already implement list+search+filter (`query`, `type`, `level`),
+  create, full-structure read, transactional `UpdateFull`, publish and soft
+  delete behind `AdminAuthenticate` + `RequireAdminPermission(plans)`.
+- **ADMIN_2 Plans list (`admin2_plans_page.tsx`)** — now a Generic Program list
+  backed by `fetchGenericPrograms`: debounced search bar (queries the real
+  backend `search`), existing type tabs, a new level filter, pagination, and a
+  soft-delete confirm dialog. Columns: program, type, level, frequency, duration,
+  status, updated. The previous published-only trainer-program listing and the
+  pricing editor were removed; prices stay a later-step concern.
+- **ADMIN_2 Plan detail (`admin2_plan_detail_page.tsx`)** — now loads the full
+  generic program via `fetchGenericProgram` and renders the complete structure
+  (weeks → training days → exercises → sets with reps/weight/RIR/RPE/rest/tempo)
+  plus audience metadata summary. Actions: Edit plan (opens the builder in edit
+  mode) and Delete (soft delete, confirm dialog).
+- **Plan builder edit mode (`admin2_plan_create_page.tsx`)** — the create
+  workspace now also edits: `/admin2/plans/create?edit=<id>` loads the program
+  through the builder (`detailToPlanDraft` mapping), saves through
+  `updateGenericProgram` (transactional, child ids preserved server-side), and
+  keeps the same 4-step experience and components.
+- **Audience metadata in the builder** — the Marketplace step now captures Level
+  (Beginner/Intermediate/Advanced/not set), Duration (weeks) and Frequency
+  (days/week); `toGenericProgramInput` sends them (empty = "not set" server-side)
+  and client validation bounds duration to 1–52 and frequency to 1–7.
+
+Documentation:
+
+- `docs/PAGES/design.MD` — ADMIN_2 Plans / Plan creation workspace / Plan detail
+  page descriptions updated.
+- `docs/INSTRUCTIONS/arquitecture.MD` — generic programs section notes the
+  complete ADMIN_2 management UI, not just the builder.
+- `docs/INSTRUCTIONS/project.MD` — current status updated.
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+Validation:
+
+- Backend: `gofmt`, `go vet`, `go build ./...` pass; `go test` on the generic
+  program, repository, route and auth areas passes (only the pre-existing
+  DB-dependent failures remain).
+- Frontend: `npm run typecheck` and `npm run build` pass.
+
+Deliberately retained:
+
+- The admin pricing endpoints (`GET/PATCH /admin/programs/:programID`) stay in
+  the backend and service layer for the future pricing step; no ADMIN_2 page
+  consumes them yet.
+
+---
+
 # Version 2.67.0
 
 Title: Remove refund functionality completely

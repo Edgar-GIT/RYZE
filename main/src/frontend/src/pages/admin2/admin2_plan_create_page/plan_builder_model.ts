@@ -1,4 +1,12 @@
-import { ProgramStatusEnum, ProgramType, type GenericProgramInput, type ProgramStatusValue, type ProgramTypeValue } from "@/services/admin2_api";
+import {
+  ProgramStatusEnum,
+  ProgramType,
+  type GenericProgramDetail,
+  type GenericProgramInput,
+  type GenericProgramLevel,
+  type ProgramStatusValue,
+  type ProgramTypeValue
+} from "@/services/admin2_api";
 import type { SetType } from "@/services/exercise_library";
 
 export interface PlanDraftSet {
@@ -41,6 +49,9 @@ export interface PlanDraft {
   status: ProgramStatusValue;
   price: string;
   currency: string;
+  level: GenericProgramLevel | "";
+  duration_weeks: string;
+  frequency_per_week: string;
   weeks: PlanDraftWeek[];
 }
 
@@ -107,6 +118,9 @@ export const createPlanDraft = (): PlanDraft => ({
   status: ProgramStatusEnum.DRAFT,
   price: "0.00",
   currency: "EUR",
+  level: "",
+  duration_weeks: "",
+  frequency_per_week: "",
   weeks: [{ id: uid(), week_number: 1, workouts: [] }]
 });
 
@@ -341,6 +355,15 @@ export const validatePlan = (draft: PlanDraft): PlanValidation => {
     }
   }
 
+  const duration = optionalNumber(draft.duration_weeks);
+  if (duration !== null && (duration < 1 || duration > 52)) {
+    messages.push("The plan duration must be between 1 and 52 weeks.");
+  }
+  const frequency = optionalNumber(draft.frequency_per_week);
+  if (frequency !== null && (frequency < 1 || frequency > 7)) {
+    messages.push("The frequency must be between 1 and 7 training days per week.");
+  }
+
   return { valid: messages.length === 0, messages };
 };
 
@@ -356,16 +379,16 @@ const optionalNumber = (value: string): number | null => {
 // toGenericProgramInput serializes the client-side PlanDraft into the generic
 // program API payload. Structural ordering keys (week/week workout/exercise
 // position) are derived server-side from array order and are never sent; the
-// optional level and duration/frequency metadata are intentionally left unset
-// because the builder does not expose them yet.
+// optional level, duration and frequency metadata are only sent when set, and
+// the server maps empty values back to "not set".
 export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => ({
   name: draft.name.trim(),
   description: draft.description.trim(),
   type: draft.type,
   status: draft.status,
-  level: "",
-  duration_weeks: 0,
-  frequency_per_week: 0,
+  level: draft.level,
+  duration_weeks: optionalNumber(draft.duration_weeks) ?? 0,
+  frequency_per_week: optionalNumber(draft.frequency_per_week) ?? 0,
   price_minor_units: draft.type === ProgramType.FREE ? 0 : Math.round(Number(draft.price) * 100),
   currency: draft.currency || "EUR",
   weeks: draft.weeks.map((week) => ({
@@ -382,6 +405,49 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
           rpe: optionalNumber(set.rpe),
           rest_seconds: optionalNumber(set.rest_seconds),
           tempo: set.tempo
+        }))
+      }))
+    }))
+  }))
+});
+
+// detailToPlanDraft maps an existing generic program (full structure response)
+// back into an editable PlanDraft. Children receive fresh local ids because the
+// update payload never carries ids: the server matches children by ordering and
+// preserves untouched rows. Numeric prescriptions are surfaced as raw strings so
+// the existing input fields keep working unchanged.
+export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
+  name: detail.name,
+  description: detail.description,
+  type: detail.type,
+  status: detail.status,
+  price: (detail.price_minor_units / 100).toFixed(2),
+  currency: detail.currency,
+  level: detail.level ?? "",
+  duration_weeks: detail.duration_weeks === null ? "" : String(detail.duration_weeks),
+  frequency_per_week: detail.frequency_per_week === null ? "" : String(detail.frequency_per_week),
+  weeks: detail.weeks.map((week) => ({
+    id: uid(),
+    week_number: week.week_number,
+    workouts: week.workouts.map((workout) => ({
+      id: uid(),
+      position: workout.position,
+      exercises: workout.exercises.map((assignment) => ({
+        id: uid(),
+        exercise_id: assignment.id,
+        position: assignment.position,
+        instructions: assignment.instructions,
+        notes: assignment.notes,
+        sets: assignment.sets.map((set) => ({
+          id: uid(),
+          set_number: set.set_number,
+          reps: set.reps === null ? "" : String(set.reps),
+          weight_kg: set.weight_kg === null ? "" : String(set.weight_kg),
+          rir: set.rir === null ? "" : String(set.rir),
+          rpe: set.rpe === null ? "" : String(set.rpe),
+          rest_seconds: set.rest_seconds === null ? "" : String(set.rest_seconds),
+          tempo: set.tempo,
+          set_type: set.set_type
         }))
       }))
     }))

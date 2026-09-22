@@ -485,7 +485,7 @@ func TestProgramRepository(t *testing.T) {
 	searchDraft := seedProgram(trainer.ID, "Hypertrophy Draft", time.Now())
 	_ = searchDraft
 
-	results, total, err := programRepo.SearchPublished(ctx, "Hypertrophy", "", "", "", 1, 10)
+	results, total, err := programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{Query: "Hypertrophy"}, 1, 10)
 	if err != nil {
 		t.Fatalf("search published: %v", err)
 	}
@@ -509,7 +509,7 @@ func TestProgramRepository(t *testing.T) {
 	}
 
 	// 32. SearchPublished with empty query returns all published.
-	results, total, err = programRepo.SearchPublished(ctx, "", "", "", "", 1, 100)
+	results, total, err = programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{}, 1, 100)
 	if err != nil {
 		t.Fatalf("search published empty query: %v", err)
 	}
@@ -530,7 +530,7 @@ func TestProgramRepository(t *testing.T) {
 		t.Fatalf("publish freePub: %v", err)
 	}
 
-	results, total, err = programRepo.SearchPublished(ctx, "", models.ProgramTypeFree, "", "", 1, 10)
+	results, total, err = programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{ProgramType: models.ProgramTypeFree}, 1, 10)
 	if err != nil {
 		t.Fatalf("search published type filter: %v", err)
 	}
@@ -544,7 +544,7 @@ func TestProgramRepository(t *testing.T) {
 	}
 
 	// 34. SearchPublished with name sort returns results alphabetically.
-	results, _, err = programRepo.SearchPublished(ctx, "", "", "name", "asc", 1, 100)
+	results, _, err = programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{SortBy: "name", Order: "asc"}, 1, 100)
 	if err != nil {
 		t.Fatalf("search published name sort: %v", err)
 	}
@@ -566,7 +566,7 @@ func TestProgramRepository(t *testing.T) {
 		t.Fatalf("soft delete search program: %v", err)
 	}
 
-	results, _, err = programRepo.SearchPublished(ctx, "Delete Me", "", "", "", 1, 10)
+	results, _, err = programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{Query: "Delete Me"}, 1, 10)
 	if err != nil {
 		t.Fatalf("search published soft-deleted: %v", err)
 	}
@@ -582,7 +582,7 @@ func TestProgramRepository(t *testing.T) {
 	if err := programRepo.Update(ctx, trainer.ID, wildcardPub.ID, map[string]any{"status": models.ProgramStatusPublished}); err != nil {
 		t.Fatalf("publish wildcardPub: %v", err)
 	}
-	results, _, err = programRepo.SearchPublished(ctx, "100% Gainz", "", "", "", 1, 10)
+	results, _, err = programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{Query: "100% Gainz"}, 1, 10)
 	if err != nil {
 		t.Fatalf("search published wildcard: %v", err)
 	}
@@ -597,7 +597,7 @@ func TestProgramRepository(t *testing.T) {
 	}
 
 	// 37. SearchPublished pagination: page 1 with limit 1 returns exactly 1.
-	results, total, err = programRepo.SearchPublished(ctx, "", "", "", "", 1, 1)
+	results, total, err = programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{}, 1, 1)
 	if err != nil {
 		t.Fatalf("search published pagination: %v", err)
 	}
@@ -609,7 +609,7 @@ func TestProgramRepository(t *testing.T) {
 	}
 
 	// 38. SearchPublished total count excludes drafts and soft-deleted.
-	results, total, err = programRepo.SearchPublished(ctx, "", "", "", "", 1, 100)
+	results, total, err = programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{}, 1, 100)
 	if err != nil {
 		t.Fatalf("search published total count: %v", err)
 	}

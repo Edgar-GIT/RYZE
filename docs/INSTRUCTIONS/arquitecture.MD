@@ -425,8 +425,14 @@ Key architectural decisions:
 - **No commission involvement.** Generic programs are platform-owned and never
   participate in trainer revenue or commission resolution.
 
-The frontend counterpart is the admin2 plan builder, which creates and updates
-generic programs through this API instead of a trainer-scoped one.
+The frontend counterpart is the ADMIN_2 plans area, which manages generic
+programs through this API instead of a trainer-scoped one: the plan list
+(`/admin2/plans`) searches and paginates against the list endpoint, the plan
+detail page (`/admin2/plans/:programId`) reads the full structure from the
+detail endpoint, and the plan builder (`/admin2/plans/create`) creates new
+programs and, in edit mode (`?edit=<id>`), updates an existing one through the
+transactional update endpoint. All mutations (create, update, publish, soft
+delete) flow through `AdminAuthenticate` + the `plans` permission.
 
 ### Client Program Read
 

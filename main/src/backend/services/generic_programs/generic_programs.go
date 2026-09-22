@@ -61,6 +61,12 @@ const (
 // Values are stored verbatim and every filter value is validated against them.
 var LevelValues = []string{"Beginner", "Intermediate", "Advanced"}
 
+// TrainingTypeValues is the controlled marketplace vocabulary of generic
+// programs. Values are stored verbatim and every filter value is validated
+// against them; an empty value means the program does not advertise a specific
+// training type.
+var TrainingTypeValues = []string{"Hypertrophy", "Strength", "HYROX", "CrossFit", "Fat Loss", "At Home"}
+
 // SetTypeValues is the controlled set-type vocabulary, matching the database
 // CHECK constraint and the builder's prescription editor.
 var SetTypeValues = []string{"warmup", "working", "drop", "backoff", "failure"}
@@ -122,6 +128,7 @@ type ProgramInput struct {
 	Level            string
 	DurationWeeks    int
 	FrequencyPerWeek int
+	TrainingType     string
 	PriceMinorUnits  int64
 	Currency         string
 	Weeks            []WeekInput
@@ -134,6 +141,7 @@ type ProgramFilter struct {
 	Level            string
 	DurationWeeks    int
 	FrequencyPerWeek int
+	TrainingType     string
 }
 
 // Set is the safe representation of one prescription set. Optional training
@@ -196,6 +204,7 @@ type Program struct {
 	Level            *string
 	DurationWeeks    *int
 	FrequencyPerWeek *int
+	TrainingType     *string
 	PriceMinorUnits  int64
 	Currency         string
 	CreatedAt        time.Time
@@ -418,6 +427,9 @@ func (s *service) validateProgramInput(input ProgramInput) error {
 	if err := validateLevel(input.Level); err != nil {
 		return err
 	}
+	if err := validateTrainingType(input.TrainingType); err != nil {
+		return err
+	}
 	if err := validateDuration(input.DurationWeeks); err != nil {
 		return err
 	}
@@ -493,6 +505,12 @@ func (s *service) normalizeFilter(filter ProgramFilter) (ProgramFilter, error) {
 			return ProgramFilter{}, err
 		}
 	}
+	filter.TrainingType = strings.TrimSpace(filter.TrainingType)
+	if filter.TrainingType != "" {
+		if err := validateTrainingType(filter.TrainingType); err != nil {
+			return ProgramFilter{}, err
+		}
+	}
 	if filter.DurationWeeks < 0 || filter.FrequencyPerWeek < 0 {
 		return ProgramFilter{}, fmt.Errorf("%w: filter values cannot be negative", ErrInvalidInput)
 	}
@@ -518,6 +536,11 @@ func buildProgramModel(input ProgramInput) *models.Program {
 		v := input.FrequencyPerWeek
 		frequency = &v
 	}
+	var trainingType *string
+	if strings.TrimSpace(input.TrainingType) != "" {
+		v := strings.TrimSpace(input.TrainingType)
+		trainingType = &v
+	}
 
 	program := &models.Program{
 		Name:             strings.TrimSpace(input.Name),
@@ -527,6 +550,7 @@ func buildProgramModel(input ProgramInput) *models.Program {
 		Level:            level,
 		DurationWeeks:    duration,
 		FrequencyPerWeek: frequency,
+		TrainingType:     trainingType,
 		PriceMinorUnits:  input.PriceMinorUnits,
 		Currency:         strings.TrimSpace(input.Currency),
 	}
@@ -585,6 +609,7 @@ func newProgramSummary(model *models.Program) Program {
 		Level:            model.Level,
 		DurationWeeks:    model.DurationWeeks,
 		FrequencyPerWeek: model.FrequencyPerWeek,
+		TrainingType:     model.TrainingType,
 		PriceMinorUnits:  model.PriceMinorUnits,
 		Currency:         model.Currency,
 		CreatedAt:        model.CreatedAt,
@@ -753,6 +778,18 @@ func validateLevel(level string) error {
 		}
 	}
 	return fmt.Errorf("%w: invalid audience level", ErrInvalidInput)
+}
+
+func validateTrainingType(trainingType string) error {
+	if strings.TrimSpace(trainingType) == "" {
+		return nil
+	}
+	for _, candidate := range TrainingTypeValues {
+		if trainingType == candidate {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: invalid training type", ErrInvalidInput)
 }
 
 func validateDuration(duration int) error {

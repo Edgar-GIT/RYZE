@@ -26,7 +26,7 @@ type stubProgramRepo struct {
 	deleted          bool
 	list             func(page, limit int) ([]models.Program, int64, error)
 	find             func(programID string) (*models.Program, error)
-	search           func(query, programType, sortBy, order string, page, limit int) ([]models.Program, int64, error)
+	search           func(filter repositories.PublicCatalogFilter, page, limit int) ([]models.Program, int64, error)
 	gotPage          int
 	gotLimit         int
 	gotFindProgramID string
@@ -58,9 +58,13 @@ func (s *stubProgramRepo) FindPublishedByID(_ context.Context, programID string)
 	return s.program, nil
 }
 
-func (s *stubProgramRepo) SearchPublished(_ context.Context, query, programType, sortBy, order string, page, limit int) ([]models.Program, int64, error) {
+func (s *stubProgramRepo) FindPublishedByIDWithStructure(ctx context.Context, programID string) (*models.Program, error) {
+	return s.FindPublishedByID(ctx, programID)
+}
+
+func (s *stubProgramRepo) SearchPublished(_ context.Context, filter repositories.PublicCatalogFilter, page, limit int) ([]models.Program, int64, error) {
 	if s.search != nil {
-		return s.search(query, programType, sortBy, order, page, limit)
+		return s.search(filter, page, limit)
 	}
 	if s.program == nil || s.deleted {
 		return nil, 0, nil
@@ -264,11 +268,11 @@ func TestSearchPublishedProgramsSuccess(t *testing.T) {
 	var gotQuery, gotType, gotSort, gotOrder string
 	var gotPage, gotLimit int
 	repo := &stubProgramRepo{
-		search: func(query, programType, sortBy, order string, page, limit int) ([]models.Program, int64, error) {
-			gotQuery = query
-			gotType = programType
-			gotSort = sortBy
-			gotOrder = order
+		search: func(filter repositories.PublicCatalogFilter, page, limit int) ([]models.Program, int64, error) {
+			gotQuery = filter.Query
+			gotType = filter.ProgramType
+			gotSort = filter.SortBy
+			gotOrder = filter.Order
 			gotPage = page
 			gotLimit = limit
 			return []models.Program{*validProgram()}, 1, nil
@@ -276,7 +280,12 @@ func TestSearchPublishedProgramsSuccess(t *testing.T) {
 	}
 	svc := newService(repo)
 
-	result, err := svc.SearchPublishedPrograms(context.Background(), "strength", "premium", "name", "asc", 2, 10)
+	result, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{
+		Query:       "strength",
+		ProgramType: "premium",
+		SortBy:      "name",
+		Order:       "asc",
+	}, 2, 10)
 	if err != nil {
 		t.Fatalf("SearchPublishedPrograms: %v", err)
 	}
@@ -297,14 +306,14 @@ func TestSearchPublishedProgramsSuccess(t *testing.T) {
 func TestSearchPublishedProgramsClampsLimit(t *testing.T) {
 	var gotLimit int
 	repo := &stubProgramRepo{
-		search: func(_, _ string, _ string, _ string, _, limit int) ([]models.Program, int64, error) {
+		search: func(_ repositories.PublicCatalogFilter, _ int, limit int) ([]models.Program, int64, error) {
 			gotLimit = limit
 			return nil, 0, nil
 		},
 	}
 	svc := newService(repo)
 
-	if _, err := svc.SearchPublishedPrograms(context.Background(), "", "", "", "", 1, 99999); err != nil {
+	if _, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{}, 1, 99999); err != nil {
 		t.Fatalf("SearchPublishedPrograms: %v", err)
 	}
 	if gotLimit != public_programs.MaxPageSize {
@@ -322,7 +331,7 @@ func TestSearchPublishedProgramsRejectsInvalidPagination(t *testing.T) {
 		"limit negative": {1, -5},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := svc.SearchPublishedPrograms(context.Background(), "", "", "", "", args[0], args[1]); !errors.Is(err, public_programs.ErrInvalidInput) {
+			if _, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{}, args[0], args[1]); !errors.Is(err, public_programs.ErrInvalidInput) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 		})
@@ -333,7 +342,7 @@ func TestSearchPublishedProgramsRejectsLongQuery(t *testing.T) {
 	svc := newService(&stubProgramRepo{})
 
 	longQuery := strings.Repeat("a", public_programs.MaxSearchQueryLength+1)
-	_, err := svc.SearchPublishedPrograms(context.Background(), longQuery, "", "", "", 1, 10)
+	_, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{Query: longQuery}, 1, 10)
 	if !errors.Is(err, public_programs.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput for long query, got %v", err)
 	}
@@ -342,15 +351,15 @@ func TestSearchPublishedProgramsRejectsLongQuery(t *testing.T) {
 func TestSearchPublishedProgramsTrimsAndAllowsMaxLengthQuery(t *testing.T) {
 	var gotQuery string
 	repo := &stubProgramRepo{
-		search: func(query, _, _, _ string, _, _ int) ([]models.Program, int64, error) {
-			gotQuery = query
+		search: func(filter repositories.PublicCatalogFilter, _, _ int) ([]models.Program, int64, error) {
+			gotQuery = filter.Query
 			return nil, 0, nil
 		},
 	}
 	svc := newService(repo)
 
 	maxQuery := strings.Repeat("a", public_programs.MaxSearchQueryLength)
-	_, err := svc.SearchPublishedPrograms(context.Background(), "  "+maxQuery+"  ", "", "", "", 1, 10)
+	_, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{Query: "  " + maxQuery + "  "}, 1, 10)
 	if err != nil {
 		t.Fatalf("SearchPublishedPrograms: %v", err)
 	}
@@ -362,7 +371,7 @@ func TestSearchPublishedProgramsTrimsAndAllowsMaxLengthQuery(t *testing.T) {
 func TestSearchPublishedProgramsRejectsInvalidType(t *testing.T) {
 	svc := newService(&stubProgramRepo{})
 
-	_, err := svc.SearchPublishedPrograms(context.Background(), "", "invalid_type", "", "", 1, 10)
+	_, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{ProgramType: "invalid_type"}, 1, 10)
 	if !errors.Is(err, public_programs.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput for invalid type, got %v", err)
 	}
@@ -371,15 +380,15 @@ func TestSearchPublishedProgramsRejectsInvalidType(t *testing.T) {
 func TestSearchPublishedProgramsAllowsValidTypes(t *testing.T) {
 	for _, pt := range []string{"free", "premium", "personalized"} {
 		repo := &stubProgramRepo{
-			search: func(query, programType, sortBy, order string, page, limit int) ([]models.Program, int64, error) {
-				if programType != pt {
-					t.Fatalf("expected type %q, got %q", pt, programType)
+			search: func(filter repositories.PublicCatalogFilter, _, _ int) ([]models.Program, int64, error) {
+				if filter.ProgramType != pt {
+					t.Fatalf("expected type %q, got %q", pt, filter.ProgramType)
 				}
 				return nil, 0, nil
 			},
 		}
 		svc := newService(repo)
-		if _, err := svc.SearchPublishedPrograms(context.Background(), "", pt, "", "", 1, 10); err != nil {
+		if _, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{ProgramType: pt}, 1, 10); err != nil {
 			t.Fatalf("type %q: expected no error, got %v", pt, err)
 		}
 	}
@@ -388,15 +397,15 @@ func TestSearchPublishedProgramsAllowsValidTypes(t *testing.T) {
 func TestSearchPublishedProgramsSortFallback(t *testing.T) {
 	var gotSort, gotOrder string
 	repo := &stubProgramRepo{
-		search: func(_, _, sortBy, order string, _, _ int) ([]models.Program, int64, error) {
-			gotSort = sortBy
-			gotOrder = order
+		search: func(filter repositories.PublicCatalogFilter, _, _ int) ([]models.Program, int64, error) {
+			gotSort = filter.SortBy
+			gotOrder = filter.Order
 			return nil, 0, nil
 		},
 	}
 	svc := newService(repo)
 
-	_, err := svc.SearchPublishedPrograms(context.Background(), "", "", "invalid_sort", "INVALID", 1, 10)
+	_, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{SortBy: "invalid_sort", Order: "INVALID"}, 1, 10)
 	if err != nil {
 		t.Fatalf("SearchPublishedPrograms: %v", err)
 	}
@@ -407,13 +416,13 @@ func TestSearchPublishedProgramsSortFallback(t *testing.T) {
 
 func TestSearchPublishedProgramsRepositoryFailure(t *testing.T) {
 	repo := &stubProgramRepo{
-		search: func(_, _, _, _ string, _, _ int) ([]models.Program, int64, error) {
+		search: func(_ repositories.PublicCatalogFilter, _, _ int) ([]models.Program, int64, error) {
 			return nil, 0, errRepoFailure
 		},
 	}
 	svc := newService(repo)
 
-	_, err := svc.SearchPublishedPrograms(context.Background(), "", "", "", "", 1, 10)
+	_, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{}, 1, 10)
 	if errors.Is(err, public_programs.ErrInvalidInput) || errors.Is(err, public_programs.ErrProgramNotFound) {
 		t.Fatalf("repository failure must not map to a domain error, got %v", err)
 	}
@@ -428,13 +437,13 @@ func TestSearchPublishedProgramsMapsSafeDTO(t *testing.T) {
 	p.Name = "Search Result"
 	p.TrainerID = "44444444-4444-4444-4444-444444444444"
 	repo := &stubProgramRepo{
-		search: func(_, _, _, _ string, _, _ int) ([]models.Program, int64, error) {
+		search: func(_ repositories.PublicCatalogFilter, _, _ int) ([]models.Program, int64, error) {
 			return []models.Program{*p}, 1, nil
 		},
 	}
 	svc := newService(repo)
 
-	result, err := svc.SearchPublishedPrograms(context.Background(), "", "", "", "", 1, 10)
+	result, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{}, 1, 10)
 	if err != nil {
 		t.Fatalf("SearchPublishedPrograms: %v", err)
 	}

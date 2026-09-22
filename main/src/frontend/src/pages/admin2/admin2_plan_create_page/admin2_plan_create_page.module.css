@@ -788,7 +788,50 @@
     min-width: 720px;
   }
 
-  .editorPanel {
-    overflow-x: auto;
+.editorPanel {
+  overflow-x: auto;
   }
+}
+
+/* --- Audience metadata --- */
+
+.levelRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.levelOption {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.levelOption:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.levelOptionActive {
+  background: var(--surface-hover);
+  border-color: rgba(24, 216, 255, 0.4);
+  color: var(--accent);
+}
+
+.metaRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.pageState {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
 }

@@ -84,10 +84,7 @@ type stubPublicProgramsService struct {
 	gotID      string
 	gotPage    int
 	gotLimit   int
-	gotQuery   string
-	gotType    string
-	gotSort    string
-	gotOrder   string
+	gotFilter  public_programs.ProgramFilter
 }
 
 func (s *stubPublicProgramsService) ListPublishedPrograms(_ context.Context, page, limit int) (public_programs.ListProgramsResult, error) {
@@ -96,16 +93,16 @@ func (s *stubPublicProgramsService) ListPublishedPrograms(_ context.Context, pag
 	return s.listResult, s.err
 }
 
-func (s *stubPublicProgramsService) GetPublishedProgram(_ context.Context, programID string) (*public_programs.Program, error) {
+func (s *stubPublicProgramsService) GetPublishedProgram(_ context.Context, programID string) (*public_programs.ProgramDetail, error) {
 	s.gotID = programID
-	return s.program, s.err
+	if s.program == nil {
+		return nil, s.err
+	}
+	return &public_programs.ProgramDetail{Program: *s.program}, s.err
 }
 
-func (s *stubPublicProgramsService) SearchPublishedPrograms(_ context.Context, query string, programType string, sortBy string, order string, page, limit int) (public_programs.ListProgramsResult, error) {
-	s.gotQuery = query
-	s.gotType = programType
-	s.gotSort = sortBy
-	s.gotOrder = order
+func (s *stubPublicProgramsService) SearchPublishedPrograms(_ context.Context, filter public_programs.ProgramFilter, page, limit int) (public_programs.ListProgramsResult, error) {
+	s.gotFilter = filter
 	s.gotPage = page
 	s.gotLimit = limit
 	return s.listResult, s.err
@@ -554,17 +551,17 @@ func TestPublicProgramsHandlerSearchForwardsParams(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
-	if svc.gotQuery != "strength" {
-		t.Fatalf("expected query 'strength', got %q", svc.gotQuery)
+	if svc.gotFilter.Query != "strength" {
+		t.Fatalf("expected query 'strength', got %q", svc.gotFilter.Query)
 	}
-	if svc.gotType != "premium" {
-		t.Fatalf("expected type 'premium', got %q", svc.gotType)
+	if svc.gotFilter.ProgramType != "premium" {
+		t.Fatalf("expected type 'premium', got %q", svc.gotFilter.ProgramType)
 	}
-	if svc.gotSort != "name" {
-		t.Fatalf("expected sort 'name', got %q", svc.gotSort)
+	if svc.gotFilter.SortBy != "name" {
+		t.Fatalf("expected sort 'name', got %q", svc.gotFilter.SortBy)
 	}
-	if svc.gotOrder != "asc" {
-		t.Fatalf("expected order 'asc', got %q", svc.gotOrder)
+	if svc.gotFilter.Order != "asc" {
+		t.Fatalf("expected order 'asc', got %q", svc.gotFilter.Order)
 	}
 }
 
@@ -583,8 +580,8 @@ func TestPublicProgramsHandlerSearchWithOnlyQuery(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
-	if svc.gotQuery != "cardio" {
-		t.Fatalf("expected query 'cardio', got %q", svc.gotQuery)
+	if svc.gotFilter.Query != "cardio" {
+		t.Fatalf("expected query 'cardio', got %q", svc.gotFilter.Query)
 	}
 }
 
@@ -603,8 +600,8 @@ func TestPublicProgramsHandlerSearchWithOnlyType(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
-	if svc.gotType != "free" {
-		t.Fatalf("expected type 'free', got %q", svc.gotType)
+	if svc.gotFilter.ProgramType != "free" {
+		t.Fatalf("expected type 'free', got %q", svc.gotFilter.ProgramType)
 	}
 }
 
@@ -623,8 +620,8 @@ func TestPublicProgramsHandlerListWithoutSearchParams(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
-	if svc.gotQuery != "" || svc.gotType != "" || svc.gotSort != "" || svc.gotOrder != "" {
-		t.Fatalf("expected ListPublishedPrograms to be called (not search), got query=%q type=%q sort=%q order=%q", svc.gotQuery, svc.gotType, svc.gotSort, svc.gotOrder)
+	if svc.gotFilter.Query != "" || svc.gotFilter.ProgramType != "" || svc.gotFilter.SortBy != "" || svc.gotFilter.Order != "" {
+		t.Fatalf("expected ListPublishedPrograms to be called (not search), got query=%q type=%q sort=%q order=%q", svc.gotFilter.Query, svc.gotFilter.ProgramType, svc.gotFilter.SortBy, svc.gotFilter.Order)
 	}
 }
 
@@ -669,8 +666,8 @@ func TestPublicProgramsHandlerSearchTrimsQuery(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
-	if svc.gotQuery != "strength" {
-		t.Fatalf("expected trimmed query 'strength', got %q", svc.gotQuery)
+	if svc.gotFilter.Query != "strength" {
+		t.Fatalf("expected trimmed query 'strength', got %q", svc.gotFilter.Query)
 	}
 }
 

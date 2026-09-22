@@ -26,6 +26,7 @@ type GenericProgramFilter struct {
 	Level            string
 	DurationWeeks    int
 	FrequencyPerWeek int
+	TrainingType     string
 }
 
 // GenericProgramRepository defines the data-access operations for the
@@ -121,6 +122,7 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, programID str
 				"level":              program.Level,
 				"duration_weeks":     program.DurationWeeks,
 				"frequency_per_week": program.FrequencyPerWeek,
+				"training_type":      program.TrainingType,
 				"price_minor_units":  program.PriceMinorUnits,
 				"currency":           program.Currency,
 			}).Error; err != nil {
@@ -192,6 +194,9 @@ func (r *genericProgramRepository) Search(ctx context.Context, filter GenericPro
 	}
 	if filter.FrequencyPerWeek > 0 {
 		query = query.Where("frequency_per_week = ?", filter.FrequencyPerWeek)
+	}
+	if filter.TrainingType != "" {
+		query = query.Where("training_type = ?", filter.TrainingType)
 	}
 
 	var total int64

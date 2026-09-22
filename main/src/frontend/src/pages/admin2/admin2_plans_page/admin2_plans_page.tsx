@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Edit, Plus, RefreshCw } from "lucide-react";
-import type { FormEvent } from "react";
+import { ArrowRight, Edit, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { Admin2PageHeader } from "@/components/admin2/admin2_page_header/admin2_page_header";
 import { Admin2Section } from "@/components/admin2/admin2_section/admin2_section";
@@ -10,17 +9,20 @@ import { Admin2Modal } from "@/components/admin2/admin2_modal/admin2_modal";
 import { Button } from "@/components/button/button";
 import { joinClassNames } from "@utils/class_names";
 import {
-  AdminProgram,
-  fetchAdminPrograms,
-  formatAdminPrice,
+  deleteGenericProgram,
+  fetchGenericPrograms,
   programTypeLabel,
+  ProgramStatusEnum,
   ProgramType,
-  type ProgramTypeValue,
-  updateAdminProgramPricing
+  type GenericProgramLevel,
+  type GenericProgramSummary,
+  type ProgramTypeValue
 } from "@/services/admin2_api";
-import { formatAdminDate } from "@/services/admin_api";
+import { formatAdminDate, type AdminPagination } from "@/services/admin_api";
 
 import styles from "./admin2_plans_page.module.css";
+
+const PAGE_SIZE = 25;
 
 type PlansTab = "ALL" | ProgramTypeValue;
 
@@ -31,6 +33,13 @@ const PLANS_TABS: Array<{ id: PlansTab; label: string }> = [
   { id: ProgramType.PERSONALIZED, label: "Premium · L2" }
 ];
 
+const LEVEL_FILTERS: Array<{ id: GenericProgramLevel | ""; label: string }> = [
+  { id: "", label: "All levels" },
+  { id: "Beginner", label: "Beginner" },
+  { id: "Intermediate", label: "Intermediate" },
+  { id: "Advanced", label: "Advanced" }
+];
+
 const tabFromQuery = (search: string): PlansTab => {
   const type = new URLSearchParams(search).get("type");
   if (type === ProgramType.FREE || type === ProgramType.PREMIUM || type === ProgramType.PERSONALIZED) {
@@ -39,178 +48,159 @@ const tabFromQuery = (search: string): PlansTab => {
   return "ALL";
 };
 
-const PricingDialog = ({
+const levelLabel = (level: GenericProgramLevel | null): string => level ?? "—";
+
+const frequencyLabel = (frequency: number | null): string =>
+  frequency === null ? "—" : `${frequency} day${frequency === 1 ? "" : "s"}/week`;
+
+const durationLabel = (duration: number | null): string =>
+  duration === null ? "—" : `${duration} week${duration === 1 ? "" : "s"}`;
+
+const DeleteDialog = ({
   program,
   onClose,
-  onSaved
+  onConfirm,
+  submitting,
+  errorMessage
 }: {
-  program: AdminProgram;
+  program: GenericProgramSummary;
   onClose: () => void;
-  onSaved: () => void;
-}) => {
-  const isFree = program.type === ProgramType.FREE;
-  const [price, setPrice] = useState(String(program.price_minor_units / 100));
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  onConfirm: () => void;
+  submitting: boolean;
+  errorMessage: string;
+}) => (
+  <Admin2Modal
+    title="Delete plan"
+    description={`Remove "${program.name}" from the RYZE catalogue.`}
+    onClose={onClose}
+  >
+    <p className={styles.formHint}>
+      The plan is soft-deleted: it disappears from the catalogue and the admin list, but its data
+      is preserved and can be restored by the platform.
+    </p>
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (submitting || isFree) {
-      return;
-    }
+    {errorMessage ? (
+      <p className={styles.formError} role="alert" style={{ marginTop: "0.5rem" }}>
+        {errorMessage}
+      </p>
+    ) : null}
 
-    const parsedPrice = Number(price);
-    if (Number.isNaN(parsedPrice) || parsedPrice <= 0) {
-      setErrorMessage("Paid programs must have a price of at least €1.00.");
-      return;
-    }
-
-    const minorUnits = Math.round(parsedPrice * 100);
-    if (minorUnits < 100) {
-      setErrorMessage("Paid programs must have a price of at least €1.00.");
-      return;
-    }
-
-    setSubmitting(true);
-    setErrorMessage("");
-
-    try {
-      await updateAdminProgramPricing(program.id, {
-        price_minor_units: minorUnits,
-        currency: program.currency
-      });
-      onSaved();
-      onClose();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to update the price. Please try again.";
-      setErrorMessage(message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Admin2Modal
-      title="Edit pricing"
-      description={`Update the marketplace price for ${program.name}.`}
-      onClose={onClose}
-    >
-      <form onSubmit={handleSubmit} noValidate>
-        <div className={styles.formRow}>
-          <label className={styles.formLabel} htmlFor="plan-price">
-            Price
-          </label>
-          <input
-            id="plan-price"
-            className={styles.formInput}
-            type="number"
-            min="0"
-            step="0.01"
-            value={isFree ? "0.00" : price}
-            disabled={isFree}
-            onChange={(event) => setPrice(event.target.value)}
-            aria-label="Price in euros"
-          />
-        </div>
-
-        <div className={styles.formRow}>
-          <label className={styles.formLabel} htmlFor="plan-currency">
-            Currency
-          </label>
-          <input
-            id="plan-currency"
-            className={styles.formInput}
-            type="text"
-            value={program.currency}
-            disabled
-            aria-label="Currency"
-          />
-        </div>
-
-        {isFree ? (
-          <p className={styles.formError} style={{ marginTop: "0.5rem" }}>
-            Free programs are always €0.00.
-          </p>
-        ) : (
-          <p className={styles.formError} style={{ marginTop: "0.5rem" }}>
-            Paid programs use a minimum price of €1.00.
-          </p>
-        )}
-
-        {errorMessage ? (
-          <p className={styles.formError} role="alert" style={{ marginTop: "0.5rem" }}>
-            {errorMessage}
-          </p>
-        ) : null}
-
-        <div className={styles.modalActions}>
-          <Button type="button" variant="ghost" size="small" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" size="small" disabled={submitting || isFree}>
-            {submitting ? "Saving…" : "Save price"}
-          </Button>
-        </div>
-      </form>
-    </Admin2Modal>
-  );
-};
+    <div className={styles.modalActions}>
+      <Button type="button" variant="ghost" size="small" onClick={onClose}>
+        Cancel
+      </Button>
+      <Button type="button" variant="danger" size="small" onClick={onConfirm} disabled={submitting}>
+        {submitting ? "Deleting…" : "Delete plan"}
+      </Button>
+    </div>
+  </Admin2Modal>
+);
 
 export default function Admin2PlansPage() {
   const history = useHistory();
   const location = useLocation();
   const activeTab = tabFromQuery(location.search);
 
-  const [programs, setPrograms] = useState<AdminProgram[]>([]);
-  const [total, setTotal] = useState(0);
+  const [programs, setPrograms] = useState<GenericProgramSummary[]>([]);
+  const [pagination, setPagination] = useState<AdminPagination | null>(null);
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [level, setLevel] = useState<GenericProgramLevel | "">("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [editingProgram, setEditingProgram] = useState<AdminProgram | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<GenericProgramSummary | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
 
     try {
-      const result = await fetchAdminPrograms(1, 100, activeTab === "ALL" ? undefined : activeTab);
+      const result = await fetchGenericPrograms({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedQuery.trim() || undefined,
+        type: activeTab === "ALL" ? undefined : activeTab,
+        level: level || undefined
+      });
       setPrograms(result.programs);
-      setTotal(result.pagination.total);
+      setPagination(result.pagination);
     } catch {
       setErrorMessage("Unable to load plans. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  }, [page, debouncedQuery, activeTab, level]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const changeTab = (tab: PlansTab) => {
+    setPage(1);
     const search = tab === "ALL" ? "" : `?type=${tab}`;
     history.push({ pathname: "/admin2/plans", search });
   };
 
+  const changeLevel = (value: GenericProgramLevel | "") => {
+    setLevel(value);
+    setPage(1);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    setDeleting(true);
+    setDeleteError("");
+
+    try {
+      await deleteGenericProgram(deleteTarget.id);
+      setDeleteTarget(null);
+      await load();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "Unable to delete the plan. Please try again."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const isFiltered = debouncedQuery.trim().length > 0 || level !== "";
+
   const emptyCopy = useMemo(() => {
+    if (isFiltered) {
+      return {
+        title: "No plans match your search",
+        message: "Try a different search term or clear the filters to see every plan."
+      };
+    }
     if (activeTab === "ALL") {
       return {
-        title: "No published programs yet",
-        message: "Programs appear here once they are published through the plan creation workspace."
+        title: "No plans yet",
+        message: "Create your first generic plan from the plan creation workspace."
       };
     }
     return {
-      title: `No ${programTypeLabel(activeTab as ProgramTypeValue).toLowerCase()} programs`,
-      message: "Publish a plan of this type to make it appear in this filter."
+      title: `No ${programTypeLabel(activeTab as ProgramTypeValue).toLowerCase()} plans`,
+      message: "Create a plan of this type to make it appear in this filter."
     };
-  }, [activeTab]);
+  }, [activeTab, isFiltered]);
 
   return (
     <>
       <Admin2PageHeader
         eyebrow="Programs"
         title="Plans"
-        description="Every published program across the RYZE product lines. Pricing is managed from here."
+        description="Every platform-owned generic program. Search, open, edit or remove catalogue plans."
         actions={
           <Button to="/admin2/plans/create" size="small" icon={<Plus size={15} />}>
             New plan
@@ -233,19 +223,49 @@ export default function Admin2PlansPage() {
             </button>
           ))}
         </div>
-      </div>
 
-      <div className={styles.notice}>
-        <AlertTriangle size={15} className={styles.noticeIcon} aria-hidden="true" />
-        <span>
-          <strong>Published programs only.</strong> Draft programs are created by trainers and are
-          not exposed through the admin API yet.
-        </span>
+        <div className={styles.filters}>
+          <div className={styles.searchBox}>
+            <Search size={15} className={styles.searchIcon} aria-hidden="true" />
+            <input
+              className={styles.searchInput}
+              type="search"
+              value={query}
+              placeholder="Search plans…"
+              aria-label="Search plans by name or description"
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <label className={styles.levelField}>
+            <span className={styles.levelFieldLabel}>Level</span>
+            <select
+              className={styles.levelSelect}
+              value={level}
+              aria-label="Filter plans by level"
+              onChange={(event) => changeLevel(event.target.value as GenericProgramLevel | "")}
+            >
+              {LEVEL_FILTERS.map((option) => (
+                <option key={option.id || "all"} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       <Admin2Section
         title={activeTab === "ALL" ? "All plans" : programTypeLabel(activeTab as ProgramTypeValue)}
-        subtitle={`${total} published program${total === 1 ? "" : "s"}`}
+        subtitle={
+          loading
+            ? "Loading…"
+            : errorMessage
+              ? ""
+              : `${pagination?.total ?? 0} program${pagination && pagination.total === 1 ? "" : "s"}`
+        }
       >
         {loading ? (
           <div className={styles.pageState}>
@@ -255,7 +275,12 @@ export default function Admin2PlansPage() {
           <div className={styles.pageState}>
             <p className={styles.formError}>{errorMessage}</p>
             <div style={{ marginTop: "0.75rem" }}>
-              <Button variant="secondary" size="small" onClick={() => void load()} icon={<RefreshCw size={15} />}>
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={() => void load()}
+                icon={<RefreshCw size={15} />}
+              >
                 Retry
               </Button>
             </div>
@@ -283,9 +308,11 @@ export default function Admin2PlansPage() {
                   <tr>
                     <th>Program</th>
                     <th>Type</th>
-                    <th>Price</th>
+                    <th>Level</th>
+                    <th>Frequency</th>
+                    <th>Duration</th>
                     <th>Status</th>
-                    <th>Published</th>
+                    <th>Updated</th>
                     <th />
                   </tr>
                 </thead>
@@ -302,26 +329,37 @@ export default function Admin2PlansPage() {
                           withDot={false}
                         />
                       </td>
-                      <td>
-                        <span className={styles.priceCell}>
-                          {formatAdminPrice(program.price_minor_units, program.currency)}
-                          {program.type === ProgramType.FREE ? (
-                            <span className={styles.priceNote}>(free)</span>
-                          ) : null}
-                        </span>
+                      <td className={styles.tableMuted}>{levelLabel(program.level)}</td>
+                      <td className={styles.tableMuted}>
+                        {frequencyLabel(program.frequency_per_week)}
                       </td>
+                      <td className={styles.tableMuted}>{durationLabel(program.duration_weeks)}</td>
                       <td>
-                        <Admin2StatusBadge label="Published" tone="success" />
+                        <Admin2StatusBadge
+                          label={program.status === ProgramStatusEnum.PUBLISHED ? "Published" : "Draft"}
+                          tone={program.status === ProgramStatusEnum.PUBLISHED ? "success" : "warning"}
+                        />
                       </td>
-                      <td className={styles.tableMuted}>{formatAdminDate(program.created_at)}</td>
+                      <td className={styles.tableMuted}>{formatAdminDate(program.updated_at)}</td>
                       <td className={styles.tableAction}>
                         <Button
+                          to={`/admin2/plans/create?edit=${program.id}`}
                           variant="ghost"
                           size="small"
                           icon={<Edit size={14} />}
-                          onClick={() => setEditingProgram(program)}
                         >
-                          Pricing
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="small"
+                          icon={<Trash2 size={14} />}
+                          onClick={() => {
+                            setDeleteError("");
+                            setDeleteTarget(program);
+                          }}
+                        >
+                          Delete
                         </Button>
                       </td>
                     </tr>
@@ -329,18 +367,43 @@ export default function Admin2PlansPage() {
                 </tbody>
               </table>
             </div>
-            <div className={styles.footer}>
-              <p className={styles.footerInfo}>Showing up to 100 programs per load.</p>
-            </div>
+
+            {pagination && pagination.total_pages > 1 ? (
+              <div className={styles.footer}>
+                <p className={styles.footerInfo}>
+                  Page {pagination.page} of {pagination.total_pages}
+                </p>
+                <div className={styles.pager}>
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    disabled={pagination.page <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    disabled={pagination.page >= pagination.total_pages}
+                    onClick={() => setPage((current) => current + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </>
         )}
       </Admin2Section>
 
-      {editingProgram ? (
-        <PricingDialog
-          program={editingProgram}
-          onClose={() => setEditingProgram(null)}
-          onSaved={() => void load()}
+      {deleteTarget ? (
+        <DeleteDialog
+          program={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => void confirmDelete()}
+          submitting={deleting}
+          errorMessage={deleteError}
         />
       ) : null}
     </>

@@ -1059,8 +1059,13 @@ Pages implemented in the current cycle:
 - **ADMIN_2 Dashboard** — live platform totals (clients, trainers, pending
   applications, published programs), product mix bars and a recently published
   programs table.
-- **ADMIN_2 Plans** — marketplace programs with type tabs (All / Free /
-  Premium / Personalized) and a pricing editor for each program.
+- **ADMIN_2 Plans** — the platform-owned Generic Program list backed by
+  `/api/v1/programs/generic`. Searchable (the search bar queries the real
+  backend), with type tabs (All / Generic / Premium · L1 / Premium · L2), a
+  level filter and pagination. Each row shows the plan title, type, level,
+  frequency, duration, status and last-updated date with Edit and Delete
+  (soft delete, confirmed via dialog) actions. Prices and downloads are a later
+  step and are intentionally not shown.
 - **ADMIN_2 Plan creation workspace** — a dedicated `/admin2/plans/create`
   flow to build a Generic Plan: 4-step wizard (basic info, program structure,
   marketplace, review & publish) with a live RYZE marketplace card preview and
@@ -1072,13 +1077,23 @@ Pages implemented in the current cycle:
   instructor tailors the instruction, edits or adds sets, replaces the exercise
   with a catalog alternative and removes it; assignments reorder within the day
   and remain immutable references so a catalog update is reflected everywhere.
-  The Publish & Save action now talks to the generic program API: it maps the
-  local draft to the create payload, disables the button until a change is
-  dirty and while a request is in flight (`Saving…`), and surfaces the outcome
-  as an inline notice — green on success, and per-code friendly errors
-  (e.g. missing catalog exercise, duplicate exercise inside a workout, program
-  not found, already-published conflict, validation details) instead of a raw
-  failure.
+  The Marketplace step also captures the optional audience metadata — Level
+  (Beginner / Intermediate / Advanced), Duration in weeks and Frequency in
+  days per week. The Publish & Save action talks to the generic program API:
+  it maps the local draft to the create payload, disables the button until a
+  change is dirty and while a request is in flight (`Saving…`), and surfaces
+  the outcome as an inline notice — green on success, and per-code friendly
+  errors (e.g. missing catalog exercise, duplicate exercise inside a workout,
+  program not found, already-published conflict, validation details) instead
+  of a raw failure. The same workspace opens in edit mode at
+  `/admin2/plans/create?edit=<id>`, loads the existing program into the draft
+  and saves changes transactionally through the update endpoint.
+- **ADMIN_2 Plan detail** — `/admin2/plans/:programId` opens a Generic Program
+  from the real detail endpoint and renders the complete structure in-tree
+  (weeks → training days → exercises → sets with reps, weight, RIR, RPE, rest
+  and tempo) next to a program-facts summary (type, status, level, frequency,
+  duration, price, created, updated). Actions: Edit plan (builds on the plan
+  workspace in edit mode) and Delete (soft delete with confirmation).
 - **ADMIN_2 Marketplace** — published catalog with filter chips grouped by
   product type, price and currency.
 - **ADMIN_2 Trainers (business)** — trainer profiles with a commission manager

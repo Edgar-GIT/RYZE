@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import {
   AlertCircle,
   AlertTriangle,
@@ -25,8 +25,11 @@ import { ApiError } from "@utils/http_client";
 import { joinClassNames } from "@utils/class_names";
 import {
   createGenericProgram,
+  fetchGenericProgram,
   ProgramStatusEnum,
   ProgramType,
+  updateGenericProgram,
+  type GenericProgramLevel,
   type ProgramTypeValue
 } from "@/services/admin2_api";
 import {
@@ -48,6 +51,7 @@ import {
   countSets,
   countWeeks,
   createPlanDraft,
+  detailToPlanDraft,
   moveExerciseInDay,
   removeDay,
   removeExerciseFromDay,
@@ -67,6 +71,13 @@ import {
 import styles from "./admin2_plan_create_page.module.css";
 
 const STEPS = ["Basic information", "Program structure", "Marketplace", "Review & publish"];
+
+const LEVEL_OPTIONS: Array<{ id: GenericProgramLevel | ""; label: string }> = [
+  { id: "", label: "Not set" },
+  { id: "Beginner", label: "Beginner" },
+  { id: "Intermediate", label: "Intermediate" },
+  { id: "Advanced", label: "Advanced" }
+];
 
 const describeSaveError = (error: unknown): string => {
   if (!(error instanceof ApiError)) {
@@ -301,7 +312,14 @@ const DayEditor = ({
 
 export default function Admin2PlanCreatePage() {
   const history = useHistory();
+  const location = useLocation();
+  const editId = new URLSearchParams(location.search).get("edit");
+  const editing = typeof editId === "string" && editId.length > 0;
+
   const [draft, setDraft] = useState<PlanDraft>(createPlanDraft);
+  const [originalDraft, setOriginalDraft] = useState<PlanDraft | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [isLoading, setIsLoading] = useState(editing);
   const [step, setStep] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [exerciseMap, setExerciseMap] = useState<Record<string, ExerciseCatalogEntry>>({});
@@ -342,6 +360,44 @@ export default function Admin2PlanCreatePage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!editing || !editId) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+
+    fetchGenericProgram(editId)
+      .then((detail) => {
+        if (cancelled) {
+          return;
+        }
+        const loaded = detailToPlanDraft(detail);
+        setDraft(loaded);
+        setOriginalDraft(loaded);
+        setStep(0);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load this plan. It may have been deleted."
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, editId]);
 
   useEffect(() => {
     if (!dirty) {
@@ -435,7 +491,11 @@ export default function Admin2PlanCreatePage() {
   };
 
   const discard = () => {
-    setDraft(createPlanDraft());
+    if (editing && originalDraft) {
+      setDraft(originalDraft);
+    } else {
+      setDraft(createPlanDraft());
+    }
     setDirty(false);
     setStep(0);
     setAttemptMessage("");
@@ -452,12 +512,17 @@ export default function Admin2PlanCreatePage() {
     setSuccessMessage("");
     setIsSaving(true);
     try {
-      const created = await createGenericProgram(toGenericProgramInput(draft));
+      const input = toGenericProgramInput(draft);
+      const saved = editing && editId
+        ? await updateGenericProgram(editId, input)
+        : await createGenericProgram(input);
       setDirty(false);
       setSuccessMessage(
-        created.status === ProgramStatusEnum.PUBLISHED
-          ? `Plan "${created.name}" published successfully.`
-          : `Plan "${created.name}" saved as a draft.`
+        editing
+          ? `Plan "${saved.name}" saved.`
+          : saved.status === ProgramStatusEnum.PUBLISHED
+            ? `Plan "${saved.name}" published successfully.`
+            : `Plan "${saved.name}" saved as a draft.`
       );
     } catch (error) {
       setAttemptMessage(describeSaveError(error));
@@ -613,6 +678,65 @@ export default function Admin2PlanCreatePage() {
               </div>
             </div>
 
+            <div className={styles.formRow}>
+              <span className={styles.formLabel}>Audience level</span>
+              <div className={styles.levelRow}>
+                {LEVEL_OPTIONS.map((option) => (
+                  <button
+                    key={option.id || "not-set"}
+                    type="button"
+                    className={joinClassNames(
+                      styles.levelOption,
+                      draft.level === option.id && styles.levelOptionActive
+                    )}
+                    onClick={() => update((current) => ({ ...current, level: option.id }))}
+                    aria-pressed={draft.level === option.id}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.metaRow}>
+              <div className={styles.formRow}>
+                <label className={styles.formLabel} htmlFor="plan-duration">
+                  Duration (weeks)
+                </label>
+                <input
+                  id="plan-duration"
+                  className={styles.formInput}
+                  type="number"
+                  min="1"
+                  max="52"
+                  placeholder="Optional"
+                  value={draft.duration_weeks}
+                  onChange={(event) =>
+                    update((current) => ({ ...current, duration_weeks: event.target.value }))
+                  }
+                  aria-label="Plan duration in weeks"
+                />
+              </div>
+              <div className={styles.formRow}>
+                <label className={styles.formLabel} htmlFor="plan-frequency">
+                  Frequency (days/week)
+                </label>
+                <input
+                  id="plan-frequency"
+                  className={styles.formInput}
+                  type="number"
+                  min="1"
+                  max="7"
+                  placeholder="Optional"
+                  value={draft.frequency_per_week}
+                  onChange={(event) =>
+                    update((current) => ({ ...current, frequency_per_week: event.target.value }))
+                  }
+                  aria-label="Training days per week"
+                />
+              </div>
+            </div>
+
             <div className={styles.priceRow}>
               <div className={styles.formRow}>
                 <label className={styles.formLabel} htmlFor="plan-price">
@@ -718,8 +842,12 @@ export default function Admin2PlanCreatePage() {
     <>
       <Admin2PageHeader
         eyebrow="Programs"
-        title="Create a plan"
-        description="Design a ready-made catalogue plan with the RYZE program model: weeks, training days and catalogue exercises."
+        title={editing ? "Edit plan" : "Create a plan"}
+        description={
+          editing
+            ? "Modify the plan's metadata and structured workout content, then save your changes."
+            : "Design a ready-made catalogue plan with the RYZE program model: weeks, training days and catalogue exercises."
+        }
         actions={
           <Button
             to="/admin2/plans"
@@ -733,6 +861,27 @@ export default function Admin2PlanCreatePage() {
         }
       />
 
+      {isLoading ? (
+        <div className={styles.pageState}>
+          <p className={styles.chipsEmpty}>Loading plan…</p>
+        </div>
+      ) : loadError ? (
+        <div className={styles.pageState}>
+          <p className={styles.formError}>{loadError}</p>
+          <div style={{ marginTop: "0.75rem" }}>
+            <Button
+              to="/admin2/plans"
+              variant="secondary"
+              size="small"
+              icon={<ArrowLeft size={15} />}
+              iconPosition="left"
+            >
+              Back to plans
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
       <div className={styles.topBar}>
         <div className={styles.topBarLeft}>
           {dirty ? (
@@ -808,9 +957,11 @@ export default function Admin2PlanCreatePage() {
               >
                 {isSaving
                   ? "Saving…"
-                  : draft.status === ProgramStatusEnum.PUBLISHED
-                    ? "Publish plan"
-                    : "Save draft"}
+                  : editing
+                    ? "Save changes"
+                    : draft.status === ProgramStatusEnum.PUBLISHED
+                      ? "Publish plan"
+                      : "Save draft"}
               </Button>
             )}
           </div>
@@ -908,6 +1059,8 @@ export default function Admin2PlanCreatePage() {
           }}
         />
       ) : null}
+        </>
+      )}
     </>
   );
 }

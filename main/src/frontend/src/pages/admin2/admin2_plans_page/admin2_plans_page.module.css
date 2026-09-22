@@ -14,6 +14,71 @@
   flex-wrap: wrap;
 }
 
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.searchBox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.7rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 16rem;
+  padding: 0.5rem 0.75rem 0.5rem 2.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.levelField {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.levelFieldLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.levelSelect {
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.levelSelect:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .tab {
   padding: 0.4rem 0.85rem;
   border: 1px solid var(--border-color);
@@ -113,20 +178,6 @@
   white-space: nowrap;
 }
 
-.priceCell {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.priceNote {
-  font-size: 0.74rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
 .emptyRow {
   text-align: center;
   padding: 2.5rem 1.5rem;
@@ -165,6 +216,19 @@
   margin: 0;
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.formHint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .formRow {
