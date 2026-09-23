@@ -561,13 +561,15 @@ FILTER RESULTS COUNT (when filters active)
   dominate the page: dark placeholder with a subtle centered RYZE logo and
   faint cyan lighting until real imagery exists, program title below
   (prominent, readable), then a metadata row showing the real schedule
-  (Calendar icon + `N weeks`, Repeat icon + `M days/week`) and the category
-  (`training_type · level`, falling back to the audience level when the training
-  type is unset). No prices, no downloads, no ratings, no CTAs, no badges.
-  Each card links to the program detail page. Hover: gentle lift, subtle image
-  scale, brighter border and faint cyan shadow — restrained, not glowy. Cards
-  are sized purely by the CSS grid (no JavaScript measurement); all cards in a
-  row share an equal height.
+(Calendar icon + `N weeks`, Repeat icon + `M days/week`) and the category
+   (`training_type · level`, falling back to the audience level when the training
+   type is unset). A price line communicates the current sale price: "Free" in
+   muted type for free programs, the EUR amount in prominent type for paid ones
+   (formatted from integer minor units). No downloads, no ratings, no CTAs, no
+   badges. Each card links to the program detail page. Hover: gentle lift, subtle image
+   scale, brighter border and faint cyan shadow — restrained, not glowy. Cards
+   are sized purely by the CSS grid (no JavaScript measurement); all cards in a
+   row share an equal height.
 - **No horizontal overflow** — the page must NEVER scroll horizontally. Card
   columns use `minmax(0, 1fr)`, there is no scrollable track and no fixed card
   width; `overflow-x: clip` is applied defensively at the application level
@@ -603,14 +605,17 @@ The page fetches the full published generic catalog once on mount (paged,
 
 Reached from any marketplace card or search result
 (`/services/generic-program/:programId`). A focused, content-first read-only
-page showing one published generic program; it is deliberately not a sales
-page — there are no prices, CTAs or purchase controls.
+page showing one published generic program; it communicates the current sale
+price but is deliberately not a checkout page — there are no CTAs or purchase
+controls (checkout comes in the next milestone).
 
 - **Top bar** — a back Button (arrow in a dark pill) that returns to the
   marketplace (`/services/generic-program`).
 - **Header** — the program name as the page title, the description as a muted
-  supporting line, and a set of soft cyan chips: `training_type`, `level`,
-  `N weeks` and `M days/week` (each chip is hidden when its value is absent).
+  supporting line, and a set of soft cyan chips: the current sale price
+  (prominent chip for paid programs, muted "Free" chip for free ones),
+  `training_type`, `level`, `N weeks` and `M days/week` (each chip is hidden
+  when its value is absent).
 - **Structure** — the program's weeks rendered as stacked week cards (Week 1,
   Week 2, …). Each week card lists its ordered workout days (Day 1, Day 2, …);
   each workout shows its exercises with a numbered position bubble, the
@@ -624,8 +629,9 @@ page — there are no prices, CTAs or purchase controls.
   table scrolls horizontally inside its container on narrow screens;
   `prefers-reduced-motion` is respected.
 
-Non-goals for this stage: purchases, payment, pricing, reviews, social
-features, trainer attribution or related-program recommendations.
+Non-goals for this stage: payment UI, checkout, reviews, social
+features, trainer attribution or related-program recommendations. The current
+sale price is shown, but purchase controls are intentionally absent.
 
 ---
 

@@ -87,6 +87,19 @@
   white-space: nowrap;
 }
 
+.price {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.priceFree {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card,
   .card:hover .image {

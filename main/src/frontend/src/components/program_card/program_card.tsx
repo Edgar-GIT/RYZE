@@ -1,7 +1,11 @@
 import { Link } from "react-router-dom";
 
 import { BRAND_ASSETS } from "@/constants/brand_assets";
-import type { MarketplaceProgram } from "@/services/marketplace_api";
+import {
+  formatMarketplacePrice,
+  FREE_PROGRAM_TYPE,
+  type MarketplaceProgram
+} from "@/services/marketplace_api";
 
 import styles from "./program_card.module.css";
 
@@ -21,6 +25,12 @@ export const ProgramCard = ({ program }: ProgramCardProps) => {
     program.frequency_per_week !== null ? `${program.frequency_per_week} days/week` : ""
   ]);
   const category = buildMetaLine([part(program.training_type), part(program.level)]);
+  const isFree = program.type === FREE_PROGRAM_TYPE;
+  const price = formatMarketplacePrice(
+    program.price_minor_units,
+    program.currency,
+    program.type
+  );
 
   return (
     <article className={styles.card}>
@@ -40,6 +50,7 @@ export const ProgramCard = ({ program }: ProgramCardProps) => {
               {category ? <span className={styles.metaItem}>{category}</span> : null}
             </div>
           ) : null}
+          <span className={isFree ? styles.priceFree : styles.price}>{price}</span>
         </div>
       </Link>
     </article>

@@ -423,7 +423,9 @@ Key architectural decisions:
   `trainer_id IS NULL`; a trainer-owned id addressed through a generic endpoint
   is indistinguishable from a missing or soft-deleted one (`PROGRAM_NOT_FOUND`).
 - **No commission involvement.** Generic programs are platform-owned and never
-  participate in trainer revenue or commission resolution.
+  participate in trainer revenue or commission resolution. When a generic
+  program is purchased, the sale carries zero commission: `commission_bps = 0`
+  and the platform keeps the full amount.
 
 The frontend counterpart is the ADMIN_2 plans area, which manages generic
 programs through this API instead of a trainer-scoped one: the plan list
@@ -518,9 +520,10 @@ existing layered pattern:
   verified at the handler/middleware level, not in the repository.
 - The integer minor-unit model avoids floating-point rounding. No float or
   double types are used.
-- No purchase creation or payment processing exists yet. Pricing is a
-  foundation for future commerce; purchase snapshot fields are intentionally
-  absent.
+- Purchase creation snapshots these pricing fields into the `purchases` table
+  at transaction creation time (`POST /api/v1/me/programs/:programID/purchase`),
+  preserving the historical price even if a program is re-priced later. No
+  payment is processed at creation time.
 
 ### Client Workout History
 
@@ -590,7 +593,10 @@ rules, and entitlement creation into a trusted atomic purchase flow:
 - Duplicate active entitlements and duplicate active purchases per
   (user, program) pair are prevented before any purchase creation.
 - The commission is resolved server-side using the existing commission rules
-  system: trainer-specific active override → global default.
+  system: trainer-specific active override → global default. Platform-owned
+  generic programs (`trainer_id` NULL) are exempt: no commission rule is
+  resolved, `commission_bps = 0`, `trainer_amount = 0` and the platform keeps
+  the full sale amount.
 - The commission split is deterministic: `platform = floor(price * bps / 10000)`,
   `trainer = price - platform`.
 - The purchase snapshots the price, currency, commission_bps, platform_amount
@@ -599,6 +605,14 @@ rules, and entitlement creation into a trusted atomic purchase flow:
 - The purchase status is always "pending"; no payment is processed and no
   entitlement is created. A future payment provider will transition the
   purchase to "completed" and create the entitlement atomically.
+- At most one completed purchase can exist per (user, program) pair. The
+  service layer blocks a second active purchase while one exists, and the
+  database enforces the invariant at the storage level with a unique generated
+  column over active completed purchases only (migration `000022`), so pending
+  and failed retries are never blocked.
+- `ListPurchases` (`GET /api/v1/me/purchases`) returns the authenticated user's
+  purchases, newest first, using the shared safe purchase representation. The
+  owning user id is never exposed.
 - The response never exposes the owning user id or any internal data.
 
 The module follows the standard request flow:
@@ -724,7 +738,7 @@ Completion flow:
 3. If already completed — check for an existing active entitlement:
    - Entitlement exists → return idempotent success.
    - Entitlement missing → return `ErrEntitlementIntegrity`.
-4. If not pending (failed, refunded) → return `ErrPurchaseNotCompleted`.
+4. If not pending (failed) → return `ErrPurchaseNotCompleted`.
 5. If pending — attempt entitlement reactivation:
    - `RestoreByUserAndProgram` succeeds → `Complete` (status only).
    - `RestoreByUserAndProgram` returns NOT FOUND → `CompleteWithEntitlement`

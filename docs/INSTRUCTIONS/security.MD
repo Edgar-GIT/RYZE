@@ -146,7 +146,7 @@ Examples:
 - Pack creation
 - Trainer approval
 - Payment
-- Refund
+- Payment completion
 - Account deletion
 - Permission modifications
 
@@ -855,8 +855,8 @@ follows a strict security model:
   authenticated user. A cross-user purchase lookup returns the same generic
   "purchase not found" response as a missing purchase, preventing information
   leakage.
-- Only pending purchases can accept payment initiation. Completed, failed or
-  refunded purchases are rejected with a clear error code.
+- Only pending purchases can accept payment initiation. Completed or failed
+  purchases are rejected with a clear error code.
 - The payment request is constructed exclusively from the immutable purchase
   snapshot (amount, currency, program ID). No client-supplied commercial values
   are ever forwarded to the provider.
@@ -894,6 +894,33 @@ any provider interaction:
 - Provider routing prevents clients from accessing unconfigured providers. If a
   method maps to a provider whose credentials are not configured, the request is
   rejected rather than forwarded to an uninitialized provider.
+
+### Purchase Listing Security
+
+The purchase list endpoint (`GET /api/v1/me/purchases`) is scoped to the
+authenticated user:
+
+- The identity comes exclusively from the authentication context. A client can
+  never influence which user's purchases are returned.
+- Purchases are isolated per user: no query parameter, header or body value can
+  request another user's purchases.
+- The internal `user_id` is never part of the response payload; only the
+  purchase id, program id and the public commercial snapshot are returned.
+- A user's purchase rows expose no payment-provider references or secrets.
+
+### Price Integrity on Publishing
+
+Publishing a generic program exposes it as a purchasable marketplace entry, so
+the commercial gate is re-checked server-side at publish time:
+
+- The price is never trusted from the client at any layer; the backend
+  re-validates free programs carry `price_minor_units = 0` and paid programs
+  carry at least the configured minimum before the draft→published transition.
+- A published paid program with an invalid or absent price is rejected; the
+  publish fails closed.
+- Platform-owned generic programs (`trainer_id` NULL) never resolve a
+  commission rule and always produce `commission_bps = 0` / zero trainer share,
+  keeping the platform as the sole merchant for its own content.
 
 ### Webhook Security
 
@@ -1893,7 +1920,7 @@ Examples:
 - Role changes
 - Trainer approval
 - Pack publication
-- Payment refund
+- Payment completion
 - Account deactivation
 - Administrative modifications
 

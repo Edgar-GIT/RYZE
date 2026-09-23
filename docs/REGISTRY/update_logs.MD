@@ -1,3 +1,86 @@
+# Version 2.70.0
+
+Title: Generic program pricing and purchase/access foundation
+
+Date: 2026-09-23
+
+Summary:
+
+The Generic Programs Marketplace now shows the real current sale price for every
+published plan, and paid Generic Programs are purchasable at the data level:
+creating a purchase snapshots the current price and currency, applies zero
+commission for platform-owned content, blocks duplicate completed purchases at
+both the service and the database layer, and the client can list every purchase
+they hold through a new authenticated endpoint. This version delivers the
+pricing + purchase + access foundation only: the checkout/payment UX is the
+next milestone. RYZE purchases remain final — no refunds.
+
+Main changes:
+
+- **Backend purchase of platform-owned programs** — `purchases.CreatePurchaseIntent`
+  no longer resolves a commission for trainers that don't exist. Generic
+  programs (`trainer_id` NULL) are exempt from commission resolution:
+  `commission_bps = 0`, `trainer_amount = 0` and the platform keeps the full
+  sale amount (`platform_amount == price_minor_units`). Trainer-owned published
+  programs keep the existing resolution (trainer-specific active override →
+  global default).
+- **Backend client purchase listing** — `PurchaseRepository.ListActiveByUser`,
+  `purchases.Service.ListPurchases` and a new
+  `GET /api/v1/me/purchases` authenticated endpoint return the user's purchases
+  newest first, reusing the safe `Purchase` representation; the internal
+  `user_id` is never exposed.
+- **Database completed-purchase uniqueness** — migration `000022` adds a
+  MariaDB generated column `completed_purchase` =
+  `IF(deleted_at IS NULL AND status = 'completed', CONCAT(user_id, ':', program_id), NULL)`
+  with a unique key. At most one active completed purchase can exist per
+  (user, program) pair at the storage level; pending and failed rows keep NULL
+  so retries are never blocked. This complements the existing service-level
+  duplicate-purchase check.
+- **Backend publish price gate** — `generic_programs.PublishProgram` now
+  re-validates the commercial gate before the draft→published transition:
+  free programs must carry price 0, paid programs at least
+  `MIN_PROGRAM_PRICE_MINOR_UNITS`. An invalid price fails the publish with
+  400 even though create/update already validated it.
+- **Frontend marketplace price display** — `marketplace_api.ts` exposes
+  `formatMarketplacePrice` (+ `FREE_PROGRAM_TYPE`); `ProgramCard` shows the
+  price under the metadata row ("Free" for free programs, EUR amount for paid
+  ones) and the Generic Program Detail page shows a price chip in the header
+  chip set (prominent for paid, muted "Free" for free). No CTAs and no checkout
+  UX.
+- **Tests** — purchases service tests for platform-owned zero-commission
+  purchase creation, scoped listing, and repository failures; generic programs
+  publish-price-gate tests (free with price / paid below minimum rejected,
+  free with zero price published); purchase handler tests for `ListPurchases`
+  (identity forwarding, missing context, internal-error concealment, no user_id
+  leak, no refund data); new `purchase_repository_test.go` covering user
+  scoping and the completed-purchase unique constraint (duplicate rejected by
+  the `uq_purchases_completed_purchase` key, pending retry still allowed,
+  different-user pair still allowed).
+- **Docs** — `api.MD` (GET /me/purchases, publish price validation,
+  platform-owned purchase commission exemption, stale Refund section removed),
+  `database.MD` (migration `000022` + `ListActiveByUser`), `arquitecture.MD`
+  (purchase/access flow for generic programs, completed-purchase constraint,
+  zero-commission rule), `security.MD` (purchase listing isolation, price
+  integrity on publishing, stale `refunded` references removed), `project.MD`
+  and `design.MD` (price display in marketplace cards + detail page).
+
+Validation:
+
+- Backend `go build` / `go vet` pass. New and affected test suites pass.
+- Frontend `npm run typecheck` and `npm run build` pass.
+- Migration `000022` applied against the live test database.
+- Known pre-existing failures unchanged (shared test-DB state):
+  `TestAdminApproveApplicationAlreadyApproved`,
+  `TestAdminApproveApplicationAlreadyTrainerAtomicity`,
+  `TestAdminRejectThenReapplyApproved`, `TestTrainerProgramsCreateSuccess`
+  (api/auth) and `TestTrainerRepository` (repositories).
+- A full `refund`/`REFUNDED`/`refunds` search confirms no refund status,
+  endpoint, service, repository, permission or UI exists. The PayPal webhook
+  still uses the external `PAYMENT.CAPTURE.REFUNDED` event as an
+  ignored/unsupported external fixture and has no RYZE-side refund behavior.
+
+---
+
 # Version 2.69.0
 
 Title: Marketplace wired to the public generic program catalog

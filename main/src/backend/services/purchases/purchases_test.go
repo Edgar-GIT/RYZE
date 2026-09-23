@@ -30,6 +30,8 @@ type stubPurchaseRepository struct {
 	findErr          error
 	findByIDPurchase *models.Purchase
 	findByIDErr      error
+	list             []models.Purchase
+	listErr          error
 }
 
 func (s *stubPurchaseRepository) Create(_ context.Context, purchase *models.Purchase) error {
@@ -41,6 +43,13 @@ func (s *stubPurchaseRepository) Create(_ context.Context, purchase *models.Purc
 	purchase.UpdatedAt = time.Now()
 	s.purchase = purchase
 	return nil
+}
+
+func (s *stubPurchaseRepository) ListActiveByUser(_ context.Context, _ string) ([]models.Purchase, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	return s.list, nil
 }
 
 func (s *stubPurchaseRepository) FindByID(_ context.Context, _ string) (*models.Purchase, error) {
@@ -335,6 +344,7 @@ func TestCreatePurchaseIntentDuplicatePurchase(t *testing.T) {
 func TestCreatePurchaseIntentCommissionResolutionFailure(t *testing.T) {
 	program := &models.Program{
 		ID:              "11111111-1111-1111-1111-111111111111",
+		TrainerID:       "22222222-2222-2222-2222-222222222222",
 		Type:            models.ProgramTypePremium,
 		Status:          models.ProgramStatusPublished,
 		PriceMinorUnits: 5000,
@@ -364,6 +374,7 @@ func TestCreatePurchaseIntentCommissionResolutionFailure(t *testing.T) {
 func TestCreatePurchaseIntentCreateFailure(t *testing.T) {
 	program := &models.Program{
 		ID:              "11111111-1111-1111-1111-111111111111",
+		TrainerID:       "22222222-2222-2222-2222-222222222222",
 		Type:            models.ProgramTypePremium,
 		Status:          models.ProgramStatusPublished,
 		PriceMinorUnits: 5000,
@@ -394,9 +405,141 @@ func TestCreatePurchaseIntentCreateFailure(t *testing.T) {
 	}
 }
 
+func TestCreatePurchaseIntentPlatformOwnedProgramNoCommission(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		TrainerID:       "",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 4999,
+		Currency:        "EUR",
+	}
+
+	// A failing resolver proves commission resolution is never invoked for
+	// platform-owned generic programs (trainer_id NULL): the platform keeps
+	// the full sale amount.
+	commission := &stubCommissionResolver{err: errors.New("must not be called")}
+
+	purchasesRepo := &stubPurchaseRepository{}
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		commission,
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	purchase, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if purchase.CommissionBPS != 0 {
+		t.Fatalf("expected 0 commission bps, got %d", purchase.CommissionBPS)
+	}
+	if purchase.PlatformAmount != 4999 {
+		t.Fatalf("expected platform amount 4999, got %d", purchase.PlatformAmount)
+	}
+	if purchase.TrainerAmount != 0 {
+		t.Fatalf("expected trainer amount 0, got %d", purchase.TrainerAmount)
+	}
+	if purchasesRepo.purchase == nil {
+		t.Fatal("expected a persisted purchase")
+	}
+}
+
+func TestListPurchasesScopedToUser(t *testing.T) {
+	now := time.Now()
+	records := []models.Purchase{
+		{
+			ID:              "aaaa1111-1111-1111-1111-111111111111",
+			UserID:          "33333333-3333-3333-3333-333333333333",
+			ProgramID:       "11111111-1111-1111-1111-111111111111",
+			PriceMinorUnits: 4999,
+			Currency:        "EUR",
+			Status:          models.PurchaseStatusPending,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		},
+		{
+			ID:              "bbbb2222-2222-2222-2222-222222222222",
+			UserID:          "33333333-3333-3333-3333-333333333333",
+			ProgramID:       "22222222-2222-2222-2222-222222222222",
+			PriceMinorUnits: 8999,
+			Currency:        "EUR",
+			Status:          models.PurchaseStatusCompleted,
+			CreatedAt:       now.Add(-time.Hour),
+			UpdatedAt:       now.Add(-time.Hour),
+		},
+	}
+
+	purchasesRepo := &stubPurchaseRepository{list: records}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	list, err := svc.ListPurchases(context.Background(), "33333333-3333-3333-3333-333333333333")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("expected 2 purchases, got %d", len(list))
+	}
+	if list[0].ID != records[0].ID || list[0].ProgramID != records[0].ProgramID {
+		t.Fatalf("expected record order preserved, got %+v", list[0])
+	}
+	if list[0].UserID != records[0].UserID {
+		t.Fatalf("expected user id preserved internally, got %q", list[0].UserID)
+	}
+	if list[0].Status != models.PurchaseStatusPending || list[1].Status != models.PurchaseStatusCompleted {
+		t.Fatalf("unexpected statuses: %q, %q", list[0].Status, list[1].Status)
+	}
+}
+
+func TestListPurchasesEmptyUserID(t *testing.T) {
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		&stubPurchaseRepository{},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	if _, err := svc.ListPurchases(context.Background(), ""); !errors.Is(err, purchases.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestListPurchasesRepositoryFailure(t *testing.T) {
+	purchasesRepo := &stubPurchaseRepository{listErr: errors.New("db failure")}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	_, err := svc.ListPurchases(context.Background(), "33333333-3333-3333-3333-333333333333")
+	if err == nil {
+		t.Fatal("expected error for repository failure")
+	}
+	if errors.Is(err, purchases.ErrInvalidInput) {
+		t.Fatalf("got user-facing error instead of internal error: %v", err)
+	}
+}
+
 func TestCreatePurchaseIntentOverrideCommission(t *testing.T) {
 	program := &models.Program{
 		ID:              "11111111-1111-1111-1111-111111111111",
+		TrainerID:       "22222222-2222-2222-2222-222222222222",
 		Type:            models.ProgramTypePremium,
 		Status:          models.ProgramStatusPublished,
 		PriceMinorUnits: 20000,
@@ -446,6 +589,9 @@ type completionPurchaseRepo struct {
 }
 
 func (r *completionPurchaseRepo) Create(_ context.Context, _ *models.Purchase) error { return nil }
+func (r *completionPurchaseRepo) ListActiveByUser(_ context.Context, _ string) ([]models.Purchase, error) {
+	return nil, nil
+}
 func (r *completionPurchaseRepo) FindActiveByUserAndProgram(_ context.Context, _, _ string) (*models.Purchase, error) {
 	return nil, repositories.ErrPurchaseNotFound
 }

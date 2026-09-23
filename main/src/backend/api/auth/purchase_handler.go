@@ -91,6 +91,35 @@ func (h *PurchaseHandler) CreatePurchase(c *gin.Context) {
 	})
 }
 
+// ListPurchases returns the safe representation of every active purchase held
+// by the authenticated user, most recently created first. The identity comes
+// exclusively from the authentication context, so a user can never read
+// another user's purchase records.
+func (h *PurchaseHandler) ListPurchases(c *gin.Context) {
+	userID, err := authcontext.UserIDFromContext(c)
+	if err != nil {
+		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
+		return
+	}
+
+	list, err := h.service.ListPurchases(c.Request.Context(), userID)
+	if err != nil {
+		h.respondError(c, err)
+		return
+	}
+
+	response := make([]purchaseResponse, 0, len(list))
+	for i := range list {
+		response = append(response, newPurchaseResponse(&list[i]))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Purchases retrieved successfully.",
+		"data":    response,
+	})
+}
+
 // respondError maps purchase service errors to API responses. Internal error
 // details are never exposed to the client.
 func (h *PurchaseHandler) respondError(c *gin.Context, err error) {

@@ -53,6 +53,7 @@ type ProgramRepository interface {
 type PurchaseRepository interface {
 	Create(ctx context.Context, purchase *models.Purchase) error
 	FindByID(ctx context.Context, purchaseID string) (*models.Purchase, error)
+	ListActiveByUser(ctx context.Context, userID string) ([]models.Purchase, error)
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Purchase, error)
 	Complete(ctx context.Context, purchaseID string) error
 	CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
@@ -122,6 +123,7 @@ type Service interface {
 	InitiatePayment(ctx context.Context, userID, purchaseID, paymentMethod string) (*PaymentResult, error)
 	CompletePurchase(ctx context.Context, purchaseID string) (*Purchase, error)
 	GetPurchaseByID(ctx context.Context, purchaseID string) (*Purchase, error)
+	ListPurchases(ctx context.Context, userID string) ([]Purchase, error)
 }
 
 type service struct {
@@ -188,12 +190,25 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 		return nil, fmt.Errorf("failed to check purchase: %w", err)
 	}
 
-	resolution, err := s.commission.ResolveCommission(ctx, program.TrainerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve commission: %w", err)
+	resolution := CommissionResolution{CommissionBPS: 0, IsOverride: false}
+	calculation := CommissionCalculation{}
+	if program.TrainerID != "" {
+		// Only trainer-owned programs go through commission resolution.
+		var err error
+		resolution, err = s.commission.ResolveCommission(ctx, program.TrainerID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve commission: %w", err)
+		}
+		calculation = s.commission.CalculateCommissionSplit(program.PriceMinorUnits, resolution)
+	} else {
+		// Platform-owned generic programs (trainer_id NULL) have no owning
+		// trainer, so no commission rule applies and the platform keeps the
+		// full sale amount.
+		calculation = CommissionCalculation{
+			PlatformAmount: program.PriceMinorUnits,
+			TrainerAmount:  0,
+		}
 	}
-
-	calculation := s.commission.CalculateCommissionSplit(program.PriceMinorUnits, resolution)
 
 	purchase := &models.Purchase{
 		UserID:          userID,
@@ -388,6 +403,26 @@ func (s *service) GetPurchaseByID(ctx context.Context, purchaseID string) (*Purc
 	}
 
 	return newPurchase(purchase), nil
+}
+
+// ListPurchases returns the safe representation of every active purchase
+// belonging to the given user, most recently created first. The user identity
+// always comes from the caller, never from the client.
+func (s *service) ListPurchases(ctx context.Context, userID string) ([]Purchase, error) {
+	if err := validateUserID(userID); err != nil {
+		return nil, err
+	}
+
+	records, err := s.purchases.ListActiveByUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list purchases: %w", err)
+	}
+
+	purchases := make([]Purchase, 0, len(records))
+	for i := range records {
+		purchases = append(purchases, *newPurchase(&records[i]))
+	}
+	return purchases, nil
 }
 
 func newPurchase(model *models.Purchase) *Purchase {

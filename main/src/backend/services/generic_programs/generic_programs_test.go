@@ -782,6 +782,9 @@ func TestPublishProgramRejectsInvalidIDs(t *testing.T) {
 
 func TestPublishProgramRepositoryFailure(t *testing.T) {
 	repo := &stubGenericRepo{
+		find: func(_ string) (*models.Program, error) {
+			return validProgramModel(), nil
+		},
 		publish: func(_ string) error {
 			return errRepoFailure
 		},
@@ -794,6 +797,53 @@ func TestPublishProgramRepositoryFailure(t *testing.T) {
 	}
 	if err == nil {
 		t.Fatal("expected an error")
+	}
+}
+
+func TestPublishProgramRejectsInvalidPrice(t *testing.T) {
+	free := validProgramModel()
+	free.Type = models.ProgramTypeFree
+	free.PriceMinorUnits = 100
+
+	belowMinimum := validProgramModel()
+	belowMinimum.Type = models.ProgramTypePremium
+	belowMinimum.PriceMinorUnits = 50
+
+	cases := []struct {
+		name  string
+		model *models.Program
+	}{
+		{name: "free program with price", model: free},
+		{name: "paid program below minimum", model: belowMinimum},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &stubGenericRepo{program: tc.model}
+			svc := newService(repo)
+
+			if _, err := svc.PublishProgram(context.Background(), programID); !errors.Is(err, generic_programs.ErrInvalidInput) {
+				t.Fatalf("expected ErrInvalidInput, got %v", err)
+			}
+			if repo.publishProgramID != "" {
+				t.Fatalf("publish must not run when the price gate fails, got %q", repo.publishProgramID)
+			}
+		})
+	}
+}
+
+func TestPublishProgramFreeWithoutPrice(t *testing.T) {
+	free := validProgramModel()
+	free.Type = models.ProgramTypeFree
+	free.PriceMinorUnits = 0
+	repo := &stubGenericRepo{program: free}
+	svc := newService(repo)
+
+	program, err := svc.PublishProgram(context.Background(), programID)
+	if err != nil {
+		t.Fatalf("PublishProgram: %v", err)
+	}
+	if program.Status != models.ProgramStatusPublished {
+		t.Fatalf("expected published, got %q", program.Status)
 	}
 }
 

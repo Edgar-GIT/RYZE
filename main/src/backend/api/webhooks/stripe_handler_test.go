@@ -51,6 +51,10 @@ func (s *stubPurchaseService) GetPurchaseByID(_ context.Context, _ string) (*pur
 	return s.purchase, nil
 }
 
+func (s *stubPurchaseService) ListPurchases(_ context.Context, _ string) ([]purchases.Purchase, error) {
+	return nil, nil
+}
+
 // --- helpers ---
 
 const testWebhookSecret = "whsec_test_secret_key_1234567890"
@@ -557,4 +561,7 @@ func (s *completionCountingService) CompletePurchase(_ context.Context, _ string
 }
 func (s *completionCountingService) GetPurchaseByID(_ context.Context, _ string) (*purchases.Purchase, error) {
 	return s.purchase, nil
+}
+func (s *completionCountingService) ListPurchases(_ context.Context, _ string) ([]purchases.Purchase, error) {
+	return nil, nil
 }

@@ -347,30 +347,40 @@ func (s *service) PublishProgram(ctx context.Context, programID string) (Program
 		return Program{}, err
 	}
 
-	err := s.programs.Publish(ctx, programID)
+	model, err := s.programs.FindByID(ctx, programID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrGenericProgramNotFound) {
+			return Program{}, ErrProgramNotFound
+		}
+		return Program{}, fmt.Errorf("failed to load generic program: %w", err)
+	}
+	if model.Status != models.ProgramStatusDraft {
+		return Program{}, ErrProgramAlreadyPublished
+	}
+
+	// Publishing exposes the program as a purchasable marketplace entry, so
+	// the commercial gate is re-checked at publish time even though create and
+	// update already validated it. This guarantees a published purchasable
+	// program can never carry an invalid price.
+	if err := validatePriceForType(model.Type, model.PriceMinorUnits, model.Currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
+		return Program{}, err
+	}
+
+	err = s.programs.Publish(ctx, programID)
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrGenericProgramNotFound):
 			// The repository returns ErrGenericProgramNotFound for missing,
-			// soft-deleted and already-published programs. To distinguish
-			// "already published" we reload the program.
-			model, findErr := s.programs.FindByID(ctx, programID)
-			if findErr != nil {
-				return Program{}, ErrProgramNotFound
-			}
-			if model.Status != models.ProgramStatusDraft {
-				return Program{}, ErrProgramAlreadyPublished
-			}
-			return Program{}, ErrProgramNotFound
+			// soft-deleted and already-published programs. Our pre-check
+			// already confirmed this is a draft; a concurrent change between
+			// the pre-check and the publish is reported as a conflict.
+			return Program{}, ErrProgramAlreadyPublished
 		default:
 			return Program{}, fmt.Errorf("failed to publish generic program: %w", err)
 		}
 	}
 
-	model, err := s.programs.FindByID(ctx, programID)
-	if err != nil {
-		return Program{}, fmt.Errorf("failed to load published generic program: %w", err)
-	}
+	model.Status = models.ProgramStatusPublished
 	return newProgramSummary(model), nil
 }
 

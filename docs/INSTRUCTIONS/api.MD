@@ -524,6 +524,47 @@ Responses:
 - `409 DUPLICATE_PURCHASE` — a purchase for this program is already in
   progress.
 
+Commission exemption: platform-owned generic programs (`trainer_id` NULL) have
+no owning trainer, so no commission rule is resolved and no commission is
+applied. For these purchases `commission_bps` is always `0`, `trainer_amount`
+is `0` and the platform keeps the full amount (`platform_amount` equals
+`price_minor_units`).
+
+#### `GET /api/v1/me/purchases`
+
+Returns every active purchase transaction belonging to the authenticated user,
+most recently created first. Purchases carry the full commercial snapshot
+captured at creation time, so historical prices remain accurate even after a
+program is re-priced.
+
+Identity comes exclusively from the authentication context. A cross-user lookup
+is impossible: the endpoint only ever returns the authenticated user's purchases
+and never exposes the internal `user_id` in the response.
+
+Authentication: required (client session).
+
+Response `data` (array of purchase objects, newest first):
+
+- `id` — purchase UUID.
+- `program_id` — the purchased program reference.
+- `price_minor_units` — snapshot of the program price at creation time.
+- `currency` — snapshot of the program currency at creation time.
+- `commission_bps` — the applicable commission in basis points.
+- `platform_amount` — the platform's share in minor currency units.
+- `trainer_amount` — the trainer's share in minor currency units.
+- `status` — `"pending"`, `"completed"` or `"failed"`.
+
+Responses:
+
+- `200 OK` — the purchase list for the authenticated user.
+- `400 VALIDATION_ERROR` — invalid internal state.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
+
+Duplicate protection: a user can complete at most one purchase per program. A
+pending purchase in progress blocks a second purchase through the service layer,
+and the database enforces the completed-purchase invariant with a unique
+constraint over the active `(user_id, program_id)` pair (see migration 000022).
+
 #### Internal: `CompletePurchase`
 
 The `CompletePurchase` service method is an internal-only operation with no
@@ -2624,16 +2665,6 @@ Downloads the generated invoice.
 
 ---
 
-## Refund
-
-```
-POST /api/v1/payments/{id}/refund
-```
-
-Processes a refund when applicable.
-
----
-
 # QUESTIONNAIRE ENDPOINTS
 
 Premium programs require questionnaires.
@@ -3683,9 +3714,17 @@ Responses:
 Transitions a `draft` generic program to `published` via a guarded conditional
 update. Protected by `plans`.
 
+Because publishing exposes the program as a purchasable marketplace entry, the
+commercial gate is re-checked server-side before the transition: free programs
+must carry a price of `0` minor units and paid programs must carry at least the
+configured minimum (`MIN_PROGRAM_PRICE_MINOR_UNITS`, default 100 = €1.00). An
+invalid price rejects the publish even though create/update already validate
+prices.
+
 Responses:
 
 - `200 OK` — `{ "status": "published" }`.
+- `400 VALIDATION_ERROR` — the program price is invalid for its type.
 - `403 FORBIDDEN` — insufficient permissions.
 - `404 PROGRAM_NOT_FOUND` — program missing, not `draft`, trainer-owned, or
   already published.

@@ -433,6 +433,13 @@ The implemented `purchases` table contains:
   is no refund workflow, so `refunded` is not a valid status.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
+- `completed_purchase` — MariaDB generated column `IF(deleted_at IS NULL AND
+  status = 'completed', CONCAT(user_id, ':', program_id), NULL)`, unique. Added
+  by migration `000022`. The database itself guarantees at most one active
+  **completed** purchase per `(user, program)` pair; pending and failed rows
+  keep a `NULL` value so payment retries remain possible. This is the last-line
+  duplicate-completion protection on top of the service-level duplicate
+  purchase check.
 
 The purchase carries a full commercial snapshot captured at creation time so the
 transaction remains historically accurate even if program pricing or commission
@@ -440,11 +447,17 @@ rules change later. The status defaults to `pending`; no payment is processed
 at creation time. A future payment provider will transition the purchase to
 `completed` and create the entitlement atomically.
 
+Platform-owned generic programs (`trainer_id` NULL) always produce purchases
+with `commission_bps = 0` and `trainer_amount = 0`: there is no owning trainer
+and no commission rule is resolved. The platform keeps the full sale amount
+(`platform_amount` equals `price_minor_units`).
+
 The repository provides:
 
 - `Create` — persists a new purchase record.
 - `FindByID` — one active purchase by id without user scoping (used by the
   internal completion flow).
+- `ListActiveByUser` — every active purchase for a given user, newest first.
 - `FindActiveByUserAndProgram` — the most recently created active purchase for
   a given (user, program) pair.
 - `Complete` — atomically transitions a pending purchase to "completed" status.

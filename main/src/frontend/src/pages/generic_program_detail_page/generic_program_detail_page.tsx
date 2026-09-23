@@ -7,6 +7,8 @@ import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import {
   fetchMarketplaceProgram,
+  formatMarketplacePrice,
+  FREE_PROGRAM_TYPE,
   type MarketplaceProgramDetail,
   type MarketplaceSet
 } from "@/services/marketplace_api";
@@ -115,6 +117,9 @@ export const GenericProgramDetailPage = () => {
                 ) : null}
 
                 <div className={styles.chips}>
+                  <span className={detail.type === FREE_PROGRAM_TYPE ? styles.chipFree : styles.chipPrice}>
+                    {formatMarketplacePrice(detail.price_minor_units, detail.currency, detail.type)}
+                  </span>
                   {detail.training_type ? (
                     <span className={styles.chip}>{detail.training_type}</span>
                   ) : null}

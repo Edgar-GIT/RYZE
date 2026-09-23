@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -94,6 +95,7 @@ func newPurchaseHandlerRouter(svc purchases.Service, identity any) *gin.Engine {
 	})
 	me.POST("/programs/:programID/purchase", handler.CreatePurchase)
 	me.POST("/purchases/:purchaseID/payment", handler.InitiatePayment)
+	me.GET("/purchases", handler.ListPurchases)
 	return router
 }
 
@@ -126,6 +128,17 @@ func (s *stubPurchaseService) CompletePurchase(_ context.Context, _ string) (*pu
 
 func (s *stubPurchaseService) GetPurchaseByID(_ context.Context, _ string) (*purchases.Purchase, error) {
 	return s.purchase, s.err
+}
+
+func (s *stubPurchaseService) ListPurchases(_ context.Context, userID string) ([]purchases.Purchase, error) {
+	s.gotUser = userID
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.purchase == nil {
+		return nil, nil
+	}
+	return []purchases.Purchase{*s.purchase}, nil
 }
 
 // commissionAdapter adapts commission_rules.Service to the
@@ -189,6 +202,64 @@ func TestPurchaseHandlerMissingContext(t *testing.T) {
 	}
 	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
 		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
+func TestPurchaseListHandlerForwardsContextIdentity(t *testing.T) {
+	identity := "33333333-3333-3333-3333-333333333333"
+	svc := &stubPurchaseService{
+		purchase: &purchases.Purchase{
+			ID:              "00000000-0000-0000-0000-000000000001",
+			UserID:          identity,
+			ProgramID:       "11111111-1111-1111-1111-111111111111",
+			PriceMinorUnits: 4999,
+			Currency:        "EUR",
+			Status:          models.PurchaseStatusPending,
+		},
+	}
+	router := newPurchaseHandlerRouter(svc, identity)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodGet, "/api/v1/me/purchases", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotUser != identity {
+		t.Fatalf("expected context user %q, got %q", identity, svc.gotUser)
+	}
+	if !strings.Contains(raw, `"id":"00000000-0000-0000-0000-000000000001"`) {
+		t.Fatalf("expected purchase in response, got %s", raw)
+	}
+	if strings.Contains(raw, identity) {
+		t.Fatalf("user id must never be exposed to the client, got %s", raw)
+	}
+	if strings.Contains(strings.ToLower(raw), "refund") {
+		t.Fatalf("purchases are final: no refund data may appear, got %s", raw)
+	}
+}
+
+func TestPurchaseListHandlerMissingContext(t *testing.T) {
+	router := newPurchaseHandlerRouter(&stubPurchaseService{}, nil)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodGet, "/api/v1/me/purchases", "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
+		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
+func TestPurchaseListHandlerRepositoryFailureNotExposed(t *testing.T) {
+	identity := "33333333-3333-3333-3333-333333333333"
+	svc := &stubPurchaseService{err: errors.New("database connection lost: password=secret")}
+	router := newPurchaseHandlerRouter(svc, identity)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodGet, "/api/v1/me/purchases", "")
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, "password") || strings.Contains(raw, "connection lost") {
+		t.Fatalf("internal error details must not be exposed, got %s", raw)
 	}
 }
 

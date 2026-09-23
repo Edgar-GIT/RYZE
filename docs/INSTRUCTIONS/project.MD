@@ -48,6 +48,14 @@ administration consoles are implemented; ADMIN_2 manages platform-owned Generic
 Programs end to end (create, list, search, open, edit and soft delete) against
 the generic program API.
 
+The Generic Programs Marketplace displays real published Generic Program data
+and its current sale price. Paid Generic Programs are purchasable end to end at
+the data level: creating a purchase snapshots the current price and currency,
+applies zero commission for platform-owned content, blocks duplicate completed
+purchases, and exposes the user's purchases. The actual checkout and payment
+UX is the next planned milestone: payment initiation and completion flows
+already exist at the API level for future payment providers.
+
 ---
 
 # Team

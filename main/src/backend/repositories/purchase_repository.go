@@ -22,6 +22,7 @@ var (
 type PurchaseRepository interface {
 	Create(ctx context.Context, purchase *models.Purchase) error
 	FindByID(ctx context.Context, purchaseID string) (*models.Purchase, error)
+	ListActiveByUser(ctx context.Context, userID string) ([]models.Purchase, error)
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Purchase, error)
 	Complete(ctx context.Context, purchaseID string) error
 	CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
@@ -106,6 +107,20 @@ func (r *purchaseRepository) CompleteWithEntitlement(ctx context.Context, purcha
 		}
 		return nil
 	})
+}
+
+// ListActiveByUser returns every active (non-deleted) purchase belonging to
+// the given user, most recently created first. The user id always comes from
+// the caller; the repository never derives it from an HTTP context.
+func (r *purchaseRepository) ListActiveByUser(ctx context.Context, userID string) ([]models.Purchase, error) {
+	var purchases []models.Purchase
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at DESC, id DESC").
+		Find(&purchases).Error; err != nil {
+		return nil, fmt.Errorf("failed to list purchases: %w", err)
+	}
+	return purchases, nil
 }
 
 // FindActiveByUserAndProgram returns the most recently created active

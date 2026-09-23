@@ -4,8 +4,30 @@ import { apiGet } from "@utils/http_client";
  * Read-only public marketplace contract. This service talks to the public
  * catalog endpoints (`/programs` + `/programs/:id`) with `scope=generic`, so it
  * only ever receives platform-owned published programs. Prices are part of the
- * API contract but the marketplace UI deliberately never renders them.
+ * API contract and are rendered by the marketplace to communicate the current
+ * sale price before purchase checks.
  */
+
+export const FREE_PROGRAM_TYPE = "free";
+
+/**
+ * Formats a price in minor units into a client-facing label. Free programs are
+ * always rendered as "Free"; paid programs use the EUR localised currency
+ * format. Money is handled exclusively in integer minor units.
+ */
+export const formatMarketplacePrice = (
+  minorUnits: number,
+  currency: string,
+  type: string
+): string => {
+  if (type === FREE_PROGRAM_TYPE || !minorUnits) {
+    return "Free";
+  }
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: currency || "EUR"
+  }).format(minorUnits / 100);
+};
 
 export interface MarketplaceProgram {
   id: string;
