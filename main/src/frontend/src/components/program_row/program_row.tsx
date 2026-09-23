@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CarouselArrow } from "@/components/carousel_arrow/carousel_arrow";
 import { ProgramCard } from "@/components/program_card/program_card";
+import type { MarketplaceProgram } from "@/services/marketplace_api";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./program_row.module.css";
@@ -12,7 +13,7 @@ const SLIDE_DURATION_MS = 400;
 interface ProgramRowProps {
   title: string;
   description?: string;
-  programs: string[];
+  programs: MarketplaceProgram[];
 }
 
 type Direction = "back" | "forward";
@@ -92,9 +93,9 @@ export const ProgramRow = ({ title, description, programs }: ProgramRowProps) =>
         <div className={styles.cards}>
           <div className={joinClassNames(styles.cardRow, slideClass)}>
             {slots.map((program, index) => (
-              <div key={index} className={styles.slot}>
+              <div key={program ? program.id : `slot-${index}`} className={styles.slot}>
                 {program ? (
-                  <ProgramCard title={program} />
+                  <ProgramCard program={program} />
                 ) : (
                   <div className={styles.placeholder} aria-hidden="true" />
                 )}

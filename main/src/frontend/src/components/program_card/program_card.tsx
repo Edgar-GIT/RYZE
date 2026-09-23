@@ -1,30 +1,47 @@
-import { Download, Heart } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { BRAND_ASSETS } from "@/constants/brand_assets";
+import type { MarketplaceProgram } from "@/services/marketplace_api";
 
 import styles from "./program_card.module.css";
 
 interface ProgramCardProps {
-  title: string;
+  program: MarketplaceProgram;
 }
 
-export const ProgramCard = ({ title }: ProgramCardProps) => (
-  <article className={styles.card}>
-    <div className={styles.image} aria-hidden="true">
-      <img className={styles.logo} src={BRAND_ASSETS.icon} alt="" />
-    </div>
-    <div className={styles.body}>
-      <h3 className={styles.title}>{title}</h3>
-      <div className={styles.meta}>
-        <span className={styles.metaItem}>
-          <Download className={styles.metaIcon} strokeWidth={1.8} aria-hidden="true" />
-          <span>0 downloads</span>
-        </span>
-        <span className={styles.metaItem}>
-          <Heart className={styles.metaIcon} strokeWidth={1.8} aria-hidden="true" />
-          <span>0/5</span>
-        </span>
-      </div>
-    </div>
-  </article>
-);
+const part = (value: string | null): string => value ?? "";
+
+// Combines non-null generic metadata into a single muted line, e.g.
+// "12 weeks · 4 days/week". Empty lines are omitted.
+const buildMetaLine = (items: string[]): string => items.filter(Boolean).join(" · ");
+
+export const ProgramCard = ({ program }: ProgramCardProps) => {
+  const schedule = buildMetaLine([
+    program.duration_weeks !== null ? `${program.duration_weeks} weeks` : "",
+    program.frequency_per_week !== null ? `${program.frequency_per_week} days/week` : ""
+  ]);
+  const category = buildMetaLine([part(program.training_type), part(program.level)]);
+
+  return (
+    <article className={styles.card}>
+      <Link
+        to={`/services/generic-program/${program.id}`}
+        className={styles.link}
+        aria-label={`Open ${program.name}`}
+      >
+        <div className={styles.image} aria-hidden="true">
+          <img className={styles.logo} src={BRAND_ASSETS.icon} alt="" />
+        </div>
+        <div className={styles.body}>
+          <h3 className={styles.title}>{program.name}</h3>
+          {schedule || category ? (
+            <div className={styles.meta}>
+              {schedule ? <span className={styles.metaItem}>{schedule}</span> : null}
+              {category ? <span className={styles.metaItem}>{category}</span> : null}
+            </div>
+          ) : null}
+        </div>
+      </Link>
+    </article>
+  );
+};

@@ -159,6 +159,25 @@ export const fetchCommissionResolution = (trainerId: string) =>
 
 export type GenericProgramLevel = "Beginner" | "Intermediate" | "Advanced";
 
+// Controlled vocabulary stored verbatim in programs.training_type. Display
+// casing is part of the contract and shared with the public catalog filter.
+export type GenericTrainingType =
+  | "Hypertrophy"
+  | "Strength"
+  | "HYROX"
+  | "CrossFit"
+  | "Fat Loss"
+  | "At Home";
+
+export const GENERIC_TRAINING_TYPES: GenericTrainingType[] = [
+  "Hypertrophy",
+  "Strength",
+  "HYROX",
+  "CrossFit",
+  "Fat Loss",
+  "At Home"
+];
+
 export interface GenericProgramSummary {
   id: string;
   name: string;
@@ -168,6 +187,7 @@ export interface GenericProgramSummary {
   level: GenericProgramLevel | null;
   duration_weeks: number | null;
   frequency_per_week: number | null;
+  training_type: GenericTrainingType | null;
   price_minor_units: number;
   currency: string;
   created_at: string;
@@ -248,6 +268,7 @@ export interface GenericProgramInput {
   level: GenericProgramLevel | "";
   duration_weeks: number;
   frequency_per_week: number;
+  training_type: GenericTrainingType | "";
   price_minor_units: number;
   currency: string;
   weeks: GenericProgramWeekInput[];
@@ -264,6 +285,7 @@ export interface GenericProgramListParams {
   search?: string;
   type?: ProgramTypeValue;
   level?: GenericProgramLevel;
+  training_type?: GenericTrainingType;
 }
 
 export const fetchGenericPrograms = (params: GenericProgramListParams): Promise<GenericProgramsList> => {
@@ -279,6 +301,9 @@ export const fetchGenericPrograms = (params: GenericProgramListParams): Promise<
   }
   if (params.level) {
     query.set("level", params.level);
+  }
+  if (params.training_type) {
+    query.set("training_type", params.training_type);
   }
   return apiGet<GenericProgramsList>(`/programs/generic?${query.toString()}`);
 };

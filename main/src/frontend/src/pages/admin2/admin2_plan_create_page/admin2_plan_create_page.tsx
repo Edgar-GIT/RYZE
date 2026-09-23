@@ -30,6 +30,7 @@ import {
   ProgramType,
   updateGenericProgram,
   type GenericProgramLevel,
+  type GenericTrainingType,
   type ProgramTypeValue
 } from "@/services/admin2_api";
 import {
@@ -77,6 +78,16 @@ const LEVEL_OPTIONS: Array<{ id: GenericProgramLevel | ""; label: string }> = [
   { id: "Beginner", label: "Beginner" },
   { id: "Intermediate", label: "Intermediate" },
   { id: "Advanced", label: "Advanced" }
+];
+
+const TRAINING_TYPE_OPTIONS: Array<{ id: GenericTrainingType | ""; label: string }> = [
+  { id: "", label: "Not set" },
+  { id: "Hypertrophy", label: "Hypertrophy" },
+  { id: "Strength", label: "Strength" },
+  { id: "HYROX", label: "HYROX" },
+  { id: "CrossFit", label: "CrossFit" },
+  { id: "Fat Loss", label: "Fat Loss" },
+  { id: "At Home", label: "At Home" }
 ];
 
 const describeSaveError = (error: unknown): string => {
@@ -691,6 +702,26 @@ export default function Admin2PlanCreatePage() {
                     )}
                     onClick={() => update((current) => ({ ...current, level: option.id }))}
                     aria-pressed={draft.level === option.id}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.formRow}>
+              <span className={styles.formLabel}>Training type</span>
+              <div className={styles.levelRow}>
+                {TRAINING_TYPE_OPTIONS.map((option) => (
+                  <button
+                    key={option.id || "not-set"}
+                    type="button"
+                    className={joinClassNames(
+                      styles.levelOption,
+                      draft.training_type === option.id && styles.levelOptionActive
+                    )}
+                    onClick={() => update((current) => ({ ...current, training_type: option.id }))}
+                    aria-pressed={draft.training_type === option.id}
                   >
                     {option.label}
                   </button>

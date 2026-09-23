@@ -949,6 +949,11 @@ The implemented `programs` table contains:
   documented catalogue difficulty vocabulary (`Beginner` | `Intermediate` |
   `Advanced`), validated by the service layer. Added by migration `000019`,
   indexed by `idx_programs_level`.
+- `training_type` — marketplace category facet (`VARCHAR(50)`, nullable) using
+  the controlled vocabulary (`Hypertrophy` | `Strength` | `HYROX` | `CrossFit` |
+  `Fat Loss` | `At Home`), validated by the service layer. Added by migration
+  `000021`, indexed by `idx_programs_training_type`. Consumed by the public
+  catalog as the marketplace `training_type` filter.
 - `duration_weeks` — total program length in weeks (`INT`, nullable, positive
   when present), indexed by `idx_programs_duration_weeks`. Added by migration
   `000019`.

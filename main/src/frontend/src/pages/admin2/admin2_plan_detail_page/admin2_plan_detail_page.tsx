@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useHistory, useParams } from "react-router-dom";
-import { ArrowLeft, Edit, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, ExternalLink, RefreshCw, Trash2 } from "lucide-react";
 
 import { Admin2PageHeader } from "@/components/admin2/admin2_page_header/admin2_page_header";
 import { Admin2Section } from "@/components/admin2/admin2_section/admin2_section";
@@ -13,10 +13,14 @@ import {
   formatAdminPrice,
   programTypeLabel,
   ProgramStatusEnum,
+  publishGenericProgram,
+  updateGenericProgram,
   type GenericProgramDetail,
-  type GenericProgramSet
+  type GenericProgramSet,
+  type ProgramStatusValue
 } from "@/services/admin2_api";
 import { formatAdminDate } from "@/services/admin_api";
+import { detailToPlanDraft, toGenericProgramInput } from "../admin2_plan_create_page/plan_builder_model";
 
 import styles from "./admin2_plan_detail_page.module.css";
 
@@ -106,6 +110,8 @@ export default function Admin2PlanDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -141,6 +147,30 @@ export default function Admin2PlanDetailPage() {
       );
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const changeStatus = async (status: ProgramStatusValue) => {
+    if (!program) {
+      return;
+    }
+    setPublishing(true);
+    setPublishError("");
+
+    try {
+      if (status === ProgramStatusEnum.PUBLISHED) {
+        await publishGenericProgram(program.id);
+      } else {
+        const input = toGenericProgramInput({ ...detailToPlanDraft(program), status });
+        await updateGenericProgram(program.id, input);
+      }
+      await load();
+    } catch (error) {
+      setPublishError(
+        error instanceof Error ? error.message : "Unable to update the plan status. Please try again."
+      );
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -256,6 +286,10 @@ export default function Admin2PlanDetailPage() {
                 <p className={styles.rowValue}>{program.level ?? "—"}</p>
               </div>
               <div className={styles.row}>
+                <p className={styles.rowLabel}>Training type</p>
+                <p className={styles.rowValue}>{program.training_type ?? "—"}</p>
+              </div>
+              <div className={styles.row}>
                 <p className={styles.rowLabel}>Frequency</p>
                 <p className={styles.rowValue}>
                   {program.frequency_per_week === null
@@ -288,6 +322,37 @@ export default function Admin2PlanDetailPage() {
             </div>
 
             <div className={styles.actions}>
+              {publishError ? (
+                <p className={styles.formError} role="alert">
+                  {publishError}
+                </p>
+              ) : null}
+
+              {program.status === ProgramStatusEnum.DRAFT ? (
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onClick={() => void changeStatus(ProgramStatusEnum.PUBLISHED)}
+                  disabled={publishing}
+                >
+                  {publishing ? "Publishing…" : "Publish plan"}
+                </Button>
+              ) : (
+                <>
+                  <Button to={`/services/generic-program/${program.id}`} variant="secondary" size="small" icon={<ExternalLink size={14} />}>
+                    View in marketplace
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    onClick={() => void changeStatus(ProgramStatusEnum.DRAFT)}
+                    disabled={publishing}
+                  >
+                    {publishing ? "Unpublishing…" : "Unpublish plan"}
+                  </Button>
+                </>
+              )}
+
               <Button
                 to={`/admin2/plans/create?edit=${program.id}`}
                 variant="secondary"

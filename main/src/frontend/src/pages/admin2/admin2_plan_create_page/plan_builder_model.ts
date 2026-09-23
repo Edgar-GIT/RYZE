@@ -4,6 +4,7 @@ import {
   type GenericProgramDetail,
   type GenericProgramInput,
   type GenericProgramLevel,
+  type GenericTrainingType,
   type ProgramStatusValue,
   type ProgramTypeValue
 } from "@/services/admin2_api";
@@ -50,6 +51,7 @@ export interface PlanDraft {
   price: string;
   currency: string;
   level: GenericProgramLevel | "";
+  training_type: GenericTrainingType | "";
   duration_weeks: string;
   frequency_per_week: string;
   weeks: PlanDraftWeek[];
@@ -119,6 +121,7 @@ export const createPlanDraft = (): PlanDraft => ({
   price: "0.00",
   currency: "EUR",
   level: "",
+  training_type: "",
   duration_weeks: "",
   frequency_per_week: "",
   weeks: [{ id: uid(), week_number: 1, workouts: [] }]
@@ -387,6 +390,7 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
   type: draft.type,
   status: draft.status,
   level: draft.level,
+  training_type: draft.training_type,
   duration_weeks: optionalNumber(draft.duration_weeks) ?? 0,
   frequency_per_week: optionalNumber(draft.frequency_per_week) ?? 0,
   price_minor_units: draft.type === ProgramType.FREE ? 0 : Math.round(Number(draft.price) * 100),
@@ -424,6 +428,7 @@ export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
   price: (detail.price_minor_units / 100).toFixed(2),
   currency: detail.currency,
   level: detail.level ?? "",
+  training_type: detail.training_type ?? "",
   duration_weeks: detail.duration_weeks === null ? "" : String(detail.duration_weeks),
   frequency_per_week: detail.frequency_per_week === null ? "" : String(detail.frequency_per_week),
   weeks: detail.weeks.map((week) => ({

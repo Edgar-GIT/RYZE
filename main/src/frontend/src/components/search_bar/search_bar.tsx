@@ -1,5 +1,6 @@
-import { Download, Search, SlidersHorizontal, Star } from "lucide-react";
+import { Calendar, Repeat, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
   searchPrograms,
@@ -73,10 +74,19 @@ export const SearchBar = ({ onFiltersClick, totalPrograms }: SearchBarProps) => 
     setOpen(true);
     setStatus("loading");
     debounceRef.current = window.setTimeout(async () => {
-      const found = await searchPrograms(term);
+      let found: ProgramSearchResult[] = [];
+      try {
+        found = await searchPrograms(term);
+      } catch {
+        found = [];
+      }
       setResults(found);
       setStatus("done");
     }, SEARCH_DEBOUNCE_MS);
+  };
+
+  const closeDropdown = () => {
+    setOpen(false);
   };
 
   return (
@@ -117,21 +127,36 @@ export const SearchBar = ({ onFiltersClick, totalPrograms }: SearchBarProps) => 
             <div className={styles.dropdownEmpty}>Searching...</div>
           ) : results.length > 0 ? (
             <ul className={styles.resultList}>
-              {results.map((item) => (
-                <li key={item.id} className={styles.resultRow}>
-                  <span className={styles.resultTitle}>{item.title}</span>
-                  <span className={styles.resultMeta}>
-                    <span className={styles.resultStat}>
-                      <Download strokeWidth={2} aria-hidden="true" />
-                      {item.downloads.toLocaleString()} downloads
-                    </span>
-                    <span className={styles.resultStat}>
-                      <Star strokeWidth={2} aria-hidden="true" />
-                      {item.rating.toFixed(1)}
-                    </span>
-                  </span>
-                </li>
-              ))}
+              {results.map((item) => {
+                const category = [item.trainingType, item.level].filter(Boolean).join(" · ");
+
+                return (
+                  <li key={item.id} className={styles.resultRow}>
+                    <Link
+                      to={`/services/generic-program/${item.id}`}
+                      className={styles.resultLink}
+                      onClick={closeDropdown}
+                    >
+                      <span className={styles.resultTitle}>{item.title}</span>
+                      <span className={styles.resultMeta}>
+                        {item.durationWeeks !== null ? (
+                          <span className={styles.resultStat}>
+                            <Calendar strokeWidth={2} aria-hidden="true" />
+                            {item.durationWeeks} weeks
+                          </span>
+                        ) : null}
+                        {item.frequencyPerWeek !== null ? (
+                          <span className={styles.resultStat}>
+                            <Repeat strokeWidth={2} aria-hidden="true" />
+                            {item.frequencyPerWeek}/week
+                          </span>
+                        ) : null}
+                        {category ? <span>{category}</span> : null}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <div className={styles.dropdownEmpty}>No results found</div>

@@ -468,7 +468,7 @@ Layout hierarchy:
 
 ```
 NAVBAR
-SEARCH (sticky)                          128 programs
+SEARCH (sticky)                          N programs
 TITLE + SUBTITLE
 FILTER RESULTS COUNT (when filters active)
 
@@ -493,19 +493,19 @@ FILTER RESULTS COUNT (when filters active)
   page (more opaque, subtle cyan border + soft RYZE glow); becomes
   translucent/subtle after scrolling so it blends into the page. Contains a
   search icon (placeholder "Search training plans..."), a results count at the
-  right side reflecting the current filter state (e.g. "128 programs" with no
+  right side reflecting the current filter state (e.g. "N programs" with no
   filters, "0 programs" when a filter is active, hidden on mobile) and a
   `Filters` button on mobile only.
 - **Live program search** — while the user types, a debounced query (220ms)
-  resolves against `services/program_search.ts` and renders a dropdown panel
+  resolves against the real public catalog (`services/program_search.ts`, backed
+  by `fetchMarketplacePrograms` with a `q` term) and renders a dropdown panel
   below the pill. Each result row shows the plan name plus a small metadata
-  line (downloads count and star rating). When the query matches nothing, a
-  single "No results found" row is shown; while a query is pending, a
-  "Searching..." row is shown. The dropdown closes on outside click or Escape
-  and when the input is cleared. The backend search endpoint does not exist
-  yet and no real program records exist (the marketplace renders placeholders),
-  so every query currently resolves empty — the component is fully wired and
-  will start returning matches once the API is available.
+  line (Calendar icon + `N weeks`, Repeat icon + `M days/week`, plus the
+  training-type · level category) and links to the program detail page. When the
+  query matches nothing, a single "No results found" row is shown; while a
+  query is pending, a "Searching..." row is shown; network failures resolve to
+  an empty state. The dropdown closes on outside click or Escape and when the
+  input is cleared.
 - **Page heading** — sits outside the filter/content grid, immediately above the
   layout. Displays "Training plans" as a confident heading with a muted
   supporting line beneath it. A small filter-results indicator
@@ -549,16 +549,22 @@ FILTER RESULTS COUNT (when filters active)
   (`slideInForward`, `slideOutForward`, `slideInBack`, `slideOutBack`) at 400ms
   eased, giving a literal swipe effect. Both arrows are disabled at the
   boundaries (back at page 0, forward at the last page). Each row is
-  independent: advancing "Most Popular" never moves any other row. Rows: Most
-  Popular, Trending This Week, New & Noteworthy (discovery), then category
-  rows: Build Strength, Build Muscle, Fat Loss, Train at Home, Performance &
-  Conditioning. Row title is large and confident, with an optional small muted
-  supporting line for discovery rows.
+  independent: advancing "Most Popular" never moves any other row. Rows are
+  backed by the real published catalog: Most Popular → default catalog order,
+  Trending This Week → recently updated, New & Noteworthy → newest first, then
+  category rows: Build Strength → `Strength`, Build Muscle → `Hypertrophy`,
+  Fat Loss → `Fat Loss`, Train at Home → `At Home`, Performance & Conditioning →
+  `HYROX` + `CrossFit`. Every row is deterministic: discovery rows fall back to
+  the same catalog order when the catalog is empty. Row title is large and
+  confident, with an optional small muted supporting line for discovery rows.
 - **Program cards** — large portrait covers (4:5 image area) that visually
   dominate the page: dark placeholder with a subtle centered RYZE logo and
   faint cyan lighting until real imagery exists, program title below
-  (prominent, readable), then a muted metadata row ([download] 0 downloads ·
-  [heart] 0/5). No prices, no CTAs, no badges. Hover: gentle lift, subtle image
+  (prominent, readable), then a metadata row showing the real schedule
+  (Calendar icon + `N weeks`, Repeat icon + `M days/week`) and the category
+  (`training_type · level`, falling back to the audience level when the training
+  type is unset). No prices, no downloads, no ratings, no CTAs, no badges.
+  Each card links to the program detail page. Hover: gentle lift, subtle image
   scale, brighter border and faint cyan shadow — restrained, not glowy. Cards
   are sized purely by the CSS grid (no JavaScript measurement); all cards in a
   row share an equal height.
@@ -587,11 +593,39 @@ FILTER RESULTS COUNT (when filters active)
 
 Components: `SearchBar`, `FilterSidebar`, `ProgramRow`, `ProgramCard`,
 `CarouselArrow` under `components/`, the search resolver in
-`services/program_search.ts`, data in `constants/marketplace.ts`.
+`services/program_search.ts`, the API client in `services/marketplace_api.ts`,
+row/filter data in `constants/marketplace.ts`.
 The marketplace uses the shared `Container` in its `wide` sizing.
+The page fetches the full published generic catalog once on mount (paged,
+`scope=generic`) and applies all filter/row partitioning client-side.
 
-Non-goals for this stage: backend search/filter execution, purchases, payment,
-pricing, program detail pages, reviews or social features.
+### Generic Program Detail
+
+Reached from any marketplace card or search result
+(`/services/generic-program/:programId`). A focused, content-first read-only
+page showing one published generic program; it is deliberately not a sales
+page — there are no prices, CTAs or purchase controls.
+
+- **Top bar** — a back Button (arrow in a dark pill) that returns to the
+  marketplace (`/services/generic-program`).
+- **Header** — the program name as the page title, the description as a muted
+  supporting line, and a set of soft cyan chips: `training_type`, `level`,
+  `N weeks` and `M days/week` (each chip is hidden when its value is absent).
+- **Structure** — the program's weeks rendered as stacked week cards (Week 1,
+  Week 2, …). Each week card lists its ordered workout days (Day 1, Day 2, …);
+  each workout shows its exercises with a numbered position bubble, the
+  exercise name, a muted per-assignment note when present, and a compact table
+  of sets with columns Set / Type / Reps / Weight / RIR / RPE / Rest / Tempo.
+  Workouts or exercises with no content render a muted empty note.
+- **States** — loading (muted centered state), generic error with a Retry
+  button, and "Program not found" for unknown, draft or removed programs (the
+  backend returns one indistinguishable 404 for all of them).
+- **Responsive** — the header and week cards scale down gracefully; the set
+  table scrolls horizontally inside its container on narrow screens;
+  `prefers-reduced-motion` is respected.
+
+Non-goals for this stage: purchases, payment, pricing, reviews, social
+features, trainer attribution or related-program recommendations.
 
 ---
 
@@ -1078,7 +1112,8 @@ Pages implemented in the current cycle:
   with a catalog alternative and removes it; assignments reorder within the day
   and remain immutable references so a catalog update is reflected everywhere.
   The Marketplace step also captures the optional audience metadata — Level
-  (Beginner / Intermediate / Advanced), Duration in weeks and Frequency in
+  (Beginner / Intermediate / Advanced), Training Type (Hypertrophy / Strength /
+  HYROX / CrossFit / Fat Loss / At Home), Duration in weeks and Frequency in
   days per week. The Publish & Save action talks to the generic program API:
   it maps the local draft to the create payload, disables the button until a
   change is dirty and while a request is in flight (`Saving…`), and surfaces
@@ -1091,9 +1126,13 @@ Pages implemented in the current cycle:
 - **ADMIN_2 Plan detail** — `/admin2/plans/:programId` opens a Generic Program
   from the real detail endpoint and renders the complete structure in-tree
   (weeks → training days → exercises → sets with reps, weight, RIR, RPE, rest
-  and tempo) next to a program-facts summary (type, status, level, frequency,
-  duration, price, created, updated). Actions: Edit plan (builds on the plan
-  workspace in edit mode) and Delete (soft delete with confirmation).
+  and tempo) next to a program-facts summary (type, status, level, training
+  type, frequency, duration, price, created, updated). Actions: Publish plan
+  (draft → published via the guarded publish endpoint), Unpublish plan
+  (published → draft via the full update with a draft status), View in
+  marketplace (links to the public `/services/generic-program/:programId`
+  detail page when published), Edit plan (builds on the plan workspace in edit
+  mode) and Delete (soft delete with confirmation).
 - **ADMIN_2 Marketplace** — published catalog with filter chips grouped by
   product type, price and currency.
 - **ADMIN_2 Trainers (business)** — trainer profiles with a commission manager

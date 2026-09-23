@@ -457,9 +457,26 @@ area:
 ### Public Program Catalog
 
 The public program catalog provides unauthenticated, read-only discovery of
-published trainer programs. It reuses the same `ProgramRepository` as the
-trainer module but exposes only two read-only methods (`ListPublished` and
-`FindPublishedByID`) through a separate read-only interface:
+published programs (platform-owned generic programs and, in future, published
+trainer programs). It reuses the same `ProgramRepository` as the trainer module
+but exposes only read-only methods through a separate read-only interface:
+
+- Public listing/search: `SearchPublished(filter, page, limit)` — returns
+  `(programs, total)` and groups the two pagination paths:
+  - Default catalog path (`ListPublished`): newest first
+    (`created_at DESC, id ASC`), used when no search, filter, sort or `scope`
+    parameter is present.
+  - Search path (`SearchPublishedQuery`): applied when any of `scope`, `q`,
+    `type`, `training_type`, `level`, `frequency`, `duration_min/max`, `sort`
+    or `order` is provided. All filter values are exact matches; `q` is a LIKE
+    on the program name with wildcards escaped; `sort` is restricted to
+    `created_at`/`name` and always falls back to the default ordering for any
+    other value.
+- Detail: `FindPublishedByIDWithStructure(id)` — returns one published program
+  with its client-safe nested `weeks` tree (week_number → workouts → exercises
+  with sets). It must not leak `trainer_id` of the owner.
+
+Request flow:
 
 - `PublicProgramsHandler` (thin, in `api/auth`) → `public_programs` service (in
   `services/public_programs`) → `ProgramRepository` (in `repositories`) over the
@@ -468,9 +485,16 @@ trainer module but exposes only two read-only methods (`ListPublished` and
 No authentication, authorization or ownership checks are performed: the catalog
 is global and every published program is visible to every caller. Draft,
 soft-deleted and unknown programs all return the same generic 404 to prevent
-information leakage. The service layer validates program ids and pagination
-parameters; the repository layer applies `WHERE status = 'published'` and
-GORM's default soft-delete scope. No write operation is exposed.
+information leakage. The service layer validates program ids, pagination
+parameters and the controlled filter vocabulary; the repository layer applies
+`WHERE status = 'published'` and GORM's default soft-delete scope. No write
+operation is exposed.
+
+The `scope=generic` parameter restricts the catalog to platform-owned programs
+(`trainer_id IS NULL`), which is the marketplace foundation consumed by the
+frontend marketplace and program detail pages. Route precedence is pinned by
+Gin: the static `/programs/generic` admin routes always win over the public
+`:programID` wildcard.
 
 ### Program Pricing
 

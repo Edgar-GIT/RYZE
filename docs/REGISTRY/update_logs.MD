@@ -1,3 +1,126 @@
+# Version 2.69.0
+
+Title: Marketplace wired to the public generic program catalog
+
+Date: 2026-09-22
+
+Summary:
+
+The Generic Training Plans Marketplace now runs on real published Generic
+Program data: ADMIN_2 publishes a plan → it appears in the public catalog →
+users search, filter and open a program detail page. The previous placeholder
+data, invented downloads/ratings and always-empty search were removed. This
+version stops before purchases, checkout, payments, pricing display,
+entitlements and client assignment.
+
+Main changes:
+
+- **Backend `training_type`** — `programs.training_type` column (`VARCHAR(50)`,
+  nullable, controlled vocabulary `Hypertrophy | Strength | HYROX | CrossFit |
+  Fat Loss | At Home`) added by migration `000021` with index
+  `idx_programs_training_type`; `models.TrainingType`/`Program.TrainingType`
+  (pointer, DB column `training_type`); validated verbatim in
+  `services/generic_programs` create/update (nil when empty) and exposed in
+  the generic list filter (`GET /programs/generic?training_type=`), create/update
+  body and detail/list responses.
+- **Backend public catalog** — `ProgramRepository` gains
+  `PublicCatalogFilter` (`scope`/`q`/`type`/`training_type`/`level`/`frequency`/
+  `duration_min`/`duration_max`/`sort`/`order`), `SearchPublished(filter, page,
+  limit)` (default path = `ListPublished`, newest first `created_at DESC, id
+  ASC`; any filter present → single grouped search query with escaped LIKE on
+  `name`, exact-match filters, `sort` restricted to `created_at`/`name`,
+  `order` asc/desc, GORM soft-delete scope) and
+  `FindPublishedByIDWithStructure(id)` (published program + client-safe
+  `weeks → workouts → exercises → sets` tree). `public_programs` service and
+  `PublicProgramsHandler` were rewritten on top of them:
+  - `GET /api/v1/programs` accepts `scope`, `q`, `type`, `training_type`,
+    `level`, `frequency`, `duration_min/max`, `sort`, `order` + `page`/`limit`
+    (max 100) and returns program objects including `level`, `duration_weeks`,
+    `frequency_per_week`, `training_type`.
+  - `GET /api/v1/programs/:programID` returns the same metadata plus `weeks`
+    (week_number → workouts → exercises with sets, catalog summary + per-set
+    prescription). Draft/soft-deleted/unknown remain one indistinguishable 404.
+  - Ownership stays global and unauthenticated; `trainer_id` is returned as
+    null for generic programs (never a trainer-owned id through this path).
+- **Backend tests** — `program_repository_test.go`,
+  `services/public_programs/public_programs_test.go` and
+  `api/auth/public_programs_handler_test.go` updated to the new
+  `PublicCatalogFilter`/`ProgramFilter` signatures and the `ProgramDetail`
+  response; the missing `training_type` column was applied to the test DB via
+  `go run . migrate up`.
+- **Frontend marketplace data (`services/marketplace_api.ts`, new)** — typed
+  client for the public catalog: `MarketplaceProgram`,
+  `MarketplaceProgramDetail` (`weeks → workouts → exercises → sets`),
+  `fetchMarketplacePrograms({q, scope: "generic", page, limit, ...})`,
+  `fetchAllMarketplacePrograms` (paged fetch of the whole published generic
+  catalog, capped) and `fetchMarketplaceProgram(id)`.
+- **Marketplace page (`generic_plan_marketplace_page.tsx`)** — fetches the
+  real catalog once on mount; result count and the search-pill counter reflect
+  the real total (and the filtered total when filters are active); all four
+  filter groups (Training Type, Frequency, Level, Duration) filter
+  client-side; rows are deterministic partitions of the real data (Most
+  Popular → catalog order, Trending → `updated_at DESC`, New & Noteworthy →
+  `created_at DESC`, category rows by `training_type`, Performance &
+  Conditioning → HYROX + CrossFit); empty rows are hidden; loading, error
+  (retry), empty-catalog and end-of-catalog states added.
+- **ProgramCard / ProgramRow / SearchBar** — cards take a real
+  `MarketplaceProgram` and link to `/services/generic-program/:id`; metadata
+  is the real schedule (weeks, days/week) and category (`training_type ·
+  level`); the invented downloads count and star rating were removed;
+  `SearchBar` calls the real search endpoint (220ms debounce) and renders
+  real metadata per row with error-safe empty fallbacks.
+- **Public program detail page (new)** —
+  `pages/generic_program_detail_page/` at
+  `/services/generic-program/:programId` (registered before the
+  `/services/:serviceSlug` catch-all): back button to the marketplace, header
+  with name/description and `training_type`/level/schedule chips (no price),
+  structure rendered as week cards → day cards → exercises → set table
+  (Set / Type / Reps / Weight / RIR / RPE / Rest / Tempo), loading, generic
+  error (retry) and not-found states. Shared card/search CSS only gained link
+  reset rules; no new pattern tokens were introduced.
+- **ADMIN_2 builder + detail** — the Marketplace step captures Training Type
+  (chips, "not set" first); `PlanDraft`/`toGenericProgramInput`/
+  `detailToPlanDraft`/`admin2_api.ts` carry `training_type`; the plan detail
+  summary shows the training type and gains Publish plan / Unpublish plan
+  (draft↔published) and a "View in marketplace" link when published.
+
+Documentation:
+
+- `docs/INSTRUCTIONS/api.MD` — public catalog params/response and
+  `FindPublishedByIDWithStructure` weeks shape; generic program list filter,
+  create/update body and detail response include `training_type`; generic list
+  response key corrected to `programs`.
+- `docs/DATABASE/database.MD` — `programs.training_type` column, vocabulary,
+  index and migration `000021`.
+- `docs/INSTRUCTIONS/arquitecture.MD` — Public Program Catalog section
+  rewritten for the filter/search/detail flow, `scope=generic` and route
+  precedence.
+- `docs/PAGES/design.MD` — marketplace now documents real data (search,
+  rows, cards, count), the new Generic Program Detail page, ADMIN_2 training
+  type + publish/unpublish actions, and revised non-goals (detail pages and
+  backend search are no longer out of scope).
+- `docs/INSTRUCTIONS/project.MD` — Marketplace section notes the current
+  generic catalog surface.
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+Validation:
+
+- Backend: `go build ./...` and `go vet ./...` pass; repository, generic
+  programs, public programs and api/auth suites pass (only the pre-existing,
+  documented DB-state failures remain, unaffected by this change).
+- Frontend: `npm run typecheck` and `npm run build` pass.
+
+Deliberately excluded:
+
+- Purchases, checkout, payments, price display on cards/detail, entitlements,
+  client assignment and revenue logic.
+- Trainer-owned program publication through the public catalog (the filter and
+  repository support it; the product path is not enabled yet).
+- Program imagery (cards keep the dark RYZE placeholder), reviews, ratings and
+  social features.
+
+---
+
 # Version 2.68.0
 
 Title: Generic Program management lifecycle in ADMIN_2

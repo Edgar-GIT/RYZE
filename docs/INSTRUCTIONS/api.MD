@@ -2027,8 +2027,10 @@ Public endpoint.
 
 ### `GET /api/v1/programs`
 
-Returns one page of published programs from all trainers, newest first, with
-pagination metadata.
+Returns one page of published programs from all owners (trainers and the
+platform), newest first, with pagination metadata. The catalog is global: no
+authentication or ownership filter is applied. `scope=generic` restricts the
+catalog to platform-owned generic programs (the marketplace foundation).
 
 Public endpoint. No authentication required.
 
@@ -2036,25 +2038,52 @@ Query parameters:
 
 - `page` — page number, 1-based, default `1`.
 - `limit` — page size, default `20`, clamped to `100`.
+- `scope` — `generic` restricts the catalog to platform-owned programs
+  (`trainer_id` is null). Any other value is ignored.
+- `q` — name query (LIKE, wildcards escaped), optional.
+- `type` — program type filter (`free`, `premium`, `personalized`), optional.
+- `training_type` — exact training type filter (`Hypertrophy`, `Strength`,
+  `HYROX`, `CrossFit`, `Fat Loss`, `At Home`), optional.
+- `level` — exact audience level filter (`Beginner`, `Intermediate`,
+  `Advanced`), optional.
+- `frequency` — exact days-per-week filter (1–7), optional.
+- `duration_min`, `duration_max` — inclusive duration range in weeks, optional.
+- `sort` — `created_at` or `name` (any other value falls back to `created_at`),
+  optional.
+- `order` — `asc` or `desc` (default `desc`), optional.
+
+When none of the search/filter/scope/sort parameters are present the endpoint
+returns the default catalog (newest first); otherwise it delegates to the
+search path.
 
 Response `data`:
 
-- `programs` — array of program objects: `id`, `trainer_id`, `name`,
-  `description`, `type`, `status`, `price_minor_units`, `currency`,
-  `created_at`, `updated_at`.
+- `programs` — array of program objects: `id`, `trainer_id` (null for generic
+  programs), `name`, `description`, `type`, `status`, `level`,
+  `duration_weeks`, `frequency_per_week`, `training_type`,
+  `price_minor_units`, `currency`, `created_at`, `updated_at`.
 - `pagination` — `page`, `limit`, `total`, `total_pages`.
 
 ### `GET /api/v1/programs/:programID`
 
-Returns one published program. Draft, soft-deleted and unknown programs all
-return the same generic 404 to prevent information leakage.
+Returns one published program with its complete client-safe structure. Draft,
+soft-deleted and unknown programs all return the same generic 404 to prevent
+information leakage.
 
 Public endpoint. No authentication required.
 
 Response `data`:
 
-- `id`, `trainer_id`, `name`, `description`, `type`, `status`,
-  `price_minor_units`, `currency`, `created_at`, `updated_at`.
+- `id`, `trainer_id` (null for generic programs), `name`, `description`,
+  `type`, `status`, `level`, `duration_weeks`, `frequency_per_week`,
+  `training_type`, `price_minor_units`, `currency`, `created_at`,
+  `updated_at`.
+- `weeks` — array of `{ week_number, workouts }`; each workout is
+  `{ position, exercises }`; each exercise carries the safe catalog summary
+  (`name`, `description`, `instructions`, `target_muscles`, `equipment`,
+  `difficulty`, `video_url`, `image_url`, `position`, `notes`) plus its
+  `sets` (`set_number`, `set_type`, `reps`, `weight_kg`, `rir`, `rpe`,
+  `rest_seconds`, `tempo`).
 
 ---
 
@@ -3544,6 +3573,9 @@ Within one program the server derives ordering and uniqueness server-side:
   - `premium`/`personalized` → must meet the configured minimum price.
   - `currency` is always `EUR` (ISO 4217, integer minor units, no floats).
 - Downwards pricing changes are not restricted for platform-owned programs.
+- `training_type`: controlled vocabulary stored verbatim, `Hypertrophy` |
+  `Strength` | `HYROX` | `CrossFit` | `Fat Loss` | `At Home` (nullable). It is
+  the marketplace category facet consumed by the public catalog.
 
 ## `GET /api/v1/programs/generic`
 
@@ -3556,13 +3588,15 @@ Query parameters:
 - `search` — substring match on program name.
 - `type` — `free` | `premium` | `personalized`.
 - `level` — `Beginner` | `Intermediate` | `Advanced`.
+- `training_type` — `Hypertrophy` | `Strength` | `HYROX` | `CrossFit` |
+  `Fat Loss` | `At Home`.
 - `duration` — exact `duration_weeks`.
 - `frequency` — exact `frequency_per_week`.
 
 Response `data`:
 
-- `page`, `limit`, `total`, `total_pages`, `items` — array of program summaries
-  (no nested structure).
+- `page`, `limit`, `total`, `total_pages`, `programs` — array of program
+  summaries (no nested structure).
 
 Responses:
 
@@ -3581,6 +3615,7 @@ Request body:
 - `description` — string ≤ 5000.
 - `type` — `free` | `premium` | `personalized`.
 - `level` — `Beginner` | `Intermediate` | `Advanced` (nullable).
+- `training_type` — controlled vocabulary value (nullable).
 - `duration_weeks` — integer, ≤ 52 (nullable).
 - `frequency_per_week` — integer, ≤ 7 (nullable).
 - `price_minor_units` — integer minor units; 0 for `free`, minimum for paid.
@@ -3610,12 +3645,12 @@ exercises and sets). Protected by `plans`.
 Response `data`:
 
 - Program fields (`id`, `name`, `description`, `type`, `status`, `level`,
-  `duration_weeks`, `frequency_per_week`, `price_minor_units`, `currency`,
-  `created_at`, `updated_at`) plus `weeks` (each with ordered `workouts`);
-  each exercise exposes `catalog_instructions`, `target_muscles`, `equipment`,
-  `difficulty`, `video_url`, `image_url`, per-assignment `instructions` and
-  `notes`, and its `sets`. Only `draft`/`published` programs are returned; the
-  `trainer_id` field is never exposed.
+  `training_type`, `duration_weeks`, `frequency_per_week`, `price_minor_units`,
+  `currency`, `created_at`, `updated_at`) plus `weeks` (each with ordered
+  `workouts`); each exercise exposes `catalog_instructions`, `target_muscles`,
+  `equipment`, `difficulty`, `video_url`, `image_url`, per-assignment
+  `instructions` and `notes`, and its `sets`. Only `draft`/`published` programs
+  are returned; the `trainer_id` field is never exposed.
 
 Responses:
 

@@ -204,6 +204,12 @@ Published packs are subject to a platform commission.
 
 The commission structure may evolve as the platform grows.
 
+The first marketplace surface is the Generic Training Plans Marketplace: a
+public, read-only catalog of published, platform-owned Generic Programs
+(`scope=generic`) with live search, client-side filtering and a per-program
+detail page. Purchases, payments, pricing display and entitlements are not
+implemented yet.
+
 ---
 
 # User Roles

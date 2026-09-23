@@ -1,0 +1,213 @@
+.page {
+  /* inherits the RYZE dark canvas from PageWrapper */
+}
+
+.detail {
+  padding: 2.5rem 0 4.5rem;
+}
+
+.container {
+  display: grid;
+  gap: 2.2rem;
+}
+
+.back {
+  display: flex;
+}
+
+.heading {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 52rem;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.subtitle {
+  max-width: 46rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.chip {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(24, 216, 255, 0.22);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(24, 216, 255, 0.06);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.structure {
+  display: grid;
+  gap: 1.6rem;
+}
+
+.weekCard {
+  display: grid;
+  gap: 1rem;
+  padding: 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.weekTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+.dayCard {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-sm);
+  background: rgba(5, 7, 11, 0.45);
+}
+
+.dayTitle {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.emptyNote {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.exercise {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.exerciseHead {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.exercisePos {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--text-primary);
+  background: rgba(24, 216, 255, 0.14);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.exerciseName {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.exerciseMeta {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.exerciseNote {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.setWrap {
+  overflow-x: auto;
+  margin-top: 0.2rem;
+}
+
+.setTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.setTable th,
+.setTable td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.setTable th {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.setTable td {
+  color: var(--text-secondary);
+}
+
+.state {
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  padding: 4rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.state p {
+  margin: 0;
+}
+
+.retry {
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .detail {
+    padding-top: 1.6rem;
+  }
+
+  .weekCard {
+    padding: 1rem;
+  }
+
+  .dayCard {
+    padding: 0.9rem;
+  }
+}
