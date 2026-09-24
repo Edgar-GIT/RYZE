@@ -78,19 +78,27 @@ func newService(repo *stubRepo) entitlements.Service {
 }
 
 func validEntitlements() []models.Entitlement {
+	level := "Intermediate"
+	durationWeeks := 8
+	frequencyPerWeek := 4
+	trainingType := "Strength"
 	return []models.Entitlement{
 		{
 			ID:        entID,
 			UserID:    userID,
 			ProgramID: programID,
 			Program: models.Program{
-				ID:          programID,
-				Name:        "Strength Builder",
-				Description: "Progressive strength program",
-				Type:        models.ProgramTypePremium,
-				Status:      models.ProgramStatusPublished,
-				CreatedAt:   time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-				UpdatedAt:   time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+				ID:               programID,
+				Name:             "Strength Builder",
+				Description:      "Progressive strength program",
+				Type:             models.ProgramTypePremium,
+				Status:           models.ProgramStatusPublished,
+				Level:            &level,
+				DurationWeeks:    &durationWeeks,
+				FrequencyPerWeek: &frequencyPerWeek,
+				TrainingType:     &trainingType,
+				CreatedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+				UpdatedAt:        time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
 			},
 			CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 			UpdatedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
@@ -133,6 +141,18 @@ func TestListEntitlementsSuccess(t *testing.T) {
 	}
 	if entitlements[0].Program.ID != programID || entitlements[0].Program.Name != "Strength Builder" {
 		t.Fatalf("unexpected program %+v", entitlements[0].Program)
+	}
+	if entitlements[0].Program.Level == nil || *entitlements[0].Program.Level != "Intermediate" {
+		t.Fatalf("expected program level to be carried through, got %+v", entitlements[0].Program.Level)
+	}
+	if entitlements[0].Program.TrainingType == nil || *entitlements[0].Program.TrainingType != "Strength" {
+		t.Fatalf("expected program training type to be carried through, got %+v", entitlements[0].Program.TrainingType)
+	}
+	if entitlements[0].Program.DurationWeeks == nil || *entitlements[0].Program.DurationWeeks != 8 {
+		t.Fatalf("expected program duration to be carried through, got %+v", entitlements[0].Program.DurationWeeks)
+	}
+	if entitlements[0].Program.FrequencyPerWeek == nil || *entitlements[0].Program.FrequencyPerWeek != 4 {
+		t.Fatalf("expected program frequency to be carried through, got %+v", entitlements[0].Program.FrequencyPerWeek)
 	}
 	if entitlements[1].ID != entID2 || entitlements[1].ProgramID != programID2 {
 		t.Fatalf("unexpected entitlement %+v", entitlements[1])

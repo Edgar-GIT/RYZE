@@ -1205,14 +1205,44 @@ same security model as other authenticated-user read endpoints:
   enforced by scoping all queries by `user_id`.
 - A missing or soft-deleted entitlement is indistinguishable from a non-existent
   one and never revealed. Cross-user lookups return the same not-found response.
-- Entitlements currently provide only safe metadata (entitlement id, program_id,
-  nested safe Program). They do NOT grant access to `GET /me/program` —
-  assignment remains the sole access mechanism. The ownership-trainer id and
-  parent identifiers are never exposed.
+- Entitlements provide only safe metadata (entitlement id, program_id, nested
+  safe Program including the generic calendar fields). They do NOT grant access
+  to `GET /me/program` — assignment remains the access mechanism for assigned
+  programs. The ownership-trainer id and parent identifiers are never exposed.
 - The `purchases` table now has a creation API (`POST
   /api/v1/me/programs/:programID/purchase`) that creates pending purchase
   records. The `entitlements` table has no creation API yet; entitlements will
   be created when a payment provider transitions a purchase to "completed".
+
+### Client Program Access Security
+
+The entitlement-protected program read
+(`GET /api/v1/me/programs/:programID`) is the "My Programs" detail surface and
+enforces access strictly on the backend:
+
+- The client identity is always resolved exclusively from the authenticated user
+  context. A client-supplied `user_id`, `client_id` or `trainer_id` (query,
+  body or header) is never accepted and can never change which program is
+  returned. Query parameters or request bodies carry no identity and are
+  ignored.
+- Access is granted only when BOTH conditions hold: the authenticated user holds
+  an active entitlement for the program AND the program is still published.
+  A missing entitlement, a nonexistent program, a soft-deleted program and an
+  unpublished program are indistinguishable and always return the same generic
+  `404 PROGRAM_NOT_FOUND`. The response never reveals which condition failed.
+- Cross-user isolation is enforced: a user with no entitlement for the requested
+  program receives the same `404` as a user asking for a random id. There is no
+  way to probe, enumerate or read another user's entitled programs.
+- The response is the safe published program detail (identical shape to the
+  marketplace detail). It never contains the owning user id, the entitlement
+  identity, purchase/commercial internals, password hashes, session versions,
+  JWT data, deletion markers or any internal fields.
+- Internal repository/service failures are never surfaced to the client; they
+  are mapped to a generic `500 INTERNAL_ERROR` with no details leaked.
+- The program content is loaded through the existing `public_programs` service
+  (`FindPublishedByIDWithStructure`), which independently re-enforces the
+  `published` + not-soft-deleted filter server-side. Frontend permission checks
+  are never trusted for access decisions.
 
 ---
 

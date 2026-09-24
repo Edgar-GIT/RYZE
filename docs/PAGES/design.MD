@@ -653,6 +653,51 @@ related-program recommendations.
 
 ---
 
+### My Programs
+
+The authenticated client-facing listing of purchased/entitled programs. It
+follows the palette, motion and typography of the other authenticated pages.
+
+- **Route** — `/services/my-programs`, chrome-free: it renders without the
+  public chrome (same pattern as `/profile`) and carries its own minimal
+  navbar (`Brand` left, a "Profile" link in the reserved center navigation
+  area, symmetric spacer right). The global navigation is never swapped for an
+  authenticated state outside of it.
+- **Data** — `GET /api/v1/me/entitlements`, 401 → redirect to `/login`.
+- **States** — loading (spinner), generic error with a Retry button, and an
+  empty state ("You have no programs yet") linking to the marketplace.
+- **Cards** — one card per entitled program: name, description and the generic
+  calendar chips (`training_type`, `level`, `duration_weeks`,
+  `frequency_per_week`), plus an "Open program" affordance navigating to
+  `/services/my-programs/:programId`. No price and no entitlement metadata are
+  shown.
+- **Entry point** — the `/profile` page exposes a "My Programs" link in its
+  reserved center navigation area.
+
+---
+
+### Program Access
+
+The entitlement-protected program detail ("client program detail"). It is the
+same safe structure surface as the marketplace detail page, but exclusively for
+entitled programs and only reachable from My Programs.
+
+- **Route** — `/services/my-programs/:programId`, chrome-free with the same
+  minimal navbar pattern (a "My Programs" nav link back to the listing).
+- **Data** — `GET /api/v1/me/programs/:programId`; 401 → redirect to
+  `/login`.
+- **States** — loading (spinner), generic error with a Retry button, and a
+  generic "no longer available" state for the indistinguishable 404.
+- **Layout** — a "My Programs" back Button, the program heading with name,
+  description and the calendar chips, then the shared training structure
+  (weeks → days → exercises → prescription set table, identical to the
+  marketplace plan structure). There is no purchase surface here.
+- **Shared structure** — the structure markup and set table are the shared
+  `ProgramStructure` component reused by the marketplace plan detail page, so
+  both surfaces stay visually identical.
+
+---
+
 ### Premium
 
 Displays training packs together with automatically assigned nutrition programs.

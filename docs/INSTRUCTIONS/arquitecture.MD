@@ -558,14 +558,17 @@ pagination conventions as the trainer-facing list endpoints.
 ### Client Entitlements
 
 The client entitlements module is a read-only counterpart to the assigned-program
-read, providing safe entitlement metadata without granting access:
+read, providing the listing of programs a client is entitled to access:
 
 - The client identity always comes exclusively from the authenticated user
   context. A client-supplied `user_id`, `client_id` or `trainer_id` (query,
   body or header) can never influence which entitlements are returned.
-- Entitlements currently provide safe metadata only (entitlement id, program_id,
-  nested safe Program). They do NOT grant access to `GET /me/program` — the
-  assignment mechanism is the sole access path and remains unmodified.
+- Entitlements expose safe metadata (entitlement id, program_id, nested safe
+  Program including the generic calendar fields `level`, `training_type`,
+  `duration_weeks`, `frequency_per_week`). They do NOT grant access to
+  `GET /me/program` — the assignment mechanism remains the access path for
+  assigned programs. Entitled program content is read through the dedicated
+  `program_access` module instead (`GET /api/v1/me/programs/:programID`).
 - The `EntitlementRepository` is a dedicated repository for the `entitlements`
   table, separate from `ProgramAssignmentRepository`. No entitlement methods are
   added to the assignment repository.
@@ -581,6 +584,37 @@ The module follows the standard request flow:
 `EntitlementsHandler` (in `api/auth`) → `entitlements` service (in
 `services/entitlements`) → `EntitlementRepository` (in `repositories`) over the
 `entitlements` table, with safe Program data preloaded from the `programs` table.
+
+### Client Program Access
+
+The client program access module is the entitlement-protected program reader
+(the "My Programs" detail surface). It reuses existing systems instead of
+introducing a parallel access path:
+
+- The client identity always comes exclusively from the authenticated user
+  context. The path parameter only identifies the requested program.
+- Access is granted only when BOTH conditions hold: the authenticated user
+  holds an active entitlement for the program AND the program itself is still
+  published. A missing entitlement, a missing program, a soft-deleted program
+  and an unpublished program are all indistinguishable (generic `404`), so
+  access is never revealed.
+- The program content is loaded by reusing the `public_programs` service
+  (`GetPublishedProgram`), which already enforces the `published` + not
+  soft-deleted filter (`FindPublishedByIDWithStructure`), and the response DTO
+  reuses `newPublicProgramDetailResponse` so the shape is identical to the
+  marketplace detail. No new repository method and no new program DTO were
+  introduced.
+- The entitlement gate is the existing `EntitlementRepository`
+  (`FindActiveByUserAndProgram`); no dedicated entitlement query was added.
+- Internal repository failures are never mapped to a user-facing error and
+  never leak details; they surface as a generic `500`.
+
+The module follows the standard request flow:
+`ProgramAccessHandler` (in `api/auth`) → `program_access` service (in
+`services/program_access`) → `EntitlementRepository` over the `entitlements`
+table for the access gate + `public_programs` service over the `programs` table
+for the entitled structure. It is wired in `routes/routes.go` as
+`GET /api/v1/me/programs/:programID` behind `middleware.Authenticate`.
 
 ### Client Purchase Transaction
 

@@ -16,15 +16,19 @@ import (
 // exposes the owning trainer, parent identifiers, deletion markers or any
 // internal data.
 type entitlementProgramResponse struct {
-	ID              string    `json:"id"`
-	Name            string    `json:"name"`
-	Description     string    `json:"description"`
-	Type            string    `json:"type"`
-	Status          string    `json:"status"`
-	PriceMinorUnits int64     `json:"price_minor_units"`
-	Currency        string    `json:"currency"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	Name             string    `json:"name"`
+	Description      string    `json:"description"`
+	Type             string    `json:"type"`
+	Status           string    `json:"status"`
+	Level            *string   `json:"level"`
+	DurationWeeks    *int      `json:"duration_weeks"`
+	FrequencyPerWeek *int      `json:"frequency_per_week"`
+	TrainingType     *string   `json:"training_type"`
+	PriceMinorUnits  int64     `json:"price_minor_units"`
+	Currency         string    `json:"currency"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // entitlementResponse is the safe representation of a purchase-backed right
@@ -43,15 +47,19 @@ func newEntitlementResponse(ent *entitlements.Entitlement) entitlementResponse {
 		ID:        ent.ID,
 		ProgramID: ent.ProgramID,
 		Program: entitlementProgramResponse{
-			ID:              ent.Program.ID,
-			Name:            ent.Program.Name,
-			Description:     ent.Program.Description,
-			Type:            ent.Program.Type,
-			Status:          ent.Program.Status,
-			PriceMinorUnits: ent.Program.PriceMinorUnits,
-			Currency:        ent.Program.Currency,
-			CreatedAt:       ent.Program.CreatedAt,
-			UpdatedAt:       ent.Program.UpdatedAt,
+			ID:               ent.Program.ID,
+			Name:             ent.Program.Name,
+			Description:      ent.Program.Description,
+			Type:             ent.Program.Type,
+			Status:           ent.Program.Status,
+			Level:            ent.Program.Level,
+			DurationWeeks:    ent.Program.DurationWeeks,
+			FrequencyPerWeek: ent.Program.FrequencyPerWeek,
+			TrainingType:     ent.Program.TrainingType,
+			PriceMinorUnits:  ent.Program.PriceMinorUnits,
+			Currency:         ent.Program.Currency,
+			CreatedAt:        ent.Program.CreatedAt,
+			UpdatedAt:        ent.Program.UpdatedAt,
 		},
 		CreatedAt: ent.CreatedAt,
 		UpdatedAt: ent.UpdatedAt,

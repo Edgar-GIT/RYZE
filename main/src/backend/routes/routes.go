@@ -31,6 +31,7 @@ import (
 	"ryze/backend/services/login"
 	"ryze/backend/services/password"
 	"ryze/backend/services/payments"
+	"ryze/backend/services/program_access"
 	"ryze/backend/services/program_assignments"
 	"ryze/backend/services/program_structure"
 	"ryze/backend/services/programs"
@@ -111,6 +112,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	publicProgramService := public_programs.NewService(trainerProgramRepository)
 	publicProgramHandler := auth.NewPublicProgramsHandler(publicProgramService)
 
+	programAccessService := program_access.NewService(entitlementRepository, publicProgramService)
+	programAccessHandler := auth.NewProgramAccessHandler(programAccessService)
+
 	adminProgramPricingService := admin_program_pricing.NewService(trainerProgramService)
 	adminProgramPricingHandler := auth.NewAdminProgramPricingHandler(adminProgramPricingService)
 
@@ -166,6 +170,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
 	v1.GET("/me/entitlements", middleware.Authenticate(tokenService, userRepository), entitlementHandler.ListEntitlements)
+	v1.GET("/me/programs/:programID", middleware.Authenticate(tokenService, userRepository), programAccessHandler.GetProgramAccess)
 	v1.GET("/me/purchases", middleware.Authenticate(tokenService, userRepository), purchaseHandler.ListPurchases)
 	v1.POST("/me/programs/:programID/purchase", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CreatePurchase)
 	v1.POST("/me/purchases/:purchaseID/payment", middleware.Authenticate(tokenService, userRepository), purchaseHandler.InitiatePayment)

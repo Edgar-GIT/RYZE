@@ -40,6 +40,10 @@ export interface EntitlementProgram {
   description: string;
   type: string;
   status: string;
+  level?: string | null;
+  training_type?: string | null;
+  duration_weeks?: number | null;
+  frequency_per_week?: number | null;
   price_minor_units: number;
   currency: string;
   created_at: string;
@@ -52,6 +56,66 @@ export interface Entitlement {
   program: EntitlementProgram;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Client-safe structure of one entitled program, served by
+ * `GET /me/programs/:programId`. Access is granted on the backend only when
+ * the authenticated user holds an active entitlement and the program remains
+ * published. A missing entitlement and an unavailable program are
+ * indistinguishable and both appear as 404.
+ */
+export interface ProgramAccessDetail {
+  id: string;
+  trainer_id?: string | null;
+  name: string;
+  description: string;
+  type: string;
+  status: string;
+  level?: string | null;
+  duration_weeks?: number | null;
+  frequency_per_week?: number | null;
+  training_type?: string | null;
+  price_minor_units: number;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+  weeks: ProgramAccessWeek[];
+}
+
+export interface ProgramAccessWeek {
+  week_number: number;
+  workouts: ProgramAccessWorkout[];
+}
+
+export interface ProgramAccessWorkout {
+  position: number;
+  exercises: ProgramAccessExercise[];
+}
+
+export interface ProgramAccessExercise {
+  name: string;
+  description: string;
+  instructions: string;
+  target_muscles: string;
+  equipment: string;
+  difficulty: string;
+  video_url: string;
+  image_url: string;
+  position: number;
+  notes: string;
+  sets: ProgramAccessSet[];
+}
+
+export interface ProgramAccessSet {
+  set_number: number;
+  set_type: string;
+  reps?: number | null;
+  weight_kg?: number | null;
+  rir?: number | null;
+  rpe?: number | null;
+  rest_seconds?: number | null;
+  tempo: string;
 }
 
 export const createPurchaseIntent = (programId: string): Promise<Purchase> =>
@@ -73,3 +137,6 @@ export const fetchMyPurchases = (): Promise<Purchase[]> =>
 
 export const fetchEntitlements = (): Promise<Entitlement[]> =>
   apiGet<Entitlement[]>("/me/entitlements");
+
+export const fetchProgramAccess = (programId: string): Promise<ProgramAccessDetail> =>
+  apiGet<ProgramAccessDetail>(`/me/programs/${programId}`);

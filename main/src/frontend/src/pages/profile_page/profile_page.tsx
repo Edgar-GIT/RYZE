@@ -322,7 +322,11 @@ export const ProfilePage = () => {
           <span>RYZE</span>
         </Link>
 
-        <div className={styles.center} aria-hidden="true" />
+        <nav className={styles.center} aria-label="Account">
+          <Link className={styles.centerLink} to="/services/my-programs">
+            My Programs
+          </Link>
+        </nav>
 
         {state.status === "ready" ? (
           <div className={styles.userArea}>

@@ -35,15 +35,19 @@ type EntitlementRepository interface {
 // carries only public product metadata and never exposes the owning trainer,
 // parent identifiers, deletion markers or any internal data.
 type Program struct {
-	ID              string
-	Name            string
-	Description     string
-	Type            string
-	Status          string
-	PriceMinorUnits int64
-	Currency        string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID               string
+	Name             string
+	Description      string
+	Type             string
+	Status           string
+	Level            *string
+	DurationWeeks    *int
+	FrequencyPerWeek *int
+	TrainingType     *string
+	PriceMinorUnits  int64
+	Currency         string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // Entitlement is the safe representation of a purchase-backed right to access
@@ -152,15 +156,19 @@ func newEntitlement(model *models.Entitlement) Entitlement {
 
 func newProgram(model *models.Program) Program {
 	return Program{
-		ID:              model.ID,
-		Name:            model.Name,
-		Description:     model.Description,
-		Type:            model.Type,
-		Status:          model.Status,
-		PriceMinorUnits: model.PriceMinorUnits,
-		Currency:        model.Currency,
-		CreatedAt:       model.CreatedAt,
-		UpdatedAt:       model.UpdatedAt,
+		ID:               model.ID,
+		Name:             model.Name,
+		Description:      model.Description,
+		Type:             model.Type,
+		Status:           model.Status,
+		Level:            model.Level,
+		DurationWeeks:    model.DurationWeeks,
+		FrequencyPerWeek: model.FrequencyPerWeek,
+		TrainingType:     model.TrainingType,
+		PriceMinorUnits:  model.PriceMinorUnits,
+		Currency:         model.Currency,
+		CreatedAt:        model.CreatedAt,
+		UpdatedAt:        model.UpdatedAt,
 	}
 }
 

@@ -459,8 +459,9 @@ Responses:
 
 Returns the safe entitlement metadata for every active entitlement held by the
 authenticated user. Each entitlement carries only its own id, the associated
-program id and a safe nested Program object. Entitlements do NOT grant access
-to `GET /me/program` — assignment remains the sole access mechanism.
+program id and a safe nested Program object. Entitlements grant access to the
+entitlement-protected program read `GET /api/v1/me/programs/:programID`; they do
+NOT grant access to `GET /me/program`, which remains assignment-based.
 
 Response `data`:
 
@@ -468,7 +469,10 @@ Response `data`:
   - `id` — entitlement UUID.
   - `program_id` — the entitlement program reference.
   - `program` — safe Program object: `id`, `name`, `description`, `type`,
-    `status`, `created_at`, `updated_at`.
+    `status`, `level`, `training_type`, `duration_weeks`,
+    `frequency_per_week`, `price_minor_units`, `currency`,
+    `created_at`, `updated_at`. The four calendar metadata fields can be
+    `null` when the program does not define them.
   - `created_at`, `updated_at` — entitlement lifecycle timestamps.
 
 Responses:
@@ -476,6 +480,38 @@ Responses:
 - `200 OK` — the user's entitlements; a user without entitlements gets an
   empty array.
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
+
+#### `GET /api/v1/me/programs/:programID`
+
+Returns the client-safe structure of one program the authenticated user is
+entitled to access. Access is granted only when BOTH conditions hold: the
+authenticated user holds an active entitlement for the program AND the program
+itself is still published (matching the marketplace contract). A missing
+entitlement, a missing program, a soft-deleted program and an unpublished
+program are all indistinguishable and return the same generic `404`. The user
+identity comes exclusively from the authentication context; the path parameter
+only identifies the requested resource.
+
+Response `data` — the safe published program detail, identical in shape to the
+public marketplace detail:
+
+- `id`, `trainer_id` (NULL for platform-owned programs), `name`, `description`,
+  `type`, `status`, `level`, `duration_weeks`, `frequency_per_week`,
+  `training_type`, `price_minor_units`, `currency`, `created_at`, `updated_at`.
+- `weeks` — array of weeks, each with `week_number` and `workouts`; each
+  workout has `position` and `exercises`; each exercise has `name`,
+  `description`, `instructions`, `target_muscles`, `equipment`, `difficulty`,
+  `video_url`, `image_url`, `position`, `notes` and `sets`; each set has
+  `set_number`, `set_type`, `reps`, `weight_kg`, `rir`, `rpe`,
+  `rest_seconds`, `tempo`.
+
+Responses:
+
+- `200 OK` — the entitled, published program with its full structure.
+- `400 VALIDATION_ERROR` — malformed program id.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
+- `404 PROGRAM_NOT_FOUND` — no active entitlement, program unpublished,
+  soft-deleted, or nonexistent. The cases are indistinguishable by design.
 
 ---
 

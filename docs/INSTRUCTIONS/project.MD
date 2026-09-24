@@ -222,6 +222,15 @@ detail page. Paid Generic Programs are purchasable end to end from that detail
 page (see Current Status); pricing display, purchases, payments and
 entitlements are implemented and backend-authoritative.
 
+Purchased programs appear in the authenticated client "My Programs" area
+(`/services/my-programs`): a chrome-free listing of the user's entitlements
+served by `GET /api/v1/me/entitlements`, with each program opened through the
+entitlement-protected structural read
+(`GET /api/v1/me/programs/:programID`, "My Programs" detail). Access to that
+read requires an active entitlement AND a still-published program; a missing
+entitlement, an unpublished, soft-deleted or nonexistent program are
+indistinguishable `404`s.
+
 ---
 
 # User Roles

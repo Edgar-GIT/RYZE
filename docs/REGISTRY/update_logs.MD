@@ -1,3 +1,89 @@
+# Version 2.72.0
+
+Title: Client purchased programs (My Programs) & entitlement-protected program access
+
+Date: 2026-09-24
+
+Summary:
+
+Purchased/entitled programs are now visible and readable by the client. A new
+authenticated "My Programs" area lists the user's entitlements, and each program
+opens a protected detail surface that renders its full safe structure. Program
+access is enforced on the backend exclusively: only the authenticated user with
+an active entitlement for a still-published program can read it, and a missing
+entitlement is indistinguishable from an unavailable program. RYZE purchases
+remain final — no refunds.
+
+Main changes:
+
+- **Backend entitlement listing enrichment** — `GET /api/v1/me/entitlements`
+  now includes the generic calendar metadata in the nested safe Program object:
+  `level`, `training_type`, `duration_weeks`, `frequency_per_week`
+  (`services/entitlements` + `api/auth/entitlements_handler.go`), enabling
+  client program cards.
+- **Backend entitlement-protected program read** — new
+  `GET /api/v1/me/programs/:programID` (authenticated) returns the client-safe
+  structure of one entitled program. Access requires BOTH an active entitlement
+  (existing `EntitlementRepository.FindActiveByUserAndProgram`) and a still-
+  published program (existing `public_programs` service
+  `GetPublishedProgram` → `FindPublishedByIDWithStructure`). New
+  `services/program_access` package (`ErrInvalidInput`,
+  `ErrProgramNotAccessible`) + `api/auth/program_access_handler.go` reusing the
+  existing `newPublicProgramDetailResponse` DTO. No new repository methods, no
+  new program DTOs. Missing entitlement, nonexistent, soft-deleted and
+  unpublished programs are indistinguishable `404 PROGRAM_NOT_FOUND`s.
+  Identity comes exclusively from the authentication context.
+- **Frontend My Programs area** — chrome-free `/services/my-programs` listing
+  page (`pages/my_programs_page`) backed by `fetchEntitlements`, showing one
+  card per entitled program (name, description, calendar chips) and an "Open
+  program" action; `/profile` exposes a "My Programs" link in its reserved
+  center navigation area.
+- **Frontend Program Access page** — chrome-free
+  `/services/my-programs/:programId` (`pages/program_access_page`, chrome-free
+  prefix in `app.tsx`) backed by the new `fetchProgramAccess`; renders the
+  program heading, calendar chips and the shared `ProgramStructure` component.
+- **Shared structure component** — `components/program_structure/ProgramStructure`
+  now renders weeks → days → exercises → prescription set table; the marketplace
+  Generic Program Detail page was refactored to reuse it, so both surfaces stay
+  identical. `purchases_api.ts` gained the entitlement program calendar fields
+  and the `ProgramAccessDetail` contract.
+- **Tests** — `program_access` service unit tests (success, identity/program
+  forwarding, no-entitlement → inaccessible without reading the program,
+  unavailable program, invalid input, hidden internal failures);
+  `api/auth` handler tests (context identity, missing context, error mapping,
+  concealed failures) and DB-backed integration tests (owner 200 with full
+  structure, unauthenticated 401, no entitlement 404, cross-user isolation,
+  unpublished 404, soft-deleted 404, secrets never exposed);
+  `entitlements` service tests cover the new program fields.
+- **Docs** — `api.MD` (enriched entitlements contract + `GET /me/programs/:id`),
+  `arquitecture.MD` (Client Program Access module), `security.MD` (Client
+  Program Access Security), `project.MD` (My Programs area), `design.MD` (My
+  Programs + Program Access pages), stale "entitlements do NOT grant access"
+  claims corrected.
+
+Validation:
+
+- Backend `go build` / `go vet` pass; new suites (`services/program_access`,
+  `api/auth` program access tests) and the enriched `services/entitlements`
+  suite pass against the shared test database. gofmt applied to all touched
+  files.
+- Frontend `npm run typecheck` and `npm run build` pass (pre-existing chunk-size
+  warning unchanged).
+- No database schema change; database remains at migration `000022`. The
+  entitlement gate and program filter reuse the existing tables and
+  repositories.
+- Known pre-existing failures unchanged (shared test-DB state):
+  `TestAdminApproveApplicationAlreadyApproved`,
+  `TestAdminApproveApplicationAlreadyTrainerAtomicity`,
+  `TestAdminRejectThenReapplyApproved`, `TestTrainerProgramsCreateSuccess`
+  (api/auth) and `TestTrainerRepository` (repositories).
+- A full `refund`/`REFUNDED`/`refunds` search confirms no refund status,
+  endpoint, service, repository, permission or UI exists. The PayPal webhook
+  still uses the external `PAYMENT.CAPTURE.REFUNDED` event as an
+  ignored/unsupported external fixture and has no RYZE-side refund behavior.
+
+---
+
 # Version 2.71.0
 
 Title: Generic program checkout and payment UX (PayPal, server-verified capture)

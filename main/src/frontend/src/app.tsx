@@ -16,7 +16,9 @@ export const App = () => {
   // Admin routes render inside their own dedicated shell (AdminLayout) and the
   // public chrome (navbar/footer) never appears in the admin area.
   const isAdminRoute = pathname.startsWith("/admin");
-  const showChrome = !isAdminRoute && !CHROME_FREE_PATHNAMES.has(pathname);
+  const isAccountRoute = pathname.startsWith("/services/my-programs");
+  const showChrome =
+    !isAdminRoute && !CHROME_FREE_PATHNAMES.has(pathname) && !isAccountRoute;
 
   return (
     <>

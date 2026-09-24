@@ -40,6 +40,27 @@
   justify-self: center;
 }
 
+.centerLink {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid rgba(24, 216, 255, 0.2);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(24, 216, 255, 0.05);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    background 200ms ease;
+}
+
+.centerLink:hover {
+  color: var(--text-primary);
+  border-color: rgba(24, 216, 255, 0.4);
+  background: rgba(24, 216, 255, 0.1);
+}
+
 .userArea {
   display: inline-flex;
   align-items: center;
