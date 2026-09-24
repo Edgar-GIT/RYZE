@@ -57,6 +57,7 @@ type PurchaseRepository interface {
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Purchase, error)
 	Complete(ctx context.Context, purchaseID string) error
 	CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
+	CompleteTestPurchase(ctx context.Context, purchase *models.Purchase, entitlement *models.Entitlement) error
 }
 
 // EntitlementRepository is the data-access surface for checking existing
@@ -126,6 +127,7 @@ type Service interface {
 	ListPurchases(ctx context.Context, userID string) ([]Purchase, error)
 	CapturePayment(ctx context.Context, userID, purchaseID, providerPaymentID string) (*Purchase, error)
 	CompletePurchaseWithCapture(ctx context.Context, purchaseID, providerPaymentID string) (*Purchase, error)
+	CompleteTestPurchase(ctx context.Context, userID, programID string) (*Purchase, error)
 }
 
 type service struct {
@@ -385,6 +387,63 @@ func (s *service) completeAndCreateEntitlement(ctx context.Context, purchase *mo
 		return fmt.Errorf("failed to complete purchase with entitlement: %w", err)
 	}
 	return nil
+}
+
+// CompleteTestPurchase provisions a completed zero-price purchase and its
+// entitlement for a paid program. It is the exclusive Test Mode purchase path:
+// the entitlement is real (the persona owns the program afterwards) but the
+// transaction is completed server-side without an order, a payment provider or
+// any commission computation. The purchase is persisted with the test marker
+// so it can never be confused with a paid sale. An already-owned program
+// (active entitlement or an existing completed purchase) reports
+// ErrDuplicateEntitlement.
+func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID string) (*Purchase, error) {
+	if err := validateUserID(userID); err != nil {
+		return nil, err
+	}
+	if err := validateProgramID(programID); err != nil {
+		return nil, err
+	}
+
+	program, err := s.programs.FindPublishedByID(ctx, programID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to load program: %w", err)
+	}
+
+	if program.Type == models.ProgramTypeFree {
+		return nil, ErrProgramNotPurchasable
+	}
+
+	if _, err := s.entitlements.FindActiveByUserAndProgram(ctx, userID, programID); err == nil {
+		return nil, ErrDuplicateEntitlement
+	} else if !errors.Is(err, repositories.ErrEntitlementNotFound) {
+		return nil, fmt.Errorf("failed to check entitlement: %w", err)
+	}
+
+	purchase := &models.Purchase{
+		UserID:          userID,
+		ProgramID:       programID,
+		PriceMinorUnits: 0,
+		Currency:        program.Currency,
+		Status:          models.PurchaseStatusCompleted,
+		Test:            true,
+	}
+	entitlement := &models.Entitlement{
+		UserID:    userID,
+		ProgramID: programID,
+	}
+
+	if err := s.purchases.CompleteTestPurchase(ctx, purchase, entitlement); err != nil {
+		if errors.Is(err, repositories.ErrCompletedPurchaseExists) || errors.Is(err, repositories.ErrEntitlementAlreadyExists) {
+			return nil, ErrDuplicateEntitlement
+		}
+		return nil, fmt.Errorf("failed to complete test purchase: %w", err)
+	}
+
+	return newPurchase(purchase), nil
 }
 
 // GetPurchaseByID returns the safe representation of a purchase by its

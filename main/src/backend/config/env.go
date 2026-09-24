@@ -252,3 +252,19 @@ func LoadWebhooks() WebhookConfig {
 		PayPalWebhookID:     strings.TrimSpace(os.Getenv("PAYPAL_WEBHOOK_ID")),
 	}
 }
+
+// LoadTestMode reads the Test Mode configuration from environment variables.
+// TEST_MODE_ENABLED gates the feature globally; it is disabled by default and
+// only "true" enables it. Invalid boolean values fail at startup so a typo can
+// never silently leave the intended policy unset.
+func LoadTestMode() (TestModeConfig, error) {
+	raw := strings.TrimSpace(os.Getenv("TEST_MODE_ENABLED"))
+	if raw == "" {
+		return TestModeConfig{Enabled: false}, nil
+	}
+	enabled, err := strconv.ParseBool(raw)
+	if err != nil {
+		return TestModeConfig{}, fmt.Errorf("TEST_MODE_ENABLED must be a boolean, got %q", raw)
+	}
+	return TestModeConfig{Enabled: enabled}, nil
+}

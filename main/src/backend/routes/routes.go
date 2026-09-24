@@ -48,7 +48,7 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig) *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 
@@ -152,6 +152,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	statisticsRepository := repositories.NewStatisticsRepository(db)
 	statisticsService := statistics.NewService(statisticsRepository)
 	statisticsHandler := auth.NewStatisticsHandler(statisticsService)
+
+	testSessionRepository := repositories.NewTestSessionRepository(db)
+	testModeService := test_mode.NewService(testModeCfg.Enabled, testSessionRepository, userRepository, trainerRepository, password.Hasher{})
+	testModeHandler := auth.NewTestModeHandler(testModeService, tokenService, userRepository, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
+	testModePurchaseHandler := auth.NewTestModePurchaseHandler(testModeService, purchaseService)
 
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", registerHandler.Register)

@@ -81,6 +81,17 @@ func (s *stubPurchaseRepository) CompleteWithEntitlement(_ context.Context, _ st
 	return nil
 }
 
+func (s *stubPurchaseRepository) CompleteTestPurchase(_ context.Context, purchase *models.Purchase, _ *models.Entitlement) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	purchase.ID = "00000000-0000-0000-0000-000000000001"
+	purchase.CreatedAt = time.Now()
+	purchase.UpdatedAt = time.Now()
+	s.purchase = purchase
+	return nil
+}
+
 type stubEntitlementRepository struct {
 	existing *models.Entitlement
 	err      error
@@ -625,6 +636,11 @@ func (r *completionPurchaseRepo) Complete(_ context.Context, purchaseID string) 
 }
 func (r *completionPurchaseRepo) CompleteWithEntitlement(_ context.Context, purchaseID string, entitlement *models.Entitlement) error {
 	r.completedWithEntID = purchaseID
+	r.completedWithEntModel = entitlement
+	return r.completeWithEntErr
+}
+
+func (r *completionPurchaseRepo) CompleteTestPurchase(_ context.Context, purchase *models.Purchase, entitlement *models.Entitlement) error {
 	r.completedWithEntModel = entitlement
 	return r.completeWithEntErr
 }
@@ -2118,5 +2134,129 @@ func TestCompletePurchaseWithCaptureUnknownPurchase(t *testing.T) {
 	_, err := svc.CompletePurchaseWithCapture(context.Background(), "purchase-missing", "paypal-order-456")
 	if !errors.Is(err, purchases.ErrPurchaseNotFound) {
 		t.Fatalf("missing purchase must surface as ErrPurchaseNotFound, got %v", err)
+	}
+}
+
+func TestCompleteTestPurchaseSuccess(t *testing.T) {
+	programs := &stubProgramRepository{
+		program: &models.Program{
+			ID:              "program-test-1",
+			Name:            "Strength Builder",
+			Type:            models.ProgramTypePremium,
+			Status:          models.ProgramStatusPublished,
+			PriceMinorUnits: 4999,
+			Currency:        "EUR",
+			TrainerID:       "trainer-test-1",
+		},
+	}
+	purchasesRepo := &stubPurchaseRepository{}
+	svc := purchases.NewService(
+		programs,
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+		nil,
+	)
+
+	result, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-test-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected a completed test purchase, got %q", result.Status)
+	}
+	if result.PriceMinorUnits != 0 {
+		t.Fatalf("expected a zero test price, got %d", result.PriceMinorUnits)
+	}
+	if result.PlatformAmount != 0 || result.TrainerAmount != 0 {
+		t.Fatalf("expected no commission split for a test purchase, got platform=%d trainer=%d", result.PlatformAmount, result.TrainerAmount)
+	}
+	if !purchasesRepo.purchase.Test {
+		t.Fatal("expected the persisted purchase to carry the test marker")
+	}
+	// The test path must never invoke a payment provider. The service was built
+	// with a nil provider and resolver: reaching completion proves no payment
+	// interaction happened.
+	if purchasesRepo.purchase.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected the persisted purchase to be completed, got %q", purchasesRepo.purchase.Status)
+	}
+}
+
+func TestCompleteTestPurchaseInvalidInput(t *testing.T) {
+	svc := purchases.NewService(&stubProgramRepository{}, &stubPurchaseRepository{}, &stubEntitlementRepository{}, &stubCommissionResolver{}, nil, nil)
+
+	if _, err := svc.CompleteTestPurchase(context.Background(), "", "program-test-1"); !errors.Is(err, purchases.ErrInvalidInput) {
+		t.Fatalf("missing user must surface as ErrInvalidInput, got %v", err)
+	}
+	if _, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", ""); !errors.Is(err, purchases.ErrInvalidInput) {
+		t.Fatalf("missing program must surface as ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestCompleteTestPurchaseProgramNotFound(t *testing.T) {
+	svc := purchases.NewService(
+		&stubProgramRepository{err: repositories.ErrProgramNotFound},
+		&stubPurchaseRepository{},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+		nil,
+	)
+
+	_, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-missing")
+	if !errors.Is(err, purchases.ErrProgramNotFound) {
+		t.Fatalf("missing program must surface as ErrProgramNotFound, got %v", err)
+	}
+}
+
+func TestCompleteTestPurchaseRejectsFreeProgram(t *testing.T) {
+	svc := purchases.NewService(
+		&stubProgramRepository{
+			program: &models.Program{ID: "program-free", Type: models.ProgramTypeFree, Status: models.ProgramStatusPublished},
+		},
+		&stubPurchaseRepository{},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+		nil,
+	)
+
+	_, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-free")
+	if !errors.Is(err, purchases.ErrProgramNotPurchasable) {
+		t.Fatalf("a free program must never be purchasable, got %v", err)
+	}
+}
+
+func TestCompleteTestPurchaseDuplicateEntitlement(t *testing.T) {
+	programs := &stubProgramRepository{
+		program: &models.Program{ID: "program-test-1", Type: models.ProgramTypePremium, Status: models.ProgramStatusPublished},
+	}
+	entitlements := &stubEntitlementRepository{existing: &models.Entitlement{ID: "entitlement-existing"}}
+	svc := purchases.NewService(programs, &stubPurchaseRepository{}, entitlements, &stubCommissionResolver{}, nil, nil)
+
+	_, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-test-1")
+	if !errors.Is(err, purchases.ErrDuplicateEntitlement) {
+		t.Fatalf("an existing entitlement must surface as ErrDuplicateEntitlement, got %v", err)
+	}
+}
+
+func TestCompleteTestPurchaseDuplicatePersistence(t *testing.T) {
+	for name, createErr := range map[string]error{
+		"existing completed purchase": repositories.ErrCompletedPurchaseExists,
+		"existing entitlement":        repositories.ErrEntitlementAlreadyExists,
+	} {
+		t.Run(name, func(t *testing.T) {
+			programs := &stubProgramRepository{
+				program: &models.Program{ID: "program-test-1", Type: models.ProgramTypePremium, Status: models.ProgramStatusPublished},
+			}
+			svc := purchases.NewService(programs, &stubPurchaseRepository{createErr: createErr}, &stubEntitlementRepository{}, &stubCommissionResolver{}, nil, nil)
+
+			_, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-test-1")
+			if !errors.Is(err, purchases.ErrDuplicateEntitlement) {
+				t.Fatalf("persistence duplicate must surface as ErrDuplicateEntitlement, got %v", err)
+			}
+		})
 	}
 }

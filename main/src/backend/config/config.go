@@ -100,3 +100,12 @@ type WebhookConfig struct {
 	StripeWebhookSecret string
 	PayPalWebhookID     string
 }
+
+// TestModeConfig holds the Test Mode configuration. Test Mode is a technical
+// tool that lets ADMIN_1 browse the customer journey as a predefined persona
+// and complete real entitlements without contacting a payment provider. It is
+// disabled by default and must be enabled explicitly through configuration so
+// it can never become an unrestricted production feature by accident.
+type TestModeConfig struct {
+	Enabled bool
+}

@@ -18,6 +18,12 @@ const AdminAccessTokenCookieName = "ryze_admin_access_token"
 // login flow. It is never accepted as an admin session.
 const AdminStageTokenCookieName = "ryze_admin_stage_token"
 
+// TestSessionTokenCookieName is the HttpOnly cookie carrying the active Test
+// Mode session token. It is only ever issued by the ADMIN_1 enter flow and
+// removed on exit; while present, the effective identity is the persona bound
+// to the session.
+const TestSessionTokenCookieName = "ryze_test_session"
+
 // accessTokenCookie builds the ryze_access_token cookie shared by login and
 // logout so the two endpoints always use the same attributes. A negative
 // maxAge clears the cookie (Max-Age=0 plus an expired Expires).
@@ -36,6 +42,13 @@ func adminAccessTokenCookie(value string, maxAge int, secure bool) *http.Cookie 
 // stages.
 func adminStageTokenCookie(value string, maxAge int, secure bool) *http.Cookie {
 	return authCookie(AdminStageTokenCookieName, value, maxAge, secure)
+}
+
+// testSessionTokenCookie builds the ryze_test_session cookie that tracks the
+// active Test Mode session with the same secure attributes as the rest of the
+// session cookies. It never carries a token value once cleared.
+func testSessionTokenCookie(value string, maxAge int, secure bool) *http.Cookie {
+	return authCookie(TestSessionTokenCookieName, value, maxAge, secure)
 }
 
 // authCookie builds an HttpOnly session cookie shared by every authentication

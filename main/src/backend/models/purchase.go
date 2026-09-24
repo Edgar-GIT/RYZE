@@ -35,6 +35,7 @@ type Purchase struct {
 	PlatformAmount  int64          `gorm:"column:platform_amount;type:bigint;not null;default:0" json:"platform_amount"`
 	TrainerAmount   int64          `gorm:"column:trainer_amount;type:bigint;not null;default:0" json:"trainer_amount"`
 	Status          string         `gorm:"column:status;type:varchar(20);not null;default:pending" json:"status"`
+	Test            bool           `gorm:"column:test;not null;default:false" json:"-"`
 	User            User           `gorm:"foreignKey:UserID;references:ID" json:"-"`
 	Program         Program        `gorm:"foreignKey:ProgramID;references:ID" json:"-"`
 	CreatedAt       time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`

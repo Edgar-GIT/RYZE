@@ -14,6 +14,11 @@ var (
 	// ErrPurchaseNotFound indicates the purchase does not exist, is
 	// soft-deleted or does not belong to the requested user.
 	ErrPurchaseNotFound = errors.New("purchase not found")
+	// ErrCompletedPurchaseExists indicates a completed purchase already exists
+	// for the (user, program) pair, so a new test purchase cannot be created.
+	// It mirrors the completed_purchase uniqueness constraint at the service
+	// layer so duplicate-completion races surface as a domain error.
+	ErrCompletedPurchaseExists = errors.New("completed purchase already exists")
 )
 
 // PurchaseRepository defines the data-access operations for the purchase
@@ -26,6 +31,7 @@ type PurchaseRepository interface {
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Purchase, error)
 	Complete(ctx context.Context, purchaseID string) error
 	CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
+	CompleteTestPurchase(ctx context.Context, purchase *models.Purchase, entitlement *models.Entitlement) error
 }
 
 type purchaseRepository struct {
@@ -97,6 +103,32 @@ func (r *purchaseRepository) CompleteWithEntitlement(ctx context.Context, purcha
 		}
 		if result.RowsAffected == 0 {
 			return ErrPurchaseNotFound
+		}
+
+		if err := tx.Create(entitlement).Error; err != nil {
+			if isDuplicateEntry(err) {
+				return ErrEntitlementAlreadyExists
+			}
+			return fmt.Errorf("failed to create entitlement: %w", err)
+		}
+		return nil
+	})
+}
+
+// CompleteTestPurchase atomically creates a completed test purchase and its
+// entitlement inside a single database transaction. It is the exclusive
+// persistence path for Test Mode purchases: the purchase is created directly
+// in the completed state with a zero price and the test marker set, and it
+// never contacts a payment provider. A duplicate completed purchase or a
+// duplicate entitlement both surface as domain errors so the service can treat
+// them as an already-owned program.
+func (r *purchaseRepository) CompleteTestPurchase(ctx context.Context, purchase *models.Purchase, entitlement *models.Entitlement) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(purchase).Error; err != nil {
+			if isDuplicateEntry(err) {
+				return ErrCompletedPurchaseExists
+			}
+			return fmt.Errorf("failed to create test purchase: %w", err)
 		}
 
 		if err := tx.Create(entitlement).Error; err != nil {
