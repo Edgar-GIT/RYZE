@@ -29,6 +29,9 @@ type paypalWebhookEvent struct {
 	ID        string `json:"id"`
 	EventType string `json:"event_type"`
 	Resource  struct {
+		// ID is the PayPal Order identifier, needed to capture the order
+		// server-side before completion.
+		ID          string `json:"id"`
 		ReferenceID string `json:"reference_id"`
 		Amount      struct {
 			CurrencyCode string `json:"currency_code"`
@@ -40,11 +43,14 @@ type paypalWebhookEvent struct {
 // PayPalWebhookHandler handles PayPal webhook events. It verifies the webhook
 // authenticity using the PayPal SDK's VerifyWebhookSignature, extracts the
 // RYZE purchase identifier from the verified order's purchase unit reference
-// ID, validates the payment amount and currency against the immutable purchase
-// snapshot, and calls CompletePurchase as the only completion mechanism.
+// ID and the PayPal Order ID, validates the payment amount and currency
+// against the immutable purchase snapshot, captures the approved order
+// server-side through the purchase service, and completes the purchase.
 //
 // Checkout initiation does not complete a purchase. Browser redirects do not
-// complete a purchase. Only verified provider events can trigger CompletePurchase.
+// complete a purchase. Only verified provider events or a server-side capture
+// bound to the purchase (reference id, amount and currency verification) can
+// trigger purchase completion.
 //
 // PayPalWebhookHandler is safe for concurrent use by multiple goroutines.
 type PayPalWebhookHandler struct {
@@ -70,14 +76,15 @@ func NewPayPalWebhookHandler(verifier PayPalSignatureVerifier, webhookID string,
 //  2. Verify the webhook authenticity using PayPal's server-side verification.
 //  3. Parse the verified event.
 //  4. Handle only CHECKOUT.ORDER.APPROVED events.
-//  5. Extract the RYZE purchase identifier from the purchase unit reference ID.
+//  5. Extract the RYZE purchase identifier from the purchase unit reference ID
+//     and the PayPal Order ID from the event resource.
 //  6. Verify payment amount and currency against the immutable purchase snapshot.
-//  7. Call CompletePurchase().
+//  7. Capture the approved order server-side and call CompletePurchase().
 //
 // Response semantics:
 //   - 400: invalid verification, malformed payload
 //   - 200: unsupported event type (safely ignored), unknown purchase, already completed, not pending
-//   - 500: internal errors where provider retry is desirable (completion failure, amount/currency mismatch)
+//   - 500: internal errors where provider retry is desirable (completion failure, amount/currency mismatch, missing order id)
 //
 // Supported event types:
 //   - CHECKOUT.ORDER.APPROVED: the buyer has approved the order
@@ -183,14 +190,25 @@ func (h *PayPalWebhookHandler) handleOrderApproved(c *gin.Context, event paypalW
 		return
 	}
 
-	result, err := h.purchaseService.CompletePurchase(c.Request.Context(), purchaseID)
+	orderID := event.Resource.ID
+	if orderID == "" {
+		log.Printf("[PAYPAL-WEBHOOK] event %s has no order id in resource", event.ID)
+		c.String(http.StatusInternalServerError, "missing order id")
+		return
+	}
+
+	// Capture the approved order server-side and complete the purchase. The
+	// provider binds the order to the purchase (reference id, amount and
+	// currency) before any capture happens; a failed capture never completes
+	// the purchase.
+	result, err := h.purchaseService.CompletePurchaseWithCapture(c.Request.Context(), purchaseID, orderID)
 	if err != nil {
-		log.Printf("[PAYPAL-WEBHOOK] CompletePurchase failed for %s: %v", purchaseID, err)
+		log.Printf("[PAYPAL-WEBHOOK] capture/complete failed for %s: %v", purchaseID, err)
 		c.String(http.StatusInternalServerError, "completion failed")
 		return
 	}
 
-	log.Printf("[PAYPAL-WEBHOOK] purchase %s completed successfully via PayPal event %s", result.ID, event.ID)
+	log.Printf("[PAYPAL-WEBHOOK] purchase %s completed successfully via PayPal event %s (order %s)", result.ID, event.ID, orderID)
 	c.String(http.StatusOK, "completed")
 }
 

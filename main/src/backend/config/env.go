@@ -222,7 +222,9 @@ func LoadStripe() StripeConfig {
 // LoadPayPal reads the PayPal provider configuration from environment
 // variables. All values are optional: when PAYPAL_CLIENT_ID is empty the
 // payment provider falls back to the not-configured placeholder. Mode defaults
-// to "sandbox" when not provided.
+// to "sandbox" when not provided. PAYPAL_RETURN_URL and PAYPAL_CANCEL_URL are
+// the redirect templates used for the PayPal checkout flow; when empty the
+// corresponding redirect is not configured on the created orders.
 func LoadPayPal() PayPalConfig {
 	mode := strings.TrimSpace(os.Getenv("PAYPAL_MODE"))
 	if mode == "" {
@@ -230,9 +232,11 @@ func LoadPayPal() PayPalConfig {
 	}
 
 	return PayPalConfig{
-		ClientID: strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_ID")),
-		Secret:   strings.TrimSpace(os.Getenv("PAYPAL_SECRET")),
-		Mode:     mode,
+		ClientID:  strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_ID")),
+		Secret:    strings.TrimSpace(os.Getenv("PAYPAL_SECRET")),
+		Mode:      mode,
+		ReturnURL: strings.TrimSpace(os.Getenv("PAYPAL_RETURN_URL")),
+		CancelURL: strings.TrimSpace(os.Getenv("PAYPAL_CANCEL_URL")),
 	}
 }
 

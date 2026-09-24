@@ -74,6 +74,7 @@ func newE2EPurchaseRouter(t *testing.T) (*gin.Engine, purchases.Service, reposit
 	me.Use(middleware.Authenticate(tokenSvc, userRepo))
 	me.POST("/programs/:programID/purchase", handler.CreatePurchase)
 	me.POST("/purchases/:purchaseID/payment", handler.InitiatePayment)
+	me.POST("/purchases/:purchaseID/capture", handler.CapturePayment)
 
 	return router, svc, entitlementRepo, purchaseRepo, tx
 }
@@ -165,16 +166,25 @@ func TestE2EFullPurchaseFlow(t *testing.T) {
 		t.Fatalf("Step 2b - snapshot trainer amount must be 12000, got %d", pm.TrainerAmount)
 	}
 
-	// Step 3: Simulate webhook completion (this is what Stripe/PayPal webhooks do)
-	completedPurchase, err := svc.CompletePurchase(context.Background(), purchaseID)
-	if err != nil {
-		t.Fatalf("Step 3 - CompletePurchase: %v", err)
+	// Step 3: Capture the approved payment via the authenticated capture
+	// endpoint (this is what the browser return callback does). The fake
+	// provider accepts any order id and binds it to the purchase server-side.
+	rec, capData, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/capture", `{"order_id":"ORDER-E2E-1"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Step 3 - expected 200, got %d (body: %s)", rec.Code, raw)
 	}
-	if completedPurchase.Status != models.PurchaseStatusCompleted {
-		t.Fatalf("Step 3 - expected status %q, got %q", models.PurchaseStatusCompleted, completedPurchase.Status)
+	if s, _ := capData["status"].(string); s != models.PurchaseStatusCompleted {
+		t.Fatalf("Step 3 - expected status %q, got %q (body: %s)", models.PurchaseStatusCompleted, s, raw)
 	}
 
 	// Step 3b: Verify snapshot intact after completion
+	completedPurchase, err := svc.GetPurchaseByID(context.Background(), purchaseID)
+	if err != nil {
+		t.Fatalf("Step 3b - get purchase: %v", err)
+	}
+	if completedPurchase.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("Step 3b - expected status %q, got %q", models.PurchaseStatusCompleted, completedPurchase.Status)
+	}
 	if completedPurchase.PriceMinorUnits != 15000 {
 		t.Fatalf("Step 3b - snapshot price must be 15000, got %d", completedPurchase.PriceMinorUnits)
 	}
@@ -203,13 +213,21 @@ func TestE2EFullPurchaseFlow(t *testing.T) {
 		t.Fatalf("Step 4 - expected entitlement for user %q, got %q", clientUser.ID, entitlements[0].UserID)
 	}
 
-	// Step 5: Verify idempotency - calling CompletePurchase again succeeds without duplicating entitlements
-	completedAgain, err := svc.CompletePurchase(context.Background(), purchaseID)
+	// Step 4b: The webhook path (CompletePurchaseWithCapture) on the same
+	// purchase must be idempotent: an already-completed purchase succeeds
+	// without re-capturing or duplicating entitlements.
+	webhookResult, err := svc.CompletePurchaseWithCapture(context.Background(), purchaseID, "ORDER-E2E-1")
 	if err != nil {
-		t.Fatalf("Step 5 - idempotent CompletePurchase: %v", err)
+		t.Fatalf("Step 4b - webhook idempotent capture: %v", err)
 	}
-	if completedAgain.Status != models.PurchaseStatusCompleted {
-		t.Fatalf("Step 5 - expected status %q on idempotent call, got %q", models.PurchaseStatusCompleted, completedAgain.Status)
+	if webhookResult.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("Step 4b - expected status %q, got %q", models.PurchaseStatusCompleted, webhookResult.Status)
+	}
+
+	// Step 5: Verify idempotency - capturing again succeeds without duplicating entitlements
+	rec, _, raw = trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/capture", `{"order_id":"ORDER-E2E-1"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Step 5 - idempotent capture expected 200, got %d (body: %s)", rec.Code, raw)
 	}
 	entitlementsAfter, err := entitlementRepo.ListByUser(context.Background(), clientUser.ID)
 	if err != nil {

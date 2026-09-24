@@ -381,6 +381,8 @@ service rejects any request that selects the `paypal` method.
 PAYPAL_CLIENT_ID=...
 PAYPAL_SECRET=...
 PAYPAL_MODE=sandbox
+PAYPAL_RETURN_URL=http://localhost:5173/services/generic-program/{program_id}?purchase_id={purchase_id}
+PAYPAL_CANCEL_URL=http://localhost:5173/services/generic-program/{program_id}?purchase_id={purchase_id}&status=cancelled
 ```
 
 - `PAYPAL_CLIENT_ID` — PayPal OAuth2 client ID. Required to enable PayPal
@@ -389,9 +391,20 @@ PAYPAL_MODE=sandbox
   payments. Leave empty to disable.
 - `PAYPAL_MODE` — PayPal environment mode. Defaults to `sandbox`. Use `live`
   for production.
+- `PAYPAL_RETURN_URL` / `PAYPAL_CANCEL_URL` — URL templates where PayPal
+  redirects the buyer after approving/cancelling a payment. Optional; the
+  `{program_id}` and `{purchase_id}` placeholders are replaced server-side for
+  each order. When both are empty, orders are created without a redirect
+  context. PayPal appends the order token (`?token=<order_id>`) to both URLs.
 
 The PayPal credentials follow the same secrets management as Stripe: loaded from
 the `.env` file at startup, never logged, never exposed to the client.
+
+When the buyer returns from PayPal, the frontend calls the capture endpoint
+(`POST /api/v1/me/purchases/:purchaseID/capture`) with the order token. The
+backend loads the real order from PayPal, verifies it belongs to the purchase
+(reference id, amount, currency) and captures it before completing the
+purchase. A browser redirect alone never completes a purchase.
 
 ## Webhook Configuration (Optional)
 
@@ -609,7 +622,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 PayPal sandbox webhooks can be configured in the PayPal Developer Dashboard:
 
 1. Create a sandbox application at https://developer.paypal.com
-2. Set `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`, and `PAYPAL_MODE=sandbox` in
+2. Set `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`, `PAYPAL_MODE=sandbox`, plus
+   `PAYPAL_RETURN_URL` and `PAYPAL_CANCEL_URL` pointing at the checkout page in
    `.env`
 3. Create a webhook in the PayPal dashboard pointing to your local server
    (use ngrok or similar for local tunneling):
@@ -621,6 +635,12 @@ ngrok http 8080
 4. Set the webhook URL in the PayPal dashboard to
    `https://<ngrok-id>.ngrok.io/api/v1/webhooks/paypal`
 5. Copy the webhook ID and set `PAYPAL_WEBHOOK_ID` in `.env`
+
+After approving the order in the sandbox, the buyer is redirected to
+`PAYPAL_RETURN_URL` with the order token; the checkout page calls the capture
+endpoint, which verifies and captures the order server-side. The configured
+webhook also receives `CHECKOUT.ORDER.APPROVED` and captures the order too —
+whichever path completes first wins, the other is idempotent.
 
 ## Testing Without Real Providers
 

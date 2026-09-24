@@ -816,9 +816,8 @@ constraints:
   unsupported currency is rejected before any database access.
 - The integer minor-unit model (`BIGINT`) avoids floating-point rounding issues.
   No float or double types are used anywhere in the pricing path.
-- No purchase creation or payment processing exists yet. The pricing fields are
-  a foundation for future commerce; purchase snapshot fields are intentionally
-  absent from the `purchases` table.
+- Purchase snapshot fields are populated at purchase creation time from the
+  validated program pricing (see Client Purchase Security below).
 
 ### Client Purchase Security
 
@@ -841,8 +840,10 @@ follows the same security model as other authenticated-user endpoints:
   price snapshot, commission snapshot, status). The owning user id, trainer id,
   password hashes, session versions, JWT data and deletion markers are never
   exposed.
-- No payment is processed; the purchase status is always "pending". A future
-  payment provider will transition the purchase to "completed" atomically.
+- No payment is processed during purchase creation; the purchase status is
+  always "pending". Completion happens only through a server-verified capture
+  or a verified payment provider event (see Payment Capture Security and
+  Webhook Security below).
 
 ### Payment Initiation Security
 
@@ -861,7 +862,9 @@ follows a strict security model:
   snapshot (amount, currency, program ID). No client-supplied commercial values
   are ever forwarded to the provider.
 - The purchase status is NOT modified during initiation. The status remains
-  "pending" until a verified provider event flows through `CompletePurchase()`.
+  "pending" until the buyer returns and the capture endpoint verifies and
+  captures the approved provider payment, or a verified provider event flows
+  through `CompletePurchaseWithCapture()`.
 - Provider internal details (API keys, provider-specific error messages,
   raw provider responses) are never exposed to the client. Provider failures
   surface a generic 502 error.
@@ -891,9 +894,42 @@ any provider interaction:
 - PayPal credentials (`PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`) follow the same
   secrets management as Stripe: loaded from environment variables at startup,
   never logged, never exposed to the client, never stored in the database.
+- PayPal success/cancel redirect URLs are configured via environment variables
+  (`PAYPAL_RETURN_URL`, `PAYPAL_CANCEL_URL`) and may contain the `{program_id}`
+  and `{purchase_id}` placeholders, substituted server-side per order. They are
+  never accepted from client input.
 - Provider routing prevents clients from accessing unconfigured providers. If a
   method maps to a provider whose credentials are not configured, the request is
   rejected rather than forwarded to an uninitialized provider.
+
+### Payment Capture Security
+
+The capture endpoint (`POST /api/v1/me/purchases/:purchaseID/capture`) is the
+server-side completion path invoked after the buyer returns from the provider
+checkout. It follows the same security model as other authenticated-user
+endpoints plus provider-side verification:
+
+- Authentication is required. The user identity comes exclusively from the
+  authentication context; no client-supplied identity is accepted.
+- Ownership is verified server-side: the purchase must belong to the
+  authenticated user. A cross-user purchase lookup returns the same generic
+  "purchase not found" response as a missing purchase, preventing information
+  leakage.
+- The provider payment id (`order_id`) is treated as untrusted input. The
+  provider loads the real order from the provider API and verifies the
+  purchase-unit reference id, the amount and the currency against the immutable
+  purchase snapshot before any capture happens.
+- A failed verification or capture never completes the purchase; the provider
+  failure surfaces as a generic 502 and the purchase remains "pending" so the
+  buyer can retry.
+- Only pending purchases can be captured. An already-completed purchase (e.g. a
+  verified webhook raced the browser return) returns the completed snapshot
+  idempotently without re-capturing or duplicating the entitlement.
+- Capture and completion are atomic: the provider capture runs first, then the
+  internal completion transitions the status and provisions the entitlement in
+  a single database transaction.
+- A purchase whose payment method does not map to a capture-capable provider is
+  rejected rather than completed.
 
 ### Purchase Listing Security
 
@@ -924,15 +960,20 @@ the commercial gate is re-checked server-side at publish time:
 
 ### Webhook Security
 
-Webhooks are the ONLY mechanism that may complete a purchase. The following
-principles are enforced:
+A purchase may be completed only through two server-side paths: the verified
+capture endpoint (see Payment Capture Security) or a verified provider event
+(webhooks). The following principles are enforced:
 
 - **Checkout initiation does not complete a purchase.** Creating a Stripe
   Checkout Session or PayPal Order only starts the payment flow.
 - **Browser redirects do not complete a purchase.** Success/cancel URLs from
-  providers are purely UX redirects; they are never trusted as payment
-  confirmation.
-- **Only verified provider events can trigger CompletePurchase().**
+  providers are purely UX redirects. When the buyer returns, the frontend must
+  call the capture endpoint; the redirect itself only carries the provider
+  order token, which is treated as untrusted input.
+- **Capture is always verified server-side.** The capture path loads the real
+  provider order, binds it to the purchase via the reference id, and verifies
+  amount and currency before capturing.
+- **Only verified provider events can trigger `CompletePurchaseWithCapture()`.**
   Cryptographic signature verification is mandatory before any completion.
 
 **Stripe Webhook Security:**
@@ -949,6 +990,8 @@ principles are enforced:
 - Invalid verification is rejected with 400
 - The webhook ID must be configured via `PAYPAL_WEBHOOK_ID`
 - Events are parsed only AFTER verification succeeds
+- A `CHECKOUT.ORDER.APPROVED` event without an order id cannot be captured
+  server-side; it is answered with 500 so PayPal retries it, never completed
 
 **Amount/Currency Verification:**
 
@@ -961,17 +1004,21 @@ principles are enforced:
 
 **Idempotency:**
 
-- Duplicate webhook deliveries are safe — CompletePurchase() is idempotent
+- Duplicate webhook deliveries are safe — the completion path is idempotent
 - Already-completed purchases return 200 without re-processing
 - No duplicate entitlements are created
+- A browser capture racing a verified webhook is safe: the second path finds the
+  purchase (or provider order) already completed and returns the completed
+  snapshot without re-capturing or duplicating the entitlement
 
 **What webhook handlers never do:**
 
 - Trust client-supplied purchase IDs
 - Trust client-supplied payment status
+- Trust the order/payment id without verifying it against the provider
 - Modify purchase snapshots
 - Recalculate commissions
-- Create entitlements directly (only CompletePurchase does this)
+- Create entitlements directly (only the completion path does this)
 - Expose internal errors, stack traces, or provider details
 
 ### Stripe Checkout Security
@@ -1004,15 +1051,57 @@ a strict security model:
 - The Stripe API backend can be replaced for testing via `stripe.SetBackend`,
   avoiding real network requests and credentials in the test suite.
 
+### PayPal Provider Security
+
+The PayPal provider (`services/payments/paypal_provider.go`) implements both
+payment initiation (`Provider`) and server-side capture (`CaptureProvider`) via
+the PayPal Orders API v2:
+
+- The client ID and secret are loaded exclusively from the `PAYPAL_CLIENT_ID`
+  and `PAYPAL_SECRET` environment variables. They are never accepted from the
+  request, database, or any other runtime source.
+- Order creation uses only the immutable purchase snapshot (amount, currency,
+  purchase reference). No client-supplied commercial values are ever forwarded
+  to the provider.
+- Order creation is idempotent via a `PayPal-Request-Id` derived from the RYZE
+  purchase ID (`ryze-purchase-{purchaseID}`), preventing duplicate order
+  creation for the same purchase.
+- The order carries a purchase-unit reference id set to the RYZE purchase ID,
+  used for server-side reconciliation and capture verification.
+- Success/cancel redirect URLs are configured via `PAYPAL_RETURN_URL` /
+  `PAYPAL_CANCEL_URL`; the `{program_id}` / `{purchase_id}` placeholders are
+  substituted server-side per order. When both are empty, the order is created
+  without a redirect application context.
+- Capture is idempotent via a request id derived from the purchase ID
+  (`ryze-capture-{purchaseID}`), so a retried post-approval capture cannot
+  double-charge.
+- Before any capture, the provider loads the real order via the PayPal API and
+  verifies the purchase-unit reference id, the amount and the currency against
+  the purchase snapshot. An order already in COMPLETED status returns an
+  idempotent success without re-capturing; a reference/amount/currency mismatch
+  or a non-approved order fails the capture and never completes the purchase.
+- A capture racing the webhook is safe: whichever path completes the order first
+  wins; the other observes the COMPLETED order (or completed purchase) and
+  stops instead of surfacing a duplicate-capture error.
+- OAuth2 access tokens are obtained with client credentials and cached in
+  memory; they are never exposed to the client or stored in the database.
+- The PayPal SDK HTTP client can be replaced for testing via `SetHTTPClient`
+  (test-only), avoiding real network requests and credentials in the test
+  suite.
+
 ### Purchase Completion Security
 
-The internal `CompletePurchase` service operation follows a strict security
-model designed for future payment-provider adapter integration:
+The internal `CompletePurchase` and `CompletePurchaseWithCapture` service
+operations follow a strict security model:
 
-- No user identity is accepted. The operation is scoped purely by the purchase
-  id, which is provided by the internal adapter layer, never by a client.
-- No HTTP endpoint exposes `CompletePurchase`. There is no client-accessible
-  path to self-confirm a payment.
+- `CompletePurchaseWithCapture` accepts no user identity. It is scoped purely by
+  the purchase id and the provider payment id, which come only from the internal
+  webhook adapter layer after signature verification, never from a client.
+- The user-facing capture endpoint (`POST /me/purchases/:purchaseID/capture`)
+  enforces ownership server-side and never exposes `CompletePurchase` directly.
+- No HTTP endpoint exposes `CompletePurchase` itself. There is no client-facing
+  path to self-confirm a payment or force completion without a successful
+  provider capture.
 - The purchase status snapshot fields (price, currency, commission split) are
   read from the existing purchase row and never recomputed during completion.
   Snapshot immutability is enforced by design: the completion only changes the
@@ -1069,8 +1158,9 @@ commercial constraints:
 - Deleting a commission rule soft-deletes the active override; the trainer
   falls back to the global default commission (`DEFAULT_PLATFORM_COMMISSION_BPS`
   env var, default 2000 = 20%).
-- No payment processing, purchase creation, revenue tracking or payout logic
-  exists yet. The commission rules are a foundation for future commerce.
+- No refund logic, revenue tracking or payout logic exists yet. The commission
+  rules are a foundation for future payout processing. (Purchase creation and
+  commission application are covered in Client Purchase Security above.)
 
 ### Client Workout History Security
 

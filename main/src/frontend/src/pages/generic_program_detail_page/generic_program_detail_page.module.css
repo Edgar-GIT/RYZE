@@ -220,6 +220,64 @@
   justify-content: center;
 }
 
+.purchase {
+  margin-top: 0.6rem;
+  max-width: 24rem;
+}
+
+.purchaseCard {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid rgba(24, 216, 255, 0.18);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(24, 216, 255, 0.07), rgba(24, 216, 255, 0.02));
+}
+
+.purchaseTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.purchaseText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.purchaseActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.3rem;
+}
+
+.purchaseSuccess {
+  border-color: rgba(46, 213, 115, 0.3);
+  background: linear-gradient(180deg, rgba(46, 213, 115, 0.08), rgba(46, 213, 115, 0.02));
+}
+
+.purchaseSuccess .purchaseTitle {
+  color: var(--success, #2ed573);
+}
+
+.purchaseCancelled,
+.purchaseError {
+  border-color: rgba(255, 159, 67, 0.3);
+  background: linear-gradient(180deg, rgba(255, 159, 67, 0.07), rgba(255, 159, 67, 0.02));
+}
+
+.purchaseCancelled .purchaseTitle,
+.purchaseError .purchaseTitle {
+  color: #ff9f43;
+}
+
 @media (max-width: 640px) {
   .detail {
     padding-top: 1.6rem;

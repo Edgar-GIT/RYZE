@@ -604,10 +604,10 @@ The page fetches the full published generic catalog once on mount (paged,
 ### Generic Program Detail
 
 Reached from any marketplace card or search result
-(`/services/generic-program/:programId`). A focused, content-first read-only
-page showing one published generic program; it communicates the current sale
-price but is deliberately not a checkout page — there are no CTAs or purchase
-controls (checkout comes in the next milestone).
+(`/services/generic-program/:programId`). A focused, content-first page showing
+one published generic program. Free programs are fully accessible; paid programs
+expose a single in-page purchase panel with no separate checkout page. The page
+always remains viewable — it never requires authentication to read the program.
 
 - **Top bar** — a back Button (arrow in a dark pill) that returns to the
   marketplace (`/services/generic-program`).
@@ -616,12 +616,26 @@ controls (checkout comes in the next milestone).
   (prominent chip for paid programs, muted "Free" chip for free ones),
   `training_type`, `level`, `N weeks` and `M days/week` (each chip is hidden
   when its value is absent).
-- **Structure** — the program's weeks rendered as stacked week cards (Week 1,
-  Week 2, …). Each week card lists its ordered workout days (Day 1, Day 2, …);
-  each workout shows its exercises with a numbered position bubble, the
-  exercise name, a muted per-assignment note when present, and a compact table
-  of sets with columns Set / Type / Reps / Weight / RIR / RPE / Rest / Tempo.
-  Workouts or exercises with no content render a muted empty note.
+- **Purchase panel** (paid programs only) — one card below the header whose
+  content depends on the checkout state:
+  - `checking` — brief spinner while the page resolves ownership.
+  - `guest` — price, "Sign in to purchase this training plan." and a "Sign in"
+    button linking to `/login`. Buyable-elsewhere styling, deliberately not
+    locked: the program content remains readable.
+  - `owned` — "You have access" success treatment ("You already own this
+    training plan") with a back Button to the marketplace.
+  - `ready` — the price and a primary "Buy program" CTA.
+  - `creating` / `negotiating` — spinner states while the purchase is created
+    and the PayPal approval URL is being prepared.
+  - `redirecting` — spinner while the browser is sent to PayPal.
+  - `processing` — spinner shown on return; the page calls the capture endpoint
+    with the order token, waits, and only then shows success.
+  - `success` — success treatment ("Purchase complete · you now have access")
+    with a "Back to Training plans" button.
+  - `cancelled` — muted note ("Payment cancelled"), the panel returns to
+    `ready`.
+  - `error` — muted error with a Retry button; a cancelled order and a failed
+    capture (purchase still pending) are presented as retryable, never as paid.
 - **States** — loading (muted centered state), generic error with a Retry
   button, and "Program not found" for unknown, draft or removed programs (the
   backend returns one indistinguishable 404 for all of them).
@@ -629,9 +643,13 @@ controls (checkout comes in the next milestone).
   table scrolls horizontally inside its container on narrow screens;
   `prefers-reduced-motion` is respected.
 
-Non-goals for this stage: payment UI, checkout, reviews, social
-features, trainer attribution or related-program recommendations. The current
-sale price is shown, but purchase controls are intentionally absent.
+The panel resolves ownership by fetching the user's entitlements (401 → guest
+state); return URLs carry `purchase_id` + `token` (capture) and `status`
+(optional cancelled flag). Success is never inferred from the redirect alone —
+the panel only shows "success" after the server-verified capture responds.
+
+Non-goals for this stage: reviews, social features, trainer attribution or
+related-program recommendations.
 
 ---
 

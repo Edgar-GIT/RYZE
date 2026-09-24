@@ -53,6 +53,36 @@ type PaymentRequest struct {
 	Method PaymentMethod
 }
 
+// CaptureRequest contains the server-side trusted commercial information
+// needed by a provider to capture an approved payment for an existing pending
+// purchase. All values come exclusively from the immutable purchase snapshot;
+// no client-supplied values are ever accepted.
+type CaptureRequest struct {
+	// PurchaseID is the RYZE purchase identifier.
+	PurchaseID string
+	// PaymentID is the provider-specific payment identifier created during
+	// initiation (e.g. the PayPal Order ID returned in the browser callback).
+	// This value is always treated as untrusted input and is bound to the
+	// purchase by the provider during capture.
+	PaymentID string
+	// AmountMinorUnits is the payment amount in minor currency units, taken
+	// directly from the purchase snapshot.
+	AmountMinorUnits int64
+	// Currency is the ISO 4217 currency code, taken directly from the
+	// purchase snapshot.
+	Currency string
+}
+
+// CaptureResult is the provider-independent representation of the outcome of
+// capturing an approved payment. It contains only information the application
+// actually needs to correlate the capture with the RYZE purchase.
+type CaptureResult struct {
+	// PaymentID is the provider-specific payment identifier that was captured.
+	PaymentID string
+	// Provider is the identifier of the provider that handled this capture.
+	Provider string
+}
+
 // PaymentResult is the provider-independent representation of the outcome of
 // initiating a payment. It contains only information the application actually
 // needs to correlate the provider event with the RYZE purchase.

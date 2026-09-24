@@ -1,3 +1,92 @@
+# Version 2.71.0
+
+Title: Generic program checkout and payment UX (PayPal, server-verified capture)
+
+Date: 2026-09-24
+
+Summary:
+
+Paid Generic Programs are now fully purchasable end to end from the Generic
+Program Detail page. The checkout UX lets an authenticated user create a
+purchase, pay through the PayPal checkout flow and gain access once the payment
+is captured and verified server-side. Payment completion is always
+authoritative on the backend: a browser redirect never equates to a payment —
+only a verified server-side capture or a verified payment provider webhook can
+complete a purchase. RYZE purchases remain final — no refunds.
+
+Main changes:
+
+- **Backend server-verified capture** — the PayPal provider now implements a
+  `CaptureProvider` interface (`services/payments`): a capture loads the real
+  order from the PayPal API and verifies the purchase-unit reference id, amount
+  and currency against the immutable purchase snapshot before capturing. Orders
+  already COMPLETED return an idempotent success; a failed capture never
+  completes the purchase. Capture idempotency is enforced with a
+  `ryze-capture-{purchaseID}` request id and a reload fallback for a capture
+  racing the webhook.
+- **Backend capture endpoint** — `POST /api/v1/me/purchases/:purchaseID/capture`
+  (authenticated) accepts the provider `order_id` (untrusted input), verifies
+  ownership, runs the provider capture and completes the purchase atomically
+  (status transition + entitlement in one transaction). Already-completed
+  purchases return the completed snapshot idempotently. Non-pending purchases
+  return 409, ownership failures are indistinguishable 404s, provider failures
+  surface as generic 502s.
+- **Backend webhook capture** — the PayPal `CHECKOUT.ORDER.APPROVED` webhook
+  now reads the order id from the event resource, verifies amount/currency and
+  captures the order server-side via `CompletePurchaseWithCapture` before
+  completing. An event without an order id returns 500 so PayPal retries it.
+  Purchase completion now flows through `captureAndComplete`
+  (`CompletePurchaseWithCapture` for the webhook, user-scoped `CapturePayment`
+  for the endpoint), converging on the existing atomic completion.
+- **Backend PayPal redirects** — `PayPalConfig` gained `ReturnURL`/`CancelURL`,
+  loaded from `PAYPAL_RETURN_URL`/`PAYPAL_CANCEL_URL`; the `{program_id}` and
+  `{purchase_id}` placeholders are substituted per order and the application
+  context is set only when a URL is configured.
+- **Frontend checkout UX** — the Generic Program Detail page renders a purchase
+  panel (no separate checkout page) with states: checking, guest (sign-in
+  prompt, page stays readable), owned, ready, creating/negotiating,
+  redirecting, processing, success, cancelled and error. The return URL
+  carries `purchase_id` + `token` (drives the capture call) and `status`
+  (cancelled flag); success is shown only after the server-verified capture
+  responds, with a 409 → ownership fallback for the webhook-race case and
+  duplicate-purchase recovery. New `services/purchases_api.ts` client.
+- **Tests** — PayPal provider capture tests (success,
+  COMPLETED-idempotent, webhook race, reference/amount/currency mismatches,
+  non-approved, GET-order failure, redirect URL substitution and absence),
+  purchases service capture tests (ownership, idempotency, non-pending,
+  empty order id, provider failure, non-capture provider), capture handler
+  tests (unit + integration, IDOR, 404/409 mapping, entropy, idempotent
+  re-capture), webhook tests (event with/without order id, missing id → 500)
+  and the updated purchase E2E flow using the real capture endpoint.
+- **Docs** — `arquitecture.MD` (four-phase payment lifecycle, CaptureProvider,
+  completion via `captureAndComplete`, webhook capture flow), `api.MD`
+  (capture endpoint, webhook order id, completion reachable only via capture or
+  verified event), `security.MD` (Payment Capture Security, PayPal Provider
+  Security, webhook-non-exclusive completion claim corrected, stale "no
+  purchase/payment exists" claims removed), `how_to_run.MD`
+  (`PAYPAL_RETURN_URL`/`PAYPAL_CANCEL_URL`, capture behaviour, sandbox testing),
+  `design.MD` (purchase panel states), `project.MD` (checkout UX no longer the
+  next milestone), `database.MD` (completion wording).
+
+Validation:
+
+- Backend `go build` / `go vet` pass. `services/payments`,
+  `services/purchases`, `api/webhooks` suites pass; `api/auth` passes except
+  the documented pre-existing failures. gofmt applied to all touched files.
+- Frontend `npm run typecheck` and `npm run build` pass.
+- No database schema change; database remains at migration `000022`.
+- Known pre-existing failures unchanged (shared test-DB state):
+  `TestAdminApproveApplicationAlreadyApproved`,
+  `TestAdminApproveApplicationAlreadyTrainerAtomicity`,
+  `TestAdminRejectThenReapplyApproved`, `TestTrainerProgramsCreateSuccess`
+  (api/auth) and `TestTrainerRepository` (repositories).
+- A full `refund`/`REFUNDED`/`refunds` search confirms no refund status,
+  endpoint, service, repository, permission or UI exists. The PayPal webhook
+  still uses the external `PAYMENT.CAPTURE.REFUNDED` event as an
+  ignored/unsupported external fixture and has no RYZE-side refund behavior.
+
+---
+
 # Version 2.70.0
 
 Title: Generic program pricing and purchase/access foundation

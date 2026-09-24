@@ -40,3 +40,27 @@ func (f *FakeProvider) InitiatePayment(_ context.Context, request PaymentRequest
 		PurchaseID:  request.PurchaseID,
 	}, nil
 }
+
+// CapturePayment returns a deterministic successful capture for any non-empty
+// payment id. It requires a non-empty purchase id so capture requests always
+// carry the immutable purchase reference.
+func (f *FakeProvider) CapturePayment(_ context.Context, request CaptureRequest) (CaptureResult, error) {
+	if request.PurchaseID == "" {
+		return CaptureResult{}, fmt.Errorf("fake provider: missing purchase id: %w", ErrProviderFailure)
+	}
+	if request.PaymentID == "" {
+		return CaptureResult{}, fmt.Errorf("fake provider: missing payment id: %w", ErrProviderFailure)
+	}
+
+	return CaptureResult{
+		PaymentID: request.PaymentID,
+		Provider:  "fake",
+	}, nil
+}
+
+// Ensure FakeProvider satisfies the Provider and CaptureProvider interfaces at
+// compile time.
+var (
+	_ Provider        = (*FakeProvider)(nil)
+	_ CaptureProvider = (*FakeProvider)(nil)
+)

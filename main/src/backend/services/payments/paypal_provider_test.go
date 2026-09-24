@@ -423,6 +423,402 @@ func TestPayPalProvider_NegativeAmount(t *testing.T) {
 	}
 }
 
+// --- CapturePayment tests ---
+
+// paypalOrderResponse builds a PayPal order payload that references the given
+// purchase unit.
+func paypalOrderResponse(orderID, status, referenceID, currency, value string) map[string]interface{} {
+	return map[string]interface{}{
+		"id":     orderID,
+		"status": status,
+		"purchase_units": []map[string]interface{}{
+			{
+				"reference_id": referenceID,
+				"amount": map[string]interface{}{
+					"currency_code": currency,
+					"value":         value,
+				},
+			},
+		},
+	}
+}
+
+func TestPayPalProvider_CaptureSuccess(t *testing.T) {
+	orderID := "ORDER-CAPTURE-SUCCESS"
+	purchaseID := "purchase-capture-1"
+
+	var capturedRequestID string
+	var captureCalled bool
+
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/checkout/orders/" + orderID:
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, mustJSON(paypalOrderResponse(orderID, "APPROVED", purchaseID, "EUR", "49.99")))
+		case "/v2/checkout/orders/" + orderID + "/capture":
+			captureCalled = true
+			capturedRequestID = r.Header.Get("PayPal-Request-Id")
+			w.Header().Set("Content-Type", "application/json")
+			resp := map[string]interface{}{
+				"id":     orderID,
+				"status": "COMPLETED",
+				"purchase_units": []map[string]interface{}{
+					{
+						"reference_id": purchaseID,
+						"payments": map[string]interface{}{
+							"captures": []map[string]interface{}{
+								{
+									"id":     "cap-1",
+									"status": "COMPLETED",
+									"amount": map[string]interface{}{
+										"currency_code": "EUR",
+										"value":         "49.99",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			fmt.Fprint(w, mustJSON(resp))
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+	})
+	defer server.Close()
+
+	result, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       purchaseID,
+		PaymentID:        orderID,
+		AmountMinorUnits: 4999,
+		Currency:         "EUR",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !captureCalled {
+		t.Fatal("expected capture call")
+	}
+	if result.PaymentID != orderID {
+		t.Fatalf("expected PaymentID %q, got %q", orderID, result.PaymentID)
+	}
+	if result.Provider != "paypal" {
+		t.Fatalf("expected Provider paypal, got %q", result.Provider)
+	}
+	expectedKey := "ryze-capture-" + purchaseID
+	if capturedRequestID != expectedKey {
+		t.Errorf("expected capture idempotency key %q, got %q", expectedKey, capturedRequestID)
+	}
+}
+
+func TestPayPalProvider_CaptureCompletedOrderIdempotent(t *testing.T) {
+	orderID := "ORDER-CAPTURE-COMPLETED"
+	purchaseID := "purchase-capture-idem"
+	var ended bool
+
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET only, got %s", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, mustJSON(paypalOrderResponse(orderID, "COMPLETED", purchaseID, "EUR", "10.00")))
+		ended = true
+	})
+	defer server.Close()
+
+	result, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       purchaseID,
+		PaymentID:        orderID,
+		AmountMinorUnits: 1000,
+		Currency:         "EUR",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ended {
+		t.Fatal("expected order lookup")
+	}
+	if result.PaymentID != orderID {
+		t.Fatalf("expected PaymentID %q, got %q", orderID, result.PaymentID)
+	}
+}
+
+func TestPayPalProvider_CaptureRaceWithWebhook(t *testing.T) {
+	orderID := "ORDER-RACE"
+	purchaseID := "purchase-race"
+	getCalls := 0
+
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/checkout/orders/" + orderID:
+			getCalls++
+			w.Header().Set("Content-Type", "application/json")
+			if getCalls == 1 {
+				fmt.Fprint(w, mustJSON(paypalOrderResponse(orderID, "APPROVED", purchaseID, "EUR", "10.00")))
+			} else {
+				fmt.Fprint(w, mustJSON(paypalOrderResponse(orderID, "COMPLETED", purchaseID, "EUR", "10.00")))
+			}
+		case "/v2/checkout/orders/" + orderID + "/capture":
+			w.WriteHeader(http.StatusConflict)
+			resp := map[string]interface{}{
+				"name":    "UNPROCESSABLE_ENTITY",
+				"message": "Order already captured",
+			}
+			fmt.Fprint(w, mustJSON(resp))
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+	})
+	defer server.Close()
+
+	// The capture request fails because a concurrent actor already captured
+	// the order; the provider must re-read the order and treat COMPLETED as an
+	// idempotent success instead of surfacing an error.
+	result, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       purchaseID,
+		PaymentID:        orderID,
+		AmountMinorUnits: 1000,
+		Currency:         "EUR",
+	})
+	if err != nil {
+		t.Fatalf("expected idempotent success for concurrent capture, got %v", err)
+	}
+	if result.PaymentID != orderID {
+		t.Fatalf("expected PaymentID %q, got %q", orderID, result.PaymentID)
+	}
+}
+
+func TestPayPalProvider_CaptureReferenceMismatch(t *testing.T) {
+	orderID := "ORDER-REF-MISMATCH"
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, mustJSON(paypalOrderResponse(orderID, "APPROVED", "another-purchase", "EUR", "10.00")))
+	})
+	defer server.Close()
+
+	_, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       "my-purchase",
+		PaymentID:        orderID,
+		AmountMinorUnits: 1000,
+		Currency:         "EUR",
+	})
+	if err == nil {
+		t.Fatal("expected error for reference mismatch")
+	}
+	if !errors.Is(err, payments.ErrProviderFailure) {
+		t.Errorf("expected ErrProviderFailure, got: %v", err)
+	}
+}
+
+func TestPayPalProvider_CaptureAmountMismatch(t *testing.T) {
+	orderID := "ORDER-AMOUNT-MISMATCH"
+	purchaseID := "purchase-amount"
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, mustJSON(paypalOrderResponse(orderID, "APPROVED", purchaseID, "EUR", "99.99")))
+	})
+	defer server.Close()
+
+	_, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       purchaseID,
+		PaymentID:        orderID,
+		AmountMinorUnits: 1000,
+		Currency:         "EUR",
+	})
+	if err == nil {
+		t.Fatal("expected error for amount mismatch")
+	}
+	if !errors.Is(err, payments.ErrProviderFailure) {
+		t.Errorf("expected ErrProviderFailure, got: %v", err)
+	}
+}
+
+func TestPayPalProvider_CaptureCurrencyMismatch(t *testing.T) {
+	orderID := "ORDER-CURRENCY-MISMATCH"
+	purchaseID := "purchase-currency"
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, mustJSON(paypalOrderResponse(orderID, "APPROVED", purchaseID, "USD", "10.00")))
+	})
+	defer server.Close()
+
+	_, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       purchaseID,
+		PaymentID:        orderID,
+		AmountMinorUnits: 1000,
+		Currency:         "EUR",
+	})
+	if err == nil {
+		t.Fatal("expected error for currency mismatch")
+	}
+	if !errors.Is(err, payments.ErrProviderFailure) {
+		t.Errorf("expected ErrProviderFailure, got: %v", err)
+	}
+}
+
+func TestPayPalProvider_CaptureNotApproved(t *testing.T) {
+	orderID := "ORDER-CREATED-NOT-APPROVED"
+	purchaseID := "purchase-created"
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, mustJSON(paypalOrderResponse(orderID, "CREATED", purchaseID, "EUR", "10.00")))
+	})
+	defer server.Close()
+
+	_, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       purchaseID,
+		PaymentID:        orderID,
+		AmountMinorUnits: 1000,
+		Currency:         "EUR",
+	})
+	if err == nil {
+		t.Fatal("expected error for non-approved order")
+	}
+	if !errors.Is(err, payments.ErrProviderFailure) {
+		t.Errorf("expected ErrProviderFailure, got: %v", err)
+	}
+}
+
+func TestPayPalProvider_CaptureValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		request payments.CaptureRequest
+	}{
+		{name: "empty purchase id", request: payments.CaptureRequest{PaymentID: "order-1", AmountMinorUnits: 100, Currency: "EUR"}},
+		{name: "empty payment id", request: payments.CaptureRequest{PurchaseID: "purchase-1", AmountMinorUnits: 100, Currency: "EUR"}},
+		{name: "zero amount", request: payments.CaptureRequest{PurchaseID: "purchase-1", PaymentID: "order-1", AmountMinorUnits: 0, Currency: "EUR"}},
+		{name: "empty currency", request: payments.CaptureRequest{PurchaseID: "purchase-1", PaymentID: "order-1", AmountMinorUnits: 100}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				t.Error("should not reach PayPal API")
+			})
+			defer server.Close()
+
+			_, err := provider.CapturePayment(context.Background(), tc.request)
+			if err == nil {
+				t.Fatal("expected error for invalid capture request")
+			}
+			if !errors.Is(err, payments.ErrProviderFailure) {
+				t.Errorf("expected ErrProviderFailure, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestPayPalProvider_RedirectURLsSubstituted(t *testing.T) {
+	var capturedBody map[string]interface{}
+
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedBody)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		resp := map[string]interface{}{
+			"id":     "order-redirect",
+			"status": "CREATED",
+			"links":  []map[string]interface{}{},
+		}
+		fmt.Fprint(w, mustJSON(resp))
+	})
+	defer server.Close()
+
+	provider.SetCheckoutRedirectURLs(
+		"https://ryze.example/program/{program_id}/purchase/{purchase_id}?status=success",
+		"https://ryze.example/program/{program_id}/purchase/{purchase_id}?status=cancelled",
+	)
+
+	_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-redirect-1",
+		AmountMinorUnits: 1000,
+		Currency:         "EUR",
+		ProgramID:        "prog-redirect-1",
+		Method:           payments.PaymentMethodPayPal,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	appCtx, ok := capturedBody["application_context"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected application_context in order payload")
+	}
+	returnURL, _ := appCtx["return_url"].(string)
+	if returnURL != "https://ryze.example/program/prog-redirect-1/purchase/purchase-redirect-1?status=success" {
+		t.Errorf("unexpected return_url: %q", returnURL)
+	}
+	cancelURL, _ := appCtx["cancel_url"].(string)
+	if cancelURL != "https://ryze.example/program/prog-redirect-1/purchase/purchase-redirect-1?status=cancelled" {
+		t.Errorf("unexpected cancel_url: %q", cancelURL)
+	}
+}
+
+func TestPayPalProvider_NoRedirectURLs(t *testing.T) {
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&body)
+		if _, ok := body["application_context"]; ok {
+			t.Error("application_context must be omitted when no redirect URLs are configured")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		resp := map[string]interface{}{
+			"id":     "order-no-redirect",
+			"status": "CREATED",
+			"links":  []map[string]interface{}{},
+		}
+		fmt.Fprint(w, mustJSON(resp))
+	})
+	defer server.Close()
+
+	_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-noredir",
+		AmountMinorUnits: 1000,
+		Currency:         "EUR",
+		ProgramID:        "prog-noredir",
+		Method:           payments.PaymentMethodPayPal,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPayPalProvider_CaptureGetOrderFailure(t *testing.T) {
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		resp := map[string]interface{}{
+			"name":    "RESOURCE_NOT_FOUND",
+			"message": "The specified resource does not exist.",
+		}
+		fmt.Fprint(w, mustJSON(resp))
+	})
+	defer server.Close()
+
+	_, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       "purchase-1",
+		PaymentID:        "ORDER-MISSING",
+		AmountMinorUnits: 1000,
+		Currency:         "EUR",
+	})
+	if err == nil {
+		t.Fatal("expected error for missing order")
+	}
+	if !errors.Is(err, payments.ErrProviderFailure) {
+		t.Errorf("expected ErrProviderFailure, got: %v", err)
+	}
+}
+
+// mustJSON marshals a value to a JSON string for test handlers.
+func mustJSON(v interface{}) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
 // --- helper ---
 
 func setupPayPalTestServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *payments.PayPalProvider) {

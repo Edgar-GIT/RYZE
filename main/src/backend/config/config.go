@@ -79,10 +79,18 @@ type StripeConfig struct {
 // optional: when the client ID is empty the payment provider falls back to the
 // not-configured placeholder. Mode must be "sandbox" or "live" to select the
 // appropriate PayPal API base URL.
+//
+// ReturnURL and CancelURL are the redirect templates PayPal sends the buyer
+// back to after approving or cancelling a payment. Both may contain the
+// "{program_id}" and "{purchase_id}" placeholders, which are substituted with
+// the current purchase values when each order is created. PayPal appends the
+// order token to both URLs automatically.
 type PayPalConfig struct {
-	ClientID string
-	Secret   string
-	Mode     string
+	ClientID  string
+	Secret    string
+	Mode      string
+	ReturnURL string
+	CancelURL string
 }
 
 // WebhookConfig holds the provider webhook verification configuration. Webhooks

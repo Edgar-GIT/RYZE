@@ -75,6 +75,7 @@ func newPurchaseTestRouter(t *testing.T) (*gin.Engine, repositories.UserReposito
 	me.Use(middleware.Authenticate(tokenSvc, userRepo))
 	me.POST("/programs/:programID/purchase", handler.CreatePurchase)
 	me.POST("/purchases/:purchaseID/payment", handler.InitiatePayment)
+	me.POST("/purchases/:purchaseID/capture", handler.CapturePayment)
 
 	return router, userRepo, tx, tokenSvc
 }
@@ -95,6 +96,7 @@ func newPurchaseHandlerRouter(svc purchases.Service, identity any) *gin.Engine {
 	})
 	me.POST("/programs/:programID/purchase", handler.CreatePurchase)
 	me.POST("/purchases/:purchaseID/payment", handler.InitiatePayment)
+	me.POST("/purchases/:purchaseID/capture", handler.CapturePayment)
 	me.GET("/purchases", handler.ListPurchases)
 	return router
 }
@@ -139,6 +141,16 @@ func (s *stubPurchaseService) ListPurchases(_ context.Context, userID string) ([
 		return nil, nil
 	}
 	return []purchases.Purchase{*s.purchase}, nil
+}
+
+func (s *stubPurchaseService) CapturePayment(_ context.Context, userID, purchaseID, providerPaymentID string) (*purchases.Purchase, error) {
+	s.gotUser = userID
+	s.gotPurchaseID = purchaseID
+	return s.purchase, s.err
+}
+
+func (s *stubPurchaseService) CompletePurchaseWithCapture(_ context.Context, _, _ string) (*purchases.Purchase, error) {
+	return s.purchase, s.err
 }
 
 // commissionAdapter adapts commission_rules.Service to the
@@ -778,6 +790,164 @@ func TestPaymentHandlerResponseNeverExposesSensitiveData(t *testing.T) {
 	}
 }
 
+// --- CapturePayment handler tests ---
+
+func TestCaptureHandlerForwardsContextIdentity(t *testing.T) {
+	identity := "33333333-3333-3333-3333-333333333333"
+	svc := &stubPurchaseService{
+		purchase: &purchases.Purchase{
+			ID:              "purchase-001",
+			ProgramID:       "11111111-1111-1111-1111-111111111111",
+			PriceMinorUnits: 1000,
+			Currency:        "EUR",
+			Status:          "completed",
+		},
+	}
+	router := newPurchaseHandlerRouter(svc, identity)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotUser != identity {
+		t.Fatalf("expected context user %q, got %q", identity, svc.gotUser)
+	}
+	if svc.gotPurchaseID != "purchase-001" {
+		t.Fatalf("expected purchase id %q, got %q", "purchase-001", svc.gotPurchaseID)
+	}
+}
+
+func TestCaptureHandlerMissingContext(t *testing.T) {
+	router := newPurchaseHandlerRouter(&stubPurchaseService{}, nil)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
+		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
+func TestCaptureHandlerValidation(t *testing.T) {
+	identity := "33333333-3333-3333-3333-333333333333"
+
+	cases := []struct {
+		name string
+		body string
+	}{
+		{name: "empty body", body: `{}`},
+		{name: "missing order id", body: `{"order_id":""}`},
+		{name: "blank order id", body: `{"order_id":"   "}`},
+		{name: "malformed json", body: `{not-json`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &stubPurchaseService{}
+			router := newPurchaseHandlerRouter(svc, identity)
+
+			rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", tc.body)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d (body: %s)", rec.Code, raw)
+			}
+			if !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
+				t.Fatalf("expected VALIDATION_ERROR, got %s", raw)
+			}
+		})
+	}
+}
+
+func TestCaptureHandlerErrorMapping(t *testing.T) {
+	identity := "33333333-3333-3333-3333-333333333333"
+
+	cases := []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{name: "invalid input", err: purchases.ErrInvalidInput, status: http.StatusBadRequest, code: "VALIDATION_ERROR"},
+		{name: "purchase not found", err: purchases.ErrPurchaseNotFound, status: http.StatusNotFound, code: "PURCHASE_NOT_FOUND"},
+		{name: "purchase not pending", err: purchases.ErrPurchaseNotPending, status: http.StatusConflict, code: "PURCHASE_NOT_PENDING"},
+		{name: "payment provider error", err: purchases.ErrPaymentProvider, status: http.StatusBadGateway, code: "PAYMENT_PROVIDER_ERROR"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &stubPurchaseService{err: tc.err}
+			router := newPurchaseHandlerRouter(svc, identity)
+
+			rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+			if rec.Code != tc.status {
+				t.Fatalf("expected %d, got %d (body: %s)", tc.status, rec.Code, raw)
+			}
+			if !strings.Contains(raw, `"code":"`+tc.code+`"`) {
+				t.Fatalf("expected code %s, got %s", tc.code, raw)
+			}
+		})
+	}
+}
+
+func TestCaptureHandlerRepositoryFailureNotExposed(t *testing.T) {
+	svc := &stubPurchaseService{err: errLoginRepoFailure}
+	router := newPurchaseHandlerRouter(svc, "33333333-3333-3333-3333-333333333333")
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d (body: %s)", rec.Code, raw)
+	}
+	if strings.Contains(raw, "repository failure") {
+		t.Fatalf("internal error details must never be exposed, got %s", raw)
+	}
+	if !strings.Contains(raw, `"code":"INTERNAL_ERROR"`) {
+		t.Fatalf("expected INTERNAL_ERROR, got %s", raw)
+	}
+}
+
+func TestCaptureHandlerSuccessResponse(t *testing.T) {
+	identity := "33333333-3333-3333-3333-333333333333"
+	svc := &stubPurchaseService{
+		purchase: &purchases.Purchase{
+			ID:              "purchase-001",
+			ProgramID:       "11111111-1111-1111-1111-111111111111",
+			PriceMinorUnits: 1000,
+			Currency:        "EUR",
+			CommissionBPS:   2000,
+			PlatformAmount:  200,
+			TrainerAmount:   800,
+			Status:          "completed",
+		},
+	}
+	router := newPurchaseHandlerRouter(svc, identity)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	for _, expected := range []string{
+		`"status":"completed"`,
+		`"price_minor_units":1000`,
+		`"currency":"EUR"`,
+		`"program_id":"11111111-1111-1111-1111-111111111111"`,
+	} {
+		if !strings.Contains(raw, expected) {
+			t.Fatalf("expected %q in response, got %s", expected, raw)
+		}
+	}
+	for _, sensitive := range []string{
+		"password",
+		"access_token",
+		testSecret,
+		"deleted_at",
+		"secret",
+	} {
+		if strings.Contains(raw, sensitive) {
+			t.Fatalf("response must never contain %q", sensitive)
+		}
+	}
+}
+
 func TestPaymentIntegrationSuccess(t *testing.T) {
 	router, userRepo, tx, tokenSvc := newPurchaseTestRouter(t)
 	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
@@ -1015,5 +1185,198 @@ func TestPaymentIntegrationNeverExposesSensitiveData(t *testing.T) {
 		if strings.Contains(raw, sensitive) {
 			t.Fatalf("response must never contain %q", sensitive)
 		}
+	}
+}
+
+// --- CapturePayment integration tests ---
+
+func TestCaptureIntegrationSuccess(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newPurchaseTestRouter(t)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	trainerRepo := repositories.NewTrainerRepository(tx)
+	trainerUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	trainer := seedTrainerForUser(t, trainerRepo, trainerUser)
+
+	programRepo := repositories.NewProgramRepository(tx)
+	program := &models.Program{
+		TrainerID:       trainer.ID,
+		Name:            "Premium Program",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+	}
+	if err := programRepo.Create(context.Background(), program); err != nil {
+		t.Fatalf("seed program: %v", err)
+	}
+
+	purchaseRepo := repositories.NewPurchaseRepository(tx)
+	purchase := &models.Purchase{
+		UserID:          clientUser.ID,
+		ProgramID:       program.ID,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	if err := purchaseRepo.Create(context.Background(), purchase); err != nil {
+		t.Fatalf("seed purchase: %v", err)
+	}
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"order_id":"ORDER-INTEGRATION-1"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"status":"completed"`) {
+		t.Fatalf("expected completed status, got %s", raw)
+	}
+
+	// The entitlement must have been provisioned atomically with completion.
+	entitlementRepo := repositories.NewEntitlementRepository(tx)
+	ent, err := entitlementRepo.FindActiveByUserAndProgram(context.Background(), clientUser.ID, program.ID)
+	if err != nil {
+		t.Fatalf("entitlement must exist after capture: %v", err)
+	}
+	if ent.ProgramID != program.ID || ent.UserID != clientUser.ID {
+		t.Fatalf("unexpected entitlement: %+v", ent)
+	}
+
+	// A second capture is idempotent and must not break the completed state.
+	rec2, _, raw2 := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"order_id":"ORDER-INTEGRATION-1"}`)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("idempotent re-capture expected 200, got %d (body: %s)", rec2.Code, raw2)
+	}
+	if !strings.Contains(raw2, `"status":"completed"`) {
+		t.Fatalf("expected completed status on re-capture, got %s", raw2)
+	}
+}
+
+func TestCaptureIntegrationUnauthenticated(t *testing.T) {
+	router, _, _, _ := newPurchaseTestRouter(t)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/capture", `{"order_id":"ORDER-X"}`)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
+		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
+func TestCaptureIntegrationPurchaseNotFound(t *testing.T) {
+	router, userRepo, _, tokenSvc := newPurchaseTestRouter(t)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/capture", `{"order_id":"ORDER-X"}`)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"PURCHASE_NOT_FOUND"`) {
+		t.Fatalf("expected PURCHASE_NOT_FOUND, got %s", raw)
+	}
+}
+
+func TestCaptureIntegrationIDOR(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newPurchaseTestRouter(t)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	otherUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	trainerRepo := repositories.NewTrainerRepository(tx)
+	trainerUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	trainer := seedTrainerForUser(t, trainerRepo, trainerUser)
+
+	programRepo := repositories.NewProgramRepository(tx)
+	program := &models.Program{
+		TrainerID:       trainer.ID,
+		Name:            "Premium Program of ATTACKER",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+	}
+	if err := programRepo.Create(context.Background(), program); err != nil {
+		t.Fatalf("seed program: %v", err)
+	}
+
+	purchaseRepo := repositories.NewPurchaseRepository(tx)
+	purchase := &models.Purchase{
+		UserID:          otherUser.ID,
+		ProgramID:       program.ID,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	if err := purchaseRepo.Create(context.Background(), purchase); err != nil {
+		t.Fatalf("seed purchase: %v", err)
+	}
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"order_id":"ORDER-X"}`)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for foreign purchase, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"PURCHASE_NOT_FOUND"`) {
+		t.Fatalf("expected PURCHASE_NOT_FOUND, got %s", raw)
+	}
+}
+
+func TestCaptureIntegrationNotPending(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newPurchaseTestRouter(t)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	trainerRepo := repositories.NewTrainerRepository(tx)
+	trainerUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	trainer := seedTrainerForUser(t, trainerRepo, trainerUser)
+
+	programRepo := repositories.NewProgramRepository(tx)
+	program := &models.Program{
+		TrainerID:       trainer.ID,
+		Name:            "Premium Program",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+	}
+	if err := programRepo.Create(context.Background(), program); err != nil {
+		t.Fatalf("seed program: %v", err)
+	}
+
+	purchaseRepo := repositories.NewPurchaseRepository(tx)
+	purchase := &models.Purchase{
+		UserID:          clientUser.ID,
+		ProgramID:       program.ID,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusFailed,
+	}
+	if err := purchaseRepo.Create(context.Background(), purchase); err != nil {
+		t.Fatalf("seed purchase: %v", err)
+	}
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"order_id":"ORDER-X"}`)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"PURCHASE_NOT_PENDING"`) {
+		t.Fatalf("expected PURCHASE_NOT_PENDING, got %s", raw)
 	}
 }

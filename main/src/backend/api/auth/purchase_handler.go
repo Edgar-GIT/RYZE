@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -192,5 +193,51 @@ func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
 			Status:      string(result.Status),
 			PurchaseID:  result.PurchaseID,
 		},
+	})
+}
+
+// CapturePayment captures an approved provider payment for an existing pending
+// purchase and completes it. The purchase must belong to the authenticated
+// user and be in pending status. The provider payment identifier comes from
+// the browser callback and is treated as untrusted input: the backend binds it
+// to the purchase server-side (provider reference id, amount and currency
+// verification) before any capture happens. The operation is idempotent — an
+// already-completed purchase returns the completed snapshot safely.
+func (h *PurchaseHandler) CapturePayment(c *gin.Context) {
+	userID, err := authcontext.UserIDFromContext(c)
+	if err != nil {
+		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
+		return
+	}
+
+	purchaseID := c.Param("purchaseID")
+	if purchaseID == "" {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+
+	var body struct {
+		OrderID string `json:"order_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+
+	if strings.TrimSpace(body.OrderID) == "" {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+
+	purchase, err := h.service.CapturePayment(c.Request.Context(), userID, purchaseID, body.OrderID)
+	if err != nil {
+		h.respondError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Payment captured successfully.",
+		"data":    newPurchaseResponse(purchase),
 	})
 }

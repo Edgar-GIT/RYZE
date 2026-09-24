@@ -49,12 +49,15 @@ Programs end to end (create, list, search, open, edit and soft delete) against
 the generic program API.
 
 The Generic Programs Marketplace displays real published Generic Program data
-and its current sale price. Paid Generic Programs are purchasable end to end at
-the data level: creating a purchase snapshots the current price and currency,
-applies zero commission for platform-owned content, blocks duplicate completed
-purchases, and exposes the user's purchases. The actual checkout and payment
-UX is the next planned milestone: payment initiation and completion flows
-already exist at the API level for future payment providers.
+and its current sale price. Paid Generic Programs are fully purchasable end to
+end: the checkout UX lets an authenticated user create a purchase, pay through
+the PayPal checkout flow and gain access once the payment is captured and
+verified server-side. Purchase creation snapshots the current price and
+currency, applies zero commission for platform-owned content, blocks duplicate
+completed purchases, and exposes the user's purchases. Payment completion is
+always authoritative on the backend — a browser redirect never equates to a
+payment, only a verified server-side capture or a verified payment provider
+webhook can complete a purchase.
 
 ---
 
@@ -213,10 +216,11 @@ Published packs are subject to a platform commission.
 The commission structure may evolve as the platform grows.
 
 The first marketplace surface is the Generic Training Plans Marketplace: a
-public, read-only catalog of published, platform-owned Generic Programs
+public catalog of published, platform-owned Generic Programs
 (`scope=generic`) with live search, client-side filtering and a per-program
-detail page. Purchases, payments, pricing display and entitlements are not
-implemented yet.
+detail page. Paid Generic Programs are purchasable end to end from that detail
+page (see Current Status); pricing display, purchases, payments and
+entitlements are implemented and backend-authoritative.
 
 ---
 

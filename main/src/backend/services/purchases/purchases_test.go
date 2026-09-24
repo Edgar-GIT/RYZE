@@ -3,6 +3,7 @@ package purchases_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -136,6 +137,26 @@ func stubResolver(provider payments.Provider) payments.ProviderResolver {
 	return func(_ context.Context, _ payments.PaymentMethod) (payments.Provider, error) {
 		return provider, nil
 	}
+}
+
+// stubCaptureProvider implements both Provider and CaptureProvider so it can be
+// resolved by the service and used for capture flows. It records the last
+// capture request for assertions.
+type stubCaptureProvider struct {
+	result         payments.CaptureResult
+	captureErr     error
+	captureRequest *payments.CaptureRequest
+}
+
+func (s *stubCaptureProvider) InitiatePayment(_ context.Context, _ payments.PaymentRequest) (payments.PaymentResult, error) {
+	return payments.PaymentResult{}, nil
+}
+
+func (s *stubCaptureProvider) CapturePayment(_ context.Context, req payments.CaptureRequest) (payments.CaptureResult, error) {
+	if s.captureRequest != nil {
+		*s.captureRequest = req
+	}
+	return s.result, s.captureErr
 }
 
 // --- tests ---
@@ -1775,5 +1796,327 @@ func TestInitiatePaymentMethodCannotAlterSnapshot(t *testing.T) {
 
 	if purchase.Status != models.PurchaseStatusPending {
 		t.Fatalf("InitiatePayment must not mutate purchase status, got %q", purchase.Status)
+	}
+}
+
+// --- capture tests ---
+
+func TestCapturePaymentSuccess(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-capture-success",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	entitlements := &stubEntitlementRepository{}
+	var captured payments.CaptureRequest
+	provider := &stubCaptureProvider{
+		result:         payments.CaptureResult{PaymentID: "paypal-order-123", Provider: "paypal"},
+		captureRequest: &captured,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	result, err := svc.CapturePayment(context.Background(), "22222222-2222-2222-2222-222222222222", pending.ID, "paypal-order-123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("purchase must be completed after capture, got %q", result.Status)
+	}
+	if captured.PurchaseID != pending.ID {
+		t.Fatalf("capture request must reference the purchase, got %q", captured.PurchaseID)
+	}
+	if captured.PaymentID != "paypal-order-123" {
+		t.Fatalf("capture request must carry the provider payment id, got %q", captured.PaymentID)
+	}
+	if captured.AmountMinorUnits != 2500 {
+		t.Fatalf("capture request must carry the immutable amount, got %d", captured.AmountMinorUnits)
+	}
+	if captured.Currency != "EUR" {
+		t.Fatalf("capture request must carry the immutable currency, got %q", captured.Currency)
+	}
+}
+
+func TestCapturePaymentOwnershipEnforced(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-owned-by-other",
+		UserID:          "99999999-9999-9999-9999-999999999999",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	provider := &stubCaptureProvider{}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), "22222222-2222-2222-2222-222222222222", pending.ID, "paypal-order-123")
+	if !errors.Is(err, purchases.ErrPurchaseNotFound) {
+		t.Fatalf("ownership mismatch must surface as ErrPurchaseNotFound, got %v", err)
+	}
+}
+
+func TestCapturePaymentUnknownPurchase(t *testing.T) {
+	purchasesRepo := &stubPurchaseRepository{findByIDErr: repositories.ErrPurchaseNotFound}
+	provider := &stubCaptureProvider{}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), "22222222-2222-2222-2222-222222222222", "purchase-missing", "paypal-order-123")
+	if !errors.Is(err, purchases.ErrPurchaseNotFound) {
+		t.Fatalf("missing purchase must surface as ErrPurchaseNotFound, got %v", err)
+	}
+}
+
+func TestCapturePaymentIdempotentForCompletedPurchase(t *testing.T) {
+	completed := &models.Purchase{
+		ID:              "purchase-already-completed",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusCompleted,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: completed}
+	entitlements := &stubEntitlementRepository{
+		existing: &models.Entitlement{UserID: completed.UserID, ProgramID: completed.ProgramID},
+	}
+	// The capture provider records the request so an idempotent re-capture can
+	// be detected.
+	var captured payments.CaptureRequest
+	provider := &stubCaptureProvider{captureRequest: &captured}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	result, err := svc.CapturePayment(context.Background(), completed.UserID, completed.ID, "paypal-order-123")
+	if err != nil {
+		t.Fatalf("re-capture of a completed purchase must succeed idempotently, got %v", err)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected completed purchase, got %q", result.Status)
+	}
+	if captured.PurchaseID != "" {
+		t.Fatalf("idempotent re-capture must not call the provider, got capture request %+v", captured)
+	}
+}
+
+func TestCapturePaymentCompletedWithoutEntitlement(t *testing.T) {
+	completed := &models.Purchase{
+		ID:              "purchase-completed-no-entitlement",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusCompleted,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: completed}
+	provider := &stubCaptureProvider{}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), completed.UserID, completed.ID, "paypal-order-123")
+	if !errors.Is(err, purchases.ErrEntitlementIntegrity) {
+		t.Fatalf("completed purchase without entitlement must surface as ErrEntitlementIntegrity, got %v", err)
+	}
+}
+
+func TestCapturePaymentRejectsNonPendingPurchase(t *testing.T) {
+	failed := &models.Purchase{
+		ID:              "purchase-failed",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusFailed,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: failed}
+	provider := &stubCaptureProvider{}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), failed.UserID, failed.ID, "paypal-order-123")
+	if !errors.Is(err, purchases.ErrPurchaseNotPending) {
+		t.Fatalf("failed purchase must surface as ErrPurchaseNotPending, got %v", err)
+	}
+}
+
+func TestCapturePaymentRejectsEmptyProviderPaymentID(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-empty-payment-id",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	provider := &stubCaptureProvider{}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "")
+	if !errors.Is(err, purchases.ErrInvalidInput) {
+		t.Fatalf("empty provider payment id must surface as ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestCapturePaymentProviderFailure(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-provider-failure",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	provider := &stubCaptureProvider{
+		captureErr: fmt.Errorf("provider refused capture: %w", payments.ErrProviderFailure),
+	}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "paypal-order-123")
+	if !errors.Is(err, purchases.ErrPaymentProvider) {
+		t.Fatalf("provider failure must surface as ErrPaymentProvider, got %v", err)
+	}
+	if pending.Status != models.PurchaseStatusPending {
+		t.Fatalf("failed capture must never complete the purchase, got status %q", pending.Status)
+	}
+}
+
+func TestCapturePaymentResolverRejectsNonCaptureProvider(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-no-capture-provider",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	// A provider that implements only InitiatePayment cannot capture.
+	payment := &stubPaymentProvider{}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		payment,
+		stubResolver(payment),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "paypal-order-123")
+	if !errors.Is(err, purchases.ErrPaymentProvider) {
+		t.Fatalf("non-capture provider must surface as ErrPaymentProvider, got %v", err)
+	}
+}
+
+func TestCompletePurchaseWithCaptureSuccess(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-webhook-capture",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	entitlements := &stubEntitlementRepository{}
+	var captured payments.CaptureRequest
+	provider := &stubCaptureProvider{
+		result:         payments.CaptureResult{PaymentID: "paypal-order-456", Provider: "paypal"},
+		captureRequest: &captured,
+	}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	result, err := svc.CompletePurchaseWithCapture(context.Background(), pending.ID, "paypal-order-456")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("purchase must be completed after webhook capture, got %q", result.Status)
+	}
+	if captured.PaymentID != "paypal-order-456" {
+		t.Fatalf("capture request must carry the verified order id, got %q", captured.PaymentID)
+	}
+}
+
+func TestCompletePurchaseWithCaptureUnknownPurchase(t *testing.T) {
+	purchasesRepo := &stubPurchaseRepository{findByIDErr: repositories.ErrPurchaseNotFound}
+	provider := &stubCaptureProvider{}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	_, err := svc.CompletePurchaseWithCapture(context.Background(), "purchase-missing", "paypal-order-456")
+	if !errors.Is(err, purchases.ErrPurchaseNotFound) {
+		t.Fatalf("missing purchase must surface as ErrPurchaseNotFound, got %v", err)
 	}
 }

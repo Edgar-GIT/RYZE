@@ -169,6 +169,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/purchases", middleware.Authenticate(tokenService, userRepository), purchaseHandler.ListPurchases)
 	v1.POST("/me/programs/:programID/purchase", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CreatePurchase)
 	v1.POST("/me/purchases/:purchaseID/payment", middleware.Authenticate(tokenService, userRepository), purchaseHandler.InitiatePayment)
+	v1.POST("/me/purchases/:purchaseID/capture", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CapturePayment)
 	v1.POST("/me/workouts/:workoutID/complete", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.CompleteWorkout)
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
@@ -330,6 +331,7 @@ func resolvePaymentProviders(stripeCfg config.StripeConfig, paypalCfg config.Pay
 	if paypalCfg.ClientID != "" {
 		provider, err := payments.NewPayPalProvider(paypalCfg.ClientID, paypalCfg.Secret, paypalCfg.Mode)
 		if err == nil {
+			provider.SetCheckoutRedirectURLs(paypalCfg.ReturnURL, paypalCfg.CancelURL)
 			pp = provider
 		}
 	}

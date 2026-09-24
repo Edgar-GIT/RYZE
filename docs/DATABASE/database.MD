@@ -444,8 +444,9 @@ The implemented `purchases` table contains:
 The purchase carries a full commercial snapshot captured at creation time so the
 transaction remains historically accurate even if program pricing or commission
 rules change later. The status defaults to `pending`; no payment is processed
-at creation time. A future payment provider will transition the purchase to
-`completed` and create the entitlement atomically.
+at creation time. The purchase is transitioned to `completed` atomically with
+the entitlement creation only through a server-verified capture or a verified
+payment provider event (see `Complete` / `CompleteWithEntitlement` below).
 
 Platform-owned generic programs (`trainer_id` NULL) always produce purchases
 with `commission_bps = 0` and `trainer_amount = 0`: there is no owning trainer

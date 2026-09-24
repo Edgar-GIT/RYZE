@@ -29,11 +29,14 @@ func (s *stubPayPalVerifier) VerifyWebhookSignature(_ context.Context, _ *http.R
 
 func buildPayPalOrderApprovedEvent(t *testing.T, referenceID, amountValue, currencyCode string) []byte {
 	t.Helper()
+	// The order id is derived deterministically from the reference id so the
+	// server-side capture path always has a PayPal order to bind to.
 	event := map[string]interface{}{
 		"id":            "WH-TEST-123",
 		"event_type":    "CHECKOUT.ORDER.APPROVED",
 		"resource_type": "order",
 		"resource": map[string]interface{}{
+			"id":           "ORDER-" + referenceID,
 			"reference_id": referenceID,
 			"amount": map[string]interface{}{
 				"currency_code": currencyCode,
@@ -45,6 +48,26 @@ func buildPayPalOrderApprovedEvent(t *testing.T, referenceID, amountValue, curre
 	if err != nil {
 		t.Fatalf("failed to marshal PayPal event: %v", err)
 	}
+	return payload
+}
+
+// buildPayPalOrderApprovedEventWithoutOrderID builds an approved event whose
+// resource carries no PayPal order id, used to exercise the missing-order-id
+// guard.
+func buildPayPalOrderApprovedEventWithoutOrderID(referenceID, amountValue, currencyCode string) []byte {
+	event := map[string]interface{}{
+		"id":            "WH-NO-ORDERID",
+		"event_type":    "CHECKOUT.ORDER.APPROVED",
+		"resource_type": "order",
+		"resource": map[string]interface{}{
+			"reference_id": referenceID,
+			"amount": map[string]interface{}{
+				"currency_code": currencyCode,
+				"value":         amountValue,
+			},
+		},
+	}
+	payload, _ := json.Marshal(event)
 	return payload
 }
 
@@ -202,6 +225,34 @@ func TestPayPalWebhook_NoReferenceID(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 for missing reference_id, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPayPalWebhook_MissingOrderID(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-noorder",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          "pending",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+	}
+
+	// An APPROVED event without an order id cannot be captured server-side, so
+	// the handler must return 500 to trigger provider retry instead of
+	// completing without provider-side verification.
+	payload := buildPayPalOrderApprovedEventWithoutOrderID("purchase-noorder", "10.00", "EUR")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 for missing order id, got %d: %s", w.Code, w.Body.String())
 	}
 }
 

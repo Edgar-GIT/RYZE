@@ -124,6 +124,8 @@ type Service interface {
 	CompletePurchase(ctx context.Context, purchaseID string) (*Purchase, error)
 	GetPurchaseByID(ctx context.Context, purchaseID string) (*Purchase, error)
 	ListPurchases(ctx context.Context, userID string) ([]Purchase, error)
+	CapturePayment(ctx context.Context, userID, purchaseID, providerPaymentID string) (*Purchase, error)
+	CompletePurchaseWithCapture(ctx context.Context, purchaseID, providerPaymentID string) (*Purchase, error)
 }
 
 type service struct {
@@ -423,6 +425,110 @@ func (s *service) ListPurchases(ctx context.Context, userID string) ([]Purchase,
 		purchases = append(purchases, *newPurchase(&records[i]))
 	}
 	return purchases, nil
+}
+
+// CapturePayment captures an approved provider payment for an existing pending
+// purchase that belongs to the authenticated user. The provider payment
+// identifier comes from the browser callback and is always treated as untrusted
+// input: it is bound to the purchase by the provider (reference id, amount and
+// currency verification) before any capture happens. On success the purchase is
+// completed atomically with its entitlement through CompletePurchase.
+//
+// The operation is idempotent: an already-completed purchase returns the
+// existing purchase without re-capturing or duplicating anything, so a user
+// returning twice (double tab, duplicated callback) is always safe.
+func (s *service) CapturePayment(ctx context.Context, userID, purchaseID, providerPaymentID string) (*Purchase, error) {
+	if err := validateUserID(userID); err != nil {
+		return nil, err
+	}
+	if err := validatePurchaseID(purchaseID); err != nil {
+		return nil, err
+	}
+	if providerPaymentID == "" {
+		return nil, ErrInvalidInput
+	}
+
+	purchase, err := s.purchases.FindByID(ctx, purchaseID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrPurchaseNotFound) {
+			return nil, ErrPurchaseNotFound
+		}
+		return nil, fmt.Errorf("failed to load purchase: %w", err)
+	}
+
+	if purchase.UserID != userID {
+		return nil, ErrPurchaseNotFound
+	}
+
+	return s.captureAndComplete(ctx, purchase, providerPaymentID)
+}
+
+// CompletePurchaseWithCapture is the internal counterpart of CapturePayment,
+// scoped purely by the purchase id with no user identity. It is used by the
+// verified PayPal webhook flow to capture the approved order server-side and
+// then complete the purchase. The provider payment identifier comes from the
+// verified event payload and is bound to the purchase by the provider before
+// any capture happens. It is idempotent like CapturePayment.
+func (s *service) CompletePurchaseWithCapture(ctx context.Context, purchaseID, providerPaymentID string) (*Purchase, error) {
+	if err := validatePurchaseID(purchaseID); err != nil {
+		return nil, err
+	}
+	if providerPaymentID == "" {
+		return nil, ErrInvalidInput
+	}
+
+	purchase, err := s.purchases.FindByID(ctx, purchaseID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrPurchaseNotFound) {
+			return nil, ErrPurchaseNotFound
+		}
+		return nil, fmt.Errorf("failed to load purchase: %w", err)
+	}
+
+	return s.captureAndComplete(ctx, purchase, providerPaymentID)
+}
+
+// captureAndComplete captures the approved provider payment for the purchase
+// and completes it atomically. The purchase must currently be pending; an
+// already-completed purchase is a safe idempotent success. Capture failures
+// surface as ErrPaymentProvider and NEVER complete the purchase — the status
+// remains pending so the buyer can retry or re-initiate.
+func (s *service) captureAndComplete(ctx context.Context, purchase *models.Purchase, providerPaymentID string) (*Purchase, error) {
+	if purchase.Status == models.PurchaseStatusCompleted {
+		existing, entErr := s.entitlements.FindActiveByUserAndProgram(ctx, purchase.UserID, purchase.ProgramID)
+		if entErr != nil && !errors.Is(entErr, repositories.ErrEntitlementNotFound) {
+			return nil, fmt.Errorf("failed to check entitlement: %w", entErr)
+		}
+		if existing != nil {
+			return newPurchase(purchase), nil
+		}
+		return nil, ErrEntitlementIntegrity
+	}
+
+	if purchase.Status != models.PurchaseStatusPending {
+		return nil, ErrPurchaseNotPending
+	}
+
+	provider, err := s.resolver(ctx, payments.PaymentMethodPayPal)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
+	}
+	captureProvider, ok := provider.(payments.CaptureProvider)
+	if !ok {
+		return nil, fmt.Errorf("%w: provider does not support capture", ErrPaymentProvider)
+	}
+
+	captureRequest := payments.CaptureRequest{
+		PurchaseID:       purchase.ID,
+		PaymentID:        providerPaymentID,
+		AmountMinorUnits: purchase.PriceMinorUnits,
+		Currency:         purchase.Currency,
+	}
+	if _, err := captureProvider.CapturePayment(ctx, captureRequest); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
+	}
+
+	return s.CompletePurchase(ctx, purchase.ID)
 }
 
 func newPurchase(model *models.Purchase) *Purchase {

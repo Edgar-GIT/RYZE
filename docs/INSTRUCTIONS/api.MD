@@ -493,8 +493,9 @@ Creates a pending purchase transaction for the authenticated user. The endpoint
 validates the program, snapshots the current price and currency, resolves the
 applicable commission, calculates the deterministic split, and persists a
 pending purchase record. The purchase status is always "pending"; no payment is
-processed and no entitlement is created. A future payment provider will
-transition the purchase to "completed" and create the entitlement atomically.
+processed and no entitlement is created. Completion happens only through a
+server-verified capture or a verified payment provider event, which transitions
+the purchase to "completed" and creates the entitlement atomically.
 
 Identity comes exclusively from the authentication context. A client-supplied
 `user_id` or `program_id` in the body is always ignored.
@@ -567,9 +568,9 @@ constraint over the active `(user_id, program_id)` pair (see migration 000022).
 
 #### Internal: `CompletePurchase`
 
-The `CompletePurchase` service method is an internal-only operation with no
-HTTP endpoint. It is designed to be called by a future payment-provider adapter
-or webhook handler once external payment confirmation is received.
+The `CompletePurchase` service method is an internal-only operation with no HTTP
+endpoint. It is invoked by the capture flow and the payment-provider
+webhook/adapter handlers once external payment confirmation is received.
 
 The method accepts a purchase id, loads the purchase, and atomically transitions
 it to "completed" while provisioning the entitlement. It is idempotent:
@@ -594,8 +595,9 @@ status. The client selects the payment method (card, mbway or paypal); the
 server routes the method to the correct provider via a centralized
 `MethodProviderMap`. The immutable purchase snapshot is used to construct the
 provider request; no client-supplied commercial values are accepted. The purchase
-status is NOT modified during initiation — it remains "pending" until a verified
-provider event flows through `CompletePurchase()`.
+status is NOT modified during initiation — it remains "pending" until a
+server-verified capture or a verified provider event flows through the
+completion path.
 
 Authentication: required (client session).
 
@@ -632,6 +634,57 @@ Error codes:
 - `502 PAYMENT_PROVIDER_ERROR` — the payment provider could not initiate the
   payment. Internal provider details are never exposed.
 
+#### `POST /api/v1/me/purchases/:purchaseID/capture`
+
+Captures an approved provider payment for an existing pending purchase and
+completes it. This is the endpoint invoked by the browser return callback after
+the buyer completes the PayPal checkout. The purchase must belong to the
+authenticated user and be in "pending" status.
+
+The provider payment identifier (`order_id`) is treated as untrusted input: the
+backend loads the real order from the payment provider server-side and binds it
+to the purchase by verifying the purchase-unit reference id, the amount and the
+currency against the immutable purchase snapshot before any capture happens. A
+browser redirect alone never completes a purchase — the capture must succeed and
+verify before the purchase transitions to "completed" and the entitlement is
+provisioned atomically.
+
+The operation is idempotent: an already-completed purchase (e.g. the webhook
+racing the browser return) returns the completed snapshot safely without
+re-capturing or duplicating the entitlement.
+
+Authentication: required (client session).
+
+Parameters:
+
+- `purchaseID` (path) — purchase UUID.
+
+Request body:
+
+- `order_id` (required) — the provider payment/order identifier returned by the
+  checkout flow.
+
+Response `200 OK`: the completed purchase snapshot:
+
+- `id` — purchase UUID.
+- `program_id` — the purchased program reference.
+- `price_minor_units` / `currency` — immutable commercial snapshot.
+- `commission_bps` / `platform_amount` / `trainer_amount` — commission split.
+- `status` — `"completed"`.
+
+Error codes:
+
+- `400 VALIDATION_ERROR` — missing purchase id, missing or blank `order_id`,
+  malformed body.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid session.
+- `404 PURCHASE_NOT_FOUND` — purchase does not exist, is soft-deleted or does
+  not belong to the authenticated user.
+- `409 PURCHASE_NOT_PENDING` — the purchase is not in "pending" status (e.g. it
+  already failed).
+- `502 PAYMENT_PROVIDER_ERROR` — the provider could not be reached or the order
+  could not be verified/captured. No money was taken at this point; the
+  purchase remains "pending" so the buyer can retry.
+
 ---
 
 ### Webhook Endpoints
@@ -666,8 +719,9 @@ Responses:
 - `500` — amount/currency mismatch, completion failure
 
 **Checkout initiation does not complete a purchase. Browser redirects do not
-complete a purchase. Only verified provider events can trigger
-CompletePurchase().**
+complete a purchase. Completion is reachable only through two server-side
+paths: the verified capture endpoint (`POST /me/purchases/:purchaseID/capture`)
+and verified provider events (`CompletePurchase()`).**
 
 #### `POST /api/v1/webhooks/paypal`
 
@@ -683,7 +737,11 @@ Request:
 
 Supported event types:
 
-- `CHECKOUT.ORDER.APPROVED` — buyer approved the order
+- `CHECKOUT.ORDER.APPROVED` — buyer approved the order. The handler reads the
+  `reference_id` (RYZE purchase id) and the `resource.id` (PayPal order id)
+  from the event payload, verifies the amount and currency against the purchase
+  snapshot, captures the approved order server-side (`CompletePurchaseWithCapture`)
+  and completes the purchase atomically.
 
 All other event types are safely acknowledged with 200.
 
@@ -691,7 +749,8 @@ Responses:
 
 - `200` — event processed
 - `400` — invalid verification, malformed payload
-- `500` — amount/currency mismatch, completion failure
+- `500` — amount/currency mismatch, missing order id, capture failure, completion
+  failure. The event is NOT acknowledged so PayPal retries it.
 
 ---
 

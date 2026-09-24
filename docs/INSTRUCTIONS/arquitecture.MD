@@ -602,9 +602,10 @@ rules, and entitlement creation into a trusted atomic purchase flow:
 - The purchase snapshots the price, currency, commission_bps, platform_amount
   and trainer_amount at creation time so the transaction remains historically
   accurate even if program pricing or commission rules change later.
-- The purchase status is always "pending"; no payment is processed and no
-  entitlement is created. A future payment provider will transition the
-  purchase to "completed" and create the entitlement atomically.
+- The purchase status is always "pending"; no payment is processed at
+  creation time. Completion happens only through a server-verified capture or a
+  verified payment provider event, which atomically transitions the purchase
+  and provisions the entitlement.
 - At most one completed purchase can exist per (user, program) pair. The
   service layer blocks a second active purchase while one exists, and the
   database enforces the invariant at the storage level with a unique generated
@@ -628,8 +629,9 @@ service types to the purchase service types without coupling the two packages.
 ### Payment Provider Abstraction
 
 The `services/payments` package provides a provider-independent payment
-abstraction layer. Stripe Checkout is the first concrete provider; additional
-providers (Mollie, etc.) can be added by implementing the `Provider` interface.
+abstraction layer. Stripe Checkout and PayPal Orders are the concrete providers;
+additional providers (Mollie, etc.) can be added by implementing the `Provider`
+interface.
 
 The abstraction is designed to:
 
@@ -643,16 +645,22 @@ The abstraction is designed to:
 Components:
 
 - `services/payments/provider.go` — `Provider` interface with a single
-  `InitiatePayment` method.
-- `services/payments/types.go` — `PaymentRequest`, `PaymentResult`, and
-  `PaymentStatus` types.
+  `InitiatePayment` method, plus the optional `CaptureProvider` interface with
+  `CapturePayment` for providers that can finalize an approved payment
+  server-side.
+- `services/payments/types.go` — `PaymentRequest`, `PaymentResult`,
+  `CaptureRequest`, `CaptureResult` and `PaymentStatus` types.
 - `services/payments/errors.go` — `ErrProviderFailure` sentinel error.
-- `services/payments/fake_provider.go` — deterministic test-only provider.
+- `services/payments/fake_provider.go` — deterministic test-only provider
+  (implements both interfaces).
 - `services/payments/stripe_provider.go` — Stripe Checkout Sessions provider.
+- `services/payments/paypal_provider.go` — PayPal Orders provider (implements
+  both interfaces; captures approved orders server-side).
 
 The `purchases` service holds a `payments.Provider` dependency injected at
 construction time. The `resolvePaymentProvider` function in routes selects the
-Stripe provider when `STRIPE_SECRET_KEY` is set, otherwise falls back to the
+Stripe provider when `STRIPE_SECRET_KEY` is set and the PayPal provider when
+`PAYPAL_CLIENT_ID` is set, otherwise falls back to the
 `notConfiguredPaymentProvider` placeholder.
 
 ### Stripe Checkout Provider
@@ -680,15 +688,18 @@ Configuration:
   startup. The key is never logged, exposed to the client, or stored in the
   database.
 
-The full payment lifecycle follows three distinct phases:
+The full payment lifecycle follows four distinct phases:
 
 1. Purchase creation (`POST /api/v1/me/programs/:programID/purchase`) —
    snapshots the commercial terms and creates a pending purchase.
 2. Payment initiation (`POST /api/v1/me/purchases/:purchaseID/payment`) —
    delegates to the provider, returns checkout URL if applicable.
-3. Purchase completion (internal `CompletePurchase()`) — triggered by a
-   verified provider event, atomically transitions status and provisions
-   entitlement.
+3. Payment capture (`POST /api/v1/me/purchases/:purchaseID/capture`, or the
+   PayPal webhook flow) — the approved provider payment is captured
+   server-side and bound to the purchase by the provider.
+4. Purchase completion — atomically transitions the purchase status and
+   provisions the entitlement. Only ever reached through the server-verified
+   capture path or a verified provider event, never through a browser redirect.
 
 ### Provider Routing Architecture
 
@@ -711,7 +722,10 @@ PayPal provider:
 
 - Uses the PayPal Orders API v2 with OAuth2 client credentials.
 - Configuration: `PayPalConfig` struct with `ClientID`, `Secret`, `Mode`
-  (sandbox / live).
+  (sandbox / live) and the `ReturnURL` / `CancelURL` redirect templates.
+- The redirect templates may contain the `{program_id}` and `{purchase_id}`
+  placeholders, substituted when each order is created via
+  `SetCheckoutRedirectURLs`. PayPal appends the order token to both URLs.
 - PayPal is optional; when credentials are empty, the PayPal method is
   rejected at routing time.
 
@@ -728,10 +742,13 @@ Stripe provider when `STRIPE_SECRET_KEY` is set, otherwise falls back to the
 ### Purchase Completion (Internal)
 
 The `CompletePurchase` service operation provides the internal completion
-mechanism that a future payment-provider adapter or webhook handler will
-invoke. It is not exposed through any HTTP endpoint.
+mechanism invoked by the capture flow and the payment-provider webhook/adapter
+handlers. It is not exposed through any HTTP endpoint directly; instead, the
+public surface is `POST /api/v1/me/purchases/:purchaseID/capture`, which
+captures an approved provider payment server-side and then delegates to the
+same internal completion.
 
-Completion flow:
+Completion flow (`CompletePurchase`):
 
 1. Validate the purchase id is non-empty.
 2. Load the purchase by id via `FindByID`.
@@ -743,6 +760,26 @@ Completion flow:
    - `RestoreByUserAndProgram` succeeds → `Complete` (status only).
    - `RestoreByUserAndProgram` returns NOT FOUND → `CompleteWithEntitlement`
      (purchase status + new entitlement in single DB transaction).
+
+Capture flow:
+
+- `CapturePayment(userID, purchaseID, providerPaymentID)` — user-scoped entry
+  point used by the authenticated capture endpoint. The purchase must belong to
+  the authenticated user, otherwise `ErrPurchaseNotFound` (a foreign purchase
+  and a missing purchase are indistinguishable).
+- `CompletePurchaseWithCapture(purchaseID, providerPaymentID)` — internal,
+  purchase-scoped entry point used by the verified PayPal webhook flow.
+- Both converge on the shared `captureAndComplete` step:
+  1. The purchase must be pending; an already-completed purchase returns an
+     idempotent success without re-capturing.
+  2. The PayPal method resolves to the configured provider, which must
+     implement `CaptureProvider`.
+  3. `CapturePayment` is called with the immutable purchase snapshot (id,
+     amount, currency). The provider loads the real order from PayPal and
+     verifies the purchase-unit reference, amount and currency before any
+     capture; a failed capture never completes the purchase.
+  4. On success, control flows into `CompletePurchase` for the atomic status
+     transition and entitlement provision.
 
 The repository layer provides two atomic primitives:
 
@@ -762,7 +799,8 @@ commercial snapshot is immutable after creation.
 ### Webhook Architecture
 
 The webhook layer connects verified provider payment confirmations to the
-existing atomic CompletePurchase() flow.
+existing atomic completion flow. The PayPal webhook additionally captures the
+approved order server-side before completing.
 
 **Request flow (Stripe):**
 
@@ -773,7 +811,7 @@ Stripe → POST /api/v1/webhooks/stripe → Read raw body → Read Stripe-Signat
 **Request flow (PayPal):**
 
 ```
-PayPal → POST /api/v1/webhooks/paypal → Read raw body → VerifyWebhookSignature (PayPal API) → Parse event → Handle CHECKOUT.ORDER.APPROVED → Extract reference_id → GetPurchaseByID (verify snapshot) → Verify amount/currency → CompletePurchase()
+PayPal → POST /api/v1/webhooks/paypal → Read raw body → VerifyWebhookSignature (PayPal API) → Parse event → Handle CHECKOUT.ORDER.APPROVED → Extract reference_id (purchase id) + order id from resource → GetPurchaseByID (verify snapshot) → Verify amount/currency → CompletePurchaseWithCapture(purchaseID, orderID) → server-side capture → CompletePurchase()
 ```
 
 **Key architectural decisions:**
@@ -783,12 +821,17 @@ PayPal → POST /api/v1/webhooks/paypal → Read raw body → VerifyWebhookSigna
 - No authentication middleware — signature verification replaces JWT
   authentication
 - Only registered when corresponding secrets are configured in environment
-- CompletePurchase() remains the ONLY completion mechanism — no parallel paths
+- Completion is reachable only through two server-side paths: the verified
+  capture endpoint (`POST /me/purchases/:purchaseID/capture`) and the verified
+  webhook flow (`CompletePurchaseWithCapture`). A browser redirect alone never
+  completes a purchase.
 - GetPurchaseByID provides read-only access for verification without exposing
   modification capabilities
 - Purchase snapshots are immutable — the webhook verifies against them, never
   modifies them
 - Commission calculations are never recalculated during webhook handling
+- A `CHECKOUT.ORDER.APPROVED` event without an order id cannot be captured
+  server-side and is answered with 500 so PayPal retries
 
 ---
 
