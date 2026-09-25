@@ -17,6 +17,7 @@ import {
   fetchAllMarketplacePrograms,
   type MarketplaceProgram
 } from "@/services/marketplace_api";
+import { fetchEntitlements } from "@/services/purchases_api";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./generic_plan_marketplace_page.module.css";
@@ -77,6 +78,26 @@ export const GenericPlanMarketplacePage = () => {
   const [totalPrograms, setTotalPrograms] = useState(0);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [ownedProgramIds, setOwnedProgramIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchEntitlements()
+      .then((entitlements) => {
+        if (!cancelled) {
+          setOwnedProgramIds(new Set(entitlements.map((entry) => entry.program_id)));
+        }
+      })
+      .catch(() => {
+        // Not signed in (or fetching entitlements failed) means no owned
+        // programs. The marketplace stays fully usable without them.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -241,6 +262,7 @@ export const GenericPlanMarketplacePage = () => {
                           description={row.description}
                           programs={programsInRow}
                           forceFree={testModeActive}
+                          ownedProgramIds={ownedProgramIds}
                         />
                       );
                     })}

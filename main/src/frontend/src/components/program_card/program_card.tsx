@@ -12,6 +12,7 @@ import styles from "./program_card.module.css";
 interface ProgramCardProps {
   program: MarketplaceProgram;
   forceFree?: boolean;
+  owned?: boolean;
 }
 
 const part = (value: string | null): string => value ?? "";
@@ -20,7 +21,7 @@ const part = (value: string | null): string => value ?? "";
 // "12 weeks · 4 days/week". Empty lines are omitted.
 const buildMetaLine = (items: string[]): string => items.filter(Boolean).join(" · ");
 
-export const ProgramCard = ({ program, forceFree = false }: ProgramCardProps) => {
+export const ProgramCard = ({ program, forceFree = false, owned = false }: ProgramCardProps) => {
   const schedule = buildMetaLine([
     program.duration_weeks !== null ? `${program.duration_weeks} weeks` : "",
     program.frequency_per_week !== null ? `${program.frequency_per_week} days/week` : ""
@@ -36,9 +37,9 @@ export const ProgramCard = ({ program, forceFree = false }: ProgramCardProps) =>
   return (
     <article className={styles.card}>
       <Link
-        to={`/services/generic-program/${program.id}`}
+        to={owned ? `/services/my-programs/${program.id}` : `/services/generic-program/${program.id}`}
         className={styles.link}
-        aria-label={`Open ${program.name}`}
+        aria-label={owned ? `Open ${program.name}` : `View ${program.name}`}
       >
         <div className={styles.image} aria-hidden="true">
           <img className={styles.logo} src={BRAND_ASSETS.icon} alt="" />
@@ -51,7 +52,11 @@ export const ProgramCard = ({ program, forceFree = false }: ProgramCardProps) =>
               {category ? <span className={styles.metaItem}>{category}</span> : null}
             </div>
           ) : null}
-          <span className={isFree ? styles.priceFree : styles.price}>{price}</span>
+          {owned ? (
+            <span className={styles.owned}>Owned</span>
+          ) : (
+            <span className={isFree ? styles.priceFree : styles.price}>{price}</span>
+          )}
         </div>
       </Link>
     </article>

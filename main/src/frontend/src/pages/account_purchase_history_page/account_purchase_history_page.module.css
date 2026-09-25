@@ -14,7 +14,7 @@
 
 .content {
   display: grid;
-  gap: 2.2rem;
+  gap: 2rem;
   width: 100%;
   max-width: 52rem;
 }
@@ -40,80 +40,123 @@
   line-height: 1.6;
 }
 
-.grid {
+.list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1.1rem;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.card {
-  display: grid;
-  align-content: start;
-  gap: 0.7rem;
-  min-height: 11rem;
+.entry {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.4rem;
   padding: 1.4rem;
   border: 1px solid rgba(24, 216, 255, 0.14);
   border-radius: 16px;
-  color: inherit;
   background: linear-gradient(165deg, rgba(10, 16, 26, 0.78), rgba(5, 8, 14, 0.78));
   box-shadow: 0 0 0 1px rgba(24, 216, 255, 0.03) inset;
-  text-decoration: none;
-  transition:
-    border-color 200ms ease,
-    transform 200ms ease,
-    box-shadow 200ms ease;
+  transition: border-color 200ms ease;
 }
 
-.card:hover {
-  border-color: rgba(24, 216, 255, 0.4);
-  box-shadow:
-    0 0 0 1px rgba(24, 216, 255, 0.06) inset,
-    0 12px 32px rgba(5, 7, 11, 0.35);
-  transform: translateY(-2px);
+.entry:hover {
+  border-color: rgba(24, 216, 255, 0.32);
 }
 
-.cardTitle {
+.entryMain {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.entryProgram {
   color: var(--text-primary);
   font-size: 1.05rem;
   font-weight: 750;
   letter-spacing: -0.01em;
 }
 
-.cardDescription {
+.entryDescription {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
   color: var(--text-secondary);
   font-size: 0.88rem;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
+.entryMeta {
+  display: inline-flex;
+  align-items: center;
   gap: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
-.chip {
-  padding: 0.3rem 0.6rem;
-  border: 1px solid rgba(24, 216, 255, 0.2);
+.entrySide {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+.entryPrice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.statusBadge {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  color: var(--text-secondary);
-  background: rgba(24, 216, 255, 0.06);
   font-size: 0.72rem;
-  font-weight: 600;
-  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.cardAction {
+.statusCompleted {
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #4fe3b4;
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.statusPending {
+  border-color: rgba(245, 179, 66, 0.35);
+  color: #f5c15c;
+  background: rgba(245, 179, 66, 0.08);
+}
+
+.statusFailed {
+  border-color: rgba(255, 82, 82, 0.35);
+  color: #ff9c9c;
+  background: rgba(255, 82, 82, 0.08);
+}
+
+.testBadge {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  margin-top: auto;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(24, 216, 255, 0.3);
+  border-radius: 999px;
   color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 650;
+  background: rgba(24, 216, 255, 0.06);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.unavailable {
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 
 .stateCard {
@@ -134,33 +177,28 @@
   text-align: center;
 }
 
-.stateTitle {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.3rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.stateText {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.6;
-}
-
 .stateCard p {
   margin: 0;
   color: var(--text-secondary);
 }
 
-.retry {
-  display: flex;
-  justify-content: center;
+.stateTitle {
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 800;
 }
 
-@media (max-width: 560px) {
-  .main {
-    padding-top: 1.5rem;
+.stateText {
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .entry {
+    flex-direction: column;
+  }
+
+  .entrySide {
+    align-items: flex-start;
   }
 }

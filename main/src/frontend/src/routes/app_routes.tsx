@@ -4,6 +4,7 @@ import { Redirect, Route, Switch, useLocation } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/admin_layout/admin_layout";
 import Admin2Layout from "@/components/admin2/admin2_layout/admin2_layout";
 import { Admin2SessionProvider } from "@/components/admin2/admin2_session_context";
+import { AccountPurchaseHistoryPage } from "@/pages/account_purchase_history_page/account_purchase_history_page";
 import { ContactPage } from "@/pages/contact_page/contact_page";
 import { FeedbackPage } from "@/pages/feedback_page/feedback_page";
 import { GenericPlanMarketplacePage } from "@/pages/generic_plan_marketplace_page/generic_plan_marketplace_page";
@@ -81,6 +82,7 @@ export const AppRoutes = () => {
           render={() => <LoginPage initialMode="register" />}
         />
         <Route exact path="/profile" component={ProfilePage} />
+        <Route exact path="/account/purchases" component={AccountPurchaseHistoryPage} />
         <Route
           path="/admin2"
           render={() => (

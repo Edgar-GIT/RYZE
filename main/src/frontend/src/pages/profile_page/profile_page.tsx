@@ -1,11 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarDays, Eye, EyeOff, KeyRound, Lock, LogOut, Mail, Trash2, UserRound } from "lucide-react";
+import { CalendarDays, Eye, EyeOff, KeyRound, LayoutGrid, Lock, LogOut, Mail, ReceiptText, ShoppingBag, Trash2, UserRound } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
 
+import { AccountNav } from "@/components/account_nav/account_nav";
 import { AnimatedBackground } from "@/components/animated_background/animated_background";
-import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
@@ -34,11 +34,10 @@ const DEFAULT_AVATAR_IMAGE_URL: string | null = null;
 
 interface ProfileAvatarProps {
   imageUrl: string | null;
-  size: "small" | "large";
 }
 
-const ProfileAvatar = ({ imageUrl, size }: ProfileAvatarProps) => (
-  <span className={joinClassNames(styles.avatar, size === "large" ? styles.avatarLarge : styles.avatarSmall)}>
+const ProfileAvatar = ({ imageUrl }: ProfileAvatarProps) => (
+  <span className={styles.avatarLarge}>
     {imageUrl ? <img src={imageUrl} alt="" /> : <UserRound aria-hidden="true" strokeWidth={1.6} />}
   </span>
 );
@@ -316,25 +315,7 @@ export const ProfilePage = () => {
     <PageWrapper className={styles.page}>
       <AnimatedBackground />
 
-      <header className={styles.navbar}>
-        <Link className={styles.brand} to="/" aria-label="RYZE home">
-          <BrandMark size="navigation" />
-          <span>RYZE</span>
-        </Link>
-
-        <nav className={styles.center} aria-label="Account">
-          <Link className={styles.centerLink} to="/services/my-programs">
-            My Programs
-          </Link>
-        </nav>
-
-        {state.status === "ready" ? (
-          <div className={styles.userArea}>
-            <span className={styles.userName}>{state.user.first_name}</span>
-            <ProfileAvatar imageUrl={DEFAULT_AVATAR_IMAGE_URL} size="small" />
-          </div>
-        ) : null}
-      </header>
+      <AccountNav userName={state.status === "ready" ? state.user.first_name : undefined} />
 
       <main className={styles.main}>
         {state.status === "loading" ? <LoadingScreen /> : null}
@@ -355,7 +336,7 @@ export const ProfilePage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
           >
-            <ProfileAvatar imageUrl={DEFAULT_AVATAR_IMAGE_URL} size="large" />
+            <ProfileAvatar imageUrl={DEFAULT_AVATAR_IMAGE_URL} />
 
             <h1>{fullName}</h1>
 
@@ -370,6 +351,30 @@ export const ProfilePage = () => {
             </p>
 
             <span className={styles.divider} aria-hidden="true" />
+
+            <nav className={styles.hub} aria-label="Account">
+              <Link className={styles.hubLink} to="/services/my-programs">
+                <LayoutGrid className={styles.hubIcon} aria-hidden="true" />
+                <span className={styles.hubLabel}>
+                  <span className={styles.hubTitle}>My Programs</span>
+                  <span className={styles.hubHint}>Open your training plans</span>
+                </span>
+              </Link>
+              <Link className={styles.hubLink} to="/account/purchases">
+                <ReceiptText className={styles.hubIcon} aria-hidden="true" />
+                <span className={styles.hubLabel}>
+                  <span className={styles.hubTitle}>Purchase History</span>
+                  <span className={styles.hubHint}>Review your orders</span>
+                </span>
+              </Link>
+              <Link className={styles.hubLink} to="/services/generic-program">
+                <ShoppingBag className={styles.hubIcon} aria-hidden="true" />
+                <span className={styles.hubLabel}>
+                  <span className={styles.hubTitle}>Marketplace</span>
+                  <span className={styles.hubHint}>Discover training plans</span>
+                </span>
+              </Link>
+            </nav>
 
             {logoutError ? (
               <p className={styles.logoutError} role="alert">

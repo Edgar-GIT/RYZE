@@ -51,14 +51,19 @@ interface PurchasePanelProps {
   isFree: boolean;
   minorUnits: number;
   currency: string;
+  programId: string;
   state: PurchaseState;
   onBuy: () => void;
   onRetryPurchase: (purchaseId: string) => void;
   testMode?: boolean;
 }
 
-const PurchasePanel = ({ isFree, minorUnits, currency, state, onBuy, onRetryPurchase, testMode = false }: PurchasePanelProps) => {
+const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, onBuy, onRetryPurchase, testMode = false }: PurchasePanelProps) => {
   if (isFree || state.status === "owned") {
+    // Free programs have no Program Access page: their panel only links back
+    // to the marketplace. Owned (paid/test) programs get an "Open program"
+    // action into the account area.
+    const isOwned = state.status === "owned" && !isFree;
     return (
       <aside className={styles.purchase}>
         <div className={styles.purchaseCard}>
@@ -72,6 +77,15 @@ const PurchasePanel = ({ isFree, minorUnits, currency, state, onBuy, onRetryPurc
               : "You already own this training plan."}
           </p>
           <div className={styles.purchaseActions}>
+            {isOwned ? (
+              <Button
+                to={`/services/my-programs/${programId}`}
+                variant="primary"
+                size="small"
+              >
+                Open program
+              </Button>
+            ) : null}
             <Button to="/services/generic-program" variant="secondary" size="small">
               Back to Training plans
             </Button>
@@ -157,11 +171,14 @@ const PurchasePanel = ({ isFree, minorUnits, currency, state, onBuy, onRetryPurc
             <p className={styles.purchaseText}>You now have access to this training plan.</p>
             <div className={styles.purchaseActions}>
               <Button
-                to="/services/generic-program"
-                variant="secondary"
+                to={`/services/my-programs/${programId}`}
+                variant="primary"
                 size="small"
               >
-                Back to Training plans
+                Open program
+              </Button>
+              <Button to="/services/my-programs" variant="ghost" size="small">
+                My Programs
               </Button>
             </div>
           </div>
@@ -530,6 +547,7 @@ export const GenericProgramDetailPage = () => {
                   isFree={isFreeProgram}
                   minorUnits={detail.price_minor_units}
                   currency={detail.currency}
+                  programId={programId}
                   state={purchaseState}
                   onBuy={() =>
                     void (isTestModePurchase ? handleTestModeBuy() : handleBuy())

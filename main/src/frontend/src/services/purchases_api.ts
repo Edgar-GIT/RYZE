@@ -27,6 +27,46 @@ export interface Purchase {
   status: PurchaseStatus;
 }
 
+/**
+ * Safe program summary included in purchase history entries. It mirrors the
+ * entitlement program summary and never carries internal trainer or payout
+ * metadata.
+ */
+export interface PurchaseHistoryProgram {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  status: string;
+  level?: string | null;
+  training_type?: string | null;
+  duration_weeks?: number | null;
+  frequency_per_week?: number | null;
+  price_minor_units: number;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One entry of the authenticated user's purchase history, served by
+ * `GET /me/purchases`. `access` is computed by the backend and only becomes
+ * true for completed purchases of published, non-deleted programs. `test`
+ * marks Test Mode purchases, which are zero-price and never touch a payment
+ * provider. Commission and payout fields are never exposed by this endpoint.
+ */
+export interface PurchaseHistoryEntry {
+  id: string;
+  program_id: string;
+  price_minor_units: number;
+  currency: string;
+  status: PurchaseStatus;
+  test: boolean;
+  access: boolean;
+  created_at: string;
+  program: PurchaseHistoryProgram;
+}
+
 export interface PaymentInitiation {
   payment_id: string;
   checkout_url?: string;
@@ -132,8 +172,8 @@ export const initiatePayment = (
 export const capturePayment = (purchaseId: string, orderId: string): Promise<Purchase> =>
   apiPost<Purchase>(`/me/purchases/${purchaseId}/capture`, { order_id: orderId });
 
-export const fetchMyPurchases = (): Promise<Purchase[]> =>
-  apiGet<Purchase[]>("/me/purchases");
+export const fetchMyPurchases = (): Promise<PurchaseHistoryEntry[]> =>
+  apiGet<PurchaseHistoryEntry[]>("/me/purchases");
 
 export const fetchEntitlements = (): Promise<Entitlement[]> =>
   apiGet<Entitlement[]>("/me/entitlements");

@@ -1,5 +1,5 @@
+import { AccountNav } from "@/components/account_nav/account_nav";
 import { AnimatedBackground } from "@/components/animated_background/animated_background";
-import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { ProgramStructure } from "@/components/program_structure/program_structure";
@@ -8,7 +8,7 @@ import { ApiError } from "@utils/http_client";
 import { fetchProgramAccess, type ProgramAccessDetail } from "@/services/purchases_api";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useHistory, useParams } from "react-router-dom";
+import { useHistory, useParams } from "react-router-dom";
 
 import styles from "./program_access_page.module.css";
 
@@ -45,20 +45,7 @@ export const ProgramAccessPage = () => {
     <PageWrapper className={styles.page}>
       <AnimatedBackground />
 
-      <header className={styles.navbar}>
-        <Link className={styles.brand} to="/" aria-label="RYZE home">
-          <BrandMark size="navigation" />
-          <span>RYZE</span>
-        </Link>
-
-        <nav className={styles.centerNav} aria-label="Account">
-          <Link className={styles.navLink} to="/services/my-programs">
-            My Programs
-          </Link>
-        </nav>
-
-        <div className={styles.spacer} aria-hidden="true" />
-      </header>
+      <AccountNav />
 
       <main className={styles.main}>
         {loading ? <LoadingScreen /> : null}

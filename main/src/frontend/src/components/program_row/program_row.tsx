@@ -15,12 +15,19 @@ interface ProgramRowProps {
   description?: string;
   programs: MarketplaceProgram[];
   forceFree?: boolean;
+  ownedProgramIds?: ReadonlySet<string>;
 }
 
 type Direction = "back" | "forward";
 type Phase = "idle" | "exit" | "enter";
 
-export const ProgramRow = ({ title, description, programs, forceFree = false }: ProgramRowProps) => {
+export const ProgramRow = ({
+  title,
+  description,
+  programs,
+  forceFree = false,
+  ownedProgramIds
+}: ProgramRowProps) => {
   const [page, setPage] = useState(0);
   const [direction, setDirection] = useState<Direction>("forward");
   const [phase, setPhase] = useState<Phase>("idle");
@@ -96,7 +103,11 @@ export const ProgramRow = ({ title, description, programs, forceFree = false }: 
             {slots.map((program, index) => (
               <div key={program ? program.id : `slot-${index}`} className={styles.slot}>
                 {program ? (
-                  <ProgramCard program={program} forceFree={forceFree} />
+                  <ProgramCard
+                    program={program}
+                    forceFree={forceFree}
+                    owned={ownedProgramIds?.has(program.id) ?? false}
+                  />
                 ) : (
                   <div className={styles.placeholder} aria-hidden="true" />
                 )}
