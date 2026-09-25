@@ -7,6 +7,7 @@ import { FilterSidebar } from "@/components/filter_sidebar/filter_sidebar";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { ProgramRow } from "@/components/program_row/program_row";
 import { SearchBar } from "@/components/search_bar/search_bar";
+import { useTestMode } from "@/components/test_mode/test_mode_context";
 import {
   DURATION_RANGES,
   MARKETPLACE_FILTER_GROUPS,
@@ -66,6 +67,7 @@ const matchesFilters = (program: MarketplaceProgram, selected: SelectedFilters):
 };
 
 export const GenericPlanMarketplacePage = () => {
+  const { isActive: testModeActive } = useTestMode();
   const [selected, setSelected] = useState<SelectedFilters>(EMPTY_SELECTION);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -238,6 +240,7 @@ export const GenericPlanMarketplacePage = () => {
                           title={row.title}
                           description={row.description}
                           programs={programsInRow}
+                          forceFree={testModeActive}
                         />
                       );
                     })}

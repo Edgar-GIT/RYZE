@@ -1,3 +1,95 @@
+# Version 2.73.0
+
+Title: Admin Test Mode — zero-cost persona purchases without real payments
+
+Date: 2026-09-25
+
+Summary:
+
+A new Admin Test Mode lets the Technical Administrator (ADMIN_1) impersonate
+one of two predefined personas (Test Client / Test Trainer) to exercise the
+customer commerce flows without real payments. Identity is entirely server-side
+(backend-minted cookies, never React state or query parameters), purchases
+complete server-side at zero cost with no payment provider, and the whole
+feature is disabled by a single environment variable. Inside Test Mode every
+purchasable Generic Program renders as Free and delivers a real (marked,
+zero-price) purchase + entitlement.
+
+Main changes:
+
+- **Backend Test Mode service** — new `services/test_mode` package
+  (`TestModeService`: Enter/Exit/ActivePersona) with deliberately narrow local
+  `UserRepository`/`TrainerRepository` interfaces, idempotent persona creation
+  (Test Client with a linked Test Trainer profile), validated return paths, a
+  hash-only session token (`ryze_test_session` cookie) and restoration of the
+  captured ADMIN_1 identity on exit. New `repositories/test_session_repository`
+  + `models/test_session.go`.
+- **Test purchase** — `services/purchases` gained `CompleteTestPurchase`:
+  published premium programs only (free programs →
+  `ErrProgramNotPurchasable`), duplicate entitlement →
+  `ErrDuplicateEntitlement`, purchase completed at price `0` with the `test`
+  marker + entitlement created atomically through the existing repository
+  primitive. No provider, no redirect, no capture — the payment provider path
+  is unreachable by design.
+- **Auth handlers** — `api/auth/test_mode_handler.go` (enter role-guarded to
+  ADMIN_1 via `RequireAdminRole`; unauth GET status; exit deliberately not
+  role-guarded so the persona can always end the session) and
+  `api/auth/test_mode_purchase_handler.go` (persona purchase). Error codes:
+  `TEST_MODE_DISABLED`, `TEST_MODE_INACTIVE`, `VALIDATION_ERROR`,
+  `AUTHENTICATION_REQUIRED`, `FORBIDDEN`, `PROGRAM_NOT_FOUND`,
+  `PROGRAM_NOT_PURCHASABLE`, `DUPLICATE_ENTITLEMENT`. Audit entries
+  (`test_mode.entered` / `exited` / `purchase_completed`) carry only structured
+  attributes.
+- **Routes + wiring** — `POST /api/v1/admin/auth/test-mode`,
+  `POST /api/v1/admin/auth/test-mode/exit`,
+  `GET /api/v1/auth/test-mode`,
+  `POST /api/v1/auth/test-mode/programs/:programID/purchase` mounted in
+  `routes/routes.go`; `main.go` loads `TEST_MODE_ENABLED` via
+  `config.LoadTestMode`; `.env.example` documents it (default disabled).
+- **Migration `000023`** — `test_sessions` table (admin identity, persona,
+  persona user FK, unique SHA-256 token hash, return path, soft-delete) and the
+  `purchases.test BOOLEAN DEFAULT FALSE` marker; `000023` applied locally
+  (migration version 23, dirty=false).
+- **Backend tests** — `services/test_mode` unit tests; `purchases` service
+  tests for `CompleteTestPurchase` (incl. free-program rejection, duplicates,
+  idempotency, nil provider independence); 19 DB-backed `api/auth` handler
+  tests (ADMIN_1-only gate, disabled mode, persona reuse, trainer link,
+  return-path sanitization, exit restores ADMIN_1, test purchase + 409/404/403
+  cross-user isolation, 401). Stubs updated across purchases/order/purchase/
+  webhook/e2e tests.
+- **Frontend** — `services/test_mode_api.ts` (status/enter/exit/complete
+  purchase) + `components/test_mode/test_mode_context.tsx` (`useTestMode`),
+  a persistent amber `TestModeBanner` (hidden on admin/auth pages) mounted in
+  `main.tsx`, a Technical-navigation admin Test Mode page
+  (`/admin/test-mode`, ADMIN_1-gated, persona entry cards + return path +
+  exit/active state), `forceFree` threading through `ProgramRow` →
+  `ProgramCard` and the marketplace page, and the detail page's amber Test
+  Mode chip + zero-price panel + `completeTestPurchase` path (409 →
+  owned). `FlaskConical` nav entry + route registered.
+- **Docs** — `api.MD` (Test Mode endpoints), `arquitecture.MD` (Test Mode
+  module), `security.MD` (Test Mode Security), `project.MD` (Admin Test Mode
+  feature), `database.MD` (test_sessions + purchases.test), `PAGES/design.MD`
+  (Test Mode UI: banner, admin page, marketplace/detail Free forcing),
+  `how_to_run.MD` (TEST_MODE_ENABLED + migration step).
+
+Validation:
+
+- Backend `go build` / `go vet` pass; new suites (`services/test_mode`,
+  `purchases` CompleteTestPurchase, extended `api/auth`) pass against the
+  shared test database; gofmt applied to all touched files.
+- Migration `000023` applied (`go run . migrate up` → version 23,
+  dirty=false); DB-backed Test Mode tests run against the live MariaDB.
+- Frontend `npm run typecheck` and `npm run build` pass (pre-existing
+  chunk-size warning unchanged).
+- Known pre-existing failures unchanged (shared test-DB state):
+  `TestAdminApproveApplicationAlreadyApproved`,
+  `TestAdminApproveApplicationAlreadyTrainerAtomicity`,
+  `TestAdminRejectThenReapplyApproved`, `TestTrainerProgramsCreateSuccess`
+  (api/auth) and `TestTrainerRepository` (repositories).
+- No refund-related behavior was touched; RYZE purchases remain final.
+
+---
+
 # Version 2.72.0
 
 Title: Client purchased programs (My Programs) & entitlement-protected program access

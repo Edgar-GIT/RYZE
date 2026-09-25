@@ -345,6 +345,36 @@ Platform administrators are configuration-only accounts defined entirely in
 is no registration endpoint; the values only take effect after a backend
 restart. See "Admin Authentication Configuration" above.
 
+## Admin Test Mode (Optional)
+
+Test Mode lets the Technical Administrator (ADMIN_1) impersonate a predefined
+persona (Test Client / Test Trainer) to exercise the commerce flows with no
+real payments. The feature is disabled by default and is switched on only
+when the backend is configured with it:
+
+```text
+TEST_MODE_ENABLED=true
+```
+
+- When `TEST_MODE_ENABLED` is absent or `false`, every Test Mode action answers
+  `403 TEST_MODE_DISABLED`, no Test Mode session can be created, and the
+  feature is effectively absent.
+- When enabled, sign in to the Admin Console as ADMIN_1 and open
+  **Test Mode** in the Technical navigation to enter as one of the personas.
+  Inside Test Mode all purchasable Generic Programs render as Free and buying
+  completes a real zero-cost purchase + entitlement server-side — no payment
+  provider is involved.
+- Exiting Test Mode restores the original ADMIN_1 session and returns to the
+  configured return path. Audit entries (`test_mode.entered` /
+  `test_mode.exited` / `test_mode.purchase_completed`) are written through the
+  standard logging pipeline.
+- Test Mode requires a database migration: run `go run . migrate up` once in
+  development. Migration `000023` creates the `test_sessions` table and the
+  `purchases.test` marker.
+
+Real money is never involved and no provider configuration is required for
+Test Mode purchases.
+
 ## Stripe Checkout Provider (Optional)
 
 The payment system supports Stripe Checkout Sessions as the first real payment

@@ -1244,6 +1244,53 @@ enforces access strictly on the backend:
   `published` + not-soft-deleted filter server-side. Frontend permission checks
   are never trusted for access decisions.
 
+### Test Mode Security
+
+Test Mode impersonates a predefined persona user to exercise the commerce flows
+without real payments. It is designed as a server-authoritative, least-privilege
+system:
+
+- **Only the Technical Administrator can enter.** The admin token's role is
+  verified server-side with the admin authentication middleware +
+  `RequireAdminRole(RoleTechnicalAdministrator)`. A client, Trainer or any
+  other admin role is always rejected with `403 FORBIDDEN`. Entering is the
+  only privileged action — this is the single gate.
+- **Exit is deliberately not role-guarded.** The impersonated client cannot be
+  relied on to hold an admin session, so exiting must be reachable from the
+  persona context. Exiting restores the stored ADMIN_1 identity and the stored
+  admin cookie; it cannot escalate anything because the restored identity is
+  exactly the one captured when entering.
+- **Identity is entirely server-side.** The persona is never chosen by the
+  client at runtime beyond the fixed whitelisted value (`client` / `trainer`) —
+  unknown values are rejected. The persona user is resolved exclusively from
+  the backend-minted `ryze_test_session` cookie; React state, query parameters,
+  localStorage and client-supplied user/trainer ids are never accepted and can
+  never select, fabricate or escalate a Test Mode identity. A normal
+  authenticated user hitting a Test Mode action receives `403 FORBIDDEN`
+  (not an admin, not a persona).
+- **Personas are predefined and idempotent.** The personas map to two fixed
+  emails owned by the platform (a test Client and a test Trainer with a linked
+  trainer profile). They are regular users managed through the existing
+  repositories — no privileged user is involved, so a jeopardized persona can
+  only reach endpoints any registered client can reach. Creating/restoring a
+  persona never overwrites existing state.
+- **Test purchases are zero-cost and provider-free.** `CompleteTestPurchase`
+  completes a `0`-value purchase with no payment provider, redirect or capture
+  involved; the provider code path is unreachable by design. Buying free
+  programs is rejected (`409 PROGRAM_NOT_PURCHASABLE`), duplicate entitlement
+  returns `409 DUPLICATE_ENTITLEMENT` and is never double-created. Purchases
+  are scoped to the persona user; a stored admin or any third-party identity
+  cannot act on them.
+- **Security-relevant checks are never client-side.** Renders rely on `HTTPS`
+  and the same strict cookie settings (HttpOnly, Secure, SameSite) as the
+  production tokens. Return paths are validated as internal paths only, so a
+  malicious return path cannot redirect through the impersonation exchange.
+- **Global kill switch.** `TEST_MODE_ENABLED` (default false) disables the
+  whole feature; when false every Test Mode action answers
+  `403 TEST_MODE_DISABLED` and no session state can be created or consumed.
+  Tokens, cookies and persona content are never logged (`test_mode.*` audit
+  entries carry only structured identifiers).
+
 ---
 
 # API SECURITY

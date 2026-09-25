@@ -21,6 +21,7 @@ import { AdminConfigurationPage } from "@/pages/admin/admin_configuration_page/a
 import { AdminDashboardPage } from "@/pages/admin/admin_dashboard_page/admin_dashboard_page";
 import { AdminDevelopmentPage } from "@/pages/admin/admin_development_page/admin_development_page";
 import { AdminSystemPage } from "@/pages/admin/admin_system_page/admin_system_page";
+import { AdminTestModePage } from "@/pages/admin/admin_test_mode_page/admin_test_mode_page";
 import { AdminTrainerApplicationsPage } from "@/pages/admin/admin_trainer_applications_page/admin_trainer_applications_page";
 import { AdminTrainersPage } from "@/pages/admin/admin_trainers_page/admin_trainers_page";
 import { AdminUsersPage } from "@/pages/admin/admin_users_page/admin_users_page";
@@ -116,6 +117,7 @@ export const AppRoutes = () => {
                 <Route exact path="/admin/trainer-applications" component={AdminTrainerApplicationsPage} />
                 <Route exact path="/admin/system" component={AdminSystemPage} />
                 <Route exact path="/admin/configuration" component={AdminConfigurationPage} />
+                <Route exact path="/admin/test-mode" component={AdminTestModePage} />
                 <Route exact path="/admin/development" component={AdminDevelopmentPage} />
                 <Route exact path="/admin/audit" component={AdminAuditPage} />
                 <Redirect to="/admin/dashboard" />

@@ -153,6 +153,12 @@ func (s *stubPurchaseService) CompletePurchaseWithCapture(_ context.Context, _, 
 	return s.purchase, s.err
 }
 
+func (s *stubPurchaseService) CompleteTestPurchase(_ context.Context, userID, programID string) (*purchases.Purchase, error) {
+	s.gotUser = userID
+	s.gotProg = programID
+	return s.purchase, s.err
+}
+
 // commissionAdapter adapts commission_rules.Service to the
 // purchases.CommissionResolver interface for integration tests.
 type commissionAdapter struct {

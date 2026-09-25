@@ -39,6 +39,7 @@ import (
 	"ryze/backend/services/purchases"
 	"ryze/backend/services/registration"
 	"ryze/backend/services/statistics"
+	"ryze/backend/services/test_mode"
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
 	"ryze/backend/services/trainer_clients"
@@ -184,6 +185,21 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
+
+	// Test Mode: Enter is restricted to the technical administrator through
+	// the standard admin authorization middleware. Exit deliberately has no
+	// admin guard because the admin session cookie is cleared on enter; the
+	// ryze_test_session cookie is the only trustworthy marker of the active
+	// session, and exiting only ever restores the original admin identity.
+	v1.POST("/admin/auth/test-mode",
+		middleware.AdminAuthenticate(tokenService),
+		middleware.RequireAdminRole(adminroles.RoleTechnicalAdministrator),
+		testModeHandler.Enter)
+	v1.POST("/admin/auth/test-mode/exit", testModeHandler.Exit)
+	v1.GET("/auth/test-mode", testModeHandler.Status)
+	v1.POST("/auth/test-mode/programs/:programID/purchase",
+		middleware.Authenticate(tokenService, userRepository),
+		testModePurchaseHandler.Purchase)
 
 	trainer := v1.Group("/trainer")
 	trainer.Use(middleware.Authenticate(tokenService, userRepository))

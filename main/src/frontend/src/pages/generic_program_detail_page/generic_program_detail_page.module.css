@@ -78,6 +78,20 @@
   white-space: nowrap;
 }
 
+.chipTestMode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(255, 196, 0, 0.45);
+  border-radius: 999px;
+  color: #ffe27a;
+  background: rgba(255, 196, 0, 0.08);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .state {
   display: grid;
   place-items: center;
@@ -153,6 +167,15 @@
 .purchaseCancelled .purchaseTitle,
 .purchaseError .purchaseTitle {
   color: #ff9f43;
+}
+
+.purchaseTestMode {
+  border-color: rgba(255, 196, 0, 0.35);
+  background: linear-gradient(180deg, rgba(255, 196, 0, 0.08), rgba(255, 196, 0, 0.02));
+}
+
+.purchaseTestMode .purchaseTitle {
+  color: #ffe27a;
 }
 
 @media (max-width: 640px) {

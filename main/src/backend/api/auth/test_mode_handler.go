@@ -116,7 +116,7 @@ func (h *TestModeHandler) Enter(c *gin.Context) {
 func (h *TestModeHandler) Exit(c *gin.Context) {
 	rawToken, err := c.Cookie(TestSessionTokenCookieName)
 	if err != nil {
-		RespondError(c, http.StatusBadRequest, "TEST_MODE_INACTIVE", "No active Test Mode session.", nil)
+		RespondError(c, http.StatusForbidden, "TEST_MODE_INACTIVE", "No active Test Mode session.", nil)
 		return
 	}
 

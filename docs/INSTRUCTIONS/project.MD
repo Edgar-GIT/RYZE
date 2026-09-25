@@ -346,8 +346,33 @@ The platform currently includes the following core features:
 - Statistics dashboard
 - Multi-language support
 - Gamification
+- Admin Test Mode (see below)
 
 Additional features will continue to be introduced as the platform evolves.
+
+## Admin Test Mode
+
+Test Mode lets a Technical Administrator impersonate one of two predefined
+personas (Test Client, Test Trainer) to exercise the customer commerce flows
+without real payments. It is a development/test companion, not a marketing or
+sales tool.
+
+- **Entry is exclusive to the Technical Administrator** (ADMIN_1), enforced
+  server-side.
+- Inside Test Mode every purchasable Generic Program renders as Free, and
+  buying completes a real zero-cost purchase + entitlement server-side — no
+  payment provider, redirect or capture is involved.
+- Identity is entirely server-side: the backend mints the persona session
+  cookie and restores the administrator identity on exit.
+- The feature is globally controlled by `TEST_MODE_ENABLED` (default false) — a
+  single kill switch that disables the whole experience.
+- Frontend surfaces: a persistent banner with an Exit control and a
+  Technical-navigation admin page to enter/exit with a configurable return
+  path.
+
+Test Mode is intentionally scoped: it does NOT create real money movement,
+does not affect live data outside the persona's own purchases, and cannot be
+used by Marketing/Front-desk roles.
 
 ---
 

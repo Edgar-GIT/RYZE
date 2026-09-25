@@ -723,6 +723,100 @@ Error codes:
 
 ---
 
+## Test Mode
+
+Test Mode lets the Technical Administrator exercise the customer commerce
+flows without real payments. A predefined persona (Test Client or Test Trainer)
+is fixed by the backend; the client never chooses or provides a user identity.
+Inside Test Mode every purchasable Generic Program renders as Free and the
+test purchase completes server-side with no payment provider. Test Mode is
+globally disabled via the `TEST_MODE_ENABLED` environment variable; when
+disabled every Test Mode action returns `403 TEST_MODE_DISABLED`.
+
+### `POST /api/v1/admin/auth/test-mode`
+
+Authenticated Test Mode endpoint (admin). Enters the Test Mode session for
+one of the predefined personas. Protected by the admin authentication
+middleware and the `RequireAdminRole` guard; **only the Technical
+Administrator (ADMIN_1) may enter Test Mode**. The backend mints the persona
+travel session: it clears the admin access cookie and sets a
+persona-authenticated session (`ryze_test_session`) whose identity is the
+predefined persona user.
+
+Request body:
+
+- `persona` (required) — one of the whitelisted personas: `"client"`
+  (Test Client) or `"trainer"` (Test Trainer).
+- `return_path` (required) — validated client-side safe path the session will
+  return to on exit.
+
+Responses:
+
+- `200 OK` — `data`: `{ persona, return_path }`. A persona already in an
+  active Test Mode session is reused (the same persona user continues).
+- `400 VALIDATION_ERROR` — missing/unknown `persona`, invalid `return_path`.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid admin session.
+- `403 FORBIDDEN` — authenticated but not the Technical Administrator.
+- `403 TEST_MODE_DISABLED` — Test Mode not enabled on the server.
+
+### `POST /api/v1/admin/auth/test-mode/exit`
+
+Authenticated Test Mode endpoint (admin). Exits the active Test Mode session,
+restores the stored administrator identity (ADMIN_1) and redirects the client
+to the stored `return_path`. Deliberately NOT guarded by the admin role: exit
+must be reachable from the impersonated client context so the persona session
+can always be ended.
+
+Responses:
+
+- `200 OK` — `data`: `{ return_path }`. The admin session is restored on
+  exit.
+- `403 TEST_MODE_DISABLED` — Test Mode not enabled on the server.
+- `403 TEST_MODE_INACTIVE` — no active Test Mode session (including a missing
+  persona cookie).
+
+### `GET /api/v1/auth/test-mode`
+
+Unauthenticated Test Mode endpoint. Returns whether a Test Mode session is
+currently active for the persona cookie. Used by the client shell to render
+the Test Mode banner. Always returns `200`.
+
+Response `data`:
+
+- `active` — boolean; true when a Test Mode session is active.
+- `persona` — `"client"` / `"trainer"` when active, otherwise `null`.
+
+### `POST /api/v1/auth/test-mode/programs/:programID/purchase`
+
+Authenticated Test Mode purchase endpoint (persona). Completes the program
+purchase server-side for the active persona at zero cost, creating a real
+`completed` purchase record and an active entitlement. No payment provider is
+involved; the amount never leaves the backend and the provider code path is
+never reached. A free program is rejected (free grants have nothing to obtain).
+
+Request path:
+
+- `programID` (required) — the target Generic Program UUID. Its type must be
+  `premium` (purchasable); free programs are not purchasable.
+
+Responses:
+
+- `200 OK` — `data`: the completed purchase snapshot (same shape as the normal
+  capture response), `status` set to `"completed"`, `price_minor_units` `0`.
+- `400 VALIDATION_ERROR` — malformed program id.
+- `401 AUTHENTICATION_REQUIRED` — no active persona session.
+- `403 FORBIDDEN` — the authenticated identity is not an active Test Mode
+  persona (a normal user cannot complete Test Mode purchases).
+- `403 TEST_MODE_DISABLED` — Test Mode not enabled on the server.
+- `404 PROGRAM_NOT_FOUND` — program does not exist, is soft-deleted,
+  unpublished, or not a purchasable premium Generic Program.
+- `409 PROGRAM_NOT_PURCHASABLE` — the program is a free program (nothing to
+  purchase).
+- `409 DUPLICATE_ENTITLEMENT` — the persona already holds an active entitlement
+  for the program (idempotent signal; the client resolves ownership).
+
+---
+
 ### Webhook Endpoints
 
 #### `POST /api/v1/webhooks/stripe`
@@ -1442,6 +1536,8 @@ Permissions include:
 - Technical configuration
 - Security / authentication administration
 - Development
+- Test Mode administration (see the [Test Mode](#test-mode) section; entering
+  Test Mode is exclusive to the Technical Administrator)
 
 Technical administrators do not manage business content unless explicitly
 permitted. The Technical Administrator is not a super administrator: plans,

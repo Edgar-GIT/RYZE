@@ -1,4 +1,4 @@
-import { ArrowLeft, CreditCard, LogIn, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, CreditCard, FlaskConical, LogIn, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -6,6 +6,7 @@ import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { ProgramStructure } from "@/components/program_structure/program_structure";
+import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { ApiError } from "@utils/http_client";
 import {
   fetchMarketplaceProgram,
@@ -21,6 +22,7 @@ import {
   initiatePayment,
   type Purchase
 } from "@/services/purchases_api";
+import { completeTestPurchase } from "@/services/test_mode_api";
 
 import styles from "./generic_program_detail_page.module.css";
 
@@ -30,7 +32,8 @@ const DUPLICATE_PURCHASE = "DUPLICATE_PURCHASE";
 
 // The checkout lifecycle is purely client convenience: the backend is fully
 // authoritative. Browser redirects never complete a purchase — only the
-// verified server-side capture can do that.
+// verified server-side capture can do that. Inside Test Mode the purchase is
+// completed directly by the backend with no payment provider at all.
 type PurchaseState =
   | { status: "checking" }
   | { status: "guest" }
@@ -51,9 +54,10 @@ interface PurchasePanelProps {
   state: PurchaseState;
   onBuy: () => void;
   onRetryPurchase: (purchaseId: string) => void;
+  testMode?: boolean;
 }
 
-const PurchasePanel = ({ isFree, minorUnits, currency, state, onBuy, onRetryPurchase }: PurchasePanelProps) => {
+const PurchasePanel = ({ isFree, minorUnits, currency, state, onBuy, onRetryPurchase, testMode = false }: PurchasePanelProps) => {
   if (isFree || state.status === "owned") {
     return (
       <aside className={styles.purchase}>
@@ -219,6 +223,32 @@ const PurchasePanel = ({ isFree, minorUnits, currency, state, onBuy, onRetryPurc
 
     case "ready":
     default:
+      if (testMode) {
+        return (
+          <aside className={styles.purchase}>
+            <div className={`${styles.purchaseCard} ${styles.purchaseTestMode}`}>
+              <p className={styles.purchaseTitle}>
+                {formatMarketplacePrice(0, currency, "premium")}
+              </p>
+              <p className={styles.purchaseText}>
+                Test Mode purchase — this plan is granted instantly at no cost.
+                No real payment is made.
+              </p>
+              <div className={styles.purchaseActions}>
+                <Button
+                  variant="primary"
+                  size="small"
+                  onClick={onBuy}
+                  icon={<FlaskConical size={15} />}
+                  iconPosition="left"
+                >
+                  Get plan in Test Mode
+                </Button>
+              </div>
+            </div>
+          </aside>
+        );
+      }
       return (
         <aside className={styles.purchase}>
           <div className={styles.purchaseCard}>
@@ -245,6 +275,7 @@ const PurchasePanel = ({ isFree, minorUnits, currency, state, onBuy, onRetryPurc
 
 export const GenericProgramDetailPage = () => {
   const { programId } = useParams<{ programId: string }>();
+  const { isActive: testModeActive } = useTestMode();
   const [detail, setDetail] = useState<MarketplaceProgramDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -343,6 +374,29 @@ export const GenericProgramDetailPage = () => {
     }
   }, [programId, negotiatePayment]);
 
+  const handleTestModeBuy = useCallback(async () => {
+    setPurchaseState({ status: "creating" });
+    try {
+      const purchase = await completeTestPurchase(programId);
+      setPurchaseState({ status: "success", purchase });
+    } catch (error) {
+      // 409 DUPLICATE_ENTITLEMENT: the persona already owns the program
+      // (e.g. it was purchased in a previous Test Mode session). Resolving
+      // ownership reflects the actual access state.
+      if (error instanceof ApiError && error.status === 409) {
+        try {
+          if ((await resolveOwnership()) === "owned") {
+            setPurchaseState({ status: "owned" });
+            return;
+          }
+        } catch {
+          // fall through to the error state
+        }
+      }
+      setPurchaseState({ status: "error", message: "We could not complete this Test Mode purchase. Please try again." });
+    }
+  }, [programId, resolveOwnership]);
+
   const handleRetryPurchase = useCallback(
     async (purchaseId: string) => {
       await negotiatePayment(purchaseId);
@@ -397,6 +451,12 @@ export const GenericProgramDetailPage = () => {
   }, [detail, loading, programId, runCapture, resolveOwnership]);
 
   const isFreeProgram = detail ? detail.type === FREE_PROGRAM_TYPE : false;
+  const isTestModePurchase = testModeActive && !isFreeProgram;
+  const priceLabel = detail
+    ? isTestModePurchase
+      ? formatMarketplacePrice(0, detail.currency, detail.type)
+      : formatMarketplacePrice(detail.price_minor_units, detail.currency, detail.type)
+    : "";
 
   return (
     <PageWrapper className={styles.page}>
@@ -442,8 +502,14 @@ export const GenericProgramDetailPage = () => {
 
                 <div className={styles.chips}>
                   <span className={detail.type === FREE_PROGRAM_TYPE ? styles.chipFree : styles.chipPrice}>
-                    {formatMarketplacePrice(detail.price_minor_units, detail.currency, detail.type)}
+                    {priceLabel}
                   </span>
+                  {isTestModePurchase ? (
+                    <span className={styles.chipTestMode}>
+                      <FlaskConical size={12} aria-hidden="true" />
+                      Test Mode
+                    </span>
+                  ) : null}
                   {detail.training_type ? (
                     <span className={styles.chip}>{detail.training_type}</span>
                   ) : null}
@@ -465,8 +531,11 @@ export const GenericProgramDetailPage = () => {
                   minorUnits={detail.price_minor_units}
                   currency={detail.currency}
                   state={purchaseState}
-                  onBuy={() => void handleBuy()}
+                  onBuy={() =>
+                    void (isTestModePurchase ? handleTestModeBuy() : handleBuy())
+                  }
                   onRetryPurchase={(purchaseId) => void handleRetryPurchase(purchaseId)}
+                  testMode={isTestModePurchase}
                 />
               </header>
 

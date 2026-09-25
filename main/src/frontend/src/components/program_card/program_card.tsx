@@ -11,6 +11,7 @@ import styles from "./program_card.module.css";
 
 interface ProgramCardProps {
   program: MarketplaceProgram;
+  forceFree?: boolean;
 }
 
 const part = (value: string | null): string => value ?? "";
@@ -19,15 +20,15 @@ const part = (value: string | null): string => value ?? "";
 // "12 weeks · 4 days/week". Empty lines are omitted.
 const buildMetaLine = (items: string[]): string => items.filter(Boolean).join(" · ");
 
-export const ProgramCard = ({ program }: ProgramCardProps) => {
+export const ProgramCard = ({ program, forceFree = false }: ProgramCardProps) => {
   const schedule = buildMetaLine([
     program.duration_weeks !== null ? `${program.duration_weeks} weeks` : "",
     program.frequency_per_week !== null ? `${program.frequency_per_week} days/week` : ""
   ]);
   const category = buildMetaLine([part(program.training_type), part(program.level)]);
-  const isFree = program.type === FREE_PROGRAM_TYPE;
+  const isFree = forceFree || program.type === FREE_PROGRAM_TYPE;
   const price = formatMarketplacePrice(
-    program.price_minor_units,
+    forceFree ? 0 : program.price_minor_units,
     program.currency,
     program.type
   );

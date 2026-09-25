@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import { App } from "@/app";
+import { TestModeBanner } from "@/components/test_mode/test_mode_banner";
+import { TestModeProvider } from "@/components/test_mode/test_mode_context";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import "@/styles/global.css";
 
@@ -24,7 +26,10 @@ setFavicon();
 createRoot(document.getElementById("root") as HTMLElement).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <TestModeProvider>
+        <App />
+        <TestModeBanner />
+      </TestModeProvider>
     </BrowserRouter>
   </StrictMode>
 );

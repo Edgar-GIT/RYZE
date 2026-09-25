@@ -569,7 +569,9 @@ FILTER RESULTS COUNT (when filters active)
    badges. Each card links to the program detail page. Hover: gentle lift, subtle image
    scale, brighter border and faint cyan shadow — restrained, not glowy. Cards
    are sized purely by the CSS grid (no JavaScript measurement); all cards in a
-   row share an equal height.
+   row share an equal height. Inside an active Test Mode session every
+   purchasable premium card is forced to render as "Free" (the price is zeroed
+   for display; the underlying program data is never mutated).
 - **No horizontal overflow** — the page must NEVER scroll horizontally. Card
   columns use `minmax(0, 1fr)`, there is no scrollable track and no fixed card
   width; `overflow-x: clip` is applied defensively at the application level
@@ -615,7 +617,9 @@ always remains viewable — it never requires authentication to read the program
   supporting line, and a set of soft cyan chips: the current sale price
   (prominent chip for paid programs, muted "Free" chip for free ones),
   `training_type`, `level`, `N weeks` and `M days/week` (each chip is hidden
-  when its value is absent).
+  when its value is absent). Inside an active Test Mode session a paid program
+  shows an amber "Free" price chip plus a small "Test Mode" chip, signalling
+  that its price is zeroed for the session.
 - **Purchase panel** (paid programs only) — one card below the header whose
   content depends on the checkout state:
   - `checking` — brief spinner while the page resolves ownership.
@@ -636,6 +640,10 @@ always remains viewable — it never requires authentication to read the program
     `ready`.
   - `error` — muted error with a Retry button; a cancelled order and a failed
     capture (purchase still pending) are presented as retryable, never as paid.
+  - Active Test Mode variant — for a paid program, the panel swaps to an amber
+    "Get plan in Test Mode" CTA at price "Free" with a note that the purchase
+    completes instantly with no payment. A `409 DUPLICATE_ENTITLEMENT` resolves
+    to the `owned` state (the persona already owns the program).
 - **States** — loading (muted centered state), generic error with a Retry
   button, and "Program not found" for unknown, draft or removed programs (the
   backend returns one indistinguishable 404 for all of them).
@@ -1123,6 +1131,7 @@ ADMIN_1 to `/admin/dashboard` and ADMIN_2 to `/admin2/dashboard`.
 /admin/trainer-applications
 /admin/system
 /admin/configuration
+/admin/test-mode
 /admin/development
 /admin/audit
 ```
@@ -1159,6 +1168,14 @@ Pages implemented in the current cycle:
   Rejected), approve/reject actions.
 - **ADMIN_1 System, Technical configuration, Development, Audit log** —
   placeholder pages ready for future implementation.
+- **ADMIN_1 Test Mode** — the Technical-navigation page for entering/exiting
+  Test Mode. Shows the current session state (Test Mode active as Test Client /
+  Test Trainer, with an Exit control, or two persona option cards to enter),
+  a configurable return path (default `/admin/test-mode`), and honest error
+  states (e.g. "Test Mode is disabled on the server" when `TEST_MODE_ENABLED`
+  is off, or a restricted message when the signed-in role is not the Technical
+  Administrator). After entering, the backend redirects to the client site; the
+  banner becomes the primary control surface.
 - **ADMIN_2 Dashboard** — live platform totals (clients, trainers, pending
   applications, published programs), product mix bars and a recently published
   programs table.
@@ -1227,6 +1244,31 @@ Pages implemented in the current cycle:
   endpoints are documented in `docs/INSTRUCTIONS/api.MD`.
 - Unimplemented backend capabilities surface as honest empty states with a
   clear explanation; the console never fabricates business data.
+
+### Test Mode Banner
+
+A fixed, persistent control shown across the client site whenever the server
+reports an active Test Mode session. It is the client-side counterpart to the
+admin Test Mode page and the only always-reachable Exit affordance.
+
+- **Placement** — fixed near the bottom-center of the viewport
+  (`left: 50%; transform: translateX(-50%)`), width `min(42rem, 100vw - 2rem)`,
+  high z-index so it floats above page content.
+- **Appearance** — a dark amber pill card (amber border, amber icon chip, white
+  text) distinct from the cyan design language: amber reads as "test/debug
+  mode", never as a brand accent. A small Flask icon introduces the label
+  "TEST MODE · Active as Test Trainer / Test Client", a one-line muted
+  subtitle ("Purchases are completed instantly at no cost. No real payments
+  are made."), an inline error line when an exit attempt fails, and a small
+  danger "Exit Test Mode" button that hard-redirects to the stored return path
+  on success.
+- **Visibility** — rendered only while active; hidden inside admin shells and
+  the authentication pages (`/login`, `/register`, `/admin/login`) so
+  impersonating state never noise-crowds chrome and auth flows. It is not a
+  modal — it never blocks content.
+- **Source of truth** — the session state comes from `GET /api/v1/auth/test-mode`
+  via the shared `useTestMode` context (the same one the marketplace and detail
+  pages read to force prices to Free); the banner never guesses a persona.
 
 ---
 

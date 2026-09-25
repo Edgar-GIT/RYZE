@@ -830,6 +830,59 @@ the snapshot fields (price, currency, commission split) are never recomputed.
 Completion is purely a status transition and entitlement provision; the
 commercial snapshot is immutable after creation.
 
+### Test Mode
+
+Test Mode impersonates one of two predefined persona users (Test Client, Test
+Trainer) so the commerce flows can be exercised without real payments. It is a
+server-authoritative system: identity is established exclusively through
+backend-set cookies, never through React state, query parameters or
+localStorage.
+
+**Session model.** Entering Test Mode (Technical Administrator only) swaps the
+cookies for the persona session (`ryze_test_session`):
+- The admin access cookie is cleared and the administrator identity (ADMIN_1)
+  is stored server-side for restoration on exit.
+- The persona session authorizes the persona user, who is created idempotently
+  on first use via the shared user/trainer repositories (`services/test_mode`
+  defines narrow, deliberate interfaces for exactly this purpose).
+- The persona user inherits the normal client authentication requirements
+  issued by the shared JWT middleware, so the surrounding client endpoints
+  work unchanged — no parallel authentication system.
+- Exiting restores the stored administrator session and redirects to the
+  validated `return_path`. Exit is intentionally not role-guarded so the
+  impersonated client can always end the session.
+
+**Modules.** Two auth handlers share the `services/test_mode` `TestModeService`:
+
+- `api/auth/test_mode_handler.go` — enter/exit/status. Enter requires both the
+  admin authentication middleware and `RequireAdminRole(ADMIN_1)`. Status is
+  deliberately unauthenticated (returns `active`/`persona` for the cookie).
+- `api/auth/test_mode_purchase_handler.go` — the persona purchase
+  (`POST /api/v1/auth/test-mode/programs/:programID/purchase`), mapped onto the
+  purchases service `CompleteTestPurchase`.
+
+**Test purchase.** `CompleteTestPurchase` reuses the existing purchase +
+entitlement lifecycle with a zero-price, already-completed purchase:
+- Program is resolved with the existing published-program read; free programs
+  are rejected (`ErrProgramNotPurchasable`) — free grants have nothing to
+  purchase.
+- A pre-existing active entitlement returns `ErrDuplicateEntitlement`
+  (idempotent duplicate signal).
+- The purchase is persisted with price `0`, status `completed` and the test
+  marker, and the entitlement is created atomically through the existing
+  purchase repository primitive. PayPal/Stripe are never touched: no provider,
+  no redirect, no capture — the provider code path is unreachable by design.
+- Session-scoped: the purchase belongs to the persona user; any other identity
+  (including the stored admin) is rejected.
+
+**Observability.** Enter/exit/purchase emit audit log entries
+(`test_mode.entered`, `test_mode.exited`, `test_mode.purchase_completed`) with
+structured attributes; raw tokens and passwords are never logged.
+
+**Gating.** The feature is globally controllable with `TEST_MODE_ENABLED`
+(default false). When disabled, every Test Mode action returns
+`403 TEST_MODE_DISABLED`.
+
 ### Webhook Architecture
 
 The webhook layer connects verified provider payment confirmations to the

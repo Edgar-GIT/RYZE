@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Code2,
   FileCheck2,
+  FlaskConical,
   LayoutDashboard,
   ScrollText,
   ServerCog,
@@ -47,6 +48,7 @@ const TECHNICAL_NAV: AdminNavGroup[] = [
     items: [
       { to: "/admin/system", label: "System", icon: ServerCog },
       { to: "/admin/configuration", label: "Technical configuration", icon: SlidersHorizontal },
+      { to: "/admin/test-mode", label: "Test Mode", icon: FlaskConical },
       { to: "/admin/development", label: "Development", icon: Code2 },
       { to: "/admin/audit", label: "Audit log", icon: ScrollText }
     ]
