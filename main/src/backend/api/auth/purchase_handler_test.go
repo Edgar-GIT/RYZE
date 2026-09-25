@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -76,6 +77,7 @@ func newPurchaseTestRouter(t *testing.T) (*gin.Engine, repositories.UserReposito
 	me.POST("/programs/:programID/purchase", handler.CreatePurchase)
 	me.POST("/purchases/:purchaseID/payment", handler.InitiatePayment)
 	me.POST("/purchases/:purchaseID/capture", handler.CapturePayment)
+	me.GET("/purchases", handler.ListPurchases)
 
 	return router, userRepo, tx, tokenSvc
 }
@@ -676,6 +678,217 @@ func TestPurchaseIntegrationNeverExposesSensitiveData(t *testing.T) {
 		if strings.Contains(raw, sensitive) {
 			t.Fatalf("response must never contain %q", sensitive)
 		}
+	}
+}
+
+// --- ListPurchases integration tests ---
+
+func seedCompletedPurchase(t *testing.T, tx *gorm.DB, userID, programID string, test bool) *models.Purchase {
+	t.Helper()
+	purchaseRepo := repositories.NewPurchaseRepository(tx)
+	purchase := &models.Purchase{
+		UserID:          userID,
+		ProgramID:       programID,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusCompleted,
+		Test:            test,
+	}
+	if err := purchaseRepo.Create(context.Background(), purchase); err != nil {
+		t.Fatalf("seed completed purchase: %v", err)
+	}
+	return purchase
+}
+
+func seedPremiumProgram(t *testing.T, tx *gorm.DB, userRepo repositories.UserRepository) (*models.Program, *models.Trainer) {
+	t.Helper()
+	trainerRepo := repositories.NewTrainerRepository(tx)
+	trainerUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	trainer := seedTrainerForUser(t, trainerRepo, trainerUser)
+
+	programRepo := repositories.NewProgramRepository(tx)
+	program := &models.Program{
+		TrainerID:       trainer.ID,
+		Name:            "Premium Program",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+	}
+	if err := programRepo.Create(context.Background(), program); err != nil {
+		t.Fatalf("seed program: %v", err)
+	}
+	return program, trainer
+}
+
+// purchaseHistoryEntries extracts the raw purchase-history response data from
+// the full JSON payload.
+func purchaseHistoryEntries(t *testing.T, raw string) []any {
+	t.Helper()
+	var payload struct {
+		Data []any `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("unmarshal purchase history response: %v", err)
+	}
+	return payload.Data
+}
+
+func TestPurchaseListIntegrationEnrichedHistory(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newPurchaseTestRouter(t)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	program, _ := seedPremiumProgram(t, tx, userRepo)
+	purchase := seedCompletedPurchase(t, tx, clientUser.ID, program.ID, false)
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, "/api/v1/me/purchases", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	entries := purchaseHistoryEntries(t, raw)
+	if len(entries) != 1 {
+		t.Fatalf("expected one purchase history entry, got %s", raw)
+	}
+	entry, _ := entries[0].(map[string]any)
+	if id, _ := entry["id"].(string); id != purchase.ID {
+		t.Fatalf("expected purchase id %q, got %v", purchase.ID, entry["id"])
+	}
+	if status, _ := entry["status"].(string); status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected status %q, got %v", models.PurchaseStatusCompleted, entry["status"])
+	}
+	if test, _ := entry["test"].(bool); test {
+		t.Fatalf("expected test false, got %v", entry["test"])
+	}
+	if access, _ := entry["access"].(bool); !access {
+		t.Fatalf("expected access true for completed purchase of published program, got %v", entry["access"])
+	}
+	if createdAt, _ := entry["created_at"].(string); createdAt == "" {
+		t.Fatal("expected a purchase date")
+	}
+
+	programObj, ok := entry["program"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected program summary, got %s", raw)
+	}
+	if name, _ := programObj["name"].(string); name != program.Name {
+		t.Fatalf("expected program name %q, got %v", program.Name, programObj["name"])
+	}
+	if status, _ := programObj["status"].(string); status != models.ProgramStatusPublished {
+		t.Fatalf("expected program status %q, got %v", models.ProgramStatusPublished, programObj["status"])
+	}
+
+	for _, forbidden := range []string{
+		"commission_bps",
+		"platform_amount",
+		"trainer_amount",
+		`"user_id"`,
+		"trainer_id",
+		"refund",
+		clientUser.Email,
+	} {
+		if strings.Contains(raw, forbidden) {
+			t.Fatalf("purchase history must never expose %q, got %s", forbidden, raw)
+		}
+	}
+}
+
+func TestPurchaseListIntegrationIDOR(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newPurchaseTestRouter(t)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	otherUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	program, _ := seedPremiumProgram(t, tx, userRepo)
+
+	clientPurchase := seedCompletedPurchase(t, tx, clientUser.ID, program.ID, false)
+	foreignPurchase := seedCompletedPurchase(t, tx, otherUser.ID, program.ID, true)
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, "/api/v1/me/purchases", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	entries := purchaseHistoryEntries(t, raw)
+	if len(entries) != 1 {
+		t.Fatalf("expected exactly one purchase entry, got %s", raw)
+	}
+	if strings.Contains(raw, foreignPurchase.ID) {
+		t.Fatalf("user must never see another user's purchases, got %s", raw)
+	}
+	if !strings.Contains(raw, clientPurchase.ID) {
+		t.Fatalf("expected the user's own purchase in history, got %s", raw)
+	}
+}
+
+func TestPurchaseListIntegrationSoftDeletedProgramKeepsHistory(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newPurchaseTestRouter(t)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	program, trainer := seedPremiumProgram(t, tx, userRepo)
+	seedCompletedPurchase(t, tx, clientUser.ID, program.ID, false)
+
+	// The program is retired after the sale; purchase history must survive.
+	programRepo := repositories.NewProgramRepository(tx)
+	if err := programRepo.SoftDelete(context.Background(), trainer.ID, program.ID); err != nil {
+		t.Fatalf("soft-delete program: %v", err)
+	}
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, "/api/v1/me/purchases", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	entries := purchaseHistoryEntries(t, raw)
+	if len(entries) != 1 {
+		t.Fatalf("expected the purchase to remain in history, got %s", raw)
+	}
+	entry, _ := entries[0].(map[string]any)
+	if access, _ := entry["access"].(bool); access {
+		t.Fatalf("expected access false for a retired program, got %v", entry["access"])
+	}
+	if !strings.Contains(raw, program.Name) {
+		t.Fatalf("expected historical program name in purchase history, got %s", raw)
+	}
+}
+
+func TestPurchaseListIntegrationTestPurchaseMarked(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newPurchaseTestRouter(t)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	program, _ := seedPremiumProgram(t, tx, userRepo)
+	seedCompletedPurchase(t, tx, clientUser.ID, program.ID, true)
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, "/api/v1/me/purchases", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	entries := purchaseHistoryEntries(t, raw)
+	if len(entries) != 1 {
+		t.Fatalf("expected one history entry, got %s", raw)
+	}
+	entry, _ := entries[0].(map[string]any)
+	if test, _ := entry["test"].(bool); !test {
+		t.Fatalf("expected test marker true, got %v", entry["test"])
+	}
+	if access, _ := entry["access"].(bool); !access {
+		t.Fatalf("expected access true for test purchase of published program, got %v", entry["access"])
 	}
 }
 

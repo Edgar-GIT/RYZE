@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"ryze/backend/models"
 	"ryze/backend/repositories"
@@ -88,9 +89,29 @@ type CommissionCalculation struct {
 	TrainerAmount  int64
 }
 
+// Program is the safe program summary exposed inside purchase history. It
+// carries only public product metadata and never exposes the owning trainer,
+// parent identifiers, deletion markers or any internal data.
+type Program struct {
+	ID               string
+	Name             string
+	Description      string
+	Type             string
+	Status           string
+	Level            *string
+	DurationWeeks    *int
+	FrequencyPerWeek *int
+	TrainingType     *string
+	PriceMinorUnits  int64
+	Currency         string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
 // Purchase is the safe representation of a purchase transaction. It carries
 // only public commercial metadata and never exposes internal identifiers
-// beyond the purchase and program id.
+// beyond the purchase and program id. Commission and payout data remain
+// internal to the backend and are never serialized into the purchase history.
 type Purchase struct {
 	ID              string
 	UserID          string
@@ -101,8 +122,11 @@ type Purchase struct {
 	PlatformAmount  int64
 	TrainerAmount   int64
 	Status          string
-	CreatedAt       string
-	UpdatedAt       string
+	Test            bool
+	Program         Program
+	Access          bool
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // PaymentResult is the safe representation of a payment initiation result.
@@ -601,7 +625,44 @@ func newPurchase(model *models.Purchase) *Purchase {
 		PlatformAmount:  model.PlatformAmount,
 		TrainerAmount:   model.TrainerAmount,
 		Status:          model.Status,
+		Test:            model.Test,
+		Program:         newProgram(&model.Program),
+		Access:          hasAccess(model),
+		CreatedAt:       model.CreatedAt,
+		UpdatedAt:       model.UpdatedAt,
 	}
+}
+
+func newProgram(model *models.Program) Program {
+	return Program{
+		ID:               model.ID,
+		Name:             model.Name,
+		Description:      model.Description,
+		Type:             model.Type,
+		Status:           model.Status,
+		Level:            model.Level,
+		DurationWeeks:    model.DurationWeeks,
+		FrequencyPerWeek: model.FrequencyPerWeek,
+		TrainingType:     model.TrainingType,
+		PriceMinorUnits:  model.PriceMinorUnits,
+		Currency:         model.Currency,
+		CreatedAt:        model.CreatedAt,
+		UpdatedAt:        model.UpdatedAt,
+	}
+}
+
+// hasAccess reports whether a purchase currently grants access to its program.
+// Access only exists for completed purchases of published programs that have
+// not been soft-deleted. The program association must be preloaded by the
+// caller; a missing association never grants access.
+func hasAccess(model *models.Purchase) bool {
+	if model.Status != models.PurchaseStatusCompleted {
+		return false
+	}
+	if model.Program.DeletedAt.Valid {
+		return false
+	}
+	return model.Program.Status == models.ProgramStatusPublished
 }
 
 func validateUserID(id string) error {

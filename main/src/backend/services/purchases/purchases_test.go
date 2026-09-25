@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/payments"
@@ -530,6 +532,92 @@ func TestListPurchasesScopedToUser(t *testing.T) {
 	}
 	if list[0].Status != models.PurchaseStatusPending || list[1].Status != models.PurchaseStatusCompleted {
 		t.Fatalf("unexpected statuses: %q, %q", list[0].Status, list[1].Status)
+	}
+}
+
+func TestListPurchasesAccessAndTestFlags(t *testing.T) {
+	now := time.Now()
+	records := []models.Purchase{
+		{
+			ID:        "aaaa1111-1111-1111-1111-111111111111",
+			UserID:    "33333333-3333-3333-3333-333333333333",
+			ProgramID: "11111111-1111-1111-1111-111111111111",
+			Status:    models.PurchaseStatusCompleted,
+			CreatedAt: now,
+			Program:   models.Program{ID: "11111111-1111-1111-1111-111111111111", Name: "Published Program", Status: models.ProgramStatusPublished},
+		},
+		{
+			ID:        "bbbb2222-2222-2222-2222-222222222222",
+			UserID:    "33333333-3333-3333-3333-333333333333",
+			ProgramID: "22222222-2222-2222-2222-222222222222",
+			Status:    models.PurchaseStatusCompleted,
+			CreatedAt: now.Add(-time.Hour),
+			Program:   models.Program{ID: "22222222-2222-2222-2222-222222222222", Name: "Draft Program", Status: models.ProgramStatusDraft},
+		},
+		{
+			ID:        "cccc3333-3333-3333-3333-333333333333",
+			UserID:    "33333333-3333-3333-3333-333333333333",
+			ProgramID: "33333333-3333-3333-3333-333333333331",
+			Status:    models.PurchaseStatusPending,
+			CreatedAt: now.Add(-2 * time.Hour),
+			Program:   models.Program{ID: "33333333-3333-3333-3333-333333333331", Name: "Pending Program", Status: models.ProgramStatusPublished},
+		},
+		{
+			ID:        "dddd4444-4444-4444-4444-444444444444",
+			UserID:    "33333333-3333-3333-3333-333333333333",
+			ProgramID: "44444444-4444-4444-4444-444444444444",
+			Status:    models.PurchaseStatusCompleted,
+			Test:      true,
+			CreatedAt: now.Add(-3 * time.Hour),
+			Program: models.Program{
+				ID:        "44444444-4444-4444-4444-444444444444",
+				Name:      "Soft-Deleted Program",
+				Status:    models.ProgramStatusPublished,
+				DeletedAt: gorm.DeletedAt{Time: now.Add(-time.Hour), Valid: true},
+			},
+		},
+	}
+
+	purchasesRepo := &stubPurchaseRepository{list: records}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	list, err := svc.ListPurchases(context.Background(), "33333333-3333-3333-3333-333333333333")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list) != 4 {
+		t.Fatalf("expected 4 purchases, got %d", len(list))
+	}
+
+	cases := []struct {
+		index       int
+		access      bool
+		test        bool
+		programName string
+	}{
+		{index: 0, access: true, test: false, programName: "Published Program"},
+		{index: 1, access: false, test: false, programName: "Draft Program"},
+		{index: 2, access: false, test: false, programName: "Pending Program"},
+		{index: 3, access: false, test: true, programName: "Soft-Deleted Program"},
+	}
+	for _, tc := range cases {
+		p := list[tc.index]
+		if p.Access != tc.access {
+			t.Fatalf("purchase %d: expected access %v, got %v", tc.index, tc.access, p.Access)
+		}
+		if p.Test != tc.test {
+			t.Fatalf("purchase %d: expected test %v, got %v", tc.index, tc.test, p.Test)
+		}
+		if p.Program.Name != tc.programName || p.Program.Status == "" {
+			t.Fatalf("purchase %d: expected program summary %q, got %+v", tc.index, tc.programName, p.Program)
+		}
 	}
 }
 

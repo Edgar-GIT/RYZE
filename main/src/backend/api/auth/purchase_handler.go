@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -46,6 +47,51 @@ func newPurchaseResponse(p *purchases.Purchase) purchaseResponse {
 		PlatformAmount:  p.PlatformAmount,
 		TrainerAmount:   p.TrainerAmount,
 		Status:          p.Status,
+	}
+}
+
+// purchaseHistoryResponse is the safe representation of one purchase record in
+// the authenticated user's purchase history. It carries only public commercial
+// metadata, the purchase date, the Test Mode marker, the current access state
+// and a safe program summary. Commission split, payout data, the owning user id
+// and all internal identifiers are never exposed.
+type purchaseHistoryResponse struct {
+	ID              string                 `json:"id"`
+	ProgramID       string                 `json:"program_id"`
+	PriceMinorUnits int64                  `json:"price_minor_units"`
+	Currency        string                 `json:"currency"`
+	Status          string                 `json:"status"`
+	Test            bool                   `json:"test"`
+	Access          bool                   `json:"access"`
+	CreatedAt       time.Time              `json:"created_at"`
+	Program         programSummaryResponse `json:"program"`
+}
+
+func newPurchaseHistoryResponse(p *purchases.Purchase) purchaseHistoryResponse {
+	return purchaseHistoryResponse{
+		ID:              p.ID,
+		ProgramID:       p.ProgramID,
+		PriceMinorUnits: p.PriceMinorUnits,
+		Currency:        p.Currency,
+		Status:          p.Status,
+		Test:            p.Test,
+		Access:          p.Access,
+		CreatedAt:       p.CreatedAt,
+		Program: programSummaryResponse{
+			ID:               p.Program.ID,
+			Name:             p.Program.Name,
+			Description:      p.Program.Description,
+			Type:             p.Program.Type,
+			Status:           p.Program.Status,
+			Level:            p.Program.Level,
+			DurationWeeks:    p.Program.DurationWeeks,
+			FrequencyPerWeek: p.Program.FrequencyPerWeek,
+			TrainingType:     p.Program.TrainingType,
+			PriceMinorUnits:  p.Program.PriceMinorUnits,
+			Currency:         p.Program.Currency,
+			CreatedAt:        p.Program.CreatedAt,
+			UpdatedAt:        p.Program.UpdatedAt,
+		},
 	}
 }
 
@@ -92,10 +138,12 @@ func (h *PurchaseHandler) CreatePurchase(c *gin.Context) {
 	})
 }
 
-// ListPurchases returns the safe representation of every active purchase held
-// by the authenticated user, most recently created first. The identity comes
-// exclusively from the authentication context, so a user can never read
-// another user's purchase records.
+// ListPurchases returns the safe purchase history of the authenticated user,
+// most recently created first. Each entry carries public commercial metadata,
+// the purchase date, the Test Mode marker, the current access state and a safe
+// program summary. Commission and payout data are never exposed to the client.
+// The identity comes exclusively from the authentication context, so a user can
+// never read another user's purchase records.
 func (h *PurchaseHandler) ListPurchases(c *gin.Context) {
 	userID, err := authcontext.UserIDFromContext(c)
 	if err != nil {
@@ -109,9 +157,9 @@ func (h *PurchaseHandler) ListPurchases(c *gin.Context) {
 		return
 	}
 
-	response := make([]purchaseResponse, 0, len(list))
+	response := make([]purchaseHistoryResponse, 0, len(list))
 	for i := range list {
-		response = append(response, newPurchaseResponse(&list[i]))
+		response = append(response, newPurchaseHistoryResponse(&list[i]))
 	}
 
 	c.JSON(http.StatusOK, gin.H{

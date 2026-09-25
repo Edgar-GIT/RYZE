@@ -142,12 +142,18 @@ func (r *purchaseRepository) CompleteTestPurchase(ctx context.Context, purchase 
 }
 
 // ListActiveByUser returns every active (non-deleted) purchase belonging to
-// the given user, most recently created first. The user id always comes from
-// the caller; the repository never derives it from an HTTP context.
+// the given user, most recently created first, with the associated program
+// preloaded. The preload is unscoped so a soft-deleted program still resolves
+// for historical accuracy — the purchase history must keep showing the program
+// name even after the program is retired. The user id always comes from the
+// caller; the repository never derives it from an HTTP context.
 func (r *purchaseRepository) ListActiveByUser(ctx context.Context, userID string) ([]models.Purchase, error) {
 	var purchases []models.Purchase
 	if err := r.db.WithContext(ctx).
 		Where("user_id = ?", userID).
+		Preload("Program", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped()
+		}).
 		Order("created_at DESC, id DESC").
 		Find(&purchases).Error; err != nil {
 		return nil, fmt.Errorf("failed to list purchases: %w", err)

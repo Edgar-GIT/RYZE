@@ -11,11 +11,11 @@ import (
 	"ryze/backend/services/entitlements"
 )
 
-// entitlementProgramResponse is the safe program summary exposed inside
-// entitlement metadata. It carries only public product metadata and never
-// exposes the owning trainer, parent identifiers, deletion markers or any
-// internal data.
-type entitlementProgramResponse struct {
+// programSummaryResponse is the safe program summary exposed inside
+// entitlement, purchase history and other client-readable product metadata. It
+// carries only public product metadata and never exposes the owning trainer,
+// parent identifiers, deletion markers or any internal data.
+type programSummaryResponse struct {
 	ID               string    `json:"id"`
 	Name             string    `json:"name"`
 	Description      string    `json:"description"`
@@ -35,18 +35,18 @@ type entitlementProgramResponse struct {
 // to access a program. It carries only public metadata and never exposes
 // internal identifiers beyond the entitlement and program id.
 type entitlementResponse struct {
-	ID        string                     `json:"id"`
-	ProgramID string                     `json:"program_id"`
-	Program   entitlementProgramResponse `json:"program"`
-	CreatedAt time.Time                  `json:"created_at"`
-	UpdatedAt time.Time                  `json:"updated_at"`
+	ID        string                 `json:"id"`
+	ProgramID string                 `json:"program_id"`
+	Program   programSummaryResponse `json:"program"`
+	CreatedAt time.Time              `json:"created_at"`
+	UpdatedAt time.Time              `json:"updated_at"`
 }
 
 func newEntitlementResponse(ent *entitlements.Entitlement) entitlementResponse {
 	return entitlementResponse{
 		ID:        ent.ID,
 		ProgramID: ent.ProgramID,
-		Program: entitlementProgramResponse{
+		Program: programSummaryResponse{
 			ID:               ent.Program.ID,
 			Name:             ent.Program.Name,
 			Description:      ent.Program.Description,
