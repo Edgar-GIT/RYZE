@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -188,5 +189,79 @@ func TestPurchaseRepositoryCompletedPurchaseUniqueConstraint(t *testing.T) {
 		Status:          models.PurchaseStatusCompleted,
 	}); err != nil {
 		t.Fatalf("a completed purchase by another user must remain possible, got %v", err)
+	}
+}
+
+func TestPurchaseRepositorySetPaymentMethod(t *testing.T) {
+	config.LoadEnvFile()
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	db, err := database.Connect(cfg)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+
+	tx := db.Begin()
+	defer tx.Rollback()
+
+	userRepo := repositories.NewUserRepository(tx)
+	genericProgramRepo := repositories.NewGenericProgramRepository(tx)
+	purchaseRepo := repositories.NewPurchaseRepository(tx)
+	ctx := context.Background()
+
+	user := &models.User{
+		Email:        fmt.Sprintf("purchase-method-%d@ryze.local", time.Now().UnixNano()),
+		PasswordHash: "prepared-hash-outside-repository-scope",
+		FirstName:    "Client",
+		LastName:     "Four",
+	}
+	if err := userRepo.Create(ctx, user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	program := &models.Program{
+		Name:            "Purchase Repo Program C",
+		Description:     "Description",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 4999,
+		Currency:        string(models.ProgramCurrencyEUR),
+	}
+	if err := genericProgramRepo.CreateFull(ctx, program); err != nil {
+		t.Fatalf("create program: %v", err)
+	}
+
+	purchase := &models.Purchase{
+		UserID:          user.ID,
+		ProgramID:       program.ID,
+		PriceMinorUnits: 4999,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	if err := purchaseRepo.Create(ctx, purchase); err != nil {
+		t.Fatalf("create purchase: %v", err)
+	}
+
+	if err := purchaseRepo.SetPaymentMethod(ctx, purchase.ID, "paypal"); err != nil {
+		t.Fatalf("set payment method: %v", err)
+	}
+
+	loaded, err := purchaseRepo.FindByID(ctx, purchase.ID)
+	if err != nil {
+		t.Fatalf("find purchase: %v", err)
+	}
+	if loaded.PaymentMethod == nil || *loaded.PaymentMethod != "paypal" {
+		t.Fatalf("expected recorded payment method %q, got %v", "paypal", loaded.PaymentMethod)
+	}
+	if loaded.Status != models.PurchaseStatusPending {
+		t.Fatalf("recording the method must not change the purchase status, got %q", loaded.Status)
+	}
+
+	if err := purchaseRepo.SetPaymentMethod(ctx, "missing-purchase-id", "card"); !errors.Is(err, repositories.ErrPurchaseNotFound) {
+		t.Fatalf("unknown purchase must surface as ErrPurchaseNotFound, got %v", err)
 	}
 }

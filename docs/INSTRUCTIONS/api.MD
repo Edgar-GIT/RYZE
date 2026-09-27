@@ -548,6 +548,9 @@ Response `data`:
 - `platform_amount` — the platform's share in minor currency units.
 - `trainer_amount` — the trainer's share in minor currency units.
 - `status` — always `"pending"`.
+- `payment_method` — present only after a payment method has been initiated for
+  the purchase (see the payment endpoint below); omitted at creation time and
+  never included for Test Mode / zero-price purchases.
 
 Responses:
 
@@ -574,26 +577,45 @@ most recently created first. Purchases carry the full commercial snapshot
 captured at creation time, so historical prices remain accurate even after a
 program is re-priced.
 
+This is the client-facing purchase **history** endpoint and it intentionally
+exposes no internal payout metadata: commission basis points, platform amount
+and trainer amount are never included. Payout/commercial detail remains
+exclusive to the create/capture responses. Each entry carries a safe program
+summary (see `program` below) and two computed flags: `access`, which reflects
+whether the user can currently open the program (completed purchase of a
+published, active program), and `test`, which marks zero-price Test Mode
+purchases.
+
 Identity comes exclusively from the authentication context. A cross-user lookup
 is impossible: the endpoint only ever returns the authenticated user's purchases
 and never exposes the internal `user_id` in the response.
 
 Authentication: required (client session).
 
-Response `data` (array of purchase objects, newest first):
+Response `data` (array of purchase history objects, newest first):
 
 - `id` — purchase UUID.
 - `program_id` — the purchased program reference.
 - `price_minor_units` — snapshot of the program price at creation time.
 - `currency` — snapshot of the program currency at creation time.
-- `commission_bps` — the applicable commission in basis points.
-- `platform_amount` — the platform's share in minor currency units.
-- `trainer_amount` — the trainer's share in minor currency units.
 - `status` — `"pending"`, `"completed"` or `"failed"`.
+- `test` — boolean; `true` for zero-price Test Mode purchases.
+- `access` — boolean; `true` only when the purchase is `completed` and the
+  program is published and not deleted. A completed purchase of a retired or
+  deleted program keeps its history but loses `access`.
+- `payment_method` — the method selected at payment initiation (`"card"`,
+  `"mbway"` or `"paypal"`); omitted when the purchase never reached a payment
+  provider (Test Mode purchases, legacy pending purchases).
+- `created_at`, `updated_at` — purchase lifecycle timestamps.
+- `program` — safe program summary: `id`, `name`, `description`, `type`,
+  `status`, `level`, `training_type`, `duration_weeks`, `frequency_per_week`,
+  `price_minor_units`, `currency`, `created_at`, `updated_at`. The summary
+  mirrors the entitlement program summary and never carries trainer or payout
+  metadata.
 
 Responses:
 
-- `200 OK` — the purchase list for the authenticated user.
+- `200 OK` — the purchase history for the authenticated user.
 - `400 VALIDATION_ERROR` — invalid internal state.
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
 
@@ -628,12 +650,15 @@ Error codes (service-level, not HTTP):
 Initiates a payment for an existing pending purchase via the configured payment
 provider. The purchase must belong to the authenticated user and be in "pending"
 status. The client selects the payment method (card, mbway or paypal); the
-server routes the method to the correct provider via a centralized
-`MethodProviderMap`. The immutable purchase snapshot is used to construct the
-provider request; no client-supplied commercial values are accepted. The purchase
-status is NOT modified during initiation — it remains "pending" until a
-server-verified capture or a verified provider event flows through the
-completion path.
+server validates it and routes it to the correct provider via a centralized
+`MethodProviderMap`. As soon as a configured provider has been resolved, the
+validated method is recorded on the purchase (`purchases.payment_method`), so it
+becomes immutable for that purchase and the later capture flow can always
+resolve the correct provider server-side without trusting any client input.
+The immutable purchase snapshot is used to construct the provider request; no
+client-supplied commercial values are accepted. The purchase status is NOT
+modified during initiation — it remains "pending" until a server-verified
+capture or a verified provider event flows through the completion path.
 
 Authentication: required (client session).
 
@@ -685,6 +710,13 @@ browser redirect alone never completes a purchase — the capture must succeed a
 verify before the purchase transitions to "completed" and the entitlement is
 provisioned atomically.
 
+The capture provider is never chosen by the client: it is resolved server-side
+from the payment method recorded on the purchase at `InitiatePayment`. A capture
+attempt on a purchase with no recorded method fails closed with
+`502 PAYMENT_PROVIDER_ERROR` and leaves the purchase pending — legacy pending
+purchases created before the method column existed must be re-initiated
+(which records the method) before they can be captured.
+
 The operation is idempotent: an already-completed purchase (e.g. the webhook
 racing the browser return) returns the completed snapshot safely without
 re-capturing or duplicating the entitlement.
@@ -718,8 +750,34 @@ Error codes:
 - `409 PURCHASE_NOT_PENDING` — the purchase is not in "pending" status (e.g. it
   already failed).
 - `502 PAYMENT_PROVIDER_ERROR` — the provider could not be reached or the order
-  could not be verified/captured. No money was taken at this point; the
+  could not be verified/captured, or the purchase has no recorded payment method
+  so no capture provider can be resolved. No money was taken at this point; the
   purchase remains "pending" so the buyer can retry.
+
+---
+
+### Payment Methods
+
+#### `GET /api/v1/payments/methods`
+
+Public, unauthenticated endpoint exposing the payment methods the backend
+currently accepts for checkout. The list is derived server-side from the
+configured payment providers (`MethodProviderMap.AvailableMethods`): a method is
+advertised only when a provider is actually configured for it. The checkout UI
+consumes this endpoint and never hard-codes a payment method.
+
+When no provider is configured at all the endpoint returns an empty list and
+the frontend renders checkout as unavailable.
+
+Response `data` (array, stable order `card`, `mbway`, `paypal`, restricted to
+configured methods):
+
+- `method` — normalized method identifier (`"card"`, `"mbway"`, `"paypal"`).
+- `label` — display name for the customer ("Card", "MB WAY", "PayPal").
+
+Responses:
+
+- `200 OK` — the currently available payment methods.
 
 ---
 
@@ -1559,6 +1617,8 @@ Permissions include:
 - Plans management and creation
 - Generic program management (platform-owned programs, `plans` permission)
 - Financial management
+- Commerce management (admin sales view over purchases, `commerce` permission —
+  see the [ADMIN COMMERCE](#admin-commerce) section)
 - Marketing (promotions)
 
 ---
@@ -4041,7 +4101,155 @@ Responses:
 - `200 OK` — commission resolution object.
 - `403 FORBIDDEN` — insufficient permissions.
 
-# ADMIN USER MANAGEMENT
+---
+
+# ADMIN COMMERCE
+
+Implemented backend foundation for the administrator sales view over customer
+purchases. Accessible only by the Management Administrator (ADMIN_2) through the
+`commerce` permission. The endpoints are read-only: no endpoint can create,
+modify or refund a purchase. RYZE purchases are final — there is no refund
+workflow.
+
+Authorization model:
+
+- A missing or invalid admin session returns HTTP 401 `AUTHENTICATION_REQUIRED`.
+- The Technical Administrator (ADMIN_1) returns HTTP 403 `FORBIDDEN` for every
+  commerce endpoint.
+- The Management Administrator (ADMIN_2) is the sole granted role.
+
+The customer and program objects are preloaded unscoped: soft-deleted buyer
+accounts and retired programs keep resolving so the view stays historically
+accurate. The `access` flag re-computes the current entitlement state
+(completed purchase of a published, non-deleted program) server-side on every
+response.
+
+Test Mode purchases are always reported separately and never contribute to real
+revenue.
+
+## List Purchases
+
+```
+GET /api/v1/admin/purchases
+```
+
+Returns one page of purchases matching the optional filters, newest first
+(`created_at` desc, id desc for stable ordering), together with the filtered
+sales summary and pagination metadata. The static `/purchases/programs` route is
+registered before `/purchases/:id` so the router resolves both without
+ambiguity.
+
+Query parameters:
+
+- `page` — page number, default `1`.
+- `limit` — page size, default `20`, clamped to a maximum of `100`.
+- `program_id` — optional UUID; restricts to a single program.
+- `status` — optional `pending` | `completed` | `failed`.
+- `test` — optional `true` | `false`; absent means both test and real.
+- `from` / `to` — optional `YYYY-MM-DD` bounds over `created_at`. The range is
+  half-open: `created_at >= from` and `created_at < to + 1 day` (UTC), so `to`
+  includes its whole day.
+
+Response `data`:
+
+- `purchases` — array of safe purchase objects:
+  - `id` / `program_id` — purchase and program identifiers.
+  - `price_minor_units` / `currency` — the amount paid at purchase time.
+  - `status` — `pending` | `completed` | `failed`.
+  - `test` — `true` for a Test Mode purchase (also visible in the history API).
+  - `access` — `true` when the buyer currently holds access (completed purchase
+    of a published, non-deleted program).
+  - `created_at` / `updated_at` — timestamps.
+  - `customer` — `{ name, email }`; `name` is the trimmed display name (may be
+    empty) and `email` is the contact address. Never includes user ids or
+    session data.
+  - `program` — safe program summary: `id`, `name`, `type`, `status`, `level`,
+    `duration_weeks`, `frequency_per_week`, `training_type`,
+    `price_minor_units`, `currency`, `deleted` (true when the program is
+    soft-deleted) and the program timestamps. `trainer_id`, `deleted_at` and
+    internal content fields are never exposed.
+- `summary` — the same metrics shown on the dashboard:
+  - `completed_count` — purchases with status `completed`, test purchases
+    included.
+  - `pending_count` / `failed_count` — per-status counts.
+  - `real_revenue_minor_units` — sum of `price_minor_units` over completed
+    non-test purchases.
+  - `test_purchase_count` — completed Test Mode purchases, never part of
+    `real_revenue_minor_units`.
+  - `programs_with_sales` — distinct programs with at least one completed
+    non-test purchase.
+- `pagination` — `page`, `limit`, `total`, `total_pages`.
+
+Responses:
+
+- `200 OK` — purchases, summary and pagination.
+- `400 VALIDATION_ERROR` — malformed `page`/`limit`, non-UUID `program_id`,
+  unknown `status`, invalid `test` value, malformed date or a `from` bound later
+  than `to`.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid admin session.
+- `403 FORBIDDEN` — authenticated admin without the `commerce` permission.
+
+## Purchase Details
+
+```
+GET /api/v1/admin/purchases/:purchaseID
+```
+
+Returns the safe representation of one purchase (same shape as a list entry)
+including the buyer identity and the program summary.
+
+Responses:
+
+- `200 OK` — the purchase object under `data.purchase`.
+- `400 VALIDATION_ERROR` — malformed purchase id.
+- `401 AUTHENTICATION_REQUIRED` / `403 FORBIDDEN` — as above.
+- `404 PURCHASE_NOT_FOUND` — unknown purchase id.
+
+## Program Sales
+
+```
+GET /api/v1/admin/purchases/programs
+```
+
+Aggregates purchases per program over the same filters, most completed sales
+first (`completed` desc, then revenue desc, then program id). Feeds the dashboard
+program filter and the per-program section. Also supports a batch mode used by
+the program-management area.
+
+Query parameters:
+
+- All the List Purchases parameters describe the aggregation scope. `status`,
+  `test`, `from` and `to` compose in batch mode too.
+- `program_ids` — optional comma-separated UUIDs. When set, batch mode returns
+  exactly one row per requested program, in request order, zero-filled for any
+  program without matching purchases; `revenue`, `completed_sales` and
+  `real_sales` then count only the matching purchases over the auxiliary
+  filters. Ids are deduplicated, validated as UUIDs and capped at 100
+  (`MaxPageSize`). `program_id` and `program_ids` are mutually exclusive
+  (`400 VALIDATION_ERROR` when both are set).
+- In batch mode the repository skips the count query and `LIMIT/OFFSET`; the
+  response `pagination` is always `total = len(ids)`, `page = 1`,
+  `limit = len(ids)`, `total_pages = 1`.
+
+Response `data`:
+
+- `sales` — array of program rows:
+  - `program` — safe program summary (see List Purchases); soft-deleted
+    programs keep their historical rows with `deleted: true`.
+  - `completed_sales` — completed purchases, test purchases included
+    (v2.75 counting, kept for backward compatibility).
+  - `real_sales` — completed non-test purchases. This is the authoritative
+    "sales" figure used across the admin surfaces: the program area, the
+    dashboard and the plan detail page all read the same number from this
+    field.
+  - `revenue_minor_units` — completed non-test revenue.
+  - `test_purchases` — completed Test Mode purchases.
+  - `pending_purchases` / `failed_purchases` — per-status counts.
+- `pagination` — `page`, `limit`, `total`, `total_pages`.
+
+Responses mirrors List Purchases.
+
+---
 
 Implemented backend foundation for managing regular client accounts. The user
 permission is split into two finer-grained permissions:
@@ -4579,11 +4787,10 @@ Returns platform-wide revenue.
 
 ## Sales
 
-```
-GET /api/v1/management/sales
-```
-
-Returns sales statistics.
+The admin sales view is implemented and Management-Administrator-only under the
+`GET /api/v1/admin/purchases*` endpoints (see the [ADMIN COMMERCE](#admin-commerce)
+section; the `commerce` permission). There are no separate
+`/api/v1/management/...` sales endpoints.
 
 ---
 

@@ -865,6 +865,10 @@ follows a strict security model:
   "pending" until the buyer returns and the capture endpoint verifies and
   captures the approved provider payment, or a verified provider event flows
   through `CompletePurchaseWithCapture()`.
+- The validated payment method is recorded server-side on the purchase once a
+  provider has been resolved, making it immutable for that purchase. The client
+  can never choose a provider directly, and the method recorded is the method
+  that the later capture will resolve.
 - Provider internal details (API keys, provider-specific error messages,
   raw provider responses) are never exposed to the client. Provider failures
   surface a generic 502 error.
@@ -928,8 +932,26 @@ endpoints plus provider-side verification:
 - Capture and completion are atomic: the provider capture runs first, then the
   internal completion transitions the status and provisions the entitlement in
   a single database transaction.
+- The capture provider is resolved server-side from the payment method recorded
+  on the purchase at initiation — never from client input. A purchase with no
+  recorded method fails closed (generic 502, purchase left pending) and must be
+  re-initiated before it can be captured.
 - A purchase whose payment method does not map to a capture-capable provider is
   rejected rather than completed.
+
+### Payment Methods Endpoint Security
+
+The public methods endpoint (`GET /api/v1/payments/methods`) exposes only the
+minimum the checkout UI needs:
+
+- It is unauthenticated by design (a guest must be able to see available
+  payment methods before signing in) and requires no identity.
+- It exposes **no** secret, provider name, configuration detail or credential
+  — only the normalized method identifier and its display label.
+- The list is derived from the server's configured providers, so it only ever
+  advertises methods the backend can actually service. A client cannot use it to
+  infer or select an unconfigured provider: a method that is not advertised is
+  also rejected at payment initiation.
 
 ### Purchase Listing Security
 

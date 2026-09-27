@@ -436,6 +436,15 @@ The implemented `purchases` table contains:
   entitlements) but never contact a payment provider and carry a zero price;
   the marker keeps them distinguishable from paid sales so they can never be
   mistaken for revenue or a trainer commission.
+- `payment_method` — the payment method chosen by the buyer at initiation
+  (`VARCHAR(20) NULL`, `CHECK`-constrained to `card`, `mbway` or `paypal`),
+  added by migration `000024`. It is recorded server-side at `InitiatePayment`,
+  only after the method has been validated and resolved to a configured
+  provider; from that point the method is immutable for the purchase. The
+  capture flow reads it to resolve the correct capture provider, never trusting
+  client input. `NULL` marks purchases that never reached a payment provider
+  (Test Mode purchases and legacy pending purchases created before the column
+  existed); such purchases can only be captured after being re-initiated.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
 - `completed_purchase` — MariaDB generated column `IF(deleted_at IS NULL AND
@@ -475,6 +484,9 @@ The repository provides:
   Guarantees that both the status change and the entitlement row are committed
   together or neither is persisted. Duplicate entry errors on the entitlement
   are mapped to `ErrEntitlementAlreadyExists`.
+- `SetPaymentMethod` — records the validated payment method on a purchase
+  (scoped update by id; unknown or soft-deleted ids surface
+  `ErrPurchaseNotFound`). The status is never modified by this call.
 
 ---
 

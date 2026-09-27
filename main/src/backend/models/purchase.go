@@ -26,21 +26,28 @@ const (
 // commission rules change later. Soft-deleted purchases are excluded from
 // regular queries through GORM's DeletedAt handling.
 type Purchase struct {
-	ID              string         `gorm:"type:char(36);primaryKey" json:"id"`
-	UserID          string         `gorm:"column:user_id;type:varchar(36);not null" json:"user_id"`
-	ProgramID       string         `gorm:"column:program_id;type:varchar(36);not null" json:"program_id"`
-	PriceMinorUnits int64          `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
-	Currency        string         `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
-	CommissionBPS   uint32         `gorm:"column:commission_bps;type:int unsigned;not null;default:0" json:"commission_bps"`
-	PlatformAmount  int64          `gorm:"column:platform_amount;type:bigint;not null;default:0" json:"platform_amount"`
-	TrainerAmount   int64          `gorm:"column:trainer_amount;type:bigint;not null;default:0" json:"trainer_amount"`
-	Status          string         `gorm:"column:status;type:varchar(20);not null;default:pending" json:"status"`
-	Test            bool           `gorm:"column:test;not null;default:false" json:"-"`
-	User            User           `gorm:"foreignKey:UserID;references:ID" json:"-"`
-	Program         Program        `gorm:"foreignKey:ProgramID;references:ID" json:"-"`
-	CreatedAt       time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
-	UpdatedAt       time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
-	DeletedAt       gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"-"`
+	ID              string `gorm:"type:char(36);primaryKey" json:"id"`
+	UserID          string `gorm:"column:user_id;type:varchar(36);not null" json:"user_id"`
+	ProgramID       string `gorm:"column:program_id;type:varchar(36);not null" json:"program_id"`
+	PriceMinorUnits int64  `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
+	Currency        string `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
+	CommissionBPS   uint32 `gorm:"column:commission_bps;type:int unsigned;not null;default:0" json:"commission_bps"`
+	PlatformAmount  int64  `gorm:"column:platform_amount;type:bigint;not null;default:0" json:"platform_amount"`
+	TrainerAmount   int64  `gorm:"column:trainer_amount;type:bigint;not null;default:0" json:"trainer_amount"`
+	Status          string `gorm:"column:status;type:varchar(20);not null;default:pending" json:"status"`
+	// PaymentMethod records the payment method selected at initiation. It is
+	// immutable once set and lets the capture flow resolve the correct provider
+	// server-side. NULL means the purchase never reached a payment provider
+	// (Test Mode purchases, legacy pending purchases); the pointer keeps the
+	// empty string out of the database so the CHECK constraint only ever sees
+	// NULL or one of the allowlisted values.
+	PaymentMethod *string        `gorm:"column:payment_method;type:varchar(20)" json:"payment_method"`
+	Test          bool           `gorm:"column:test;not null;default:false" json:"-"`
+	User          User           `gorm:"foreignKey:UserID;references:ID" json:"-"`
+	Program       Program        `gorm:"foreignKey:ProgramID;references:ID" json:"-"`
+	CreatedAt     time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"-"`
 }
 
 func (p *Purchase) BeforeCreate(_ *gorm.DB) error {

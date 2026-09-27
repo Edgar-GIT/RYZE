@@ -25,6 +25,7 @@ type purchaseResponse struct {
 	PlatformAmount  int64  `json:"platform_amount"`
 	TrainerAmount   int64  `json:"trainer_amount"`
 	Status          string `json:"status"`
+	PaymentMethod   string `json:"payment_method,omitempty"`
 }
 
 // paymentInitiationResponse is the safe representation of a payment initiation
@@ -47,6 +48,7 @@ func newPurchaseResponse(p *purchases.Purchase) purchaseResponse {
 		PlatformAmount:  p.PlatformAmount,
 		TrainerAmount:   p.TrainerAmount,
 		Status:          p.Status,
+		PaymentMethod:   p.PaymentMethod,
 	}
 }
 
@@ -61,6 +63,7 @@ type purchaseHistoryResponse struct {
 	PriceMinorUnits int64                  `json:"price_minor_units"`
 	Currency        string                 `json:"currency"`
 	Status          string                 `json:"status"`
+	PaymentMethod   string                 `json:"payment_method,omitempty"`
 	Test            bool                   `json:"test"`
 	Access          bool                   `json:"access"`
 	CreatedAt       time.Time              `json:"created_at"`
@@ -74,6 +77,7 @@ func newPurchaseHistoryResponse(p *purchases.Purchase) purchaseHistoryResponse {
 		PriceMinorUnits: p.PriceMinorUnits,
 		Currency:        p.Currency,
 		Status:          p.Status,
+		PaymentMethod:   p.PaymentMethod,
 		Test:            p.Test,
 		Access:          p.Access,
 		CreatedAt:       p.CreatedAt,

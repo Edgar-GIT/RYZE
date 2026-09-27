@@ -15,6 +15,8 @@ import (
 	"ryze/backend/services/purchases"
 )
 
+func strPtr(v string) *string { return &v }
+
 // --- stubs ---
 
 type stubProgramRepository struct {
@@ -35,6 +37,8 @@ type stubPurchaseRepository struct {
 	findByIDErr      error
 	list             []models.Purchase
 	listErr          error
+	setMethodID      string
+	setMethod        string
 }
 
 func (s *stubPurchaseRepository) Create(_ context.Context, purchase *models.Purchase) error {
@@ -91,6 +95,12 @@ func (s *stubPurchaseRepository) CompleteTestPurchase(_ context.Context, purchas
 	purchase.CreatedAt = time.Now()
 	purchase.UpdatedAt = time.Now()
 	s.purchase = purchase
+	return nil
+}
+
+func (s *stubPurchaseRepository) SetPaymentMethod(_ context.Context, purchaseID, method string) error {
+	s.setMethodID = purchaseID
+	s.setMethod = method
 	return nil
 }
 
@@ -732,6 +742,8 @@ func (r *completionPurchaseRepo) CompleteTestPurchase(_ context.Context, purchas
 	r.completedWithEntModel = entitlement
 	return r.completeWithEntErr
 }
+
+func (r *completionPurchaseRepo) SetPaymentMethod(_ context.Context, _, _ string) error { return nil }
 
 type completionEntitlementRepo struct {
 	activeEntitlement *models.Entitlement
@@ -1913,6 +1925,7 @@ func TestCapturePaymentSuccess(t *testing.T) {
 		PriceMinorUnits: 2500,
 		Currency:        "EUR",
 		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("paypal"),
 	}
 	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
 	entitlements := &stubEntitlementRepository{}
@@ -2120,6 +2133,7 @@ func TestCapturePaymentProviderFailure(t *testing.T) {
 		PriceMinorUnits: 1000,
 		Currency:        "EUR",
 		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("paypal"),
 	}
 	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
 	provider := &stubCaptureProvider{
@@ -2151,6 +2165,7 @@ func TestCapturePaymentResolverRejectsNonCaptureProvider(t *testing.T) {
 		PriceMinorUnits: 1000,
 		Currency:        "EUR",
 		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("paypal"),
 	}
 	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
 	// A provider that implements only InitiatePayment cannot capture.
@@ -2178,6 +2193,7 @@ func TestCompletePurchaseWithCaptureSuccess(t *testing.T) {
 		PriceMinorUnits: 2500,
 		Currency:        "EUR",
 		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("paypal"),
 	}
 	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
 	entitlements := &stubEntitlementRepository{}
@@ -2222,6 +2238,148 @@ func TestCompletePurchaseWithCaptureUnknownPurchase(t *testing.T) {
 	_, err := svc.CompletePurchaseWithCapture(context.Background(), "purchase-missing", "paypal-order-456")
 	if !errors.Is(err, purchases.ErrPurchaseNotFound) {
 		t.Fatalf("missing purchase must surface as ErrPurchaseNotFound, got %v", err)
+	}
+}
+
+func TestInitiatePaymentPersistsRecordedMethod(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "purchase-method-persist",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: purchase}
+	payment := &stubPaymentProvider{
+		result: payments.PaymentResult{
+			PaymentID:   "order-123",
+			Status:      payments.PaymentStatusRequiresAction,
+			CheckoutURL: "https://checkout.example.com/order-123",
+			Provider:    "paypal",
+			PurchaseID:  purchase.ID,
+		},
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		payment,
+		stubResolver(payment),
+	)
+
+	if _, err := svc.InitiatePayment(context.Background(), purchase.UserID, purchase.ID, "paypal"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if purchasesRepo.setMethodID != purchase.ID {
+		t.Fatalf("payment method must be recorded on the purchase, got purchase %q", purchasesRepo.setMethodID)
+	}
+	if purchasesRepo.setMethod != "paypal" {
+		t.Fatalf("expected recorded method %q, got %q", "paypal", purchasesRepo.setMethod)
+	}
+}
+
+func TestInitiatePaymentDoesNotPersistBeforeProviderResolution(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "purchase-method-unresolved",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: purchase}
+	failingResolver := func(_ context.Context, _ payments.PaymentMethod) (payments.Provider, error) {
+		return nil, payments.ErrNoProviderAvailable
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		failingResolver,
+	)
+
+	_, err := svc.InitiatePayment(context.Background(), purchase.UserID, purchase.ID, "card")
+	if !errors.Is(err, purchases.ErrPaymentProvider) {
+		t.Fatalf("expected ErrPaymentProvider, got %v", err)
+	}
+	if purchasesRepo.setMethodID != "" {
+		t.Fatalf("a method must not be recorded when no provider resolved, got %q", purchasesRepo.setMethodID)
+	}
+}
+
+func TestCapturePaymentRejectsMissingRecordedMethod(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-no-recorded-method",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	provider := &stubCaptureProvider{}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		provider,
+		stubResolver(provider),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "paypal-order-123")
+	if !errors.Is(err, purchases.ErrPaymentProvider) {
+		t.Fatalf("a capture without a recorded method must fail closed as ErrPaymentProvider, got %v", err)
+	}
+	if pending.Status != models.PurchaseStatusPending {
+		t.Fatalf("a failed-closed capture must never complete the purchase, got status %q", pending.Status)
+	}
+}
+
+func TestCapturePaymentResolvesProviderFromRecordedMethod(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-recorded-method",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("mbway"),
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	provider := &stubCaptureProvider{
+		result: payments.CaptureResult{PaymentID: "cs-mbway-1", Provider: "stripe"},
+	}
+	// The resolver only serves the recorded method: a capture resolving from a
+	// different method (e.g. a hardcoded PayPal) would fail here.
+	methodSensitive := func(_ context.Context, method payments.PaymentMethod) (payments.Provider, error) {
+		if method != payments.PaymentMethodMBWay {
+			return nil, payments.ErrNoProviderAvailable
+		}
+		return provider, nil
+	}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		provider,
+		methodSensitive,
+	)
+
+	result, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "cs-mbway-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("purchase must be completed, got %q", result.Status)
 	}
 }
 

@@ -1447,6 +1447,15 @@ func TestCaptureIntegrationSuccess(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
+	// Capture only works for purchases that reached a payment provider: the
+	// method is recorded at initiation and capture resolves the provider from
+	// it, never from client input. Initiate first so the purchase carries a
+	// recorded method, exactly like the production checkout flow.
+	initRec, _, rawInit := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
+	if initRec.Code != http.StatusOK {
+		t.Fatalf("initiate payment expected 200, got %d (body: %s)", initRec.Code, rawInit)
+	}
+
 	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"order_id":"ORDER-INTEGRATION-1"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)

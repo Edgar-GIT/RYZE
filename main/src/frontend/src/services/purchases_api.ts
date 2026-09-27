@@ -16,6 +16,17 @@ import { apiGet, apiPost } from "@utils/http_client";
 
 export type PurchaseStatus = "pending" | "completed" | "failed";
 
+/**
+ * Authorized payment method advertised by the backend. `method` is the
+ * normalized identifier sent to the checkout API; `label` is the display name.
+ * The backend decides which methods are available based on configured
+ * providers — the frontend never hard-codes a payment method.
+ */
+export interface PaymentMethodInfo {
+  method: string;
+  label: string;
+}
+
 export interface Purchase {
   id: string;
   program_id: string;
@@ -25,6 +36,7 @@ export interface Purchase {
   platform_amount: number;
   trainer_amount: number;
   status: PurchaseStatus;
+  payment_method?: string | null;
 }
 
 /**
@@ -61,6 +73,7 @@ export interface PurchaseHistoryEntry {
   price_minor_units: number;
   currency: string;
   status: PurchaseStatus;
+  payment_method?: string | null;
   test: boolean;
   access: boolean;
   created_at: string;
@@ -171,6 +184,14 @@ export const initiatePayment = (
 
 export const capturePayment = (purchaseId: string, orderId: string): Promise<Purchase> =>
   apiPost<Purchase>(`/me/purchases/${purchaseId}/capture`, { order_id: orderId });
+
+/**
+ * Public, unauthenticated contract exposing the currently configured payment
+ * methods (derived server-side from the providers present in the backend
+ * configuration). Returns them in the backend's stable order.
+ */
+export const fetchPaymentMethods = (): Promise<PaymentMethodInfo[]> =>
+  apiGet<PaymentMethodInfo[]>("/payments/methods");
 
 export const fetchMyPurchases = (): Promise<PurchaseHistoryEntry[]> =>
   apiGet<PurchaseHistoryEntry[]>("/me/purchases");

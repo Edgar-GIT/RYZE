@@ -55,6 +55,11 @@ type ProgramRepository interface {
 	// any other value falls back to "created_at". order is whitelisted to
 	// "asc" and "desc"; any other value falls back to "desc".
 	SearchPublished(ctx context.Context, filter PublicCatalogFilter, page, limit int) ([]models.Program, int64, error)
+	// FindAllByIDsUnscoped returns the programs with the given ids including
+	// soft-deleted ones, in no guaranteed order. Ids that match no program are
+	// silently omitted. This is the admin commerce read path: retired programs
+	// must keep resolving so historical sales stay attributable.
+	FindAllByIDsUnscoped(ctx context.Context, ids []string) ([]models.Program, error)
 }
 
 // PublicCatalogFilter narrows the public program catalog. Every value is
@@ -383,4 +388,21 @@ func (r *programRepository) Publish(ctx context.Context, trainerID, programID st
 		return ErrProgramNotFound
 	}
 	return nil
+}
+
+// FindAllByIDsUnscoped returns the programs with the given ids including
+// soft-deleted ones. Ids that match no program are silently omitted; the no-ids
+// case returns an empty slice without touching the database.
+func (r *programRepository) FindAllByIDsUnscoped(ctx context.Context, ids []string) ([]models.Program, error) {
+	if len(ids) == 0 {
+		return []models.Program{}, nil
+	}
+	var programs []models.Program
+	if err := r.db.WithContext(ctx).
+		Unscoped().
+		Where("id IN ?", ids).
+		Find(&programs).Error; err != nil {
+		return nil, fmt.Errorf("failed to find programs: %w", err)
+	}
+	return programs, nil
 }

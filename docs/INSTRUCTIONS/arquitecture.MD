@@ -84,8 +84,9 @@ Core pieces:
   `services/admin2_api.ts` adapts all ADMIN_2 calls. All admin requests go
   through the same `http_client` utilities (`apiGet`, `apiPost`, `apiPatch`,
   `apiDelete`) with `credentials: "include"`, so cookie handling and envelope
-  parsing stay consistent with the rest of the application. Business features
-  without a backend contract (sales, feedback) resolve through dedicated
+  parsing stay consistent with the rest of the application. Sales shares the
+  live commerce contract (`/admin/purchases*`, see the ADMIN COMMERCE section);
+  features without a backend contract yet (feedback) resolve through dedicated
   fetchers that report the data as unavailable instead of fabricating records.
 - **Role-based navigation** — each navigation tree is statically defined
   (`components/admin/admin_navigation.ts` and
@@ -183,7 +184,7 @@ Permissions:
 - Shared by both roles: users, trainers, statistics.
 - Technical Administrator only: system, infrastructure, technical
   configuration, security, development.
-- Management Administrator only: plans, finance, marketing.
+- Management Administrator only: plans, finance, marketing, commerce.
 
 The coarse `users` permission is split into `users.read` (shared by both
 roles) and `users.manage` (create, update, soft-delete, reactivate,
@@ -254,6 +255,21 @@ and deterministic calculation (floor division). Authorization is enforced by
 the handler and service perform no authorization checks. The
 `plans.commission.manage` permission is exclusive to the Management
 Administrator (ADMIN_2).
+
+The admin commerce foundation follows the same layering:
+`AdminCommerceHandler` (thin, in `api/auth`) → `admin_commerce` service (in
+`services/admin_commerce`) → `PurchaseRepository` and the program repository (in
+`repositories`). The service validates identifiers and filters, normalizes
+pagination (reusing `admin_users.MaxPageSize`), recomputes the buyer's `access`
+server-side and maps repository errors; the repository preloads the customer and
+program `Unscoped()` so soft-deleted accounts and retired programs keep
+resolving historically, aggregates the dashboard summary and the per-program
+sales rows, and never exposes commission/payout data, user/trainer ids or
+internal fields. Authorization is enforced by
+`RequireAdminPermission(PermissionCommerce)` at the route level; the handler and
+service perform no authorization checks. The `commerce` permission is exclusive
+to the Management Administrator (ADMIN_2), and the endpoints are strictly
+read-only — RYZE purchases are final.
 
 Trainer authorization is a separate concern from trainer authentication.
 Authentication (`middleware/trainercontext` + `middleware.TrainerAuthenticate`)
@@ -646,8 +662,13 @@ rules, and entitlement creation into a trusted atomic purchase flow:
   column over active completed purchases only (migration `000022`), so pending
   and failed retries are never blocked.
 - `ListPurchases` (`GET /api/v1/me/purchases`) returns the authenticated user's
-  purchases, newest first, using the shared safe purchase representation. The
-  owning user id is never exposed.
+  purchases, newest first, as a client-facing **history** DTO. The list DTO
+  exposes only the safe purchase fields (`id`, `program_id`, price/currency
+  snapshots, `status`, `test` flag, `created_at`/`updated_at`), a nested safe
+  Program summary, and a server-computed `access` boolean
+  (`completed` purchase of a published, active program). Internal payout
+  metadata (commission basis points, platform/trainer amounts) is never part of
+  the list response; it remains exclusive to the create/capture snapshots.
 - The response never exposes the owning user id or any internal data.
 
 The module follows the standard request flow:
@@ -659,6 +680,62 @@ service for commission resolution.
 
 A `commissionAdapter` in `routes/routes.go` bridges the commission rules
 service types to the purchase service types without coupling the two packages.
+
+### Admin Commerce
+
+The administrator commerce view is the Management-Administrator sales layer over
+the same `purchases` and `programs` tables the client purchase transaction
+writes to. It is strictly read-only: no admin endpoint creates, modifies or
+refunds a purchase.
+
+Request flow:
+
+`AdminCommerceHandler` (in `api/auth`) → `admin_commerce` service (in
+`services/admin_commerce`) → `PurchaseRepository` + `ProgramRepository` (in
+`repositories`). Every route runs behind `AdminAuthenticate` +
+`RequireAdminPermission(PermissionCommerce)`.
+
+Key rules:
+
+- **Pagination** follows the admin convention (`page`/`limit`, defaults 1/20,
+  capped at 100 via the shared `admin_users.MaxPageSize`). The shared `queryInt`
+  and `totalPages` helpers build the response envelope.
+- **Filters** (`program_id`, `status`, `test` tri-state, `from`/`to` date
+  range) are validated in the service; the repository applies them as plain
+  WHERE clauses. The date range is half-open: `created_at >= from` and
+  `created_at < to + 1 day` (UTC). `program_id` and the batch `program_ids`
+  (comma-separated UUIDs) are mutually exclusive.
+- **Batch program sales**: `GET /purchases/programs?program_ids=…` powers the
+  program-management area without leaking sales data through the general
+  program endpoints. In batch mode the service deduplicates ids, validates each
+  as a UUID, caps the set at `MaxPageSize` (100) and delegates the rows to the
+  repository, which skips the count query and `LIMIT/OFFSET`. The service
+  hydrates every requested program (`Unscoped()`, so retired programs keep
+  their history and `deleted: true`) and zero-fills any program without
+  matching purchases, preserving request order; the response pagination is
+  always `total = len(ids)`, one page. The DTO field `real_sales` now reports
+  completed non-test purchases on every program-sales row and is the single
+  authoritative "sales" figure shared by the Sales dashboard, the plans list
+  and the plan detail page (the `real_sales` value from the same endpoint).
+- **Historical accuracy**: the customer and program are preloaded `Unscoped()`
+  on list, detail and program-sales reads, so soft-deleted buyer accounts and
+  retired programs keep resolving. The DTO flags a retired program with
+  `deleted: true` and recomputes `access` (completed purchase of a published,
+  non-deleted program) on every response.
+- **Safe DTO**: responses expose the customer display name + email and the safe
+  program summary only. Commission/payout data, user ids, trainer ids,
+  `session_version`, timestamps of deletion and all internal fields stay
+  server-side; commission snapshots remain exclusive to the create/capture
+  payloads of the client purchase transaction.
+- **Test Mode accounting**: Test purchases are counted separately and excluded
+  from `real_revenue_minor_units` in both the dashboard summary and the
+  per-program rows. A completed purchase (test or real) still counts towards a
+  program's `completed_sales`, mirroring the dashboard `completed_count`
+  semantics.
+- **Ordering**: purchases sort newest first (`created_at` desc, id desc);
+  program-sales rows sort by completed sales, then revenue, then program id.
+- **Route registration**: the static `/purchases/programs` route is registered
+  before `/purchases/:id` so Gin resolves both without ambiguity.
 
 ### Payment Provider Abstraction
 
@@ -690,6 +767,9 @@ Components:
 - `services/payments/stripe_provider.go` — Stripe Checkout Sessions provider.
 - `services/payments/paypal_provider.go` — PayPal Orders provider (implements
   both interfaces; captures approved orders server-side).
+- `services/payments/provider_routing.go` — the `PaymentMethod` allowlist
+  (`ValidatePaymentMethod`), the `MethodProviderMap` provider routing table and
+  its `AvailableMethods()` projection used by the public methods endpoint.
 
 The `purchases` service holds a `payments.Provider` dependency injected at
 construction time. The `resolvePaymentProvider` function in routes selects the
@@ -727,10 +807,12 @@ The full payment lifecycle follows four distinct phases:
 1. Purchase creation (`POST /api/v1/me/programs/:programID/purchase`) —
    snapshots the commercial terms and creates a pending purchase.
 2. Payment initiation (`POST /api/v1/me/purchases/:purchaseID/payment`) —
-   delegates to the provider, returns checkout URL if applicable.
+   validates and resolves the payment method, records it on the purchase, then
+   delegates to the provider, returning the checkout URL if applicable.
 3. Payment capture (`POST /api/v1/me/purchases/:purchaseID/capture`, or the
-   PayPal webhook flow) — the approved provider payment is captured
-   server-side and bound to the purchase by the provider.
+   PayPal webhook flow) — the capture provider is resolved from the recorded
+   payment method, the approved provider payment is captured server-side and
+   bound to the purchase by the provider.
 4. Purchase completion — atomically transitions the purchase status and
    provisions the entitlement. Only ever reached through the server-verified
    capture path or a verified provider event, never through a browser redirect.
@@ -743,14 +825,28 @@ The payment service routes payment methods to providers through a centralized
 1. The client sends a `payment_method` value (card, mbway or paypal).
 2. The payment service validates the method against the allowlist.
 3. The `MethodProviderMap` resolves the method to the correct provider.
-4. The provider creates the checkout session using the immutable purchase
+4. As soon as a configured provider has been resolved, the validated method is
+   recorded on the purchase (`purchases.payment_method`), making it immutable for
+   that purchase.
+5. The provider creates the checkout session using the immutable purchase
    snapshot.
+
+Because the method is recorded server-side at initiation, the later capture flow
+resolves the capture provider from `purchases.payment_method` — never from
+client input. A purchase with no recorded method (legacy pending purchases, Test
+Mode purchases) fails closed on capture until it is re-initiated.
 
 The mapping:
 
 - `card` → Stripe provider.
 - `mbway` → Stripe provider (MB WAY is a Stripe payment method type).
 - `paypal` → PayPal provider.
+
+The `MethodProviderMap.AvailableMethods()` helper returns only the methods whose
+provider is actually configured, in the stable order `card`, `mbway`, `paypal`.
+It backs the public `GET /api/v1/payments/methods` endpoint, so the checkout UI
+advertises exactly the methods the backend can service and never hard-codes a
+payment method.
 
 PayPal provider:
 
@@ -767,6 +863,14 @@ Stripe provider:
 
 - Now configures payment method types on Checkout Sessions based on the
   requested method (card or mbway).
+
+Provider availability:
+
+- **PayPal is the functional provider** today.
+- **Stripe is prepared but not enabled** in a default deployment: the
+  `card` and `mbway` methods resolve only when `STRIPE_SECRET_KEY` and the
+  Stripe webhook secret are configured; otherwise `card`/`mbway` are not
+  advertised and not routed.
 
 The `purchases` service holds a `payments.Provider` dependency injected at
 construction time. The `resolvePaymentProvider` function in routes selects the
@@ -1064,6 +1168,19 @@ Important public UI building blocks currently include:
   generic program API (see `services/admin2_api.ts`), converting the local
   draft into the `wrapped weeks → workouts → exercises → sets` payload used by
   both `POST` and `PATCH` generic endpoints
+- authenticated account area (`/profile`, `/account/purchases`,
+  `/services/my-programs`, `/services/my-programs/:id`): the chrome-free
+  account pages share a single `components/account_nav` navigation bar (brand +
+  Profile / My Programs / Purchase History pills + optional user area). The
+  profile page is the account hub (hub cards linking into My Programs, Purchase
+  History and the Marketplace). The Purchase History page lists orders with
+  amount, date, status badges, the Test purchase marker and an "Open program"
+  action gated by the server-computed `access` flag. Routes under `/account`
+  and `/services/my-programs` opt out of the public navbar/footer chrome in
+  `app.tsx` (see also `docs/PAGES/design.MD`).
+- marketplace owned state: `fetchEntitlements()` runs fire-and-forget on the
+  marketplace page; owned programs render an accent "Owned" pill on their card
+  and link straight into the account area instead of the detail page
 
 Frontend tooling files live at the repository root:
 

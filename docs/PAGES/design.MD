@@ -571,7 +571,12 @@ FILTER RESULTS COUNT (when filters active)
    are sized purely by the CSS grid (no JavaScript measurement); all cards in a
    row share an equal height. Inside an active Test Mode session every
    purchasable premium card is forced to render as "Free" (the price is zeroed
-   for display; the underlying program data is never mutated).
+   for display; the underlying program data is never mutated). For signed-in
+   clients the marketplace resolves ownership on mount (fire-and-forget
+   `GET /me/entitlements`): an owned program swaps its price line for a cyan
+   accent "Owned" pill and its card links straight to
+   `/services/my-programs/:programId`, bypassing the detail page. A guest or an
+   unavailable entitlements call simply renders no owned state.
 - **No horizontal overflow** — the page must NEVER scroll horizontally. Card
   columns use `minmax(0, 1fr)`, there is no scrollable track and no fixed card
   width; `overflow-x: clip` is applied defensively at the application level
@@ -627,15 +632,26 @@ always remains viewable — it never requires authentication to read the program
     button linking to `/login`. Buyable-elsewhere styling, deliberately not
     locked: the program content remains readable.
   - `owned` — "You have access" success treatment ("You already own this
-    training plan") with a back Button to the marketplace.
-  - `ready` — the price and a primary "Buy program" CTA.
+    training plan") with a primary "Open program" button (into the account
+    area) and a back Button to the marketplace. Free programs stay unchanged:
+    their owned panel only links back to the marketplace (no Program Access
+    page exists for free programs).
+  - `ready` — the price and a primary "Buy now" CTA. When the backend advertises
+    more than one payment method (`GET /api/v1/payments/methods`), a small
+    radio list ("Payment method") sits between the note and the CTA with the
+    available methods, the first one pre-selected; the note reads "One-time
+    purchase. Secure checkout." rather than naming a provider. When exactly one
+    method is available the selector is omitted and the method is simply used.
+    When no provider is configured the panel shows an amber "Checkout
+    unavailable" note ("No payment provider is currently configured. Please try
+    again later.") with no buy action.
   - `creating` / `negotiating` — spinner states while the purchase is created
-    and the PayPal approval URL is being prepared.
-  - `redirecting` — spinner while the browser is sent to PayPal.
+    and the provider approval URL is being prepared.
+  - `redirecting` — spinner while the browser is sent to the provider.
   - `processing` — spinner shown on return; the page calls the capture endpoint
     with the order token, waits, and only then shows success.
   - `success` — success treatment ("Purchase complete · you now have access")
-    with a "Back to Training plans" button.
+    with a primary "Open program" button and a "My Programs" link.
   - `cancelled` — muted note ("Payment cancelled"), the panel returns to
     `ready`.
   - `error` — muted error with a Retry button; a cancelled order and a failed
@@ -654,7 +670,10 @@ always remains viewable — it never requires authentication to read the program
 The panel resolves ownership by fetching the user's entitlements (401 → guest
 state); return URLs carry `purchase_id` + `token` (capture) and `status`
 (optional cancelled flag). Success is never inferred from the redirect alone —
-the panel only shows "success" after the server-verified capture responds.
+the panel only shows "success" after the server-verified capture responds. The
+selected payment method is sent at initiation and is never re-asked on return:
+the backend resolved the provider and recorded the method when the checkout
+started, so the browser return only triggers the capture.
 
 Non-goals for this stage: reviews, social features, trainer attribution or
 related-program recommendations.
@@ -667,10 +686,11 @@ The authenticated client-facing listing of purchased/entitled programs. It
 follows the palette, motion and typography of the other authenticated pages.
 
 - **Route** — `/services/my-programs`, chrome-free: it renders without the
-  public chrome (same pattern as `/profile`) and carries its own minimal
-  navbar (`Brand` left, a "Profile" link in the reserved center navigation
-  area, symmetric spacer right). The global navigation is never swapped for an
-  authenticated state outside of it.
+  public chrome (same pattern as `/profile`). It shares the single account
+  navigation bar (`components/account_nav`: Brand left, Profile / My Programs /
+  Purchase History pills in the reserved center area, optional user chip right)
+  used by every authenticated account page. The global navigation is never
+  swapped for an authenticated state outside of it.
 - **Data** — `GET /api/v1/me/entitlements`, 401 → redirect to `/login`.
 - **States** — loading (spinner), generic error with a Retry button, and an
   empty state ("You have no programs yet") linking to the marketplace.
@@ -679,8 +699,8 @@ follows the palette, motion and typography of the other authenticated pages.
   `frequency_per_week`), plus an "Open program" affordance navigating to
   `/services/my-programs/:programId`. No price and no entitlement metadata are
   shown.
-- **Entry point** — the `/profile` page exposes a "My Programs" link in its
-  reserved center navigation area.
+- **Entry point** — the `/profile` account hub exposes a "My Programs" card
+  linking here.
 
 ---
 
@@ -690,8 +710,9 @@ The entitlement-protected program detail ("client program detail"). It is the
 same safe structure surface as the marketplace detail page, but exclusively for
 entitled programs and only reachable from My Programs.
 
-- **Route** — `/services/my-programs/:programId`, chrome-free with the same
-  minimal navbar pattern (a "My Programs" nav link back to the listing).
+- **Route** — `/services/my-programs/:programId`, chrome-free with the shared
+  account navigation bar (`components/account_nav`), identical to the other
+  account pages.
 - **Data** — `GET /api/v1/me/programs/:programId`; 401 → redirect to
   `/login`.
 - **States** — loading (spinner), generic error with a Retry button, and a
@@ -703,6 +724,40 @@ entitled programs and only reachable from My Programs.
 - **Shared structure** — the structure markup and set table are the shared
   `ProgramStructure` component reused by the marketplace plan detail page, so
   both surfaces stay visually identical.
+
+---
+
+### Purchase History
+
+The authenticated client-facing order history. It continues the account area
+palette, motion and typography and reuses the shared account navigation bar.
+
+- **Route** — `/account/purchases`, chrome-free alongside the other account
+  pages (`app.tsx` treats `/account` like `/services/my-programs`).
+- **Data** — `GET /api/v1/me/purchases`, 401 → redirect to `/login`. The
+  endpoint returns a safe history DTO (never commission or payout fields) with
+  a nested program summary plus server-computed `test` and `access` flags.
+- **Layout** — a confident heading ("Purchase History") with a muted supporting
+  line, then a vertical list of entry cards, newest first. Each entry shows the
+  program name (with its description when present), a Calendar icon + purchase
+  date, the amount formatted from minor units (always currency-formatted, so a
+  zero-price Test purchase reads as `€0.00` rather than "Free"), and right-side
+  metadata:
+  - status pill — green "Completed", amber "Pending" or red "Failed"
+    (the only statuses the backend emits);
+  - a neutral pill naming the payment method used (Card / MB WAY / PayPal) for
+    entries that carry a `payment_method`; omitted for Test purchases, which
+    never reach a payment provider;
+  - a cyan "Test purchase" pill for Test Mode entries;
+  - a primary "Open program" button linking to
+    `/services/my-programs/:programId` only when `status === completed` and
+    `access === true`;
+  - a muted "No longer available" note for completed purchases whose program
+    was retired or deleted (history persists, access is not).
+- **States** — loading (spinner), generic error with a Retry button, empty
+  state ("You have not purchased any programs yet") linking to the marketplace.
+- **Responsive** — entries stack vertically on narrow screens with the
+  metadata moving under the program text.
 
 ---
 
@@ -926,12 +981,14 @@ Authentication
 
 Navbar
 
-The profile page renders its own minimal navbar (the page is rendered without
-the global site chrome). It follows the Login/Register brand treatment.
+The profile page renders the shared account navigation bar
+(`components/account_nav`) since the page is rendered without the global site
+chrome (`/profile` is chrome-free alongside `/account/*` and
+`/services/my-programs`).
 
 - Left: RYZE logo/icon linking home.
-- Center: reserved empty navigation area for future pages. No links are
-  invented.
+- Center: Profile / My Programs / Purchase History pills (the authenticated
+  account navigation, identical across every account page).
 - Right: the authenticated user's first name followed by a circular profile
   avatar. No avatar upload exists yet, so a default person/user icon is shown.
 
@@ -944,7 +1001,12 @@ A centered, spacious, glass profile card (same language as the auth card):
 - Full name (`first_name` + `last_name`).
 - Email.
 - "Member since <Month Year>" derived from the account `created_at`.
-- A thin divider and a secondary "Log out" button.
+- A thin divider.
+- **Account hub** — three navigation cards (icon + title + one-line hint):
+  My Programs, Purchase History and Marketplace, making the profile the
+  authenticated account hub.
+- A secondary "Log out" button plus the existing authentication actions
+  (Change Password and Soft Delete Account panels).
 
 Logout
 
@@ -954,10 +1016,9 @@ functionality is implemented.
 
 Scope
 
-No statistics, training plans, nutrition, calendar, charts, marketplace,
-notifications, dashboard grids, sidebar or fake data. Change Password and
-Soft Delete Account are intentionally not implemented — those backend
-endpoints do not exist yet and no fake buttons are shown.
+No statistics, training plans, nutrition, calendar, charts, dashboard grids,
+sidebar or fake data in the profile card itself — training plans and purchases
+live on their own account pages reached from the hub.
 
 ---
 
@@ -1110,6 +1171,7 @@ Available to Management Administrators (ADMIN_2):
 - Plans / Packs
 - Finance
 - Marketing
+- Sales / Commerce
 - Trainer Management
 - Client Management
 - Marketplace management
@@ -1183,9 +1245,14 @@ Pages implemented in the current cycle:
   `/api/v1/programs/generic`. Searchable (the search bar queries the real
   backend), with type tabs (All / Generic / Premium · L1 / Premium · L2), a
   level filter and pagination. Each row shows the plan title, type, level,
-  frequency, duration, status and last-updated date with Edit and Delete
-  (soft delete, confirmed via dialog) actions. Prices and downloads are a later
-  step and are intentionally not shown.
+  frequency, duration, price and last-updated date with Edit and Delete
+  (soft delete, confirmed via dialog) actions. The list also exposes one
+  right-aligned sales group per plan — Sales (`real_sales`: completed non-test
+  purchases), Test (Test Mode completions) and Revenue (completed non-test) —
+  fetched in a single batch call against the commerce endpoint (Management
+  Administrator only). When the sales batch fails the numeric columns fall back
+  to an em dash and the section subtitle adds "· Sales unavailable" without
+  taking the plan list down.
 - **ADMIN_2 Plan creation workspace** — a dedicated `/admin2/plans/create`
   flow to build a Generic Plan: 4-step wizard (basic info, program structure,
   marketplace, review & publish) with a live RYZE marketplace card preview and
@@ -1218,16 +1285,36 @@ Pages implemented in the current cycle:
   (published → draft via the full update with a draft status), View in
   marketplace (links to the public `/services/generic-program/:programId`
   detail page when published), Edit plan (builds on the plan workspace in edit
-  mode) and Delete (soft delete with confirmation).
+  mode) and Delete (soft delete with confirmation). While a plan is published
+  a compact Sales section in the right rail shows Sales (`real_sales`), Revenue
+  and Test purchases and a "View purchases" action that deep-links to
+  `/admin2/sales?program_id=<id>`; when a published plan has paying clients,
+  the Unpublish action is preceded by a warning that unpublishing revokes those
+  clients' access (their entitlement is preserved, and access returns when the
+  plan is republished).
 - **ADMIN_2 Marketplace** — published catalog with filter chips grouped by
   product type, price and currency.
 - **ADMIN_2 Trainers (business)** — trainer profiles with a commission manager
   (default 20%, per-trainer override, max 10000 bps) backed by the platform
   commission endpoints.
 - **ADMIN_2 Clients** — paginated member accounts (read-only analytics view).
-- **ADMIN_2 Sales / Feedback** — honest unavailable states: the backend has no
-  admin sales or feedback endpoints yet, so the pages explain the gap instead
-  of fabricating data.
+- **ADMIN_2 Sales** — the commerce dashboard backed by the live `/admin/purchases*`
+  endpoints (Management Administrator only). Six metric cards (Revenue with a
+  "Completed sales · Test excluded" hint, Completed, Pending, Failed, Test
+  purchases, Programs with sales), a filter toolbar (program select populated
+  from the per-program endpoint, status, real/test mode, from/to date range and
+  a reset control), an accessible transactions table (program + type with
+  Retired/Test markers, customer name + email, currency-formatted amount,
+  status badge, active/no-access badge, date, and a View action opening a
+  purchase detail modal) with loading / error+retry / empty states and
+  pagination, plus a per-program sales section (completed, revenue excluding
+  test, pending, failed, test counts) with its own pagination. Test purchases
+  never contribute to revenue. The page accepts an optional `program_id` URL
+  query parameter as a deep link from the plan detail: it pre-selects the
+  program filter on mount and guarantees that program appears in the dropdown
+  even when it falls outside the top-100 option list.
+- **ADMIN_2 Feedback** — honest unavailable state: feedback is not part of the
+  product scope yet, so the page explains the gap instead of fabricating data.
 - **ADMIN_2 Analytics** — real aggregates (total accounts, product mix, average
   paid price) with a placeholder reserved for purchase/revenue charts.
 - **ADMIN_2 Settings** — read-only commercial configuration (currency, pricing

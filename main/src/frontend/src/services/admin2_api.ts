@@ -65,27 +65,136 @@ export interface AdminPricingInput {
   currency: string;
 }
 
+export interface AdminPurchaseProgram {
+  id: string;
+  name: string;
+  type: ProgramTypeValue;
+  status: ProgramStatusValue;
+  level: string | null;
+  duration_weeks: number | null;
+  frequency_per_week: number | null;
+  training_type: string | null;
+  price_minor_units: number;
+  currency: string;
+  deleted: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// The admin purchase view exposes a curated slice of the purchase record:
+// commission/payout data, the owning user id and all internal identifiers stay
+// server-side and are never part of this contract.
 export interface AdminPurchase {
   id: string;
-  user_id: string;
   program_id: string;
-  program_name: string;
   price_minor_units: number;
   currency: string;
   status: PurchaseStatus;
-  trainer_id: string | null;
-  trainer_name: string;
-  commission_bps: number;
-  platform_amount_minor_units: number;
-  trainer_amount_minor_units: number;
+  test: boolean;
+  access: boolean;
   created_at: string;
+  updated_at: string;
+  customer: {
+    name: string;
+    email: string;
+  };
+  program: AdminPurchaseProgram;
+}
+
+export interface AdminSalesSummary {
+  completed_count: number;
+  pending_count: number;
+  failed_count: number;
+  real_revenue_minor_units: number;
+  test_purchase_count: number;
+  programs_with_sales: number;
+}
+
+export interface AdminPurchaseListParams {
+  page: number;
+  limit: number;
+  program_id?: string;
+  // Batch program filter used by the program-management area: requests one
+  // zero-filled sale summary per program id in a single aggregation.
+  program_ids?: string[];
+  status?: PurchaseStatus | "";
+  test?: boolean;
+  from?: string;
+  to?: string;
 }
 
 export interface AdminPurchaseListResult {
-  available: boolean;
   purchases: AdminPurchase[];
-  reason: string;
+  summary: AdminSalesSummary;
+  pagination: AdminPagination;
 }
+
+export interface AdminPurchaseDetailResponse {
+  purchase: AdminPurchase;
+}
+
+export interface AdminProgramSale {
+  program: AdminPurchaseProgram;
+  completed_sales: number;
+  // Completed non-test purchases: Test Mode purchases are reported separately
+  // and never inflate the real sales figure.
+  real_sales: number;
+  revenue_minor_units: number;
+  test_purchases: number;
+  pending_purchases: number;
+  failed_purchases: number;
+}
+
+export interface AdminProgramSalesListResult {
+  sales: AdminProgramSale[];
+  pagination: AdminPagination;
+}
+
+const purchaseQuery = (params: AdminPurchaseListParams): string => {
+  const query = new URLSearchParams({
+    page: String(params.page),
+    limit: String(params.limit)
+  });
+  if (params.program_id) {
+    query.set("program_id", params.program_id);
+  }
+  if (params.program_ids && params.program_ids.length > 0) {
+    query.set("program_ids", params.program_ids.join(","));
+  }
+  if (params.status) {
+    query.set("status", params.status);
+  }
+  if (params.test !== undefined) {
+    query.set("test", String(params.test));
+  }
+  if (params.from) {
+    query.set("from", params.from);
+  }
+  if (params.to) {
+    query.set("to", params.to);
+  }
+  return query.toString();
+};
+
+export const fetchAdminPurchases = (params: AdminPurchaseListParams): Promise<AdminPurchaseListResult> =>
+  apiGet<AdminPurchaseListResult>(`/admin/purchases?${purchaseQuery(params)}`);
+
+export const fetchAdminPurchase = (id: string): Promise<AdminPurchase> =>
+  apiGet<AdminPurchaseDetailResponse>(`/admin/purchases/${id}`).then((result) => result.purchase);
+
+export const fetchAdminProgramSales = (
+  params: AdminPurchaseListParams
+): Promise<AdminProgramSalesListResult> =>
+  apiGet<AdminProgramSalesListResult>(`/admin/purchases/programs?${purchaseQuery(params)}`);
+
+// fetchAdminSalesByProgramIds requests one zero-filled sale summary per program
+// id in a single aggregation. It is used by the program-management area to show
+// per-program sales without leaking sale data through the general program
+// endpoints.
+export const fetchAdminSalesByProgramIds = (program_ids: string[]): Promise<AdminProgramSale[]> =>
+  fetchAdminProgramSales({ page: 1, limit: program_ids.length, program_ids }).then(
+    (result) => result.sales
+  );
 
 export interface AdminFeedback {
   id: string;
@@ -322,21 +431,6 @@ export const publishGenericProgram = (id: string) =>
 
 export const deleteGenericProgram = (id: string) =>
   apiDelete<never>(`/programs/generic/${id}`);
-
-/**
- * Resolves the admin purchase list. There is no admin sales endpoint in the
- * backend yet, so this always reports the data as unavailable instead of
- * fabricating records. Keep `AdminPurchase` aligned with the future
- * GET /admin/purchases response; pages consuming this contract must render
- * the honest unavailable state they receive.
- */
-export async function fetchAdminPurchases(): Promise<AdminPurchaseListResult> {
-  return {
-    available: false,
-    purchases: [],
-    reason: "The admin sales API is not implemented yet."
-  };
-}
 
 /**
  * Resolves the admin feedback list. Feedback is not part of the product yet,

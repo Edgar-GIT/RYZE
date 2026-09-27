@@ -7,7 +7,7 @@ import { ApiError } from "@utils/http_client";
 import { fetchEntitlements, type Entitlement } from "@/services/purchases_api";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useHistory } from "react-router-dom";
+import { Link, useHistory } from "react-router-dom";
 
 import styles from "./my_programs_page.module.css";
 

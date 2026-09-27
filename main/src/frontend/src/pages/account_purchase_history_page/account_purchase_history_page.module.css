@@ -154,6 +154,17 @@
   letter-spacing: 0.02em;
 }
 
+.methodBadge {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .unavailable {
   color: var(--text-muted);
   font-size: 0.78rem;

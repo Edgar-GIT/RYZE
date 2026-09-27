@@ -28,6 +28,12 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "Failed"
 };
 
+const METHOD_LABEL: Record<string, string> = {
+  card: "Card",
+  mbway: "MB WAY",
+  paypal: "PayPal"
+};
+
 const formatPrice = (minorUnits: number, currency: string): string =>
   new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -130,6 +136,12 @@ export const AccountPurchaseHistoryPage = () => {
                         <CreditCard size={13} aria-hidden="true" />
                         {formatPrice(entry.price_minor_units, entry.currency)}
                       </span>
+
+                      {!entry.test && entry.payment_method ? (
+                        <span className={styles.methodBadge}>
+                          {METHOD_LABEL[entry.payment_method] ?? entry.payment_method}
+                        </span>
+                      ) : null}
 
                       <span
                         className={joinClassNames(

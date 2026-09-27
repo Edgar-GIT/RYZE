@@ -131,3 +131,41 @@ func TestMethodProviderMapNoProvidersConfigured(t *testing.T) {
 		t.Fatalf("expected ErrNoProviderAvailable, got %v", err)
 	}
 }
+
+func TestMethodProviderMapAvailableMethods(t *testing.T) {
+	stripe := payments.NewFakeProvider()
+	paypalProvider := payments.NewFakeProvider()
+	methodMap := payments.NewMethodProviderMap(stripe, paypalProvider)
+
+	got := methodMap.AvailableMethods()
+	want := []payments.PaymentMethod{payments.PaymentMethodCard, payments.PaymentMethodMBWay, payments.PaymentMethodPayPal}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d available methods, got %d: %v", len(want), len(got), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected stable order %v, got %v", want, got)
+		}
+	}
+}
+
+func TestMethodProviderMapAvailableMethodsOmitsUnconfigured(t *testing.T) {
+	methodMap := payments.NewMethodProviderMap(nil, payments.NewFakeProvider())
+
+	got := methodMap.AvailableMethods()
+	want := []payments.PaymentMethod{payments.PaymentMethodPayPal}
+	if len(got) != len(want) {
+		t.Fatalf("expected only %d available method, got %v", len(want), got)
+	}
+	if got[0] != want[0] {
+		t.Fatalf("expected %q, got %q", want[0], got[0])
+	}
+}
+
+func TestMethodProviderMapAvailableMethodsEmpty(t *testing.T) {
+	methodMap := payments.NewMethodProviderMap(nil, nil)
+
+	if got := methodMap.AvailableMethods(); len(got) != 0 {
+		t.Fatalf("expected no available methods, got %v", got)
+	}
+}

@@ -19,14 +19,16 @@ import {
   createPurchaseIntent,
   fetchEntitlements,
   fetchMyPurchases,
+  fetchPaymentMethods,
   initiatePayment,
+  type PaymentMethodInfo,
   type Purchase
 } from "@/services/purchases_api";
 import { completeTestPurchase } from "@/services/test_mode_api";
+import { joinClassNames } from "@utils/class_names";
 
 import styles from "./generic_program_detail_page.module.css";
 
-const PURCHASE_METHOD = "paypal";
 const CANCELLED_STATUS = "cancelled";
 const DUPLICATE_PURCHASE = "DUPLICATE_PURCHASE";
 
@@ -53,12 +55,15 @@ interface PurchasePanelProps {
   currency: string;
   programId: string;
   state: PurchaseState;
+  paymentMethods: PaymentMethodInfo[];
+  selectedMethod: string;
+  onSelectMethod: (method: string) => void;
   onBuy: () => void;
   onRetryPurchase: (purchaseId: string) => void;
   testMode?: boolean;
 }
 
-const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, onBuy, onRetryPurchase, testMode = false }: PurchasePanelProps) => {
+const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, paymentMethods, selectedMethod, onSelectMethod, onBuy, onRetryPurchase, testMode = false }: PurchasePanelProps) => {
   if (isFree || state.status === "owned") {
     // Free programs have no Program Access page: their panel only links back
     // to the marketplace. Owned (paid/test) programs get an "Open program"
@@ -266,13 +271,56 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, onBuy, 
           </aside>
         );
       }
+      if (paymentMethods.length === 0) {
+        return (
+          <aside className={styles.purchase}>
+            <div className={`${styles.purchaseCard} ${styles.purchaseError}`}>
+              <p className={styles.purchaseTitle}>
+                <XCircle size={16} aria-hidden="true" />
+                Checkout unavailable
+              </p>
+              <p className={styles.purchaseText}>
+                No payment provider is currently configured. Please try again later.
+              </p>
+              <div className={styles.purchaseActions}>
+                <Button to="/services/generic-program" variant="ghost" size="small">
+                  Back to Training plans
+                </Button>
+              </div>
+            </div>
+          </aside>
+        );
+      }
       return (
         <aside className={styles.purchase}>
           <div className={styles.purchaseCard}>
             <p className={styles.purchaseTitle}>
               {formatMarketplacePrice(minorUnits, currency, "premium")}
             </p>
-            <p className={styles.purchaseText}>One-time purchase. Secure checkout with PayPal.</p>
+            <p className={styles.purchaseText}>One-time purchase. Secure checkout.</p>
+            {paymentMethods.length > 1 ? (
+              <fieldset className={styles.methodGroup}>
+                <legend className={styles.methodLegend}>Payment method</legend>
+                {paymentMethods.map((method) => (
+                  <label
+                    key={method.method}
+                    className={joinClassNames(
+                      styles.methodOption,
+                      selectedMethod === method.method && styles.methodOptionSelected
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="payment-method"
+                      value={method.method}
+                      checked={selectedMethod === method.method}
+                      onChange={() => onSelectMethod(method.method)}
+                    />
+                    <span>{method.label}</span>
+                  </label>
+                ))}
+              </fieldset>
+            ) : null}
             <div className={styles.purchaseActions}>
               <Button
                 variant="primary"
@@ -297,6 +345,8 @@ export const GenericProgramDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [purchaseState, setPurchaseState] = useState<PurchaseState>({ status: "checking" });
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodInfo[]>([]);
+  const [selectedMethod, setSelectedMethod] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -355,7 +405,11 @@ export const GenericProgramDetailPage = () => {
   const negotiatePayment = useCallback(async (purchaseId: string) => {
     setPurchaseState({ status: "negotiating" });
     try {
-      const initiation = await initiatePayment(purchaseId, PURCHASE_METHOD);
+      if (!selectedMethod) {
+        setPurchaseState({ status: "error", message: "Checkout is temporarily unavailable. Please try again later." });
+        return;
+      }
+      const initiation = await initiatePayment(purchaseId, selectedMethod);
       if (!initiation.checkout_url) {
         setPurchaseState({ status: "error", message: "Checkout is temporarily unavailable. Please try again." });
         return;
@@ -365,7 +419,7 @@ export const GenericProgramDetailPage = () => {
     } catch {
       setPurchaseState({ status: "error", message: "We could not start the checkout. No money was taken at this point." });
     }
-  }, []);
+  }, [selectedMethod]);
 
   const handleBuy = useCallback(async () => {
     setPurchaseState({ status: "creating" });
@@ -420,6 +474,27 @@ export const GenericProgramDetailPage = () => {
     },
     [negotiatePayment]
   );
+
+  // Resolve the currently configured payment methods. The endpoint is public
+  // and the frontend only renders what the backend advertises — it never
+  // hard-codes a payment method. A failure simply leaves the checkout panel
+  // in its unavailable state.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPaymentMethods()
+      .then((methods) => {
+        if (cancelled) return;
+        setPaymentMethods(methods);
+        setSelectedMethod(methods.length > 0 ? methods[0].method : "");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPaymentMethods([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Resolve the initial purchase post-a state once the program is known.
   // This intentionally runs alongside the content load: the entitlements
@@ -549,6 +624,9 @@ export const GenericProgramDetailPage = () => {
                   currency={detail.currency}
                   programId={programId}
                   state={purchaseState}
+                  paymentMethods={paymentMethods}
+                  selectedMethod={selectedMethod}
+                  onSelectMethod={setSelectedMethod}
                   onBuy={() =>
                     void (isTestModePurchase ? handleTestModeBuy() : handleBuy())
                   }

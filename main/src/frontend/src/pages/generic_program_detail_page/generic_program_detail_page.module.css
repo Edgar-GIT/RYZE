@@ -149,6 +149,49 @@
   margin-top: 0.3rem;
 }
 
+.methodGroup {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.methodLegend {
+  margin: 0 0 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.methodOption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(24, 216, 255, 0.22);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: rgba(24, 216, 255, 0.04);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.methodOptionSelected {
+  border-color: rgba(24, 216, 255, 0.55);
+  color: var(--text-primary);
+  background: rgba(24, 216, 255, 0.1);
+}
+
+.methodOption input {
+  margin: 0;
+  accent-color: var(--accent, #18d8ff);
+}
+
 .purchaseSuccess {
   border-color: rgba(46, 213, 115, 0.3);
   background: linear-gradient(180deg, rgba(46, 213, 115, 0.08), rgba(46, 213, 115, 0.02));

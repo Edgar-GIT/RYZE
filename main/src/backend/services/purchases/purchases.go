@@ -59,6 +59,7 @@ type PurchaseRepository interface {
 	Complete(ctx context.Context, purchaseID string) error
 	CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
 	CompleteTestPurchase(ctx context.Context, purchase *models.Purchase, entitlement *models.Entitlement) error
+	SetPaymentMethod(ctx context.Context, purchaseID, method string) error
 }
 
 // EntitlementRepository is the data-access surface for checking existing
@@ -122,6 +123,7 @@ type Purchase struct {
 	PlatformAmount  int64
 	TrainerAmount   int64
 	Status          string
+	PaymentMethod   string
 	Test            bool
 	Program         Program
 	Access          bool
@@ -260,9 +262,12 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 // The purchase must belong to the authenticated user and be in "pending" status.
 // The immutable purchase snapshot is used to construct the provider request; no
 // client-supplied commercial values are accepted. The payment method is validated
-// and resolved to the appropriate provider before initiation. The purchase status
-// is NOT modified during initiation — it remains "pending" until a verified
-// provider event flows through CompletePurchase().
+// and resolved to the appropriate provider before initiation. Once a configured
+// provider has been resolved, the validated method is recorded on the purchase:
+// from that point the method is immutable, so a later capture can always resolve
+// the correct provider server-side without trusting any client input. The
+// purchase status is NOT modified during initiation — it remains "pending" until
+// a verified provider event flows through CompletePurchase().
 func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, paymentMethod string) (*PaymentResult, error) {
 	if err := validateUserID(userID); err != nil {
 		return nil, err
@@ -295,6 +300,16 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 	provider, err := s.resolver(ctx, method)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
+	}
+
+	// Record the validated method before contacting the provider. From this
+	// point the method is immutable for the purchase, which is what lets the
+	// capture flow resolve the correct provider without any client input.
+	if err := s.purchases.SetPaymentMethod(ctx, purchase.ID, string(method)); err != nil {
+		if errors.Is(err, repositories.ErrPurchaseNotFound) {
+			return nil, ErrPurchaseNotFound
+		}
+		return nil, fmt.Errorf("failed to record payment method: %w", err)
 	}
 
 	request := payments.PaymentRequest{
@@ -572,10 +587,14 @@ func (s *service) CompletePurchaseWithCapture(ctx context.Context, purchaseID, p
 }
 
 // captureAndComplete captures the approved provider payment for the purchase
-// and completes it atomically. The purchase must currently be pending; an
-// already-completed purchase is a safe idempotent success. Capture failures
-// surface as ErrPaymentProvider and NEVER complete the purchase — the status
-// remains pending so the buyer can retry or re-initiate.
+// and completes it atomically. The capture provider is resolved from the
+// payment method recorded on the purchase at initiation — it is never derived
+// from client input. A purchase without a recorded method cannot be captured
+// and fails closed as a provider error, keeping the purchase pending so the
+// buyer can re-initiate. An already-completed purchase is a safe idempotent
+// success. Capture failures surface as ErrPaymentProvider and NEVER complete
+// the purchase — the status remains pending so the buyer can retry or
+// re-initiate.
 func (s *service) captureAndComplete(ctx context.Context, purchase *models.Purchase, providerPaymentID string) (*Purchase, error) {
 	if purchase.Status == models.PurchaseStatusCompleted {
 		existing, entErr := s.entitlements.FindActiveByUserAndProgram(ctx, purchase.UserID, purchase.ProgramID)
@@ -592,7 +611,15 @@ func (s *service) captureAndComplete(ctx context.Context, purchase *models.Purch
 		return nil, ErrPurchaseNotPending
 	}
 
-	provider, err := s.resolver(ctx, payments.PaymentMethodPayPal)
+	methodValue := ""
+	if purchase.PaymentMethod != nil {
+		methodValue = *purchase.PaymentMethod
+	}
+	method := payments.PaymentMethod(methodValue)
+	if err := payments.ValidatePaymentMethod(methodValue); err != nil {
+		return nil, fmt.Errorf("%w: purchase has no recorded payment method", ErrPaymentProvider)
+	}
+	provider, err := s.resolver(ctx, method)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
 	}
@@ -615,6 +642,10 @@ func (s *service) captureAndComplete(ctx context.Context, purchase *models.Purch
 }
 
 func newPurchase(model *models.Purchase) *Purchase {
+	paymentMethod := ""
+	if model.PaymentMethod != nil {
+		paymentMethod = *model.PaymentMethod
+	}
 	return &Purchase{
 		ID:              model.ID,
 		UserID:          model.UserID,
@@ -625,6 +656,7 @@ func newPurchase(model *models.Purchase) *Purchase {
 		PlatformAmount:  model.PlatformAmount,
 		TrainerAmount:   model.TrainerAmount,
 		Status:          model.Status,
+		PaymentMethod:   paymentMethod,
 		Test:            model.Test,
 		Program:         newProgram(&model.Program),
 		Access:          hasAccess(model),

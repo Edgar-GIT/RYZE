@@ -10,10 +10,13 @@ import { Button } from "@/components/button/button";
 import { joinClassNames } from "@utils/class_names";
 import {
   deleteGenericProgram,
+  fetchAdminSalesByProgramIds,
   fetchGenericPrograms,
+  formatAdminPrice,
   programTypeLabel,
   ProgramStatusEnum,
   ProgramType,
+  type AdminProgramSale,
   type GenericProgramLevel,
   type GenericProgramSummary,
   type ProgramTypeValue
@@ -103,6 +106,8 @@ export default function Admin2PlansPage() {
 
   const [programs, setPrograms] = useState<GenericProgramSummary[]>([]);
   const [pagination, setPagination] = useState<AdminPagination | null>(null);
+  const [salesByProgram, setSalesByProgram] = useState<Record<string, AdminProgramSale>>({});
+  const [salesError, setSalesError] = useState(false);
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -132,6 +137,21 @@ export default function Admin2PlansPage() {
       });
       setPrograms(result.programs);
       setPagination(result.pagination);
+
+      if (result.programs.length === 0) {
+        setSalesByProgram({});
+        setSalesError(false);
+      } else {
+        try {
+          const sales = await fetchAdminSalesByProgramIds(result.programs.map((program) => program.id));
+          setSalesByProgram(
+            Object.fromEntries(sales.map((sale) => [sale.program.id, sale]))
+          );
+          setSalesError(false);
+        } catch {
+          setSalesError(true);
+        }
+      }
     } catch {
       setErrorMessage("Unable to load plans. Please try again.");
     } finally {
@@ -264,7 +284,9 @@ export default function Admin2PlansPage() {
             ? "Loading…"
             : errorMessage
               ? ""
-              : `${pagination?.total ?? 0} program${pagination && pagination.total === 1 ? "" : "s"}`
+              : `${pagination?.total ?? 0} program${pagination && pagination.total === 1 ? "" : "s"}${
+                  salesError ? " · Sales unavailable" : ""
+                }`
         }
       >
         {loading ? (
@@ -311,59 +333,74 @@ export default function Admin2PlansPage() {
                     <th>Level</th>
                     <th>Frequency</th>
                     <th>Duration</th>
+                    <th className={styles.tableNumeric}>Price</th>
+                    <th className={styles.tableNumeric}>Sales</th>
+                    <th className={styles.tableNumeric}>Test</th>
+                    <th className={styles.tableNumeric}>Revenue</th>
                     <th>Status</th>
                     <th>Updated</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {programs.map((program) => (
-                    <tr key={program.id}>
-                      <td>
-                        <Link to={`/admin2/plans/${program.id}`}>{program.name}</Link>
-                      </td>
-                      <td>
-                        <Admin2StatusBadge
-                          label={programTypeLabel(program.type)}
-                          tone="success"
-                          withDot={false}
-                        />
-                      </td>
-                      <td className={styles.tableMuted}>{levelLabel(program.level)}</td>
-                      <td className={styles.tableMuted}>
-                        {frequencyLabel(program.frequency_per_week)}
-                      </td>
-                      <td className={styles.tableMuted}>{durationLabel(program.duration_weeks)}</td>
-                      <td>
-                        <Admin2StatusBadge
-                          label={program.status === ProgramStatusEnum.PUBLISHED ? "Published" : "Draft"}
-                          tone={program.status === ProgramStatusEnum.PUBLISHED ? "success" : "warning"}
-                        />
-                      </td>
-                      <td className={styles.tableMuted}>{formatAdminDate(program.updated_at)}</td>
-                      <td className={styles.tableAction}>
-                        <Button
-                          to={`/admin2/plans/create?edit=${program.id}`}
-                          variant="ghost"
-                          size="small"
-                          icon={<Edit size={14} />}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="small"
-                          icon={<Trash2 size={14} />}
-                          onClick={() => {
-                            setDeleteError("");
-                            setDeleteTarget(program);
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {programs.map((program) => {
+                    const sale = salesByProgram[program.id];
+                    return (
+                      <tr key={program.id}>
+                        <td>
+                          <Link to={`/admin2/plans/${program.id}`}>{program.name}</Link>
+                        </td>
+                        <td>
+                          <Admin2StatusBadge
+                            label={programTypeLabel(program.type)}
+                            tone="success"
+                            withDot={false}
+                          />
+                        </td>
+                        <td className={styles.tableMuted}>{levelLabel(program.level)}</td>
+                        <td className={styles.tableMuted}>
+                          {frequencyLabel(program.frequency_per_week)}
+                        </td>
+                        <td className={styles.tableMuted}>{durationLabel(program.duration_weeks)}</td>
+                        <td className={styles.tableNumeric}>
+                          {formatAdminPrice(program.price_minor_units, program.currency)}
+                        </td>
+                        <td className={styles.tableNumeric}>{sale ? sale.real_sales : "—"}</td>
+                        <td className={styles.tableNumeric}>{sale ? sale.test_purchases : "—"}</td>
+                        <td className={styles.tableNumeric}>
+                          {sale ? formatAdminPrice(sale.revenue_minor_units, program.currency) : "—"}
+                        </td>
+                        <td>
+                          <Admin2StatusBadge
+                            label={program.status === ProgramStatusEnum.PUBLISHED ? "Published" : "Draft"}
+                            tone={program.status === ProgramStatusEnum.PUBLISHED ? "success" : "warning"}
+                          />
+                        </td>
+                        <td className={styles.tableMuted}>{formatAdminDate(program.updated_at)}</td>
+                        <td className={styles.tableAction}>
+                          <Button
+                            to={`/admin2/plans/create?edit=${program.id}`}
+                            variant="ghost"
+                            size="small"
+                            icon={<Edit size={14} />}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="small"
+                            icon={<Trash2 size={14} />}
+                            onClick={() => {
+                              setDeleteError("");
+                              setDeleteTarget(program);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

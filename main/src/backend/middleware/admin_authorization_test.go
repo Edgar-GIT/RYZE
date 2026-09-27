@@ -498,6 +498,7 @@ func TestPermissionsTechnicalAdministrator(t *testing.T) {
 
 	for _, denied := range []adminroles.Permission{
 		adminroles.PermissionPlans,
+		adminroles.PermissionCommerce,
 		adminroles.PermissionFinance,
 		adminroles.PermissionMarketing,
 	} {
@@ -515,6 +516,7 @@ func TestPermissionsManagementAdministrator(t *testing.T) {
 		adminroles.PermissionTrainersRead,
 		adminroles.PermissionStatistics,
 		adminroles.PermissionPlans,
+		adminroles.PermissionCommerce,
 		adminroles.PermissionFinance,
 		adminroles.PermissionMarketing,
 	} {

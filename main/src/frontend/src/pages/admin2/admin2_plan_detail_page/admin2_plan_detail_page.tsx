@@ -9,12 +9,14 @@ import { Admin2Modal } from "@/components/admin2/admin2_modal/admin2_modal";
 import { Button } from "@/components/button/button";
 import {
   deleteGenericProgram,
+  fetchAdminSalesByProgramIds,
   fetchGenericProgram,
   formatAdminPrice,
   programTypeLabel,
   ProgramStatusEnum,
   publishGenericProgram,
   updateGenericProgram,
+  type AdminProgramSale,
   type GenericProgramDetail,
   type GenericProgramSet,
   type ProgramStatusValue
@@ -112,6 +114,23 @@ export default function Admin2PlanDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
+  const [sale, setSale] = useState<AdminProgramSale | null>(null);
+  const [salesError, setSalesError] = useState(false);
+
+  const loadSales = useCallback(async (programId: string, status: ProgramStatusValue) => {
+    if (status !== ProgramStatusEnum.PUBLISHED) {
+      setSale(null);
+      setSalesError(false);
+      return;
+    }
+    try {
+      const sales = await fetchAdminSalesByProgramIds([programId]);
+      setSale(sales[0] ?? null);
+      setSalesError(false);
+    } catch {
+      setSalesError(true);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,12 +139,13 @@ export default function Admin2PlanDetailPage() {
     try {
       const result = await fetchGenericProgram(programId);
       setProgram(result);
+      await loadSales(result.id, result.status);
     } catch {
       setErrorMessage("Unable to load this plan. It may have been removed.");
     } finally {
       setLoading(false);
     }
-  }, [programId]);
+  }, [programId, loadSales]);
 
   useEffect(() => {
     void load();
@@ -266,117 +286,183 @@ export default function Admin2PlanDetailPage() {
             </div>
           </Admin2Section>
 
-          <Admin2Section title="Summary" subtitle="Program facts">
-            <div className={styles.detailList}>
-              <div className={styles.row}>
-                <p className={styles.rowLabel}>Type</p>
-                <p className={styles.rowValue}>{programTypeLabel(program.type)}</p>
-              </div>
-              <div className={styles.row}>
-                <p className={styles.rowLabel}>Status</p>
-                <div className={styles.rowValue}>
-                  <Admin2StatusBadge
-                    label={program.status === ProgramStatusEnum.PUBLISHED ? "Published" : "Draft"}
-                    tone={program.status === ProgramStatusEnum.PUBLISHED ? "success" : "warning"}
-                  />
+          <div className={styles.sideRail}>
+            <Admin2Section title="Summary" subtitle="Program facts">
+              <div className={styles.detailList}>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Type</p>
+                  <p className={styles.rowValue}>{programTypeLabel(program.type)}</p>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Status</p>
+                  <div className={styles.rowValue}>
+                    <Admin2StatusBadge
+                      label={program.status === ProgramStatusEnum.PUBLISHED ? "Published" : "Draft"}
+                      tone={program.status === ProgramStatusEnum.PUBLISHED ? "success" : "warning"}
+                    />
+                  </div>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Level</p>
+                  <p className={styles.rowValue}>{program.level ?? "—"}</p>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Training type</p>
+                  <p className={styles.rowValue}>{program.training_type ?? "—"}</p>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Frequency</p>
+                  <p className={styles.rowValue}>
+                    {program.frequency_per_week === null
+                      ? "—"
+                      : `${program.frequency_per_week} day${program.frequency_per_week === 1 ? "" : "s"}/week`}
+                  </p>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Duration</p>
+                  <p className={styles.rowValue}>
+                    {program.duration_weeks === null
+                      ? "—"
+                      : `${program.duration_weeks} week${program.duration_weeks === 1 ? "" : "s"}`}
+                  </p>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Price</p>
+                  <p className={styles.rowValue}>
+                    {formatAdminPrice(program.price_minor_units, program.currency)}
+                  </p>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Created</p>
+                  <p className={styles.rowValue}>{formatAdminDate(program.created_at)}</p>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Last updated</p>
+                  <p className={styles.rowValue}>{formatAdminDate(program.updated_at)}</p>
                 </div>
               </div>
-              <div className={styles.row}>
-                <p className={styles.rowLabel}>Level</p>
-                <p className={styles.rowValue}>{program.level ?? "—"}</p>
-              </div>
-              <div className={styles.row}>
-                <p className={styles.rowLabel}>Training type</p>
-                <p className={styles.rowValue}>{program.training_type ?? "—"}</p>
-              </div>
-              <div className={styles.row}>
-                <p className={styles.rowLabel}>Frequency</p>
-                <p className={styles.rowValue}>
-                  {program.frequency_per_week === null
-                    ? "—"
-                    : `${program.frequency_per_week} day${program.frequency_per_week === 1 ? "" : "s"}/week`}
-                </p>
-              </div>
-              <div className={styles.row}>
-                <p className={styles.rowLabel}>Duration</p>
-                <p className={styles.rowValue}>
-                  {program.duration_weeks === null
-                    ? "—"
-                    : `${program.duration_weeks} week${program.duration_weeks === 1 ? "" : "s"}`}
-                </p>
-              </div>
-              <div className={styles.row}>
-                <p className={styles.rowLabel}>Price</p>
-                <p className={styles.rowValue}>
-                  {formatAdminPrice(program.price_minor_units, program.currency)}
-                </p>
-              </div>
-              <div className={styles.row}>
-                <p className={styles.rowLabel}>Created</p>
-                <p className={styles.rowValue}>{formatAdminDate(program.created_at)}</p>
-              </div>
-              <div className={styles.row}>
-                <p className={styles.rowLabel}>Last updated</p>
-                <p className={styles.rowValue}>{formatAdminDate(program.updated_at)}</p>
-              </div>
-            </div>
 
-            <div className={styles.actions}>
-              {publishError ? (
-                <p className={styles.formError} role="alert">
-                  {publishError}
+              {program.status === ProgramStatusEnum.PUBLISHED && sale && sale.real_sales > 0 ? (
+                <p className={styles.noticeWarn} role="alert">
+                  {sale.real_sales} client{sale.real_sales === 1 ? " has" : "s have"} paid access to
+                  this plan. Unpublishing revokes that access immediately: the programme disappears
+                  from their RYZE app until this plan is published again. Their entitlement is
+                  preserved.
                 </p>
               ) : null}
 
-              {program.status === ProgramStatusEnum.DRAFT ? (
-                <Button
-                  variant="secondary"
-                  size="small"
-                  onClick={() => void changeStatus(ProgramStatusEnum.PUBLISHED)}
-                  disabled={publishing}
-                >
-                  {publishing ? "Publishing…" : "Publish plan"}
-                </Button>
-              ) : (
-                <>
-                  <Button to={`/services/generic-program/${program.id}`} variant="secondary" size="small" icon={<ExternalLink size={14} />}>
-                    View in marketplace
-                  </Button>
+              <div className={styles.actions}>
+                {publishError ? (
+                  <p className={styles.formError} role="alert">
+                    {publishError}
+                  </p>
+                ) : null}
+
+                {program.status === ProgramStatusEnum.DRAFT ? (
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="small"
-                    onClick={() => void changeStatus(ProgramStatusEnum.DRAFT)}
+                    onClick={() => void changeStatus(ProgramStatusEnum.PUBLISHED)}
                     disabled={publishing}
                   >
-                    {publishing ? "Unpublishing…" : "Unpublish plan"}
+                    {publishing ? "Publishing…" : "Publish plan"}
                   </Button>
-                </>
-              )}
+                ) : (
+                  <>
+                    <Button to={`/services/generic-program/${program.id}`} variant="secondary" size="small" icon={<ExternalLink size={14} />}>
+                      View in marketplace
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="small"
+                      onClick={() => void changeStatus(ProgramStatusEnum.DRAFT)}
+                      disabled={publishing}
+                    >
+                      {publishing ? "Unpublishing…" : "Unpublish plan"}
+                    </Button>
+                  </>
+                )}
 
-              <Button
-                to={`/admin2/plans/create?edit=${program.id}`}
-                variant="secondary"
-                size="small"
-                icon={<Edit size={14} />}
-              >
-                Edit plan
-              </Button>
-              <Button
-                variant="ghost"
-                size="small"
-                icon={<Trash2 size={14} />}
-                onClick={() => {
-                  setDeleteError("");
-                  setShowDelete(true);
-                }}
-              >
-                Delete
-              </Button>
-              <Link className={styles.backLink} to="/admin2/plans">
-                Back to the plan list
-              </Link>
-            </div>
-          </Admin2Section>
+                <Button
+                  to={`/admin2/plans/create?edit=${program.id}`}
+                  variant="secondary"
+                  size="small"
+                  icon={<Edit size={14} />}
+                >
+                  Edit plan
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="small"
+                  icon={<Trash2 size={14} />}
+                  onClick={() => {
+                    setDeleteError("");
+                    setShowDelete(true);
+                  }}
+                >
+                  Delete
+                </Button>
+                <Link className={styles.backLink} to="/admin2/plans">
+                  Back to the plan list
+                </Link>
+              </div>
+            </Admin2Section>
+
+            {program.status === ProgramStatusEnum.PUBLISHED ? (
+              <Admin2Section title="Sales" subtitle="Paid access to this plan">
+                {salesError ? (
+                  <div className={styles.salesBody}>
+                    <p className={styles.formError} role="alert">
+                      Sales are unavailable right now.
+                    </p>
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        icon={<RefreshCw size={15} />}
+                        onClick={() => void loadSales(program.id, program.status)}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  </div>
+                ) : sale ? (
+                  <>
+                    <div className={styles.detailList}>
+                      <div className={styles.row}>
+                        <p className={styles.rowLabel}>Sales</p>
+                        <p className={styles.rowValue}>{sale.real_sales}</p>
+                      </div>
+                      <div className={styles.row}>
+                        <p className={styles.rowLabel}>Revenue</p>
+                        <p className={styles.rowValue}>
+                          {formatAdminPrice(sale.revenue_minor_units, program.currency)}
+                        </p>
+                      </div>
+                      <div className={styles.row}>
+                        <p className={styles.rowLabel}>Test purchases</p>
+                        <p className={styles.rowValue}>{sale.test_purchases}</p>
+                      </div>
+                    </div>
+                    <div className={styles.salesFooter}>
+                      <Button
+                        to={`/admin2/sales?program_id=${program.id}`}
+                        variant="secondary"
+                        size="small"
+                        icon={<ExternalLink size={14} />}
+                      >
+                        View purchases
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className={styles.salesBody}>
+                    <p className={styles.tableMuted}>Loading sales…</p>
+                  </div>
+                )}
+              </Admin2Section>
+            ) : null}
+          </div>
         </div>
       )}
 

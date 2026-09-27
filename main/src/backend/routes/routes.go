@@ -17,6 +17,7 @@ import (
 	"ryze/backend/middleware/adminroles"
 	"ryze/backend/middleware/trainerroles"
 	"ryze/backend/repositories"
+	"ryze/backend/services/admin_commerce"
 	"ryze/backend/services/admin_login"
 	"ryze/backend/services/admin_program_pricing"
 	"ryze/backend/services/admin_trainers"
@@ -132,6 +133,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	methodMap := payments.NewMethodProviderMap(stripeProvider, paypalProvider)
 	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService}, nil, methodMap.Resolve)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
+	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)
+
+	adminCommerceService := admin_commerce.NewService(purchaseRepository, trainerProgramRepository)
+	adminCommerceHandler := auth.NewAdminCommerceHandler(adminCommerceService)
 
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
 	programWorkoutRepository := repositories.NewProgramWorkoutRepository(db)
@@ -171,6 +176,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/exercises/:exerciseID", exercisesHandler.GetExercise)
 	v1.GET("/programs", publicProgramHandler.ListPublishedPrograms)
 	v1.GET("/programs/:programID", publicProgramHandler.GetPublishedProgram)
+	v1.GET("/payments/methods", paymentMethodsHandler.List)
 	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
 	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
@@ -302,6 +308,14 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminCommission.PATCH("/trainers/:id/commission", adminCommissionHandler.UpsertCommissionRule)
 	adminCommission.DELETE("/trainers/:id/commission", adminCommissionHandler.DeleteCommissionRule)
 	adminCommission.GET("/trainers/:id/commission/resolve", adminCommissionHandler.GetCommissionResolution)
+
+	adminCommerce := admin.Group("")
+	adminCommerce.Use(middleware.RequireAdminPermission(adminroles.PermissionCommerce))
+	// The static /programs path must be registered before /:id so the router
+	// resolves both without ambiguity.
+	adminCommerce.GET("/purchases/programs", adminCommerceHandler.ListProgramSales)
+	adminCommerce.GET("/purchases", adminCommerceHandler.ListPurchases)
+	adminCommerce.GET("/purchases/:id", adminCommerceHandler.GetPurchase)
 
 	if webhookCfg.StripeWebhookSecret != "" {
 		stripeWebhookHandler := webhooks.NewStripeWebhookHandler(webhookCfg.StripeWebhookSecret, purchaseService)

@@ -1,3 +1,341 @@
+# Version 2.77.0
+
+Title: Payment Provider Expansion & Checkout Architecture — server-recorded payment methods and a backend-driven checkout
+
+Date: 2026-09-27
+
+Summary:
+
+Completes the payment-method / model separation that the multi-provider
+payments architecture (Stripe + PayPal) was still missing. The purchase now
+stores the payment method chosen at initiation, and the capture flow resolves
+the capture provider from that recorded value instead of the PayPal hardcode it
+used before. A new public `GET /api/v1/payments/methods` endpoint advertises
+exactly the methods the backend can service, and the checkout panel consumes it
+instead of hard-coding `"paypal"`, so enabling a second provider no longer
+requires a frontend change. PayPal is the functional provider; Stripe is
+prepared but not enabled (it needs `STRIPE_SECRET_KEY` and its webhook secret),
+and this is now stated explicitly in the documentation. No refunds, no
+subscriptions and no admin payment mutation were introduced.
+
+Main changes:
+
+- **Purchase method persistence (migration `000024`)** — new
+  `purchases.payment_method VARCHAR(20) NULL` with a `CHECK` constraint limited
+  to `card`, `mbway` and `paypal`. The Go model uses `*string` so an unset
+  method is stored as `NULL` (never an empty string, which the constraint would
+  reject). `repositories.PurchaseRepository` gains `SetPaymentMethod` (scoped
+  update by id; unknown/soft-deleted rows surface `ErrPurchaseNotFound`, status
+  is never touched) and the narrow `purchases.PurchaseRepository` interface
+  exposes it too. `admin_commerce` keeps its own narrow interface and is
+  unaffected.
+- **Method recorded at initiation** — `InitiatePayment` validates the method,
+  resolves the provider, and only then records the validated method on the
+  purchase, before contacting the provider. From that point the method is
+  immutable for the purchase, which is what makes the capture deterministic. A
+  provider failure keeps the recorded method and leaves the purchase pending, so
+  the retry reuses the same method.
+- **Capture resolves from the recorded method** — `captureAndComplete` no longer
+  hard-codes `PaymentMethodPayPal`: it validates `purchase.PaymentMethod` and
+  resolves the capture provider from it. A purchase with no recorded method
+  fails closed with `ErrPaymentProvider` (generic 502) and stays pending. Legacy
+  pending purchases created before this column existed must be re-initiated
+  before they can be captured — documented in `api.MD`. Test Mode purchases are
+  unaffected: they never contact a provider and keep a `NULL` method.
+- **Public payment methods endpoint** — `MethodProviderMap.AvailableMethods()`
+  projects the routing table into the methods whose provider is actually
+  configured, in the stable order `card`, `mbway`, `paypal`, and backs the new
+  public `GET /api/v1/payments/methods` (`api/auth/payment_methods_handler.go`).
+  The response is `{method, label}` only — no provider name, configuration or
+  secret. Unauthenticated by design (a guest must see the options before
+  signing in). An empty list is a valid 200 and renders checkout unavailable.
+- **Backend-driven checkout** — `services/purchases_api.ts` gains
+  `PaymentMethodInfo` and `fetchPaymentMethods()`, and `payment_method` on both
+  `Purchase` and `PurchaseHistoryEntry`. The hard-coded
+  `PURCHASE_METHOD = "paypal"` is gone: the detail page fetches the available
+  methods on mount, shows a radio list when more than one is advertised (first
+  pre-selected), omits the selector when only one exists, and shows a "Checkout
+  unavailable" note when none is configured. The selected method is sent at
+  initiation only. Purchase History renders a neutral pill naming the method used
+  (Card / MB WAY / PayPal), omitted for Test purchases.
+- **Backend tests** — `services/payments`: `AvailableMethods` full/partial/empty
+  coverage. `services/purchases`: `SetPaymentMethod` on the stubs, capture
+  fixtures now carry a recorded method, and new tests for method persistence at
+  initiation, no persistence when no provider resolves, fail-closed capture
+  without a recorded method, and capture resolving a different provider from the
+  recorded method (proving no PayPal hardcode). `repositories`: integration test
+  for `SetPaymentMethod` including the unknown-id case. `api/auth`: methods
+  endpoint tests for the configured/partial/empty cases.
+- **Test alignment** — `TestCaptureIntegrationSuccess` now initiates payment
+  before capturing, matching the real checkout flow: capture of a purchase that
+  never reached a provider correctly fails closed, so the fixture no longer
+  bypasses initiation. The capture integration tests that assert 401 / 404 /
+  409 are untouched because they never reach provider resolution.
+- **Docs** — `database.MD` (`payment_method` column, its NULL semantics and the
+  `SetPaymentMethod` repository method), `api.MD` (`payment_method` in the
+  purchase DTOs, method recording at initiation, capture resolving from the
+  recorded method with the fail-closed/legacy note, and the new public
+  `GET /api/v1/payments/methods` section), `arquitecture.MD` (provider routing
+  rewritten around method recording, `AvailableMethods`, and the explicit
+  PayPal-functional / Stripe-prepared-but-not-enabled statement),
+  `security.MD` (immutable recorded method, capture-time provider resolution,
+  and a new Payment Methods Endpoint Security section), `PAGES/design.MD`
+  (purchase panel method selector and unavailable state, Purchase History method
+  pill). `.env.example` and `how_to_run.MD` are unchanged: no new environment
+  variable was introduced.
+- **Validation** — backend `go build` / `go vet` clean; migration `000024`
+  applied through the established `migrate up` workflow; `services/payments`,
+  `services/purchases`, `repositories` and the purchase/payment `api/auth`
+  suites pass. The full backend suite shows only the five pre-existing unrelated
+  failures (`TestTrainerRepository`; `TestAdminApproveApplicationAlreadyApproved`,
+  `TestAdminApproveApplicationAlreadyTrainerAtomicity`,
+  `TestAdminRejectThenReapplyApproved`, `TestTrainerProgramsCreateSuccess`).
+  Frontend `tsc --noEmit` and the Vite production build pass.
+
+Files added:
+
+- `main/src/backend/database/migrations/000024_add_payment_method_to_purchases.up.sql`
+- `main/src/backend/database/migrations/000024_add_payment_method_to_purchases.down.sql`
+- `main/src/backend/api/auth/payment_methods_handler.go`
+- `main/src/backend/api/auth/payment_methods_handler_test.go`
+
+Files modified:
+
+- `main/src/backend/models/purchase.go` — `PaymentMethod *string`.
+- `main/src/backend/repositories/purchase_repository.go` — `SetPaymentMethod`.
+- `main/src/backend/repositories/purchase_repository_test.go`
+- `main/src/backend/services/purchases/purchases.go` — record at initiation,
+  resolve at capture.
+- `main/src/backend/services/purchases/purchases_test.go`
+- `main/src/backend/services/payments/provider_routing.go` — `AvailableMethods`.
+- `main/src/backend/services/payments/provider_routing_test.go`
+- `main/src/backend/api/auth/purchase_handler.go` — `payment_method` in both DTOs.
+- `main/src/backend/api/auth/purchase_handler_test.go` — capture fixture now
+  initiates first.
+- `main/src/backend/routes/routes.go` — wire the methods handler and route.
+- `main/src/frontend/src/services/purchases_api.ts`
+- `main/src/frontend/src/pages/generic_program_detail_page/generic_program_detail_page.tsx`
+- `main/src/frontend/src/pages/generic_program_detail_page/generic_program_detail_page.module.css`
+- `main/src/frontend/src/pages/account_purchase_history_page/account_purchase_history_page.tsx`
+- `main/src/frontend/src/pages/account_purchase_history_page/account_purchase_history_page.module.css`
+- `docs/DATABASE/database.MD`, `docs/INSTRUCTIONS/api.MD`,
+  `docs/INSTRUCTIONS/arquitecture.MD`, `docs/INSTRUCTIONS/security.MD`,
+  `docs/INSTRUCTIONS/project.MD`, `docs/PAGES/design.MD`,
+  `docs/REGISTRY/update_logs.MD`
+
+Reason:
+
+The multi-provider payments architecture was in place, but the checkout still
+behaved as a PayPal-only integration: the selected method was never stored, the
+capture path hard-coded the PayPal method, and the frontend sent a hard-coded
+`"paypal"`. That made the method-selection contract a client-side fiction, made
+the capture provider unsafe to evolve, and meant enabling Stripe would have
+required frontend changes in two places. Recording the method server-side at
+initiation and resolving the capture provider from it makes the backend fully
+authoritative over provider selection, and the new public methods endpoint makes
+the available methods a backend-derived fact instead of a frontend constant.
+
+---
+
+# Version 2.76.0
+
+Title: Generic Program Management & Sales Integration — sales context on the ADMIN_2 plan workflow
+
+Date: 2026-09-27
+
+Summary:
+
+Connects the Admin Commerce & Sales system (v2.75.0) into the ADMIN_2 generic
+program management workflow. The plans list now shows Price, real Sales,
+Test-purchase count and Revenue per plan; the plan detail page gains a compact
+Sales section with "View purchases" that deep-links to the Sales dashboard, and
+a precise sales-aware warning before unpublishing a plan that has paying
+clients. The commerce endpoint `GET /admin/purchases/programs` is extended with
+a `program_ids` batch filter returning one zero-filled summary row per
+requested program, and its rows now expose a `real_sales` count (completed
+non-test purchases) so "Sales" everywhere means the same number. No payment
+mutation, no refunds, no new migration and no database change were introduced.
+Public endpoints (entitlements, marketplace, purchase history) are untouched and
+still never expose sales data.
+
+Main changes:
+
+- **Batch per-program sales aggregation** —
+  `GET /admin/purchases/programs?program_ids=<id>,<id>,…` returns exactly one
+  row per requested program, in request order, zero-filled for programs without
+  matching purchases; the repository skips the count query and `LIMIT/OFFSET`
+  in batch mode and responds with `Total = len(ids)` so the batch is always one
+  page. Auxiliary filters (`status`, `test`, `from`, `to`) still compose; ids
+  are deduplicated, validated as UUIDs and capped at `MaxPageSize` (100);
+  `program_id` and `program_ids` are mutually exclusive. Soft-deleted programs
+  keep their historical sales with `deleted: true`.
+- **`real_sales` semantic** — `AdminProgramSalesRow`/`ProgramSale`/DTO add
+  `real_sales`: completed purchases where `test = false`. `completed_sales`
+  keeps its v2.75 inclusive counting (including Test Mode) for backward
+  compatibility; revenue remains completed non-test. One source of truth: the
+  program area, the sales dashboard and the detail page all read the same
+  numbers from the same endpoint.
+- **Plans list sales columns** — `pages/admin2/admin2_plans_page` adds
+  right-aligned Price, Sales (`real_sales`), Test and Revenue columns fetched in
+  one batch request per page via `fetchAdminSalesByProgramIds`; failures degrade
+  to a "Sales unavailable" subtitle note without breaking the plan list.
+- **Plan detail sales context** —
+  `pages/admin2/admin2_plan_detail_page` adds a Sales section (Sales, Revenue,
+  Test purchases) rendered for published plans, a "View purchases" button that
+  deep-links to `/admin2/sales?program_id=<id>`, and a warning shown before
+  unpublishing a plan with paying clients: unpublishing revokes client access
+  immediately (the programme disappears from their RYZE app until republished)
+  while preserving their entitlement — matching the documented access model.
+- **Sales dashboard deep link** — `pages/admin2/admin2_sales_page` reads a
+  `program_id` query parameter on mount to pre-select the program filter and
+  guarantees that program appears in the dropdown (synthetic option injected
+  even when it falls outside the top-100 option list).
+- **Backend tests** — service tests for batch zero-fill/order, real-vs-test
+  separation, id deduplication, malformed/oversized id sets and retired-program
+  identity; `api/auth` integration tests for batch response order, zero-fill,
+  unknown-id rows, batch pagination, 400 on malformed ids and soft-deleted
+  programs keeping archival sales with a `deleted` flag.
+- **Frontend build** — `npm run typecheck` and `npm run build` pass.
+
+# Version 2.75.0
+
+Title: Admin Commerce & Sales Dashboard — Management-visible purchases, revenue metrics and per-program sales
+
+Date: 2026-09-25
+
+Summary:
+
+Introduces the first administration view over platform commerce: a new
+`commerce` permission (Management Administrator only) guarding three read-only
+`/admin/purchases` endpoints, an admin-purchase repository that resolves
+soft-deleted buyers and retired programs for historical accuracy, a compact
+Sales dashboard on the admin2 frontend with revenue summary cards, filters,
+pagination and a purchase detail view, plus per-program sales aggregation. Test
+Mode purchases are reported separately and never contaminate real revenue. No
+refunds, no manual payment mutation, no new migration and no database change
+were introduced.
+
+Main changes:
+
+- **Admin commerce permission** — new `PermissionCommerce` (`commerce`) in
+  `middleware/adminroles` granted exclusively to the Management Administrator;
+  the Technical Administrator keeps the existing role grants and is explicitly
+  403 for commerce routes. The middleware authorization matrix test documents
+  both sides.
+- **Admin purchase repository** — `repositories.PurchaseRepository` gains
+  `ListAdmin`, `FindAdminByID`, `AdminPurchaseSummary` and
+  `ListAdminProgramSales` over a shared `AdminPurchaseFilter` (program id,
+  status, test tri-state, half-open created range). Customer and program are
+  preloaded `Unscoped()` so soft-deleted accounts and retired programs keep
+  resolving; revenue sums completed non-test `price_minor_units`; summary and
+  per-program rows report test counts separately.
+- **Admin commerce service** — new `services/admin_commerce` (mirrors the
+  `generic_programs` service shape, reuses `admin_users.MaxPageSize`) exposes a
+  safe purchase DTO (customer display name + email, program summary with a
+  `deleted` flag, `access` recomputed server-side, status/test/timestamps) and
+  never exposes commission/payout data, user/trainer ids or internal fields.
+- **Admin commerce endpoints** — `GET /admin/purchases` (list + summary +
+  pagination), `GET /admin/purchases/:id` (detail), and
+  `GET /admin/purchases/programs` (per-program sales, registered before the
+  `:id` route). All behind `AdminAuthenticate` +
+  `RequireAdminPermission(PermissionCommerce)`; query validation returns 400
+  and unknown purchases 404.
+- **Backend tests** — service unit tests with scripted stubs (filter
+  validation, pagination clamp to 100, access/deleted mapping,
+  portrait-shaped DTO) and `api/auth` integration tests covering the 401/403
+  matrix, summary arithmetic, filters, pagination, retired-program and
+  soft-deleted-buyer history, program-sales ordering and a sensitive-field
+  absence assertion.
+- **Sales dashboard (admin2)** — `pages/admin2/admin2_sales_page` rewritten
+  against the live commerce API in `services/admin2_api` (new `AdminPurchase`,
+  `AdminSalesSummary`, `AdminProgramSale` contracts + `fetchAdminPurchases`,
+  `fetchAdminPurchase`, `fetchAdminProgramSales`): six revenue/metric cards
+  (Revenue = completed non-test sales, Completed, Pending, Failed, Test
+  purchases, Programs with sales), a toolbar with program/status/mode/date
+  filters and reset, an accessible purchases table with View detail modal
+  (customer, program, amount, status/access/test badges), loading / error+retry
+  / empty states, and a per-program sales section with its own pagination.
+- **Frontend build** — `npm run typecheck` and `npm run build` pass.
+
+# Version 2.74.0
+
+Title: Client Commerce & Account Experience — Purchase History, account hub and already-owned states
+
+Date: 2026-09-25
+
+Summary:
+
+Completes the client purchase journey with a first-class account experience: a
+dedicated Purchase History page, a shared account navigation across every
+authenticated account page, a Profile account hub, already-owned states in the
+marketplace and on the detail page, and a server-verified "Open program" action
+that is gated by real access (completed purchase of a published, active
+program). Test Mode purchases surface in history with a zero-price amount and a
+Test marker. No refunds, no new migration and no parallel architecture were
+introduced.
+
+Main changes:
+
+- **Purchase History API (safe DTO)** — `GET /api/v1/me/purchases` now returns
+  the authenticated user's purchases as a client-facing history DTO that never
+  exposes internal payout metadata (`commission_bps`, `platform_amount`,
+  `trainer_amount` stay exclusive to the create/capture snapshots). Each entry
+  adds `test` (zero-price Test Mode purchase), `access` (server-computed:
+  completed purchase of a published, non-deleted program), `created_at`/
+  `updated_at` timestamps and a nested safe Program summary shared with the
+  entitlements DTO. `purchase_history_response` + `newPurchaseHistoryResponse`
+  in `api/auth/purchase_handler.go`; `programSummaryResponse` extracted from the
+  entitlements handler.
+- **Purchases service** — `services/purchases` extends the safe purchase
+  representation with `Program`, `Test`, `Access`, time-typed `CreatedAt`/
+  `UpdatedAt`, plus `newProgram` and `hasAccess` helpers. The repository
+  `ListActiveByUser` preloads the Program with `Unscoped()` (soft-deleted
+  programs keep their history but lose `access`) and orders newest first.
+- **Backend tests** — `TestListPurchasesAccessAndTestFlags` (published/draft/
+  pending/soft-deleted × test) and four `api/auth` integration tests
+  (`TestPurchaseListIntegrationEnrichedHistory` asserting forbidden commission/
+  user/trainer fields are absent, `...IDOR`, `...SoftDeletedProgramKeepsHistory`,
+  `...TestPurchaseMarked`) plus stubs.
+- **Purchase History page** — new `pages/account_purchase_history_page` at
+  `/account/purchases` (chrome-free): loading / error+retry / empty / list
+  states; per entry the program name, description, purchase date, currency-
+  formatted amount (zero-price Test purchases render as `€0.00`), status pill
+  (Completed/Pending/Failed), a "Test purchase" marker, and an "Open program"
+  button only when `status === completed && access === true` (else a muted
+  "No longer available" note). Routes and chrome config updated in
+  `app_routes.tsx` / `app.tsx` (`/account` joins the chrome-free account area).
+- **Shared account navigation** — new `components/account_nav` (brand, Profile /
+  My Programs / Purchase History pills, optional user chip) replaces the bespoke
+  minimal navbars of Profile, My Programs and Program Access pages, removing the
+  duplicated navbar CSS from each page module.
+- **Profile account hub** — the profile card now includes three hub cards
+  (My Programs / Purchase History / Marketplace) after the divider; the
+  page-level avatar was consolidated (large-only) and the old navbar styles
+  removed.
+- **Already-owned states** — the marketplace fetches `GET /me/entitlements`
+  fire-and-forget (401-tolerant) and threads an owned set through `ProgramRow`
+  into `ProgramCard`, which swaps the price line for a cyan "Owned" pill and
+  links straight into `/services/my-programs/:programId`. The detail page's
+  owned panel gains a primary "Open program" button and the success panel a
+  primary "Open program" + "My Programs" pair; free programs keep their original
+  marketplace-only panel (no access page exists for free programs).
+- **API client** — `services/purchases_api.ts` gains `PurchaseHistoryEntry` +
+  `PurchaseHistoryProgram` and `fetchMyPurchases` now returns the history type
+  (the detail-page pending-purchase recovery only reads `program_id`/`status`,
+  so it stays compatible).
+- **Docs** — `api.MD` (list endpoint now the safe history DTO + `test`/`access`
+  semantics), `arquitecture.MD` (purchase transaction list DTO, account area +
+  AccountNav + marketplace owned-state in the frontend blocks), `project.MD`
+  (client account area + Purchase History feature), `PAGES/design.MD` (owned
+  cards, detail owned/success actions, account nav, new Purchase History page,
+  profile hub, consolidated avatar).
+- **Validation** — backend `go build`/`go vet` clean; `services/purchases`,
+  `api/webhooks` and the purchase-list `api/auth` tests pass (only the five
+  pre-existing unrelated failures remain); frontend `tsc --noEmit` and Vite
+  production build clean.
+
+---
+
 # Version 2.73.0
 
 Title: Admin Test Mode — zero-cost persona purchases without real payments

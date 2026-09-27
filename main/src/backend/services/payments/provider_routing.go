@@ -39,6 +39,27 @@ func NewMethodProviderMap(stripe, paypal Provider) *MethodProviderMap {
 	}
 }
 
+// AvailableMethods returns the payment methods that have a configured provider,
+// in a stable order. Methods whose provider is nil (not configured at startup)
+// are omitted, so callers never advertise a payment method that would fail at
+// initiation.
+func (m *MethodProviderMap) AvailableMethods() []PaymentMethod {
+	var methods []PaymentMethod
+	for _, method := range []PaymentMethod{PaymentMethodCard, PaymentMethodMBWay, PaymentMethodPayPal} {
+		switch method {
+		case PaymentMethodCard, PaymentMethodMBWay:
+			if m.stripe != nil {
+				methods = append(methods, method)
+			}
+		case PaymentMethodPayPal:
+			if m.paypal != nil {
+				methods = append(methods, method)
+			}
+		}
+	}
+	return methods
+}
+
 // Resolve returns the provider for the given method, or an error if no provider
 // is available for that method.
 func (m *MethodProviderMap) Resolve(_ context.Context, method PaymentMethod) (Provider, error) {

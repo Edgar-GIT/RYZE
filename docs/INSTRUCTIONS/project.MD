@@ -50,14 +50,19 @@ the generic program API.
 
 The Generic Programs Marketplace displays real published Generic Program data
 and its current sale price. Paid Generic Programs are fully purchasable end to
-end: the checkout UX lets an authenticated user create a purchase, pay through
-the PayPal checkout flow and gain access once the payment is captured and
-verified server-side. Purchase creation snapshots the current price and
-currency, applies zero commission for platform-owned content, blocks duplicate
-completed purchases, and exposes the user's purchases. Payment completion is
-always authoritative on the backend — a browser redirect never equates to a
-payment, only a verified server-side capture or a verified payment provider
-webhook can complete a purchase.
+end: the checkout UX lets an authenticated user create a purchase, pick one of
+the payment methods the backend currently supports (advertised by
+`GET /api/v1/payments/methods`, never hard-coded in the frontend), pay through
+the provider checkout flow and gain access once the payment is captured and
+verified server-side. The chosen method is recorded on the purchase at
+initiation, so the later capture always resolves the correct provider without
+trusting the browser. PayPal is the functional provider; Stripe is prepared but
+not enabled until its credentials and webhook secret are configured. Purchase
+creation snapshots the current price and currency, applies zero commission for
+platform-owned content, blocks duplicate completed purchases, and exposes the
+user's purchases. Payment completion is always authoritative on the backend — a
+browser redirect never equates to a payment, only a verified server-side capture
+or a verified payment provider webhook can complete a purchase.
 
 ---
 
@@ -248,6 +253,12 @@ Clients can:
 - Participate in the community
 - Manage their personal profile
 
+The client account area (`/profile`, `/account/purchases`,
+`/services/my-programs`) is the authenticated shopfront: the Profile page acts
+as the account hub, a shared account navigation is used across all account
+pages, and every client's purchases are listed with amount, date, status and a
+server-verified "Open program" action (see `docs/PAGES/design.MD`).
+
 ---
 
 ## Trainer
@@ -288,6 +299,7 @@ Responsibilities include:
 - Managing marketplace content
 - Viewing business statistics
 - Creating and editing platform packs
+- Viewing platform sales (commerce)
 
 The Management Administrator holds a read-only view of user accounts (list and
 view, under `users.read`). The full user lifecycle (create, update,
@@ -298,6 +310,22 @@ Trainer application review (list, view, approve and reject, under
 `trainer_applications.read` / `trainer_applications.manage`) is implemented as a
 backend foundation shared by **both** administrators, matching the operational
 responsibility of approving trainer applications.
+
+The admin sales view (list purchases, purchase details and per-program sales
+under `GET /api/v1/admin/purchases*`) is implemented as a backend foundation
+exclusive to the Management Administrator under the `commerce` permission. It
+is read-only and reports revenue from completed non-test purchases; Test Mode
+purchases are accounted separately. The Technical Administrator holds no
+commerce permission.
+
+The generic program management workflow (plans list, plan detail) reads its
+per-program sales exclusively from the same commerce surface: the plans list
+batches `GET /admin/purchases/programs` with `program_ids` to show Price, Sales,
+Test and Revenue per plan, and the plan detail page shows a compact Sales
+section with a "View purchases" deep link to the Sales dashboard. Plans with
+existing sales surface a warning before unpublishing, because unpublishing
+revokes client access to the programme (their paid entitlement is preserved,
+and access is restored when the plan is published again).
 
 ---
 
@@ -339,6 +367,8 @@ The platform currently includes the following core features:
 - Exercise library
 - Progress tracking
 - Marketplace
+- Purchase history (client order history with status, Test Mode marker,
+  server-verified access states and a shared account navigation/hub)
 - User authentication
 - PDF export
 - Notifications

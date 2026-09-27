@@ -51,13 +51,17 @@ const (
 	PermissionStatistics                Permission = "statistics"
 	PermissionPlans                     Permission = "plans"
 	PermissionPlansCommissionManage     Permission = "plans.commission.manage"
-	PermissionFinance                   Permission = "finance"
-	PermissionMarketing                 Permission = "marketing"
-	PermissionSystem                    Permission = "system"
-	PermissionInfrastructure            Permission = "infrastructure"
-	PermissionTechnicalConfiguration    Permission = "technical-configuration"
-	PermissionSecurity                  Permission = "security"
-	PermissionDevelopment               Permission = "development"
+	// PermissionCommerce controls the platform commerce surface: the sales
+	// dashboard, purchase records and income analytics. It is a business
+	// responsibility granted exclusively to the Management Administrator.
+	PermissionCommerce               Permission = "commerce"
+	PermissionFinance                Permission = "finance"
+	PermissionMarketing              Permission = "marketing"
+	PermissionSystem                 Permission = "system"
+	PermissionInfrastructure         Permission = "infrastructure"
+	PermissionTechnicalConfiguration Permission = "technical-configuration"
+	PermissionSecurity               Permission = "security"
+	PermissionDevelopment            Permission = "development"
 )
 
 // rolePermissions maps each role to its granted permissions. Users, trainers,
@@ -102,6 +106,7 @@ var rolePermissions = map[Role][]Permission{
 		PermissionStatistics,
 		PermissionPlans,
 		PermissionPlansCommissionManage,
+		PermissionCommerce,
 		PermissionFinance,
 		PermissionMarketing,
 	},
