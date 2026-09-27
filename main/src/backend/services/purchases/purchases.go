@@ -40,6 +40,11 @@ var (
 	// ErrPurchaseNotPending indicates the purchase cannot accept a payment
 	// initiation because it is not in the pending state.
 	ErrPurchaseNotPending = errors.New("purchase is not pending")
+	// ErrPaymentMethodMismatch indicates the requested payment method differs
+	// from the method already recorded on the purchase at initiation. The
+	// recorded method is immutable, so the purchase keeps its original method
+	// and no provider is contacted.
+	ErrPaymentMethodMismatch = errors.New("payment method does not match the recorded method")
 	// ErrPaymentProvider indicates the payment provider could not initiate the
 	// payment. Internal provider details are never exposed to the client.
 	ErrPaymentProvider = errors.New("payment provider error")
@@ -265,9 +270,12 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 // and resolved to the appropriate provider before initiation. Once a configured
 // provider has been resolved, the validated method is recorded on the purchase:
 // from that point the method is immutable, so a later capture can always resolve
-// the correct provider server-side without trusting any client input. The
-// purchase status is NOT modified during initiation — it remains "pending" until
-// a verified provider event flows through CompletePurchase().
+// the correct provider server-side without trusting any client input. Repeating
+// the initiation with the same method is safe and replays the same provider
+// payment; repeating it with a different method fails with
+// ErrPaymentMethodMismatch and never rebinds the purchase.
+// The purchase status is NOT modified during initiation — it remains "pending"
+// until a verified provider event flows through CompletePurchase().
 func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, paymentMethod string) (*PaymentResult, error) {
 	if err := validateUserID(userID); err != nil {
 		return nil, err
@@ -295,6 +303,16 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 
 	if purchase.Status != models.PurchaseStatusPending {
 		return nil, ErrPurchaseNotPending
+	}
+
+	// The recorded method is immutable for the purchase. A re-initiation with a
+	// different method is rejected instead of rebinding the purchase: the
+	// outstanding provider payment belongs to the method recorded at the first
+	// initiation, so overwriting it would make that payment uncapturable. The
+	// check runs before provider resolution so it never depends on or exposes
+	// provider configuration.
+	if purchase.PaymentMethod != nil && *purchase.PaymentMethod != string(method) {
+		return nil, ErrPaymentMethodMismatch
 	}
 
 	provider, err := s.resolver(ctx, method)

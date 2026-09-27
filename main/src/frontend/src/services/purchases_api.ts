@@ -182,8 +182,15 @@ export const initiatePayment = (
     payment_method: paymentMethod
   });
 
-export const capturePayment = (purchaseId: string, orderId: string): Promise<Purchase> =>
-  apiPost<Purchase>(`/me/purchases/${purchaseId}/capture`, { order_id: orderId });
+/**
+ * Verifies an approved provider payment for a pending purchase and completes
+ * it. `providerPaymentId` is the provider's own identifier for the payment — a
+ * PayPal Order ID or a Stripe Checkout Session ID — taken from the provider
+ * return URL. It is only a correlation hint: the backend re-verifies the
+ * payment on the provider API before completing anything.
+ */
+export const capturePayment = (purchaseId: string, providerPaymentId: string): Promise<Purchase> =>
+  apiPost<Purchase>(`/me/purchases/${purchaseId}/capture`, { provider_payment_id: providerPaymentId });
 
 /**
  * Public, unauthenticated contract exposing the currently configured payment

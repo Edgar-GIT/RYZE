@@ -39,6 +39,7 @@ type stubPurchaseRepository struct {
 	listErr          error
 	setMethodID      string
 	setMethod        string
+	entitlement      *models.Entitlement
 }
 
 func (s *stubPurchaseRepository) Create(_ context.Context, purchase *models.Purchase) error {
@@ -83,7 +84,8 @@ func (s *stubPurchaseRepository) Complete(_ context.Context, _ string) error {
 	return nil
 }
 
-func (s *stubPurchaseRepository) CompleteWithEntitlement(_ context.Context, _ string, _ *models.Entitlement) error {
+func (s *stubPurchaseRepository) CompleteWithEntitlement(_ context.Context, _ string, entitlement *models.Entitlement) error {
+	s.entitlement = entitlement
 	return nil
 }
 
@@ -101,12 +103,21 @@ func (s *stubPurchaseRepository) CompleteTestPurchase(_ context.Context, purchas
 func (s *stubPurchaseRepository) SetPaymentMethod(_ context.Context, purchaseID, method string) error {
 	s.setMethodID = purchaseID
 	s.setMethod = method
+	// The real repository persists the method, so any later load of the same
+	// purchase must observe it.
+	for _, tracked := range []*models.Purchase{s.findByIDPurchase, s.purchase, s.existing} {
+		if tracked != nil && tracked.ID == purchaseID {
+			tracked.PaymentMethod = &method
+		}
+	}
 	return nil
 }
 
 type stubEntitlementRepository struct {
 	existing *models.Entitlement
 	err      error
+	// link mirrors the entitlement persisted by the paired purchase repository.
+	link *stubPurchaseRepository
 }
 
 func (s *stubEntitlementRepository) Create(_ context.Context, _, _ string, _ *models.Entitlement) error {
@@ -119,6 +130,11 @@ func (s *stubEntitlementRepository) FindActiveByUserAndProgram(_ context.Context
 	}
 	if s.existing != nil {
 		return s.existing, nil
+	}
+	// An entitlement persisted through the paired purchase repository is active,
+	// so a later lookup must see it, exactly as the real database would.
+	if s.link != nil && s.link.entitlement != nil {
+		return s.link.entitlement, nil
 	}
 	return nil, repositories.ErrEntitlementNotFound
 }
@@ -145,9 +161,11 @@ type stubPaymentProvider struct {
 	result         payments.PaymentResult
 	err            error
 	captureRequest *payments.PaymentRequest
+	initiateCalls  int
 }
 
 func (s *stubPaymentProvider) InitiatePayment(_ context.Context, req payments.PaymentRequest) (payments.PaymentResult, error) {
+	s.initiateCalls++
 	if s.captureRequest != nil {
 		*s.captureRequest = req
 	}
@@ -169,10 +187,15 @@ type stubCaptureProvider struct {
 	result         payments.CaptureResult
 	captureErr     error
 	captureRequest *payments.CaptureRequest
+	initiation     payments.PaymentResult
+	initiationErr  error
 }
 
-func (s *stubCaptureProvider) InitiatePayment(_ context.Context, _ payments.PaymentRequest) (payments.PaymentResult, error) {
-	return payments.PaymentResult{}, nil
+func (s *stubCaptureProvider) InitiatePayment(_ context.Context, request payments.PaymentRequest) (payments.PaymentResult, error) {
+	if s.initiationErr != nil {
+		return payments.PaymentResult{}, s.initiationErr
+	}
+	return s.initiation, nil
 }
 
 func (s *stubCaptureProvider) CapturePayment(_ context.Context, req payments.CaptureRequest) (payments.CaptureResult, error) {
@@ -1718,7 +1741,11 @@ func TestInitiatePaymentUsesSnapshotValues(t *testing.T) {
 	}
 }
 
-func TestInitiatePaymentMBWayAccepted(t *testing.T) {
+// TestInitiatePaymentMBWayIsAValidEnumValueOnly proves MB WAY remains a valid
+// enum value that is forwarded to the resolver. It is deliberately never
+// advertised nor resolvable: the production routing rejects it, which
+// TestMBWayIsRejectedByRealRouting covers.
+func TestInitiatePaymentMBWayIsAValidEnumValueOnly(t *testing.T) {
 	purchase := &models.Purchase{
 		ID:              "purchase-mbway",
 		UserID:          "33333333-3333-3333-3333-333333333333",
@@ -1868,13 +1895,70 @@ func TestInitiatePaymentProviderResolutionError(t *testing.T) {
 }
 
 func TestInitiatePaymentMethodCannotAlterSnapshot(t *testing.T) {
+	methods := []string{"card", "mbway", "paypal"}
+	for _, method := range methods {
+		purchase := &models.Purchase{
+			ID:              "purchase-snapshot2",
+			UserID:          "33333333-3333-3333-3333-333333333333",
+			ProgramID:       "program-snapshot2",
+			PriceMinorUnits: 9900,
+			Currency:        "GBP",
+			Status:          models.PurchaseStatusPending,
+		}
+
+		purchasesRepo := &stubPurchaseRepository{
+			findByIDPurchase: purchase,
+		}
+		payment := &stubPaymentProvider{
+			result: payments.PaymentResult{
+				PaymentID:   "pay_test",
+				Status:      payments.PaymentStatusPending,
+				CheckoutURL: "https://checkout.example.com/pay/test",
+				Provider:    "fake",
+				PurchaseID:  purchase.ID,
+			},
+		}
+
+		svc := purchases.NewService(
+			&stubProgramRepository{},
+			purchasesRepo,
+			&stubEntitlementRepository{},
+			&stubCommissionResolver{},
+			payment,
+			stubResolver(payment),
+		)
+
+		result, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-snapshot2", method)
+		if err != nil {
+			t.Fatalf("unexpected error for method %q: %v", method, err)
+		}
+		if result.PurchaseID != "purchase-snapshot2" {
+			t.Fatalf("expected purchase id purchase-snapshot2 for method %q, got %q", method, result.PurchaseID)
+		}
+
+		if purchase.PriceMinorUnits != 9900 || purchase.Currency != "GBP" {
+			t.Fatalf("initiation must not alter the immutable snapshot, got %d %s", purchase.PriceMinorUnits, purchase.Currency)
+		}
+		if purchase.Status != models.PurchaseStatusPending {
+			t.Fatalf("InitiatePayment must not mutate purchase status, got %q", purchase.Status)
+		}
+	}
+}
+
+func TestInitiatePaymentKeepsRecordedMethodImmutable(t *testing.T) {
+	// The first initiation binds the purchase to a provider. A later
+	// re-initiation with a different method must fail instead of rebinding the
+	// purchase, otherwise the outstanding provider payment would become
+	// uncapturable.
+	card := "card"
 	purchase := &models.Purchase{
-		ID:              "purchase-snapshot2",
+		ID:              "purchase-immutable",
 		UserID:          "33333333-3333-3333-3333-333333333333",
-		ProgramID:       "program-snapshot2",
+		ProgramID:       "program-immutable",
 		PriceMinorUnits: 9900,
-		Currency:        "GBP",
+		Currency:        "EUR",
 		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   &card,
 	}
 
 	purchasesRepo := &stubPurchaseRepository{
@@ -1882,11 +1966,10 @@ func TestInitiatePaymentMethodCannotAlterSnapshot(t *testing.T) {
 	}
 	payment := &stubPaymentProvider{
 		result: payments.PaymentResult{
-			PaymentID:   "pay_test",
-			Status:      payments.PaymentStatusPending,
-			CheckoutURL: "https://checkout.example.com/pay/test",
-			Provider:    "fake",
-			PurchaseID:  purchase.ID,
+			PaymentID:  "pay_test",
+			Status:     payments.PaymentStatusPending,
+			Provider:   "fake",
+			PurchaseID: purchase.ID,
 		},
 	}
 
@@ -1899,19 +1982,62 @@ func TestInitiatePaymentMethodCannotAlterSnapshot(t *testing.T) {
 		stubResolver(payment),
 	)
 
-	methods := []string{"card", "mbway", "paypal"}
-	for _, method := range methods {
-		result, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-snapshot2", method)
-		if err != nil {
-			t.Fatalf("unexpected error for method %q: %v", method, err)
-		}
-		if result.PurchaseID != "purchase-snapshot2" {
-			t.Fatalf("expected purchase id purchase-snapshot2 for method %q, got %q", method, result.PurchaseID)
-		}
+	if _, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-immutable", "paypal"); !errors.Is(err, purchases.ErrPaymentMethodMismatch) {
+		t.Fatalf("expected ErrPaymentMethodMismatch for a changed method, got %v", err)
 	}
 
-	if purchase.Status != models.PurchaseStatusPending {
-		t.Fatalf("InitiatePayment must not mutate purchase status, got %q", purchase.Status)
+	if purchase.PaymentMethod == nil || *purchase.PaymentMethod != "card" {
+		t.Fatalf("the recorded method must be preserved, got %v", purchase.PaymentMethod)
+	}
+	if purchasesRepo.setMethod != "" {
+		t.Fatalf("a mismatched method must not be persisted, got %q", purchasesRepo.setMethod)
+	}
+	if payment.initiateCalls != 0 {
+		t.Fatalf("a mismatched method must not reach the provider, got %d calls", payment.initiateCalls)
+	}
+}
+
+func TestInitiatePaymentSameMethodIsIdempotent(t *testing.T) {
+	// Re-initiating the same method is the supported retry path: it must reach
+	// the provider again, where provider-level idempotency prevents a second
+	// payable session.
+	card := "card"
+	purchase := &models.Purchase{
+		ID:              "purchase-retry",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "program-retry",
+		PriceMinorUnits: 9900,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   &card,
+	}
+
+	purchasesRepo := &stubPurchaseRepository{
+		findByIDPurchase: purchase,
+	}
+	payment := &stubPaymentProvider{
+		result: payments.PaymentResult{
+			PaymentID:  "pay_test",
+			Status:     payments.PaymentStatusPending,
+			Provider:   "fake",
+			PurchaseID: purchase.ID,
+		},
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		payment,
+		stubResolver(payment),
+	)
+
+	if _, err := svc.InitiatePayment(context.Background(), "33333333-3333-3333-3333-333333333333", "purchase-retry", "card"); err != nil {
+		t.Fatalf("expected the same method to be accepted, got %v", err)
+	}
+	if payment.initiateCalls != 1 {
+		t.Fatalf("expected the provider to be contacted, got %d calls", payment.initiateCalls)
 	}
 }
 
@@ -2504,5 +2630,224 @@ func TestCompleteTestPurchaseDuplicatePersistence(t *testing.T) {
 				t.Fatalf("persistence duplicate must surface as ErrDuplicateEntitlement, got %v", err)
 			}
 		})
+	}
+}
+
+// TestCardPaymentFlowRecordsMethodAndCompletesOnCapture covers the full Stripe
+// card journey through the real provider routing: initiation with the card
+// method records the method on the purchase, the purchase stays pending, and a
+// later capture of the Checkout Session completes it. The routing map is the
+// production one, so the test also proves card reaches the card provider.
+func TestCardPaymentFlowRecordsMethodAndCompletesOnCapture(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-card-flow",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 4999,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	entitlements := &stubEntitlementRepository{}
+
+	var captured payments.CaptureRequest
+	card := &stubCaptureProvider{
+		result:         payments.CaptureResult{PaymentID: "cs_test_session_1", Provider: "stripe"},
+		captureRequest: &captured,
+		initiation: payments.PaymentResult{
+			PaymentID:   "cs_test_session_1",
+			CheckoutURL: "https://checkout.stripe.com/c/pay/cs_test_session_1",
+			Status:      payments.PaymentStatusRequiresAction,
+			Provider:    "stripe",
+			PurchaseID:  pending.ID,
+		},
+	}
+	// Production routing: card resolves to the card provider only.
+	routing := payments.NewMethodProviderMap(card, nil)
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		card,
+		routing.Resolve,
+	)
+
+	initiation, err := svc.InitiatePayment(context.Background(), pending.UserID, pending.ID, "card")
+	if err != nil {
+		t.Fatalf("unexpected error initiating the card payment: %v", err)
+	}
+	if initiation.PaymentID == "" || initiation.CheckoutURL == "" {
+		t.Fatalf("expected a provider payment id and checkout URL, got %+v", initiation)
+	}
+	if purchasesRepo.setMethod != "card" || purchasesRepo.setMethodID != pending.ID {
+		t.Fatalf("expected the card method to be recorded for the purchase, got %q for %q", purchasesRepo.setMethod, purchasesRepo.setMethodID)
+	}
+	if pending.Status != models.PurchaseStatusPending {
+		t.Fatalf("initiation must never complete the purchase, got %q", pending.Status)
+	}
+
+	result, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "cs_test_session_1")
+	if err != nil {
+		t.Fatalf("unexpected error capturing the payment: %v", err)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected the purchase to be completed after capture, got %q", result.Status)
+	}
+	if captured.AmountMinorUnits != 4999 || captured.Currency != "EUR" {
+		t.Fatalf("capture must use the immutable snapshot, got %d %s", captured.AmountMinorUnits, captured.Currency)
+	}
+}
+
+// TestMBWayIsRejectedByRealRouting proves that the prepared-but-unimplemented
+// MB WAY method cannot be initiated even when both providers are configured:
+// it must never reach a provider and must never complete a purchase.
+func TestMBWayIsRejectedByRealRouting(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-mbway-routing",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	card := &stubCaptureProvider{}
+	paypal := &stubCaptureProvider{}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		card,
+		payments.NewMethodProviderMap(card, paypal).Resolve,
+	)
+
+	_, err := svc.InitiatePayment(context.Background(), pending.UserID, pending.ID, "mbway")
+	if err == nil {
+		t.Fatal("expected mbway initiation to fail: no provider implements it")
+	}
+	if purchasesRepo.setMethod != "" {
+		t.Errorf("a failed initiation must not record a method, got %q", purchasesRepo.setMethod)
+	}
+	if pending.Status != models.PurchaseStatusPending {
+		t.Errorf("a failed initiation must never complete the purchase, got %q", pending.Status)
+	}
+}
+
+// TestCardPaymentCaptureIsIdempotent proves that repeated captures of the same
+// Checkout Session — the browser return racing the webhook — complete the
+// purchase once and never fail afterwards.
+func TestCardPaymentCaptureIsIdempotent(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-card-idempotent",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 3500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("card"),
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	entitlements := &stubEntitlementRepository{link: purchasesRepo}
+	card := &stubCaptureProvider{
+		result: payments.CaptureResult{PaymentID: "cs_test_session_2", Provider: "stripe"},
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		card,
+		payments.NewMethodProviderMap(card, nil).Resolve,
+	)
+
+	for i := 0; i < 3; i++ {
+		result, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "cs_test_session_2")
+		if err != nil {
+			t.Fatalf("attempt %d: unexpected error: %v", i+1, err)
+		}
+		if result.Status != models.PurchaseStatusCompleted {
+			t.Fatalf("attempt %d: expected a completed purchase, got %q", i+1, result.Status)
+		}
+	}
+}
+
+// TestUnpaidCardCaptureNeverCompletesPurchase proves that a capture the
+// provider refuses to verify leaves the purchase pending, so an unpaid session
+// can never grant access.
+func TestUnpaidCardCaptureNeverCompletesPurchase(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-card-unpaid",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 3500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("card"),
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	entitlements := &stubEntitlementRepository{link: purchasesRepo}
+	card := &stubCaptureProvider{
+		captureErr: fmt.Errorf("stripe: checkout session is not a successful payment of the purchase: %w", payments.ErrProviderFailure),
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		card,
+		payments.NewMethodProviderMap(card, nil).Resolve,
+	)
+
+	if _, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "cs_test_unpaid"); !errors.Is(err, purchases.ErrPaymentProvider) {
+		t.Fatalf("expected ErrPaymentProvider, got %v", err)
+	}
+	if pending.Status != models.PurchaseStatusPending {
+		t.Fatalf("an unverified payment must leave the purchase pending, got %q", pending.Status)
+	}
+	if purchasesRepo.entitlement != nil {
+		t.Fatal("an unverified payment must not grant an entitlement")
+	}
+}
+
+// TestCardCaptureCannotBeRedirectedToAnotherPurchase proves the provider is
+// asked to verify the session against the purchase snapshot, so a session from
+// another purchase can never be used to complete this one.
+func TestCardCaptureCannotBeRedirectedToAnotherPurchase(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-card-idor",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 3500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("card"),
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	var captured payments.CaptureRequest
+	card := &stubCaptureProvider{
+		result:         payments.CaptureResult{PaymentID: "cs_test_session_3", Provider: "stripe"},
+		captureRequest: &captured,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		card,
+		payments.NewMethodProviderMap(card, nil).Resolve,
+	)
+
+	if _, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "cs_test_session_3"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if captured.PurchaseID != pending.ID {
+		t.Fatalf("the provider must verify the session against this purchase, got %q", captured.PurchaseID)
 	}
 }

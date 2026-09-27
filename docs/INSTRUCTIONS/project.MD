@@ -56,8 +56,10 @@ the payment methods the backend currently supports (advertised by
 the provider checkout flow and gain access once the payment is captured and
 verified server-side. The chosen method is recorded on the purchase at
 initiation, so the later capture always resolves the correct provider without
-trusting the browser. PayPal is the functional provider; Stripe is prepared but
-not enabled until its credentials and webhook secret are configured. Purchase
+trusting the browser. Stripe serves the
+card method through hosted Checkout Sessions and PayPal serves the PayPal
+method; each is enabled only when it is completely configured. MB WAY remains a
+reserved enum value with no provider and is never offered. Purchase
 creation snapshots the current price and currency, applies zero commission for
 platform-owned content, blocks duplicate completed purchases, and exposes the
 user's purchases. Payment completion is always authoritative on the backend — a

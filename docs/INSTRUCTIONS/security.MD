@@ -872,13 +872,19 @@ follows a strict security model:
 - Provider internal details (API keys, provider-specific error messages,
   raw provider responses) are never exposed to the client. Provider failures
   surface a generic 502 error.
-- When `STRIPE_SECRET_KEY` is configured, the Stripe provider is used. The
-  Stripe secret key is loaded from environment variables and set on the global
-  `stripe.Key` at startup. The key is never logged, exposed to the client, or
-  stored in the database.
-- When `STRIPE_SECRET_KEY` is not set, the `notConfiguredPaymentProvider`
-  placeholder returns a generic error for every request, preventing accidental
-  payment processing.
+- The Stripe provider serves the `card` method and is created only when Stripe
+  is **completely** configured: `STRIPE_SECRET_KEY` **and**
+  `STRIPE_WEBHOOK_SECRET`. Stripe documents webhooks as required for
+  fulfillment, so a secret key without a signing secret could never reliably
+  confirm a payment. In that case no provider is created, the `card` method is
+  not advertised, not routed, and the global `stripe.Key` is cleared so no stale
+  credential can be used.
+- The Stripe secret key is loaded from environment variables and set on the
+  global `stripe.Key` at startup. The key is never logged, exposed to the client,
+  or stored in the database.
+- When Stripe is not completely configured, requesting `card` fails closed with
+  `502 PAYMENT_PROVIDER_ERROR`: no session is created and no purchase is
+  completed.
 - The `FakeProvider` is test-only and must never be exposed in production
   configuration.
 
@@ -893,8 +899,11 @@ any provider interaction:
 - The client never selects a provider directly — only the payment method. The
   server routes the method to the correct provider via a centralized
   `MethodProviderMap` (PaymentMethod → Provider).
-- MB WAY is validated as a Stripe-specific payment method type; it is routed to
-  the Stripe provider internally.
+- A valid method is not necessarily available. `mbway` is a reserved enum value
+  with no provider implementation: it is never advertised, never resolved
+  (`ErrNoProviderAvailable`) and never sent to Stripe. The Stripe provider itself
+  rejects any non-card method before making an API call, so a routing mistake
+  cannot present an unimplemented method to a buyer.
 - PayPal credentials (`PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`) follow the same
   secrets management as Stripe: loaded from environment variables at startup,
   never logged, never exposed to the client, never stored in the database.
@@ -919,10 +928,17 @@ endpoints plus provider-side verification:
   authenticated user. A cross-user purchase lookup returns the same generic
   "purchase not found" response as a missing purchase, preventing information
   leakage.
-- The provider payment id (`order_id`) is treated as untrusted input. The
-  provider loads the real order from the provider API and verifies the
-  purchase-unit reference id, the amount and the currency against the immutable
-  purchase snapshot before any capture happens.
+- The provider payment id (`provider_payment_id`) is treated as untrusted input.
+  The provider reloads the real payment from the provider API and binds it to
+  the purchase before anything is completed:
+  - **PayPal** — the order is reloaded, the purchase-unit reference id, the
+    amount and the currency are verified against the immutable purchase
+    snapshot, then the order is captured.
+  - **Stripe** — the Checkout Session is reloaded and must be a fully paid
+    one-time payment (`payment_status == "paid"`, `mode == "payment"`) whose
+    `client_reference_id` is this purchase and whose `amount_total` and
+    `currency` match the immutable purchase snapshot. An unpaid, expired,
+    foreign or mismatched session is rejected.
 - A failed verification or capture never completes the purchase; the provider
   failure surfaces as a generic 502 and the purchase remains "pending" so the
   buyer can retry.
@@ -991,10 +1007,11 @@ capture endpoint (see Payment Capture Security) or a verified provider event
 - **Browser redirects do not complete a purchase.** Success/cancel URLs from
   providers are purely UX redirects. When the buyer returns, the frontend must
   call the capture endpoint; the redirect itself only carries the provider
-  order token, which is treated as untrusted input.
-- **Capture is always verified server-side.** The capture path loads the real
-  provider order, binds it to the purchase via the reference id, and verifies
-  amount and currency before capturing.
+  identifier (a PayPal Order ID or a Stripe Checkout Session ID), which is
+  treated as untrusted input. The frontend never claims success on its own.
+- **Capture is always verified server-side.** The capture path reloads the real
+  provider payment, binds it to the purchase via the provider reference, and
+  verifies successful state, amount and currency before completing.
 - **Only verified provider events can trigger `CompletePurchaseWithCapture()`.**
   Cryptographic signature verification is mandatory before any completion.
 
@@ -1002,9 +1019,21 @@ capture endpoint (see Payment Capture Security) or a verified provider event
 
 - Signature verification using `webhook.ConstructEvent` with the configured
   signing secret
-- Missing or invalid signatures are rejected with 400
-- The webhook signing secret must be configured via `STRIPE_WEBHOOK_SECRET`
+- Missing or invalid signatures are rejected with 400; a payload signed with a
+  different secret or modified after signing is rejected too
+- The webhook signing secret must be configured via `STRIPE_WEBHOOK_SECRET`;
+  Stripe is not enabled without it, and a handler built with an empty secret
+  rejects every delivery
 - Events are parsed only AFTER signature verification succeeds
+- A completion event is honored only when the session is fully paid
+  (`payment_status == "paid"`) and in `payment` mode. Delayed methods emit
+  `checkout.session.completed` while still unpaid; those events are ignored
+  until the payment actually succeeds
+- The session `client_reference_id` must equal the `purchase_id` metadata; a
+  mismatch is rejected with 400 and never completes a purchase
+- Refund, dispute and every other event type are acknowledged with 200 and
+  ignored. RYZE purchases are final: no event type can revert a completed
+  purchase and no refund workflow exists
 
 **PayPal Webhook Security:**
 
@@ -1051,14 +1080,25 @@ a strict security model:
 - The Stripe secret key is loaded exclusively from the `STRIPE_SECRET_KEY`
   environment variable. It is never accepted from the request, database, or
   any other runtime source.
+- **RYZE never handles raw card data.** Card details are entered exclusively on
+  the Stripe-hosted Checkout page and are never sent to, received by, logged by
+  or stored in RYZE. No PAN, CVC, expiry or card token appears in any RYZE
+  request to Stripe.
+- Only the `card` payment method type is ever requested from Stripe. No wallet,
+  bank transfer, buy-now-pay-later or other method is offered, and subscriptions
+  and setup sessions are never created.
 - The Checkout Session amount comes exclusively from the immutable purchase
   snapshot (`AmountMinorUnits`). No client-supplied amount is ever forwarded
   to Stripe.
 - The Checkout Session currency comes exclusively from the immutable purchase
   snapshot. The currency is lowercased to meet Stripe API requirements.
 - Stripe idempotency keys are derived from the RYZE purchase ID
-  (`ryze-purchase-{purchaseID}`), preventing duplicate session creation for
-  the same purchase.
+  (`ryze-purchase-{purchaseID}`). A repeated initiation therefore replays the
+  same Checkout Session instead of creating a second payable session, so one
+  purchase can never hold two sessions the buyer could pay.
+- Completion is verified server-side by reloading the Checkout Session: it must
+  be a fully paid one-time payment belonging to this purchase with a matching
+  amount and currency. The browser return is never proof of payment.
 - The `ClientReferenceID` is set to the RYZE purchase ID for server-side
   reconciliation. It is never accepted from client input.
 - The `metadata` field on the Stripe session stores `purchase_id` and
@@ -1066,7 +1106,10 @@ a strict security model:
   in Stripe metadata.
 - Success and cancel URLs are configured via environment variables
   (`STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`). Both are optional; when empty,
-  Stripe uses its default redirect behaviour.
+  Stripe uses its default redirect behaviour. They are never accepted from client
+  input. The `{program_id}` and `{purchase_id}` placeholders are substituted
+  server-side per session, while Stripe's own `{CHECKOUT_SESSION_ID}` placeholder
+  is preserved for the return leg.
 - All Stripe API errors are wrapped with `ErrProviderFailure` and surfaced as
   a generic 502 error. Stripe-specific error details (error codes, request
   IDs, decline reasons) are logged server-side but never exposed to the client.

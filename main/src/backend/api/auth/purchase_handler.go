@@ -191,6 +191,8 @@ func (h *PurchaseHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusNotFound, "PURCHASE_NOT_FOUND", "Purchase not found.", nil)
 	case errors.Is(err, purchases.ErrPurchaseNotPending):
 		RespondError(c, http.StatusConflict, "PURCHASE_NOT_PENDING", "This purchase is not pending.", nil)
+	case errors.Is(err, purchases.ErrPaymentMethodMismatch):
+		RespondError(c, http.StatusConflict, "PAYMENT_METHOD_MISMATCH", "This purchase is already bound to a different payment method.", nil)
 	case errors.Is(err, purchases.ErrPaymentProvider):
 		RespondError(c, http.StatusBadGateway, "PAYMENT_PROVIDER_ERROR", "Payment provider unavailable. Please try again later.", nil)
 	default:
@@ -248,12 +250,14 @@ func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
 	})
 }
 
-// CapturePayment captures an approved provider payment for an existing pending
+// CapturePayment verifies an approved provider payment for an existing pending
 // purchase and completes it. The purchase must belong to the authenticated
-// user and be in pending status. The provider payment identifier comes from
-// the browser callback and is treated as untrusted input: the backend binds it
-// to the purchase server-side (provider reference id, amount and currency
-// verification) before any capture happens. The operation is idempotent — an
+// user and be in pending status. The provider payment identifier is the
+// provider's own identifier for the payment — a PayPal Order ID or a Stripe
+// Checkout Session ID — and it comes from the browser return, so it is treated
+// as untrusted input: the backend binds it to the purchase server-side
+// (successful state, provider reference, amount and currency verification)
+// before anything is completed. The operation is idempotent — an
 // already-completed purchase returns the completed snapshot safely.
 func (h *PurchaseHandler) CapturePayment(c *gin.Context) {
 	userID, err := authcontext.UserIDFromContext(c)
@@ -269,19 +273,19 @@ func (h *PurchaseHandler) CapturePayment(c *gin.Context) {
 	}
 
 	var body struct {
-		OrderID string `json:"order_id"`
+		ProviderPaymentID string `json:"provider_payment_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		return
 	}
 
-	if strings.TrimSpace(body.OrderID) == "" {
+	if strings.TrimSpace(body.ProviderPaymentID) == "" {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		return
 	}
 
-	purchase, err := h.service.CapturePayment(c.Request.Context(), userID, purchaseID, body.OrderID)
+	purchase, err := h.service.CapturePayment(c.Request.Context(), userID, purchaseID, body.ProviderPaymentID)
 	if err != nil {
 		h.respondError(c, err)
 		return

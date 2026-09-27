@@ -47,7 +47,8 @@ func TestPaymentMethodsEndpointAllConfigured(t *testing.T) {
 		t.Fatal("expected a success response")
 	}
 
-	want := []string{"card", "mbway", "paypal"}
+	// MB WAY is prepared but unimplemented, so it is never advertised.
+	want := []string{"card", "paypal"}
 	if len(body.Data) != len(want) {
 		t.Fatalf("expected %d methods, got %v", len(want), body.Data)
 	}
@@ -57,6 +58,29 @@ func TestPaymentMethodsEndpointAllConfigured(t *testing.T) {
 		}
 		if body.Data[i]["label"] == "" {
 			t.Fatalf("method %q must carry a display label", want[i])
+		}
+	}
+}
+
+func TestPaymentMethodsEndpointNeverAdvertisesMBWay(t *testing.T) {
+	for _, methodMap := range []*payments.MethodProviderMap{
+		payments.NewMethodProviderMap(payments.NewFakeProvider(), payments.NewFakeProvider()),
+		payments.NewMethodProviderMap(payments.NewFakeProvider(), nil),
+		payments.NewMethodProviderMap(nil, payments.NewFakeProvider()),
+		payments.NewMethodProviderMap(nil, nil),
+	} {
+		rec := performMethodsRequest(newMethodsTestRouter(methodMap))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+		var body methodsResponseBody
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		for _, method := range body.Data {
+			if method["method"] == "mbway" {
+				t.Fatal("mbway must never be advertised as an available payment method")
+			}
 		}
 	}
 }

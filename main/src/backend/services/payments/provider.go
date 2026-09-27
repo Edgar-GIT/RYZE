@@ -21,15 +21,19 @@ type Provider interface {
 	InitiatePayment(ctx context.Context, request PaymentRequest) (PaymentResult, error)
 }
 
-// CaptureProvider is an optional capability implemented by providers that can
-// capture an approved payment server-side. Only redirect-based providers that
-// return full control to the application (e.g. PayPal) implement it. Providers
-// that rely solely on their own hosted confirmation events (e.g. Stripe) do
-// not, and capture attempts are rejected for them.
+// CaptureProvider is an optional capability implemented by providers whose
+// payment can be verified server-side after the buyer returns from the
+// provider page. It covers both providers that capture an approved payment
+// (e.g. PayPal Orders) and providers that complete the payment on a hosted
+// page and can only be re-verified (e.g. Stripe Checkout Sessions).
+//
+// In both cases the provider is the only source of truth: the browser response
+// is treated as untrusted input and the payment is always re-loaded from the
+// provider API before anything is completed.
 //
 // Implementations must verify that the referenced provider payment belongs to
 // the RYZE purchase and that its amount and currency match the immutable
-// purchase snapshot before capturing. A capture is idempotent: re-capturing an
+// purchase snapshot. A capture is idempotent: re-capturing an
 // already-captured payment is a success, never a duplicate charge.
 type CaptureProvider interface {
 	// CapturePayment captures an approved payment. The request contains only

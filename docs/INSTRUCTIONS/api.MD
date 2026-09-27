@@ -604,7 +604,7 @@ Response `data` (array of purchase history objects, newest first):
   program is published and not deleted. A completed purchase of a retired or
   deleted program keeps its history but loses `access`.
 - `payment_method` — the method selected at payment initiation (`"card"`,
-  `"mbway"` or `"paypal"`); omitted when the purchase never reached a payment
+  `"paypal"`); omitted when the purchase never reached a payment
   provider (Test Mode purchases, legacy pending purchases).
 - `created_at`, `updated_at` — purchase lifecycle timestamps.
 - `program` — safe program summary: `id`, `name`, `description`, `type`,
@@ -649,9 +649,10 @@ Error codes (service-level, not HTTP):
 
 Initiates a payment for an existing pending purchase via the configured payment
 provider. The purchase must belong to the authenticated user and be in "pending"
-status. The client selects the payment method (card, mbway or paypal); the
-server validates it and routes it to the correct provider via a centralized
-`MethodProviderMap`. As soon as a configured provider has been resolved, the
+status. The client selects the payment method (`card` or `paypal`, as
+advertised by `GET /api/v1/payments/methods`); the server validates it and routes
+it to the correct provider via a centralized `MethodProviderMap`. As soon as a
+configured provider has been resolved, the
 validated method is recorded on the purchase (`purchases.payment_method`), so it
 becomes immutable for that purchase and the later capture flow can always
 resolve the correct provider server-side without trusting any client input.
@@ -668,12 +669,24 @@ Parameters:
 
 Request body:
 
-- `payment_method` (required) — one of `"card"`, `"mbway"`, `"paypal"`.
+- `payment_method` (required) — one of `"card"` or `"paypal"`, matching an
+  advertised method.
 
 Validation:
 
 - `payment_method` is required and must be one of the allowed values. Any other
   value or a missing field returns `400 VALIDATION_ERROR`.
+- A valid but unavailable method — including the reserved `"mbway"` value, which
+  has no provider — returns `502 PAYMENT_PROVIDER_ERROR`: the method is never
+  silently substituted and no purchase is completed.
+- Re-initiating the **same** method is the supported retry path: it is safe to
+  repeat and, for Stripe, replays the same Checkout Session instead of creating
+  a second payable one.
+- Re-initiating a **different** method than the one already recorded on the
+  purchase returns `409 PAYMENT_METHOD_MISMATCH`. The recorded method is
+  immutable: the outstanding provider payment belongs to it, so the purchase is
+  never rebound and no provider is contacted. The client must resume the
+  purchase with the method reported in `payment_method`.
 
 Response `200 OK`:
 
@@ -692,23 +705,34 @@ Error codes:
 - `404 PURCHASE_NOT_FOUND` — purchase does not exist, is soft-deleted or does
   not belong to the authenticated user.
 - `409 PURCHASE_NOT_PENDING` — the purchase is not in "pending" status.
+- `409 PAYMENT_METHOD_MISMATCH` — the requested method differs from the method
+  already recorded on the pending purchase.
 - `502 PAYMENT_PROVIDER_ERROR` — the payment provider could not initiate the
   payment. Internal provider details are never exposed.
 
 #### `POST /api/v1/me/purchases/:purchaseID/capture`
 
-Captures an approved provider payment for an existing pending purchase and
+Verifies an approved provider payment for an existing pending purchase and
 completes it. This is the endpoint invoked by the browser return callback after
-the buyer completes the PayPal checkout. The purchase must belong to the
-authenticated user and be in "pending" status.
+the buyer completes the checkout on the provider page. The purchase must belong
+to the authenticated user and be in "pending" status.
 
-The provider payment identifier (`order_id`) is treated as untrusted input: the
-backend loads the real order from the payment provider server-side and binds it
-to the purchase by verifying the purchase-unit reference id, the amount and the
-currency against the immutable purchase snapshot before any capture happens. A
-browser redirect alone never completes a purchase — the capture must succeed and
-verify before the purchase transitions to "completed" and the entitlement is
-provisioned atomically.
+The provider payment identifier (`provider_payment_id`) is treated as untrusted
+input: the backend reloads the real payment from the provider API server-side
+and binds it to the purchase before anything is completed.
+
+- **PayPal** — the identifier is the Order ID; the backend reloads the order and
+  captures it, verifying the purchase-unit reference id, the amount and the
+  currency against the immutable purchase snapshot.
+- **Stripe** — the identifier is the Checkout Session ID; the backend reloads the
+  session and verifies that it is a fully paid one-time payment
+  (`payment_status == "paid"`, `mode == "payment"`) whose `client_reference_id`
+  is this purchase and whose `amount_total` and `currency` match the immutable
+  purchase snapshot.
+
+A browser redirect alone never completes a purchase — the provider must confirm
+the payment before the purchase transitions to "completed" and the entitlement
+is provisioned atomically.
 
 The capture provider is never chosen by the client: it is resolved server-side
 from the payment method recorded on the purchase at `InitiatePayment`. A capture
@@ -729,8 +753,10 @@ Parameters:
 
 Request body:
 
-- `order_id` (required) — the provider payment/order identifier returned by the
-  checkout flow.
+- `provider_payment_id` (required) — the provider's identifier for the payment
+  returned by the checkout flow: a PayPal Order ID or a Stripe Checkout Session
+  ID. It is only a correlation hint; the backend re-verifies the payment
+  provider-side.
 
 Response `200 OK`: the completed purchase snapshot:
 
@@ -742,17 +768,18 @@ Response `200 OK`: the completed purchase snapshot:
 
 Error codes:
 
-- `400 VALIDATION_ERROR` — missing purchase id, missing or blank `order_id`,
-  malformed body.
+- `400 VALIDATION_ERROR` — missing purchase id, missing or blank
+  `provider_payment_id`, malformed body.
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid session.
 - `404 PURCHASE_NOT_FOUND` — purchase does not exist, is soft-deleted or does
   not belong to the authenticated user.
 - `409 PURCHASE_NOT_PENDING` — the purchase is not in "pending" status (e.g. it
   already failed).
-- `502 PAYMENT_PROVIDER_ERROR` — the provider could not be reached or the order
-  could not be verified/captured, or the purchase has no recorded payment method
-  so no capture provider can be resolved. No money was taken at this point; the
-  purchase remains "pending" so the buyer can retry.
+- `502 PAYMENT_PROVIDER_ERROR` — the provider could not be reached, the payment
+  could not be verified/captured (including an unpaid, expired, foreign or
+  mismatched Stripe Checkout Session), or the purchase has no recorded payment
+  method so no capture provider can be resolved. No money was taken at this
+  point; the purchase remains "pending" so the buyer can retry.
 
 ---
 
@@ -769,11 +796,19 @@ consumes this endpoint and never hard-codes a payment method.
 When no provider is configured at all the endpoint returns an empty list and
 the frontend renders checkout as unavailable.
 
-Response `data` (array, stable order `card`, `mbway`, `paypal`, restricted to
-configured methods):
+`card` requires Stripe to be completely configured: both `STRIPE_SECRET_KEY` and
+`STRIPE_WEBHOOK_SECRET`. A secret key without a signing secret leaves the card
+method unadvertised, because without webhooks a payment could never be reliably
+confirmed.
 
-- `method` — normalized method identifier (`"card"`, `"mbway"`, `"paypal"`).
-- `label` — display name for the customer ("Card", "MB WAY", "PayPal").
+`mbway` is a reserved enum value with no provider implementation and is therefore
+never advertised, even when Stripe is configured.
+
+Response `data` (array, stable order `card`, `paypal`, restricted to configured
+methods):
+
+- `method` — normalized method identifier (`"card"`, `"paypal"`).
+- `label` — display name for the customer ("Card", "PayPal").
 
 Responses:
 
@@ -894,16 +929,26 @@ Request:
 Supported event types:
 
 - `checkout.session.completed` — primary payment success event
-- `checkout.session.async_payment_succeeded` — async payment methods (e.g.
-  bank transfers)
+- `checkout.session.async_payment_succeeded` — delayed payment methods settling
+  later
 
-All other event types are safely acknowledged with 200.
+A completion event is only honored when the session is a fully paid one-time
+payment (`payment_status == "paid"`, `mode == "payment"`) whose
+`client_reference_id` matches the `purchase_id` metadata. Delayed methods emit
+`checkout.session.completed` while still unpaid; those events are acknowledged
+and ignored until `checkout.session.async_payment_succeeded` arrives.
+
+All other event types are safely acknowledged with 200 and ignored, including
+refunds and disputes: RYZE purchases are final, there is no refund workflow, and
+no event type can revert a completed purchase.
 
 Responses:
 
-- `200` — event processed (completed, already completed, unsupported, unknown
-  purchase)
-- `400` — invalid signature, missing header, malformed payload
+- `200` — event processed (completed, already completed, not a successful
+  payment, unsupported mode, unsupported event type, unknown purchase, purchase
+  not pending)
+- `400` — invalid signature, missing header, malformed payload, purchase
+  reference mismatch
 - `500` — amount/currency mismatch, completion failure
 
 **Checkout initiation does not complete a purchase. Browser redirects do not

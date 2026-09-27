@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	stripe "github.com/stripe/stripe-go/v82"
-	"github.com/stripe/stripe-go/v82/webhook"
+	stripe "github.com/stripe/stripe-go/v86"
+	"github.com/stripe/stripe-go/v86/webhook"
 
 	"ryze/backend/services/purchases"
 )
@@ -47,20 +47,25 @@ func NewStripeWebhookHandler(webhookSecret string, purchaseService purchases.Ser
 //  3. Verify the signature using the configured webhook secret.
 //  4. Parse the verified event.
 //  5. Handle only checkout.session.completed and async_payment_succeeded events.
-//  6. Extract the RYZE purchase identifier from trusted Stripe metadata.
-//  7. Verify payment amount and currency against the immutable purchase snapshot.
-//  8. Call CompletePurchase().
+//  6. Verify the session is a fully paid one-time payment (payment_status,
+//     mode, client_reference_id) before anything else.
+//  7. Extract the RYZE purchase identifier from trusted Stripe metadata.
+//  8. Verify payment amount and currency against the immutable purchase snapshot.
+//  9. Call CompletePurchase().
 //
 // Response semantics:
-//   - 400: invalid signature, missing header, malformed payload
-//   - 200: unsupported event type (safely ignored), unknown purchase, already completed, not pending
+//   - 400: invalid signature, missing header, malformed payload, unexpected event data
+//   - 200: unsupported event type (safely ignored), not a successful payment,
+//     unknown purchase, already completed, not pending
 //   - 500: internal errors where provider retry is desirable (completion failure, amount/currency mismatch)
 //
 // Supported event types:
 //   - checkout.session.completed: the primary payment success event
 //   - checkout.session.async_payment_succeeded: async payment methods (e.g. bank transfers)
 //
-// All other event types are safely acknowledged with 200 to prevent infinite retries.
+// All other event types — including refunds and disputes — are safely
+// acknowledged with 200 and ignored. RYZE purchases are final: no refund
+// workflow exists and no event type can revert a completed purchase.
 func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 	payload, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -93,9 +98,10 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 }
 
 // handleCheckoutSessionCompleted processes a verified checkout.session.completed
-// (or async_payment_succeeded) event. It extracts purchase details from trusted
-// Stripe metadata, validates them against the immutable purchase snapshot, and
-// calls CompletePurchase.
+// (or async_payment_succeeded) event. It first proves from the event itself that
+// the session is a fully paid one-time payment belonging to the RYZE purchase,
+// then validates it against the immutable purchase snapshot, and finally calls
+// CompletePurchase.
 func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c *gin.Context, event stripe.Event) {
 	var session stripe.CheckoutSession
 	if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
@@ -104,10 +110,39 @@ func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c *gin.Context, ev
 		return
 	}
 
+	// A session is only a successful payment when Stripe reports it as fully
+	// paid. Delayed payment methods emit checkout.session.completed while
+	// still unpaid and settle later through async_payment_succeeded, so an
+	// unpaid session is acknowledged and ignored instead of completing
+	// anything.
+	if session.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid {
+		log.Printf("[STRIPE-WEBHOOK] session %s is not a successful payment (payment_status=%s)", session.ID, session.PaymentStatus)
+		c.String(http.StatusOK, "payment not completed")
+		return
+	}
+
+	// Only RYZE one-time payments can complete a purchase. A session from any
+	// other mode was never created by the RYZE purchase flow.
+	if session.Mode != stripe.CheckoutSessionModePayment {
+		log.Printf("[STRIPE-WEBHOOK] session %s has unsupported mode %q", session.ID, session.Mode)
+		c.String(http.StatusOK, "unsupported checkout mode")
+		return
+	}
+
 	purchaseID := session.Metadata["purchase_id"]
 	if purchaseID == "" {
 		log.Printf("[STRIPE-WEBHOOK] session %s has no purchase_id in metadata", session.ID)
 		c.String(http.StatusOK, "no purchase_id in metadata")
+		return
+	}
+
+	// The client reference ID is set at session creation and is the strongest
+	// binding between the Stripe session and the RYZE purchase. A mismatch
+	// means this session is not the one created for this purchase, so the event
+	// is rejected and never completes anything.
+	if session.ClientReferenceID != purchaseID {
+		log.Printf("[STRIPE-WEBHOOK] session %s reference mismatch: client_reference_id=%q metadata purchase_id=%q", session.ID, session.ClientReferenceID, purchaseID)
+		c.String(http.StatusBadRequest, "purchase reference mismatch")
 		return
 	}
 

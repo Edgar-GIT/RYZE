@@ -377,26 +377,42 @@ Test Mode purchases.
 
 ## Stripe Checkout Provider (Optional)
 
-The payment system supports Stripe Checkout Sessions as the first real payment
-provider. The provider is optional: when `STRIPE_SECRET_KEY` is not set, the
-backend uses a placeholder that rejects all payment requests.
+Stripe serves the `card` payment method through Stripe-hosted Checkout Sessions.
+Card details are entered only on the Stripe page: RYZE never receives, logs or
+stores raw card data.
+
+Stripe is enabled **only when both `STRIPE_SECRET_KEY` and
+`STRIPE_WEBHOOK_SECRET` are set**. Webhooks are the reliable way to confirm a
+payment, so a secret key without a signing secret leaves the `card` method
+unadvertised and unprocessable rather than half-enabled.
 
 ```text
 STRIPE_SECRET_KEY=sk_test_...
-STRIPE_SUCCESS_URL=http://localhost:5173/purchase/success
-STRIPE_CANCEL_URL=http://localhost:5173/purchase/cancel
+STRIPE_SUCCESS_URL=http://localhost:5173/services/generic-program/{program_id}/purchase/success?session_id={CHECKOUT_SESSION_ID}&purchase_id={purchase_id}
+STRIPE_CANCEL_URL=http://localhost:5173/services/generic-program/{program_id}/purchase/cancelled?status=cancelled&purchase_id={purchase_id}
 ```
 
-- `STRIPE_SECRET_KEY` — Stripe API secret key. Required to enable payment
+- `STRIPE_SECRET_KEY` — Stripe API secret key. Required to enable card
   processing. Use `sk_test_...` for development, `sk_live_...` for production.
   The key is loaded from the `.env` file and set on the global Stripe SDK key
   at startup. It is never logged or exposed to the client.
+- `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret. Also required; see
+  [Webhook Configuration](#webhook-configuration).
 - `STRIPE_SUCCESS_URL` — URL where the user is redirected after a successful
   Stripe Checkout payment. Optional; when empty, Stripe uses its default
-  redirect behaviour.
+  redirect behaviour. The `{program_id}` and `{purchase_id}` placeholders are
+  replaced server-side for each session, and `{CHECKOUT_SESSION_ID}` is reserved
+  for Stripe and must be kept on the success URL so the return leg can be
+  verified.
 - `STRIPE_CANCEL_URL` — URL where the user is redirected when they cancel the
   Stripe Checkout flow. Optional; when empty, Stripe uses its default redirect
-  behaviour.
+  behaviour. The same `{program_id}` / `{purchase_id}` placeholders are
+  substituted server-side; the frontend reads `purchase_id` and
+  `status=cancelled` to recover the purchase.
+
+One Checkout Session is created per purchase. Repeated initiations reuse the
+same session, so a buyer can never end up with two payable sessions for the
+same purchase.
 
 Real money is never processed during development. Use Stripe test keys and
 test card numbers from the Stripe Dashboard.
@@ -425,14 +441,15 @@ PAYPAL_CANCEL_URL=http://localhost:5173/services/generic-program/{program_id}?pu
   redirects the buyer after approving/cancelling a payment. Optional; the
   `{program_id}` and `{purchase_id}` placeholders are replaced server-side for
   each order. When both are empty, orders are created without a redirect
-  context. PayPal appends the order token (`?token=<order_id>`) to both URLs.
+  context. PayPal appends the order token (`?token=<order_id>`) to both URLs,
+  where `<order_id>` is the PayPal Order ID.
 
 The PayPal credentials follow the same secrets management as Stripe: loaded from
 the `.env` file at startup, never logged, never exposed to the client.
 
 When the buyer returns from PayPal, the frontend calls the capture endpoint
-(`POST /api/v1/me/purchases/:purchaseID/capture`) with the order token. The
-backend loads the real order from PayPal, verifies it belongs to the purchase
+(`POST /api/v1/me/purchases/:purchaseID/capture`) with the order token as
+`provider_payment_id`. The backend loads the real order from PayPal, verifies it belongs to the purchase
 (reference id, amount, currency) and captures it before completing the
 purchase. A browser redirect alone never completes a purchase.
 
@@ -453,9 +470,16 @@ When both a provider secret AND a webhook secret are configured, the
 corresponding webhook endpoint is registered:
 
 - `POST /api/v1/webhooks/stripe` — requires `STRIPE_SECRET_KEY` AND
-  `STRIPE_WEBHOOK_SECRET`
+  `STRIPE_WEBHOOK_SECRET`; the same pair enables the `card` method
 - `POST /api/v1/webhooks/paypal` — requires `PAYPAL_CLIENT_ID` AND
   `PAYPAL_WEBHOOK_ID`
+
+The Stripe handler completes a purchase only for a fully paid one-time payment
+Session (`payment_status == "paid"`, `mode == "payment"`) whose
+`client_reference_id` matches the `purchase_id` metadata and whose amount and
+currency match the purchase snapshot. Unpaid sessions (delayed payment
+methods), refunds and disputes are acknowledged and ignored: RYZE purchases are
+final and there is no refund workflow.
 
 ## Verify the Database Connection
 
@@ -645,7 +669,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 5. Use Stripe test card numbers from the Stripe Dashboard to complete a
    Checkout Session. The CLI forwards the `checkout.session.completed` event
    to the local server, which verifies the signature and completes the
-   purchase.
+   purchase. `checkout.session.async_payment_succeeded` is handled the same way
+   for delayed payment methods.
 
 ## Payment Testing with PayPal Sandbox
 
@@ -674,7 +699,11 @@ whichever path completes first wins, the other is idempotent.
 
 ## Testing Without Real Providers
 
-When `STRIPE_SECRET_KEY` and `PAYPAL_CLIENT_ID` are both empty, the payment
-service uses a placeholder provider that rejects all payment initiation
-requests. This is the default state and is safe for development without real
-provider accounts.
+When Stripe is not completely configured (missing `STRIPE_SECRET_KEY` or
+`STRIPE_WEBHOOK_SECRET`) and `PAYPAL_CLIENT_ID` is empty, no payment method is
+advertised, and any payment initiation request fails closed with a generic
+`502 PAYMENT_PROVIDER_ERROR`. This is the default state and is safe for
+development without real provider accounts.
+
+`mbway` is a reserved enum value with no provider: it is never advertised, never
+routed, and always fails closed.

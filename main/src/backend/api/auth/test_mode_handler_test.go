@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,12 +23,21 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/password"
+	"ryze/backend/services/payments"
 	"ryze/backend/services/purchases"
 	"ryze/backend/services/test_mode"
 	"ryze/backend/services/token"
 )
 
 func newTestModeTestRouter(t *testing.T, enabled bool) (*gin.Engine, repositories.UserRepository, *gorm.DB, token.Service) {
+	t.Helper()
+	return newTestModeTestRouterWithProviders(t, enabled, nil)
+}
+
+// newTestModeTestRouterWithProviders builds the Test Mode router with an
+// explicit payment provider and resolver, so tests can prove Test Mode never
+// reaches a provider no matter how the payment layer is configured.
+func newTestModeTestRouterWithProviders(t *testing.T, enabled bool, provider payments.Provider) (*gin.Engine, repositories.UserRepository, *gorm.DB, token.Service) {
 	t.Helper()
 
 	config.LoadEnvFile()
@@ -63,7 +73,11 @@ func newTestModeTestRouter(t *testing.T, enabled bool) (*gin.Engine, repositorie
 	testModeSvc := test_mode.NewService(enabled, sessionRepo, userRepo, trainerRepo, password.Hasher{})
 	testModeHandler := auth.NewTestModeHandler(testModeSvc, tokenSvc, userRepo, testTokenTTL, false)
 
-	purchaseSvc := purchases.NewService(programRepo, purchaseRepo, entitlementRepo, nil, nil, nil)
+	var resolver payments.ProviderResolver
+	if provider != nil {
+		resolver = payments.NewMethodProviderMap(provider, nil).Resolve
+	}
+	purchaseSvc := purchases.NewService(programRepo, purchaseRepo, entitlementRepo, nil, provider, resolver)
 	testModePurchaseHandler := auth.NewTestModePurchaseHandler(testModeSvc, purchaseSvc)
 	adminMeHandler := auth.NewAdminMeHandler()
 
@@ -81,6 +95,23 @@ func newTestModeTestRouter(t *testing.T, enabled bool) (*gin.Engine, repositorie
 		testModePurchaseHandler.Purchase)
 
 	return router, userRepo, tx, tokenSvc
+}
+
+// countingCardProvider records any payment activity. Test Mode must never touch
+// it, whatever the payment configuration is.
+type countingCardProvider struct {
+	initiations int
+	captures    int
+}
+
+func (p *countingCardProvider) InitiatePayment(_ context.Context, _ payments.PaymentRequest) (payments.PaymentResult, error) {
+	p.initiations++
+	return payments.PaymentResult{}, fmt.Errorf("test mode must not initiate a payment")
+}
+
+func (p *countingCardProvider) CapturePayment(_ context.Context, _ payments.CaptureRequest) (payments.CaptureResult, error) {
+	p.captures++
+	return payments.CaptureResult{}, fmt.Errorf("test mode must not capture a payment")
 }
 
 func testModeRequest(router http.Handler, method, path, body string, cookies map[string]string) (*httptest.ResponseRecorder, map[string]any, string) {
@@ -622,5 +653,51 @@ func TestTestModePurchaseRequiresAuthentication(t *testing.T) {
 	}
 	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
 		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
+// TestTestModePurchaseIgnoresConfiguredCardProvider proves Test Mode stays
+// independent of payment provider configuration: a fully configured card
+// provider is neither initiated nor captured, no payment method is recorded,
+// and the purchase is still zero-price, test-marked and entitlement-producing.
+func TestTestModePurchaseIgnoresConfiguredCardProvider(t *testing.T) {
+	card := &countingCardProvider{}
+	router, _, tx, tokenSvc := newTestModeTestRouterWithProviders(t, true, card)
+
+	cookies, _ := enterTestMode(t, router, tokenSvc, "client")
+	program, _ := seedPurchasableProgram(t, tx, models.ProgramTypePremium, models.ProgramStatusPublished)
+
+	rec, data, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", "", map[string]string{
+		auth.AccessTokenCookieName:      cookies[auth.AccessTokenCookieName],
+		auth.TestSessionTokenCookieName: cookies[auth.TestSessionTokenCookieName],
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	if status, _ := data["status"].(string); status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected a completed purchase, got %q", status)
+	}
+	if price, _ := data["price_minor_units"].(float64); price != 0 {
+		t.Fatalf("expected a zero test price, got %v", price)
+	}
+
+	if card.initiations != 0 || card.captures != 0 {
+		t.Fatalf("Test Mode must never contact a payment provider, got %d initiations and %d captures", card.initiations, card.captures)
+	}
+
+	purchaseRepo := repositories.NewPurchaseRepository(tx)
+	purchaseID, _ := data["id"].(string)
+	persisted, err := purchaseRepo.FindByID(context.Background(), purchaseID)
+	if err != nil {
+		t.Fatalf("load persisted purchase: %v", err)
+	}
+	if !persisted.Test {
+		t.Fatal("expected the persisted purchase to carry the test marker")
+	}
+	if persisted.PriceMinorUnits != 0 {
+		t.Fatalf("expected zero test price persisted, got %d", persisted.PriceMinorUnits)
+	}
+	if persisted.PaymentMethod != nil {
+		t.Fatalf("a Test Mode purchase must not record a payment method, got %q", *persisted.PaymentMethod)
 	}
 }

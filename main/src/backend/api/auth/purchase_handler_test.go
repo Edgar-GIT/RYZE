@@ -1024,7 +1024,7 @@ func TestCaptureHandlerForwardsContextIdentity(t *testing.T) {
 	}
 	router := newPurchaseHandlerRouter(svc, identity)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"provider_payment_id":"ORDER-123"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1039,7 +1039,7 @@ func TestCaptureHandlerForwardsContextIdentity(t *testing.T) {
 func TestCaptureHandlerMissingContext(t *testing.T) {
 	router := newPurchaseHandlerRouter(&stubPurchaseService{}, nil)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"provider_payment_id":"ORDER-123"}`)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1056,8 +1056,8 @@ func TestCaptureHandlerValidation(t *testing.T) {
 		body string
 	}{
 		{name: "empty body", body: `{}`},
-		{name: "missing order id", body: `{"order_id":""}`},
-		{name: "blank order id", body: `{"order_id":"   "}`},
+		{name: "missing order id", body: `{"provider_payment_id":""}`},
+		{name: "blank order id", body: `{"provider_payment_id":"   "}`},
 		{name: "malformed json", body: `{not-json`},
 	}
 
@@ -1097,7 +1097,7 @@ func TestCaptureHandlerErrorMapping(t *testing.T) {
 			svc := &stubPurchaseService{err: tc.err}
 			router := newPurchaseHandlerRouter(svc, identity)
 
-			rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+			rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"provider_payment_id":"ORDER-123"}`)
 			if rec.Code != tc.status {
 				t.Fatalf("expected %d, got %d (body: %s)", tc.status, rec.Code, raw)
 			}
@@ -1112,7 +1112,7 @@ func TestCaptureHandlerRepositoryFailureNotExposed(t *testing.T) {
 	svc := &stubPurchaseService{err: errLoginRepoFailure}
 	router := newPurchaseHandlerRouter(svc, "33333333-3333-3333-3333-333333333333")
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"provider_payment_id":"ORDER-123"}`)
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1140,7 +1140,7 @@ func TestCaptureHandlerSuccessResponse(t *testing.T) {
 	}
 	router := newPurchaseHandlerRouter(svc, identity)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"order_id":"ORDER-123"}`)
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/capture", `{"provider_payment_id":"ORDER-123"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1456,7 +1456,7 @@ func TestCaptureIntegrationSuccess(t *testing.T) {
 		t.Fatalf("initiate payment expected 200, got %d (body: %s)", initRec.Code, rawInit)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"order_id":"ORDER-INTEGRATION-1"}`)
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"provider_payment_id":"ORDER-INTEGRATION-1"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1475,7 +1475,7 @@ func TestCaptureIntegrationSuccess(t *testing.T) {
 	}
 
 	// A second capture is idempotent and must not break the completed state.
-	rec2, _, raw2 := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"order_id":"ORDER-INTEGRATION-1"}`)
+	rec2, _, raw2 := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"provider_payment_id":"ORDER-INTEGRATION-1"}`)
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("idempotent re-capture expected 200, got %d (body: %s)", rec2.Code, raw2)
 	}
@@ -1487,7 +1487,7 @@ func TestCaptureIntegrationSuccess(t *testing.T) {
 func TestCaptureIntegrationUnauthenticated(t *testing.T) {
 	router, _, _, _ := newPurchaseTestRouter(t)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/capture", `{"order_id":"ORDER-X"}`)
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/capture", `{"provider_payment_id":"ORDER-X"}`)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1505,7 +1505,7 @@ func TestCaptureIntegrationPurchaseNotFound(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/capture", `{"order_id":"ORDER-X"}`)
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/capture", `{"provider_payment_id":"ORDER-X"}`)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1553,7 +1553,7 @@ func TestCaptureIntegrationIDOR(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"order_id":"ORDER-X"}`)
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"provider_payment_id":"ORDER-X"}`)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 for foreign purchase, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1600,7 +1600,7 @@ func TestCaptureIntegrationNotPending(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"order_id":"ORDER-X"}`)
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/capture", `{"provider_payment_id":"ORDER-X"}`)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("expected 409, got %d (body: %s)", rec.Code, raw)
 	}

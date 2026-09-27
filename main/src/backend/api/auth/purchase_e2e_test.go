@@ -169,7 +169,7 @@ func TestE2EFullPurchaseFlow(t *testing.T) {
 	// Step 3: Capture the approved payment via the authenticated capture
 	// endpoint (this is what the browser return callback does). The fake
 	// provider accepts any order id and binds it to the purchase server-side.
-	rec, capData, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/capture", `{"order_id":"ORDER-E2E-1"}`)
+	rec, capData, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/capture", `{"provider_payment_id":"ORDER-E2E-1"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Step 3 - expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -225,7 +225,7 @@ func TestE2EFullPurchaseFlow(t *testing.T) {
 	}
 
 	// Step 5: Verify idempotency - capturing again succeeds without duplicating entitlements
-	rec, _, raw = trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/capture", `{"order_id":"ORDER-E2E-1"}`)
+	rec, _, raw = trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/capture", `{"provider_payment_id":"ORDER-E2E-1"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Step 5 - idempotent capture expected 200, got %d (body: %s)", rec.Code, raw)
 	}

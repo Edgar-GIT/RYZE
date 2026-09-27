@@ -31,6 +31,11 @@ import styles from "./generic_program_detail_page.module.css";
 
 const CANCELLED_STATUS = "cancelled";
 const DUPLICATE_PURCHASE = "DUPLICATE_PURCHASE";
+// Query parameters each provider appends to the return URL: Stripe substitutes
+// {CHECKOUT_SESSION_ID} into the configured success URL, while PayPal appends
+// the order token to the configured return URL.
+const STRIPE_SESSION_PARAM = "session_id";
+const PAYPAL_TOKEN_PARAM = "token";
 
 // The checkout lifecycle is purely client convenience: the backend is fully
 // authoritative. Browser redirects never complete a purchase — only the
@@ -377,10 +382,10 @@ export const GenericProgramDetailPage = () => {
   }, [programId]);
 
   const runCapture = useCallback(
-    async (purchaseId: string, orderId: string) => {
+    async (purchaseId: string, providerPaymentId: string) => {
       setPurchaseState({ status: "processing" });
       try {
-        const purchase = await capturePayment(purchaseId, orderId);
+        const purchase = await capturePayment(purchaseId, providerPaymentId);
         setPurchaseState({ status: "success", purchase });
       } catch (error) {
         // 409 (PURCHASE_NOT_PENDING) can mean the purchase was already
@@ -402,30 +407,45 @@ export const GenericProgramDetailPage = () => {
     [resolveOwnership]
   );
 
-  const negotiatePayment = useCallback(async (purchaseId: string) => {
-    setPurchaseState({ status: "negotiating" });
-    try {
-      if (!selectedMethod) {
+  // A purchase is bound to its payment method once a provider has been
+  // resolved, so resuming a pending purchase must reuse the recorded method
+  // rather than the one currently highlighted in the selector.
+  const resolveMethodForPurchase = useCallback(
+    (purchase: { payment_method?: string | null }): string | null => {
+      if (purchase.payment_method) return purchase.payment_method;
+      if (!selectedMethod) return null;
+      return selectedMethod;
+    },
+    [selectedMethod]
+  );
+
+  const negotiatePayment = useCallback(
+    async (purchaseId: string, method: string | null) => {
+      setPurchaseState({ status: "negotiating" });
+      if (!method) {
         setPurchaseState({ status: "error", message: "Checkout is temporarily unavailable. Please try again later." });
         return;
       }
-      const initiation = await initiatePayment(purchaseId, selectedMethod);
-      if (!initiation.checkout_url) {
-        setPurchaseState({ status: "error", message: "Checkout is temporarily unavailable. Please try again." });
-        return;
+      try {
+        const initiation = await initiatePayment(purchaseId, method);
+        if (!initiation.checkout_url) {
+          setPurchaseState({ status: "error", message: "Checkout is temporarily unavailable. Please try again." });
+          return;
+        }
+        setPurchaseState({ status: "redirecting" });
+        window.location.assign(initiation.checkout_url);
+      } catch {
+        setPurchaseState({ status: "error", message: "We could not start the checkout. No money was taken at this point." });
       }
-      setPurchaseState({ status: "redirecting" });
-      window.location.assign(initiation.checkout_url);
-    } catch {
-      setPurchaseState({ status: "error", message: "We could not start the checkout. No money was taken at this point." });
-    }
-  }, [selectedMethod]);
+    },
+    []
+  );
 
   const handleBuy = useCallback(async () => {
     setPurchaseState({ status: "creating" });
     try {
       const purchase = await createPurchaseIntent(programId);
-      await negotiatePayment(purchase.id);
+      await negotiatePayment(purchase.id, resolveMethodForPurchase(purchase));
     } catch (error) {
       // A pending purchase already exists for this program (e.g. the user
       // navigated away mid-checkout): recover by resuming that purchase.
@@ -434,7 +454,7 @@ export const GenericProgramDetailPage = () => {
           const purchases = await fetchMyPurchases();
           const pending = purchases.find((p) => p.program_id === programId && p.status === "pending");
           if (pending) {
-            await negotiatePayment(pending.id);
+            await negotiatePayment(pending.id, resolveMethodForPurchase(pending));
             return;
           }
         } catch {
@@ -443,7 +463,7 @@ export const GenericProgramDetailPage = () => {
       }
       setPurchaseState({ status: "error", message: "We could not start your purchase. No money was taken at this point." });
     }
-  }, [programId, negotiatePayment]);
+  }, [programId, negotiatePayment, resolveMethodForPurchase]);
 
   const handleTestModeBuy = useCallback(async () => {
     setPurchaseState({ status: "creating" });
@@ -470,9 +490,9 @@ export const GenericProgramDetailPage = () => {
 
   const handleRetryPurchase = useCallback(
     async (purchaseId: string) => {
-      await negotiatePayment(purchaseId);
+      await negotiatePayment(purchaseId, selectedMethod);
     },
-    [negotiatePayment]
+    [negotiatePayment, selectedMethod]
   );
 
   // Resolve the currently configured payment methods. The endpoint is public
@@ -507,7 +527,10 @@ export const GenericProgramDetailPage = () => {
     let cancelled = false;
     const params = new URLSearchParams(window.location.search);
     const purchaseId = params.get("purchase_id");
-    const orderId = params.get("token");
+    // Provider return identifiers: PayPal appends the order token, Stripe
+    // appends the Checkout Session ID. Whichever arrives is only a correlation
+    // hint — the backend re-verifies the payment before completing anything.
+    const providerPaymentId = params.get(STRIPE_SESSION_PARAM) ?? params.get(PAYPAL_TOKEN_PARAM);
 
     const resolveInitial = async () => {
       if (params.get("status") === CANCELLED_STATUS) {
@@ -520,9 +543,9 @@ export const GenericProgramDetailPage = () => {
       }
 
       // Browser return from the payment page: attempt the server-verified
-      // capture. The order token accompanies every return URL.
-      if (purchaseId && orderId) {
-        await runCapture(purchaseId, orderId);
+      // capture.
+      if (purchaseId && providerPaymentId) {
+        await runCapture(purchaseId, providerPaymentId);
         return;
       }
 

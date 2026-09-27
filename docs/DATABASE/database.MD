@@ -445,6 +445,13 @@ The implemented `purchases` table contains:
   client input. `NULL` marks purchases that never reached a payment provider
   (Test Mode purchases and legacy pending purchases created before the column
   existed); such purchases can only be captured after being re-initiated.
+  `mbway` is retained as a reserved value for future providers: it has no
+  provider implementation, so it is never recorded by a successful initiation.
+- The schema is unchanged by the Stripe card payment milestone: purchase
+  creation, snapshots, status transitions and entitlements already cover it.
+  Payment provider identity, amount and currency are all verified against the
+  existing immutable snapshot, so no provider table, column or migration is
+  required. Schema version remains `24`.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
 - `completed_purchase` — MariaDB generated column `IF(deleted_at IS NULL AND

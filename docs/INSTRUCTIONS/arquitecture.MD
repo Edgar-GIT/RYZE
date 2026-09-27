@@ -764,7 +764,8 @@ Components:
 - `services/payments/errors.go` — `ErrProviderFailure` sentinel error.
 - `services/payments/fake_provider.go` — deterministic test-only provider
   (implements both interfaces).
-- `services/payments/stripe_provider.go` — Stripe Checkout Sessions provider.
+- `services/payments/stripe_provider.go` — Stripe Checkout Sessions provider
+  (implements both interfaces; verifies the Checkout Session server-side).
 - `services/payments/paypal_provider.go` — PayPal Orders provider (implements
   both interfaces; captures approved orders server-side).
 - `services/payments/provider_routing.go` — the `PaymentMethod` allowlist
@@ -772,35 +773,72 @@ Components:
   its `AvailableMethods()` projection used by the public methods endpoint.
 
 The `purchases` service holds a `payments.Provider` dependency injected at
-construction time. The `resolvePaymentProvider` function in routes selects the
-Stripe provider when `STRIPE_SECRET_KEY` is set and the PayPal provider when
-`PAYPAL_CLIENT_ID` is set, otherwise falls back to the
-`notConfiguredPaymentProvider` placeholder.
+construction time. The `resolvePaymentProviders` function in routes builds the
+Stripe provider only when Stripe is completely configured, and the PayPal
+provider when `PAYPAL_CLIENT_ID` is set.
 
 ### Stripe Checkout Provider
 
-The `StripeProvider` implements the `Provider` interface using Stripe Checkout
-Sessions in payment mode:
+The `StripeProvider` implements both `Provider` and `CaptureProvider` using
+Stripe-hosted Checkout Sessions in payment mode. RYZE never receives, stores or
+transmits raw card data: the buyer enters it exclusively on the Stripe-hosted
+page, reached through the returned `CheckoutURL`.
+
+Initiation (`InitiatePayment`):
 
 - Creates a Checkout Session with a single line item whose amount and currency
   come from the immutable purchase snapshot.
+- Requests the `card` payment method type only. No other method is ever sent to
+  Stripe, and any non-card method is rejected before the API call.
 - Returns the Stripe Checkout Session ID as `PaymentID` and the hosted Checkout
   URL as `CheckoutURL`.
-- Uses idempotency keys derived from the purchase ID to prevent duplicate
-  session creation.
-- Sets `ClientReferenceID` and `metadata` with the RYZE purchase ID for
-  server-side reconciliation.
+- Uses a per-purchase idempotency key (`ryze-purchase-<purchaseID>`) so a
+  repeated initiation replays the same session instead of creating a second
+  payable session. One purchase can therefore never hold two payable sessions.
+- Sets `ClientReferenceID` and `metadata` with the RYZE purchase ID and program
+  ID for server-side reconciliation.
+- Substitutes the `{program_id}` and `{purchase_id}` placeholders in the
+  configured redirect templates, preserving Stripe's own
+  `{CHECKOUT_SESSION_ID}` placeholder for the return leg.
 - Always returns `PaymentStatusRequiresAction` since the user must visit the
   Checkout URL to complete payment.
 
-Configuration:
+Capture (`CapturePayment`): Stripe completes the payment on its hosted page, so
+capture is a server-side verification rather than a charge. The Checkout Session
+is always reloaded from the Stripe API using the session ID received on the
+return leg — the browser response is never trusted. Verification requires all
+of:
 
-- `STRIPE_SECRET_KEY` — Stripe API secret key (required to enable Stripe).
+- `payment_status == "paid"` (a delayed method settles later and is rejected
+  until it actually succeeds);
+- `mode == "payment"` (RYZE offers no subscriptions or setup sessions);
+- `client_reference_id` equal to the RYZE purchase ID;
+- `amount_total` equal to the immutable purchase amount;
+- `currency` equal to the immutable purchase currency.
+
+Verification is read-only and therefore idempotent, which is what makes the
+browser return leg and the webhook safe to race. An unpaid, expired, foreign or
+mismatched session is rejected and leaves the purchase pending.
+
+Configuration (both values are required to enable Stripe):
+
+- `STRIPE_SECRET_KEY` — Stripe API secret key (server-only).
+- `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret (server-only).
+  Stripe documents webhooks as required for fulfillment, so a secret key
+  without a signing secret leaves Stripe incomplete and the card method is not
+  created, not routed and not advertised.
 - `STRIPE_SUCCESS_URL` — redirect URL after successful payment (optional).
-- `STRIPE_CANCEL_URL` — redirect URL when user cancels (optional).
+  Supports the `{program_id}`, `{purchase_id}` and `{CHECKOUT_SESSION_ID}`
+  placeholders.
+- `STRIPE_CANCEL_URL` — redirect URL when the buyer cancels (optional). Supports
+  `{program_id}` and `{purchase_id}`.
 - The Stripe SDK global key (`stripe.Key`) is set from the environment at
-  startup. The key is never logged, exposed to the client, or stored in the
-  database.
+  startup and cleared again when Stripe is not completely configured, so no
+  stale credential can be used. The key is never logged, exposed to the client,
+  or stored in the database.
+
+The provider uses the official Stripe Go SDK (`stripe-go/v86`), the current
+supported major version.
 
 The full payment lifecycle follows four distinct phases:
 
@@ -810,9 +848,9 @@ The full payment lifecycle follows four distinct phases:
    validates and resolves the payment method, records it on the purchase, then
    delegates to the provider, returning the checkout URL if applicable.
 3. Payment capture (`POST /api/v1/me/purchases/:purchaseID/capture`, or the
-   PayPal webhook flow) — the capture provider is resolved from the recorded
-   payment method, the approved provider payment is captured server-side and
-   bound to the purchase by the provider.
+   verified Stripe webhook flow) — the capture provider is resolved from the
+   recorded payment method and the provider payment is verified server-side and
+   bound to the purchase. PayPal additionally captures the approved order.
 4. Purchase completion — atomically transitions the purchase status and
    provisions the entitlement. Only ever reached through the server-verified
    capture path or a verified provider event, never through a browser redirect.
@@ -839,14 +877,16 @@ Mode purchases) fails closed on capture until it is re-initiated.
 The mapping:
 
 - `card` → Stripe provider.
-- `mbway` → Stripe provider (MB WAY is a Stripe payment method type).
 - `paypal` → PayPal provider.
+- `mbway` → never resolved. MB WAY is a prepared but unimplemented method with no
+  provider, so it stays in the database enum allowlist while failing closed with
+  `ErrNoProviderAvailable`. It must never be presented as functional.
 
 The `MethodProviderMap.AvailableMethods()` helper returns only the methods whose
-provider is actually configured, in the stable order `card`, `mbway`, `paypal`.
-It backs the public `GET /api/v1/payments/methods` endpoint, so the checkout UI
-advertises exactly the methods the backend can service and never hard-codes a
-payment method.
+provider is actually configured, in the stable order `card`, `paypal`. MB WAY is
+never part of that projection. It backs the public
+`GET /api/v1/payments/methods` endpoint, so the checkout UI advertises exactly
+the methods the backend can service and never hard-codes a payment method.
 
 PayPal provider:
 
@@ -859,23 +899,16 @@ PayPal provider:
 - PayPal is optional; when credentials are empty, the PayPal method is
   rejected at routing time.
 
-Stripe provider:
-
-- Now configures payment method types on Checkout Sessions based on the
-  requested method (card or mbway).
-
 Provider availability:
 
-- **PayPal is the functional provider** today.
-- **Stripe is prepared but not enabled** in a default deployment: the
-  `card` and `mbway` methods resolve only when `STRIPE_SECRET_KEY` and the
-  Stripe webhook secret are configured; otherwise `card`/`mbway` are not
-  advertised and not routed.
-
-The `purchases` service holds a `payments.Provider` dependency injected at
-construction time. The `resolvePaymentProvider` function in routes selects the
-Stripe provider when `STRIPE_SECRET_KEY` is set, otherwise falls back to the
-`notConfiguredPaymentProvider` placeholder.
+- **Stripe serves the `card` method** and is enabled only when
+  `STRIPE_SECRET_KEY` **and** `STRIPE_WEBHOOK_SECRET` are both configured.
+- **PayPal serves the `paypal` method** and is enabled when `PAYPAL_CLIENT_ID`
+  and its credentials are configured.
+- **MB WAY is never available**: the enum value remains reserved for a future
+  implementation and is never advertised or routed.
+- The two providers are resolved independently: a misconfigured provider never
+  affects the other, and a provider that is not created is never advertised.
 
 ### Purchase Completion (Internal)
 
@@ -991,13 +1024,19 @@ structured attributes; raw tokens and passwords are never logged.
 
 The webhook layer connects verified provider payment confirmations to the
 existing atomic completion flow. The PayPal webhook additionally captures the
-approved order server-side before completing.
+approved order server-side before completing; the Stripe webhook verifies the
+already-settled Checkout Session before completing.
 
 **Request flow (Stripe):**
 
 ```
-Stripe → POST /api/v1/webhooks/stripe → Read raw body → Read Stripe-Signature header → webhook.ConstructEvent (verify signature) → Parse event → Handle checkout.session.completed → Extract purchase_id from metadata → GetPurchaseByID (verify snapshot) → Verify amount/currency → CompletePurchase()
+Stripe → POST /api/v1/webhooks/stripe → Read raw body → Read Stripe-Signature header → webhook.ConstructEvent (verify signature) → Parse event → Handle checkout.session.completed / checkout.session.async_payment_succeeded → Verify payment_status == paid and mode == payment → Extract purchase_id from metadata → Verify client_reference_id == purchase_id → GetPurchaseByID (verify snapshot) → Verify amount/currency → Verify purchase is pending → CompletePurchase()
 ```
+
+Events that are not a successful payment of a pending purchase — unpaid
+sessions, expired sessions, unsupported modes, refunds and disputes — are
+acknowledged with 200 and ignored. RYZE purchases are final: no event type can
+revert a completed purchase and no refund workflow exists.
 
 **Request flow (PayPal):**
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	paypal "github.com/plutov/paypal/v4"
-	stripe "github.com/stripe/stripe-go/v82"
+	stripe "github.com/stripe/stripe-go/v86"
 	"gorm.io/gorm"
 
 	"ryze/backend/api/auth"
@@ -129,7 +129,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminCommissionHandler := auth.NewAdminCommissionHandler(commissionRulesService)
 
 	purchaseRepository := repositories.NewPurchaseRepository(db)
-	stripeProvider, paypalProvider := resolvePaymentProviders(stripeCfg, paypalCfg)
+	stripeProvider, paypalProvider := resolvePaymentProviders(stripeCfg, paypalCfg, webhookCfg)
 	methodMap := payments.NewMethodProviderMap(stripeProvider, paypalProvider)
 	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService}, nil, methodMap.Resolve)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
@@ -360,11 +360,20 @@ func (p *notConfiguredPaymentProvider) InitiatePayment(_ context.Context, _ paym
 // valid secret key / client ID is configured the corresponding provider is
 // created; otherwise nil is returned for that provider. The Stripe global key
 // is set here so the provider can make API calls.
-func resolvePaymentProviders(stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig) (payments.Provider, payments.Provider) {
+//
+// Stripe is only enabled when it is completely configured: both the secret key
+// and the webhook signing secret must be present. Stripe documents webhooks as
+// required for fulfillment, so a half-configured Stripe (secret key without a
+// signing secret) could never reliably complete a purchase and is therefore
+// never created and never advertised. The global key is cleared when Stripe is
+// not enabled so no stale credential can be used.
+func resolvePaymentProviders(stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig) (payments.Provider, payments.Provider) {
 	var stripeProvider payments.Provider
-	if stripeCfg.SecretKey != "" {
+	if stripeCfg.SecretKey != "" && webhookCfg.StripeWebhookSecret != "" {
 		stripe.Key = stripeCfg.SecretKey
 		stripeProvider = payments.NewStripeProvider(stripeCfg.SuccessURL, stripeCfg.CancelURL)
+	} else {
+		stripe.Key = ""
 	}
 
 	var pp payments.Provider

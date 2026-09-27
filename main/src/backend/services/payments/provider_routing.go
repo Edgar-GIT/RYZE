@@ -13,7 +13,8 @@ type ProviderResolver func(ctx context.Context, method PaymentMethod) (Provider,
 
 // ValidatePaymentMethod reports whether the given payment method string is
 // supported. An empty method is never valid — the client must explicitly
-// select a payment method.
+// select a payment method. A valid method is not necessarily available: the
+// method must also be advertised by the backend and resolvable to a provider.
 func ValidatePaymentMethod(method string) error {
 	switch PaymentMethod(method) {
 	case PaymentMethodCard, PaymentMethodMBWay, PaymentMethodPayPal:
@@ -42,12 +43,13 @@ func NewMethodProviderMap(stripe, paypal Provider) *MethodProviderMap {
 // AvailableMethods returns the payment methods that have a configured provider,
 // in a stable order. Methods whose provider is nil (not configured at startup)
 // are omitted, so callers never advertise a payment method that would fail at
-// initiation.
+// initiation. MB WAY is never advertised: it is a prepared but unimplemented
+// method, so it is omitted even when Stripe is configured.
 func (m *MethodProviderMap) AvailableMethods() []PaymentMethod {
 	var methods []PaymentMethod
-	for _, method := range []PaymentMethod{PaymentMethodCard, PaymentMethodMBWay, PaymentMethodPayPal} {
+	for _, method := range []PaymentMethod{PaymentMethodCard, PaymentMethodPayPal} {
 		switch method {
-		case PaymentMethodCard, PaymentMethodMBWay:
+		case PaymentMethodCard:
 			if m.stripe != nil {
 				methods = append(methods, method)
 			}
@@ -61,14 +63,18 @@ func (m *MethodProviderMap) AvailableMethods() []PaymentMethod {
 }
 
 // Resolve returns the provider for the given method, or an error if no provider
-// is available for that method.
+// is available for that method. MB WAY is never resolved: it is a prepared but
+// unimplemented method with no provider, so requesting it fails closed with
+// ErrNoProviderAvailable instead of being routed to Stripe.
 func (m *MethodProviderMap) Resolve(_ context.Context, method PaymentMethod) (Provider, error) {
 	switch method {
-	case PaymentMethodCard, PaymentMethodMBWay:
+	case PaymentMethodCard:
 		if m.stripe == nil {
 			return nil, fmt.Errorf("%w: stripe not configured", ErrNoProviderAvailable)
 		}
 		return m.stripe, nil
+	case PaymentMethodMBWay:
+		return nil, fmt.Errorf("%w: %q is not implemented by any provider", ErrNoProviderAvailable, method)
 	case PaymentMethodPayPal:
 		if m.paypal == nil {
 			return nil, fmt.Errorf("%w: paypal not configured", ErrNoProviderAvailable)

@@ -48,17 +48,31 @@ func TestMethodProviderMapResolveCard(t *testing.T) {
 	}
 }
 
-func TestMethodProviderMapResolveMBWay(t *testing.T) {
+func TestMethodProviderMapResolveMBWayIsNotImplemented(t *testing.T) {
 	stripe := payments.NewFakeProvider()
 	paypalProvider := payments.NewFakeProvider()
 	methodMap := payments.NewMethodProviderMap(stripe, paypalProvider)
 
+	// MB WAY is prepared but unimplemented: it must never resolve to a
+	// provider, not even when Stripe is configured.
 	provider, err := methodMap.Resolve(context.Background(), payments.PaymentMethodMBWay)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("expected error for mbway: no provider implements it")
 	}
-	if provider != stripe {
-		t.Fatal("expected stripe provider for mbway method")
+	if !errors.Is(err, payments.ErrNoProviderAvailable) {
+		t.Fatalf("expected ErrNoProviderAvailable, got %v", err)
+	}
+	if provider != nil {
+		t.Fatal("expected no provider for mbway")
+	}
+}
+
+func TestMethodProviderMapResolveMBWayWithoutAnyProvider(t *testing.T) {
+	methodMap := payments.NewMethodProviderMap(nil, nil)
+
+	_, err := methodMap.Resolve(context.Background(), payments.PaymentMethodMBWay)
+	if !errors.Is(err, payments.ErrNoProviderAvailable) {
+		t.Fatalf("expected ErrNoProviderAvailable, got %v", err)
 	}
 }
 
@@ -138,13 +152,29 @@ func TestMethodProviderMapAvailableMethods(t *testing.T) {
 	methodMap := payments.NewMethodProviderMap(stripe, paypalProvider)
 
 	got := methodMap.AvailableMethods()
-	want := []payments.PaymentMethod{payments.PaymentMethodCard, payments.PaymentMethodMBWay, payments.PaymentMethodPayPal}
+	// MB WAY is never advertised: it is prepared but unimplemented.
+	want := []payments.PaymentMethod{payments.PaymentMethodCard, payments.PaymentMethodPayPal}
 	if len(got) != len(want) {
 		t.Fatalf("expected %d available methods, got %d: %v", len(want), len(got), got)
 	}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("expected stable order %v, got %v", want, got)
+		}
+	}
+}
+
+func TestMethodProviderMapAvailableMethodsNeverIncludesMBWay(t *testing.T) {
+	for _, methodMap := range []*payments.MethodProviderMap{
+		payments.NewMethodProviderMap(payments.NewFakeProvider(), payments.NewFakeProvider()),
+		payments.NewMethodProviderMap(payments.NewFakeProvider(), nil),
+		payments.NewMethodProviderMap(nil, payments.NewFakeProvider()),
+		payments.NewMethodProviderMap(nil, nil),
+	} {
+		for _, method := range methodMap.AvailableMethods() {
+			if method == payments.PaymentMethodMBWay {
+				t.Fatal("mbway must never be advertised as an available payment method")
+			}
 		}
 	}
 }
