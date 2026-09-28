@@ -115,3 +115,32 @@ func TestResolvePaymentProviders_PayPalOnly(t *testing.T) {
 		t.Errorf("expected no Stripe key to be installed, got %q", stripe.Key)
 	}
 }
+
+// TestStripeEnabledGatesProviderAndWebhookEndpoint verifies the single
+// complete-configuration rule: the card method and the Stripe webhook endpoint
+// are gated by the same condition, so the two can never disagree.
+func TestStripeEnabledGatesProviderAndWebhookEndpoint(t *testing.T) {
+	cases := []struct {
+		name       string
+		secretKey  string
+		webhookKey string
+		want       bool
+	}{
+		{name: "fully configured", secretKey: "sk_test_123", webhookKey: "whsec_123", want: true},
+		{name: "secret without webhook secret", secretKey: "sk_test_123", want: false},
+		{name: "webhook secret without secret", webhookKey: "whsec_123", want: false},
+		{name: "nothing configured", want: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := stripeEnabled(
+				config.StripeConfig{SecretKey: tc.secretKey},
+				config.WebhookConfig{StripeWebhookSecret: tc.webhookKey},
+			)
+			if got != tc.want {
+				t.Errorf("expected %v, got %v", tc.want, got)
+			}
+		})
+	}
+}

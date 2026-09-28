@@ -943,6 +943,7 @@ func TestPaymentHandlerErrorMapping(t *testing.T) {
 		{name: "invalid input", err: purchases.ErrInvalidInput, status: http.StatusBadRequest, code: "VALIDATION_ERROR"},
 		{name: "purchase not found", err: purchases.ErrPurchaseNotFound, status: http.StatusNotFound, code: "PURCHASE_NOT_FOUND"},
 		{name: "purchase not pending", err: purchases.ErrPurchaseNotPending, status: http.StatusConflict, code: "PURCHASE_NOT_PENDING"},
+		{name: "payment method mismatch", err: purchases.ErrPaymentMethodMismatch, status: http.StatusConflict, code: "PAYMENT_METHOD_MISMATCH"},
 		{name: "payment provider error", err: purchases.ErrPaymentProvider, status: http.StatusBadGateway, code: "PAYMENT_PROVIDER_ERROR"},
 	}
 

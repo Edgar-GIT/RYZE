@@ -28,14 +28,19 @@ func ValidatePaymentMethod(method string) error {
 // configured once at startup and used by NewProviderResolver.
 type MethodProviderMap struct {
 	stripe Provider
+	mbway  Provider
 	paypal Provider
 }
 
 // NewMethodProviderMap creates a method-to-provider mapping. Nil providers
-// indicate the method is not configured.
-func NewMethodProviderMap(stripe, paypal Provider) *MethodProviderMap {
+// indicate the method is not configured. A single provider instance may serve
+// more than one method when the provider genuinely supports them: Stripe
+// serves both card and MB WAY, so both slots can hold the same Stripe
+// provider.
+func NewMethodProviderMap(stripe, mbway, paypal Provider) *MethodProviderMap {
 	return &MethodProviderMap{
 		stripe: stripe,
+		mbway:  mbway,
 		paypal: paypal,
 	}
 }
@@ -43,14 +48,18 @@ func NewMethodProviderMap(stripe, paypal Provider) *MethodProviderMap {
 // AvailableMethods returns the payment methods that have a configured provider,
 // in a stable order. Methods whose provider is nil (not configured at startup)
 // are omitted, so callers never advertise a payment method that would fail at
-// initiation. MB WAY is never advertised: it is a prepared but unimplemented
-// method, so it is omitted even when Stripe is configured.
+// initiation. Availability and resolution are driven by the same provider
+// fields, so the two can never diverge.
 func (m *MethodProviderMap) AvailableMethods() []PaymentMethod {
 	var methods []PaymentMethod
-	for _, method := range []PaymentMethod{PaymentMethodCard, PaymentMethodPayPal} {
+	for _, method := range []PaymentMethod{PaymentMethodCard, PaymentMethodMBWay, PaymentMethodPayPal} {
 		switch method {
 		case PaymentMethodCard:
 			if m.stripe != nil {
+				methods = append(methods, method)
+			}
+		case PaymentMethodMBWay:
+			if m.mbway != nil {
 				methods = append(methods, method)
 			}
 		case PaymentMethodPayPal:
@@ -63,9 +72,9 @@ func (m *MethodProviderMap) AvailableMethods() []PaymentMethod {
 }
 
 // Resolve returns the provider for the given method, or an error if no provider
-// is available for that method. MB WAY is never resolved: it is a prepared but
-// unimplemented method with no provider, so requesting it fails closed with
-// ErrNoProviderAvailable instead of being routed to Stripe.
+// is available for that method. An unavailable method fails closed with
+// ErrNoProviderAvailable; it is never silently substituted with another method
+// or provider.
 func (m *MethodProviderMap) Resolve(_ context.Context, method PaymentMethod) (Provider, error) {
 	switch method {
 	case PaymentMethodCard:
@@ -74,7 +83,10 @@ func (m *MethodProviderMap) Resolve(_ context.Context, method PaymentMethod) (Pr
 		}
 		return m.stripe, nil
 	case PaymentMethodMBWay:
-		return nil, fmt.Errorf("%w: %q is not implemented by any provider", ErrNoProviderAvailable, method)
+		if m.mbway == nil {
+			return nil, fmt.Errorf("%w: mbway not configured", ErrNoProviderAvailable)
+		}
+		return m.mbway, nil
 	case PaymentMethodPayPal:
 		if m.paypal == nil {
 			return nil, fmt.Errorf("%w: paypal not configured", ErrNoProviderAvailable)

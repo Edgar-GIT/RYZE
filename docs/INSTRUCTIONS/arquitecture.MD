@@ -860,27 +860,35 @@ The full payment lifecycle follows four distinct phases:
 The payment service routes payment methods to providers through a centralized
 `MethodProviderMap` (PaymentMethod → Provider):
 
-1. The client sends a `payment_method` value (card, mbway or paypal).
+1. The client sends a `payment_method` value (card or paypal, as advertised by
+   `GET /api/v1/payments/methods`).
 2. The payment service validates the method against the allowlist.
-3. The `MethodProviderMap` resolves the method to the correct provider.
-4. As soon as a configured provider has been resolved, the validated method is
+3. If the purchase already carries a recorded method, it must equal the requested
+   one; otherwise the request fails with `ErrPaymentMethodMismatch` and no
+   provider is contacted. The outstanding provider payment belongs to the
+   recorded method, so the purchase is never rebound.
+4. The `MethodProviderMap` resolves the method to the correct provider.
+5. As soon as a configured provider has been resolved, the validated method is
    recorded on the purchase (`purchases.payment_method`), making it immutable for
    that purchase.
-5. The provider creates the checkout session using the immutable purchase
+6. The provider creates the checkout session using the immutable purchase
    snapshot.
 
 Because the method is recorded server-side at initiation, the later capture flow
 resolves the capture provider from `purchases.payment_method` — never from
 client input. A purchase with no recorded method (legacy pending purchases, Test
-Mode purchases) fails closed on capture until it is re-initiated.
+Mode purchases) fails closed on capture until it is re-initiated. Re-initiating
+with the same method is the supported retry path and is safe to repeat.
 
 The mapping:
 
 - `card` → Stripe provider.
 - `paypal` → PayPal provider.
-- `mbway` → never resolved. MB WAY is a prepared but unimplemented method with no
+- `mbway` → never resolved. MB WAY is a reserved but unimplemented method with no
   provider, so it stays in the database enum allowlist while failing closed with
-  `ErrNoProviderAvailable`. It must never be presented as functional.
+  `ErrNoProviderAvailable` and never being advertised. It must never be
+  presented as functional, and the Stripe provider itself rejects any non-card
+  method before contacting Stripe.
 
 The `MethodProviderMap.AvailableMethods()` helper returns only the methods whose
 provider is actually configured, in the stable order `card`, `paypal`. MB WAY is
@@ -902,7 +910,9 @@ PayPal provider:
 Provider availability:
 
 - **Stripe serves the `card` method** and is enabled only when
-  `STRIPE_SECRET_KEY` **and** `STRIPE_WEBHOOK_SECRET` are both configured.
+  `STRIPE_SECRET_KEY` **and** `STRIPE_WEBHOOK_SECRET` are both configured. The
+  same condition gates the Stripe webhook endpoint, so the provider and the
+  endpoint can never disagree.
 - **PayPal serves the `paypal` method** and is enabled when `PAYPAL_CLIENT_ID`
   and its credentials are configured.
 - **MB WAY is never available**: the enum value remains reserved for a future
@@ -939,16 +949,24 @@ Capture flow:
   the authenticated user, otherwise `ErrPurchaseNotFound` (a foreign purchase
   and a missing purchase are indistinguishable).
 - `CompletePurchaseWithCapture(purchaseID, providerPaymentID)` — internal,
-  purchase-scoped entry point used by the verified PayPal webhook flow.
+  purchase-scoped entry point used by the verified PayPal webhook flow, which
+  captures server-side instead of waiting for the browser return.
 - Both converge on the shared `captureAndComplete` step:
   1. The purchase must be pending; an already-completed purchase returns an
      idempotent success without re-capturing.
-  2. The PayPal method resolves to the configured provider, which must
-     implement `CaptureProvider`.
+  2. The method recorded on the purchase resolves the capture provider, which
+     must implement `CaptureProvider`.
   3. `CapturePayment` is called with the immutable purchase snapshot (id,
-     amount, currency). The provider loads the real order from PayPal and
-     verifies the purchase-unit reference, amount and currency before any
-     capture; a failed capture never completes the purchase.
+     amount, currency) and the provider identifier received from the client. The
+     provider reloads the real payment and verifies it belongs to the purchase
+     and is genuinely paid before anything is completed:
+     - **PayPal** — the order is verified against the purchase-unit reference,
+       amount and currency, then captured. A failed capture never completes the
+       purchase.
+     - **Stripe** — the Checkout Session is verified read-only as a fully paid
+       one-time payment matching the purchase reference, amount and currency.
+       Verification is idempotent, so the browser return leg and the webhook can
+       race safely.
   4. On success, control flows into `CompletePurchase` for the atomic status
      transition and entitlement provision.
 

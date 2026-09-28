@@ -17,15 +17,36 @@ const stripeProviderName = "stripe"
 // data, so no RYZE content is disclosed to Stripe beyond what the API requires.
 const stripeCheckoutProductName = "RYZE program access"
 
-// StripeProvider is the Stripe payment provider. It offers the card payment
-// method only, using Stripe-hosted Checkout Sessions, and verifies payments
+// stripePaymentMethodTypeCard and stripePaymentMethodTypeMBWay are Stripe's
+// own API identifiers for the payment method types RYZE offers through Stripe.
+// They are provider-specific values and deliberately live only in this file:
+// no generic RYZE code ever depends on them.
+const (
+	stripePaymentMethodTypeCard  = "card"
+	stripePaymentMethodTypeMBWay = "mb_way"
+)
+
+// Stripe documents MB WAY as a Portuguese digital wallet that can only be
+// presented and settled in Euro, with a supported transaction window of
+// 0.50 EUR to 5,000 EUR. These are Stripe's documented limits, expressed in
+// minor units, and are enforced before any API call so a purchase that MB WAY
+// can never settle fails closed instead of creating an unpayable session.
+const (
+	stripeMBWayCurrency            = "eur"
+	stripeMBWayMinAmountMinorUnits = 50
+	stripeMBWayMaxAmountMinorUnits = 500000
+)
+
+// StripeProvider is the Stripe payment provider. It offers the card and MB WAY
+// payment methods using Stripe-hosted Checkout Sessions, and verifies payments
 // server-side on the Stripe API before RYZE treats them as successful.
 //
-// RYZE never receives, stores or transmits raw card data: the buyer enters it
-// exclusively in the Stripe-hosted Checkout page, which is reached through
-// CheckoutURL. Because the flow is redirected, the shared capture path is used
-// to re-verify the payment on the return leg: the browser only ever sends the
-// Checkout Session ID, never a success flag or a purchase token.
+// RYZE never receives, stores or transmits raw card data or the buyer's MB WAY
+// phone number: both are entered exclusively in the Stripe-hosted Checkout
+// page, which is reached through CheckoutURL. Because the flow is redirected,
+// the shared capture path is used to re-verify the payment on the return leg:
+// the browser only ever sends the Checkout Session ID, never a success flag or
+// a purchase token.
 type StripeProvider struct {
 	successURL string
 	cancelURL  string
@@ -70,11 +91,15 @@ func (p *StripeProvider) InitiatePayment(_ context.Context, request PaymentReque
 	if request.Currency == "" {
 		return PaymentResult{}, fmt.Errorf("stripe: currency is required: %w", ErrProviderFailure)
 	}
+	paymentMethodType, err := stripePaymentMethodType(request.Method)
+	if err != nil {
+		return PaymentResult{}, err
+	}
 	currency, err := stripeCurrencyCode(request.Currency)
 	if err != nil {
 		return PaymentResult{}, err
 	}
-	if err := requireSupportedStripeMethod(request.Method); err != nil {
+	if err := validateStripeMethodCompatibility(paymentMethodType, currency, request.AmountMinorUnits); err != nil {
 		return PaymentResult{}, err
 	}
 	if stripe.Key == "" {
@@ -87,9 +112,10 @@ func (p *StripeProvider) InitiatePayment(_ context.Context, request PaymentReque
 		// snapshot, so the session can never be created in a currency that
 		// differs from the one the purchase is verified against.
 		Currency: stripe.String(currency),
-		// Stripe only offers the card payment method in RYZE. No other method
-		// is ever requested from Stripe.
-		PaymentMethodTypes: stripe.StringSlice([]string{string(PaymentMethodCard)}),
+		// Only the method selected for this purchase is ever requested from
+		// Stripe: card or MB WAY. No wallet beyond MB WAY, no bank transfer and
+		// no other method is offered.
+		PaymentMethodTypes: stripe.StringSlice([]string{paymentMethodType}),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
 				Quantity: stripe.Int64(1),
@@ -182,21 +208,49 @@ func (p *StripeProvider) CapturePayment(_ context.Context, request CaptureReques
 	}, nil
 }
 
-// requireSupportedStripeMethod rejects any payment method that the Stripe
-// provider does not serve. Only the card method is offered: no other Stripe
-// payment method, wallet or bank transfer is presented by RYZE. This check
-// fails closed so a routing mistake cannot send an unsupported method to
-// Stripe.
-func requireSupportedStripeMethod(method PaymentMethod) error {
-	if method == PaymentMethodCard {
+// stripePaymentMethodType maps an RYZE payment method to the Stripe payment
+// method type used to create the Checkout Session. Only the methods RYZE
+// actually offers through Stripe are accepted; anything else — including the
+// PayPal method and every unknown value — fails closed, so a routing mistake
+// can never present an unsupported method to a buyer.
+func stripePaymentMethodType(method PaymentMethod) (string, error) {
+	switch method {
+	case PaymentMethodCard:
+		return stripePaymentMethodTypeCard, nil
+	case PaymentMethodMBWay:
+		return stripePaymentMethodTypeMBWay, nil
+	default:
+		return "", fmt.Errorf("stripe: payment method %q is not supported by the Stripe provider: %w", method, ErrProviderFailure)
+	}
+}
+
+// validateStripeMethodCompatibility enforces the constraints Stripe documents
+// for the requested payment method, using the purchase snapshot values. It runs
+// before any API call so an unsupported combination fails closed instead of
+// creating a Checkout Session that could never be paid.
+//
+// MB WAY can only be presented and settled in Euro and only for amounts
+// between 0.50 EUR and 5,000 EUR. These limits are a property of the payment
+// method, not of RYZE: a purchase outside the window is still perfectly valid
+// and remains payable through the other advertised methods.
+func validateStripeMethodCompatibility(paymentMethodType, currency string, amountMinorUnits int64) error {
+	if paymentMethodType != stripePaymentMethodTypeMBWay {
 		return nil
 	}
-	return fmt.Errorf("stripe: payment method %q is not supported by the Stripe provider: %w", method, ErrProviderFailure)
+	if currency != stripeMBWayCurrency {
+		return fmt.Errorf("stripe: MB WAY can only be paid in %s, purchase is in %s: %w", stripeMBWayCurrency, currency, ErrProviderFailure)
+	}
+	if amountMinorUnits < stripeMBWayMinAmountMinorUnits || amountMinorUnits > stripeMBWayMaxAmountMinorUnits {
+		return fmt.Errorf("stripe: MB WAY supports amounts between %d and %d minor units, purchase is %d: %w",
+			stripeMBWayMinAmountMinorUnits, stripeMBWayMaxAmountMinorUnits, amountMinorUnits, ErrProviderFailure)
+	}
+	return nil
 }
 
 // stripeSessionIsSuccessfulPayment reports whether a Checkout Session is a
-// fully paid one-time payment that belongs to the RYZE purchase and matches
-// the immutable amount and currency of the purchase snapshot.
+// fully paid one-time payment that belongs to the RYZE purchase, was paid with
+// the recorded payment method, and matches the immutable amount and currency of
+// the purchase snapshot.
 func stripeSessionIsSuccessfulPayment(reloaded *stripe.CheckoutSession, request CaptureRequest) bool {
 	if reloaded == nil || reloaded.ID == "" {
 		return false
@@ -213,7 +267,35 @@ func stripeSessionIsSuccessfulPayment(reloaded *stripe.CheckoutSession, request 
 	if reloaded.AmountTotal != request.AmountMinorUnits {
 		return false
 	}
-	return currencyMatches(string(reloaded.Currency), request.Currency)
+	if !currencyMatches(string(reloaded.Currency), request.Currency) {
+		return false
+	}
+	// The session must have been paid with the method bound to the purchase at
+	// initiation. This closes the last gap between the recorded method and the
+	// verified payment: a session created for a different method can never
+	// complete a purchase, even if it carries the right reference and amount.
+	return stripeSessionUsesRecordedMethod(reloaded, request.Method)
+}
+
+// stripeSessionUsesRecordedMethod verifies that a Checkout Session was created
+// for the payment method recorded on the purchase. An empty recorded method is
+// treated as a failure: a purchase always carries a method once a payment has
+// been initiated, so an empty value means the caller could not prove which
+// method this session belongs to.
+func stripeSessionUsesRecordedMethod(reloaded *stripe.CheckoutSession, recordedMethod PaymentMethod) bool {
+	if recordedMethod == "" {
+		return false
+	}
+	expected, err := stripePaymentMethodType(recordedMethod)
+	if err != nil {
+		return false
+	}
+	for _, methodType := range reloaded.PaymentMethodTypes {
+		if methodType == expected {
+			return true
+		}
+	}
+	return false
 }
 
 // stripeIdempotencyKey builds the per-purchase Stripe idempotency key. Stripe

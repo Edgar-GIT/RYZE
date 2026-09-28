@@ -1,3 +1,186 @@
+# Version 2.78.0
+
+Title: Stripe Card Payments — hosted Checkout, server-verified capture and a webhook-authoritative completion path
+
+Date: 2026-09-28
+
+Summary:
+
+Turns the prepared-but-disabled Stripe integration into the functional provider
+for the `card` payment method. RYZE now creates Stripe-hosted Checkout Sessions
+instead of collecting a card through its own forms, so raw card data never
+reaches RYZE at all, and it verifies the payment server-side on the Stripe API
+before a purchase is ever completed. Both completion paths — the browser return
+and the Stripe webhook — converge on the same `CompletePurchase` flow, so a
+Stripe payment is confirmed exactly like a PayPal one. Stripe is enabled only
+when it is completely configured (secret key **and** webhook signing secret);
+otherwise `card` is not advertised at all, which is safer than a half-enabled
+provider. MB WAY remains a reserved enum value with no provider: it is never
+advertised, never routed, and always fails closed. The Stripe Go SDK was
+upgraded from v82 to the current v86.4.1. No refunds, subscriptions, wallets or
+admin payment mutation were introduced, and no database migration was needed.
+
+Main changes:
+
+- **Stripe SDK v86.4.1** — every Stripe import (`stripe`, `checkout/session`,
+  `webhook`, `params.SetIdempotencyKey`, `stripe.SetBackend` in tests) moved
+  from `stripe-go/v82` to the current `stripe-go/v86 v86.4.1`. v86 requires an
+  explicit `"object":"event"` in webhook payloads; the affected fixtures were
+  updated to match the real payload shape.
+- **Hosted Checkout initiation** — `StripeProvider` no longer creates a
+  one-time card PaymentIntent. It creates a one-time Checkout Session with
+  `mode=payment`, `payment_method_types=[card]`, a single fixed-name line item,
+  the `ClientReferenceID` and `purchase_id`/`program_id` metadata bound to the
+  purchase. RYZE never sends, receives or stores a PAN, CVC, expiry or card
+  token. The provider implements both `Provider` and `CaptureProvider`.
+- **Snapshot-sourced commercial values** — the amount comes from
+  `request.AmountMinorUnits` and the currency from `request.Currency`; the
+  currency is normalised to the lower-case ISO 4217 form Stripe expects through
+  the new `stripeCurrencyCode` helper, and an unusable code fails closed before
+  any session is created. This removes a hard-coded EUR that could have created
+  a session in a currency the purchase is never verified against.
+- **Server-verified capture** — `StripeProvider.CapturePayment` reloads the
+  Checkout Session from the Stripe API using the session ID the browser sent, and
+  requires it to be a fully paid one-time payment (`payment_status == "paid"`,
+  `mode == "payment"`) whose `client_reference_id` is this purchase and whose
+  `amount_total` and `currency` match the immutable snapshot. Verification is
+  read-only and idempotent, so the return leg and the webhook can race. The
+  browser identifier is only a correlation hint: an unpaid, expired, foreign or
+  mismatched session is rejected with a generic 502 and the purchase stays
+  pending.
+- **Per-purchase idempotency** — sessions are created with the idempotency key
+  `ryze-purchase-{purchaseID}`, so a repeated initiation replays the same
+  session instead of creating a second payable one. One purchase can never hold
+  two sessions the buyer could pay.
+- **Redirect templates** — `STRIPE_SUCCESS_URL` and `STRIPE_CANCEL_URL` support
+  the `{program_id}` and `{purchase_id}` placeholders, substituted server-side
+  per session, while `{CHECKOUT_SESSION_ID}` is preserved for Stripe.
+- **Webhook-authoritative completion** — the Stripe webhook handler now only
+  completes a purchase for `checkout.session.completed` /
+  `checkout.session.async_payment_succeeded` events whose session is fully paid
+  and in `payment` mode, with a `client_reference_id` matching the
+  `purchase_id` metadata. Delayed methods emit `completed` while still unpaid:
+  those events are acknowledged and ignored until the payment actually succeeds.
+  Refund, dispute and every other event type are acknowledged with 200 and
+  ignored — RYZE purchases are final and there is no refund workflow. It then
+  reuses the same `CompletePurchase` idempotency as the capture path.
+- **Complete-configuration gating** — a single `stripeEnabled` predicate gates
+  both the provider and the webhook endpoint, so they can never disagree.
+  `resolvePaymentProviders` creates the Stripe provider only when
+  `STRIPE_SECRET_KEY` **and** `STRIPE_WEBHOOK_SECRET` are both set, and clears
+  the global `stripe.Key` when it is not. A secret key without a signing secret
+  can no longer advertise `card`, because without webhooks a payment could never
+  be reliably confirmed.
+- **MB WAY never resolvable** — `mbway` still validates as a stored enum value
+  but always fails closed with `ErrNoProviderAvailable` and never appears in
+  `AvailableMethods()`. The Stripe provider itself also rejects any non-card
+  method before contacting Stripe, so a routing mistake cannot present an
+  unimplemented method to a buyer.
+- **Provider-neutral capture contract** — the capture endpoint field
+  `order_id` is renamed `provider_payment_id`, so the API no longer leaks the
+  PayPal-specific name of a now-generic verification step. The frontend sends
+  the Stripe `session_id` or the PayPal `token` in that single field, and the
+  backend still resolves the provider server-side from the recorded method.
+- **Immutable payment method enforced, not just documented** — `InitiatePayment`
+  now compares the requested method with the method already recorded on the
+  purchase and returns the new `ErrPaymentMethodMismatch` (HTTP 409
+  `PAYMENT_METHOD_MISMATCH`) on a mismatch, before resolving any provider. This
+  closes a real hole: the method was recorded *before* the provider call, so a
+  re-initiation with a different method used to rebind the purchase and make the
+  outstanding provider payment uncapturable. Re-initiating the *same* method
+  remains the supported, safe retry path. The frontend already resumes a pending
+  purchase with its recorded method and now reports the conflict explicitly
+  instead of showing a generic failure.
+- **Tests** — `services/payments`: hosted-session creation, snapshot amount and
+  currency (including a non-EUR currency proving nothing is hard-coded, and
+  rejection of an unusable currency before any API call), redirect placeholder
+  substitution, idempotency key, capture success/idempotency and every rejection
+  case, no raw card data in the outbound request, and MB WAY / PayPal method
+  refusal. `api/webhooks`: v86 event fixtures, paid/unpaid, mode, reference
+  mismatch, amount/currency mismatch and refund-ignore cases.
+  `services/purchases`: method immutability (mismatch rejected, no provider
+  call, recorded method preserved), same-method retry, and card routing through
+  initiation and capture. `routes`: complete-configuration gating.
+  `api/auth`: `provider_payment_id` capture payloads, methods-endpoint
+  projection, and the new `PAYMENT_METHOD_MISMATCH` mapping.
+  `api/auth` Test Mode coverage now proves Test purchases never touch a
+  configured card provider.
+- **Docs** — `arquitecture.MD` (v86, hosted Checkout, snapshot-sourced currency,
+  idempotency, verification-only capture, complete-configuration gating, MB WAY
+  never resolvable, method-mismatch rejection, the rewritten capture flow and
+  webhook request flows), `api.MD` (`provider_payment_id`, the Stripe capture
+  verification rules, the paid/mode/metadata/reference conditions and the
+  ignored refund/dispute events, the new 409, and MB WAY never being
+  advertised), `security.MD` (raw card data never reaching RYZE, signature
+  verification requirements, both verification paths, idempotency, redirect
+  placeholders and MB WAY failing closed), `project.MD` (Stripe is functional for
+  card), `database.MD` (schema unchanged, version 24), `how_to_run.MD`
+  (complete Stripe configuration, webhook endpoint conditions, CLI testing),
+  `PAGES/design.MD` (method pill is Card / PayPal only) and `.env.example`
+  (both Stripe secrets, the placeholder contract and the
+  `{CHECKOUT_SESSION_ID}` requirement).
+- **Validation** — backend `go build` / `go vet` clean; `services/payments`,
+  `services/purchases`, `api/webhooks`, `routes` and the purchase/payment
+  `api/auth` suites pass. The full backend suite shows only the five pre-existing
+  unrelated failures (`TestTrainerRepository`;
+  `TestAdminApproveApplicationAlreadyApproved`,
+  `TestAdminApproveApplicationAlreadyTrainerAtomicity`,
+  `TestAdminRejectThenReapplyApproved`, `TestTrainerProgramsCreateSuccess`).
+  Frontend `tsc --noEmit` and the Vite production build pass. Schema version
+  remains `24` with no new migration. Real Stripe end-to-end validation was not
+  performed because no Stripe credentials were available in the environment.
+
+Files added:
+
+- none (no new backend or frontend modules; no migration)
+
+Files modified:
+
+- `main/src/backend/go.mod` / `main/src/backend/go.sum` — Stripe SDK v86.4.1.
+- `main/src/backend/services/payments/stripe_provider.go` — hosted Checkout
+  initiation, snapshot currency, idempotency, server-verified capture.
+- `main/src/backend/services/payments/stripe_provider_test.go` — hosted session,
+  currency, capture and card-data coverage.
+- `main/src/backend/services/payments/provider.go` — `CaptureProvider` contract
+  now covers a generic provider payment identifier.
+- `main/src/backend/services/payments/provider_routing.go` — MB WAY never
+  resolvable or advertised.
+- `main/src/backend/services/payments/provider_routing_test.go` — MB WAY and
+  availability coverage.
+- `main/src/backend/services/purchases/purchases.go` — `ErrPaymentMethodMismatch`
+  and the immutable-method guard at initiation.
+- `main/src/backend/services/purchases/purchases_test.go` — method immutability,
+  same-method retry, card initiation/capture.
+- `main/src/backend/api/webhooks/stripe_handler.go` — paid/mode/reference/amount
+  verification and ignored refund events.
+- `main/src/backend/api/webhooks/stripe_handler_test.go` — v86 event fixtures and
+  webhook verification coverage.
+- `main/src/backend/api/auth/purchase_handler.go` — `provider_payment_id` and the
+  `PAYMENT_METHOD_MISMATCH` mapping.
+- `main/src/backend/api/auth/purchase_handler_test.go` — updated payloads and the
+  new error mapping.
+- `main/src/backend/api/auth/purchase_e2e_test.go` — updated capture payload.
+- `main/src/backend/api/auth/payment_methods_handler_test.go` — MB WAY
+  non-advertisement.
+- `main/src/backend/api/auth/test_mode_handler_test.go` — Test Mode never
+  contacts a configured card provider.
+- `main/src/backend/routes/routes.go` — `stripeEnabled` predicate gating both
+  the provider and the webhook endpoint.
+- `main/src/backend/routes/payment_providers_test.go` — configuration safety.
+- `main/src/frontend/src/services/purchases_api.ts` — `provider_payment_id`
+  capture request.
+- `main/src/frontend/src/pages/generic_program_detail_page/generic_program_detail_page.tsx`
+  — Stripe `session_id` handling, pending-purchase recovery with the recorded
+  method, explicit payment-method-mismatch message.
+- `.env.example` and `docs/how_to_run.MD` — complete Stripe configuration and
+  redirect placeholders.
+- `docs/INSTRUCTIONS/arquitecture.MD`, `docs/INSTRUCTIONS/api.MD`,
+  `docs/INSTRUCTIONS/security.MD`, `docs/INSTRUCTIONS/project.MD`,
+  `docs/DATABASE/database.MD`, `docs/PAGES/design.MD`,
+  `docs/REGISTRY/update_logs.MD`.
+
+---
+
 # Version 2.77.0
 
 Title: Payment Provider Expansion & Checkout Architecture — server-recorded payment methods and a backend-driven checkout

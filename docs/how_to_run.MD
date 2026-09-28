@@ -470,7 +470,8 @@ When both a provider secret AND a webhook secret are configured, the
 corresponding webhook endpoint is registered:
 
 - `POST /api/v1/webhooks/stripe` — requires `STRIPE_SECRET_KEY` AND
-  `STRIPE_WEBHOOK_SECRET`; the same pair enables the `card` method
+  `STRIPE_WEBHOOK_SECRET`; the same pair enables the `card` method, so the
+  endpoint is registered only when card payments are actually possible
 - `POST /api/v1/webhooks/paypal` — requires `PAYPAL_CLIENT_ID` AND
   `PAYPAL_WEBHOOK_ID`
 

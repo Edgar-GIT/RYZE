@@ -651,6 +651,7 @@ func (s *service) captureAndComplete(ctx context.Context, purchase *models.Purch
 		PaymentID:        providerPaymentID,
 		AmountMinorUnits: purchase.PriceMinorUnits,
 		Currency:         purchase.Currency,
+		Method:           payments.PaymentMethod(methodValue),
 	}
 	if _, err := captureProvider.CapturePayment(ctx, captureRequest); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)

@@ -31,6 +31,9 @@ import styles from "./generic_program_detail_page.module.css";
 
 const CANCELLED_STATUS = "cancelled";
 const DUPLICATE_PURCHASE = "DUPLICATE_PURCHASE";
+// The backend refuses to rebind a pending purchase to a different payment
+// method, so the checkout must always resume with the recorded one.
+const PAYMENT_METHOD_MISMATCH = "PAYMENT_METHOD_MISMATCH";
 // Query parameters each provider appends to the return URL: Stripe substitutes
 // {CHECKOUT_SESSION_ID} into the configured success URL, while PayPal appends
 // the order token to the configured return URL.
@@ -434,7 +437,14 @@ export const GenericProgramDetailPage = () => {
         }
         setPurchaseState({ status: "redirecting" });
         window.location.assign(initiation.checkout_url);
-      } catch {
+      } catch (error) {
+        if (error instanceof ApiError && error.code === PAYMENT_METHOD_MISMATCH) {
+          setPurchaseState({
+            status: "error",
+            message: "This purchase was already started with another payment method. Please try again later."
+          });
+          return;
+        }
         setPurchaseState({ status: "error", message: "We could not start the checkout. No money was taken at this point." });
       }
     },

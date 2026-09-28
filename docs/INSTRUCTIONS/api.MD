@@ -799,7 +799,8 @@ the frontend renders checkout as unavailable.
 `card` requires Stripe to be completely configured: both `STRIPE_SECRET_KEY` and
 `STRIPE_WEBHOOK_SECRET`. A secret key without a signing secret leaves the card
 method unadvertised, because without webhooks a payment could never be reliably
-confirmed.
+confirmed. The same pair gates `POST /api/v1/webhooks/stripe`, so the webhook
+endpoint only exists when card payments are actually possible.
 
 `mbway` is a reserved enum value with no provider implementation and is therefore
 never advertised, even when Stripe is configured.

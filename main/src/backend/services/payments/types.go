@@ -71,6 +71,11 @@ type CaptureRequest struct {
 	// Currency is the ISO 4217 currency code, taken directly from the
 	// purchase snapshot.
 	Currency string
+	// Method is the payment method recorded on the purchase at initiation. It
+	// is server-authoritative: a provider may use it to verify that the payment
+	// it is about to verify was actually made with the method bound to the
+	// purchase, never to choose how the purchase is completed.
+	Method PaymentMethod
 }
 
 // CaptureResult is the provider-independent representation of the outcome of

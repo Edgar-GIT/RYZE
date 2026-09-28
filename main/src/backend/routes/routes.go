@@ -130,7 +130,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	purchaseRepository := repositories.NewPurchaseRepository(db)
 	stripeProvider, paypalProvider := resolvePaymentProviders(stripeCfg, paypalCfg, webhookCfg)
-	methodMap := payments.NewMethodProviderMap(stripeProvider, paypalProvider)
+	// MB WAY is settled by Stripe, so it shares the Stripe provider instance and
+	// therefore the same complete-configuration gate: it is offered exactly when
+	// Stripe is enabled, never independently and never partially.
+	methodMap := payments.NewMethodProviderMap(stripeProvider, stripeProvider, paypalProvider)
 	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService}, nil, methodMap.Resolve)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)
@@ -317,7 +320,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminCommerce.GET("/purchases", adminCommerceHandler.ListPurchases)
 	adminCommerce.GET("/purchases/:id", adminCommerceHandler.GetPurchase)
 
-	if webhookCfg.StripeWebhookSecret != "" {
+	// The Stripe webhook follows the same complete-configuration rule as the
+	// provider: without both Stripe secrets no Checkout Session can exist, so
+	// the endpoint stays unregistered rather than accepting deliveries for a
+	// flow the rest of the stack has disabled.
+	if stripeEnabled(stripeCfg, webhookCfg) {
 		stripeWebhookHandler := webhooks.NewStripeWebhookHandler(webhookCfg.StripeWebhookSecret, purchaseService)
 		v1.POST("/webhooks/stripe", stripeWebhookHandler.Handle)
 	}
@@ -356,20 +363,27 @@ func (p *notConfiguredPaymentProvider) InitiatePayment(_ context.Context, _ paym
 	return payments.PaymentResult{}, fmt.Errorf("no payment provider configured")
 }
 
+// stripeEnabled reports whether Stripe is completely configured: the secret
+// key and the webhook signing secret must both be present. Stripe documents
+// webhooks as required for fulfillment, so a half-configured Stripe could never
+// reliably complete a purchase. The same condition gates both the provider (and
+// therefore the advertised card method) and the webhook endpoint, so the two
+// can never disagree.
+func stripeEnabled(stripeCfg config.StripeConfig, webhookCfg config.WebhookConfig) bool {
+	return stripeCfg.SecretKey != "" && webhookCfg.StripeWebhookSecret != ""
+}
+
 // resolvePaymentProviders returns the configured payment providers. When a
 // valid secret key / client ID is configured the corresponding provider is
 // created; otherwise nil is returned for that provider. The Stripe global key
 // is set here so the provider can make API calls.
 //
-// Stripe is only enabled when it is completely configured: both the secret key
-// and the webhook signing secret must be present. Stripe documents webhooks as
-// required for fulfillment, so a half-configured Stripe (secret key without a
-// signing secret) could never reliably complete a purchase and is therefore
-// never created and never advertised. The global key is cleared when Stripe is
-// not enabled so no stale credential can be used.
+// Stripe is only enabled when it is completely configured: see stripeEnabled.
+// A half-configured Stripe is never created and never advertised. The global
+// key is cleared when Stripe is not enabled so no stale credential can be used.
 func resolvePaymentProviders(stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig) (payments.Provider, payments.Provider) {
 	var stripeProvider payments.Provider
-	if stripeCfg.SecretKey != "" && webhookCfg.StripeWebhookSecret != "" {
+	if stripeEnabled(stripeCfg, webhookCfg) {
 		stripe.Key = stripeCfg.SecretKey
 		stripeProvider = payments.NewStripeProvider(stripeCfg.SuccessURL, stripeCfg.CancelURL)
 	} else {
