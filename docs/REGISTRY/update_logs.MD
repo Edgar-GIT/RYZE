@@ -1,3 +1,150 @@
+# Version 2.79.0
+
+Title: MB WAY Payments — a second Stripe payment method with a provider-agnostic flow
+
+Date: 2026-09-28
+
+Summary:
+
+Turns the `mbway` enum value from a reserved placeholder into a functional
+payment method. MB WAY is a Portuguese wallet that Stripe supports natively
+(`mb_way` payment method type, payment mode, EUR only, transactions between
+0.50 EUR and 5,000 EUR, phone number collected on the Stripe-hosted page, and
+`mb_way_payments` as an account Dashboard capability), so the selected provider
+is Stripe and the implementation extends the existing `StripeProvider` rather
+than creating a parallel service. One provider instance is now registered in
+both the `card` and the `mbway` routing slots, so the new method flows through
+the exact same purchase, initiation, capture, webhook and completion code that
+card already uses — no second payment pipeline was introduced. The buyer's MB WAY
+phone number is collected only on the Stripe-hosted page, so RYZE stores no phone
+number anywhere and no database migration was needed. The recorded payment method
+is now also verified server-side against the settled Checkout Session, closing
+the last gap between the method a purchase was bound to and the method that
+actually paid for it. No refunds, subscriptions, admin payment mutation or new
+environment variable were introduced, and Test Mode still bypasses every
+provider.
+
+Main changes:
+
+- **Same provider, two methods** — `StripeProvider` now maps both RYZE methods
+  to Stripe's own payment method types (`card` → `card`, `mbway` → `mb_way`) and
+  requests only the selected one per Checkout Session. The mapping lives
+  entirely inside `stripe_provider.go`; a method the provider does not own —
+  including the PayPal method — is still rejected before any API call, so a
+  routing mistake can never offer an unsupported method to a buyer.
+- **Three-slot provider routing** — `MethodProviderMap` gained an `mbway` slot
+  alongside `stripe` and `paypal`. `AvailableMethods()` now projects the stable
+  order `card`, `mbway`, `paypal`, each one included only when its own provider
+  slot holds a provider, which is what backs the public
+  `GET /api/v1/payments/methods` endpoint. The frontend selector is fully
+  data-driven, so MB WAY appears with no frontend change.
+- **Shared configuration, no new variables** — the same `stripeEnabled`
+  predicate (both `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`) gates the
+  provider and the webhook endpoint, and `mbway` is therefore advertised exactly
+  when `card` is. The account-level `mb_way_payments` capability is a Stripe
+  Dashboard setting that RYZE cannot read, so it is documented as a deployment
+  step; if it is missing, Stripe rejects the session and the purchase fails
+  closed without ever completing.
+- **Documented provider constraints enforced from the snapshot** — MB WAY is
+  validated as EUR-only and within 50…500000 minor units (0.50 EUR…5,000 EUR)
+  before any external request, so an unpayable combination fails closed instead
+  of creating a session the buyer could never pay. These are properties of the
+  payment method, not of RYZE: such a purchase stays valid and payable through
+  the other advertised methods, and card carries no such restriction.
+- **Method identity in capture** — `payments.CaptureRequest` gained a `Method`
+  field, populated from the purchase's immutable recorded method (never from
+  client input). Stripe capture now also requires the reloaded session's
+  `payment_method_types` to contain the payment method type of that recorded
+  method, and a missing recorded method fails closed. A session created for one
+  method can no longer complete a purchase bound to the other.
+- **Method identity in the webhook** — the Stripe handler applies the same check
+  before completing: the session's `payment_method_types` must contain the
+  payment method type of the purchase's recorded `payment_method`. A mismatch
+  answers 500 so Stripe retries the event; a purchase with no recorded method is
+  ignored with 200. The comparison goes through the exported
+  `IsStripePaymentMethodType` predicate, so Stripe's identifiers still never
+  leak outside the provider.
+- **Corrected endpoint tests** — the methods-endpoint suite no longer treats the
+  public `"paypal"` method or the `"PayPal"` label as a provider-internals leak,
+  and the availability cases now assert that each method is advertised exactly
+  when its own slot holds a provider.
+- **Docs** — `arquitecture.MD` (MB WAY served by Stripe, three-slot routing,
+  `card`/`mbway`/`paypal` availability order, provider constraints, the method
+  check in both verification paths, the account capability as a deployment
+  step), `api.MD` (methods endpoint advertising and labels, initiation and
+  capture method verification, webhook method mismatch responses),
+  `security.MD` (no MB WAY phone number ever held by RYZE and the resulting
+  absence of any schema change, per-method payment method types, the method
+  identity checks), `project.MD` (MB WAY offered through Stripe),
+  `database.MD` (`mbway` is a real recorded value, schema unchanged, version
+  24), `how_to_run.MD` (the `mb_way_payments` capability and MB WAY testing),
+  `PAGES/design.MD` (selector data-driven with MB WAY, the history pill, the
+  retryable error state for a wallet approval that is not yet confirmed) and
+  `.env.example` (MB WAY notes, no extra variable).
+- **Validation** — backend `go build` / `go vet` clean; `services/payments`,
+  `services/purchases`, `api/webhooks`, `routes` and the payment `api/auth`
+  suites pass. The full backend suite shows only the five pre-existing unrelated
+  failures (`TestTrainerRepository`;
+  `TestAdminApproveApplicationAlreadyApproved`,
+  `TestAdminApproveApplicationAlreadyTrainerAtomicity`,
+  `TestAdminRejectThenReapplyApproved`, `TestTrainerProgramsCreateSuccess`).
+  Frontend `tsc --noEmit` and the Vite production build pass. Schema version
+  remains `24` with no new migration. Real MB WAY end-to-end validation was not
+  performed because no Stripe credentials were available in the environment.
+
+Files added:
+
+- none (no new backend or frontend modules; no migration)
+
+Files modified:
+
+- `main/src/backend/services/payments/stripe_provider.go` — `mbway` → `mb_way`
+  mapping, MB WAY EUR/amount constraints before any API call, method identity in
+  capture verification, exported `IsStripePaymentMethodType`.
+- `main/src/backend/services/payments/stripe_provider_test.go` — MB WAY session,
+  currency, amount window, idempotency, capture, pending-approval and method
+  mismatch coverage; fixtures carry the recorded method and
+  `payment_method_types`; the obsolete "MB WAY is rejected" test removed.
+- `main/src/backend/services/payments/types.go` — `CaptureRequest.Method`.
+- `main/src/backend/services/payments/provider_routing.go` — `mbway` provider slot
+  and the `card`/`mbway`/`paypal` availability order.
+- `main/src/backend/services/payments/provider_routing_test.go` — three-slot
+  resolution and availability/resolution parity.
+- `main/src/backend/services/purchases/purchases.go` — the recorded method is
+  passed to the capture provider.
+- `main/src/backend/services/purchases/purchases_test.go` — MB WAY initiation,
+  same-method retry, capture, pending-approval and ownership coverage; a full
+  method-immutability matrix across card/mbway/paypal; the "MB WAY has no
+  provider" test restated as a fail-closed routing case.
+- `main/src/backend/routes/routes.go` — the same Stripe provider instance is
+  registered for `card` and `mbway`.
+- `main/src/backend/routes/payment_providers_test.go` — `card` and `mbway` follow
+  the same complete-configuration gate.
+- `main/src/backend/api/webhooks/stripe_handler.go` — the session's payment method
+  types must match the purchase's recorded method before completion.
+- `main/src/backend/api/webhooks/stripe_handler_test.go` — MB WAY completion
+  through both success events, pending approval, and method mismatch / missing
+  method cases; fixtures carry the recorded method and `payment_method_types`.
+- `main/src/backend/api/auth/payment_methods_handler_test.go` — MB WAY
+  availability, labels and the corrected provider-internals contract.
+- `main/src/backend/api/auth/test_mode_handler_test.go` — Test Mode bypass
+  documented against the provider registered in both Stripe slots.
+- `docs/INSTRUCTIONS/arquitecture.MD` — MB WAY served by Stripe, three-slot
+  routing, availability, provider constraints, method identity in both
+  verification paths, account capability.
+- `docs/INSTRUCTIONS/api.MD` — methods endpoint, initiation, capture and webhook
+  contracts for MB WAY.
+- `docs/INSTRUCTIONS/security.MD` — no MB WAY phone number held by RYZE, per-method
+  payment method types, method identity checks.
+- `docs/INSTRUCTIONS/project.MD` — MB WAY offered through Stripe.
+- `docs/DATABASE/database.MD` — `mbway` is a real recorded value, schema
+  unchanged, version 24.
+- `docs/how_to_run.MD` — the `mb_way_payments` capability and MB WAY testing.
+- `docs/PAGES/design.MD` — data-driven selector including MB WAY, history pill,
+  retryable error state.
+- `.env.example` — MB WAY notes under the existing Stripe configuration.
+
+
 # Version 2.78.0
 
 Title: Stripe Card Payments — hosted Checkout, server-verified capture and a webhook-authoritative completion path
