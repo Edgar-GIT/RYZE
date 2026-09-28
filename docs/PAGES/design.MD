@@ -745,7 +745,8 @@ palette, motion and typography and reuses the shared account navigation bar.
   metadata:
   - status pill — green "Completed", amber "Pending" or red "Failed"
     (the only statuses the backend emits);
-  - a neutral pill naming the payment method used (Card / PayPal) for entries
+  - a neutral pill naming the payment method used (Card / MB WAY / PayPal) for
+    entries
     that carry a `payment_method`; omitted for Test purchases, which never reach
     a payment provider, and for pending purchases created before payment
     initiation;
