@@ -224,6 +224,18 @@ func stripePaymentMethodType(method PaymentMethod) (string, error) {
 	}
 }
 
+// IsStripePaymentMethodType reports whether a Stripe payment method type
+// corresponds to the given RYZE payment method. It lets the webhook layer
+// verify that a settled session was paid with the method bound to the purchase
+// without exposing Stripe's own identifiers outside this file.
+func IsStripePaymentMethodType(method PaymentMethod, stripeType string) bool {
+	expected, err := stripePaymentMethodType(method)
+	if err != nil {
+		return false
+	}
+	return expected == stripeType
+}
+
 // validateStripeMethodCompatibility enforces the constraints Stripe documents
 // for the requested payment method, using the purchase snapshot values. It runs
 // before any API call so an unsupported combination fails closed instead of

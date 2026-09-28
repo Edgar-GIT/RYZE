@@ -393,38 +393,9 @@ func TestStripeProvider_NoURLs(t *testing.T) {
 	}
 }
 
-func TestStripeProvider_MBWayMethodIsRejected(t *testing.T) {
-	// MB WAY has no provider. The Stripe provider must refuse it instead of
-	// sending an unsupported payment method type to Stripe, so an unimplemented
-	// method is never presented to a buyer.
-	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
-		t.Error("must not reach the Stripe API for an unsupported payment method")
-	})
-	defer cleanup()
-
-	provider := payments.NewStripeProvider("https://example.com/success", "https://example.com/cancel")
-	result, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
-		PurchaseID:       "purchase-mbway",
-		AmountMinorUnits: 2500,
-		Currency:         "EUR",
-		ProgramID:        "prog-mbway",
-		Method:           payments.PaymentMethodMBWay,
-	})
-
-	if err == nil {
-		t.Fatal("expected error for the unimplemented mbway method")
-	}
-	if !errors.Is(err, payments.ErrProviderFailure) {
-		t.Fatalf("expected ErrProviderFailure, got %v", err)
-	}
-	if result.PaymentID != "" || result.CheckoutURL != "" {
-		t.Errorf("expected no payment result, got %+v", result)
-	}
-}
-
 func TestStripeProvider_PayPalMethodIsRejected(t *testing.T) {
-	// The Stripe provider serves the card method only; the PayPal method is
-	// owned by the PayPal provider and must never be routed here.
+	// The Stripe provider owns the card and MB WAY methods; the PayPal method
+	// is owned by the PayPal provider and must never be routed here.
 	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
 		t.Error("must not reach the Stripe API for a provider-owned method")
 	})
@@ -592,18 +563,22 @@ func TestStripeProvider_PurchaseIDInMetadata(t *testing.T) {
 
 // mockStripeRetrievedSession returns a JSON payload simulating a Stripe
 // Checkout Session retrieval response, i.e. the server-side view of a session.
-func mockStripeRetrievedSession(sessionID, purchaseID string, amount int64, currency, paymentStatus, mode string) []byte {
+func mockStripeRetrievedSession(sessionID, purchaseID string, amount int64, currency, paymentStatus, mode string, paymentMethodTypes ...string) []byte {
+	if len(paymentMethodTypes) == 0 {
+		paymentMethodTypes = []string{"card"}
+	}
 	resp := map[string]interface{}{
-		"id":                  sessionID,
-		"object":              "checkout.session",
-		"status":              "complete",
-		"url":                 "https://checkout.stripe.com/c/pay/" + sessionID,
-		"payment_status":      paymentStatus,
-		"mode":                mode,
-		"amount_total":        amount,
-		"currency":            currency,
-		"client_reference_id": purchaseID,
-		"metadata":            map[string]string{"purchase_id": purchaseID},
+		"id":                   sessionID,
+		"object":               "checkout.session",
+		"status":               "complete",
+		"url":                  "https://checkout.stripe.com/c/pay/" + sessionID,
+		"payment_status":       paymentStatus,
+		"mode":                 mode,
+		"amount_total":         amount,
+		"currency":             currency,
+		"client_reference_id":  purchaseID,
+		"metadata":             map[string]string{"purchase_id": purchaseID},
+		"payment_method_types": paymentMethodTypes,
 	}
 	b, _ := json.Marshal(resp)
 	return b
@@ -633,6 +608,7 @@ func captureRequest(purchaseID, sessionID string) payments.CaptureRequest {
 		PaymentID:        sessionID,
 		AmountMinorUnits: 4999,
 		Currency:         "EUR",
+		Method:           payments.PaymentMethodCard,
 	}
 }
 
@@ -856,5 +832,349 @@ func TestStripeProvider_SubstitutesRedirectPlaceholders(t *testing.T) {
 	}
 	if strings.Contains(capturedBody, "{program_id}") || strings.Contains(capturedBody, "{purchase_id}") {
 		t.Errorf("expected no unsubstituted RYZE placeholders, body: %s", capturedBody)
+	}
+}
+
+// --- MB WAY ---
+
+// TestStripeProvider_MBWayCreatesCheckoutSession proves the MB WAY flow uses
+// the same Stripe-hosted Checkout Session as card, asking Stripe for the mb_way
+// payment method type and taking the amount and currency from the purchase
+// snapshot. The buyer approves the payment in the MB WAY app, so the generic
+// status is requires_action.
+func TestStripeProvider_MBWayCreatesCheckoutSession(t *testing.T) {
+	sessionID := "cs_test_mbway"
+	checkoutURL := "https://checkout.stripe.com/c/pay/cs_test_mbway"
+
+	var capturedBody string
+
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		capturedBody = string(body)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(mockStripeSessionResponse(sessionID, checkoutURL)))
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("https://example.com/success", "https://example.com/cancel")
+	result, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID:       "purchase-mbway",
+		AmountMinorUnits: 2500,
+		Currency:         "EUR",
+		ProgramID:        "prog-mbway",
+		Method:           payments.PaymentMethodMBWay,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(capturedBody, "payment_method_types[0]=mb_way") {
+		t.Errorf("expected the mb_way payment method type, body: %s", capturedBody)
+	}
+	if strings.Contains(capturedBody, "payment_method_types[0]=card") {
+		t.Errorf("MB WAY must not request the card method type, body: %s", capturedBody)
+	}
+	// The snapshot is authoritative: no client value reaches Stripe.
+	if !strings.Contains(capturedBody, "unit_amount]=2500") {
+		t.Errorf("expected unit_amount from the snapshot, body: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "currency]=eur") {
+		t.Errorf("expected the snapshot currency, body: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "client_reference_id=purchase-mbway") {
+		t.Errorf("expected the purchase reference, body: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "metadata[purchase_id]=purchase-mbway") {
+		t.Errorf("expected the purchase metadata, body: %s", capturedBody)
+	}
+	// MB WAY is a one-time payment only: no setup or subscription mode.
+	if !strings.Contains(capturedBody, "mode=payment") {
+		t.Errorf("expected payment mode, body: %s", capturedBody)
+	}
+
+	if result.PaymentID != sessionID {
+		t.Errorf("expected the session id %q, got %q", sessionID, result.PaymentID)
+	}
+	if result.CheckoutURL != checkoutURL {
+		t.Errorf("expected the hosted page %q, got %q", checkoutURL, result.CheckoutURL)
+	}
+	if result.Status != payments.PaymentStatusRequiresAction {
+		t.Errorf("expected requires_action, got %q", result.Status)
+	}
+	if result.Provider != "stripe" {
+		t.Errorf("expected the stripe provider, got %q", result.Provider)
+	}
+}
+
+// TestStripeProvider_MBWayRequiresEuro proves Stripe's documented MB WAY
+// constraint — it can only be settled in Euro — is enforced against the snapshot
+// currency before any external request is made.
+func TestStripeProvider_MBWayRequiresEuro(t *testing.T) {
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Error("must not reach the Stripe API for a non-Euro MB WAY purchase")
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("", "")
+
+	for _, currency := range []string{"GBP", "USD", "BRL", "E U R", "euro"} {
+		_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+			PurchaseID:       "purchase-mbway-ccy",
+			AmountMinorUnits: 2500,
+			Currency:         currency,
+			ProgramID:        "prog-mbway",
+			Method:           payments.PaymentMethodMBWay,
+		})
+		if !errors.Is(err, payments.ErrProviderFailure) {
+			t.Errorf("currency %q: expected ErrProviderFailure, got %v", currency, err)
+		}
+	}
+}
+
+// TestStripeProvider_MBWayAcceptsEuroRegardlessOfCase proves the currency
+// check compares the normalised snapshot value, so it does not depend on how
+// the currency happens to be stored.
+func TestStripeProvider_MBWayAcceptsEuroRegardlessOfCase(t *testing.T) {
+	for _, currency := range []string{"EUR", "eur", "Eur"} {
+		_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, string(mockStripeSessionResponse("cs_test_case", "https://checkout.stripe.com/c/pay/cs_test_case")))
+		})
+
+		provider := payments.NewStripeProvider("", "")
+		_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+			PurchaseID:       "purchase-mbway-case",
+			AmountMinorUnits: 2500,
+			Currency:         currency,
+			Method:           payments.PaymentMethodMBWay,
+		})
+		if err != nil {
+			t.Errorf("currency %q: unexpected error: %v", currency, err)
+		}
+		cleanup()
+	}
+}
+
+// TestStripeProvider_MBWayEnforcesDocumentedAmountWindow proves Stripe's
+// documented MB WAY transaction window (0.50 EUR to 5,000 EUR) is enforced from
+// the snapshot amount before any external request, so a purchase MB WAY can
+// never settle fails closed instead of creating an unpayable session.
+func TestStripeProvider_MBWayEnforcesDocumentedAmountWindow(t *testing.T) {
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Error("must not reach the Stripe API for an unsupported MB WAY amount")
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("", "")
+
+	for _, amount := range []int64{0, 1, 49, 500001, 1000000} {
+		_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+			PurchaseID:       "purchase-mbway-amt",
+			AmountMinorUnits: amount,
+			Currency:         "EUR",
+			Method:           payments.PaymentMethodMBWay,
+		})
+		if !errors.Is(err, payments.ErrProviderFailure) {
+			t.Errorf("amount %d: expected ErrProviderFailure, got %v", amount, err)
+		}
+	}
+}
+
+// TestStripeProvider_MBWayAcceptsBoundaryAmounts proves the documented window is
+// inclusive at both ends.
+func TestStripeProvider_MBWayAcceptsBoundaryAmounts(t *testing.T) {
+	for _, amount := range []int64{50, 500000} {
+		_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, string(mockStripeSessionResponse("cs_test_bound", "https://checkout.stripe.com/c/pay/cs_test_bound")))
+		})
+
+		provider := payments.NewStripeProvider("", "")
+		if _, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+			PurchaseID:       "purchase-mbway-bound",
+			AmountMinorUnits: amount,
+			Currency:         "EUR",
+			Method:           payments.PaymentMethodMBWay,
+		}); err != nil {
+			t.Errorf("amount %d: unexpected error: %v", amount, err)
+		}
+		cleanup()
+	}
+}
+
+// TestStripeProvider_CardHasNoMBWAYConstraints proves the MB WAY-specific
+// limits are not wrongly applied to card payments, which Stripe does not
+// restrict to the MB WAY window or to Euro.
+func TestStripeProvider_CardHasNoMBWAYConstraints(t *testing.T) {
+	for _, tc := range []struct {
+		amount   int64
+		currency string
+	}{
+		{amount: 100, currency: "GBP"},
+		{amount: 900000, currency: "USD"},
+	} {
+		_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, string(mockStripeSessionResponse("cs_test_card_free", "https://checkout.stripe.com/c/pay/cs_test_card_free")))
+		})
+
+		provider := payments.NewStripeProvider("", "")
+		if _, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+			PurchaseID:       "purchase-card-free",
+			AmountMinorUnits: tc.amount,
+			Currency:         tc.currency,
+			Method:           payments.PaymentMethodCard,
+		}); err != nil {
+			t.Errorf("card %d %s: unexpected error: %v", tc.amount, tc.currency, err)
+		}
+		cleanup()
+	}
+}
+
+// TestStripeProvider_MBWayUsesPerPurchaseIdempotency proves a repeated MB WAY
+// initiation replays the same session rather than creating a second payable one.
+func TestStripeProvider_MBWayUsesPerPurchaseIdempotency(t *testing.T) {
+	var idempotencyKeys []string
+
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		idempotencyKeys = append(idempotencyKeys, r.Header.Get("Idempotency-Key"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(mockStripeSessionResponse("cs_test_mbway_idem", "https://checkout.stripe.com/c/pay/cs_test_mbway_idem")))
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("", "")
+	request := payments.PaymentRequest{
+		PurchaseID:       "purchase-mbway-idem",
+		AmountMinorUnits: 2500,
+		Currency:         "EUR",
+		Method:           payments.PaymentMethodMBWay,
+	}
+
+	for i := 0; i < 2; i++ {
+		if _, err := provider.InitiatePayment(context.Background(), request); err != nil {
+			t.Fatalf("attempt %d: unexpected error: %v", i+1, err)
+		}
+	}
+
+	if len(idempotencyKeys) != 2 {
+		t.Fatalf("expected 2 calls, got %d", len(idempotencyKeys))
+	}
+	want := "ryze-purchase-purchase-mbway-idem"
+	for i, key := range idempotencyKeys {
+		if key != want {
+			t.Errorf("call %d: expected idempotency key %q, got %q", i+1, want, key)
+		}
+	}
+}
+
+// TestStripeProvider_MBWayCaptureSuccess proves a fully paid MB WAY Checkout
+// Session verifies against the snapshot.
+func TestStripeProvider_MBWayCaptureSuccess(t *testing.T) {
+	var requestedID string
+	_, cleanup := setupMockStripeServer(t, serveStripeSessionRetrieval(t, &requestedID,
+		mockStripeRetrievedSession("cs_test_mbway_cap", "purchase-mbway-cap", 2500, "eur", "paid", "payment", "mb_way")))
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("", "")
+
+	result, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       "purchase-mbway-cap",
+		PaymentID:        "cs_test_mbway_cap",
+		AmountMinorUnits: 2500,
+		Currency:         "EUR",
+		Method:           payments.PaymentMethodMBWay,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.PaymentID != "cs_test_mbway_cap" {
+		t.Errorf("expected the session id, got %q", result.PaymentID)
+	}
+}
+
+// TestStripeProvider_MBWAYPendingAuthorizationDoesNotComplete mirrors the real
+// MB WAY lifecycle: the session is open and unpaid while the buyer has not yet
+// approved the payment in the MB WAY app, and that state must never complete a
+// purchase.
+func TestStripeProvider_MBWAYPendingAuthorizationDoesNotComplete(t *testing.T) {
+	var requestedID string
+	_, cleanup := setupMockStripeServer(t, serveStripeSessionRetrieval(t, &requestedID,
+		mockStripeRetrievedSession("cs_test_mbway_pending", "purchase-mbway-pending", 2500, "eur", "unpaid", "payment", "mb_way")))
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("", "")
+
+	_, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       "purchase-mbway-pending",
+		PaymentID:        "cs_test_mbway_pending",
+		AmountMinorUnits: 2500,
+		Currency:         "EUR",
+		Method:           payments.PaymentMethodMBWay,
+	})
+	if !errors.Is(err, payments.ErrProviderFailure) {
+		t.Fatalf("an unauthorised MB WAY payment must not verify, got %v", err)
+	}
+}
+
+// TestStripeProvider_CaptureRejectsMethodMismatch proves a session created for
+// one method can never complete a purchase bound to the other, even when every
+// other attribute matches.
+func TestStripeProvider_CaptureRejectsMethodMismatch(t *testing.T) {
+	cases := map[string]struct {
+		sessionMethod string
+		recorded      payments.PaymentMethod
+	}{
+		"card session on an mbway purchase": {sessionMethod: "card", recorded: payments.PaymentMethodMBWay},
+		"mbway session on a card purchase":  {sessionMethod: "mb_way", recorded: payments.PaymentMethodCard},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			var requestedID string
+			_, cleanup := setupMockStripeServer(t, serveStripeSessionRetrieval(t, &requestedID,
+				mockStripeRetrievedSession("cs_test_mismatch", "purchase-mismatch", 4999, "eur", "paid", "payment", tc.sessionMethod)))
+			defer cleanup()
+
+			provider := payments.NewStripeProvider("", "")
+			_, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+				PurchaseID:       "purchase-mismatch",
+				PaymentID:        "cs_test_mismatch",
+				AmountMinorUnits: 4999,
+				Currency:         "EUR",
+				Method:           tc.recorded,
+			})
+			if !errors.Is(err, payments.ErrProviderFailure) {
+				t.Fatalf("expected ErrProviderFailure, got %v", err)
+			}
+		})
+	}
+}
+
+// TestStripeProvider_CaptureRequiresRecordedMethod proves a capture without a
+// recorded method is rejected: the backend must always know which method a
+// purchase is bound to before it can verify a payment.
+func TestStripeProvider_CaptureRequiresRecordedMethod(t *testing.T) {
+	var requestedID string
+	_, cleanup := setupMockStripeServer(t, serveStripeSessionRetrieval(t, &requestedID,
+		mockStripeRetrievedSession("cs_test_nomethod", "purchase-nomethod", 4999, "eur", "paid", "payment", "mb_way")))
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("", "")
+
+	if _, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+		PurchaseID:       "purchase-nomethod",
+		PaymentID:        "cs_test_nomethod",
+		AmountMinorUnits: 4999,
+		Currency:         "EUR",
+	}); !errors.Is(err, payments.ErrProviderFailure) {
+		t.Fatalf("expected ErrProviderFailure without a recorded method, got %v", err)
 	}
 }

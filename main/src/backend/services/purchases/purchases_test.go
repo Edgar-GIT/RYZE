@@ -189,9 +189,13 @@ type stubCaptureProvider struct {
 	captureRequest *payments.CaptureRequest
 	initiation     payments.PaymentResult
 	initiationErr  error
+	initiateReq    *payments.PaymentRequest
 }
 
 func (s *stubCaptureProvider) InitiatePayment(_ context.Context, request payments.PaymentRequest) (payments.PaymentResult, error) {
+	if s.initiateReq != nil {
+		*s.initiateReq = request
+	}
 	if s.initiationErr != nil {
 		return payments.PaymentResult{}, s.initiationErr
 	}
@@ -2663,7 +2667,7 @@ func TestCardPaymentFlowRecordsMethodAndCompletesOnCapture(t *testing.T) {
 		},
 	}
 	// Production routing: card resolves to the card provider only.
-	routing := payments.NewMethodProviderMap(card, nil)
+	routing := payments.NewMethodProviderMap(card, nil, nil)
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
@@ -2700,10 +2704,11 @@ func TestCardPaymentFlowRecordsMethodAndCompletesOnCapture(t *testing.T) {
 	}
 }
 
-// TestMBWayIsRejectedByRealRouting proves that the prepared-but-unimplemented
-// MB WAY method cannot be initiated even when both providers are configured:
-// it must never reach a provider and must never complete a purchase.
-func TestMBWayIsRejectedByRealRouting(t *testing.T) {
+// TestMBWayFailsClosedWithoutProvider proves that MB WAY cannot be initiated
+// while it has no provider, even though it is a valid stored method: it must
+// never reach a provider, must never record a method, and must never complete
+// the purchase.
+func TestMBWayFailsClosedWithoutProvider(t *testing.T) {
 	pending := &models.Purchase{
 		ID:              "purchase-mbway-routing",
 		UserID:          "22222222-2222-2222-2222-222222222222",
@@ -2722,12 +2727,13 @@ func TestMBWayIsRejectedByRealRouting(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		card,
-		payments.NewMethodProviderMap(card, paypal).Resolve,
+		// MB WAY has no provider configured: only card and paypal resolve.
+		payments.NewMethodProviderMap(card, nil, paypal).Resolve,
 	)
 
 	_, err := svc.InitiatePayment(context.Background(), pending.UserID, pending.ID, "mbway")
-	if err == nil {
-		t.Fatal("expected mbway initiation to fail: no provider implements it")
+	if !errors.Is(err, purchases.ErrPaymentProvider) {
+		t.Fatalf("expected ErrPaymentProvider for mbway without a provider, got %v", err)
 	}
 	if purchasesRepo.setMethod != "" {
 		t.Errorf("a failed initiation must not record a method, got %q", purchasesRepo.setMethod)
@@ -2762,7 +2768,7 @@ func TestCardPaymentCaptureIsIdempotent(t *testing.T) {
 		entitlements,
 		&stubCommissionResolver{},
 		card,
-		payments.NewMethodProviderMap(card, nil).Resolve,
+		payments.NewMethodProviderMap(card, nil, nil).Resolve,
 	)
 
 	for i := 0; i < 3; i++ {
@@ -2801,7 +2807,7 @@ func TestUnpaidCardCaptureNeverCompletesPurchase(t *testing.T) {
 		entitlements,
 		&stubCommissionResolver{},
 		card,
-		payments.NewMethodProviderMap(card, nil).Resolve,
+		payments.NewMethodProviderMap(card, nil, nil).Resolve,
 	)
 
 	if _, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "cs_test_unpaid"); !errors.Is(err, purchases.ErrPaymentProvider) {
@@ -2841,7 +2847,7 @@ func TestCardCaptureCannotBeRedirectedToAnotherPurchase(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		card,
-		payments.NewMethodProviderMap(card, nil).Resolve,
+		payments.NewMethodProviderMap(card, nil, nil).Resolve,
 	)
 
 	if _, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "cs_test_session_3"); err != nil {
@@ -2849,5 +2855,290 @@ func TestCardCaptureCannotBeRedirectedToAnotherPurchase(t *testing.T) {
 	}
 	if captured.PurchaseID != pending.ID {
 		t.Fatalf("the provider must verify the session against this purchase, got %q", captured.PurchaseID)
+	}
+}
+
+// --- MB WAY ---
+
+// TestMBWayPaymentInitiatesThroughSharedStripeProvider proves MB WAY is served
+// by the Stripe provider, is recorded on the purchase, and that only the immutable
+// snapshot reaches the provider.
+func TestMBWayPaymentInitiatesThroughSharedStripeProvider(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-mbway-initiate",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	var request payments.PaymentRequest
+	stripe := &stubCaptureProvider{
+		initiation: payments.PaymentResult{
+			PaymentID:   "cs_test_mbway_initiate",
+			CheckoutURL: "https://checkout.stripe.com/c/pay/cs_test_mbway_initiate",
+			Status:      payments.PaymentStatusRequiresAction,
+			Provider:    "stripe",
+			PurchaseID:  pending.ID,
+		},
+		initiateReq: &request,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		stripe,
+		// Real production wiring: one Stripe instance serves card and MB WAY.
+		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
+	)
+
+	result, err := svc.InitiatePayment(context.Background(), pending.UserID, pending.ID, "mbway")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.PaymentID != "cs_test_mbway_initiate" {
+		t.Errorf("expected the session id, got %q", result.PaymentID)
+	}
+	if purchasesRepo.setMethod != "mbway" {
+		t.Errorf("expected mbway to be recorded, got %q", purchasesRepo.setMethod)
+	}
+	if request.Method != payments.PaymentMethodMBWay {
+		t.Errorf("expected the mbway method, got %q", request.Method)
+	}
+	// The snapshot is authoritative; no client value is ever accepted.
+	if request.AmountMinorUnits != 2500 || request.Currency != "EUR" {
+		t.Errorf("expected the snapshot amount and currency, got %d %s", request.AmountMinorUnits, request.Currency)
+	}
+	// Initiation must never complete or grant access.
+	if pending.Status != models.PurchaseStatusPending {
+		t.Errorf("initiation must not complete the purchase, got %q", pending.Status)
+	}
+}
+
+// TestRecordedMethodIsImmutableAcrossEveryMethod proves a purchase bound to one
+// method can never be re-initiated with another, for every stored method.
+func TestRecordedMethodIsImmutableAcrossEveryMethod(t *testing.T) {
+	for _, recorded := range []string{"card", "mbway", "paypal"} {
+		for _, attempted := range []string{"card", "mbway", "paypal"} {
+			if recorded == attempted {
+				continue
+			}
+			t.Run(recorded+"-to-"+attempted, func(t *testing.T) {
+				method := recorded
+				pending := &models.Purchase{
+					ID:              "purchase-immutable",
+					UserID:          "33333333-3333-3333-3333-333333333333",
+					ProgramID:       "program-immutable",
+					PriceMinorUnits: 2500,
+					Currency:        "EUR",
+					Status:          models.PurchaseStatusPending,
+					PaymentMethod:   &method,
+				}
+				purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+				var request payments.PaymentRequest
+				stripe := &stubCaptureProvider{initiateReq: &request}
+
+				svc := purchases.NewService(
+					&stubProgramRepository{},
+					purchasesRepo,
+					&stubEntitlementRepository{},
+					&stubCommissionResolver{},
+					stripe,
+					payments.NewMethodProviderMap(stripe, stripe, stripe).Resolve,
+				)
+
+				_, err := svc.InitiatePayment(context.Background(), pending.UserID, pending.ID, attempted)
+				if !errors.Is(err, purchases.ErrPaymentMethodMismatch) {
+					t.Fatalf("expected ErrPaymentMethodMismatch, got %v", err)
+				}
+				if pending.PaymentMethod == nil || *pending.PaymentMethod != recorded {
+					t.Errorf("the recorded method must be preserved, got %v", pending.PaymentMethod)
+				}
+				if purchasesRepo.setMethod != "" {
+					t.Errorf("a mismatched method must not be persisted, got %q", purchasesRepo.setMethod)
+				}
+				if request.PurchaseID != "" {
+					t.Error("a mismatched method must not reach any provider")
+				}
+			})
+		}
+	}
+}
+
+// TestMBWaySameMethodRetryIsIdempotent proves retrying MB WAY on a purchase
+// already bound to MB WAY is accepted, so a buyer can safely restart the flow.
+func TestMBWaySameMethodRetryIsIdempotent(t *testing.T) {
+	method := "mbway"
+	pending := &models.Purchase{
+		ID:              "purchase-mbway-retry",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   &method,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	var request payments.PaymentRequest
+	stripe := &stubCaptureProvider{
+		initiation:  payments.PaymentResult{PaymentID: "cs_test_mbway_retry", Provider: "stripe"},
+		initiateReq: &request,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		stripe,
+		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
+	)
+
+	if _, err := svc.InitiatePayment(context.Background(), pending.UserID, pending.ID, "mbway"); err != nil {
+		t.Fatalf("expected the same method to be accepted, got %v", err)
+	}
+	if request.Method != payments.PaymentMethodMBWay {
+		t.Errorf("expected the mbway method, got %q", request.Method)
+	}
+	if purchasesRepo.setMethod != "mbway" {
+		t.Errorf("expected mbway to stay recorded, got %q", purchasesRepo.setMethod)
+	}
+}
+
+// TestMBWayCaptureCompletesPurchase proves a verified MB WAY payment completes
+// the purchase exactly once and grants the entitlement, and that the recorded
+// method is handed to the provider for verification.
+func TestMBWayCaptureCompletesPurchase(t *testing.T) {
+	method := "mbway"
+	pending := &models.Purchase{
+		ID:              "purchase-mbway-capture",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   &method,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	entitlements := &stubEntitlementRepository{link: purchasesRepo}
+	var captured payments.CaptureRequest
+	stripe := &stubCaptureProvider{
+		result:         payments.CaptureResult{PaymentID: "cs_test_mbway_capture", Provider: "stripe"},
+		captureRequest: &captured,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		stripe,
+		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
+	)
+
+	for i := 0; i < 3; i++ {
+		result, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "cs_test_mbway_capture")
+		if err != nil {
+			t.Fatalf("attempt %d: unexpected error: %v", i+1, err)
+		}
+		if result.Status != models.PurchaseStatusCompleted {
+			t.Fatalf("attempt %d: expected a completed purchase, got %q", i+1, result.Status)
+		}
+	}
+
+	// The provider must verify against the recorded method, never a client value.
+	if captured.Method != payments.PaymentMethodMBWay {
+		t.Errorf("expected the recorded mbway method, got %q", captured.Method)
+	}
+	if captured.AmountMinorUnits != 2500 || captured.Currency != "EUR" {
+		t.Errorf("expected the snapshot amount and currency, got %d %s", captured.AmountMinorUnits, captured.Currency)
+	}
+}
+
+// TestUnpaidMBWayCaptureNeverCompletesPurchase proves a capture the provider
+// refuses to verify — the buyer has not approved the payment in the MB WAY app —
+// leaves the purchase pending and grants no access.
+func TestUnpaidMBWayCaptureNeverCompletesPurchase(t *testing.T) {
+	method := "mbway"
+	pending := &models.Purchase{
+		ID:              "purchase-mbway-unpaid",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   &method,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	entitlements := &stubEntitlementRepository{link: purchasesRepo}
+	stripe := &stubCaptureProvider{
+		captureErr: fmt.Errorf("stripe: checkout session is not a successful payment of the purchase: %w", payments.ErrProviderFailure),
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		stripe,
+		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
+	)
+
+	if _, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "cs_test_mbway_unpaid"); !errors.Is(err, purchases.ErrPaymentProvider) {
+		t.Fatalf("expected ErrPaymentProvider, got %v", err)
+	}
+	if pending.Status != models.PurchaseStatusPending {
+		t.Errorf("an unverified MB WAY payment must leave the purchase pending, got %q", pending.Status)
+	}
+	if purchasesRepo.entitlement != nil {
+		t.Error("an unverified MB WAY payment must never grant access")
+	}
+}
+
+// TestMBWayCaptureOwnershipEnforced proves a buyer cannot complete an MB WAY
+// purchase belonging to somebody else, whatever payment reference they present.
+func TestMBWayCaptureOwnershipEnforced(t *testing.T) {
+	method := "mbway"
+	other := &models.Purchase{
+		ID:              "purchase-mbway-other",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   &method,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: other}
+	entitlements := &stubEntitlementRepository{link: purchasesRepo}
+	var captured payments.CaptureRequest
+	stripe := &stubCaptureProvider{
+		result:         payments.CaptureResult{PaymentID: "cs_test_mbway_other", Provider: "stripe"},
+		captureRequest: &captured,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		stripe,
+		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
+	)
+
+	_, err := svc.CapturePayment(context.Background(), "22222222-2222-2222-2222-222222222222", other.ID, "cs_test_mbway_other")
+	if err == nil {
+		t.Fatal("capturing another user's MB WAY purchase must be refused")
+	}
+	if captured.PurchaseID != "" {
+		t.Error("an unauthorised capture must never reach the provider")
+	}
+	if other.Status != models.PurchaseStatusPending {
+		t.Errorf("an unauthorised capture must never complete the purchase, got %q", other.Status)
+	}
+	if purchasesRepo.entitlement != nil {
+		t.Error("an unauthorised capture must never grant access")
 	}
 }

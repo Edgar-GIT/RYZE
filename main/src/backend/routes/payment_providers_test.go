@@ -37,17 +37,17 @@ func TestResolvePaymentProviders_StripeRequiresSecretAndWebhookSigningSecret(t *
 				config.WebhookConfig{StripeWebhookSecret: tc.webhookKey},
 			)
 
-			methodMap := payments.NewMethodProviderMap(stripeProvider, nil)
-			advertisesCard := false
-			for _, method := range methodMap.AvailableMethods() {
-				if method == payments.PaymentMethodCard {
-					advertisesCard = true
-				}
-			}
+			methodMap := payments.NewMethodProviderMap(stripeProvider, stripeProvider, nil)
+			advertised := methodMap.AvailableMethods()
+
+			// MB WAY is served by the same Stripe provider, so both methods
+			// appear and disappear together with the same configuration.
+			advertisesCard := containsMethod(advertised, payments.PaymentMethodCard)
+			advertisesMBWay := containsMethod(advertised, payments.PaymentMethodMBWay)
 
 			if tc.wantEnabled {
-				if !advertisesCard {
-					t.Fatal("expected card to be advertised when Stripe is fully configured")
+				if !advertisesCard || !advertisesMBWay {
+					t.Fatalf("expected card and mbway to be advertised when Stripe is fully configured, got %v", advertised)
 				}
 				if stripe.Key != tc.secretKey {
 					t.Errorf("expected the Stripe key to be configured, got %q", stripe.Key)
@@ -55,8 +55,8 @@ func TestResolvePaymentProviders_StripeRequiresSecretAndWebhookSigningSecret(t *
 				return
 			}
 
-			if advertisesCard {
-				t.Fatal("card must not be advertised when Stripe is not completely configured")
+			if advertisesCard || advertisesMBWay {
+				t.Fatalf("card and mbway must not be advertised when Stripe is not completely configured, got %v", advertised)
 			}
 			if stripeProvider != nil {
 				t.Error("expected no Stripe provider when Stripe is not completely configured")
@@ -88,7 +88,7 @@ func TestResolvePaymentProviders_StripeFailureNeverEnablesPayPal(t *testing.T) {
 		t.Fatal("expected the PayPal provider to be configured independently of Stripe")
 	}
 
-	available := payments.NewMethodProviderMap(stripeProvider, paypalProvider).AvailableMethods()
+	available := payments.NewMethodProviderMap(stripeProvider, stripeProvider, paypalProvider).AvailableMethods()
 	if len(available) != 1 || available[0] != payments.PaymentMethodPayPal {
 		t.Fatalf("expected only paypal to be advertised, got %v", available)
 	}
@@ -143,4 +143,13 @@ func TestStripeEnabledGatesProviderAndWebhookEndpoint(t *testing.T) {
 			}
 		})
 	}
+}
+
+func containsMethod(methods []payments.PaymentMethod, want payments.PaymentMethod) bool {
+	for _, method := range methods {
+		if method == want {
+			return true
+		}
+	}
+	return false
 }

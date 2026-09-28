@@ -75,7 +75,7 @@ func newTestModeTestRouterWithProviders(t *testing.T, enabled bool, provider pay
 
 	var resolver payments.ProviderResolver
 	if provider != nil {
-		resolver = payments.NewMethodProviderMap(provider, nil).Resolve
+		resolver = payments.NewMethodProviderMap(provider, provider, nil).Resolve
 	}
 	purchaseSvc := purchases.NewService(programRepo, purchaseRepo, entitlementRepo, nil, provider, resolver)
 	testModePurchaseHandler := auth.NewTestModePurchaseHandler(testModeSvc, purchaseSvc)
@@ -98,7 +98,8 @@ func newTestModeTestRouterWithProviders(t *testing.T, enabled bool, provider pay
 }
 
 // countingCardProvider records any payment activity. Test Mode must never touch
-// it, whatever the payment configuration is.
+// it, whatever the payment configuration is. It stands in for the Stripe
+// provider, which RYZE registers for both card and MB WAY.
 type countingCardProvider struct {
 	initiations int
 	captures    int
@@ -661,6 +662,8 @@ func TestTestModePurchaseRequiresAuthentication(t *testing.T) {
 // provider is neither initiated nor captured, no payment method is recorded,
 // and the purchase is still zero-price, test-marked and entitlement-producing.
 func TestTestModePurchaseIgnoresConfiguredCardProvider(t *testing.T) {
+	// The provider is registered in the card and the MB WAY slots, exactly as
+	// production registers Stripe, so this proves Test Mode bypasses both.
 	card := &countingCardProvider{}
 	router, _, tx, tokenSvc := newTestModeTestRouterWithProviders(t, true, card)
 

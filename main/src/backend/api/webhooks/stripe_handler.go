@@ -12,13 +12,14 @@ import (
 	stripe "github.com/stripe/stripe-go/v86"
 	"github.com/stripe/stripe-go/v86/webhook"
 
+	"ryze/backend/services/payments"
 	"ryze/backend/services/purchases"
 )
 
 // StripeWebhookHandler handles Stripe webhook events. It verifies the webhook
 // signature, extracts the RYZE purchase identifier from trusted Stripe metadata,
-// validates the payment amount and currency against the immutable purchase
-// snapshot, and calls CompletePurchase as the only completion mechanism.
+// validates the payment amount, currency and method against the immutable
+// purchase snapshot, and calls CompletePurchase as the only completion mechanism.
 //
 // Checkout initiation does not complete a purchase. Browser redirects do not
 // complete a purchase. Only verified provider events can trigger CompletePurchase.
@@ -50,18 +51,25 @@ func NewStripeWebhookHandler(webhookSecret string, purchaseService purchases.Ser
 //  6. Verify the session is a fully paid one-time payment (payment_status,
 //     mode, client_reference_id) before anything else.
 //  7. Extract the RYZE purchase identifier from trusted Stripe metadata.
-//  8. Verify payment amount and currency against the immutable purchase snapshot.
+//  8. Verify payment amount, currency and payment method against the immutable
+//     purchase snapshot.
 //  9. Call CompletePurchase().
 //
 // Response semantics:
 //   - 400: invalid signature, missing header, malformed payload, unexpected event data
 //   - 200: unsupported event type (safely ignored), not a successful payment,
 //     unknown purchase, already completed, not pending
-//   - 500: internal errors where provider retry is desirable (completion failure, amount/currency mismatch)
+//   - 500: internal errors where provider retry is desirable (completion failure,
+//     amount/currency/payment method mismatch)
 //
 // Supported event types:
 //   - checkout.session.completed: the primary payment success event
-//   - checkout.session.async_payment_succeeded: async payment methods (e.g. bank transfers)
+//   - checkout.session.async_payment_succeeded: async payment methods (e.g. bank
+//     transfers)
+//
+// MB WAY is served by the same Checkout Session as card, so it is completed by
+// the same events. The buyer approves the payment in the MB WAY app, and the
+// session only reports paid once Stripe confirms it.
 //
 // All other event types — including refunds and disputes — are safely
 // acknowledged with 200 and ignored. RYZE purchases are final: no refund
@@ -170,6 +178,20 @@ func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c *gin.Context, ev
 		return
 	}
 
+	// The session must have been paid with the method bound to the purchase at
+	// initiation. A session settled with a different method than the one the
+	// purchase recorded can never complete it.
+	if purchase.PaymentMethod == "" {
+		log.Printf("[STRIPE-WEBHOOK] purchase %s has no recorded payment method", purchaseID)
+		c.String(http.StatusOK, "purchase has no recorded payment method")
+		return
+	}
+	if !sessionUsesPaymentMethod(session, payments.PaymentMethod(purchase.PaymentMethod)) {
+		log.Printf("[STRIPE-WEBHOOK] payment method mismatch for purchase %s: session=%v recorded=%s", purchaseID, session.PaymentMethodTypes, purchase.PaymentMethod)
+		c.String(http.StatusInternalServerError, "payment method mismatch")
+		return
+	}
+
 	if purchase.Status == "completed" {
 		log.Printf("[STRIPE-WEBHOOK] purchase %s already completed", purchaseID)
 		c.String(http.StatusOK, "already completed")
@@ -191,4 +213,19 @@ func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c *gin.Context, ev
 
 	log.Printf("[STRIPE-WEBHOOK] purchase %s completed successfully via Stripe event %s", result.ID, event.ID)
 	c.String(http.StatusOK, "completed")
+}
+
+// sessionUsesPaymentMethod reports whether the session was created for the given
+// RYZE payment method. A session without payment method types proves nothing and
+// is therefore never accepted as a match.
+func sessionUsesPaymentMethod(session stripe.CheckoutSession, method payments.PaymentMethod) bool {
+	if len(session.PaymentMethodTypes) == 0 {
+		return false
+	}
+	for _, sessionMethod := range session.PaymentMethodTypes {
+		if payments.IsStripePaymentMethodType(method, string(sessionMethod)) {
+			return true
+		}
+	}
+	return false
 }

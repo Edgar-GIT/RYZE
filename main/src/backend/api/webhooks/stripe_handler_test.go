@@ -114,14 +114,15 @@ func buildCheckoutSessionEvent(t *testing.T, session stripe.CheckoutSession) []b
 // reference ID that binds the session to the purchase.
 func newPaidCheckoutSession(sessionID, purchaseID string, amount int64, currency string) stripe.CheckoutSession {
 	return stripe.CheckoutSession{
-		ID:                sessionID,
-		Object:            "checkout.session",
-		Mode:              stripe.CheckoutSessionModePayment,
-		PaymentStatus:     stripe.CheckoutSessionPaymentStatusPaid,
-		AmountTotal:       amount,
-		Currency:          stripe.Currency(currency),
-		ClientReferenceID: purchaseID,
-		Metadata:          map[string]string{"purchase_id": purchaseID},
+		ID:                 sessionID,
+		Object:             "checkout.session",
+		Mode:               stripe.CheckoutSessionModePayment,
+		PaymentStatus:      stripe.CheckoutSessionPaymentStatusPaid,
+		AmountTotal:        amount,
+		Currency:           stripe.Currency(currency),
+		ClientReferenceID:  purchaseID,
+		Metadata:           map[string]string{"purchase_id": purchaseID},
+		PaymentMethodTypes: []string{"card"},
 	}
 }
 
@@ -160,6 +161,7 @@ func TestStripeWebhook_ValidCompletedEvent(t *testing.T) {
 		PriceMinorUnits: 4999,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 
@@ -182,7 +184,7 @@ func TestStripeWebhook_ValidCompletedEvent(t *testing.T) {
 
 func TestStripeWebhook_InvalidSignature(t *testing.T) {
 	svc := &stubPurchaseService{
-		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending"},
+		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending", PaymentMethod: "card"},
 	}
 
 	session := newPaidCheckoutSession("cs_test", "p1", 100, "eur")
@@ -203,7 +205,7 @@ func TestStripeWebhook_InvalidSignature(t *testing.T) {
 
 func TestStripeWebhook_MissingSignatureHeader(t *testing.T) {
 	svc := &stubPurchaseService{
-		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending"},
+		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending", PaymentMethod: "card"},
 	}
 	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
 	router := newTestRouter(handler)
@@ -219,7 +221,7 @@ func TestStripeWebhook_MissingSignatureHeader(t *testing.T) {
 
 func TestStripeWebhook_MalformedPayload(t *testing.T) {
 	svc := &stubPurchaseService{
-		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending"},
+		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending", PaymentMethod: "card"},
 	}
 	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
 	router := newTestRouter(handler)
@@ -236,7 +238,7 @@ func TestStripeWebhook_MalformedPayload(t *testing.T) {
 
 func TestStripeWebhook_UnsupportedEventType(t *testing.T) {
 	svc := &stubPurchaseService{
-		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending"},
+		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending", PaymentMethod: "card"},
 	}
 
 	event := stripe.Event{
@@ -266,7 +268,7 @@ func TestStripeWebhook_UnsupportedEventType(t *testing.T) {
 
 func TestStripeWebhook_NoPurchaseIDInMetadata(t *testing.T) {
 	svc := &stubPurchaseService{
-		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending"},
+		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending", PaymentMethod: "card"},
 	}
 
 	session := stripe.CheckoutSession{
@@ -322,6 +324,7 @@ func TestStripeWebhook_AmountMismatch(t *testing.T) {
 		PriceMinorUnits: 4999,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 
@@ -348,6 +351,7 @@ func TestStripeWebhook_CurrencyMismatch(t *testing.T) {
 		PriceMinorUnits: 1000,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 
@@ -426,6 +430,7 @@ func TestStripeWebhook_CompletePurchaseFailure(t *testing.T) {
 		PriceMinorUnits: 2000,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	svc := &stubPurchaseService{
 		purchase: purchase,
@@ -455,6 +460,7 @@ func TestStripeWebhook_DuplicateDeliveryIdempotent(t *testing.T) {
 		PriceMinorUnits: 3000,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{
@@ -491,6 +497,7 @@ func TestStripeWebhook_AsyncPaymentSucceeded(t *testing.T) {
 		PriceMinorUnits: 1500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 
@@ -526,6 +533,7 @@ func TestStripeWebhook_CaseInsensitiveCurrencyMatch(t *testing.T) {
 		PriceMinorUnits: 1000,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 
@@ -596,6 +604,7 @@ func TestStripeWebhook_UnpaidSessionIsIgnored(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -628,6 +637,7 @@ func TestStripeWebhook_NoPaymentStatusIsIgnored(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -659,6 +669,7 @@ func TestStripeWebhook_SubscriptionModeIsIgnored(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -691,6 +702,7 @@ func TestStripeWebhook_ClientReferenceMismatchRejected(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -724,6 +736,7 @@ func TestStripeWebhook_MissingClientReferenceIDRejected(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -754,6 +767,7 @@ func TestStripeWebhook_RefundEventIsIgnored(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -790,6 +804,7 @@ func TestStripeWebhook_ExpiredSessionIsIgnored(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -821,6 +836,7 @@ func TestStripeWebhook_EmptySigningSecretCompletesNothing(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -852,6 +868,7 @@ func TestStripeWebhook_SignatureSignedWithAnotherSecretRejected(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -887,6 +904,7 @@ func TestStripeWebhook_TamperedPayloadRejected(t *testing.T) {
 		PriceMinorUnits: 4500,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "card",
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
@@ -912,5 +930,216 @@ func TestStripeWebhook_TamperedPayloadRejected(t *testing.T) {
 	}
 	if completeCount != 0 {
 		t.Errorf("tampered payload must never complete a purchase, CompletePurchase called %d times", completeCount)
+	}
+}
+
+// --- MB WAY ---
+
+// TestStripeWebhook_MBWayCompletedEvent proves an MB WAY purchase completes from
+// the very same events as card, since both are served by one Checkout Session.
+func TestStripeWebhook_MBWayCompletedEvent(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-mbway-webhook",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "mbway",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+
+	session := newPaidCheckoutSession("cs_test_mbway_hook", "purchase-mbway-webhook", 2500, "eur")
+	session.PaymentMethodTypes = []string{"mb_way"}
+	payload := buildCheckoutSessionEvent(t, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "completed" {
+		t.Errorf("expected the MB WAY purchase to complete, got %q", w.Body.String())
+	}
+}
+
+// TestStripeWebhook_MBWayAsyncSuccessEvent proves an MB WAY payment that Stripe
+// reports through async_payment_succeeded — the buyer approved it later in the
+// MB WAY app — completes the purchase.
+func TestStripeWebhook_MBWayAsyncSuccessEvent(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-mbway-async",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "mbway",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+
+	session := newPaidCheckoutSession("cs_test_mbway_async", "purchase-mbway-async", 2500, "eur")
+	session.PaymentMethodTypes = []string{"mb_way"}
+	payload := buildEventOfType("evt_mbway_async", stripe.EventTypeCheckoutSessionAsyncPaymentSucceeded, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "completed" {
+		t.Errorf("expected the MB WAY purchase to complete, got %q", w.Body.String())
+	}
+}
+
+// TestStripeWebhook_MBWayPendingAuthorizationNeverCompletes proves that while
+// the buyer has not yet approved the payment in the MB WAY app, an MB WAY
+// session never completes the purchase.
+func TestStripeWebhook_MBWayPendingAuthorizationNeverCompletes(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-mbway-unpaid",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "mbway",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+
+	session := newPaidCheckoutSession("cs_test_mbway_unpaid", "purchase-mbway-unpaid", 2500, "eur")
+	session.PaymentStatus = stripe.CheckoutSessionPaymentStatusUnpaid
+	session.PaymentMethodTypes = []string{"mb_way"}
+	payload := buildCheckoutSessionEvent(t, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() == "completed" {
+		t.Error("an unauthorised MB WAY payment must never complete a purchase")
+	}
+}
+
+// TestStripeWebhook_PaymentMethodMismatchDoesNotComplete proves a paid session
+// created for one method can never complete a purchase bound to the other.
+func TestStripeWebhook_PaymentMethodMismatchDoesNotComplete(t *testing.T) {
+	cases := map[string]struct {
+		recorded string
+		session  string
+	}{
+		"card session on an mbway purchase": {recorded: "mbway", session: "card"},
+		"mbway session on a card purchase":  {recorded: "card", session: "mb_way"},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			purchase := &purchases.Purchase{
+				ID:              "p1",
+				PriceMinorUnits: 100,
+				Currency:        "EUR",
+				Status:          "pending",
+				PaymentMethod:   tc.recorded,
+			}
+			svc := &stubPurchaseService{purchase: purchase}
+
+			session := newPaidCheckoutSession("cs_test_mismatch", "p1", 100, "eur")
+			session.PaymentMethodTypes = []string{tc.session}
+			payload := buildCheckoutSessionEvent(t, session)
+			sigHeader := signPayload(t, payload)
+
+			handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+			router := newTestRouter(handler)
+
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+			req.Header.Set("Stripe-Signature", sigHeader)
+			router.ServeHTTP(w, req)
+
+			if w.Body.String() == "completed" {
+				t.Error("a method mismatch must never complete a purchase")
+			}
+			if w.Code != http.StatusInternalServerError {
+				t.Fatalf("expected 500 so Stripe retries the event, got %d: %s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+// TestStripeWebhook_SessionWithoutPaymentMethodNeverCompletes proves a session
+// that proves no payment method is never accepted, so completion always rests on
+// an explicit method identity.
+func TestStripeWebhook_SessionWithoutPaymentMethodNeverCompletes(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p1",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "mbway",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+
+	session := newPaidCheckoutSession("cs_test_nomethod", "p1", 100, "eur")
+	session.PaymentMethodTypes = nil
+	payload := buildCheckoutSessionEvent(t, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+
+	if w.Body.String() == "completed" {
+		t.Error("a session without payment method types must never complete a purchase")
+	}
+}
+
+// TestStripeWebhook_PurchaseWithoutRecordedMethodNeverCompletes proves a
+// purchase missing its immutable method binding is never completed by a webhook.
+func TestStripeWebhook_PurchaseWithoutRecordedMethodNeverCompletes(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p1",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "pending",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+
+	session := newPaidCheckoutSession("cs_test_unbound", "p1", 100, "eur")
+	payload := buildCheckoutSessionEvent(t, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() == "completed" {
+		t.Error("a purchase without a recorded method must never complete")
 	}
 }
