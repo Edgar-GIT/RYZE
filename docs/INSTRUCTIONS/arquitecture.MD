@@ -860,8 +860,8 @@ The full payment lifecycle follows four distinct phases:
 The payment service routes payment methods to providers through a centralized
 `MethodProviderMap` (PaymentMethod → Provider):
 
-1. The client sends a `payment_method` value (card or paypal, as advertised by
-   `GET /api/v1/payments/methods`).
+1. The client sends a `payment_method` value (card, mbway or paypal, as
+   advertised by `GET /api/v1/payments/methods`).
 2. The payment service validates the method against the allowlist.
 3. If the purchase already carries a recorded method, it must equal the requested
    one; otherwise the request fails with `ErrPaymentMethodMismatch` and no
@@ -883,18 +883,22 @@ with the same method is the supported retry path and is safe to repeat.
 The mapping:
 
 - `card` → Stripe provider.
+- `mbway` → Stripe provider. MB WAY is not a separate service: it is one of the
+  payment method types the Stripe provider offers, so the same provider instance
+  is registered in both the `card` and the `mbway` slot.
 - `paypal` → PayPal provider.
-- `mbway` → never resolved. MB WAY is a reserved but unimplemented method with no
-  provider, so it stays in the database enum allowlist while failing closed with
-  `ErrNoProviderAvailable` and never being advertised. It must never be
-  presented as functional, and the Stripe provider itself rejects any non-card
-  method before contacting Stripe.
+
+A method whose provider slot is empty is never advertised and fails closed at
+routing time with `ErrNoProviderAvailable`, so an unimplemented method can never
+be presented as functional. The Stripe provider additionally rejects any method
+it does not own before contacting Stripe, so a routing mistake can never offer
+an unsupported method to a buyer.
 
 The `MethodProviderMap.AvailableMethods()` helper returns only the methods whose
-provider is actually configured, in the stable order `card`, `paypal`. MB WAY is
-never part of that projection. It backs the public
-`GET /api/v1/payments/methods` endpoint, so the checkout UI advertises exactly
-the methods the backend can service and never hard-codes a payment method.
+provider is actually configured, in the stable order `card`, `mbway`, `paypal`.
+It backs the public `GET /api/v1/payments/methods` endpoint, so the checkout UI
+advertises exactly the methods the backend can service and never hard-codes a
+payment method.
 
 PayPal provider:
 
