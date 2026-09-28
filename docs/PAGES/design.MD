@@ -639,12 +639,15 @@ always remains viewable — it never requires authentication to read the program
   - `ready` — the price and a primary "Buy now" CTA. When the backend advertises
     more than one payment method (`GET /api/v1/payments/methods`), a small
     radio list ("Payment method") sits between the note and the CTA with the
-    available methods, the first one pre-selected; the note reads "One-time
-    purchase. Secure checkout." rather than naming a provider. When exactly one
-    method is available the selector is omitted and the method is simply used.
-    When no provider is configured the panel shows an amber "Checkout
-    unavailable" note ("No payment provider is currently configured. Please try
-    again later.") with no buy action.
+    available methods (Card, MB WAY, PayPal — whichever the backend advertises,
+    in the order it returns them), the first one pre-selected; the note reads
+    "One-time purchase. Secure checkout." rather than naming a provider. When
+    exactly one method is available the selector is omitted and the method is
+    simply used. When no provider is configured the panel shows an amber
+    "Checkout unavailable" note ("No payment provider is currently configured.
+    Please try again later.") with no buy action. The selector is fully
+    data-driven: adding or removing a provider method requires no frontend
+    change, and no method is hard-coded in the UI.
   - `creating` / `negotiating` — spinner states while the purchase is created
     and the provider approval URL is being prepared.
   - `redirecting` — spinner while the browser is sent to the provider.
@@ -656,6 +659,10 @@ always remains viewable — it never requires authentication to read the program
     `ready`.
   - `error` — muted error with a Retry button; a cancelled order and a failed
     capture (purchase still pending) are presented as retryable, never as paid.
+    This is the expected state when a wallet method (MB WAY) is approved in its
+    app and Stripe has not reported the payment yet: the retry re-runs the
+    server-side verification, and the verified webhook completes the purchase
+    regardless of what the browser saw.
   - Active Test Mode variant — for a paid program, the panel swaps to an amber
     "Get plan in Test Mode" CTA at price "Free" with a note that the purchase
     completes instantly with no payment. A `409 DUPLICATE_ENTITLEMENT` resolves
