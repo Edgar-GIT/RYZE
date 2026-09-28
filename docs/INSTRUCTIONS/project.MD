@@ -57,9 +57,10 @@ the provider checkout flow and gain access once the payment is captured and
 verified server-side. The chosen method is recorded on the purchase at
 initiation, so the later capture always resolves the correct provider without
 trusting the browser. Stripe serves the
-card method through hosted Checkout Sessions and PayPal serves the PayPal
-method; each is enabled only when it is completely configured. MB WAY remains a
-reserved enum value with no provider and is never offered. Purchase
+card and MB WAY methods through hosted Checkout Sessions and PayPal serves the
+PayPal method; each provider is enabled only when it is completely configured.
+MB WAY is offered through the same Stripe provider as card and therefore appears
+and disappears with it. Purchase
 creation snapshots the current price and currency, applies zero commission for
 platform-owned content, blocks duplicate completed purchases, and exposes the
 user's purchases. Payment completion is always authoritative on the backend — a

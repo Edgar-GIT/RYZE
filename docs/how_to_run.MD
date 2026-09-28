@@ -673,6 +673,30 @@ STRIPE_WEBHOOK_SECRET=whsec_...
    purchase. `checkout.session.async_payment_succeeded` is handled the same way
    for delayed payment methods.
 
+## MB WAY Testing with Stripe
+
+MB WAY is served by the same Stripe provider and the same hosted Checkout
+Session as card, so it uses the same configuration and the same CLI forwarding
+command. There is no additional RYZE environment variable: `mbway` is advertised
+whenever Stripe is completely configured.
+
+One account-level Stripe setting is required, and it is not a RYZE setting:
+
+1. Enable the MB WAY payment method on the Stripe account
+   (Dashboard → Settings → Payment methods → MB WAY). The account must be
+   eligible; the capability is listed as `mb_way_payments`.
+2. RYZE cannot read that setting, so if it is missing Stripe rejects the Checkout
+   Session and the purchase fails closed without ever completing. Card payments
+   keep working.
+
+To test, pick a program priced between 0.50 EUR and 5,000 EUR in EUR (the range
+Stripe documents for MB WAY; RYZE enforces it server-side from the immutable
+purchase snapshot) and choose MB WAY in the checkout selector. The buyer is sent
+to the Stripe-hosted page and then approves the payment in the MB WAY app, which
+is where the phone number is collected. The purchase completes from the same
+`checkout.session.completed` /
+`checkout.session.async_payment_succeeded` events as card.
+
 ## Payment Testing with PayPal Sandbox
 
 PayPal sandbox webhooks can be configured in the PayPal Developer Dashboard:

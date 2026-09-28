@@ -442,15 +442,17 @@ The implemented `purchases` table contains:
   only after the method has been validated and resolved to a configured
   provider; from that point the method is immutable for the purchase. The
   capture flow reads it to resolve the correct capture provider, never trusting
-  client input. `NULL` marks purchases that never reached a payment provider
+  client input.   `NULL` marks purchases that never reached a payment provider
   (Test Mode purchases and legacy pending purchases created before the column
   existed); such purchases can only be captured after being re-initiated.
-  `mbway` is retained as a reserved value for future providers: it has no
-  provider implementation, so it is never recorded by a successful initiation.
-- The schema is unchanged by the Stripe card payment milestone: purchase
-  creation, snapshots, status transitions and entitlements already cover it.
-  Payment provider identity, amount and currency are all verified against the
-  existing immutable snapshot, so no provider table, column or migration is
+  `mbway` is the MB WAY method, recorded when the buyer pays through the Stripe
+  provider's hosted Checkout with the `mb_way` payment method type. No schema
+  change was needed for MB WAY: the buyer's MB WAY phone number is collected
+  solely on the Stripe-hosted page, so RYZE stores no phone number on any table.
+- The schema is unchanged by the Stripe card and MB WAY payment milestones:
+  purchase creation, snapshots, status transitions and entitlements already cover
+  them. Payment provider identity, amount and currency are all verified against
+  the existing immutable snapshot, so no provider table, column or migration is
   required. Schema version remains `24`.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.

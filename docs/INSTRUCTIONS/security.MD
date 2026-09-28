@@ -1011,7 +1011,8 @@ capture endpoint (see Payment Capture Security) or a verified provider event
   treated as untrusted input. The frontend never claims success on its own.
 - **Capture is always verified server-side.** The capture path reloads the real
   provider payment, binds it to the purchase via the provider reference, and
-  verifies successful state, amount and currency before completing.
+  verifies successful state, amount, currency and recorded payment method before
+  completing.
 - **Only verified provider events can trigger `CompletePurchaseWithCapture()`.**
   Cryptographic signature verification is mandatory before any completion.
 
@@ -1031,6 +1032,11 @@ capture endpoint (see Payment Capture Security) or a verified provider event
   until the payment actually succeeds
 - The session `client_reference_id` must equal the `purchase_id` metadata; a
   mismatch is rejected with 400 and never completes a purchase
+- The session `payment_method_types` must contain the payment method type of the
+  purchase's recorded `payment_method`, and that recorded method must be
+  non-empty. A session created for one method can therefore never complete a
+  purchase bound to the other; a mismatch is answered with 500 so Stripe retries
+  the event, and a purchase with no recorded method is ignored with 200
 - Refund, dispute and every other event type are acknowledged with 200 and
   ignored. RYZE purchases are final: no event type can revert a completed
   purchase and no refund workflow exists
@@ -1084,9 +1090,22 @@ a strict security model:
   the Stripe-hosted Checkout page and are never sent to, received by, logged by
   or stored in RYZE. No PAN, CVC, expiry or card token appears in any RYZE
   request to Stripe.
-- Only the `card` payment method type is ever requested from Stripe. No wallet,
-  bank transfer, buy-now-pay-later or other method is offered, and subscriptions
-  and setup sessions are never created.
+- **RYZE never handles the buyer's MB WAY phone number.** It is collected
+  exclusively on the Stripe-hosted Checkout page, which requires it to reach the
+  MB WAY app. RYZE has no phone field on the user, purchase or program models,
+  requests no phone number in any endpoint, and never logs or stores one, so
+  adding MB WAY required no schema change and collects no new personal data.
+- Only the payment method types of the methods RYZE actually offers are ever
+  requested from Stripe: `card` for the card method and `mb_way` for the MB WAY
+  method. No further wallet, bank transfer, buy-now-pay-later or other method is
+  offered, and subscriptions and setup sessions are never created.
+- The payment method type is derived from the purchase's recorded method, never
+  from client input at capture time, and a session whose
+  `payment_method_types` do not match it is rejected.
+- The constraints Stripe documents for MB WAY are enforced server-side from the
+  immutable snapshot before any API call (EUR only, 0.50 EUR to 5,000 EUR), so
+  an unpayable combination fails closed instead of creating a session the buyer
+  could never pay.
 - The Checkout Session amount comes exclusively from the immutable purchase
   snapshot (`AmountMinorUnits`). No client-supplied amount is ever forwarded
   to Stripe.

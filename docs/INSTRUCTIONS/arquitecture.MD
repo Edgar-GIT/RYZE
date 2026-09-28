@@ -780,16 +780,29 @@ provider when `PAYPAL_CLIENT_ID` is set.
 ### Stripe Checkout Provider
 
 The `StripeProvider` implements both `Provider` and `CaptureProvider` using
-Stripe-hosted Checkout Sessions in payment mode. RYZE never receives, stores or
-transmits raw card data: the buyer enters it exclusively on the Stripe-hosted
+Stripe-hosted Checkout Sessions in payment mode. It offers two payment methods:
+`card` and `mbway`. RYZE never receives, stores or transmits raw card data or the
+buyer's MB WAY phone number: both are entered exclusively on the Stripe-hosted
 page, reached through the returned `CheckoutURL`.
 
 Initiation (`InitiatePayment`):
 
 - Creates a Checkout Session with a single line item whose amount and currency
   come from the immutable purchase snapshot.
-- Requests the `card` payment method type only. No other method is ever sent to
-  Stripe, and any non-card method is rejected before the API call.
+- Requests exactly the payment method type of the recorded method — `card` or
+  `mb_way`. No other method is ever sent to Stripe, and any method the provider
+  does not own (including the PayPal method) is rejected before the API call.
+- Maps the RYZE method to Stripe's own identifier inside the provider
+  (`card` → `card`, `mbway` → `mb_way`). Those provider-specific values never
+  leak outside `stripe_provider.go`; the webhook layer verifies the method
+  identity through the exported `IsStripePaymentMethodType` predicate.
+- Enforces the constraints Stripe documents for the selected method against the
+  snapshot values, before any API call, so an unpayable combination fails closed
+  instead of creating a session the buyer could never pay. MB WAY can only be
+  presented and settled in EUR and only for amounts between 0.50 EUR and
+  5,000 EUR (50 and 500000 minor units). These limits are a property of the
+  payment method, not of RYZE: such a purchase stays perfectly valid and remains
+  payable through the other advertised methods. Card has no such restriction.
 - Returns the Stripe Checkout Session ID as `PaymentID` and the hosted Checkout
   URL as `CheckoutURL`.
 - Uses a per-purchase idempotency key (`ryze-purchase-<purchaseID>`) so a
@@ -801,7 +814,9 @@ Initiation (`InitiatePayment`):
   configured redirect templates, preserving Stripe's own
   `{CHECKOUT_SESSION_ID}` placeholder for the return leg.
 - Always returns `PaymentStatusRequiresAction` since the user must visit the
-  Checkout URL to complete payment.
+  Checkout URL to complete payment. For MB WAY the buyer is then prompted to
+  approve the payment in the MB WAY app, so the session only reports `paid` once
+  Stripe confirms the authorisation.
 
 Capture (`CapturePayment`): Stripe completes the payment on its hosted page, so
 capture is a server-side verification rather than a charge. The Checkout Session
@@ -811,10 +826,14 @@ of:
 
 - `payment_status == "paid"` (a delayed method settles later and is rejected
   until it actually succeeds);
-- `mode == "payment"` (RYZE offers no subscriptions or setup sessions);
+- `mode == "payment"` (RYZE offers no subscriptions or setup sessions, and MB
+  WAY itself supports neither);
 - `client_reference_id` equal to the RYZE purchase ID;
 - `amount_total` equal to the immutable purchase amount;
-- `currency` equal to the immutable purchase currency.
+- `currency` equal to the immutable purchase currency;
+- `payment_method_types` containing the payment method type of the purchase's
+  recorded method, with a non-empty recorded method. A session created for one
+  method can therefore never complete a purchase bound to the other.
 
 Verification is read-only and therefore idempotent, which is what makes the
 browser return leg and the webhook safe to race. An unpaid, expired, foreign or
@@ -825,8 +844,8 @@ Configuration (both values are required to enable Stripe):
 - `STRIPE_SECRET_KEY` — Stripe API secret key (server-only).
 - `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret (server-only).
   Stripe documents webhooks as required for fulfillment, so a secret key
-  without a signing secret leaves Stripe incomplete and the card method is not
-  created, not routed and not advertised.
+  without a signing secret leaves Stripe incomplete and neither the card nor the
+  MB WAY method is created, routed or advertised.
 - `STRIPE_SUCCESS_URL` — redirect URL after successful payment (optional).
   Supports the `{program_id}`, `{purchase_id}` and `{CHECKOUT_SESSION_ID}`
   placeholders.
@@ -913,16 +932,21 @@ PayPal provider:
 
 Provider availability:
 
-- **Stripe serves the `card` method** and is enabled only when
+- **Stripe serves the `card` and `mbway` methods** and is enabled only when
   `STRIPE_SECRET_KEY` **and** `STRIPE_WEBHOOK_SECRET` are both configured. The
   same condition gates the Stripe webhook endpoint, so the provider and the
-  endpoint can never disagree.
+  endpoint can never disagree. Because both methods share one provider, they are
+  always advertised together and never independently.
 - **PayPal serves the `paypal` method** and is enabled when `PAYPAL_CLIENT_ID`
   and its credentials are configured.
-- **MB WAY is never available**: the enum value remains reserved for a future
-  implementation and is never advertised or routed.
-- The two providers are resolved independently: a misconfigured provider never
+- The providers are resolved independently: a misconfigured provider never
   affects the other, and a provider that is not created is never advertised.
+- MB WAY additionally requires the `mb_way_payments` capability on the Stripe
+  account (Dashboard → Settings → Payment methods). This is a per-account
+  Stripe setting and not a RYZE environment variable, so RYZE cannot read it:
+  enabling it is a deployment step, documented in `how_to_run.MD`. If it is
+  missing, Stripe rejects the Checkout Session and the purchase fails closed
+  without ever completing.
 
 ### Purchase Completion (Internal)
 

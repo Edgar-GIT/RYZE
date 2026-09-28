@@ -669,16 +669,16 @@ Parameters:
 
 Request body:
 
-- `payment_method` (required) — one of `"card"` or `"paypal"`, matching an
-  advertised method.
+- `payment_method` (required) — one of `"card"`, `"mbway"` or `"paypal"`,
+  matching an advertised method.
 
 Validation:
 
 - `payment_method` is required and must be one of the allowed values. Any other
   value or a missing field returns `400 VALIDATION_ERROR`.
-- A valid but unavailable method — including the reserved `"mbway"` value, which
-  has no provider — returns `502 PAYMENT_PROVIDER_ERROR`: the method is never
-  silently substituted and no purchase is completed.
+- A valid method that is not currently configured — for instance `"mbway"` while
+  Stripe is unconfigured — returns `502 PAYMENT_PROVIDER_ERROR`: the method is
+  never silently substituted and no purchase is completed.
 - Re-initiating the **same** method is the supported retry path: it is safe to
   repeat and, for Stripe, replays the same Checkout Session instead of creating
   a second payable one.
@@ -727,8 +727,10 @@ and binds it to the purchase before anything is completed.
 - **Stripe** — the identifier is the Checkout Session ID; the backend reloads the
   session and verifies that it is a fully paid one-time payment
   (`payment_status == "paid"`, `mode == "payment"`) whose `client_reference_id`
-  is this purchase and whose `amount_total` and `currency` match the immutable
-  purchase snapshot.
+  is this purchase, whose `amount_total` and `currency` match the immutable
+  purchase snapshot, and whose `payment_method_types` contain the payment method
+  type of the purchase's recorded `payment_method`. This covers both the `card`
+  and the `mbway` methods, which share the same provider.
 
 A browser redirect alone never completes a purchase — the provider must confirm
 the payment before the purchase transitions to "completed" and the entitlement
@@ -796,20 +798,27 @@ consumes this endpoint and never hard-codes a payment method.
 When no provider is configured at all the endpoint returns an empty list and
 the frontend renders checkout as unavailable.
 
-`card` requires Stripe to be completely configured: both `STRIPE_SECRET_KEY` and
-`STRIPE_WEBHOOK_SECRET`. A secret key without a signing secret leaves the card
-method unadvertised, because without webhooks a payment could never be reliably
-confirmed. The same pair gates `POST /api/v1/webhooks/stripe`, so the webhook
-endpoint only exists when card payments are actually possible.
+`card` and `mbway` both require Stripe to be completely configured: both
+`STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. A secret key without a signing
+secret leaves both methods unadvertised, because without webhooks a payment could
+never be reliably confirmed. The same pair gates
+`POST /api/v1/webhooks/stripe`, so the webhook endpoint only exists when Stripe
+payments are actually possible. MB WAY is served by the same Stripe provider
+instance as card, so it is always advertised exactly together with card.
 
-`mbway` is a reserved enum value with no provider implementation and is therefore
-never advertised, even when Stripe is configured.
+`mbway` additionally depends on the `mb_way_payments` capability being enabled
+on the Stripe account (a per-account Stripe Dashboard setting, not a RYZE
+environment variable). RYZE cannot read that setting, so enabling it is a
+deployment step; without it Stripe rejects the Checkout Session and the purchase
+fails closed without ever completing.
 
-Response `data` (array, stable order `card`, `paypal`, restricted to configured
-methods):
+`paypal` requires the PayPal credentials to be configured.
 
-- `method` — normalized method identifier (`"card"`, `"paypal"`).
-- `label` — display name for the customer ("Card", "PayPal").
+Response `data` (array, stable order `card`, `mbway`, `paypal`, restricted to
+configured methods):
+
+- `method` — normalized method identifier (`"card"`, `"mbway"`, `"paypal"`).
+- `label` — display name for the customer ("Card", "MB WAY", "PayPal").
 
 Responses:
 
@@ -935,9 +944,16 @@ Supported event types:
 
 A completion event is only honored when the session is a fully paid one-time
 payment (`payment_status == "paid"`, `mode == "payment"`) whose
-`client_reference_id` matches the `purchase_id` metadata. Delayed methods emit
+`client_reference_id` matches the `purchase_id` metadata, whose `amount_total`
+and `currency` match the purchase snapshot, and whose `payment_method_types`
+contain the payment method type of the purchase's recorded `payment_method`
+(recorded method must be non-empty). Delayed methods emit
 `checkout.session.completed` while still unpaid; those events are acknowledged
 and ignored until `checkout.session.async_payment_succeeded` arrives.
+
+MB WAY is served by the same Checkout Session as card, so it completes through
+the same two events. The buyer approves the payment in the MB WAY app, and the
+session is only honored once Stripe reports it as paid.
 
 All other event types are safely acknowledged with 200 and ignored, including
 refunds and disputes: RYZE purchases are final, there is no refund workflow, and
@@ -947,10 +963,10 @@ Responses:
 
 - `200` — event processed (completed, already completed, not a successful
   payment, unsupported mode, unsupported event type, unknown purchase, purchase
-  not pending)
+  not pending, purchase without a recorded payment method)
 - `400` — invalid signature, missing header, malformed payload, purchase
   reference mismatch
-- `500` — amount/currency mismatch, completion failure
+- `500` — amount, currency or payment method mismatch, completion failure
 
 **Checkout initiation does not complete a purchase. Browser redirects do not
 complete a purchase. Completion is reachable only through two server-side
