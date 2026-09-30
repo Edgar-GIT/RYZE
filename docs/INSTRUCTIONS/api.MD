@@ -544,13 +544,17 @@ Response `data`:
 - `program_id` — the purchased program reference.
 - `price_minor_units` — snapshot of the program price at creation time.
 - `currency` — snapshot of the program currency at creation time.
-- `commission_bps` — the applicable commission in basis points.
-- `platform_amount` — the platform's share in minor currency units.
-- `trainer_amount` — the trainer's share in minor currency units.
 - `status` — always `"pending"`.
 - `payment_method` — present only after a payment method has been initiated for
   the purchase (see the payment endpoint below); omitted at creation time and
   never included for Test Mode / zero-price purchases.
+
+The internal trainer economics — `commission_bps`, `platform_amount` and
+`trainer_amount` — are deliberately **not** part of any client-facing purchase
+response, including this one. They are not needed by the client and remain
+internal to RYZE, so a purchase has the same public shape whichever endpoint the
+browser calls. The commission split is still snapshotted on the purchase record
+at creation time; it is simply never serialized to a client.
 
 Responses:
 
@@ -579,8 +583,9 @@ program is re-priced.
 
 This is the client-facing purchase **history** endpoint and it intentionally
 exposes no internal payout metadata: commission basis points, platform amount
-and trainer amount are never included. Payout/commercial detail remains
-exclusive to the create/capture responses. Each entry carries a safe program
+and trainer amount are never included. The create and capture responses carry
+exactly the same public purchase shape, so those fields are never exposed to a
+client by any endpoint. Each entry carries a safe program
 summary (see `program` below) and two computed flags: `access`, which reflects
 whether the user can currently open the program (completed purchase of a
 published, active program), and `test`, which marks zero-price Test Mode
@@ -722,8 +727,9 @@ input: the backend reloads the real payment from the provider API server-side
 and binds it to the purchase before anything is completed.
 
 - **PayPal** — the identifier is the Order ID; the backend reloads the order and
-  captures it, verifying the purchase-unit reference id, the amount and the
-  currency against the immutable purchase snapshot.
+  captures it, verifying that the purchase is recorded with the `paypal` method,
+  the purchase-unit reference id, the amount and the currency against the
+  immutable purchase snapshot.
 - **Stripe** — the identifier is the Checkout Session ID; the backend reloads the
   session and verifies that it is a fully paid one-time payment
   (`payment_status == "paid"`, `mode == "payment"`) whose `client_reference_id`
@@ -731,6 +737,12 @@ and binds it to the purchase before anything is completed.
   purchase snapshot, and whose `payment_method_types` contain the payment method
   type of the purchase's recorded `payment_method`. This covers both the `card`
   and the `mbway` methods, which share the same provider.
+
+Because the capture provider is resolved from the recorded method and each
+provider re-checks that same method, a payment made with one method can never
+complete a purchase bound to another — a Stripe session id presented for a PayPal
+purchase, or a PayPal order id presented for a card or MB WAY purchase, is
+rejected before any external call.
 
 A browser redirect alone never completes a purchase — the provider must confirm
 the payment before the purchase transitions to "completed" and the entitlement
@@ -765,8 +777,12 @@ Response `200 OK`: the completed purchase snapshot:
 - `id` — purchase UUID.
 - `program_id` — the purchased program reference.
 - `price_minor_units` / `currency` — immutable commercial snapshot.
-- `commission_bps` / `platform_amount` / `trainer_amount` — commission split.
 - `status` — `"completed"`.
+- `payment_method` — the method recorded on the purchase, omitted when none was
+  ever recorded.
+
+The commission split is never part of this response; see the create endpoint for
+the full client-facing purchase shape.
 
 Error codes:
 

@@ -1,3 +1,137 @@
+# Version 2.80.0
+
+Title: Payment Production Hardening and Provider Verification
+
+Date: 2026-09-30
+
+Summary:
+
+A verification and hardening pass over the payment system introduced in v2.79.0
+and its predecessors, covering the required matrix: PayPal, Stripe card, Stripe
+MB WAY and Test Mode. The provider abstraction, the three-slot routing map, the
+immutable purchase snapshot and the method-immutability contract were all
+retained; no architecture was redesigned, no payment method was added and no
+database migration was required.
+
+The audit found three genuine defects, all in the PayPal path or in the client
+contract, and they are now fixed. First, the PayPal provider ignored the
+recorded payment method on capture while the Stripe provider enforced it, so the
+"a payment made with one method can never complete a purchase bound to another"
+invariant held only in the routing layer; the method is now verified inside the
+PayPal provider on both initiation and capture, before any external call.
+Second, the PayPal webhook never checked that the purchase was recorded with the
+`paypal` method, so a verified order could in principle complete a card or MB
+WAY purchase; it now fails closed, mirroring the existing Stripe webhook check.
+Third, the client-facing purchase responses returned `commission_bps`,
+`platform_amount` and `trainer_amount`, disclosing RYZE's internal trainer
+economics on an endpoint where the purchase history response deliberately hides
+them; those fields are no longer serialized to any client. The commission split
+is still snapshotted on the purchase record and remains internal.
+
+Two duplication and validation issues were also corrected: the minor-unit to
+decimal conversion used to build and to verify a PayPal order existed as two
+separate private copies, one in the provider and one in the webhook, so the
+amount RYZE asked PayPal for and the amount RYZE accepted back could drift
+apart; there is now a single shared implementation. And the PayPal path
+performed no currency shape validation, so an unusable code was forwarded to
+PayPal instead of failing closed before the call; both providers now share one
+validator that checks shape only and never converts between currencies.
+
+The provider matrix, routing and availability gating, the six-combination method
+immutability matrix, the shared Stripe provider instance, Test Mode bypass,
+Test Mode purchase history exposure, webhook signature verification, provider
+identifier binding, completion races, entitlement idempotency, the no-refunds
+rule, configuration handling and the documentation set were all re-verified
+against the real implementation. The repository contains no provider credentials,
+so real sandbox end-to-end validation could not be performed and is reported as
+unavailable rather than assumed.
+
+Main changes:
+
+- `PayPalProvider.CapturePayment` now rejects any purchase that is not recorded
+  with the `paypal` method, including a purchase with no recorded method, before
+  the order is loaded or captured. This matches the Stripe provider and restores
+  symmetry across the required matrix.
+- `PayPalProvider.InitiatePayment` and `CapturePayment` now validate the currency
+  code and reject a method this provider does not serve, both before contacting
+  PayPal.
+- `PayPalWebhookHandler` now requires the purchase to be recorded with the
+  `paypal` method before capturing the order; a mismatch is acknowledged with 200
+  and ignored so the event can never complete another method's purchase.
+- `purchaseResponse` no longer carries `commission_bps`, `platform_amount` or
+  `trainer_amount`, so purchase creation, capture and Test Mode responses expose
+  the same public shape as purchase history and disclose no internal payout
+  data. The matching frontend `Purchase` interface was updated.
+- Added `services/payments/money.go` with `MinorUnitsToDecimalString` and
+  `ValidateCurrencyCode`, replacing the duplicated conversion in the PayPal
+  provider and webhook and rebuilding `stripeCurrencyCode` on the shared check.
+- Existing PayPal provider and webhook tests were updated to record the purchase
+  method, which they previously omitted because no check required it; new
+  regression tests cover the method mismatch, invalid currency, foreign method,
+  webhook method binding and the shared money helpers, and a new
+  `api/auth` test asserts the commission split is absent from every
+  client-facing purchase response.
+
+Files added:
+
+- `main/src/backend/services/payments/money.go` — shared minor-unit conversion
+  and currency code validation.
+- `main/src/backend/services/payments/money_test.go` — conversion boundaries,
+  currency shape acceptance and rejection, and the Stripe entry point preserved
+  on the shared validator.
+
+Files modified:
+
+- `main/src/backend/services/payments/paypal_provider.go` — recorded method
+  verification on initiation and capture, shared currency validation, shared
+  amount conversion.
+- `main/src/backend/services/payments/paypal_provider_test.go` — method binding,
+  invalid currency, foreign method and amount conversion edge cases.
+- `main/src/backend/services/payments/stripe_provider.go` — `stripeCurrencyCode`
+  rebuilt on the shared currency validation.
+- `main/src/backend/api/webhooks/paypal_handler.go` — recorded method check
+  before capture, shared amount conversion, unused import removed.
+- `main/src/backend/api/webhooks/paypal_handler_test.go` — fixtures record the
+  purchase method; new mismatch and positive-path completion tests.
+- `main/src/backend/api/auth/purchase_handler.go` — commission split removed
+  from the client-facing purchase response.
+- `main/src/backend/api/auth/purchase_handler_test.go` — commission disclosure
+  regression test across create, initiate and capture.
+- `main/src/frontend/src/services/purchases_api.ts` — `Purchase` interface no
+  longer declares the internal payout fields.
+- `docs/INSTRUCTIONS/arquitecture.MD` — both providers reject foreign methods,
+  the PayPal webhook method check, and the shared money representation.
+- `docs/INSTRUCTIONS/api.MD` — capture verification, the three-layer method
+  guarantee, and the client-facing purchase shape with no commission split.
+- `docs/REGISTRY/update_logs.MD` — this entry.
+
+Reason:
+
+The v2.79.0 audit was scoped to MB WAY and left the PayPal path holding weaker
+guarantees than the Stripe path: the provider did not re-check the recorded
+method, the webhook did not bind the purchase to PayPal at all, and the
+client-facing purchase response disclosed the internal commission split that the
+history response documents as never exposed. Each of those is a real
+correctness or information-disclosure defect, so they were fixed in place
+without changing the architecture, the API shape of the payment flow, or the
+database.
+
+Validation:
+
+- `gofmt` clean on all changed Go files.
+- `go build ./...` and `go vet ./...` pass.
+- `services/payments`, `services/purchases`, `api/webhooks` and `routes` suites
+  pass, including the new method-binding, currency and disclosure tests.
+- Frontend `npx tsc --noEmit` and `npm run build` pass.
+- Database remains at migration `24` with `dirty=false`; no migration added and
+  no schema change was required.
+- Repository secret scan clean; refund and dispute events remain acknowledged
+  and ignored in both webhooks, and no refund workflow exists.
+- Real Stripe and MB WAY sandbox end-to-end validation was not performed because
+  no provider credentials are configured in the environment. Code-level
+  production hardening completed; real Stripe E2E validation remains unavailable
+  because provider configuration was not available.
+
 # Version 2.79.0
 
 Title: MB WAY Payments — a second Stripe payment method with a provider-agnostic flow

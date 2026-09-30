@@ -32,9 +32,6 @@ export interface Purchase {
   program_id: string;
   price_minor_units: number;
   currency: string;
-  commission_bps: number;
-  platform_amount: number;
-  trainer_amount: number;
   status: PurchaseStatus;
   payment_method?: string | null;
 }

@@ -12,18 +12,19 @@ import (
 	"ryze/backend/services/purchases"
 )
 
-// purchaseResponse is the safe representation of a pending purchase transaction.
-// It carries only public commercial metadata and never exposes internal data
-// beyond the purchase and program id.
+// purchaseResponse is the safe representation of a pending purchase
+// transaction. It carries only public commercial metadata and never exposes
+// internal data beyond the purchase and program id. The commission split and
+// trainer payout are deliberately omitted: they are internal economics, they
+// are not needed by the client, and purchaseHistoryResponse already documents
+// that they are never exposed, so a purchase could not be distinguished by
+// which endpoint the browser happened to call.
 type purchaseResponse struct {
 	ID              string `json:"id"`
 	UserID          string `json:"-"`
 	ProgramID       string `json:"program_id"`
 	PriceMinorUnits int64  `json:"price_minor_units"`
 	Currency        string `json:"currency"`
-	CommissionBPS   uint32 `json:"commission_bps"`
-	PlatformAmount  int64  `json:"platform_amount"`
-	TrainerAmount   int64  `json:"trainer_amount"`
 	Status          string `json:"status"`
 	PaymentMethod   string `json:"payment_method,omitempty"`
 }
@@ -44,9 +45,6 @@ func newPurchaseResponse(p *purchases.Purchase) purchaseResponse {
 		ProgramID:       p.ProgramID,
 		PriceMinorUnits: p.PriceMinorUnits,
 		Currency:        p.Currency,
-		CommissionBPS:   p.CommissionBPS,
-		PlatformAmount:  p.PlatformAmount,
-		TrainerAmount:   p.TrainerAmount,
 		Status:          p.Status,
 		PaymentMethod:   p.PaymentMethod,
 	}

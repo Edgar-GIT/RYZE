@@ -85,6 +85,7 @@ func TestPayPalWebhook_ValidApprovedEvent(t *testing.T) {
 		PriceMinorUnits: 4999,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "paypal",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 	verifier := &stubPayPalVerifier{
@@ -110,6 +111,7 @@ func TestPayPalWebhook_InvalidVerification(t *testing.T) {
 		PriceMinorUnits: 4999,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "paypal",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 	verifier := &stubPayPalVerifier{
@@ -168,7 +170,7 @@ func TestPayPalWebhook_MalformedPayload(t *testing.T) {
 
 func TestPayPalWebhook_UnsupportedEventType(t *testing.T) {
 	svc := &stubPurchaseService{
-		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending"},
+		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending", PaymentMethod: "paypal"},
 	}
 	verifier := &stubPayPalVerifier{
 		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
@@ -196,7 +198,7 @@ func TestPayPalWebhook_UnsupportedEventType(t *testing.T) {
 
 func TestPayPalWebhook_NoReferenceID(t *testing.T) {
 	svc := &stubPurchaseService{
-		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending"},
+		purchase: &purchases.Purchase{ID: "p1", PriceMinorUnits: 100, Currency: "EUR", Status: "pending", PaymentMethod: "paypal"},
 	}
 	verifier := &stubPayPalVerifier{
 		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
@@ -234,6 +236,7 @@ func TestPayPalWebhook_MissingOrderID(t *testing.T) {
 		PriceMinorUnits: 1000,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "paypal",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 	verifier := &stubPayPalVerifier{
@@ -283,6 +286,7 @@ func TestPayPalWebhook_AmountMismatch(t *testing.T) {
 		PriceMinorUnits: 4999,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "paypal",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 	verifier := &stubPayPalVerifier{
@@ -308,6 +312,7 @@ func TestPayPalWebhook_CurrencyMismatch(t *testing.T) {
 		PriceMinorUnits: 1000,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "paypal",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 	verifier := &stubPayPalVerifier{
@@ -333,6 +338,7 @@ func TestPayPalWebhook_AlreadyCompleted(t *testing.T) {
 		PriceMinorUnits: 5000,
 		Currency:        "EUR",
 		Status:          "completed",
+		PaymentMethod:   "paypal",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 	verifier := &stubPayPalVerifier{
@@ -383,6 +389,7 @@ func TestPayPalWebhook_CompletePurchaseFailure(t *testing.T) {
 		PriceMinorUnits: 2000,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "paypal",
 	}
 	svc := &stubPurchaseService{
 		purchase: purchase,
@@ -411,6 +418,7 @@ func TestPayPalWebhook_DuplicateDeliveryIdempotent(t *testing.T) {
 		PriceMinorUnits: 3000,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "paypal",
 	}
 	completeCount := 0
 	svc := &completionCountingService{
@@ -465,6 +473,7 @@ func TestPayPalWebhook_UppercaseCurrencyMatch(t *testing.T) {
 		PriceMinorUnits: 1000,
 		Currency:        "EUR",
 		Status:          "pending",
+		PaymentMethod:   "paypal",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
 	verifier := &stubPayPalVerifier{
@@ -506,6 +515,7 @@ func TestPayPalWebhook_AmountConversionEdgeCases(t *testing.T) {
 				PriceMinorUnits: tt.minor,
 				Currency:        "EUR",
 				Status:          "pending",
+				PaymentMethod:   "paypal",
 			}
 			svc := &stubPurchaseService{purchase: purchase}
 			verifier := &stubPayPalVerifier{
@@ -524,5 +534,83 @@ func TestPayPalWebhook_AmountConversionEdgeCases(t *testing.T) {
 				t.Fatalf("expected 200 for amount %s, got %d: %s", tt.expected, w.Code, w.Body.String())
 			}
 		})
+	}
+}
+
+// TestPayPalWebhook_PaymentMethodMismatchDoesNotComplete proves a verified
+// PayPal order can never complete a purchase bound to a different payment
+// method, mirroring the equivalent guarantee on the Stripe webhook. A PayPal
+// order is a real charge, so completing a card or MB WAY purchase from one
+// would grant an entitlement that was never paid for by that method.
+func TestPayPalWebhook_PaymentMethodMismatchDoesNotComplete(t *testing.T) {
+	for _, recorded := range []string{"card", "mbway", ""} {
+		t.Run("recorded="+recorded, func(t *testing.T) {
+			purchase := &purchases.Purchase{
+				ID:              "p1",
+				PriceMinorUnits: 100,
+				Currency:        "EUR",
+				Status:          "pending",
+				PaymentMethod:   recorded,
+			}
+			completeCount := 0
+			svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+			verifier := &stubPayPalVerifier{
+				response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+			}
+
+			payload := buildPayPalOrderApprovedEvent(t, "p1", "1.00", "EUR")
+			handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+			router := newPayPalTestRouter(handler)
+
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+			}
+			if w.Body.String() == "completed" {
+				t.Error("a method mismatch must never complete a purchase")
+			}
+			if completeCount != 0 {
+				t.Errorf("expected no completion attempt, got %d", completeCount)
+			}
+		})
+	}
+}
+
+// TestPayPalWebhook_PayPalMethodCompletes proves the method check does not block
+// the legitimate path: an order for a purchase recorded as PayPal still
+// completes exactly once.
+func TestPayPalWebhook_PayPalMethodCompletes(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p1",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "paypal",
+	}
+	completeCount := 0
+	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+	}
+
+	payload := buildPayPalOrderApprovedEvent(t, "p1", "1.00", "EUR")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "completed" {
+		t.Errorf("expected the purchase to be completed, got %q", w.Body.String())
+	}
+	if completeCount != 1 {
+		t.Errorf("expected exactly one completion, got %d", completeCount)
 	}
 }

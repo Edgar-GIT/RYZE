@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -389,6 +390,99 @@ func TestPurchaseHandlerResponseNeverExposesSensitiveData(t *testing.T) {
 	}
 }
 
+// TestPurchaseResponseNeverExposesCommissionSplit asserts the internal trainer
+// economics — the commission basis points and the derived platform and trainer
+// amounts — are absent from every client-facing purchase response: purchase
+// creation, payment initiation, capture, and Test Mode. The seeded purchase
+// carries non-zero commission values, so a leak would be visible in the body.
+//
+// These are internal RYZE economics. The client never reads them, and the
+// purchase history response already documents that they are never exposed, so a
+// purchase must look identical in shape whichever endpoint the browser called.
+func TestPurchaseResponseNeverExposesCommissionSplit(t *testing.T) {
+	identity := "33333333-3333-3333-3333-333333333333"
+	purchaseID := "00000000-0000-0000-0000-000000000001"
+	programID := "11111111-1111-1111-1111-111111111111"
+	commissionFields := []string{
+		"commission_bps",
+		"platform_amount",
+		"trainer_amount",
+	}
+
+	newService := func() *stubPurchaseService {
+		return &stubPurchaseService{
+			paymentResult: &purchases.PaymentResult{
+				PaymentID:  "ORDER-1",
+				PurchaseID: purchaseID,
+				Status:     models.PurchaseStatusPending,
+			},
+			purchase: &purchases.Purchase{
+				ID:              purchaseID,
+				UserID:          identity,
+				ProgramID:       programID,
+				PriceMinorUnits: 10000,
+				Currency:        "EUR",
+				CommissionBPS:   2000,
+				PlatformAmount:  2000,
+				TrainerAmount:   8000,
+				Status:          models.PurchaseStatusPending,
+				PaymentMethod:   "paypal",
+			},
+		}
+	}
+
+	// Each endpoint keeps the public metadata the client actually needs, so the
+	// assertion is that the internal fields were removed rather than the whole
+	// body being emptied. Payment initiation legitimately returns only the
+	// provider reference and status, with no program summary.
+	endpoints := map[string]struct {
+		call        func(router *gin.Engine) (*httptest.ResponseRecorder, string)
+		mustContain string
+	}{
+		"create": {
+			call: func(router *gin.Engine) (*httptest.ResponseRecorder, string) {
+				rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, purchaseRoute+programID+"/purchase", "")
+				return rec, raw
+			},
+			mustContain: programID,
+		},
+		"initiate": {
+			call: func(router *gin.Engine) (*httptest.ResponseRecorder, string) {
+				rec, _, raw := trainerClientsRequest(router, "", http.MethodPost,
+					"/api/v1/me/purchases/"+purchaseID+"/payment", `{"payment_method":"paypal"}`)
+				return rec, raw
+			},
+			mustContain: purchaseID,
+		},
+		"capture": {
+			call: func(router *gin.Engine) (*httptest.ResponseRecorder, string) {
+				rec, _, raw := trainerClientsRequest(router, "", http.MethodPost,
+					"/api/v1/me/purchases/"+purchaseID+"/capture", `{"provider_payment_id":"ORDER-1"}`)
+				return rec, raw
+			},
+			mustContain: programID,
+		},
+	}
+
+	for name, endpoint := range endpoints {
+		t.Run(name, func(t *testing.T) {
+			router := newPurchaseHandlerRouter(newService(), identity)
+			rec, raw := endpoint.call(router)
+			if rec.Code >= http.StatusBadRequest {
+				t.Fatalf("unexpected status %d (body: %s)", rec.Code, raw)
+			}
+			for _, field := range commissionFields {
+				if strings.Contains(raw, field) {
+					t.Errorf("response must never contain the internal field %q: %s", field, raw)
+				}
+			}
+			if !strings.Contains(raw, endpoint.mustContain) {
+				t.Errorf("expected %q in the response: %s", endpoint.mustContain, raw)
+			}
+		})
+	}
+}
+
 // --- Integration tests (real database) ---
 
 func TestPurchaseIntegrationSuccess(t *testing.T) {
@@ -434,11 +528,32 @@ func TestPurchaseIntegrationSuccess(t *testing.T) {
 	if currency, _ := data["currency"].(string); currency != "EUR" {
 		t.Fatalf("expected currency EUR, got %s", currency)
 	}
-	if platformAmount, _ := data["platform_amount"].(float64); platformAmount != 2000 {
-		t.Fatalf("expected platform amount 2000, got %v", platformAmount)
+	// The internal commission split is snapshotted on the purchase record but is
+	// never serialized to the client, so it is asserted through the repository
+	// rather than the response body. See
+	// TestPurchaseResponseNeverExposesCommissionSplit for the response contract.
+	purchaseID, _ := data["id"].(string)
+	if purchaseID == "" {
+		t.Fatal("expected purchase id")
 	}
-	if trainerAmount, _ := data["trainer_amount"].(float64); trainerAmount != 8000 {
-		t.Fatalf("expected trainer amount 8000, got %v", trainerAmount)
+	stored, err := repositories.NewPurchaseRepository(tx).FindByID(context.Background(), purchaseID)
+	if err != nil {
+		t.Fatalf("reload purchase: %v", err)
+	}
+	const expectedCommissionBPS = uint32(2000)
+	if stored.CommissionBPS != expectedCommissionBPS {
+		t.Fatalf("expected stored commission %d bps, got %d", expectedCommissionBPS, stored.CommissionBPS)
+	}
+	if stored.PlatformAmount != 2000 {
+		t.Fatalf("expected stored platform amount 2000, got %d", stored.PlatformAmount)
+	}
+	if stored.TrainerAmount != 8000 {
+		t.Fatalf("expected stored trainer amount 8000, got %d", stored.TrainerAmount)
+	}
+	for _, internal := range []string{"commission_bps", "platform_amount", "trainer_amount"} {
+		if _, exists := data[internal]; exists {
+			t.Errorf("response must never expose the internal field %q", internal)
+		}
 	}
 
 	// The owning user id must never be exposed to the client.

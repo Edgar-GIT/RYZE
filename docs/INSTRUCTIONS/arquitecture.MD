@@ -909,9 +909,12 @@ The mapping:
 
 A method whose provider slot is empty is never advertised and fails closed at
 routing time with `ErrNoProviderAvailable`, so an unimplemented method can never
-be presented as functional. The Stripe provider additionally rejects any method
-it does not own before contacting Stripe, so a routing mistake can never offer
-an unsupported method to a buyer.
+be presented as functional. Each provider additionally rejects any method it does
+not own before contacting its external API — on initiation and again on capture —
+so a routing mistake can never offer an unsupported method to a buyer, and a
+confused capture can never charge an order for a purchase bound to another
+method. The recorded method is therefore enforced at three independent layers:
+provider routing, the provider itself, and the provider webhook.
 
 The `MethodProviderMap.AvailableMethods()` helper returns only the methods whose
 provider is actually configured, in the stable order `card`, `mbway`, `paypal`.
@@ -929,6 +932,30 @@ PayPal provider:
   `SetCheckoutRedirectURLs`. PayPal appends the order token to both URLs.
 - PayPal is optional; when credentials are empty, the PayPal method is
   rejected at routing time.
+- The provider owns the `paypal` method only: any other method, and any request
+  with no recorded method, is rejected before the PayPal API is contacted, on
+  both initiation and capture.
+
+### Shared money representation
+
+`services/payments/money.go` holds the two conversions that more than one
+component depends on, so they cannot drift apart:
+
+- `MinorUnitsToDecimalString` converts a stored minor-unit amount into the
+  decimal string PayPal expresses amounts in. It is used both to create a PayPal
+  order and to verify the amount on the verified webhook. A divergence between
+  those two uses would let a mismatched provider amount pass verification, which
+  is why there is a single implementation rather than one per call site.
+- `ValidateCurrencyCode` checks that a purchase currency is a usable three-letter
+  ISO 4217 code, in any case. Every provider fails closed on an unusable code
+  before making an external call, so a malformed snapshot is never forwarded to
+  a provider that would reject it. It validates shape only: which currencies
+  RYZE may price a program in is a business decision enforced when the price is
+  set, and no amount is ever converted between currencies.
+
+EUR has two decimal places, so `minorUnitsPerMajorUnit` is 100. A future currency
+with a different number of decimal places must introduce its own conversion
+rather than silently inheriting that one.
 
 Provider availability:
 
@@ -1087,7 +1114,7 @@ revert a completed purchase and no refund workflow exists.
 **Request flow (PayPal):**
 
 ```
-PayPal → POST /api/v1/webhooks/paypal → Read raw body → VerifyWebhookSignature (PayPal API) → Parse event → Handle CHECKOUT.ORDER.APPROVED → Extract reference_id (purchase id) + order id from resource → GetPurchaseByID (verify snapshot) → Verify amount/currency → CompletePurchaseWithCapture(purchaseID, orderID) → server-side capture → CompletePurchase()
+PayPal → POST /api/v1/webhooks/paypal → Read raw body → VerifyWebhookSignature (PayPal API) → Parse event → Handle CHECKOUT.ORDER.APPROVED → Extract reference_id (purchase id) + order id from resource → GetPurchaseByID (verify snapshot) → Verify amount/currency → Verify recorded method is paypal → CompletePurchaseWithCapture(purchaseID, orderID) → server-side capture → CompletePurchase()
 ```
 
 **Key architectural decisions:**
@@ -1108,6 +1135,10 @@ PayPal → POST /api/v1/webhooks/paypal → Read raw body → VerifyWebhookSigna
 - Commission calculations are never recalculated during webhook handling
 - A `CHECKOUT.ORDER.APPROVED` event without an order id cannot be captured
   server-side and is answered with 500 so PayPal retries
+- The purchase must be recorded with the `paypal` method before the order is
+  captured, mirroring the Stripe webhook's session method check. An event for a
+  purchase recorded with another method, or with no recorded method at all, is
+  acknowledged with 200 and ignored: it can never complete that purchase
 
 ---
 

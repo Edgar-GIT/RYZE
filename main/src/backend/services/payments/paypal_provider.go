@@ -94,8 +94,16 @@ func (p *PayPalProvider) InitiatePayment(_ context.Context, request PaymentReque
 	if request.Currency == "" {
 		return PaymentResult{}, fmt.Errorf("paypal: currency is required: %w", ErrProviderFailure)
 	}
+	// An unusable currency code fails closed here rather than being forwarded to
+	// PayPal, which would reject it. No currency is ever converted.
+	if err := ValidateCurrencyCode(request.Currency); err != nil {
+		return PaymentResult{}, fmt.Errorf("paypal: %w: %w", err, ErrProviderFailure)
+	}
+	if request.Method != PaymentMethodPayPal {
+		return PaymentResult{}, fmt.Errorf("paypal: payment method %q is not served by the PayPal provider: %w", request.Method, ErrProviderFailure)
+	}
 
-	amountValue := minorUnitsToDecimalString(request.AmountMinorUnits)
+	amountValue := MinorUnitsToDecimalString(request.AmountMinorUnits)
 
 	purchaseUnits := []paypal.PurchaseUnitRequest{
 		{
@@ -142,9 +150,10 @@ func (p *PayPalProvider) InitiatePayment(_ context.Context, request PaymentReque
 
 // CapturePayment captures an approved PayPal Order and verifies it belongs to
 // the RYZE purchase. The order is loaded from the PayPal API (never trusted
-// from the client), its purchase unit must reference the RYZE purchase id and
-// its amount and currency must match the immutable purchase snapshot. Orders
-// already in COMPLETED status are treated as a successful idempotent capture.
+// from the client), it must reference the RYZE purchase, its amount and
+// currency must match the immutable purchase snapshot, and the purchase must be
+// bound to the PayPal method. Orders already in COMPLETED status are treated as
+// a successful idempotent capture.
 func (p *PayPalProvider) CapturePayment(_ context.Context, request CaptureRequest) (CaptureResult, error) {
 	if request.PurchaseID == "" {
 		return CaptureResult{}, fmt.Errorf("paypal: purchase ID is required: %w", ErrProviderFailure)
@@ -159,6 +168,21 @@ func (p *PayPalProvider) CapturePayment(_ context.Context, request CaptureReques
 		return CaptureResult{}, fmt.Errorf("paypal: currency is required: %w", ErrProviderFailure)
 	}
 
+	if err := ValidateCurrencyCode(request.Currency); err != nil {
+		return CaptureResult{}, fmt.Errorf("paypal: %w: %w", err, ErrProviderFailure)
+	}
+
+	// The purchase must be bound to the PayPal method before its order is
+	// captured. RYZE records the method on the purchase at initiation and
+	// resolves the capture provider from it, so this check is normally already
+	// satisfied; verifying it here as well means the invariant "a payment made
+	// with one method can never complete a purchase bound to another" holds
+	// inside every provider and not only in the routing layer. A request without
+	// a recorded method proves nothing and fails closed.
+	if request.Method != PaymentMethodPayPal {
+		return CaptureResult{}, fmt.Errorf("paypal: purchase is not bound to the paypal method (method=%q): %w", request.Method, ErrProviderFailure)
+	}
+
 	order, err := p.client.GetOrder(context.Background(), request.PaymentID)
 	if err != nil {
 		return CaptureResult{}, fmt.Errorf("paypal: get order failed: %w", ErrProviderFailure)
@@ -167,7 +191,7 @@ func (p *PayPalProvider) CapturePayment(_ context.Context, request CaptureReques
 		return CaptureResult{}, fmt.Errorf("paypal: order not found: %w", ErrProviderFailure)
 	}
 
-	amount := minorUnitsToDecimalString(request.AmountMinorUnits)
+	amount := MinorUnitsToDecimalString(request.AmountMinorUnits)
 	expectedCurrency := strings.ToUpper(request.Currency)
 
 	orderReference := ""
@@ -243,7 +267,7 @@ func verifyPayPalCapturedAmount(resp *paypal.CaptureOrderResponse, amountMinorUn
 	if resp == nil {
 		return false
 	}
-	wantAmount := minorUnitsToDecimalString(amountMinorUnits)
+	wantAmount := MinorUnitsToDecimalString(amountMinorUnits)
 	wantCurrency := strings.ToUpper(currency)
 	for _, unit := range resp.PurchaseUnits {
 		if unit.Payments == nil {
@@ -267,30 +291,6 @@ func verifyPayPalCapturedAmount(resp *paypal.CaptureOrderResponse, amountMinorUn
 func orderIsCompleted(client *paypal.Client, orderID string) bool {
 	order, err := client.GetOrder(context.Background(), orderID)
 	return err == nil && order != nil && order.Status == paypal.OrderStatusCompleted
-}
-
-// minorUnitsToDecimalString converts a minor currency units amount (e.g. 4999
-// cents) to a decimal string (e.g. "49.99") as required by the PayPal API.
-func minorUnitsToDecimalString(minorUnits int64) string {
-	negative := minorUnits < 0
-	if negative {
-		minorUnits = -minorUnits
-	}
-
-	whole := minorUnits / 100
-	fraction := minorUnits % 100
-
-	if fraction == 0 {
-		if negative {
-			return fmt.Sprintf("-%d.00", whole)
-		}
-		return fmt.Sprintf("%d.00", whole)
-	}
-
-	if negative {
-		return fmt.Sprintf("-%d.%02d", whole, fraction)
-	}
-	return fmt.Sprintf("%d.%02d", whole, fraction)
 }
 
 // findPayPalApprovalURL extracts the approval URL from a PayPal Order response.

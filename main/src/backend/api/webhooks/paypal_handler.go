@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	paypal "github.com/plutov/paypal/v4"
 
+	"ryze/backend/services/payments"
 	"ryze/backend/services/purchases"
 )
 
@@ -165,7 +165,9 @@ func (h *PayPalWebhookHandler) handleOrderApproved(c *gin.Context, event paypalW
 		return
 	}
 
-	expectedAmount := minorUnitsToDecimalString(purchase.PriceMinorUnits)
+	// The amount conversion is the single shared implementation used to both
+	// create and verify the order, so the two can never drift apart.
+	expectedAmount := payments.MinorUnitsToDecimalString(purchase.PriceMinorUnits)
 	if event.Resource.Amount.Value != expectedAmount {
 		log.Printf("[PAYPAL-WEBHOOK] amount mismatch for purchase %s: provider=%s snapshot=%d (%s)", purchaseID, event.Resource.Amount.Value, purchase.PriceMinorUnits, expectedAmount)
 		c.String(http.StatusInternalServerError, "amount mismatch")
@@ -175,6 +177,16 @@ func (h *PayPalWebhookHandler) handleOrderApproved(c *gin.Context, event paypalW
 	if strings.ToUpper(event.Resource.Amount.CurrencyCode) != strings.ToUpper(purchase.Currency) {
 		log.Printf("[PAYPAL-WEBHOOK] currency mismatch for purchase %s: provider=%s snapshot=%s", purchaseID, event.Resource.Amount.CurrencyCode, purchase.Currency)
 		c.String(http.StatusInternalServerError, "currency mismatch")
+		return
+	}
+
+	// The purchase must be bound to the PayPal method. A PayPal order can only
+	// ever complete a purchase recorded as PayPal, mirroring the equivalent
+	// check the Stripe webhook performs on the session's payment method types.
+	// A purchase with no recorded method proves nothing and is ignored.
+	if purchase.PaymentMethod != string(payments.PaymentMethodPayPal) {
+		log.Printf("[PAYPAL-WEBHOOK] payment method mismatch for purchase %s: recorded=%q", purchaseID, purchase.PaymentMethod)
+		c.String(http.StatusOK, "purchase is not bound to the paypal method")
 		return
 	}
 
@@ -210,30 +222,4 @@ func (h *PayPalWebhookHandler) handleOrderApproved(c *gin.Context, event paypalW
 
 	log.Printf("[PAYPAL-WEBHOOK] purchase %s completed successfully via PayPal event %s (order %s)", result.ID, event.ID, orderID)
 	c.String(http.StatusOK, "completed")
-}
-
-// minorUnitsToDecimalString converts a minor currency units amount (e.g. 4999
-// cents) to a decimal string (e.g. "49.99") as used by the PayPal API.
-// This duplicates the function in paypal_provider.go to avoid a cross-package
-// dependency; both implementations are identical.
-func minorUnitsToDecimalString(minorUnits int64) string {
-	negative := minorUnits < 0
-	if negative {
-		minorUnits = -minorUnits
-	}
-
-	whole := minorUnits / 100
-	fraction := minorUnits % 100
-
-	if fraction == 0 {
-		if negative {
-			return fmt.Sprintf("-%d.00", whole)
-		}
-		return fmt.Sprintf("%d.00", whole)
-	}
-
-	if negative {
-		return fmt.Sprintf("-%d.%02d", whole, fraction)
-	}
-	return fmt.Sprintf("%d.%02d", whole, fraction)
 }

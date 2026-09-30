@@ -443,6 +443,19 @@ func paypalOrderResponse(orderID, status, referenceID, currency, value string) m
 	}
 }
 
+// paypalOrderCreated builds a newly created PayPal order carrying an approval
+// link, as returned by the Orders API on initiation.
+func paypalOrderCreated(orderID, approvalURL string) map[string]interface{} {
+	return map[string]interface{}{
+		"id":     orderID,
+		"status": "CREATED",
+		"links": []map[string]interface{}{
+			{"href": approvalURL, "rel": "approve", "method": "GET"},
+			{"href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/" + orderID, "rel": "self", "method": "GET"},
+		},
+	}
+}
+
 func TestPayPalProvider_CaptureSuccess(t *testing.T) {
 	orderID := "ORDER-CAPTURE-SUCCESS"
 	purchaseID := "purchase-capture-1"
@@ -491,6 +504,7 @@ func TestPayPalProvider_CaptureSuccess(t *testing.T) {
 		PurchaseID:       purchaseID,
 		PaymentID:        orderID,
 		AmountMinorUnits: 4999,
+		Method:           payments.PaymentMethodPayPal,
 		Currency:         "EUR",
 	})
 	if err != nil {
@@ -530,6 +544,7 @@ func TestPayPalProvider_CaptureCompletedOrderIdempotent(t *testing.T) {
 		PurchaseID:       purchaseID,
 		PaymentID:        orderID,
 		AmountMinorUnits: 1000,
+		Method:           payments.PaymentMethodPayPal,
 		Currency:         "EUR",
 	})
 	if err != nil {
@@ -578,6 +593,7 @@ func TestPayPalProvider_CaptureRaceWithWebhook(t *testing.T) {
 		PurchaseID:       purchaseID,
 		PaymentID:        orderID,
 		AmountMinorUnits: 1000,
+		Method:           payments.PaymentMethodPayPal,
 		Currency:         "EUR",
 	})
 	if err != nil {
@@ -600,6 +616,7 @@ func TestPayPalProvider_CaptureReferenceMismatch(t *testing.T) {
 		PurchaseID:       "my-purchase",
 		PaymentID:        orderID,
 		AmountMinorUnits: 1000,
+		Method:           payments.PaymentMethodPayPal,
 		Currency:         "EUR",
 	})
 	if err == nil {
@@ -623,6 +640,7 @@ func TestPayPalProvider_CaptureAmountMismatch(t *testing.T) {
 		PurchaseID:       purchaseID,
 		PaymentID:        orderID,
 		AmountMinorUnits: 1000,
+		Method:           payments.PaymentMethodPayPal,
 		Currency:         "EUR",
 	})
 	if err == nil {
@@ -646,6 +664,7 @@ func TestPayPalProvider_CaptureCurrencyMismatch(t *testing.T) {
 		PurchaseID:       purchaseID,
 		PaymentID:        orderID,
 		AmountMinorUnits: 1000,
+		Method:           payments.PaymentMethodPayPal,
 		Currency:         "EUR",
 	})
 	if err == nil {
@@ -669,6 +688,7 @@ func TestPayPalProvider_CaptureNotApproved(t *testing.T) {
 		PurchaseID:       purchaseID,
 		PaymentID:        orderID,
 		AmountMinorUnits: 1000,
+		Method:           payments.PaymentMethodPayPal,
 		Currency:         "EUR",
 	})
 	if err == nil {
@@ -684,9 +704,12 @@ func TestPayPalProvider_CaptureValidation(t *testing.T) {
 		name    string
 		request payments.CaptureRequest
 	}{
-		{name: "empty purchase id", request: payments.CaptureRequest{PaymentID: "order-1", AmountMinorUnits: 100, Currency: "EUR"}},
-		{name: "empty payment id", request: payments.CaptureRequest{PurchaseID: "purchase-1", AmountMinorUnits: 100, Currency: "EUR"}},
-		{name: "zero amount", request: payments.CaptureRequest{PurchaseID: "purchase-1", PaymentID: "order-1", AmountMinorUnits: 0, Currency: "EUR"}},
+		{name: "empty purchase id", request: payments.CaptureRequest{PaymentID: "order-1", AmountMinorUnits: 100, Method: payments.PaymentMethodPayPal,
+			Currency: "EUR"}},
+		{name: "empty payment id", request: payments.CaptureRequest{PurchaseID: "purchase-1", AmountMinorUnits: 100, Method: payments.PaymentMethodPayPal,
+			Currency: "EUR"}},
+		{name: "zero amount", request: payments.CaptureRequest{PurchaseID: "purchase-1", PaymentID: "order-1", AmountMinorUnits: 0, Method: payments.PaymentMethodPayPal,
+			Currency: "EUR"}},
 		{name: "empty currency", request: payments.CaptureRequest{PurchaseID: "purchase-1", PaymentID: "order-1", AmountMinorUnits: 100}},
 	}
 
@@ -800,6 +823,7 @@ func TestPayPalProvider_CaptureGetOrderFailure(t *testing.T) {
 		PurchaseID:       "purchase-1",
 		PaymentID:        "ORDER-MISSING",
 		AmountMinorUnits: 1000,
+		Method:           payments.PaymentMethodPayPal,
 		Currency:         "EUR",
 	})
 	if err == nil {
@@ -878,3 +902,140 @@ func (f *roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) 
 
 // Ensure imports used
 var _ = strings.TrimSpace
+
+// --- Capture method binding ---
+
+// TestPayPalProvider_CaptureRejectsPurchaseNotBoundToPayPal asserts the
+// provider-level guarantee that a payment can only ever complete a purchase
+// recorded with the same method. RYZE already resolves the capture provider
+// from the recorded method, so this path is currently unreachable through the
+// API; it is verified anyway so that a future change to routing, to the capture
+// contract, or to any caller cannot silently weaken the invariant.
+func TestPayPalProvider_CaptureRejectsPurchaseNotBoundToPayPal(t *testing.T) {
+	tests := []struct {
+		name   string
+		method payments.PaymentMethod
+	}{
+		{name: "card purchase", method: payments.PaymentMethodCard},
+		{name: "mb way purchase", method: payments.PaymentMethodMBWay},
+		{name: "empty method", method: ""},
+		{name: "unknown method", method: "bank_transfer"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			providerCalled := false
+			server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				providerCalled = true
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprint(w, mustJSON(paypalOrderResponse("ORDER-METHOD", "APPROVED", "purchase-1", "EUR", "10.00")))
+			})
+			defer server.Close()
+
+			_, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+				PurchaseID:       "purchase-1",
+				PaymentID:        "ORDER-METHOD",
+				AmountMinorUnits: 1000,
+				Method:           test.method,
+				Currency:         "EUR",
+			})
+			if err == nil {
+				t.Fatal("expected error when the purchase is not bound to the paypal method")
+			}
+			if !errors.Is(err, payments.ErrProviderFailure) {
+				t.Errorf("expected ErrProviderFailure, got: %v", err)
+			}
+			// The method mismatch must be detected before the order is loaded or
+			// captured, so no other purchase can be charged by a confused capture.
+			if providerCalled {
+				t.Error("expected no provider call for a method mismatch")
+			}
+		})
+	}
+}
+
+// TestPayPalProvider_CaptureRejectsInvalidCurrency asserts the capture path also
+// fails closed on an unusable currency code rather than comparing it against
+// live provider data, and that it does so before contacting the provider.
+func TestPayPalProvider_CaptureRejectsInvalidCurrency(t *testing.T) {
+	for _, currency := range []string{"EURO", "E1R", "12"} {
+		providerCalled := false
+		server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+			providerCalled = true
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, mustJSON(paypalOrderResponse("ORDER-CUR", "APPROVED", "purchase-1", "EUR", "10.00")))
+		})
+
+		_, err := provider.CapturePayment(context.Background(), payments.CaptureRequest{
+			PurchaseID:       "purchase-1",
+			PaymentID:        "ORDER-CUR",
+			AmountMinorUnits: 1000,
+			Method:           payments.PaymentMethodPayPal,
+			Currency:         currency,
+		})
+		server.Close()
+
+		if !errors.Is(err, payments.ErrProviderFailure) {
+			t.Errorf("currency %q: expected ErrProviderFailure, got: %v", currency, err)
+		}
+		if providerCalled {
+			t.Errorf("currency %q: expected no provider call for an invalid currency", currency)
+		}
+	}
+}
+
+// TestPayPalProvider_InitiateRejectsInvalidCurrency asserts the initiation path
+// rejects an unusable currency before creating a provider order, so no order is
+// ever created for an amount RYZE cannot verify on return.
+func TestPayPalProvider_InitiateRejectsInvalidCurrency(t *testing.T) {
+	for _, currency := range []string{"EURO", "E1R", "12"} {
+		providerCalled := false
+		server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+			providerCalled = true
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, mustJSON(paypalOrderCreated("ORDER-CURRENCY", "https://approve.example/1")))
+		})
+		defer server.Close()
+
+		_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+			PurchaseID:       "purchase-1",
+			AmountMinorUnits: 1000,
+			Currency:         currency,
+			Method:           payments.PaymentMethodPayPal,
+		})
+		if !errors.Is(err, payments.ErrProviderFailure) {
+			t.Errorf("currency %q: expected ErrProviderFailure, got: %v", currency, err)
+		}
+		if providerCalled {
+			t.Errorf("currency %q: expected no provider call for an invalid currency", currency)
+		}
+	}
+}
+
+// TestPayPalProvider_InitiateRejectsForeignMethod asserts a request for a
+// method this provider does not serve is rejected instead of being turned into
+// a PayPal order.
+func TestPayPalProvider_InitiateRejectsForeignMethod(t *testing.T) {
+	providerCalled := false
+	server, provider := setupPayPalTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		providerCalled = true
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, mustJSON(paypalOrderCreated("ORDER-FOREIGN", "https://approve.example/1")))
+	})
+	defer server.Close()
+
+	for _, method := range []payments.PaymentMethod{payments.PaymentMethodCard, payments.PaymentMethodMBWay, ""} {
+		_, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+			PurchaseID:       "purchase-1",
+			AmountMinorUnits: 1000,
+			Currency:         "EUR",
+			Method:           method,
+		})
+		if !errors.Is(err, payments.ErrProviderFailure) {
+			t.Errorf("method %q: expected ErrProviderFailure, got: %v", method, err)
+		}
+	}
+	if providerCalled {
+		t.Error("expected no provider call for a method this provider does not serve")
+	}
+}

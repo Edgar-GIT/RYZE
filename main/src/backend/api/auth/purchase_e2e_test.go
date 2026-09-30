@@ -123,11 +123,23 @@ func TestE2EFullPurchaseFlow(t *testing.T) {
 	if p, _ := data["price_minor_units"].(float64); p != 15000 {
 		t.Fatalf("Step 1 - expected price 15000, got %v", p)
 	}
-	if pa, _ := data["platform_amount"].(float64); pa != 3000 {
-		t.Fatalf("Step 1 - expected platform amount 3000, got %v", pa)
+	// The internal commission split is snapshotted on the purchase record but is
+	// never returned to the client, so it is asserted through the repository.
+	// The response body must not carry it at all.
+	stored, err := purchaseRepo.FindByID(context.Background(), purchaseID)
+	if err != nil {
+		t.Fatalf("Step 1 - reload purchase: %v", err)
 	}
-	if ta, _ := data["trainer_amount"].(float64); ta != 12000 {
-		t.Fatalf("Step 1 - expected trainer amount 12000, got %v", ta)
+	if stored.PlatformAmount != 3000 {
+		t.Fatalf("Step 1 - expected stored platform amount 3000, got %d", stored.PlatformAmount)
+	}
+	if stored.TrainerAmount != 12000 {
+		t.Fatalf("Step 1 - expected stored trainer amount 12000, got %d", stored.TrainerAmount)
+	}
+	for _, internal := range []string{"commission_bps", "platform_amount", "trainer_amount"} {
+		if _, exists := data[internal]; exists {
+			t.Fatalf("Step 1 - response must never expose the internal field %q", internal)
+		}
 	}
 
 	// Step 2: Initiate payment

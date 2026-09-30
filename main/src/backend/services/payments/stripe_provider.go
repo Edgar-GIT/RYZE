@@ -323,16 +323,13 @@ func stripeIdempotencyKey(purchaseID string) string {
 // created, so a purchase can never be paid in a different currency than the one
 // it is verified against.
 func stripeCurrencyCode(purchaseCurrency string) (string, error) {
-	currency := strings.ToLower(strings.TrimSpace(purchaseCurrency))
-	if len(currency) != 3 {
-		return "", fmt.Errorf("stripe: currency %q is not a supported currency code: %w", purchaseCurrency, ErrProviderFailure)
+	// The shape check is the shared one used by every provider so a currency
+	// that is unusable for one is unusable for all; only the case convention
+	// differs, and Stripe expects lower case.
+	if err := ValidateCurrencyCode(purchaseCurrency); err != nil {
+		return "", fmt.Errorf("stripe: %w: %w", err, ErrProviderFailure)
 	}
-	for _, char := range currency {
-		if char < 'a' || char > 'z' {
-			return "", fmt.Errorf("stripe: currency %q is not a supported currency code: %w", purchaseCurrency, ErrProviderFailure)
-		}
-	}
-	return currency, nil
+	return strings.ToLower(strings.TrimSpace(purchaseCurrency)), nil
 }
 
 // currencyMatches compares a provider currency code with the purchase
