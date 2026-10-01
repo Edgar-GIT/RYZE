@@ -113,8 +113,31 @@ func (r *stubQuestionnaireRepository) FindSummaryByUserAndProgram(_ context.Cont
 	}, nil
 }
 
+// stubEntitlementRepository decides whether the pair looks purchased. An empty
+// entitlement means the user has never bought the program.
+type stubEntitlementRepository struct {
+	entitlement *models.Entitlement
+	err         error
+	calls       int
+}
+
+func (s *stubEntitlementRepository) FindActiveByUserAndProgram(_ context.Context, _, _ string) (*models.Entitlement, error) {
+	s.calls++
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.entitlement == nil {
+		return nil, repositories.ErrEntitlementNotFound
+	}
+	return s.entitlement, nil
+}
+
 func newService(program *models.Program, repo *stubQuestionnaireRepository) questionnaires.Service {
-	return questionnaires.NewService(&stubProgramRepository{program: program}, repo)
+	return questionnaires.NewService(&stubProgramRepository{program: program}, repo, &stubEntitlementRepository{})
+}
+
+func newServiceWithEntitlements(program *models.Program, repo *stubQuestionnaireRepository, entitlements *stubEntitlementRepository) questionnaires.Service {
+	return questionnaires.NewService(&stubProgramRepository{program: program}, repo, entitlements)
 }
 
 func premiumProgram() *models.Program {
