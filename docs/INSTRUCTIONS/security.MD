@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # SECURITY.MD
 
-Version: 1.0.0
+Version: 2.81.0
 
 ---
 
@@ -2796,3 +2796,96 @@ Whenever a more secure solution is identified, AI assistants are encouraged to p
 Security should evolve continuously alongside the platform.
 
 The goal of RYZE is not only to protect data, but to build a secure, trustworthy and maintainable ecosystem capable of supporting long-term growth.
+
+---
+
+## Premium Level 1 intake and nutrition
+
+The Premium Level 1 intake is one of the most sensitive data classes in the
+platform: it collects body metrics and health information about a real person,
+and it is the input to a plan that person then follows. It is therefore treated
+as sensitive data everywhere, not as ordinary profile content.
+
+### Ownership
+
+Intake and nutrition records are always owned by the authenticated client. The
+acting user id is taken from the authentication context on every request. No
+questionnaire or nutrition endpoint accepts a user id from the client, and none
+of them trusts a client-supplied owner, role or entitlement.
+
+### Answers are never echoed
+
+A submitted intake is never returned by any endpoint. The requirement response
+reports only whether an intake exists, its revision and its submission time. This
+is enforced structurally: the read view
+`v_nutrition_questionnaire_summary` does not project the `answers` column at all,
+so no repository or handler can leak an intake by forgetting to redact a field.
+
+The client keeps unsaved answers in memory only. There is no endpoint that
+returns a stored intake, which means a page reload legitimately shows an empty
+form. That is the intended trade-off, not a bug.
+
+Answers are never logged. Log lines and error messages carry field names and
+stable reason codes, never values.
+
+### Indistinguishable refusals
+
+A caller that is not entitled, has no submitted intake, or is looking at another
+client's assignment receives the same `404 NUTRITION_NOT_FOUND`. A `403` or a
+distinct "not entitled" response would confirm that a record exists, turning the
+endpoint into a probe for other clients' purchases and health data. The refusal
+and the absence of data are the same answer on purpose.
+
+### Fail-closed locking
+
+Intake immutability after purchase is derived from the entitlement record, and the
+entitlement lookup fails closed. If the lookup errors, mutation is refused. An
+unreadable entitlement is treated as "locked", never as "still editable", so a
+transient database failure cannot silently reopen editing of an intake that a
+client already purchased against.
+
+Because the lock is derived, there is no stored flag that could drift out of sync
+with the purchase and no recovery path after a crash.
+
+### Server-side validation
+
+Answers are validated and normalized server-side before anything is persisted.
+Unknown fields, unsupported option values, out-of-range numbers, over-long text
+and exceeded entry caps are all rejected. The question catalog is delivered to the
+client for rendering convenience, but it is never treated as authoritative: every
+rule is re-enforced on submission.
+
+Raw client input is never stored. Only the normalized form is persisted, so the
+stored record cannot contain a value the generator was never validated against.
+
+### Generated plans are server-owned
+
+Nutrition plans are produced by a deterministic, server-side generator. There is
+no client-supplied plan content, no client-supplied calorie or macro target, and
+no client request to regenerate a delivered plan. A plan can only be built from a
+stored, validated intake belonging to the entitled client.
+
+### Product isolation
+
+`product_type` is a product family, not an authorization decision, but it is
+used as one. The generic marketplace is scoped to platform-owned programs with
+`product_type = 'generic'`, so a platform-owned Premium Level 1 program never
+appears in a marketplace where the questionnaire prerequisite would not be
+enforced. The nutrition endpoints additionally require the program to be
+`premium_level_1`, so a generic purchase never creates a nutrition assignment.
+
+### Payment prerequisite
+
+Checkout for `premium_level_1` is refused until a submitted intake exists for
+that exact user and program, on both the regular and the Test Mode paths. The
+check is server-side and cannot be satisfied by the client. Without it, a client
+could reach a paid package whose nutrition programme has no intake to derive
+from.
+
+### Client-side handling
+
+The Premium client stores in-progress answers in component state only. There is
+no browser persistence layer, no analytics call and no third-party embed inside
+the intake flow. Field-level rejection reasons are stable codes rendered with
+client-owned wording, so the API never has to carry presentation copy for a
+health-related field.

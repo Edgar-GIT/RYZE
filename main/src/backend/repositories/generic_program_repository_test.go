@@ -322,3 +322,71 @@ func TestGenericProgramRepository(t *testing.T) {
 		t.Fatalf("expected level metadata in search results, got %v", list[0].Level)
 	}
 }
+
+// TestGenericProgramRepositoryExcludesPremiumProductFamily verifies that
+// generic-program management is scoped by product family and not by ownership
+// alone. A platform-owned Premium Level 1 program has trainer_id NULL, so an
+// ownership-only predicate would make it reachable here and let it be edited
+// outside the family that enforces the questionnaire prerequisite.
+func TestGenericProgramRepositoryExcludesPremiumProductFamily(t *testing.T) {
+	config.LoadEnvFile()
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	db, err := database.Connect(cfg)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+
+	tx := db.Begin()
+	defer tx.Rollback()
+
+	repo := repositories.NewGenericProgramRepository(tx)
+	ctx := context.Background()
+
+	// A platform-owned Premium Level 1 program: owned by nobody, but not a
+	// generic program.
+	premium := &models.Program{
+		ID:          uuid.NewString(),
+		Name:        "Premium Family Probe",
+		Type:        models.ProgramTypePremium,
+		Status:      models.ProgramStatusPublished,
+		ProductType: models.ProgramProductTypePremiumLevel1,
+	}
+	if err := tx.Exec(
+		"INSERT INTO programs (id, trainer_id, name, type, status, product_type) VALUES (?, NULL, ?, ?, ?, ?)",
+		premium.ID, premium.Name, premium.Type, premium.Status, premium.ProductType,
+	).Error; err != nil {
+		t.Fatalf("seed premium program: %v", err)
+	}
+
+	if _, err := repo.FindByID(ctx, premium.ID); !errors.Is(err, repositories.ErrGenericProgramNotFound) {
+		t.Fatalf("FindByID on a Premium Level 1 program = %v, want ErrGenericProgramNotFound", err)
+	}
+
+	if err := repo.UpdateFull(ctx, premium.ID, &models.Program{Name: "Renamed"}); !errors.Is(err, repositories.ErrGenericProgramNotFound) {
+		t.Fatalf("UpdateFull on a Premium Level 1 program = %v, want ErrGenericProgramNotFound", err)
+	}
+
+	if err := repo.Publish(ctx, premium.ID); !errors.Is(err, repositories.ErrGenericProgramNotFound) {
+		t.Fatalf("Publish on a Premium Level 1 program = %v, want ErrGenericProgramNotFound", err)
+	}
+
+	if err := repo.SoftDelete(ctx, premium.ID); !errors.Is(err, repositories.ErrGenericProgramNotFound) {
+		t.Fatalf("SoftDelete on a Premium Level 1 program = %v, want ErrGenericProgramNotFound", err)
+	}
+
+	// The seeded row is untouched and still published.
+	var name, status, productType string
+	if err := tx.Raw(
+		"SELECT name, status, product_type FROM programs WHERE id = ?", premium.ID,
+	).Row().Scan(&name, &status, &productType); err != nil {
+		t.Fatalf("re-read premium program: %v", err)
+	}
+	if name != premium.Name || status != string(models.ProgramStatusPublished) || productType != models.ProgramProductTypePremiumLevel1 {
+		t.Fatalf("premium program was modified through generic management: name %q, status %q, product_type %q", name, status, productType)
+	}
+}

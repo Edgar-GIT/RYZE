@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # API.MD
 
-Version: 1.0.0
+Version: 2.81.0
 
 ---
 
@@ -2409,7 +2409,9 @@ Query parameters:
 - `page` — page number, 1-based, default `1`.
 - `limit` — page size, default `20`, clamped to `100`.
 - `scope` — `generic` restricts the catalog to platform-owned programs
-  (`trainer_id` is null). Any other value is ignored.
+  (`trainer_id` is null) whose `product_type` is `generic`.
+  `premium_level_1` restricts the catalog to the Premium Level 1 product family,
+  regardless of owner. Any other value is ignored.
 - `q` — name query (LIKE, wildcards escaped), optional.
 - `type` — program type filter (`free`, `premium`, `personalized`), optional.
 - `training_type` — exact training type filter (`Hypertrophy`, `Strength`,
@@ -2994,87 +2996,235 @@ Downloads the generated invoice.
 
 ---
 
-# QUESTIONNAIRE ENDPOINTS
+# PREMIUM LEVEL 1 ENDPOINTS
 
-Premium programs require questionnaires.
+These endpoints implement the Premium Level 1 journey: collect a nutrition
+intake before checkout, then serve the server-owned nutrition programme once the
+purchase is verified.
+
+All five endpoints require authentication. The acting user is always taken from
+the authentication context; no endpoint accepts a user id from the client.
+
+## Ownership model
+
+Every endpoint is scoped to `(authenticated user, program_id)`. A client may only
+act on its own intake and its own nutrition assignment.
+
+A program with no record for the calling user is indistinguishable from one the
+caller does not own: both answer `404 NUTRITION_NOT_FOUND`. This is deliberate,
+because a `403` would confirm that another client's record exists.
+
+Intake answers are never returned by any endpoint. The requirement endpoint
+reports only that an intake exists and its revision, never its contents.
 
 ---
 
-## List Questionnaires
+## Questionnaire Question Catalog
 
 ```
-GET /api/v1/questionnaires
+GET /api/v1/me/questionnaire/questions
 ```
 
-Returns available questionnaires.
+Returns the authoritative field contract for the intake: field name, type
+(`text` | `textarea` | `number` | `select` | `multi_select`), label, help text,
+whether the field is required or sensitive, allowed options, numeric bounds and
+entry caps.
+
+The catalog is public product metadata with no user data attached, so it is
+resolved from the authentication context alone and does not require a program id.
+
+The client renders the form from this response rather than from a hardcoded
+field list, so adding a question does not require a client release. Validation
+rules are also declared server-side and are enforced again on submission; the
+catalog is a convenience, never the authority.
+
+Success: `200 OK`.
 
 ---
 
-## Questionnaire Details
+## Questionnaire Requirement
 
 ```
-GET /api/v1/questionnaires/{id}
+GET /api/v1/me/programs/{programID}/questionnaire
 ```
 
-Returns a questionnaire.
+Returns the state of the calling user's intake for this program.
+
+Fields:
+
+- `program_id` — the program the state belongs to.
+- `submitted` — whether an intake exists.
+- `locked` — whether the intake is immutable, that is, whether an active
+  entitlement exists for this program.
+- `version` — the current intake revision; `0` when nothing is stored.
+- `submitted_at` — first submission time, nullable.
+
+`locked` is the server's authoritative answer to "may this intake still be
+edited". The client must never infer it from `submitted`, from purchase state, or
+from anything the user did.
+
+Success: `200 OK`.
+
+Failure:
+
+- `401 UNAUTHORIZED` — no valid session.
+- `404 PROGRAM_NOT_FOUND` — the program does not exist or is not available.
 
 ---
 
 ## Submit Questionnaire
 
 ```
-POST /api/v1/questionnaires/{id}
+POST /api/v1/me/programs/{programID}/questionnaire
 ```
 
-Stores questionnaire answers.
+Request body:
+
+```json
+{ "answers": { "goal": "fat_loss", "height_cm": 180, "dietary_restrictions": ["lactose"] } }
+```
+
+Creates or replaces the calling user's intake for this program.
+
+Before a purchase, resubmission is allowed and increments `version`; the intake is
+an editable draft and the nutrition programme has not been built from it yet.
+
+Once an active entitlement exists, the intake is immutable and every mutation is
+refused with `409 QUESTIONNAIRE_LOCKED`. This holds for regular purchases and for
+Test Mode purchases, because both create the same entitlement. There is no
+regeneration path and no flag that reopens editing: the intake is the basis of a
+delivered package, and silently changing it would change the plan the client
+already received. A client that edits answers to improve the plan would also
+invalidate the nutrition programme that was generated from them.
+
+A refused mutation changes nothing: the stored revision is not incremented and
+no field is written.
+
+Answers are validated and normalized server-side. Unknown fields, unsupported
+option values, out-of-range numbers, over-long text and exceeded entry caps are
+all rejected.
+
+Success: `200 OK` with the requirement fields (`submitted`, `locked`, `version`,
+`submitted_at`).
+
+Failure:
+
+- `400 VALIDATION_ERROR` — rejected answers. The response carries per-field
+  reasons as short stable codes (`required`, `unsupported value`, `out of range`,
+  `too many entries`, `entry too long`, `too long`). The client owns the
+  presentation wording for these codes.
+- `401 UNAUTHORIZED` — no valid session.
+- `404 PROGRAM_NOT_FOUND` — the program does not exist, is not a Premium Level 1
+  program, or is not available.
+- `409 QUESTIONNAIRE_LOCKED` — an active entitlement exists, so the intake is
+  immutable.
 
 ---
 
-## Questionnaire History
+## Nutrition Assignment Status
 
 ```
-GET /api/v1/questionnaires/history
+GET /api/v1/me/programs/{programID}/nutrition
 ```
 
-Returns previously submitted questionnaires.
+Returns the calling user's nutrition assignment state and, only when it is
+`completed`, the generated plan.
+
+Fields:
+
+- `program_id` — the program the assignment belongs to.
+- `status` — `pending` | `processing` | `completed` | `failed`.
+- `version` — assignment revision.
+- `questionnaire_version` — the intake revision the plan was derived from.
+- `out_of_date` — whether a newer intake revision exists than the one this plan
+  was built from.
+- `plan` — the generated programme, or `null` for every non-completed status.
+
+`plan` is `null` unless `status` is `completed`. A purchase does not imply a
+finished plan, and no endpoint ever reports a plan that has not been generated.
+
+This endpoint requires all three of: the program being `premium_level_1`, an
+active entitlement, and a submitted intake. Any missing condition answers
+`404 NUTRITION_NOT_FOUND`, which is the same response an unowned assignment
+returns. Reading someone's nutrition programme must not be distinguishable from
+reading nothing.
+
+Success: `200 OK`.
+
+Failure:
+
+- `401 UNAUTHORIZED` — no valid session.
+- `404 NUTRITION_NOT_FOUND` — not entitled, not Premium Level 1, no submitted
+  intake, or no assignment for this user.
 
 ---
 
-# NUTRITION ENDPOINTS
+## Generate Nutrition Assignment
 
-Nutrition programs associated with purchased packs.
+```
+POST /api/v1/me/programs/{programID}/nutrition
+```
+
+Builds the nutrition programme from the stored intake.
+
+The same ownership, entitlement and intake preconditions as the status endpoint
+apply, and each missing condition answers `404 NUTRITION_NOT_FOUND`.
+
+Generation is deterministic and server-side, so the operation is idempotent: an
+existing `completed` assignment is returned as-is and no duplicate plan is
+created. A `failed` assignment is retried in place, which is why the failure
+state is recoverable without any manual intervention and without a second plan.
+
+Success: `200 OK` with the assignment fields.
+
+Failure:
+
+- `401 UNAUTHORIZED` — no valid session.
+- `404 NUTRITION_NOT_FOUND` — not entitled, not Premium Level 1, or no submitted
+  intake.
 
 ---
 
-## Current Nutrition Program
+## Purchase Prerequisite
 
-```
-GET /api/v1/nutrition/current
-```
+Premium Level 1 participates in the existing purchase flow. Checkout against a
+`premium_level_1` program is refused until the calling user has a submitted
+intake for that exact program.
 
-Returns the user's current nutrition program.
+Failure:
 
----
+- `409 PURCHASE_PREREQUISITE_NOT_MET` — a Premium Level 1 program was purchased
+  without a submitted intake.
 
-## Nutrition History
-
-```
-GET /api/v1/nutrition/history
-```
-
-Returns previous nutrition programs.
+This applies identically to the regular purchase path and to the Test Mode
+purchase path; both verify the same prerequisite through the same code path.
+Programs of any other `product_type` are unaffected and continue to purchase
+without an intake.
 
 ---
 
-## Download Nutrition PDF
+## Product Type in Program Responses
 
-```
-GET /api/v1/nutrition/pdf
-```
+`product_type` is the product family of a program (`generic` or
+`premium_level_1`). It is public product metadata, not client data, and it is
+included in the public catalog responses, in the public program detail response
+and in the authenticated entitlement and program access responses.
 
-Downloads the nutrition program.
+It lets the client render a Premium Level 1 package as training plus nutrition
+without a second request, and it lets the public catalog be scoped to a single
+family.
 
----
+The public catalog accepts a `scope` query parameter:
+
+- `scope=generic` — platform-owned (`trainer_id IS NULL`) programs with
+  `product_type = 'generic'`.
+- `scope=premium_level_1` — programs with `product_type = 'premium_level_1'`,
+  regardless of owner. A trainer cannot publish into this family.
+
+The two scopes are independent predicates. A platform-owned Premium Level 1
+program never appears in the generic marketplace, where the questionnaire
+prerequisite would not be enforced.
+
 
 # WORKOUT ENDPOINTS
 

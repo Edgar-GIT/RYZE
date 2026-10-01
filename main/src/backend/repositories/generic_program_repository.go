@@ -31,6 +31,9 @@ type GenericProgramFilter struct {
 
 // GenericProgramRepository defines the data-access operations for the
 // platform-owned (generic) program entity. A generic program is identified by
+// product_type = 'generic': a platform-owned Premium Level 1 program is not a
+// generic program and is never managed through these endpoints.
+//
 // trainer_id IS NULL: it is owned by no trainer and is managed exclusively by
 // an authorized administrator. Every query is scoped to that NULL owner so a
 // trainer-owned program can never be reached or mutated through this surface.
@@ -68,6 +71,28 @@ type genericProgramRepository struct {
 	db *gorm.DB
 }
 
+// genericScope applies both conditions that define generic-program management to
+// a single-program query. Both are required: ownership alone is not enough,
+// because a platform-owned Premium Level 1 program also has trainer_id NULL and
+// must stay out of reach here, as the questionnaire prerequisite and the
+// nutrition lifecycle only apply to it.
+//
+// The two conditions are separate Where calls on purpose. A single combined
+// placeholder string would have to be arity-matched exactly, and a mismatch is
+// silently absorbed by the LIMIT placeholder that First adds, which binds an id
+// to the wrong column instead of failing loudly.
+func genericScope(db *gorm.DB, programID string) *gorm.DB {
+	return db.Where("trainer_id IS NULL AND id = ?", programID).
+		Where("product_type = ?", models.ProgramProductTypeGeneric)
+}
+
+// genericListScope applies the same two conditions to a multi-row query, which
+// has no id to bind.
+func genericListScope(db *gorm.DB) *gorm.DB {
+	return db.Where("trainer_id IS NULL").
+		Where("product_type = ?", models.ProgramProductTypeGeneric)
+}
+
 func NewGenericProgramRepository(db *gorm.DB) GenericProgramRepository {
 	return &genericProgramRepository{db: db}
 }
@@ -99,8 +124,7 @@ func (r *genericProgramRepository) CreateFull(ctx context.Context, program *mode
 func (r *genericProgramRepository) UpdateFull(ctx context.Context, programID string, program *models.Program) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var existing models.Program
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("id = ? AND trainer_id IS NULL", programID).
+		if err := genericScope(tx.Clauses(clause.Locking{Strength: "UPDATE"}), programID).
 			First(&existing).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrGenericProgramNotFound
@@ -112,8 +136,7 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, programID str
 			return err
 		}
 
-		if err := tx.Model(&models.Program{}).
-			Where("id = ? AND trainer_id IS NULL", programID).
+		if err := genericScope(tx.Model(&models.Program{}), programID).
 			Updates(map[string]any{
 				"name":               program.Name,
 				"description":        program.Description,
@@ -155,8 +178,7 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, programID str
 // exercises by position, sets by set_number).
 func (r *genericProgramRepository) FindByID(ctx context.Context, programID string) (*models.Program, error) {
 	var program models.Program
-	err := r.db.WithContext(ctx).
-		Where("id = ? AND trainer_id IS NULL", programID).
+	err := genericScope(r.db.WithContext(ctx), programID).
 		Preload("Weeks", orderedWeek()).
 		Preload("Weeks.Workouts", orderedByPosition()).
 		Preload("Weeks.Workouts.Exercises", orderedByPosition()).
@@ -177,7 +199,7 @@ func (r *genericProgramRepository) FindByID(ctx context.Context, programID strin
 // name and description; empty filter values are ignored. Ordering is
 // deterministic: newest first, then id.
 func (r *genericProgramRepository) Search(ctx context.Context, filter GenericProgramFilter, page, limit int) ([]models.Program, int64, error) {
-	query := r.db.WithContext(ctx).Model(&models.Program{}).Where("trainer_id IS NULL")
+	query := genericListScope(r.db.WithContext(ctx).Model(&models.Program{}))
 
 	if strings.TrimSpace(filter.Query) != "" {
 		escaped := escapeSQLLike(strings.TrimSpace(filter.Query))
@@ -217,11 +239,10 @@ func (r *genericProgramRepository) Search(ctx context.Context, filter GenericPro
 
 // SoftDelete soft-deletes one active generic program. Only the program row is
 // touched; children become unreachable through the program scope and are never
-// removed. An unknown, soft-deleted or trainer-owned program is
+// removed. An unknown, soft-deleted, trainer-owned or non-generic program is
 // indistinguishable and maps to ErrGenericProgramNotFound.
 func (r *genericProgramRepository) SoftDelete(ctx context.Context, programID string) error {
-	result := r.db.WithContext(ctx).
-		Where("id = ? AND trainer_id IS NULL", programID).
+	result := genericScope(r.db.WithContext(ctx), programID).
 		Delete(&models.Program{})
 	if result.Error != nil {
 		return fmt.Errorf("failed to soft delete generic program: %w", result.Error)
@@ -233,15 +254,15 @@ func (r *genericProgramRepository) SoftDelete(ctx context.Context, programID str
 }
 
 // Publish transitions a draft generic program to published through a
-// conditional update scoped to the generic (trainer_id IS NULL) state. The
+// conditional update scoped to the generic (platform-owned, generic product
+// family) state. The
 // WHERE clause enforces status = 'draft' so the operation is idempotent and
 // race-safe; a zero RowsAffected result maps to ErrGenericProgramNotFound,
 // which covers missing, soft-deleted, foreign and already-published in a single
 // indistinguishable domain error that the caller may disambiguate.
 func (r *genericProgramRepository) Publish(ctx context.Context, programID string) error {
-	result := r.db.WithContext(ctx).
-		Model(&models.Program{}).
-		Where("id = ? AND trainer_id IS NULL AND status = ?", programID, models.ProgramStatusDraft).
+	result := genericScope(r.db.WithContext(ctx).Model(&models.Program{}), programID).
+		Where("status = ?", models.ProgramStatusDraft).
 		Update("status", models.ProgramStatusPublished)
 	if result.Error != nil {
 		return fmt.Errorf("failed to publish generic program: %w", result.Error)

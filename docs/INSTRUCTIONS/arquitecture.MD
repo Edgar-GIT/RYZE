@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # ARCHITECTURE.MD
 
-Version: 2.1.0
+Version: 2.81.0
 
 ---
 
@@ -404,6 +404,68 @@ owning workout. The set prescription (`workout_exercise_sets`) is guarded by
 the same scoping chain (`trainer → program → week → workout → workout_exercise
 → set`) and every set is only reachable through an active assignment.
 
+### Premium Level 1 (Intake and Nutrition)
+
+Premium Level 1 is a product family, not a separate platform. It reuses the
+program hierarchy, the purchase flow, the entitlement model and the program
+access surface that Generic Programs already use, and adds exactly two modules
+plus one prerequisite check.
+
+The discriminator is `programs.product_type` (`generic` | `premium_level_1`).
+It is orthogonal to `programs.type`, which stays the commercial category, so
+Generic Programs and Premium Level 1 can both sell under `premium`.
+
+The area is layered like every other module:
+
+- `QuestionnaireHandler` (in `api/auth`, thin) → `questionnaires` service (in
+  `services/questionnaires`) → `NutritionQuestionnaireRepository` (in
+  `repositories`), with an `EntitlementReader` dependency for the lock decision.
+- `NutritionHandler` (in `api/auth`, thin) → `nutrition_assignment` service (in
+  `services/nutrition_assignment`) → `NutritionAssignmentRepository` (in
+  `repositories`) → `generator` (in `services/nutrition_assignment`).
+- The question catalog itself lives in `services/nutrition_questionnaire`, which
+  owns field definitions, validation and normalization and is shared by both
+  services.
+
+Both handlers sit behind `Authenticate` only. There is no trainer ownership to
+verify and no administrator permission involved: the owner is always the
+authenticated client, and the acting user id always comes from the authentication
+context.
+
+Key architectural decisions:
+
+- **Product families are orthogonal dimensions.** `type` decides how a program
+  sells; `product_type` decides which lifecycle parts it participates in. This is
+  why Premium Level 1 did not need a new table, a new purchase flow or a new
+  entitlement model: it is one more value in one constrained column.
+- **Two independent catalog scopes.** `ScopeGeneric` and `ScopePremiumLevel1` are
+  separate boolean filters, not one `scope` string, so a single flag can never
+  serve both marketplaces. The generic scope requires both `trainer_id IS NULL`
+  and `product_type = 'generic'`.
+- **Derived lock, not a stored flag.** Immutability after purchase is computed
+  from the entitlement record rather than persisted. There is no lock column to
+  keep consistent, and no crash window that leaves a purchase unlocked. The
+  entitlement lookup fails closed.
+- **A dedicated prerequisite, not a fork.** The purchase service gained one
+  `checkPrerequisites` step that is a no-op for every other product family. The
+  regular and Test Mode purchase paths call the same check, so the two can never
+  disagree.
+- **Deterministic generation.** The nutrition generator is a pure function of the
+  normalized intake. No external AI provider is involved in v2.81.0, so the same
+  inputs always yield the same plan, generation is idempotent, and a failure is
+  retryable in place instead of needing a second plan.
+- **Status is the only readiness signal.** A purchase never implies a finished
+  plan. The assignment state machine (`pending`, `processing`, `completed`,
+  `failed`) is the single observable contract, and the plan is served only from
+  `completed`.
+- **Views as the read surface.** Both repositories read through
+  `v_nutrition_questionnaire_summary` and `v_nutrition_assignment`, which omit
+  answers and internal diagnostics. The write model is never an API contract.
+- **Frontend reuse.** The Premium page reuses the existing purchase and payment
+  APIs through `useProgramCheckout`, the shared hook extracted from the Generic
+  detail page, so both families share one checkout state machine including
+  redirect, capture, cancellation and Test Mode handling.
+
 ### Generic Programs (Platform-Owned)
 
 Generic programs are the platform-owned counterpart of trainer programs and
@@ -438,6 +500,10 @@ Key architectural decisions:
 - **Not-found equivalence.** Every generic-program query is scoped by
   `trainer_id IS NULL`; a trainer-owned id addressed through a generic endpoint
   is indistinguishable from a missing or soft-deleted one (`PROGRAM_NOT_FOUND`).
+- **Scoped by family as well as ownership.** Generic-program management requires
+  `product_type = 'generic'` as well as `trainer_id IS NULL`, so a
+  platform-owned Premium Level 1 program can never be created or edited through
+  the generic administration endpoints.
 - **No commission involvement.** Generic programs are platform-owned and never
   participate in trainer revenue or commission resolution. When a generic
   program is purchased, the sale carries zero commission: `commission_bps = 0`
