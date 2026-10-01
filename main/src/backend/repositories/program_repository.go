@@ -79,6 +79,10 @@ type PublicCatalogFilter struct {
 	SortBy           string
 	Order            string
 	ScopeGeneric     bool
+	// ScopePremiumLevel1 restricts the catalog to the Premium Level 1 product
+	// family. It is a separate flag from ScopeGeneric so the two marketplaces can
+	// never be served by the same filter.
+	ScopePremiumLevel1 bool
 }
 
 type programRepository struct {
@@ -289,6 +293,13 @@ func (r *programRepository) SearchPublished(ctx context.Context, filter PublicCa
 		// a platform-owned Premium Level 1 program must never surface in the
 		// generic marketplace, where the questionnaire gate does not apply.
 		db = db.Where("trainer_id IS NULL AND product_type = ?", models.ProgramProductTypeGeneric)
+	}
+
+	if filter.ScopePremiumLevel1 {
+		// The Premium Level 1 scope is defined purely by product family. A trainer
+		// may never publish into it, so ownership is intentionally not part of
+		// this predicate.
+		db = db.Where("product_type = ?", models.ProgramProductTypePremiumLevel1)
 	}
 
 	if filter.Query != "" {

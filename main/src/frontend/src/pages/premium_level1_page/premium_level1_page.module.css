@@ -1,0 +1,355 @@
+.page {
+  /* inherits the RYZE dark canvas from PageWrapper */
+}
+
+.detail {
+  padding: 2.5rem 0 4.5rem;
+}
+
+.container {
+  display: grid;
+  gap: 2.2rem;
+}
+
+.back {
+  display: flex;
+}
+
+.heading {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 52rem;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--accent, #18d8ff);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.subtitle {
+  max-width: 46rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.chip {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(24, 216, 255, 0.22);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(24, 216, 255, 0.06);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chipPrice {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(24, 216, 255, 0.4);
+  border-radius: 999px;
+  color: var(--text-primary);
+  background: rgba(24, 216, 255, 0.12);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chipTestMode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(255, 196, 0, 0.45);
+  border-radius: 999px;
+  color: #ffe27a;
+  background: rgba(255, 196, 0, 0.08);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 2rem;
+  align-items: start;
+}
+
+.main {
+  display: grid;
+  gap: 1.6rem;
+  min-width: 0;
+}
+
+.aside {
+  min-width: 0;
+}
+
+.panel {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 14px);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sectionText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.includes {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.includeItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.includeItem svg {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  color: var(--success, #2ed573);
+}
+
+.disclaimer {
+  margin: 0;
+  padding-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.state {
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  padding: 4rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.state p {
+  margin: 0;
+}
+
+.stateCard,
+.stateCardError {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1.3rem;
+  border: 1px solid rgba(46, 213, 115, 0.3);
+  border-radius: var(--radius-md, 14px);
+  background: linear-gradient(180deg, rgba(46, 213, 115, 0.08), rgba(46, 213, 115, 0.02));
+}
+
+.stateCardError {
+  border-color: rgba(255, 159, 67, 0.3);
+  background: linear-gradient(180deg, rgba(255, 159, 67, 0.07), rgba(255, 159, 67, 0.02));
+}
+
+.stateTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--success, #2ed573);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.stateCardError .stateTitle {
+  color: #ff9f43;
+}
+
+.stateText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.checkout {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.6rem;
+  border: 1px solid rgba(24, 216, 255, 0.18);
+  border-radius: var(--radius-md, 14px);
+  background: rgba(24, 216, 255, 0.03);
+}
+
+.testModeNote {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(255, 196, 0, 0.35);
+  border-radius: var(--radius-sm);
+  color: #ffe27a;
+  background: rgba(255, 196, 0, 0.08);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.methods {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.label {
+  margin: 0 0 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.methodOptions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.method {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(24, 216, 255, 0.22);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: rgba(24, 216, 255, 0.04);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.methodSelected {
+  border-color: rgba(24, 216, 255, 0.55);
+  color: var(--text-primary);
+  background: rgba(24, 216, 255, 0.1);
+}
+
+.method input {
+  margin: 0;
+  accent-color: var(--accent, #18d8ff);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.2rem;
+}
+
+.stickyCard {
+  position: sticky;
+  top: 1.5rem;
+  display: grid;
+  gap: 0.7rem;
+  padding: 1.4rem;
+  border: 1px solid rgba(24, 216, 255, 0.2);
+  border-radius: var(--radius-md, 14px);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.asideTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.asidePrice {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.asideText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.asideNote {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stickyCard {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .detail {
+    padding-top: 1.6rem;
+  }
+
+  .panel,
+  .checkout {
+    padding: 1.2rem;
+  }
+}

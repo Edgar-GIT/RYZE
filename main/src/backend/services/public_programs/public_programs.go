@@ -76,16 +76,17 @@ type ProgramRepository interface {
 // generic training plans marketplace. sortBy is whitelisted to "created_at"
 // and "name"; order is whitelisted to "asc" and "desc".
 type ProgramFilter struct {
-	Query            string
-	ProgramType      string
-	TrainingType     string
-	Level            string
-	FrequencyPerWeek int
-	DurationMin      int
-	DurationMax      int
-	SortBy           string
-	Order            string
-	ScopeGeneric     bool
+	Query              string
+	ProgramType        string
+	TrainingType       string
+	Level              string
+	FrequencyPerWeek   int
+	DurationMin        int
+	DurationMax        int
+	SortBy             string
+	Order              string
+	ScopeGeneric       bool
+	ScopePremiumLevel1 bool
 }
 
 // Program is the safe representation of one published program. It carries
@@ -104,8 +105,12 @@ type Program struct {
 	TrainingType     *string
 	PriceMinorUnits  int64
 	Currency         string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	// ProductType is the product family the program belongs to. It is public
+	// product metadata: it tells the client which marketplace and which
+	// onboarding flow the program belongs to.
+	ProductType string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // Set is the safe representation of one public prescription set.
@@ -273,16 +278,17 @@ func (s *service) SearchPublishedPrograms(ctx context.Context, filter ProgramFil
 	}
 
 	models, total, err := s.programs.SearchPublished(ctx, repositories.PublicCatalogFilter{
-		Query:            filter.Query,
-		ProgramType:      filter.ProgramType,
-		TrainingType:     filter.TrainingType,
-		Level:            filter.Level,
-		FrequencyPerWeek: filter.FrequencyPerWeek,
-		DurationMin:      filter.DurationMin,
-		DurationMax:      filter.DurationMax,
-		SortBy:           filter.SortBy,
-		Order:            filter.Order,
-		ScopeGeneric:     filter.ScopeGeneric,
+		Query:              filter.Query,
+		ProgramType:        filter.ProgramType,
+		TrainingType:       filter.TrainingType,
+		Level:              filter.Level,
+		FrequencyPerWeek:   filter.FrequencyPerWeek,
+		DurationMin:        filter.DurationMin,
+		DurationMax:        filter.DurationMax,
+		SortBy:             filter.SortBy,
+		Order:              filter.Order,
+		ScopeGeneric:       filter.ScopeGeneric,
+		ScopePremiumLevel1: filter.ScopePremiumLevel1,
 	}, page, limit)
 	if err != nil {
 		return ListProgramsResult{}, fmt.Errorf("failed to search published programs: %w", err)
@@ -308,6 +314,7 @@ func toSafe(model *models.Program) *Program {
 		FrequencyPerWeek: model.FrequencyPerWeek,
 		TrainingType:     model.TrainingType,
 		PriceMinorUnits:  model.PriceMinorUnits,
+		ProductType:      model.ProductType,
 		Currency:         model.Currency,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,

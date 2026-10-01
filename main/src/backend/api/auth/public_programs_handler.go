@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"ryze/backend/models"
 	"ryze/backend/services/public_programs"
 )
 
@@ -28,6 +29,7 @@ type publicProgramResponse struct {
 	TrainingType     *string   `json:"training_type"`
 	PriceMinorUnits  int64     `json:"price_minor_units"`
 	Currency         string    `json:"currency"`
+	ProductType      string    `json:"product_type"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
@@ -46,6 +48,7 @@ func newPublicProgramResponse(program *public_programs.Program) publicProgramRes
 		TrainingType:     program.TrainingType,
 		PriceMinorUnits:  program.PriceMinorUnits,
 		Currency:         program.Currency,
+		ProductType:      program.ProductType,
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.UpdatedAt,
 	}
@@ -147,6 +150,7 @@ func newPublicProgramDetailResponse(detail *public_programs.ProgramDetail) gin.H
 		"training_type":      detail.TrainingType,
 		"price_minor_units":  detail.PriceMinorUnits,
 		"currency":           detail.Currency,
+		"product_type":       detail.ProductType,
 		"created_at":         detail.CreatedAt,
 		"updated_at":         detail.UpdatedAt,
 		"weeks":              weeks,
@@ -198,22 +202,24 @@ func (h *PublicProgramsHandler) ListPublishedPrograms(c *gin.Context) {
 		return
 	}
 
+	scope := strings.TrimSpace(c.Query("scope"))
 	filter := public_programs.ProgramFilter{
-		Query:            strings.TrimSpace(c.Query("q")),
-		ProgramType:      strings.TrimSpace(c.Query("type")),
-		TrainingType:     strings.TrimSpace(c.Query("training_type")),
-		Level:            strings.TrimSpace(c.Query("level")),
-		FrequencyPerWeek: frequency,
-		DurationMin:      durationMin,
-		DurationMax:      durationMax,
-		SortBy:           strings.TrimSpace(c.Query("sort")),
-		Order:            strings.TrimSpace(c.Query("order")),
-		ScopeGeneric:     strings.TrimSpace(c.Query("scope")) == "generic",
+		Query:              strings.TrimSpace(c.Query("q")),
+		ProgramType:        strings.TrimSpace(c.Query("type")),
+		TrainingType:       strings.TrimSpace(c.Query("training_type")),
+		Level:              strings.TrimSpace(c.Query("level")),
+		FrequencyPerWeek:   frequency,
+		DurationMin:        durationMin,
+		DurationMax:        durationMax,
+		SortBy:             strings.TrimSpace(c.Query("sort")),
+		Order:              strings.TrimSpace(c.Query("order")),
+		ScopeGeneric:       scope == "generic",
+		ScopePremiumLevel1: scope == models.ProgramProductTypePremiumLevel1,
 	}
 
 	hasSearchParams := filter.Query != "" || filter.ProgramType != "" || filter.TrainingType != "" ||
 		filter.Level != "" || filter.FrequencyPerWeek > 0 || filter.DurationMin > 0 || filter.DurationMax > 0 ||
-		filter.SortBy != "" || filter.Order != "" || filter.ScopeGeneric
+		filter.SortBy != "" || filter.Order != "" || filter.ScopeGeneric || filter.ScopePremiumLevel1
 
 	var result public_programs.ListProgramsResult
 	if hasSearchParams {

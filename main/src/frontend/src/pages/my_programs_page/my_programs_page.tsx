@@ -11,6 +11,11 @@ import { Link, useHistory } from "react-router-dom";
 
 import styles from "./my_programs_page.module.css";
 
+// A Premium Level 1 entitlement is a complete training and nutrition package,
+// so the card says so instead of describing it as a training plan only. The
+// family comes from the backend, never from a hardcoded program id.
+const isPremiumPackage = (productType: string): boolean => productType === "premium_level_1";
+
 type State =
   | { status: "loading" }
   | { status: "error" }
@@ -73,11 +78,15 @@ export const MyProgramsPage = () => {
           <section className={styles.stateCard}>
             <h1 className={styles.stateTitle}>My Programs</h1>
             <p className={styles.stateText}>
-              You have no programs yet. Browse the marketplace to find your first training plan.
+              You have no programs yet. Browse the marketplace to find your first training plan, or look at
+              Premium Level 1 for training and nutrition in one package.
             </p>
             <div className={styles.retry}>
               <Button to="/services/generic-program" variant="primary" size="small">
                 Browse training plans
+              </Button>
+              <Button to="/services/premium-level-1" variant="secondary" size="small">
+                Explore Premium Level 1
               </Button>
             </div>
           </section>
@@ -87,12 +96,15 @@ export const MyProgramsPage = () => {
           <section className={styles.content}>
             <header className={styles.heading}>
               <h1 className={styles.title}>My Programs</h1>
-              <p className={styles.subtitle}>Your purchased training plans.</p>
+              <p className={styles.subtitle}>
+                The training plans and packages you have purchased.
+              </p>
             </header>
 
             <div className={styles.grid}>
               {state.entitlements.map((entitlement) => {
                 const program = entitlement.program;
+                const premium = isPremiumPackage(program.product_type);
                 return (
                   <Link
                     key={entitlement.id}
@@ -105,6 +117,12 @@ export const MyProgramsPage = () => {
                     ) : null}
 
                     <span className={styles.chips}>
+                      {premium ? (
+                        <span className={styles.chipPremium}>Premium Level 1</span>
+                      ) : null}
+                      {premium ? (
+                        <span className={styles.chip}>Training + nutrition</span>
+                      ) : null}
                       {program.training_type ? <span className={styles.chip}>{program.training_type}</span> : null}
                       {program.level ? <span className={styles.chip}>{program.level}</span> : null}
                       {program.duration_weeks ? (
@@ -120,7 +138,7 @@ export const MyProgramsPage = () => {
                     </span>
 
                     <span className={styles.cardAction}>
-                      Open program
+                      {premium ? "Open package" : "Open program"}
                       <ChevronRight size={15} aria-hidden="true" />
                     </span>
                   </Link>

@@ -6,11 +6,34 @@ import { ProgramStructure } from "@/components/program_structure/program_structu
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { ApiError } from "@utils/http_client";
 import { fetchProgramAccess, type ProgramAccessDetail } from "@/services/purchases_api";
+import {
+  fetchNutritionAssignment,
+  generateNutritionAssignment,
+  type NutritionAssignmentStatus
+} from "@/services/premium_level1_api";
+import { PremiumNutritionPlan } from "@/pages/premium_level1_page/premium_nutrition_plan";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 
 import styles from "./program_access_page.module.css";
+
+// A Premium Level 1 entitlement carries a nutrition programme alongside the
+// training plan. The family comes from the backend, so Program Access never
+// needs to know a program id in advance.
+const isPremiumPackage = (productType: string): boolean => productType === "premium_level_1";
+
+// Nutrition is absent for a generic plan and for any request that the backend
+// refuses. Both collapse to the same quiet state: no plan to show, no error to
+// explain, because the refusal itself is the privacy guarantee.
+const nutritionUnavailable: NutritionAssignmentStatus = {
+  program_id: "",
+  status: "pending",
+  version: 0,
+  questionnaire_version: 0,
+  out_of_date: false,
+  plan: null
+};
 
 export const ProgramAccessPage = () => {
   const { programId } = useParams<{ programId: string }>();
@@ -19,6 +42,10 @@ export const ProgramAccessPage = () => {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+
+  const [nutrition, setNutrition] = useState<NutritionAssignmentStatus>(nutritionUnavailable);
+  const [nutritionLoaded, setNutritionLoaded] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,9 +64,43 @@ export const ProgramAccessPage = () => {
     }
   }, [programId, history]);
 
+  const loadNutrition = useCallback(async () => {
+    try {
+      setNutrition(await fetchNutritionAssignment(programId));
+      setNutritionLoaded(true);
+    } catch {
+      setNutritionLoaded(false);
+    }
+  }, [programId]);
+
+  const handleGenerate = useCallback(async () => {
+    setGenerating(true);
+    try {
+      setNutrition(await generateNutritionAssignment(programId));
+      setNutritionLoaded(true);
+    } catch {
+      setNutritionLoaded(false);
+    } finally {
+      setGenerating(false);
+    }
+  }, [programId]);
+
   useEffect(() => {
     void load();
   }, [load, retryCount]);
+
+  // Nutrition is fetched only for a Premium Level 1 entitlement, and only after
+  // the entitled program itself resolved. A generic plan never issues the
+  // request at all.
+  const premium = detail !== null && isPremiumPackage(detail.product_type);
+
+  useEffect(() => {
+    if (!premium) {
+      setNutritionLoaded(false);
+      return;
+    }
+    void loadNutrition();
+  }, [premium, loadNutrition]);
 
   return (
     <PageWrapper className={styles.page}>
@@ -79,6 +140,8 @@ export const ProgramAccessPage = () => {
               {detail.description ? <p className={styles.subtitle}>{detail.description}</p> : null}
 
               <div className={styles.chips}>
+                {premium ? <span className={styles.chipPremium}>Premium Level 1</span> : null}
+                {premium ? <span className={styles.chip}>Training + nutrition</span> : null}
                 {detail.training_type ? <span className={styles.chip}>{detail.training_type}</span> : null}
                 {detail.level ? <span className={styles.chip}>{detail.level}</span> : null}
                 {detail.duration_weeks ? (
@@ -95,6 +158,15 @@ export const ProgramAccessPage = () => {
             </header>
 
             <ProgramStructure weeks={detail.weeks} />
+
+            {premium && nutritionLoaded ? (
+              <PremiumNutritionPlan
+                status={nutrition}
+                generating={generating}
+                onGenerate={() => void handleGenerate()}
+                onRefresh={() => void loadNutrition()}
+              />
+            ) : null}
           </section>
         ) : null}
       </main>

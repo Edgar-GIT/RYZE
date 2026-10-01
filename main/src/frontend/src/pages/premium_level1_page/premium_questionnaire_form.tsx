@@ -13,8 +13,10 @@ import styles from "./premium_questionnaire_form.module.css";
 interface PremiumQuestionnaireFormProps {
   programId: string;
   questions: QuestionnaireQuestion[];
-  /** The server's authoritative answer. Editable only while the server says so. */
+  /** The client's current answers. Never sent back by the server, so this is
+   *  the only place they exist. */
   answers: QuestionnaireAnswers;
+  /** The server's authoritative lock state. */
   locked: boolean;
   submitting: boolean;
   /** Field-level reasons from the last rejected submission, keyed by field. */
@@ -26,29 +28,44 @@ interface PremiumQuestionnaireFormProps {
   onRetry: () => void;
 }
 
+// The server answers with short, stable reason codes so the API never carries
+// presentation copy. The client owns the wording, and an unknown code still
+// renders as a readable message instead of leaking a token to the user.
+const REASON_TEXT: Record<string, string> = {
+  required: "This answer is required.",
+  "unsupported value": "Choose one of the listed options.",
+  "out of range": "This value is outside the accepted range.",
+  "too many entries": "Too many options selected.",
+  "entry too long": "This answer is too long.",
+  "too long": "This answer is too long."
+};
+
+const reasonText = (reason: string): string => REASON_TEXT[reason] ?? "Please check this answer.";
+
 // renderInput picks the control from the server-declared question type. The
 // catalog is the single source of truth, so a new question type never needs a
 // client release to be renderable.
 const renderInput = (
   question: QuestionnaireQuestion,
   value: string | number | string[] | undefined,
+  describedBy: string | undefined,
   onChange: (value: string | number | string[]) => void
 ) => {
-  const shared = {
-    id: question.field,
-    name: question.field,
-    required: question.required,
-    maxLength: question.max_length,
-    "aria-describedby": question.help ? `${question.field}-help` : undefined
-  } as const;
+  // Only the attributes that are meaningful for the chosen control are
+  // forwarded. A server-provided max_length must not leak onto a <select> or a
+  // checkbox group, where it would be invalid markup.
+  const described = describedBy ? { "aria-describedby": describedBy } : {};
 
   if (question.type === "select") {
     return (
       <select
-        {...shared}
+        id={question.field}
+        name={question.field}
+        required={question.required}
         className={styles.control}
         value={typeof value === "string" ? value : ""}
         onChange={(event) => onChange(event.target.value)}
+        {...described}
       >
         <option value="">Select an option…</option>
         {(question.options ?? []).map((option) => (
@@ -62,8 +79,9 @@ const renderInput = (
 
   if (question.type === "multi_select") {
     const selected = Array.isArray(value) ? value : [];
+    const capped = selected.length >= (question.max_entries ?? Number.MAX_SAFE_INTEGER);
     return (
-      <div className={styles.options}>
+      <div className={styles.options} {...described}>
         {(question.options ?? []).map((option) => {
           const isChecked = selected.includes(option);
           return (
@@ -76,7 +94,10 @@ const renderInput = (
                 name={question.field}
                 value={option}
                 checked={isChecked}
-                disabled={!isChecked && selected.length >= (question.max_entries ?? Number.MAX_SAFE_INTEGER)}
+                // Unchecked options stop being selectable once the server-declared
+                // entry cap is reached. Selecting one still requires an explicit
+                // click; nothing is ever selected on the buyer's behalf.
+                disabled={!isChecked && capped}
                 onChange={(event) =>
                   onChange(
                     event.target.checked
@@ -96,16 +117,24 @@ const renderInput = (
   if (question.type === "number") {
     return (
       <input
-        {...shared}
+        id={question.field}
+        name={question.field}
+        required={question.required}
         className={styles.control}
         type="number"
         min={question.min}
         max={question.max}
         value={typeof value === "number" ? value : ""}
         onChange={(event) => {
-          const parsed = Number(event.target.value);
-          onChange(event.target.value === "" ? "" : Number.isNaN(parsed) ? "" : parsed);
+          const raw = event.target.value;
+          if (raw === "") {
+            onChange("");
+            return;
+          }
+          const parsed = Number(raw);
+          onChange(Number.isNaN(parsed) ? "" : parsed);
         }}
+        {...described}
       />
     );
   }
@@ -113,23 +142,30 @@ const renderInput = (
   if (question.type === "textarea") {
     return (
       <textarea
-        {...shared}
+        id={question.field}
+        name={question.field}
+        required={question.required}
         className={joinClassNames(styles.control, styles.textarea)}
+        maxLength={question.max_length}
         value={typeof value === "string" ? value : ""}
         onChange={(event) => onChange(event.target.value)}
+        {...described}
       />
     );
   }
 
   return (
     <input
-      {...shared}
+      id={question.field}
+      name={question.field}
+      required={question.required}
       className={styles.control}
       type="text"
       minLength={question.min}
-      maxLength={question.max}
+      maxLength={question.max_length}
       value={typeof value === "string" ? value : ""}
       onChange={(event) => onChange(event.target.value)}
+      {...described}
     />
   );
 };
@@ -172,8 +208,8 @@ export const PremiumQuestionnaireForm = ({
           <span id={`locked-${programId}`}>Your answers are locked</span>
         </p>
         <p className={styles.lockedText}>
-          This questionnaire was completed before your purchase was confirmed, so it is now part of your
-          delivered package. Your training plan and nutrition programme are built from exactly these answers.
+          Your questionnaire is part of the package you purchased, so it can no longer be edited. Your training
+          plan and your nutrition programme are built from exactly these answers.
         </p>
       </section>
     );
@@ -215,24 +251,44 @@ export const PremiumQuestionnaireForm = ({
       <div className={styles.fields}>
         {questions.map((question) => {
           const fieldError = fieldErrors[question.field];
+          const errorId = `${question.field}-error`;
+          // The control is described by its help text, its sensitivity note and
+          // its error, so a screen reader reaches the reason it was rejected.
+          const describedBy =
+            [question.help ? `${question.field}-help` : "", question.sensitive ? `${question.field}-sensitive` : "", fieldError ? errorId : ""]
+              .filter(Boolean)
+              .join(" ") || undefined;
+
           return (
             <fieldset key={question.field} className={styles.field}>
               <legend className={styles.label}>
                 {question.label}
-                {question.required ? <span aria-hidden="true"> *</span> : null}
+                {question.required ? (
+                  <>
+                    <span aria-hidden="true"> *</span>
+                    <span className={styles.visuallyHidden}> (required)</span>
+                  </>
+                ) : null}
               </legend>
               {question.help ? (
                 <p className={styles.help} id={`${question.field}-help`}>
                   {question.help}
                 </p>
               ) : null}
-              {renderInput(question, answers[question.field], (value) => onChange(question.field, value))}
+              {renderInput(
+                question,
+                answers[question.field],
+                describedBy,
+                (value) => onChange(question.field, value)
+              )}
               {question.sensitive ? (
-                <p className={styles.sensitive}>Used only to build your nutrition programme.</p>
+                <p className={styles.sensitive} id={`${question.field}-sensitive`}>
+                  Used only to build your nutrition programme.
+                </p>
               ) : null}
               {fieldError ? (
-                <p className={styles.fieldError} role="alert">
-                  {fieldError}
+                <p className={styles.fieldError} id={errorId} role="alert">
+                  {reasonText(fieldError)}
                 </p>
               ) : null}
             </fieldset>

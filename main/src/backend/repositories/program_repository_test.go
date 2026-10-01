@@ -715,3 +715,81 @@ func TestProgramRepositoryGenericScopeExcludesPremiumProductFamily(t *testing.T)
 		t.Fatal("unscoped catalog must still resolve the published premium program")
 	}
 }
+
+// TestProgramRepositoryPremiumScopeIsProductFamily verifies the Premium Level 1
+// catalog scope. It is deliberately independent from ScopeGeneric so the two
+// marketplaces can never be served by the same predicate.
+func TestProgramRepositoryPremiumScopeIsProductFamily(t *testing.T) {
+	config.LoadEnvFile()
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	db, err := database.Connect(cfg)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+
+	tx := db.Begin()
+	defer tx.Rollback()
+
+	programRepo := repositories.NewProgramRepository(tx)
+	ctx := context.Background()
+
+	seed := func(name, productType string) *models.Program {
+		t.Helper()
+
+		program := &models.Program{
+			ID:          uuid.NewString(),
+			Name:        fmt.Sprintf("%s-%d", name, time.Now().UnixNano()),
+			Type:        models.ProgramTypePremium,
+			Status:      models.ProgramStatusPublished,
+			ProductType: productType,
+		}
+		if err := tx.Exec(
+			"INSERT INTO programs (id, trainer_id, name, type, status, product_type) VALUES (?, NULL, ?, ?, ?, ?)",
+			program.ID, program.Name, program.Type, program.Status, program.ProductType,
+		).Error; err != nil {
+			t.Fatalf("seed %q: %v", name, err)
+		}
+		return program
+	}
+
+	genericProgram := seed("Scope Family Generic", models.ProgramProductTypeGeneric)
+	premiumProgram := seed("Scope Family Premium", models.ProgramProductTypePremiumLevel1)
+
+	premium, _, err := programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{
+		ScopePremiumLevel1: true,
+	}, 1, 50)
+	if err != nil {
+		t.Fatalf("search premium scope: %v", err)
+	}
+	foundPremium := false
+	for _, program := range premium {
+		if program.ProductType != models.ProgramProductTypePremiumLevel1 {
+			t.Fatalf("premium scope returned product_type %q for %q", program.ProductType, program.Name)
+		}
+		if program.ID == premiumProgram.ID {
+			foundPremium = true
+		}
+		if program.ID == genericProgram.ID {
+			t.Fatal("a generic program must never appear in the Premium Level 1 scope")
+		}
+	}
+	if !foundPremium {
+		t.Fatal("premium scope must return the Premium Level 1 program")
+	}
+
+	// The generic scope must not leak it back.
+	generic, _, err := programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{ScopeGeneric: true}, 1, 50)
+	if err != nil {
+		t.Fatalf("search generic scope: %v", err)
+	}
+	for _, program := range generic {
+		if program.ID == premiumProgram.ID {
+			t.Fatal("the Premium Level 1 program must never appear in the generic scope")
+		}
+	}
+}

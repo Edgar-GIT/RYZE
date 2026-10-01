@@ -29,7 +29,13 @@ export const formatMarketplacePrice = (
   }).format(minorUnits / 100);
 };
 
-export interface MarketplaceProgram {
+/** product_type is the product family: "generic" or "premium_level_1". It is
+ *  public product metadata and is never client data. */
+export interface MarketplaceProgramProduct {
+  product_type: string;
+}
+
+export interface MarketplaceProgram extends MarketplaceProgramProduct {
   id: string;
   trainer_id: string | null;
   name: string;
@@ -173,3 +179,25 @@ export const fetchAllMarketplacePrograms = async (
 
 export const fetchMarketplaceProgram = (id: string): Promise<MarketplaceProgramDetail> =>
   apiGet<MarketplaceProgramDetail>(`/programs/${id}`);
+// PREMIUM_SCOPE is the catalog scope for the Premium Level 1 product family.
+const PREMIUM_SCOPE = "premium_level_1";
+
+// fetchPremiumLevel1Programs returns the published Premium Level 1 packages.
+// The Premium entry point reads real product data from the backend rather than
+// hardcoding product metadata.
+export const fetchPremiumLevel1Programs = async (
+  limit = 20
+): Promise<{ programs: MarketplaceProgram[]; total: number }> => {
+  const query = new URLSearchParams({
+    scope: PREMIUM_SCOPE,
+    page: "1",
+    limit: String(limit)
+  });
+
+  const data = await apiGet<{
+    programs: MarketplaceProgram[];
+    pagination: { page: number; limit: number; total: number };
+  }>(`/programs?${query.toString()}`);
+
+  return { programs: data.programs, total: data.pagination.total };
+};

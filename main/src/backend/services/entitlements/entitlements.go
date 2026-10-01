@@ -46,8 +46,10 @@ type Program struct {
 	TrainingType     *string
 	PriceMinorUnits  int64
 	Currency         string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	// ProductType is the product family of the owned program.
+	ProductType string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // Entitlement is the safe representation of a purchase-backed right to access
@@ -167,6 +169,7 @@ func newProgram(model *models.Program) Program {
 		TrainingType:     model.TrainingType,
 		PriceMinorUnits:  model.PriceMinorUnits,
 		Currency:         model.Currency,
+		ProductType:      model.ProductType,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
 	}

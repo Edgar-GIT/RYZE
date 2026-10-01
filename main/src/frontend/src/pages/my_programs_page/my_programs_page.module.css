@@ -106,6 +106,19 @@
   white-space: nowrap;
 }
 
+/* Marks a Premium Level 1 package, which carries training and nutrition rather
+   than a training plan alone. */
+.chipPremium {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(46, 213, 115, 0.4);
+  border-radius: 999px;
+  color: var(--text-primary);
+  background: rgba(46, 213, 115, 0.12);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .cardAction {
   display: inline-flex;
   align-items: center;

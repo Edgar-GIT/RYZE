@@ -96,6 +96,9 @@ export interface EntitlementProgram {
   frequency_per_week?: number | null;
   price_minor_units: number;
   currency: string;
+  /** Product family: "generic" or "premium_level_1". Product metadata, not
+   *  client data. */
+  product_type: string;
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +121,9 @@ export interface Entitlement {
 export interface ProgramAccessDetail {
   id: string;
   trainer_id?: string | null;
+  /** Product family: "generic" or "premium_level_1". Product metadata, not
+   *  client data. */
+  product_type: string;
   name: string;
   description: string;
   type: string;

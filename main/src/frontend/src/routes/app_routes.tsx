@@ -13,6 +13,7 @@ import { HomePage } from "@/pages/home_page/home_page";
 import { LoginPage } from "@/pages/login_page/login_page";
 import { MyProgramsPage } from "@/pages/my_programs_page/my_programs_page";
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
+import { PremiumLevel1Page } from "@/pages/premium_level1_page/premium_level1_page";
 import { ProfilePage } from "@/pages/profile_page/profile_page";
 import { ProgramAccessPage } from "@/pages/program_access_page/program_access_page";
 import { ServicesPage } from "@/pages/services_page/services_page";
@@ -48,6 +49,9 @@ export const AppRoutes = () => {
         <Route exact path="/" component={HomePage} />
         <Route exact path="/services" component={ServicesPage} />
         <Route exact path="/services/generic-program" component={GenericPlanMarketplacePage} />
+        {/* Premium Level 1 must be declared before the dynamic /services/:serviceSlug
+            route, otherwise the slug route would swallow it. */}
+        <Route exact path="/services/premium-level-1" component={PremiumLevel1Page} />
         <Route exact path="/services/generic-program/:programId" component={GenericProgramDetailPage} />
         <Route exact path="/services/my-programs" component={MyProgramsPage} />
         <Route exact path="/services/my-programs/:programId" component={ProgramAccessPage} />

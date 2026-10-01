@@ -16,19 +16,23 @@ import (
 // carries only public product metadata and never exposes the owning trainer,
 // parent identifiers, deletion markers or any internal data.
 type programSummaryResponse struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Description      string    `json:"description"`
-	Type             string    `json:"type"`
-	Status           string    `json:"status"`
-	Level            *string   `json:"level"`
-	DurationWeeks    *int      `json:"duration_weeks"`
-	FrequencyPerWeek *int      `json:"frequency_per_week"`
-	TrainingType     *string   `json:"training_type"`
-	PriceMinorUnits  int64     `json:"price_minor_units"`
-	Currency         string    `json:"currency"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               string  `json:"id"`
+	Name             string  `json:"name"`
+	Description      string  `json:"description"`
+	Type             string  `json:"type"`
+	Status           string  `json:"status"`
+	Level            *string `json:"level"`
+	DurationWeeks    *int    `json:"duration_weeks"`
+	FrequencyPerWeek *int    `json:"frequency_per_week"`
+	TrainingType     *string `json:"training_type"`
+	PriceMinorUnits  int64   `json:"price_minor_units"`
+	// ProductType is the product family the owned program belongs to. It lets
+	// the client render a Premium Level 1 package as training plus nutrition
+	// without a second request. It is product metadata, not client data.
+	ProductType string    `json:"product_type"`
+	Currency    string    `json:"currency"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // entitlementResponse is the safe representation of a purchase-backed right
@@ -57,6 +61,7 @@ func newEntitlementResponse(ent *entitlements.Entitlement) entitlementResponse {
 			FrequencyPerWeek: ent.Program.FrequencyPerWeek,
 			TrainingType:     ent.Program.TrainingType,
 			PriceMinorUnits:  ent.Program.PriceMinorUnits,
+			ProductType:      ent.Program.ProductType,
 			Currency:         ent.Program.Currency,
 			CreatedAt:        ent.Program.CreatedAt,
 			UpdatedAt:        ent.Program.UpdatedAt,
