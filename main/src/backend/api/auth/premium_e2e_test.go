@@ -507,6 +507,62 @@ func TestE2EPremiumQuestionnaireLocksAfterPurchase(t *testing.T) {
 
 // The lock must survive nutrition generation: a delivered package stays
 // immutable on both the questionnaire and the plan side.
+// Locking is decided per authenticated owner by their own entitlement, so a
+// stored intake is never a shared program-level record. This test pins both
+// halves of that property: the owner is locked by their purchase, and a second
+// account observes only its own revision.
+func TestE2EPremiumLockedQuestionnaireStaysPrivateToItsOwner(t *testing.T) {
+	f := newPremiumFlowRouter(t)
+	program := f.seedPremiumProgram(t)
+	owner := f.login(t, uniqueEmail())
+	intruder := f.login(t, uniqueEmail())
+
+	// The intruder submits their own intake for the same program, so a refusal
+	// can never be mistaken for "nothing stored".
+	intruderBody := validIntakeBody()
+	intruderBody["goal"] = "fat_loss"
+	if response := intruder.do(t, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), map[string]any{"answers": intruderBody}); response.Code != http.StatusOK {
+		t.Fatalf("intruder submit = %d; body %s", response.Code, response.Body.String())
+	}
+	intruderState := decodeBody(t, intruder.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	if intruderState["submitted"] != true {
+		t.Fatal("the intruder must see their own submitted intake")
+	}
+
+	// The owner submits and buys, which locks the owner's intake only.
+	if response := owner.do(t, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), map[string]any{"answers": validIntakeBody()}); response.Code != http.StatusOK {
+		t.Fatalf("owner submit = %d; body %s", response.Code, response.Body.String())
+	}
+	completePremiumPurchase(t, f, owner, program)
+
+	ownerState := decodeBody(t, owner.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	if ownerState["locked"] != true {
+		t.Fatalf("owner locked after purchase = %v, want true", ownerState["locked"])
+	}
+
+	// Re-reading as the intruder returns the intruder's own state, not the
+	// owner's locked revision.
+	afterOwnerPurchase := decodeBody(t, intruder.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	if afterOwnerPurchase["version"] != intruderState["version"] {
+		t.Fatalf("a second account observed a foreign revision: before %v, after %v", intruderState["version"], afterOwnerPurchase["version"])
+	}
+	// The intruder's own intake is not locked, because they never purchased.
+	if afterOwnerPurchase["locked"] != false {
+		t.Fatalf("intruder locked = %v, want false: the lock follows their own entitlement", afterOwnerPurchase["locked"])
+	}
+
+	// The owner is still refused, so the private record is genuinely immutable.
+	changed := validIntakeBody()
+	changed["goal"] = "muscle_gain"
+	refused := owner.do(t, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), map[string]any{"answers": changed})
+	if refused.Code != http.StatusConflict {
+		t.Fatalf("owner mutate after purchase = %d, want 409; body %s", refused.Code, refused.Body.String())
+	}
+	if code := errorCode(t, decodeBody(t, refused.Body.String())); code != "QUESTIONNAIRE_LOCKED" {
+		t.Fatalf("owner conflict code = %q, want QUESTIONNAIRE_LOCKED", code)
+	}
+}
+
 func TestE2EPremiumQuestionnaireLocksAfterNutritionGeneration(t *testing.T) {
 	f := newPremiumFlowRouter(t)
 	program := f.seedPremiumProgram(t)
