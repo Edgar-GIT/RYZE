@@ -50,8 +50,9 @@ type ProgramRepository interface {
 	FindPublishedByIDWithStructure(ctx context.Context, programID string) (*models.Program, error)
 	// SearchPublished returns published, non-deleted programs matching the
 	// given catalog filter. Every filter value is optional; empty values are
-	// ignored. ScopeGeneric restricts the catalog to platform-owned programs
-	// (trainer_id IS NULL). sortBy is whitelisted to "created_at" and "name";
+	// ignored. ScopeGeneric restricts the catalog to platform-owned generic
+	// programs (trainer_id IS NULL AND product_type = 'generic'). sortBy is
+	// whitelisted to "created_at" and "name";
 	// any other value falls back to "created_at". order is whitelisted to
 	// "asc" and "desc"; any other value falls back to "desc".
 	SearchPublished(ctx context.Context, filter PublicCatalogFilter, page, limit int) ([]models.Program, int64, error)
@@ -64,8 +65,9 @@ type ProgramRepository interface {
 
 // PublicCatalogFilter narrows the public program catalog. Every value is
 // optional; empty values (and zero integers) are ignored. ScopeGeneric
-// restricts the catalog to platform-owned (trainer_id IS NULL) programs, which
-// is the foundation of the generic training plans marketplace.
+// restricts the catalog to platform-owned generic programs (trainer_id IS NULL
+// AND product_type = 'generic'), which is the foundation of the generic
+// training plans marketplace.
 type PublicCatalogFilter struct {
 	Query            string
 	ProgramType      string
@@ -268,8 +270,9 @@ func (r *programRepository) FindPublishedByIDWithStructure(ctx context.Context, 
 
 // SearchPublished returns published, non-deleted programs matching the given
 // catalog filter. Empty query skips the name filter; ScopeGeneric restricts the
-// catalog to platform-owned programs (trainer_id IS NULL); level, training
-// type and frequency match exactly; duration narrows by range. sortBy is
+// catalog to platform-owned generic programs (trainer_id IS NULL AND
+// product_type = 'generic'); level, training type and frequency match exactly;
+// duration narrows by range. sortBy is
 // whitelisted to "created_at" and "name"; any other value falls back to
 // "created_at". order is whitelisted to "asc" and "desc"; any other value
 // falls back to "desc". SQL LIKE wildcards in the query are escaped to prevent
@@ -282,7 +285,10 @@ func (r *programRepository) SearchPublished(ctx context.Context, filter PublicCa
 		Where("status = ?", models.ProgramStatusPublished)
 
 	if filter.ScopeGeneric {
-		db = db.Where("trainer_id IS NULL")
+		// The generic scope is defined by product family, not only by ownership:
+		// a platform-owned Premium Level 1 program must never surface in the
+		// generic marketplace, where the questionnaire gate does not apply.
+		db = db.Where("trainer_id IS NULL AND product_type = ?", models.ProgramProductTypeGeneric)
 	}
 
 	if filter.Query != "" {

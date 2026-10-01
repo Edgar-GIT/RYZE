@@ -14,6 +14,19 @@ const (
 	ProgramTypePersonalized = "personalized"
 )
 
+// ProgramProductType values describe which product family a program belongs to.
+// It is orthogonal to ProgramType: the latter is the commercial/pricing category
+// (free, premium, personalized) and is left untouched for compatibility, while
+// the product type decides which parts of the purchase lifecycle the program
+// participates in. A premium_level_1 program requires a submitted nutrition
+// questionnaire before checkout and receives a server-owned nutrition assignment
+// once the purchase is verified. generic is the default, so every program that
+// was not explicitly classified keeps its current behaviour.
+const (
+	ProgramProductTypeGeneric       = "generic"
+	ProgramProductTypePremiumLevel1 = "premium_level_1"
+)
+
 // ProgramStatus values describe the business state of a program. Publishing is
 // only a state: it means the program is available for future consumption and
 // carries no purchase, assignment or access semantics.
@@ -41,6 +54,7 @@ type Program struct {
 	Name             string         `gorm:"column:name;type:varchar(255);not null" json:"name"`
 	Description      string         `gorm:"column:description;type:text" json:"description"`
 	Type             string         `gorm:"column:type;type:varchar(20);not null" json:"type"`
+	ProductType      string         `gorm:"column:product_type;type:varchar(32);not null;default:generic" json:"product_type"`
 	Status           string         `gorm:"column:status;type:varchar(20);not null" json:"status"`
 	Level            *string        `gorm:"column:level;type:varchar(20)" json:"level"`
 	DurationWeeks    *int           `gorm:"column:duration_weeks" json:"duration_weeks"`
@@ -57,6 +71,13 @@ type Program struct {
 func (p *Program) BeforeCreate(_ *gorm.DB) error {
 	if p.ID == "" {
 		p.ID = uuid.NewString()
+	}
+	// Every creation path that does not classify the product explicitly lands on
+	// the generic family. Setting it here rather than relying on the column
+	// default keeps the in-memory value authoritative, so a program is never
+	// read back with an empty product type.
+	if p.ProductType == "" {
+		p.ProductType = ProgramProductTypeGeneric
 	}
 	return nil
 }

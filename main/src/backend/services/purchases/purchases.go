@@ -48,6 +48,11 @@ var (
 	// ErrPaymentProvider indicates the payment provider could not initiate the
 	// payment. Internal provider details are never exposed to the client.
 	ErrPaymentProvider = errors.New("payment provider error")
+	// ErrPrerequisiteNotMet indicates the product requires something the buyer
+	// has not provided yet, such as a validated intake, so the purchase cannot
+	// be started. It is reported before any purchase row is created, so a
+	// rejected checkout never leaves a pending purchase behind.
+	ErrPrerequisiteNotMet = errors.New("purchase prerequisite not met")
 )
 
 // ProgramRepository is the data-access surface for reading program data.
@@ -162,12 +167,39 @@ type Service interface {
 }
 
 type service struct {
-	programs     ProgramRepository
-	purchases    PurchaseRepository
-	entitlements EntitlementRepository
-	commission   CommissionResolver
-	payment      payments.Provider
-	resolver     payments.ProviderResolver
+	programs      ProgramRepository
+	purchases     PurchaseRepository
+	entitlements  EntitlementRepository
+	commission    CommissionResolver
+	payment       payments.Provider
+	resolver      payments.ProviderResolver
+	prerequisites CheckoutPrerequisite
+}
+
+// CheckoutPrerequisite enforces a per-product precondition before a purchase can
+// be started. It exists so a product that requires a validated intake — such as
+// Premium Level 1 — cannot be bought before that intake exists, which keeps the
+// derived plan grounded in a stored, validated document.
+//
+// The buyer identity is always the authenticated user resolved by the caller, so
+// a client can never satisfy a precondition on behalf of another account.
+type CheckoutPrerequisite interface {
+	// Satisfied returns nil when the precondition for the product is met, or a
+	// sentinel error when it is not. The product type is passed in because the
+	// caller has already resolved the program.
+	Satisfied(ctx context.Context, userID, programID, productType string) error
+}
+
+// Option configures an optional service collaborator.
+type Option func(*service)
+
+// WithCheckoutPrerequisites installs the per-product checkout precondition gate.
+// It is optional: a service built without it performs no precondition checks,
+// which is the behaviour every product that has no intake requirement relies on.
+func WithCheckoutPrerequisites(prerequisites CheckoutPrerequisite) Option {
+	return func(s *service) {
+		s.prerequisites = prerequisites
+	}
 }
 
 func NewService(
@@ -177,8 +209,9 @@ func NewService(
 	commission CommissionResolver,
 	payment payments.Provider,
 	resolver payments.ProviderResolver,
+	options ...Option,
 ) Service {
-	return &service{
+	svc := &service{
 		programs:     programs,
 		purchases:    purchases,
 		entitlements: entitlements,
@@ -186,6 +219,23 @@ func NewService(
 		payment:      payment,
 		resolver:     resolver,
 	}
+	for _, option := range options {
+		option(svc)
+	}
+	return svc
+}
+
+// checkPrerequisites enforces the per-product checkout precondition. It runs
+// before any purchase row is created, so a product that is not ready to sell
+// never produces a pending purchase.
+func (s *service) checkPrerequisites(ctx context.Context, userID, programID, productType string) error {
+	if s.prerequisites == nil {
+		return nil
+	}
+	if err := s.prerequisites.Satisfied(ctx, userID, programID, productType); err != nil {
+		return fmt.Errorf("%w: %w", ErrPrerequisiteNotMet, err)
+	}
+	return nil
 }
 
 // CreatePurchaseIntent validates the program, snapshots the current price,
@@ -211,6 +261,14 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 
 	if program.Type == models.ProgramTypeFree {
 		return nil, ErrProgramNotPurchasable
+	}
+
+	// A product with a checkout precondition is only sellable once that
+	// precondition holds. The check runs before the duplicate checks and before
+	// any row is written, so a rejected checkout leaves no pending purchase
+	// behind and never snapshots a price for a product the buyer cannot yet buy.
+	if err := s.checkPrerequisites(ctx, userID, programID, program.ProductType); err != nil {
+		return nil, err
 	}
 
 	if _, err := s.entitlements.FindActiveByUserAndProgram(ctx, userID, programID); err == nil {
@@ -472,6 +530,14 @@ func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID st
 
 	if program.Type == models.ProgramTypeFree {
 		return nil, ErrProgramNotPurchasable
+	}
+
+	// A product with a checkout precondition is only sellable once that
+	// precondition holds. The check runs before the duplicate checks and before
+	// any row is written, so a rejected checkout leaves no pending purchase
+	// behind and never snapshots a price for a product the buyer cannot yet buy.
+	if err := s.checkPrerequisites(ctx, userID, programID, program.ProductType); err != nil {
+		return nil, err
 	}
 
 	if _, err := s.entitlements.FindActiveByUserAndProgram(ctx, userID, programID); err == nil {

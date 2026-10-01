@@ -171,9 +171,9 @@ func TestExercisesHandlerRealRouter(t *testing.T) {
 		Success bool `json:"success"`
 		Data    struct {
 			Exercises []struct {
-				ID              string `json:"id"`
-				Name            string `json:"name"`
-				Difficulty      string `json:"difficulty"`
+				ID               string `json:"id"`
+				Name             string `json:"name"`
+				Difficulty       string `json:"difficulty"`
 				MovementCategory string `json:"movement_category"`
 			} `json:"exercises"`
 			Pagination struct {
@@ -248,8 +248,8 @@ func TestExercisesHandlerRealRouter(t *testing.T) {
 	var getBody struct {
 		Data struct {
 			Exercise struct {
-				ID          string `json:"id"`
-				Name        string `json:"name"`
+				ID           string `json:"id"`
+				Name         string `json:"name"`
 				Instructions string `json:"instructions"`
 			} `json:"exercise"`
 			Alternatives []struct {

@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"ryze/backend/config"
 	"ryze/backend/database"
 	"ryze/backend/models"
@@ -617,5 +619,99 @@ func TestProgramRepository(t *testing.T) {
 		if p.Status != models.ProgramStatusPublished {
 			t.Fatalf("search published total count: expected only published, got status %q for %q", p.Status, p.Name)
 		}
+	}
+}
+
+// TestProgramRepositoryGenericScopeExcludesPremiumProductFamily verifies that
+// the generic marketplace is scoped by product family and not by ownership
+// alone. Premium Level 1 programs are platform-owned, so a trainer_id IS NULL
+// filter would otherwise list them as generic plans where the questionnaire
+// gate does not apply.
+func TestProgramRepositoryGenericScopeExcludesPremiumProductFamily(t *testing.T) {
+	config.LoadEnvFile()
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	db, err := database.Connect(cfg)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+
+	tx := db.Begin()
+	defer tx.Rollback()
+
+	programRepo := repositories.NewProgramRepository(tx)
+	ctx := context.Background()
+
+	// seedPlatformProgram writes a real NULL trainer_id, which GORM's
+	// zero-value string cannot represent.
+	seedPlatformProgram := func(name, productType string) *models.Program {
+		t.Helper()
+
+		// A raw insert bypasses the model's BeforeCreate hook, so the primary
+		// key is generated here.
+		program := &models.Program{
+			ID:          uuid.NewString(),
+			Name:        fmt.Sprintf("%s-%d", name, time.Now().UnixNano()),
+			Type:        models.ProgramTypeFree,
+			Status:      models.ProgramStatusPublished,
+			ProductType: productType,
+		}
+		if err := tx.Exec(
+			"INSERT INTO programs (id, trainer_id, name, type, status, product_type) VALUES (?, NULL, ?, ?, ?, ?)",
+			program.ID, program.Name, program.Type, program.Status, program.ProductType,
+		).Error; err != nil {
+			t.Fatalf("seed platform program %q: %v", name, err)
+		}
+		return program
+	}
+
+	genericProgram := seedPlatformProgram("Scope Generic", models.ProgramProductTypeGeneric)
+	premiumProgram := seedPlatformProgram("Scope Premium", models.ProgramProductTypePremiumLevel1)
+
+	// The generic scope returns the generic product and never the premium one.
+	scoped, total, err := programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{ScopeGeneric: true}, 1, 50)
+	if err != nil {
+		t.Fatalf("search generic scope: %v", err)
+	}
+	for _, program := range scoped {
+		if program.ProductType != models.ProgramProductTypeGeneric {
+			t.Fatalf("generic scope returned product_type %q for %q", program.ProductType, program.Name)
+		}
+		if program.ID == premiumProgram.ID {
+			t.Fatal("premium level 1 program must never appear in the generic marketplace scope")
+		}
+	}
+	foundGeneric := false
+	for _, program := range scoped {
+		if program.ID == genericProgram.ID {
+			foundGeneric = true
+		}
+	}
+	if !foundGeneric {
+		t.Fatal("generic scope must still return platform-owned generic programs")
+	}
+	if total < 1 {
+		t.Fatalf("generic scope total = %d, want at least 1", total)
+	}
+
+	// The unscoped public catalog is global and keeps resolving the premium
+	// product, so product visibility is a listing concern, not a global
+	// reachability one.
+	unscoped, _, err := programRepo.SearchPublished(ctx, repositories.PublicCatalogFilter{}, 1, 50)
+	if err != nil {
+		t.Fatalf("search unscoped: %v", err)
+	}
+	foundPremium := false
+	for _, program := range unscoped {
+		if program.ID == premiumProgram.ID {
+			foundPremium = true
+		}
+	}
+	if !foundPremium {
+		t.Fatal("unscoped catalog must still resolve the published premium program")
 	}
 }

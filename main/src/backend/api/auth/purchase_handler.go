@@ -181,6 +181,11 @@ func (h *PurchaseHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
 	case errors.Is(err, purchases.ErrProgramNotPurchasable):
 		RespondError(c, http.StatusConflict, "PROGRAM_NOT_PURCHASABLE", "This program cannot be purchased.", nil)
+	case errors.Is(err, purchases.ErrPrerequisiteNotMet):
+		// The product needs something from the buyer before checkout, such as a
+		// submitted intake. No purchase row was created, so the client can fix
+		// the precondition and start again cleanly.
+		RespondError(c, http.StatusConflict, "PURCHASE_PREREQUISITE_NOT_MET", "This program requires additional information before it can be purchased.", nil)
 	case errors.Is(err, purchases.ErrDuplicateEntitlement):
 		RespondError(c, http.StatusConflict, "DUPLICATE_ENTITLEMENT", "You already own this program.", nil)
 	case errors.Is(err, purchases.ErrDuplicatePurchase):

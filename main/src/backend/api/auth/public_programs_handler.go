@@ -80,7 +80,7 @@ type publicExerciseResponse struct {
 }
 
 type publicWorkoutResponse struct {
-	Position  int                     `json:"position"`
+	Position  int                      `json:"position"`
 	Exercises []publicExerciseResponse `json:"exercises"`
 }
 
@@ -135,21 +135,21 @@ func newPublicProgramDetailResponse(detail *public_programs.ProgramDetail) gin.H
 		weeks = append(weeks, newPublicWeekResponse(detail.Weeks[i]))
 	}
 	return gin.H{
-		"id":                detail.ID,
-		"trainer_id":        detail.TrainerID,
-		"name":              detail.Name,
-		"description":       detail.Description,
-		"type":              detail.Type,
-		"status":            detail.Status,
-		"level":             detail.Level,
-		"duration_weeks":    detail.DurationWeeks,
+		"id":                 detail.ID,
+		"trainer_id":         detail.TrainerID,
+		"name":               detail.Name,
+		"description":        detail.Description,
+		"type":               detail.Type,
+		"status":             detail.Status,
+		"level":              detail.Level,
+		"duration_weeks":     detail.DurationWeeks,
 		"frequency_per_week": detail.FrequencyPerWeek,
-		"training_type":     detail.TrainingType,
-		"price_minor_units": detail.PriceMinorUnits,
-		"currency":          detail.Currency,
-		"created_at":        detail.CreatedAt,
-		"updated_at":        detail.UpdatedAt,
-		"weeks":             weeks,
+		"training_type":      detail.TrainingType,
+		"price_minor_units":  detail.PriceMinorUnits,
+		"currency":           detail.Currency,
+		"created_at":         detail.CreatedAt,
+		"updated_at":         detail.UpdatedAt,
+		"weeks":              weeks,
 	}
 }
 

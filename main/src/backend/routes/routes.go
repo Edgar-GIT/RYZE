@@ -30,6 +30,7 @@ import (
 	"ryze/backend/services/exercises"
 	"ryze/backend/services/generic_programs"
 	"ryze/backend/services/login"
+	"ryze/backend/services/nutrition_assignment"
 	"ryze/backend/services/password"
 	"ryze/backend/services/payments"
 	"ryze/backend/services/program_access"
@@ -38,6 +39,7 @@ import (
 	"ryze/backend/services/programs"
 	"ryze/backend/services/public_programs"
 	"ryze/backend/services/purchases"
+	"ryze/backend/services/questionnaires"
 	"ryze/backend/services/registration"
 	"ryze/backend/services/statistics"
 	"ryze/backend/services/test_mode"
@@ -128,13 +130,38 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	commissionRulesService := commission_rules.NewService(commissionRuleRepository, trainerRepository, commissionCfg)
 	adminCommissionHandler := auth.NewAdminCommissionHandler(commissionRulesService)
 
+	// Premium Level 1 intake and its derived nutrition plan. The questionnaire
+	// service is also the checkout precondition gate, so a program in this family
+	// cannot be bought before an intake exists.
+	nutritionQuestionnaireRepository := repositories.NewNutritionQuestionnaireRepository(db)
+	questionnaireService := questionnaires.NewService(trainerProgramRepository, nutritionQuestionnaireRepository)
+	questionnaireHandler := auth.NewQuestionnaireHandler(questionnaireService)
+
+	nutritionAssignmentRepository := repositories.NewNutritionAssignmentRepository(db)
+	nutritionAssignmentService := nutrition_assignment.NewService(
+		trainerProgramRepository,
+		entitlementRepository,
+		questionnaireService,
+		nutritionAssignmentRepository,
+		nutrition_assignment.NewDeterministicGenerator(),
+	)
+	nutritionHandler := auth.NewNutritionHandler(nutritionAssignmentService)
+
 	purchaseRepository := repositories.NewPurchaseRepository(db)
 	stripeProvider, paypalProvider := resolvePaymentProviders(stripeCfg, paypalCfg, webhookCfg)
 	// MB WAY is settled by Stripe, so it shares the Stripe provider instance and
 	// therefore the same complete-configuration gate: it is offered exactly when
 	// Stripe is enabled, never independently and never partially.
 	methodMap := payments.NewMethodProviderMap(stripeProvider, stripeProvider, paypalProvider)
-	purchaseService := purchases.NewService(trainerProgramRepository, purchaseRepository, entitlementRepository, &commissionAdapter{svc: commissionRulesService}, nil, methodMap.Resolve)
+	purchaseService := purchases.NewService(
+		trainerProgramRepository,
+		purchaseRepository,
+		entitlementRepository,
+		&commissionAdapter{svc: commissionRulesService},
+		nil,
+		methodMap.Resolve,
+		purchases.WithCheckoutPrerequisites(questionnaireService),
+	)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)
 
@@ -186,6 +213,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
 	v1.GET("/me/entitlements", middleware.Authenticate(tokenService, userRepository), entitlementHandler.ListEntitlements)
 	v1.GET("/me/programs/:programID", middleware.Authenticate(tokenService, userRepository), programAccessHandler.GetProgramAccess)
+	v1.GET("/me/questionnaire/questions", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.GetQuestions)
+	v1.GET("/me/programs/:programID/questionnaire", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.GetRequirement)
+	v1.POST("/me/programs/:programID/questionnaire", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.Submit)
+	v1.GET("/me/programs/:programID/nutrition", middleware.Authenticate(tokenService, userRepository), nutritionHandler.GetStatus)
+	v1.POST("/me/programs/:programID/nutrition/generate", middleware.Authenticate(tokenService, userRepository), nutritionHandler.Generate)
 	v1.GET("/me/purchases", middleware.Authenticate(tokenService, userRepository), purchaseHandler.ListPurchases)
 	v1.POST("/me/programs/:programID/purchase", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CreatePurchase)
 	v1.POST("/me/purchases/:purchaseID/payment", middleware.Authenticate(tokenService, userRepository), purchaseHandler.InitiatePayment)
