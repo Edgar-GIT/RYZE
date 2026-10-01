@@ -86,6 +86,10 @@ func (h *TestModePurchaseHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
 	case errors.Is(err, purchases.ErrProgramNotPurchasable):
 		RespondError(c, http.StatusConflict, "PROGRAM_NOT_PURCHASABLE", "Program is not purchasable.", nil)
+	case errors.Is(err, purchases.ErrPrerequisiteNotMet):
+		// The questionnaire gate applies to Test Mode exactly as it does to a
+		// paid checkout. No purchase row was created.
+		RespondError(c, http.StatusConflict, "PURCHASE_PREREQUISITE_NOT_MET", "This program requires additional information before it can be purchased.", nil)
 	case errors.Is(err, purchases.ErrDuplicateEntitlement):
 		RespondError(c, http.StatusConflict, "DUPLICATE_ENTITLEMENT", "You already own this program.", nil)
 	default:

@@ -215,7 +215,7 @@ func TestSubmitRejectsGenericProgram(t *testing.T) {
 
 func TestSubmitRejectsUnpublishedProgram(t *testing.T) {
 	repo := &stubQuestionnaireRepository{}
-	svc := questionnaires.NewService(&stubProgramRepository{err: repositories.ErrProgramNotFound}, repo)
+	svc := questionnaires.NewService(&stubProgramRepository{err: repositories.ErrProgramNotFound}, repo, &stubEntitlementRepository{})
 
 	if _, err := svc.Submit(context.Background(), premiumUser, missingProg, validAnswers()); !errors.Is(err, questionnaires.ErrProgramNotFound) {
 		t.Fatalf("expected ErrProgramNotFound, got %v", err)
@@ -359,4 +359,71 @@ func mustNormalize(t *testing.T) []byte {
 		t.Fatalf("failed to encode fixture: %v", err)
 	}
 	return encoded
+}
+
+// The lock is derived from the entitlement, so an owned program must reject
+// mutation without the service ever consulting the answer payload.
+func TestSubmitRejectedOnceTheProgramIsOwned(t *testing.T) {
+	repo := &stubQuestionnaireRepository{row: &storedQuestionnaire{id: storedID, version: 2, answers: mustNormalize(t)}}
+	entitlements := &stubEntitlementRepository{entitlement: &models.Entitlement{UserID: premiumUser, ProgramID: premiumProg}}
+	svc := questionnaires.NewService(&stubProgramRepository{program: premiumProgram()}, repo, entitlements)
+
+	if _, err := svc.Submit(context.Background(), premiumUser, premiumProg, validAnswers()); !errors.Is(err, questionnaires.ErrLocked) {
+		t.Fatalf("expected ErrLocked, got %v", err)
+	}
+	if repo.upsertCalls != 0 {
+		t.Fatal("a locked questionnaire must never write, not even after validation")
+	}
+}
+
+// Reading stays available after locking: the client must still be able to show
+// that an intake exists.
+func TestGetRequirementReportsLockedAfterPurchase(t *testing.T) {
+	repo := &stubQuestionnaireRepository{row: &storedQuestionnaire{id: storedID, version: 2, answers: mustNormalize(t)}}
+	entitlements := &stubEntitlementRepository{entitlement: &models.Entitlement{UserID: premiumUser, ProgramID: premiumProg}}
+	svc := questionnaires.NewService(&stubProgramRepository{program: premiumProgram()}, repo, entitlements)
+
+	requirement, err := svc.GetRequirement(context.Background(), premiumUser, premiumProg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !requirement.Locked {
+		t.Fatal("an owned program must report the intake as locked")
+	}
+	if !requirement.Submitted || requirement.Version == 0 {
+		t.Fatalf("a locked intake must remain readable, got %+v", requirement)
+	}
+}
+
+// A program the user never bought stays editable, which is what allows the
+// intake to be corrected before checkout.
+func TestSubmitAllowedBeforePurchase(t *testing.T) {
+	repo := &stubQuestionnaireRepository{}
+	entitlements := &stubEntitlementRepository{}
+	svc := questionnaires.NewService(&stubProgramRepository{program: premiumProgram()}, repo, entitlements)
+
+	if _, err := svc.Submit(context.Background(), premiumUser, premiumProg, validAnswers()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.upsertCalls != 1 {
+		t.Fatalf("expected exactly one write, got %d", repo.upsertCalls)
+	}
+}
+
+// A failure to read the entitlement must never be interpreted as "not locked",
+// because that would let a database problem reopen a purchased questionnaire.
+func TestEntitlementLookupFailureIsNotTreatedAsUnlocked(t *testing.T) {
+	repo := &stubQuestionnaireRepository{row: &storedQuestionnaire{id: storedID, version: 2, answers: mustNormalize(t)}}
+	entitlements := &stubEntitlementRepository{err: errors.New("database unavailable")}
+	svc := questionnaires.NewService(&stubProgramRepository{program: premiumProgram()}, repo, entitlements)
+
+	if _, err := svc.GetRequirement(context.Background(), premiumUser, premiumProg); err == nil {
+		t.Fatal("an entitlement lookup failure must surface as an error")
+	}
+	if _, err := svc.Submit(context.Background(), premiumUser, premiumProg, validAnswers()); err == nil {
+		t.Fatal("an entitlement lookup failure must block the write")
+	}
+	if repo.upsertCalls != 0 {
+		t.Fatal("no write may happen while the lock state is unknown")
+	}
 }

@@ -16,13 +16,16 @@ import (
 	"ryze/backend/config"
 	"ryze/backend/database"
 	"ryze/backend/middleware"
+	"ryze/backend/middleware/adminroles"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/commission_rules"
 	"ryze/backend/services/nutrition_assignment"
+	"ryze/backend/services/password"
 	"ryze/backend/services/payments"
 	"ryze/backend/services/purchases"
 	"ryze/backend/services/questionnaires"
+	"ryze/backend/services/test_mode"
 	"ryze/backend/services/token"
 )
 
@@ -38,6 +41,7 @@ const (
 type premiumFlowFixture struct {
 	router    *gin.Engine
 	tx        *gorm.DB
+	tokens    token.Service
 	programs  repositories.ProgramRepository
 	purchases purchases.Service
 	nutrition nutrition_assignment.Service
@@ -79,7 +83,7 @@ func newPremiumFlowRouter(t *testing.T) *premiumFlowFixture {
 		commissionRuleRepo, trainerRepo, config.CommissionConfig{DefaultPlatformCommissionBPS: 2000},
 	)
 
-	questionnaireSvc := questionnaires.NewService(programRepo, questionnaireRepo)
+	questionnaireSvc := questionnaires.NewService(programRepo, questionnaireRepo, entitlementRepo)
 	questionnaireHandler := auth.NewQuestionnaireHandler(questionnaireSvc)
 
 	nutritionSvc := nutrition_assignment.NewService(
@@ -112,9 +116,31 @@ func newPremiumFlowRouter(t *testing.T) *premiumFlowFixture {
 	me.POST("/purchases/:purchaseID/payment", purchaseHandler.InitiatePayment)
 	me.POST("/purchases/:purchaseID/capture", purchaseHandler.CapturePayment)
 
+	// Test Mode is a real purchase path, so it is wired into this fixture to
+	// prove it cannot bypass the questionnaire gate or the post-purchase lock.
+	testModeSvc := test_mode.NewService(
+		true,
+		repositories.NewTestSessionRepository(tx),
+		userRepo,
+		trainerRepo,
+		password.Hasher{},
+	)
+	testModeHandler := auth.NewTestModeHandler(testModeSvc, tokenSvc, userRepo, testTokenTTL, false)
+	testModePurchaseHandler := auth.NewTestModePurchaseHandler(testModeSvc, purchaseSvc)
+
+	v1 := router.Group("/api/v1")
+	v1.POST("/admin/auth/test-mode",
+		middleware.AdminAuthenticate(tokenSvc),
+		middleware.RequireAdminRole(adminroles.RoleTechnicalAdministrator),
+		testModeHandler.Enter)
+	v1.POST("/auth/test-mode/programs/:programID/purchase",
+		middleware.Authenticate(tokenSvc, userRepo),
+		testModePurchaseHandler.Purchase)
+
 	return &premiumFlowFixture{
 		router:    router,
 		tx:        tx,
+		tokens:    tokenSvc,
 		programs:  programRepo,
 		purchases: purchaseSvc,
 		nutrition: nutritionSvc,
@@ -428,7 +454,60 @@ func TestE2EPremiumPlanIsGeneratedAfterPurchaseAndIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestE2EPremiumQuestionnaireResubmissionMarksPlanOutOfDate(t *testing.T) {
+func TestE2EPremiumQuestionnaireLocksAfterPurchase(t *testing.T) {
+	f := newPremiumFlowRouter(t)
+	program := f.seedPremiumProgram(t)
+	client := f.login(t, uniqueEmail())
+
+	// Before purchase the intake is freely editable, including resubmission.
+	first := client.do(t, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), map[string]any{"answers": validIntakeBody()})
+	if first.Code != http.StatusOK {
+		t.Fatalf("initial submit = %d; body %s", first.Code, first.Body.String())
+	}
+	updated := validIntakeBody()
+	updated["goal"] = "muscle_gain"
+	if response := client.do(t, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), map[string]any{"answers": updated}); response.Code != http.StatusOK {
+		t.Fatalf("resubmit before purchase = %d, want 200; body %s", response.Code, response.Body.String())
+	}
+
+	// The requirement view advertises the locked state before the purchase.
+	preLock := decodeBody(t, client.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	if preLock["locked"] != false {
+		t.Fatalf("locked before purchase = %v, want false", preLock["locked"])
+	}
+
+	completePremiumPurchase(t, f, client, program)
+
+	// The server, not the client, decides editability.
+	postLock := decodeBody(t, client.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	if postLock["locked"] != true {
+		t.Fatalf("locked after purchase = %v, want true", postLock["locked"])
+	}
+	if postLock["submitted"] != true {
+		t.Fatal("reading the requirement after locking must still report the stored intake")
+	}
+
+	// Every mutation attempt is refused with the documented conflict.
+	changed := validIntakeBody()
+	changed["goal"] = "fat_loss"
+	refused := client.do(t, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), map[string]any{"answers": changed})
+	if refused.Code != http.StatusConflict {
+		t.Fatalf("mutate after purchase = %d, want 409; body %s", refused.Code, refused.Body.String())
+	}
+	if code := errorCode(t, decodeBody(t, refused.Body.String())); code != "QUESTIONNAIRE_LOCKED" {
+		t.Fatalf("conflict code = %q, want QUESTIONNAIRE_LOCKED", code)
+	}
+
+	// The stored revision is untouched: a refused mutation changes nothing.
+	after := decodeBody(t, client.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	if after["version"] != postLock["version"] {
+		t.Fatalf("a refused mutation must not bump the revision: before %v, after %v", postLock["version"], after["version"])
+	}
+}
+
+// The lock must survive nutrition generation: a delivered package stays
+// immutable on both the questionnaire and the plan side.
+func TestE2EPremiumQuestionnaireLocksAfterNutritionGeneration(t *testing.T) {
 	f := newPremiumFlowRouter(t)
 	program := f.seedPremiumProgram(t)
 	client := f.login(t, uniqueEmail())
@@ -438,20 +517,72 @@ func TestE2EPremiumQuestionnaireResubmissionMarksPlanOutOfDate(t *testing.T) {
 		t.Fatalf("generate = %d; body %s", response.Code, response.Body.String())
 	}
 
-	// A new intake revision supersedes the generated plan instead of being
-	// silently ignored.
-	updated := validIntakeBody()
-	updated["goal"] = "muscle_gain"
-	if response := client.do(t, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), map[string]any{"answers": updated}); response.Code != http.StatusOK {
-		t.Fatalf("resubmit = %d; body %s", response.Code, response.Body.String())
+	changed := validIntakeBody()
+	changed["goal"] = "fat_loss"
+	if refused := client.do(t, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), map[string]any{"answers": changed}); refused.Code != http.StatusConflict {
+		t.Fatalf("mutate after generation = %d, want 409; body %s", refused.Code, refused.Body.String())
 	}
 
+	// Regenerating must return the delivered plan unchanged rather than
+	// producing a second, different one.
 	status := client.do(t, http.MethodGet, sprintfPath(premiumNutritionRoute, program.ID), nil)
 	if status.Code != http.StatusOK {
-		t.Fatalf("status = %d; body %s", status.Code, status.Body.String())
+		t.Fatalf("status after generation = %d; body %s", status.Code, status.Body.String())
 	}
-	if decodeBody(t, status.Body.String())["out_of_date"] != true {
-		t.Error("expected a plan derived from a superseded intake to be reported as out of date")
+	delivered := decodeBody(t, status.Body.String())
+	if delivered["status"] != models.NutritionAssignmentStatusCompleted {
+		t.Fatalf("status = %v, want completed", delivered["status"])
+	}
+	if delivered["out_of_date"] == true {
+		t.Fatal("a locked questionnaire can never make the delivered plan out of date")
+	}
+	repeat := client.do(t, http.MethodPost, sprintfPath(premiumGenerateRoute, program.ID), nil)
+	if repeat.Code != http.StatusOK {
+		t.Fatalf("repeat generate = %d; body %s", repeat.Code, repeat.Body.String())
+	}
+	if decodeBody(t, repeat.Body.String())["status"] != models.NutritionAssignmentStatusCompleted {
+		t.Fatal("regeneration must not produce a second plan state")
+	}
+}
+
+// A Test Mode purchase creates the same entitlement, so it must lock the
+// questionnaire exactly like a paid purchase.
+func TestE2EPremiumQuestionnaireLocksAfterTestModePurchase(t *testing.T) {
+	f := newPremiumFlowRouter(t)
+	program := f.seedPremiumProgram(t)
+
+	cookies, _ := enterTestMode(t, f.router, f.tokens, "client")
+
+	// The questionnaire gate applies to Test Mode too.
+	cookies = testModePersona(t, f, cookies)
+	blocked := testModePurchase(t, f, cookies, program.ID)
+	if blocked.Code == http.StatusOK || blocked.Code == http.StatusCreated {
+		t.Fatalf("Test Mode purchase without an intake = %d, want a rejection; body %s", blocked.Code, blocked.Body.String())
+	}
+	if code := errorCode(t, decodeBody(t, blocked.Body.String())); code != "PURCHASE_PREREQUISITE_NOT_MET" {
+		t.Fatalf("Test Mode gate code = %q, want PURCHASE_PREREQUISITE_NOT_MET", code)
+	}
+
+	// Submit the persona intake through the same questionnaire endpoint.
+	payload := testModeRequestWith(t, f, cookies, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), `{"answers":`+mustJSON(t, validIntakeBody())+`}`)
+	if payload.Code != http.StatusOK {
+		t.Fatalf("persona intake = %d; body %s", payload.Code, payload.Body.String())
+	}
+
+	completed := testModePurchase(t, f, cookies, program.ID)
+	if completed.Code != http.StatusCreated {
+		t.Fatalf("Test Mode purchase = %d, want 201; body %s", completed.Code, completed.Body.String())
+	}
+	if status := purchaseData(t, completed)["status"]; status != models.PurchaseStatusCompleted {
+		t.Fatalf("Test Mode purchase status = %v, want completed", status)
+	}
+
+	// The lock is identical after a Test Mode purchase.
+	changed := validIntakeBody()
+	changed["goal"] = "fat_loss"
+	refused := testModeRequestWith(t, f, cookies, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), `{"answers":`+mustJSON(t, changed)+`}`)
+	if refused.Code != http.StatusConflict {
+		t.Fatalf("mutate after Test Mode purchase = %d, want 409; body %s", refused.Code, refused.Body.String())
 	}
 }
 
@@ -586,3 +717,52 @@ func joinStrings(values []string, separator string) string {
 
 // strPtr is a small helper for building seeded program metadata.
 func strPtr(v string) *string { return &v }
+
+// testModePersona returns the cookie set of the active Test Mode persona, so a
+// request can be issued as the persona the administrator switched into.
+func testModePersona(t *testing.T, f *premiumFlowFixture, cookies map[string]string) map[string]string {
+	t.Helper()
+
+	if cookies[auth.AccessTokenCookieName] == "" {
+		t.Fatal("Test Mode must hand back a persona access token")
+	}
+	return cookies
+}
+
+// testModePurchase issues a Test Mode purchase as the active persona.
+func testModePurchase(t *testing.T, f *premiumFlowFixture, cookies map[string]string, programID string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return testModeRequestWith(t, f, cookies, http.MethodPost, "/api/v1/auth/test-mode/programs/"+programID+"/purchase", "")
+}
+
+// testModeRequestWith issues an authenticated request carrying both the persona
+// access token and the Test Mode session token.
+func testModeRequestWith(t *testing.T, f *premiumFlowFixture, cookies map[string]string, method, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	recorder := httptest.NewRecorder()
+	var req *http.Request
+	if body == "" {
+		req = httptest.NewRequest(method, path, nil)
+	} else {
+		req = httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.AddCookie(&http.Cookie{Name: auth.AccessTokenCookieName, Value: cookies[auth.AccessTokenCookieName]})
+	req.AddCookie(&http.Cookie{Name: auth.TestSessionTokenCookieName, Value: cookies[auth.TestSessionTokenCookieName]})
+
+	f.router.ServeHTTP(recorder, req)
+	return recorder
+}
+
+// mustJSON encodes a request payload that is statically known to be valid.
+func mustJSON(t *testing.T, value map[string]any) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("encode payload: %v", err)
+	}
+	return string(encoded)
+}

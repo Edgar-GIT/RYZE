@@ -17,11 +17,14 @@ import (
 // know whether it must still answer, and the answers themselves are never read
 // back from the server.
 type questionnaireResponse struct {
-	Success          bool   `json:"success"`
-	ProgramID        string `json:"program_id"`
-	Required         bool   `json:"required"`
-	Submitted        bool   `json:"submitted"`
-	Version          int    `json:"version"`
+	Success   bool   `json:"success"`
+	ProgramID string `json:"program_id"`
+	Required  bool   `json:"required"`
+	Submitted bool   `json:"submitted"`
+	Version   int    `json:"version"`
+	// Locked is authoritative: the client must not decide editability from its
+	// own local state, it renders this flag.
+	Locked           bool   `json:"locked"`
 	SchemaVersion    int    `json:"schema_version"`
 	MinSchemaVersion int    `json:"min_schema_version"`
 	SubmittedAt      string `json:"submitted_at,omitempty"`
@@ -154,6 +157,7 @@ func newQuestionnaireResponse(requirement *questionnaires.Requirement) questionn
 		Required:         requirement.Required,
 		Submitted:        requirement.Submitted,
 		Version:          requirement.Version,
+		Locked:           requirement.Locked,
 		SchemaVersion:    requirement.SchemaVersion,
 		MinSchemaVersion: requirement.MinSchemaVersion,
 	}
