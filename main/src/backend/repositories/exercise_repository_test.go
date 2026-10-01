@@ -48,15 +48,15 @@ func TestExerciseRepository(t *testing.T) {
 
 	seedFullExercise := func(name, primary, category, difficulty string) *models.Exercise {
 		exercise := &models.Exercise{
-			Name:                 name,
-			Description:          "Repository test exercise.",
-			Instructions:         "Perform the movement under control.",
-			TargetMuscles:        primary,
-			PrimaryMuscleGroup:   primary,
+			Name:                  name,
+			Description:           "Repository test exercise.",
+			Instructions:          "Perform the movement under control.",
+			TargetMuscles:         primary,
+			PrimaryMuscleGroup:    primary,
 			SecondaryMuscleGroups: "Core",
-			Equipment:            "Barbell, Bench",
-			Difficulty:           difficulty,
-			MovementCategory:     category,
+			Equipment:             "Barbell, Bench",
+			Difficulty:            difficulty,
+			MovementCategory:      category,
 		}
 		if err := tx.Create(exercise).Error; err != nil {
 			t.Fatalf("seed full exercise: %v", err)

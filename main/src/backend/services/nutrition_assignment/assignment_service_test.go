@@ -96,10 +96,7 @@ type stubAssignments struct {
 	// ensureCalls counts provisioning attempts, so idempotency is observable.
 	ensureCalls int
 	markedProc  int
-	markedDone  int
 	markedFail  int
-	// failOnComplete simulates a generation run that cannot be committed.
-	failOnComplete error
 }
 
 func (r *stubAssignments) EnsurePendingForUserAndProgram(_ context.Context, userID, programID, questionnaireID string, version int) (*models.NutritionAssignment, bool, error) {
@@ -127,37 +124,85 @@ func (r *stubAssignments) FindByUserAndProgram(_ context.Context, _, _ string) (
 	return r.assignment, nil
 }
 
-func (r *stubAssignments) MarkProcessing(context.Context, string, string) error {
+// MarkProcessing mirrors the repository's compare-and-swap claim: it only succeeds
+// at the expected version, from a retryable state, and it pins the revision being
+// generated.
+func (r *stubAssignments) MarkProcessing(_ context.Context, _, _, questionnaireID string, questionnaireVersion, expectedVersion int) error {
 	r.markedProc++
 	if r.assignment == nil {
 		return repositories.ErrNutritionAssignmentNotFound
 	}
-	if r.assignment.Status != models.NutritionAssignmentStatusPending &&
-		r.assignment.Status != models.NutritionAssignmentStatusFailed {
+	if r.assignment.Version != expectedVersion {
+		return repositories.ErrNutritionAssignmentNotRetryable
+	}
+	switch r.assignment.Status {
+	case models.NutritionAssignmentStatusPending,
+		models.NutritionAssignmentStatusFailed,
+		models.NutritionAssignmentStatusCompleted:
+	default:
 		return repositories.ErrNutritionAssignmentNotRetryable
 	}
 	r.assignment.Status = models.NutritionAssignmentStatusProcessing
+	r.assignment.QuestionnaireID = questionnaireID
+	r.assignment.QuestionnaireVersion = questionnaireVersion
 	return nil
 }
 
-func (r *stubAssignments) MarkCompleted(_ context.Context, _, _ string, configuration []byte, questionnaireVersion int) error {
+// stubPlans stands in for the plan repository. It reproduces the guarantees the
+// real implementation gets from the database, so the service is exercised against
+// the same rules: a completion only succeeds from a processing assignment at the
+// expected intake revision, and an active plan is always readable afterwards.
+type stubPlans struct {
+	assignments *stubAssignments
+	active      *models.NutritionPlan
+	completed   int
+	// failOnComplete simulates a commit that cannot be made.
+	failOnComplete error
+}
+
+func (r *stubPlans) Complete(_ context.Context, _, _ string, plan *models.NutritionPlan) error {
 	if r.failOnComplete != nil {
 		return r.failOnComplete
 	}
-	r.markedDone++
-	if r.assignment == nil {
+	assignment := r.assignments.assignment
+	if assignment == nil {
 		return repositories.ErrNutritionAssignmentNotFound
 	}
-	if r.assignment.QuestionnaireVersion != questionnaireVersion {
+	if assignment.QuestionnaireVersion != plan.QuestionnaireVersion {
 		return repositories.ErrNutritionAssignmentNotRetryable
 	}
-	if r.assignment.Status != models.NutritionAssignmentStatusProcessing {
+	if assignment.Status != models.NutritionAssignmentStatusProcessing {
 		return repositories.ErrNutritionAssignmentNotRetryable
 	}
-	r.assignment.Status = models.NutritionAssignmentStatusCompleted
-	r.assignment.Configuration = configuration
-	r.assignment.Version++
+
+	plan.AssignmentID = assignment.ID
+	plan.UserID = assignment.UserID
+	plan.ProgramID = assignment.ProgramID
+	plan.Version = assignment.Version + 1
+	plan.Status = models.NutritionPlanStatusActive
+
+	r.completed++
+	r.active = plan
+	assignment.Status = models.NutritionAssignmentStatusCompleted
+	assignment.Version = plan.Version
 	return nil
+}
+
+func (r *stubPlans) FindActiveByUserAndProgram(_ context.Context, userID, programID string) (*models.NutritionPlan, error) {
+	if r.active == nil {
+		return nil, repositories.ErrNutritionPlanNotFound
+	}
+	if r.active.UserID != userID || r.active.ProgramID != programID {
+		return nil, repositories.ErrNutritionPlanNotFound
+	}
+	return r.active, nil
+}
+
+func (r *stubPlans) FindActiveByAssignment(_ context.Context, assignmentID string) (*models.NutritionPlan, error) {
+	if r.active == nil || r.active.AssignmentID != assignmentID {
+		return nil, repositories.ErrNutritionPlanNotFound
+	}
+	return r.active, nil
 }
 
 func (r *stubAssignments) MarkFailed(_ context.Context, _, _, _ string) error {
@@ -181,6 +226,7 @@ type harness struct {
 	entitlements *stubEntitlements
 	questionn    *stubQuestionnaires
 	assignments  *stubAssignments
+	plans        *stubPlans
 }
 
 func newHarness(t *testing.T, program *models.Program, owned bool, generator nutrition_assignment.Generator) *harness {
@@ -197,16 +243,18 @@ func newHarness(t *testing.T, program *models.Program, owned bool, generator nut
 		Intake:          mustIntake(t, validIntake(t)),
 	}}
 	assignments := &stubAssignments{}
+	plans := &stubPlans{assignments: assignments}
 	if generator == nil {
 		generator = nutrition_assignment.NewDeterministicGenerator()
 	}
 
 	return &harness{
-		svc:          nutrition_assignment.NewService(programs, entitlements, questionn, assignments, generator),
+		svc:          nutrition_assignment.NewService(programs, entitlements, questionn, assignments, plans, generator),
 		programs:     programs,
 		entitlements: entitlements,
 		questionn:    questionn,
 		assignments:  assignments,
+		plans:        plans,
 	}
 }
 
@@ -241,8 +289,8 @@ func TestRunGeneratesAndCompletesThePlan(t *testing.T) {
 	if status.Plan == nil {
 		t.Fatal("expected a generated plan for a completed assignment")
 	}
-	if h.assignments.markedProc != 1 || h.assignments.markedDone != 1 {
-		t.Errorf("expected exactly one claim and one completion, got %d and %d", h.assignments.markedProc, h.assignments.markedDone)
+	if h.assignments.markedProc != 1 || h.plans.completed != 1 {
+		t.Errorf("expected exactly one claim and one completion, got %d and %d", h.assignments.markedProc, h.plans.completed)
 	}
 }
 
@@ -308,7 +356,7 @@ func TestRunRetriesAFailedGenerationInPlace(t *testing.T) {
 
 	// Swapping in a working generator and retrying completes the same row.
 	h.svc = nutrition_assignment.NewService(
-		h.programs, h.entitlements, h.questionn, h.assignments,
+		h.programs, h.entitlements, h.questionn, h.assignments, h.plans,
 		nutrition_assignment.NewDeterministicGenerator(),
 	)
 	status, err := h.svc.Run(context.Background(), ownerUser, premiumProg)
@@ -440,6 +488,183 @@ func TestStatusNeverExposesInternalDiagnostics(t *testing.T) {
 	}
 	if strings.Contains(string(encoded), "generator unavailable") {
 		t.Error("status response must not carry the internal failure reason")
+	}
+}
+
+// TestRunSupersedesThePlanAfterAnIntakeResubmission asserts an outdated plan is
+// never rewritten and never regenerated behind the client's back: a read reports
+// it as stale, and only an explicit run produces the next version.
+func TestRunSupersedesThePlanAfterAnIntakeResubmission(t *testing.T) {
+	h := newHarness(t, premiumProgram(), true, nil)
+
+	first, err := h.svc.Run(context.Background(), ownerUser, premiumProg)
+	if err != nil {
+		t.Fatalf("first Run failed: %v", err)
+	}
+
+	h.questionn.stored = &nutrition_questionnaire.StoredIntake{
+		QuestionnaireID: questionnID,
+		Version:         2,
+		Intake:          mustIntake(t, validIntake(t)),
+	}
+
+	read, err := h.svc.GetStatus(context.Background(), ownerUser, premiumProg)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if !read.OutOfDate {
+		t.Error("expected the plan to be reported as out of date")
+	}
+	if read.Plan == nil || read.Plan.Version != first.Plan.Version {
+		t.Errorf("a read must keep serving the delivered version, got %+v", read.Plan)
+	}
+	if h.plans.completed != 1 {
+		t.Errorf("a read must not generate, got %d completions", h.plans.completed)
+	}
+
+	second, err := h.svc.Run(context.Background(), ownerUser, premiumProg)
+	if err != nil {
+		t.Fatalf("second Run failed: %v", err)
+	}
+	if second.Plan.Version != first.Plan.Version+1 {
+		t.Errorf("version = %d, want a new version %d", second.Plan.Version, first.Plan.Version+1)
+	}
+	if second.OutOfDate {
+		t.Error("expected the regenerated plan to be reported as current")
+	}
+	if second.QuestionnaireVersion != 2 {
+		t.Errorf("questionnaire version = %d, want 2", second.QuestionnaireVersion)
+	}
+}
+
+// TestRunRepairsACompletedAssignmentWithNoReadablePlan asserts a client who paid
+// for a plan is never permanently stuck without one. A completed assignment whose
+// plan rows cannot be read is claimed and rebuilt rather than reported as
+// delivered with nothing to show.
+func TestRunRepairsACompletedAssignmentWithNoReadablePlan(t *testing.T) {
+	h := newHarness(t, premiumProgram(), true, nil)
+	h.assignments.assignment = &models.NutritionAssignment{
+		ID:                   assignmentID,
+		UserID:               ownerUser,
+		ProgramID:            premiumProg,
+		QuestionnaireID:      questionnID,
+		QuestionnaireVersion: 1,
+		Status:               models.NutritionAssignmentStatusCompleted,
+		Version:              1,
+	}
+
+	status, err := h.svc.GetStatus(context.Background(), ownerUser, premiumProg)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.Status != models.NutritionAssignmentStatusFailed {
+		t.Errorf("status = %q, want failed while no plan can be read", status.Status)
+	}
+	if status.Plan != nil {
+		t.Error("expected no plan to be projected")
+	}
+
+	repaired, err := h.svc.Run(context.Background(), ownerUser, premiumProg)
+	if err != nil {
+		t.Fatalf("repair Run failed: %v", err)
+	}
+	if repaired.Status != models.NutritionAssignmentStatusCompleted {
+		t.Errorf("status = %q, want completed after a repair", repaired.Status)
+	}
+	if repaired.Plan == nil {
+		t.Fatal("expected a plan after the repair run")
+	}
+	if len(repaired.Plan.Meals) == 0 {
+		t.Error("expected the repaired plan to carry meals")
+	}
+}
+
+// TestRunKeepsMealPositionsUnique asserts positions are dense and unique across the
+// whole plan. Meals and snacks share one sequence, which is what the per-plan
+// position constraint requires.
+func TestRunKeepsMealPositionsUnique(t *testing.T) {
+	h := newHarness(t, premiumProgram(), true, nil)
+
+	status, err := h.svc.Run(context.Background(), ownerUser, premiumProg)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if status.Plan == nil {
+		t.Fatal("expected a plan")
+	}
+
+	seen := map[int]string{}
+	for i, meal := range status.Plan.Meals {
+		if meal.Position != i+1 {
+			t.Errorf("meal %q position = %d, want %d", meal.Label, meal.Position, i+1)
+		}
+		if previous, clash := seen[meal.Position]; clash {
+			t.Errorf("meal %q reuses position %d of %q", meal.Label, meal.Position, previous)
+		}
+		seen[meal.Position] = meal.Label
+		if strings.Contains(strings.ToLower(meal.Label), "snack") && meal.Kind != models.NutritionPlanMealKindSnack {
+			t.Errorf("meal %q is labelled as a snack but stored as kind %q", meal.Label, meal.Kind)
+		}
+	}
+}
+
+// TestFulfillPurchaseDeliversACompletedPurchase asserts the purchase hook builds
+// the plan the buyer paid for, in one call.
+func TestFulfillPurchaseDeliversACompletedPurchase(t *testing.T) {
+	h := newHarness(t, premiumProgram(), true, nil)
+
+	if err := h.svc.FulfillPurchase(context.Background(), ownerUser, premiumProg); err != nil {
+		t.Fatalf("FulfillPurchase failed: %v", err)
+	}
+
+	status, err := h.svc.GetStatus(context.Background(), ownerUser, premiumProg)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.Status != models.NutritionAssignmentStatusCompleted || status.Plan == nil {
+		t.Errorf("expected a delivered plan, got status %q with plan %v", status.Status, status.Plan)
+	}
+}
+
+// TestFulfillPurchaseIsANoOpOutsideTheFamily asserts a completed Generic purchase
+// does not look like a failure just because it owes no nutrition plan.
+func TestFulfillPurchaseIsANoOpOutsideTheFamily(t *testing.T) {
+	h := newHarness(t, genericProgram(), true, nil)
+
+	if err := h.svc.FulfillPurchase(context.Background(), ownerUser, genericProg); err != nil {
+		t.Fatalf("expected a non-premium product to be ignored, got %v", err)
+	}
+	if h.assignments.ensureCalls != 0 || h.plans.completed != 0 {
+		t.Error("expected no assignment and no plan for a non-premium product")
+	}
+}
+
+// TestFulfillPurchaseRefusesWithoutAnEntitlement asserts the hook cannot grant a
+// plan by being called directly. It is reachable from the payment path, so it has
+// to carry the same ownership gate as every other entry point.
+func TestFulfillPurchaseRefusesWithoutAnEntitlement(t *testing.T) {
+	h := newHarness(t, premiumProgram(), false, nil)
+
+	if err := h.svc.FulfillPurchase(context.Background(), ownerUser, premiumProg); !errors.Is(err, nutrition_assignment.ErrAssignmentNotFound) {
+		t.Fatalf("expected ErrAssignmentNotFound without an entitlement, got %v", err)
+	}
+	if h.plans.completed != 0 {
+		t.Error("expected no plan to be generated without an entitlement")
+	}
+}
+
+// TestFulfillPurchaseIsIdempotent asserts a purchase delivered more than once —
+// a webhook plus a callback, or Test Mode — converges on one plan.
+func TestFulfillPurchaseIsIdempotent(t *testing.T) {
+	h := newHarness(t, premiumProgram(), true, nil)
+
+	for range 3 {
+		if err := h.svc.FulfillPurchase(context.Background(), ownerUser, premiumProg); err != nil {
+			t.Fatalf("FulfillPurchase failed: %v", err)
+		}
+	}
+	if h.plans.completed != 1 {
+		t.Errorf("expected exactly one plan across repeated deliveries, got %d", h.plans.completed)
 	}
 }
 

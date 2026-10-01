@@ -3311,3 +3311,182 @@ func TestPurchaseWithoutPrerequisiteIsUngated(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// --- post-commit product delivery ---
+
+// recordingFulfiller records the deliveries a purchase triggered.
+type recordingFulfiller struct {
+	calls     int
+	userID    string
+	programID string
+	err       error
+}
+
+func (f *recordingFulfiller) FulfillPurchase(_ context.Context, userID, programID string) error {
+	f.calls++
+	f.userID = userID
+	f.programID = programID
+	return f.err
+}
+
+func TestCompletePurchaseDeliversTheProductItOwes(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "aaaa1111-1111-1111-1111-111111111111",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	fulfiller := &recordingFulfiller{}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		&completionPurchaseRepo{findByIDPurchase: purchase},
+		&completionEntitlementRepo{restoreErr: repositories.ErrEntitlementNotFound},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+		purchases.WithFulfillment(fulfiller),
+	)
+
+	if _, err := svc.CompletePurchase(context.Background(), purchase.ID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fulfiller.calls != 1 {
+		t.Fatalf("expected one delivery, got %d", fulfiller.calls)
+	}
+	if fulfiller.userID != purchase.UserID || fulfiller.programID != purchase.ProgramID {
+		t.Errorf("delivered to %q/%q, want %q/%q", fulfiller.userID, fulfiller.programID, purchase.UserID, purchase.ProgramID)
+	}
+}
+
+// TestCompletePurchaseDeliversOnAReplayedDelivery asserts a replay recovers a
+// purchase whose first delivery failed. Without this, a transient generation
+// failure would leave a paid buyer permanently without what they bought, because
+// the hook only runs once by definition.
+func TestCompletePurchaseDeliversOnAReplayedDelivery(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:        "aaaa1111-1111-1111-1111-111111111111",
+		UserID:    "33333333-3333-3333-3333-333333333333",
+		ProgramID: "11111111-1111-1111-1111-111111111111",
+		Status:    models.PurchaseStatusCompleted,
+	}
+	fulfiller := &recordingFulfiller{}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		&completionPurchaseRepo{findByIDPurchase: purchase},
+		&completionEntitlementRepo{activeEntitlement: &models.Entitlement{UserID: purchase.UserID, ProgramID: purchase.ProgramID}},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+		purchases.WithFulfillment(fulfiller),
+	)
+
+	if _, err := svc.CompletePurchase(context.Background(), purchase.ID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fulfiller.calls != 1 {
+		t.Fatalf("expected a replayed delivery to provision the product, got %d calls", fulfiller.calls)
+	}
+}
+
+// TestCompletePurchaseSurvivesAFailedDelivery asserts a delivery failure never
+// fails the purchase. The money is captured and the entitlement is committed by
+// the time the hook runs, so failing the request would report a purchase as failed
+// that is in fact complete.
+func TestCompletePurchaseSurvivesAFailedDelivery(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:        "aaaa1111-1111-1111-1111-111111111111",
+		UserID:    "33333333-3333-3333-3333-333333333333",
+		ProgramID: "11111111-1111-1111-1111-111111111111",
+		Status:    models.PurchaseStatusPending,
+	}
+	fulfiller := &recordingFulfiller{err: errors.New("generation unavailable")}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		&completionPurchaseRepo{findByIDPurchase: purchase},
+		&completionEntitlementRepo{restoreErr: repositories.ErrEntitlementNotFound},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+		purchases.WithFulfillment(fulfiller),
+	)
+
+	result, err := svc.CompletePurchase(context.Background(), purchase.ID)
+	if err != nil {
+		t.Fatalf("a delivery failure must not fail the purchase, got %v", err)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Errorf("status = %q, want completed", result.Status)
+	}
+	if fulfiller.calls != 1 {
+		t.Errorf("expected the delivery to be attempted once, got %d", fulfiller.calls)
+	}
+}
+
+// TestCompleteTestPurchaseDeliversTheProductItOwes asserts Test Mode takes the same
+// delivery path as a real payment, so a persona exercises the real product.
+func TestCompleteTestPurchaseDeliversTheProductItOwes(t *testing.T) {
+	programs := &stubProgramRepository{
+		program: &models.Program{
+			ID:        "program-test-1",
+			Name:      "Strength Builder",
+			Type:      models.ProgramTypePremium,
+			Status:    models.ProgramStatusPublished,
+			Currency:  "EUR",
+			TrainerID: "trainer-test-1",
+		},
+	}
+	fulfiller := &recordingFulfiller{}
+
+	svc := purchases.NewService(
+		programs,
+		&stubPurchaseRepository{},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+		nil,
+		purchases.WithFulfillment(fulfiller),
+	)
+
+	if _, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-test-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fulfiller.calls != 1 {
+		t.Fatalf("expected one delivery, got %d", fulfiller.calls)
+	}
+	if fulfiller.userID != "user-test-1" || fulfiller.programID != "program-test-1" {
+		t.Errorf("delivered to %q/%q, want the persona and program under test", fulfiller.userID, fulfiller.programID)
+	}
+}
+
+// TestPurchaseWithoutAFulfillerStillCompletes asserts the hook is genuinely
+// optional, so a deployment with no derived artifacts is unaffected.
+func TestPurchaseWithoutAFulfillerStillCompletes(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:        "aaaa1111-1111-1111-1111-111111111111",
+		UserID:    "33333333-3333-3333-3333-333333333333",
+		ProgramID: "11111111-1111-1111-1111-111111111111",
+		Status:    models.PurchaseStatusPending,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		&completionPurchaseRepo{findByIDPurchase: purchase},
+		&completionEntitlementRepo{restoreErr: repositories.ErrEntitlementNotFound},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	result, err := svc.CompletePurchase(context.Background(), purchase.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Errorf("status = %q, want completed", result.Status)
+	}
+}

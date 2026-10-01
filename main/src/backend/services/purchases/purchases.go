@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"ryze/backend/models"
@@ -174,6 +175,7 @@ type service struct {
 	payment       payments.Provider
 	resolver      payments.ProviderResolver
 	prerequisites CheckoutPrerequisite
+	fulfiller     PurchaseFulfiller
 }
 
 // CheckoutPrerequisite enforces a per-product precondition before a purchase can
@@ -190,6 +192,20 @@ type CheckoutPrerequisite interface {
 	Satisfied(ctx context.Context, userID, programID, productType string) error
 }
 
+// PurchaseFulfiller provisions the derived artifacts a completed purchase owes,
+// such as the Premium Level 1 nutrition plan. It is the seam that keeps product
+// delivery out of the payment path: this service knows how to take money and grant
+// access, and nothing about how a purchased product is built afterwards.
+//
+// The hook runs after the entitlement is durably committed and its failure is
+// never allowed to fail the purchase.
+type PurchaseFulfiller interface {
+	// FulfillPurchase must be idempotent, because a purchase can be delivered
+	// more than once — a provider webhook, a client capture callback or Test Mode
+	// — and every delivery calls it.
+	FulfillPurchase(ctx context.Context, userID, programID string) error
+}
+
 // Option configures an optional service collaborator.
 type Option func(*service)
 
@@ -199,6 +215,15 @@ type Option func(*service)
 func WithCheckoutPrerequisites(prerequisites CheckoutPrerequisite) Option {
 	return func(s *service) {
 		s.prerequisites = prerequisites
+	}
+}
+
+// WithFulfillment installs the post-commit product delivery hook. It is optional:
+// a service built without it grants the entitlement and nothing more, which is
+// the behaviour every product without derived artifacts relies on.
+func WithFulfillment(fulfiller PurchaseFulfiller) Option {
+	return func(s *service) {
+		s.fulfiller = fulfiller
 	}
 }
 
@@ -223,6 +248,28 @@ func NewService(
 		option(svc)
 	}
 	return svc
+}
+
+// fulfill runs the post-commit product delivery hook.
+//
+// A failure here is reported and then deliberately not propagated. By the time this
+// runs the payment is captured and the entitlement is committed, so failing the
+// request would tell a paying buyer their purchase failed while telling them the
+// truth about their access. The derived artifact is recoverable instead — the hook
+// is idempotent, so a repeated delivery or a retry recovers it, and the client's
+// own access surface provisions and generates on demand — whereas a wrongly failed
+// purchase is not recoverable at all.
+func (s *service) fulfill(ctx context.Context, userID, programID string) {
+	if s.fulfiller == nil {
+		return
+	}
+	if err := s.fulfiller.FulfillPurchase(ctx, userID, programID); err != nil {
+		slog.Error("purchase fulfillment failed",
+			slog.String("user_id", userID),
+			slog.String("program_id", programID),
+			slog.String("error", err.Error()),
+		)
+	}
 }
 
 // checkPrerequisites enforces the per-product checkout precondition. It runs
@@ -436,6 +483,10 @@ func (s *service) CompletePurchase(ctx context.Context, purchaseID string) (*Pur
 			return nil, fmt.Errorf("failed to check entitlement: %w", entErr)
 		}
 		if existing != nil {
+			// A replayed delivery still fulfils. The hook is idempotent, so a
+			// purchase whose delivery failed the first time recovers on the next
+			// delivery instead of staying permanently unfulfilled.
+			s.fulfill(ctx, purchase.UserID, purchase.ProgramID)
 			return newPurchase(purchase), nil
 		}
 		return nil, ErrEntitlementIntegrity
@@ -448,6 +499,8 @@ func (s *service) CompletePurchase(ctx context.Context, purchaseID string) (*Pur
 	if err := s.completeAndCreateEntitlement(ctx, purchase); err != nil {
 		return nil, err
 	}
+
+	s.fulfill(ctx, purchase.UserID, purchase.ProgramID)
 
 	purchase.Status = models.PurchaseStatusCompleted
 	return newPurchase(purchase), nil
@@ -565,6 +618,10 @@ func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID st
 		}
 		return nil, fmt.Errorf("failed to complete test purchase: %w", err)
 	}
+
+	// Test Mode takes the same delivery path as a real payment, so the product a
+	// persona bought is provisioned exactly as a paying buyer's would be.
+	s.fulfill(ctx, userID, programID)
 
 	return newPurchase(purchase), nil
 }
@@ -686,6 +743,7 @@ func (s *service) captureAndComplete(ctx context.Context, purchase *models.Purch
 			return nil, fmt.Errorf("failed to check entitlement: %w", entErr)
 		}
 		if existing != nil {
+			s.fulfill(ctx, purchase.UserID, purchase.ProgramID)
 			return newPurchase(purchase), nil
 		}
 		return nil, ErrEntitlementIntegrity

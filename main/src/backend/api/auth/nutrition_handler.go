@@ -41,15 +41,7 @@ func (h *NutritionHandler) GetStatus(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success":               true,
-		"program_id":            status.ProgramID,
-		"status":                status.Status,
-		"version":               status.Version,
-		"questionnaire_version": status.QuestionnaireVersion,
-		"out_of_date":           status.OutOfDate,
-		"plan":                  status.Plan,
-	})
+	h.respondStatus(c, status)
 }
 
 // Generate runs the deterministic generation step for the caller's plan.
@@ -69,6 +61,17 @@ func (h *NutritionHandler) Generate(c *gin.Context) {
 		return
 	}
 
+	h.respondStatus(c, status)
+}
+
+// respondStatus renders the assignment state. Both endpoints answer with the same
+// body so a client can treat generation as a refresh of the status it already
+// knows how to read.
+//
+// Plan is emitted as an explicit null while no plan exists: the field's presence is
+// part of the contract, and omitting it would leave a client guessing whether the
+// plan is absent or the response is malformed.
+func (h *NutritionHandler) respondStatus(c *gin.Context, status *nutrition_assignment.Status) {
 	c.JSON(http.StatusOK, gin.H{
 		"success":               true,
 		"program_id":            status.ProgramID,
@@ -107,6 +110,12 @@ func (h *NutritionHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusNotFound, "NUTRITION_NOT_FOUND", "No nutrition plan is available for this program.", nil)
 	case errors.Is(err, nutrition_assignment.ErrInvalidInput):
 		RespondError(c, http.StatusConflict, "NUTRITION_NOT_READY", "The nutrition plan is not ready. Please try again.", nil)
+	case errors.Is(err, nutrition_assignment.ErrNoEligibleFood):
+		// The stored restrictions cannot be satisfied by the catalog. That is a
+		// fact about the intake, not a server fault, and it is not retryable, so
+		// it gets its own code instead of being hidden behind a 500. The wrapped
+		// detail names catalog internals and is deliberately not forwarded.
+		RespondError(c, http.StatusUnprocessableEntity, "NUTRITION_RESTRICTIONS_UNSATISFIABLE", "Your dietary restrictions cannot be satisfied for this program yet.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "The request could not be completed.", nil)
 	}

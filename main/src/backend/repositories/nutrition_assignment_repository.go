@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"ryze/backend/models"
 )
@@ -42,8 +41,10 @@ type NutritionAssignmentRepository interface {
 	// The returned boolean reports whether this call created the row.
 	EnsurePendingForUserAndProgram(ctx context.Context, userID, programID, questionnaireID string, questionnaireVersion int) (*models.NutritionAssignment, bool, error)
 	FindByUserAndProgram(ctx context.Context, userID, programID string) (*models.NutritionAssignment, error)
-	MarkProcessing(ctx context.Context, userID, programID string) error
-	MarkCompleted(ctx context.Context, userID, programID string, configuration []byte, questionnaireVersion int) error
+	// MarkProcessing claims the assignment for generation at a specific intake
+	// revision, and only while the assignment is still at expectedVersion. See
+	// the implementation for why the claim is a compare-and-swap.
+	MarkProcessing(ctx context.Context, userID, programID, questionnaireID string, questionnaireVersion, expectedVersion int) error
 	MarkFailed(ctx context.Context, userID, programID, reason string) error
 }
 
@@ -110,20 +111,33 @@ func (r *nutritionAssignmentRepository) FindByUserAndProgram(ctx context.Context
 	return &assignment, nil
 }
 
-// MarkProcessing claims the assignment for generation. It only succeeds from a
-// pending or failed state, so a second concurrent generator cannot start a run
-// against an assignment that is already in flight or already finished.
-func (r *nutritionAssignmentRepository) MarkProcessing(ctx context.Context, userID, programID string) error {
+// MarkProcessing claims the assignment for generation and pins the intake revision
+// the run is building from. It succeeds from a pending or failed state, and from a
+// completed one only as an explicit supersede: the caller decides regeneration is
+// needed, and a claim here is what allows the previous active plan to be replaced
+// by a new version instead of being rewritten in place.
+//
+// expectedVersion makes the claim a compare-and-swap. The version changes only on
+// a completed generation, so requiring it means a run that read an assignment
+// another run has since advanced is refused rather than generating a second time
+// for a revision that already has a plan.
+func (r *nutritionAssignmentRepository) MarkProcessing(ctx context.Context, userID, programID, questionnaireID string, questionnaireVersion, expectedVersion int) error {
 	result := r.db.WithContext(ctx).
 		Model(&models.NutritionAssignment{}).
 		Where(
-			"user_id = ? AND program_id = ? AND status IN ?",
-			userID, programID,
-			[]string{models.NutritionAssignmentStatusPending, models.NutritionAssignmentStatusFailed},
+			"user_id = ? AND program_id = ? AND version = ? AND status IN ?",
+			userID, programID, expectedVersion,
+			[]string{
+				models.NutritionAssignmentStatusPending,
+				models.NutritionAssignmentStatusFailed,
+				models.NutritionAssignmentStatusCompleted,
+			},
 		).
 		Updates(map[string]any{
-			"status":         models.NutritionAssignmentStatusProcessing,
-			"failure_reason": nil,
+			"status":                models.NutritionAssignmentStatusProcessing,
+			"failure_reason":        nil,
+			"questionnaire_id":      questionnaireID,
+			"questionnaire_version": questionnaireVersion,
 		})
 	if result.Error != nil {
 		return fmt.Errorf("failed to mark nutrition assignment as processing: %w", result.Error)
@@ -132,43 +146,6 @@ func (r *nutritionAssignmentRepository) MarkProcessing(ctx context.Context, user
 		return ErrNutritionAssignmentNotRetryable
 	}
 	return nil
-}
-
-// MarkCompleted stores the generated configuration and stamps the generation
-// time. The questionnaire version is re-asserted under a row lock so a
-// completion can never claim to be current for a revision it did not read.
-func (r *nutritionAssignmentRepository) MarkCompleted(ctx context.Context, userID, programID string, configuration []byte, questionnaireVersion int) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var assignment models.NutritionAssignment
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("user_id = ? AND program_id = ?", userID, programID).
-			First(&assignment).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrNutritionAssignmentNotFound
-			}
-			return fmt.Errorf("failed to lock nutrition assignment: %w", err)
-		}
-		if assignment.QuestionnaireVersion != questionnaireVersion {
-			return fmt.Errorf("%w: assignment targets questionnaire version %d", ErrNutritionAssignmentNotRetryable, assignment.QuestionnaireVersion)
-		}
-		if assignment.Status != models.NutritionAssignmentStatusProcessing {
-			return ErrNutritionAssignmentNotRetryable
-		}
-
-		now := time.Now().UTC()
-		if err := tx.Model(&models.NutritionAssignment{}).
-			Where("id = ?", assignment.ID).
-			Updates(map[string]any{
-				"status":         models.NutritionAssignmentStatusCompleted,
-				"configuration":  configuration,
-				"failure_reason": nil,
-				"generated_at":   now,
-				"version":        gorm.Expr("version + 1"),
-			}).Error; err != nil {
-			return fmt.Errorf("failed to complete nutrition assignment: %w", err)
-		}
-		return nil
-	})
 }
 
 // MarkFailed records the reason a generation run could not finish. The reason is

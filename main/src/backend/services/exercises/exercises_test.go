@@ -24,19 +24,19 @@ var errRepoFailure = errors.New("repository failure")
 // soft-deletes) and records the arguments passed to every operation so tests
 // can prove the service forwards them untouched.
 type stubExerciseRepo struct {
-	exercise       *models.Exercise
-	deleted        bool
-	list           func(page, limit int) ([]models.Exercise, int64, error)
-	find           func(exerciseID string) (*models.Exercise, error)
-	search         func(query string, page, limit int) ([]models.Exercise, int64, error)
-	library        func(filter repositories.ExerciseSearchFilter, page, limit int) ([]models.Exercise, int64, error)
-	alternatives   func(exerciseID string) ([]repositories.ExerciseAlternativeLink, error)
-	findGotID      string
-	searchGotQuery string
-	searchGotPage  int
-	searchGotLimit int
-	listGotPage    int
-	listGotLimit   int
+	exercise          *models.Exercise
+	deleted           bool
+	list              func(page, limit int) ([]models.Exercise, int64, error)
+	find              func(exerciseID string) (*models.Exercise, error)
+	search            func(query string, page, limit int) ([]models.Exercise, int64, error)
+	library           func(filter repositories.ExerciseSearchFilter, page, limit int) ([]models.Exercise, int64, error)
+	alternatives      func(exerciseID string) ([]repositories.ExerciseAlternativeLink, error)
+	findGotID         string
+	searchGotQuery    string
+	searchGotPage     int
+	searchGotLimit    int
+	listGotPage       int
+	listGotLimit      int
 	libraryGotFilter  repositories.ExerciseSearchFilter
 	libraryGotPage    int
 	libraryGotLimit   int
@@ -108,18 +108,18 @@ func (s *stubExerciseRepo) ListAlternatives(_ context.Context, exerciseID string
 
 func validExercise() *models.Exercise {
 	return &models.Exercise{
-		ID:                   exerciseID,
-		Name:                 "Barbell Squat",
-		Description:          "A lower body compound lift.",
-		Instructions:         "Sit down into the hips and drive back up.",
-		TargetMuscles:        "Quads, Glutes",
-		PrimaryMuscleGroup:   "Quads",
+		ID:                    exerciseID,
+		Name:                  "Barbell Squat",
+		Description:           "A lower body compound lift.",
+		Instructions:          "Sit down into the hips and drive back up.",
+		TargetMuscles:         "Quads, Glutes",
+		PrimaryMuscleGroup:    "Quads",
 		SecondaryMuscleGroups: "Glutes, Hamstrings",
-		Equipment:            "Barbell",
-		Difficulty:           "Intermediate",
-		MovementCategory:     "Compound",
-		CreatedAt:            time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		UpdatedAt:            time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		Equipment:             "Barbell",
+		Difficulty:            "Intermediate",
+		MovementCategory:      "Compound",
+		CreatedAt:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		UpdatedAt:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 }
 

@@ -138,11 +138,13 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	questionnaireHandler := auth.NewQuestionnaireHandler(questionnaireService)
 
 	nutritionAssignmentRepository := repositories.NewNutritionAssignmentRepository(db)
+	nutritionPlanRepository := repositories.NewNutritionPlanRepository(db)
 	nutritionAssignmentService := nutrition_assignment.NewService(
 		trainerProgramRepository,
 		entitlementRepository,
 		questionnaireService,
 		nutritionAssignmentRepository,
+		nutritionPlanRepository,
 		nutrition_assignment.NewDeterministicGenerator(),
 	)
 	nutritionHandler := auth.NewNutritionHandler(nutritionAssignmentService)
@@ -161,6 +163,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 		nil,
 		methodMap.Resolve,
 		purchases.WithCheckoutPrerequisites(questionnaireService),
+		// Completing a purchase delivers what the product owes. Nutrition is the
+		// first such artifact: the hook runs after the entitlement is committed and
+		// its failure never fails the purchase.
+		purchases.WithFulfillment(nutritionAssignmentService),
 	)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)

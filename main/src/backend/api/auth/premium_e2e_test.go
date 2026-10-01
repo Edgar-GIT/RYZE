@@ -78,6 +78,7 @@ func newPremiumFlowRouter(t *testing.T) *premiumFlowFixture {
 	trainerRepo := repositories.NewTrainerRepository(tx)
 	questionnaireRepo := repositories.NewNutritionQuestionnaireRepository(tx)
 	assignmentRepo := repositories.NewNutritionAssignmentRepository(tx)
+	planRepo := repositories.NewNutritionPlanRepository(tx)
 
 	commissionSvc := commission_rules.NewService(
 		commissionRuleRepo, trainerRepo, config.CommissionConfig{DefaultPlatformCommissionBPS: 2000},
@@ -87,7 +88,7 @@ func newPremiumFlowRouter(t *testing.T) *premiumFlowFixture {
 	questionnaireHandler := auth.NewQuestionnaireHandler(questionnaireSvc)
 
 	nutritionSvc := nutrition_assignment.NewService(
-		programRepo, entitlementRepo, questionnaireSvc, assignmentRepo,
+		programRepo, entitlementRepo, questionnaireSvc, assignmentRepo, planRepo,
 		nutrition_assignment.NewDeterministicGenerator(),
 	)
 	nutritionHandler := auth.NewNutritionHandler(nutritionSvc)
@@ -100,6 +101,7 @@ func newPremiumFlowRouter(t *testing.T) *premiumFlowFixture {
 			return payments.NewFakeProvider(), nil
 		},
 		purchases.WithCheckoutPrerequisites(questionnaireSvc),
+		purchases.WithFulfillment(nutritionSvc),
 	)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseSvc)
 
