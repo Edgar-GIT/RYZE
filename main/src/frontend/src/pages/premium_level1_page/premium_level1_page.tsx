@@ -218,14 +218,18 @@ export const PremiumLevel1Page = () => {
   }, [programId]);
 
   const cancelled = checkout.state.status === "cancelled" ? checkout.state : null;
+  const owned = checkout.state.status === "owned" || checkout.state.status === "success";
 
-  // Once a purchase completes, the client moves on to program access and the
-  // nutrition lifecycle. Access itself is always decided by the backend.
+  // A client who already owns this package, or who just bought it, should not
+  // land on a questionnaire they cannot submit. Ownership is resolved by the
+  // shared checkout hook, so this is the same answer the marketplace uses to route
+  // an owned program straight to Program Access. Access itself is always decided
+  // by the backend; this only decides what is worth rendering.
   useEffect(() => {
-    if (checkout.state.status !== "success") return;
+    if (!owned || step === "access") return;
     setStep("access");
     void loadNutrition();
-  }, [checkout.state.status, loadNutrition]);
+  }, [owned, step, loadNutrition]);
 
   const renderCheckout = () => (
     <section className={styles.checkout} aria-label="Checkout">

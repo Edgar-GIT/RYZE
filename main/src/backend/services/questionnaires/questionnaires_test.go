@@ -417,13 +417,53 @@ func TestEntitlementLookupFailureIsNotTreatedAsUnlocked(t *testing.T) {
 	entitlements := &stubEntitlementRepository{err: errors.New("database unavailable")}
 	svc := questionnaires.NewService(&stubProgramRepository{program: premiumProgram()}, repo, entitlements)
 
-	if _, err := svc.GetRequirement(context.Background(), premiumUser, premiumProg); err == nil {
-		t.Fatal("an entitlement lookup failure must surface as an error")
+	// The read does not fail. It reports the intake as locked, which closes the
+	// edit affordance without taking the page down over a verification problem.
+	requirement, err := svc.GetRequirement(context.Background(), premiumUser, premiumProg)
+	if err != nil {
+		t.Fatalf("GetRequirement on a lookup failure = %v, want a usable response", err)
 	}
+	if !requirement.Locked {
+		t.Fatal("an entitlement lookup failure must never be reported as unlocked")
+	}
+
+	// The write is refused outright, and nothing is persisted.
 	if _, err := svc.Submit(context.Background(), premiumUser, premiumProg, validAnswers()); err == nil {
 		t.Fatal("an entitlement lookup failure must block the write")
 	}
 	if repo.upsertCalls != 0 {
 		t.Fatal("no write may happen while the lock state is unknown")
+	}
+}
+
+// A missing entitlement reader is the one condition that could silently reopen
+// a purchased intake, so it must be refused rather than treated as unlocked.
+func TestSubmitWithoutEntitlementReaderFailsClosed(t *testing.T) {
+	repo := &stubQuestionnaireRepository{}
+	svc := questionnaires.NewService(&stubProgramRepository{program: premiumProgram()}, repo, nil)
+
+	requirement, err := svc.Submit(context.Background(), premiumUser, premiumProg, validAnswers())
+	if err == nil {
+		t.Fatal("a submit whose lock cannot be verified must be refused")
+	}
+	if errors.Is(err, questionnaires.ErrLocked) {
+		t.Fatal("an unverifiable lock must surface its real cause, not claim a false lock")
+	}
+	if requirement != nil {
+		t.Fatalf("a refused submit must not return a requirement, got %+v", requirement)
+	}
+	if repo.upsertCalls != 0 {
+		t.Fatalf("a refused submit must not write: %d upsert calls", repo.upsertCalls)
+	}
+
+	// The read path still succeeds, but reports the intake as locked. That closes
+	// the edit affordance without taking the page down over a verification
+	// problem, which is the same restrictive outcome.
+	requirement, err = svc.GetRequirement(context.Background(), premiumUser, premiumProg)
+	if err != nil {
+		t.Fatalf("GetRequirement without an entitlement reader = %v, want a usable response", err)
+	}
+	if !requirement.Locked {
+		t.Fatal("an unverifiable lock must be reported as locked on read")
 	}
 }

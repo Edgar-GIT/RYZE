@@ -151,9 +151,14 @@ func (s *service) GetRequirement(ctx context.Context, userID, programID string) 
 	// The lock is derived from the entitlement, so it is reported even when no
 	// intake was ever stored: a client that lost local state must still be told
 	// the questionnaire can no longer be written.
+	//
+	// When the lock cannot be verified the read still succeeds and reports it as
+	// locked. Failing the whole request would take the page down over a
+	// verification problem, whereas reporting locked closes the only affordance
+	// that could cause harm and leaves the client able to render the package.
 	locked, err := s.isLocked(ctx, userID, programID)
 	if err != nil {
-		return nil, err
+		locked = true
 	}
 	requirement.Locked = locked
 
@@ -195,6 +200,9 @@ func (s *service) Submit(ctx context.Context, userID, programID string, answers 
 		return nil, ErrProgramNotFound
 	}
 
+	// Unlike the read path, an unverifiable lock refuses the write instead of
+	// degrading the response. The restrictive outcome is the point, and the
+	// genuine cause is surfaced rather than reported as a false lock.
 	locked, err := s.isLocked(ctx, userID, programID)
 	if err != nil {
 		return nil, err
@@ -286,8 +294,11 @@ func (s *service) Satisfied(ctx context.Context, userID, programID, productType 
 // is never treated as "unlocked", so a database problem can never open the
 // questionnaire back up for mutation.
 func (s *service) isLocked(ctx context.Context, userID, programID string) (bool, error) {
+	// A missing entitlement reader means the lock cannot be verified. Treating
+	// that as unlocked would be the one condition that silently reopens the
+	// intake, so it fails closed like any other verification failure.
 	if s.entitlements == nil {
-		return false, nil
+		return false, errors.New("questionnaire lock cannot be verified: entitlement reader is not configured")
 	}
 	if _, err := s.entitlements.FindActiveByUserAndProgram(ctx, userID, programID); err != nil {
 		if errors.Is(err, repositories.ErrEntitlementNotFound) {

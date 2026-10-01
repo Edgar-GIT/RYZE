@@ -2847,6 +2847,14 @@ client already purchased against.
 Because the lock is derived, there is no stored flag that could drift out of sync
 with the purchase and no recovery path after a crash.
 
+An unverifiable lock is handled differently by read and write, because the two have
+different consequences. A mutation whose lock state cannot be determined is refused
+outright, with the real cause reported rather than a false "locked" claim. A read in
+the same situation still succeeds and reports the intake as locked: failing the
+whole request would take the client's page down over a verification problem, while
+reporting locked closes the only affordance that could cause harm and leaves the
+client able to render the package it already paid for.
+
 ### Server-side validation
 
 Answers are validated and normalized server-side before anything is persisted.

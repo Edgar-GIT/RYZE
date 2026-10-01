@@ -3061,7 +3061,9 @@ Fields:
 
 `locked` is the server's authoritative answer to "may this intake still be
 edited". The client must never infer it from `submitted`, from purchase state, or
-from anything the user did.
+from anything the user did. If the server cannot verify the lock it still answers
+`200` with `locked: true`, so the client can render the package it already owns
+instead of failing the page.
 
 Success: `200 OK`.
 
