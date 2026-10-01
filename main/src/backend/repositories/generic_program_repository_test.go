@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"ryze/backend/config"
 	"ryze/backend/database"
 	"ryze/backend/models"

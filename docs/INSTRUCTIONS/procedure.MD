@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # PROCEDURE.MD
 
-Version: 2.0.0
+Version: 2.81.0
 
 ---
 
@@ -974,4 +974,104 @@ However:
 
 Technical improvements may be proposed proactively, but should never override documented project decisions.
 
+---
 
+# PROCEDURE: ADDING A NEW PREMIUM TIER
+
+Premium Level 1 shipped in v2.81.0. This is the procedure to follow when a
+successor tier is added. It exists so the next tier does not repeat the design
+questions that were already answered.
+
+## 1. Decide whether it is a new family or a variant
+
+If the new tier differs only in content, difficulty or duration, it is a program,
+not a family: create programs through the existing administration flow and stop.
+
+Only create a new `product_type` value when the tier participates in different
+parts of the lifecycle. The discriminator exists to answer one question: which
+purchase prerequisites and post-purchase artefacts apply. If the answer is "the
+same", do not widen the constraint.
+
+## 2. Widen the constraint in a migration
+
+`programs.product_type` is `CHECK`-constrained to the implemented families. A new
+tier is a migration that widens the constraint. It must not be added as a
+comment-only value or tolerated by a looser column type.
+
+The migration must also document, in its own header comment, why the new value
+exists and what it participates in. The existing migration's header is the
+reference for this.
+
+## 3. Extend every product-family condition
+
+A new family is not finished when the catalog lists it. Every place that decides
+"which family is this?" must handle it:
+
+- The public catalog scope, as an independent filter next to
+  `ScopeGeneric` and `ScopePremiumLevel1`.
+- The generic administration scope, so the new family is unreachable through
+  generic endpoints.
+- The purchase prerequisite check, so a tier with prerequisites enforces them.
+- The client rendering, which reads the family from the response and never
+  compares a hardcoded id.
+
+Miss one and the tier is reachable through a marketplace or an administration
+surface where its prerequisites are not enforced. This is the most likely way a
+new tier introduces a real defect.
+
+## 4. Add an entitlement check to every new artefact
+
+Any new post-purchase artefact must require all of:
+
+- an authenticated owner,
+- an active entitlement,
+- the correct `product_type`,
+- any prerequisite submission.
+
+All four failing conditions must produce the same response as "no record", for the
+same reason documented in `security.MD`: a distinguishable refusal is a probe.
+
+## 5. Do not duplicate the shared flow
+
+The purchase, payment, Test Mode and Program Access surfaces already exist. A new
+tier reuses them through `useProgramCheckout` and the existing access page. If a
+tier needs a variant of a shared state machine, extend the shared hook; do not
+fork it per tier.
+
+## 6. Verify the matrix
+
+Before declaring a tier complete, run at least:
+
+- the prerequisite gate for a tier with prerequisites,
+- the gate for a tier without them, proving existing programs are unaffected,
+- the artefact lifecycle including the failure and retry state,
+- a cross-account refusal proving the artefact is private,
+- the regular and Test Mode purchase paths,
+- the catalogue isolation regression for every existing family.
+
+## 7. Document in the same cycle
+
+Update `api.MD`, `database.MD`, `security.MD`, `architecture.MD`, `design.MD` and
+`update_logs.MD` in the same development cycle as the code. A new tier that
+reaches production undocumented is the specific outcome this project documents
+itself to avoid.
+
+---
+
+# PROCEDURE: CHANGING AN EXISTING QUESTIONNAIRE OR PLAN
+
+The questionnaire and the nutrition plan are coupled by design. Treat any change
+to one as a change to the other.
+
+- Adding a question changes the catalog, the validation rules and the
+  normalization step together. A question that is added without normalization is a
+  question the generator has never validated input for.
+- Changing a validation bound requires a migration only if the stored shape
+  changes. Normalized answers are stored as JSON, so a bound change is a service
+  change plus a review of existing rows that now violate it.
+- Never change the generator's output for a given input without a version bump on
+  the assignment. `questionnaire_version` and the assignment `version` exist so a
+  derived plan can be identified as out of date rather than silently stale.
+- Never add a regeneration path for a delivered plan. If a defect makes a
+  delivered plan wrong, the correction is a new version under an explicit product
+  decision, not an action available to the client.

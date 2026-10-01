@@ -1,7 +1,7 @@
 # RYZE
 # How to Run
 
-Version: 1.0.0
+Version: 2.81.0
 
 ---
 
@@ -361,9 +361,9 @@ TEST_MODE_ENABLED=true
   feature is effectively absent.
 - When enabled, sign in to the Admin Console as ADMIN_1 and open
   **Test Mode** in the Technical navigation to enter as one of the personas.
-  Inside Test Mode all purchasable Generic Programs render as Free and buying
-  completes a real zero-cost purchase + entitlement server-side — no payment
-  provider is involved.
+  Inside Test Mode all purchasable programs render as Free and buying completes a
+  real zero-cost purchase + entitlement server-side — no payment provider is
+  involved.
 - Exiting Test Mode restores the original ADMIN_1 session and returns to the
   configured return path. Audit entries (`test_mode.entered` /
   `test_mode.exited` / `test_mode.purchase_completed`) are written through the
@@ -732,3 +732,81 @@ development without real provider accounts.
 
 `mbway` is a reserved enum value with no provider: it is never advertised, never
 routed, and always fails closed.
+
+---
+
+## Premium Level 1 (Local Walkthrough)
+
+Premium Level 1 needs migration `000025` and a published Premium Level 1 program
+before the page has anything to show.
+
+### Apply the migration
+
+```text
+cd main/src/backend
+go run . migrate up
+```
+
+Verify the schema version afterwards. The expected result is version `25` with
+`dirty = false`:
+
+```text
+cd main/src/backend
+go run . migrate status
+```
+
+### Create a Premium Level 1 program
+
+The `/services/premium-level-1` page reads real product data, so it renders an
+unavailable state until a program in the `premium_level_1` family is published.
+Create one as the Management Administrator (ADMIN_2) and publish it.
+
+Generic administration endpoints cannot create a Premium Level 1 program: generic
+management is scoped to `trainer_id IS NULL` **and** `product_type = 'generic'`,
+and the generic request payloads carry no product family field at all. Seeding one
+directly for a local walkthrough is acceptable, but the family and the published
+state must both be set correctly or the prerequisites will not behave as
+documented.
+
+### Walk the flow
+
+1. Open `/services/premium-level-1`. The product name, description, price, currency
+   and duration come from the backend.
+2. Select **Start my questionnaire**. The form renders from the server catalog; the
+   client holds no hardcoded field list.
+3. Submit a complete intake, then continue to checkout.
+4. Complete the purchase. In a Test Mode session this needs no provider
+   configuration and no real money.
+5. The questionnaire becomes read-only immediately after the purchase. Confirm that
+   resubmitting answers returns `409 QUESTIONNAIRE_LOCKED`.
+6. Build the nutrition programme from the **access** view. A `pending` assignment can
+   be built on demand; a `failed` assignment is retryable in place.
+7. Open **My Programs**. The entitlement carries the Premium Level 1 chip, and
+   Program Access renders the training structure plus the nutrition panel.
+
+### Verify without a client
+
+Every step is observable through the API alone. With a valid session:
+
+```text
+GET  /api/v1/me/questionnaire/questions
+GET  /api/v1/me/programs/{programID}/questionnaire
+POST /api/v1/me/programs/{programID}/questionnaire
+GET  /api/v1/me/programs/{programID}/nutrition
+POST /api/v1/me/programs/{programID}/nutrition
+```
+
+The requirement response reports `locked`. Before a purchase it is `false`; after
+any completed purchase, regular or Test Mode, it is `true` and every further
+mutation is refused.
+
+Checkout against a Premium Level 1 program without a submitted intake answers
+`409 PURCHASE_PREREQUISITE_NOT_MET`.
+
+### Provider-dependent steps
+
+Steps that require a real payment provider cannot be exercised locally without
+credentials for that provider. Everything in the Premium Level 1 journey up to and
+including a Test Mode purchase is provider-free; a real card, MB WAY or PayPal
+purchase additionally requires the corresponding provider configuration described
+above.

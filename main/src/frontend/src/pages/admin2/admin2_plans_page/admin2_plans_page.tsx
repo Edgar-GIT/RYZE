@@ -29,11 +29,16 @@ const PAGE_SIZE = 25;
 
 type PlansTab = "ALL" | ProgramTypeValue;
 
+// These tabs filter `type`, the commercial pricing category, and are labelled
+// as such. They are deliberately not labelled as product tiers: `product_type`
+// is the product family dimension, every program managed here is in the generic
+// family, and calling `premium` "Premium · L1" would describe a family the row
+// does not belong to.
 const PLANS_TABS: Array<{ id: PlansTab; label: string }> = [
   { id: "ALL", label: "All programs" },
-  { id: ProgramType.FREE, label: "Generic" },
-  { id: ProgramType.PREMIUM, label: "Premium · L1" },
-  { id: ProgramType.PERSONALIZED, label: "Premium · L2" }
+  { id: ProgramType.FREE, label: "Free" },
+  { id: ProgramType.PREMIUM, label: "Premium" },
+  { id: ProgramType.PERSONALIZED, label: "Personalized" }
 ];
 
 const LEVEL_FILTERS: Array<{ id: GenericProgramLevel | ""; label: string }> = [

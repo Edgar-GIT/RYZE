@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.2.20
+Version: 2.81.0
 
 ---
 
@@ -1252,8 +1252,11 @@ Pages implemented in the current cycle:
   programs table.
 - **ADMIN_2 Plans** — the platform-owned Generic Program list backed by
   `/api/v1/programs/generic`. Searchable (the search bar queries the real
-  backend), with type tabs (All / Generic / Premium · L1 / Premium · L2), a
-  level filter and pagination. Each row shows the plan title, type, level,
+  backend), with type tabs (All / Free / Premium /
+  Personalized), a level filter and pagination. The tabs filter the commercial
+  pricing category `type` and are labelled as such; they are not product tiers,
+  because every program managed in this workspace belongs to the `generic` product
+  family. Each row shows the plan title, type, level,
   frequency, duration, price and last-updated date with Edit and Delete
   (soft delete, confirmed via dialog) actions. The list also exposes one
   right-aligned sales group per plan — Sales (`real_sales`: completed non-test
@@ -1557,3 +1560,147 @@ Reference for:
 
 - Landing clarity
 - Pricing structure
+
+---
+
+# Premium Level 1 Page
+
+Route: `/services/premium-level-1`. It must be declared before the dynamic
+`/services/:serviceSlug` route, or the slug route will swallow it.
+
+The page is a single scrolling detail page, not a wizard with its own navigation.
+The flow is product → questionnaire → checkout → access, and the user always sees
+where they are.
+
+## Product presentation
+
+Everything on this page is read from the backend. Name, description, price,
+currency, duration, level, frequency and product family come from the public
+catalog scoped to `premium_level_1` and from the program detail response. The page
+never hardcodes a product id, a price or an offer description.
+
+Product copy states plainly what the package is and what it is not:
+
+- It is a complete training and nutrition package in one purchase.
+- The nutrition side is personalised automatically from the questionnaire, so both
+  halves are built from the same answers.
+- It is an automated programme, not personal coaching. No trainer reviews the
+  answers.
+- It is not a medical or clinical assessment.
+
+The disclaimers are part of the product presentation, not fine print. A client
+should not have to discover that Premium Level 1 is automated after paying.
+
+Price presentation follows the existing rule: Test Mode sessions display a zeroed
+price, and the underlying product data is never mutated. Test Mode is marked with
+the same accent treatment used elsewhere.
+
+## Layout
+
+Two columns on desktop, single column below 900px:
+
+- **Main column** — the package explanation, then whichever step is active.
+- **Aside** — a sticky summary card with the product name, price, a one-sentence
+  description and the single primary action for the current step.
+
+Below 900px the aside stops being sticky and the column order is preserved. The
+page never scrolls horizontally.
+
+## Questionnaire
+
+The form is rendered from the server-declared catalog: field type, label, help
+text, required flag, sensitive flag, options, numeric bounds and entry caps. The
+client holds no hardcoded field list, so a new question renders without a client
+release.
+
+- Required fields are marked with an asterisk and carry an accessible
+  "(required)" label for assistive technology only.
+- Help text and sensitivity notes are linked to the control through
+  `aria-describedby`, together with any field error.
+- Multi-select options are pill-shaped toggles. When the server-declared entry cap
+  is reached, remaining unchecked options become disabled. Nothing is ever selected
+  on the buyer's behalf.
+- Rejected fields show client-owned wording for the server's reason code. A raw
+  server token is never displayed, especially for a health-related field.
+- Unsaved answers live in component state only. There is no browser persistence,
+  because the answers are sensitive.
+
+Saving advances to checkout. A server refusal to save because the purchase locked
+the intake is not shown as an error: the page re-reads the authoritative state and
+renders the locked view.
+
+## Locked questionnaire
+
+Once a purchase exists, the questionnaire is replaced by a locked panel with a
+lock icon and a plain explanation that the answers are part of the delivered
+package.
+
+There is intentionally no "edit again", "regenerate" or "start over" action. The
+primary action becomes "Continue to checkout" or "Open Program Access". A delivered
+package's intake is immutable, and offering an action that silently cannot work
+would be worse than not offering it.
+
+## Checkout
+
+Checkout reuses the existing purchase and payment APIs through the shared
+checkout hook. The panel states that the questionnaire is saved and that the
+purchase unlocks both halves of the package.
+
+States are rendered explicitly rather than hidden: purchase confirmed, payment
+cancelled with a resume action, payment failed with a retry action, sign-in
+required, and checkout unavailable. Payment methods are radio options rendered
+from the entitlements response.
+
+A cancelled payment states plainly that no money was taken and that the
+questionnaire is still saved. This matters: the user has already invested in a
+long form and should not be asked to redo it.
+
+In a Test Mode session a banner states that the purchase completes without
+contacting a payment provider.
+
+## Nutrition
+
+The nutrition panel maps the server's assignment state directly and never invents
+readiness:
+
+- `pending` and `processing` — a preparing state with a refresh action, and a build
+  action when `pending`.
+- `failed` — states that nothing is wrong with the purchase and that no action is
+  required from the client, with a retry action. A failed generation is never
+  presented as a broken purchase.
+- `completed` — the plan.
+
+A completed plan shows the daily target, maintenance calories, protein,
+carbohydrate, fat and fluids as a tile grid; the daily meal structure as a list
+with each meal's share, approximate calories and protein; the dietary rules and
+allergies as tags; and the server's cautions in a highlighted note.
+
+A panel that reports completion but sends no plan renders as unavailable with a
+refresh action. Inventing readiness from a missing payload would be a lie the
+client cannot detect.
+
+A delivered plan is read-only. There is no regeneration control anywhere in this
+flow, and the panel closes by stating that the programme is part of the package and
+is fixed from the submitted answers.
+
+## My Programs and Program Access
+
+The Premium tier is not given its own account area.
+
+- **My Programs** marks Premium entitlements with a distinct "Premium Level 1"
+  chip, adds a "Training + nutrition" chip and labels the card action "Open
+  package". The empty state links to both the generic marketplace and Premium
+  Level 1.
+- **Program Access** marks the owned program the same way and renders the nutrition
+  panel below the training structure, for Premium entitlements only. A generic
+  program never issues the nutrition request at all.
+
+Both read the family from the backend response and never compare a hardcoded id.
+
+## Responsive and accessibility
+
+Single column below 900px, reduced padding below 640px. Every control is reachable
+by keyboard with a visible focus ring, every icon is decorative and hidden from
+assistive technology, state changes are announced through `role="alert"` for errors
+and `role="note"` for cautions, and the required-field marker is duplicated
+visually only.

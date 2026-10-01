@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # CONVENTIONS.MD
 
-Version: 1.0.0
+Version: 2.81.0
 
 ---
 
@@ -607,3 +607,124 @@ Consistency is more valuable than personal coding preferences.
 Whenever in doubt, choose the solution that another developer can understand immediately.
 
 The codebase should always feel as if it was written by a single experienced engineer.
+
+---
+
+# FRONTEND CONVENTIONS (v2.81.0)
+
+## Pages own their directory
+
+Every page lives in its own snake_case directory named after the page, and imports
+its own styles as a CSS module:
+
+```
+pages/<page_name>/<page_name>.tsx
+pages/<page_name>/<page_name>.module.css
+```
+
+Components specific to one page live in that same directory and import their own
+module. There are no index barrels: each import is the explicit path, so a file
+move is a compile error rather than a silent resolution change.
+
+## Shared components stay in components/
+
+A component used by more than one page belongs in `components/<component_name>/`.
+A component used by exactly one page stays in that page's directory. Moving a
+component into `components/` before it has a second consumer creates a shared API
+nobody needs yet.
+
+## Page containers own orchestration
+
+The page container owns state, loading, error handling and step sequencing. Its
+presentational components receive plain props and return markup; they never fetch,
+never decide whether the user may act, and never derive authorization state. This
+is what lets the questionnaire form stay a pure component while the server stays
+the only authority on whether the intake may be edited.
+
+## Shared flows become hooks
+
+When two pages implement the same state machine, it is extracted into a hook under
+`hooks/`. The Premium Level 1 page and the Generic program detail page share
+`useProgramCheckout`, which owns ownership resolution, purchase creation, payment
+selection, provider redirect and return, capture, cancellation, duplicate-purchase
+recovery, webhook race recovery and the Test Mode shortcut.
+
+Extraction must not change behaviour for the page it came from. When a hook is
+extracted, the original page keeps its semantics exactly; only the location of the
+logic changes.
+
+## Options are typed states
+
+A multi-state flow is modelled as a discriminated union, not as a set of booleans.
+`PurchaseState` is `{ status: "checking" | "guest" | "owned" | "ready" | ... }`, so
+an impossible combination such as "loading and error at the same time" cannot be
+represented, and each state carries only the fields that state actually has.
+
+Where a single value must be narrowed for a render, it is derived once into a
+named local rather than re-narrowed inline inside JSX.
+
+## API modules are per-domain
+
+Each domain owns a service module under `services/`, exporting typed contracts and
+fetch functions. Components never build a URL or read `response.data` directly.
+Types mirror the snake_case wire format exactly and are not renamed at the
+boundary, so a contract change is visible in one file.
+
+## Server codes are mapped to client wording
+
+The backend returns short, stable reason codes; the client owns presentation
+copy. A `Record<string, string>` map turns `"out of range"` into "This value is
+outside the accepted range.", and an unknown code still renders a readable
+sentence. Health-related fields must never display a raw server token.
+
+## Attributes are forwarded only where they are valid
+
+A server-declared constraint such as `max_length` is applied to the control it
+belongs to. Spreading a shared attribute bag onto a `<select>` or a checkbox group
+produces invalid markup, so each control declares its own attributes and only
+adds the shared `aria-describedby` reference.
+
+## Product metadata comes from the backend
+
+Price, duration, level, frequency, family and description are always read from an
+API response. A page never hardcodes a product id, price or product description,
+and never hardcodes production copy that describes a specific offer. The product
+family is a `product_type` value, not a hardcoded identifier compared in the
+client.
+
+---
+
+# BACKEND CONVENTIONS (v2.81.0)
+
+## Conditions that define a domain go in one helper
+
+When several queries must agree on what a domain object is, the condition is
+expressed once as a helper rather than repeated as a string literal. Generic
+program management uses `genericScope` and `genericListScope`, and the public
+catalog uses the `ScopeGeneric` and `ScopePremiumLevel1` filters.
+
+A shared predicate string with a `?` placeholder is avoided on purpose. A
+placeholder-count mismatch does not fail loudly at the call site: GORM's `First`
+adds its own `LIMIT` placeholder, so a mismatched fragment binds an argument to
+the wrong column and still runs.
+
+## Product families are discriminators, not parallel systems
+
+A new product family extends an existing constrained column. It does not get its
+own table, its own purchase flow or its own entitlement model. When two families
+must be separated, they are separated by two independent conditions rather than
+one overloaded value.
+
+## Failure modes are explicit and named
+
+Every non-success outcome is a named error in the service layer and a documented
+status and code at the handler. Services never return a partially applied result,
+and a refusal that must be indistinguishable from an absence is a single named
+error rather than a check repeated at each call site.
+
+## Security refusals fail closed
+
+When a decision depends on a lookup that can fail, an error is treated as the
+restrictive outcome. The questionnaire lock treats an unreadable entitlement as
+"locked". The opposite default would let a transient database failure reopen
+editing of data a client already purchased against.

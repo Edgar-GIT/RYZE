@@ -1,6 +1,6 @@
 # RYZE
 
-Version: 1.0.0
+Version: 2.81.0
 
 ---
 
@@ -591,3 +591,54 @@ Future releases may introduce:
 Every new feature should remain aligned with the project's original philosophy:
 
 > **Make professional fitness guidance accessible, automated and simple for everyone.**
+
+---
+
+# PREMIUM LEVEL 1
+
+Premium Level 1 is the first RYZE package that sells a complete, personalised
+outcome rather than a training plan alone. It is defined by one idea:
+
+> A client answers a short nutrition questionnaire, buys once, and receives a
+> training plan and a nutrition programme built from exactly those answers.
+
+## What it includes
+
+- A structured training plan, already part of the existing program hierarchy.
+- A nutrition programme generated on the server from the stored questionnaire.
+- Daily energy and macronutrient targets, a daily meal structure and a hydration
+  target.
+- Dietary rules built around the restrictions the client reported.
+
+## What it is not
+
+- It is not human coaching. No trainer reviews the answers, and nothing in the
+  product promises one-to-one guidance.
+- It is not a medical or clinical assessment. The generated plan carries the
+  server's own cautions and the interface repeats that it is not medical advice.
+- It is not a subscription. Entitlements do not expire.
+- It is not an AI chat product. In v2.81.0 the generator is a deterministic
+  server-side function, which is what makes the plan reproducible and the
+  questionnaire safely immutable.
+
+## The questionnaire is part of the product
+
+The intake is collected before checkout because it is an input to the product, not
+a form for its own sake. It is editable until the purchase and immutable after it,
+because the delivered nutrition programme is derived from it: changing the answers
+would silently change a plan the client already received. This is a product
+decision, not a technical limitation, and the interface states it plainly instead
+of hiding it behind a disabled control.
+
+## Delivery
+
+Premium Level 1 uses the existing purchase, payment and entitlement flow. It adds
+no payment method, no provider, no currency handling and no refund behaviour, and
+it inherits every invariant established for v2.80.0.
+
+## Scope discipline
+
+Premium Level 2 is a separate product and is not implemented. It is absent from the
+`programs.product_type` constraint on purpose, so the database cannot represent a
+product that does not exist. Trainer-authored nutrition, which would be the Level
+2 shape, is likewise not documented as existing behaviour.
