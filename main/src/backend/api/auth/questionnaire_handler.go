@@ -133,6 +133,10 @@ func (h *QuestionnaireHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", flattenFieldReasons(fieldErrors.FieldReasons()))
 	case errors.Is(err, questionnaires.ErrInvalidInput):
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+	case errors.Is(err, questionnaires.ErrLocked):
+		// A conflict, not a validation error: the request was well formed, the
+		// resource is simply immutable now that the purchase completed.
+		RespondError(c, http.StatusConflict, "QUESTIONNAIRE_LOCKED", "This questionnaire can no longer be changed because the purchase is already complete.", nil)
 	case errors.Is(err, questionnaires.ErrProgramNotFound):
 		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
 	case errors.Is(err, nutrition_questionnaire.ErrNotSubmitted):

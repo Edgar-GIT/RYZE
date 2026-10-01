@@ -134,7 +134,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// service is also the checkout precondition gate, so a program in this family
 	// cannot be bought before an intake exists.
 	nutritionQuestionnaireRepository := repositories.NewNutritionQuestionnaireRepository(db)
-	questionnaireService := questionnaires.NewService(trainerProgramRepository, nutritionQuestionnaireRepository)
+	questionnaireService := questionnaires.NewService(trainerProgramRepository, nutritionQuestionnaireRepository, entitlementRepository)
 	questionnaireHandler := auth.NewQuestionnaireHandler(questionnaireService)
 
 	nutritionAssignmentRepository := repositories.NewNutritionAssignmentRepository(db)

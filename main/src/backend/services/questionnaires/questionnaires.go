@@ -34,7 +34,23 @@ var (
 	// authenticated buyer submits an intake. The purchase service surfaces it as
 	// a precondition failure; it never reveals whether another account has one.
 	ErrIntakeRequired = errors.New("nutrition intake required")
+	// ErrLocked indicates the intake is immutable because the purchase for this
+	// program has already completed. Premium Level 1 is sold as a complete,
+	// delivered package, so changing the intake after the fact would silently
+	// change a product the client already bought and may have already followed.
+	// The API layer renders this as a conflict rather than a validation error.
+	ErrLocked = errors.New("nutrition questionnaire is locked after purchase")
 )
+
+// EntitlementReader reports whether the authenticated user already owns the
+// program. It is the existing entitlement read surface, deliberately reused:
+// an entitlement is created in the same transaction that completes a purchase,
+// so "an active entitlement exists" already means "the package was delivered"
+// for both the regular and the Test Mode checkout paths. No separate lock flag
+// is persisted, which keeps the lock impossible to desynchronise from payment.
+type EntitlementReader interface {
+	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Entitlement, error)
+}
 
 // ProgramReader resolves the program the questionnaire belongs to. It is the
 // existing published-program read surface, so the product-type gate is evaluated
@@ -87,6 +103,11 @@ type Requirement struct {
 	SchemaVersion int `json:"schema_version"`
 	// SubmittedAt is when the current revision was accepted.
 	SubmittedAt *time.Time `json:"submitted_at,omitempty"`
+	// Locked is true once the purchase for this program has completed. A locked
+	// intake can still be read but never written, and the client must render the
+	// read-only state instead of an editable form. The server decides this; a
+	// client that believes it may edit is always wrong.
+	Locked bool `json:"locked"`
 	// MinSchemaVersion is the lowest contract version the backend still accepts,
 	// so a client built against an older contract can refresh itself.
 	MinSchemaVersion int `json:"min_schema_version"`
@@ -95,11 +116,13 @@ type Requirement struct {
 type service struct {
 	programs       ProgramReader
 	questionnaires QuestionnaireRepository
+	entitlements   EntitlementReader
 }
 
-// NewService wires the published-program gate and the questionnaire repository.
-func NewService(programs ProgramReader, questionnaires QuestionnaireRepository) Service {
-	return &service{programs: programs, questionnaires: questionnaires}
+// NewService wires the published-program gate, the questionnaire repository and
+// the entitlement read used to decide whether the intake is still mutable.
+func NewService(programs ProgramReader, questionnaires QuestionnaireRepository, entitlements EntitlementReader) Service {
+	return &service{programs: programs, questionnaires: questionnaires, entitlements: entitlements}
 }
 
 // GetRequirement returns the intake state for a program. A program that does not
@@ -125,6 +148,15 @@ func (s *service) GetRequirement(ctx context.Context, userID, programID string) 
 		MinSchemaVersion: nutrition_questionnaire.SchemaVersion,
 	}
 
+	// The lock is derived from the entitlement, so it is reported even when no
+	// intake was ever stored: a client that lost local state must still be told
+	// the questionnaire can no longer be written.
+	locked, err := s.isLocked(ctx, userID, programID)
+	if err != nil {
+		return nil, err
+	}
+	requirement.Locked = locked
+
 	summary, err := s.questionnaires.FindSummaryByUserAndProgram(ctx, userID, programID)
 	switch {
 	case errors.Is(err, repositories.ErrNutritionQuestionnaireNotFound):
@@ -143,6 +175,10 @@ func (s *service) GetRequirement(ctx context.Context, userID, programID string) 
 // Submit validates and stores the intake for the authenticated user. The whole
 // submission is accepted or rejected as a unit: a partially valid intake is
 // never persisted, and a resubmission supersedes the previous revision.
+//
+// Once the purchase has completed the intake is immutable. The lock is checked
+// before the payload is parsed, so a locked questionnaire rejects every mutation
+// attempt with the same conflict regardless of the answers sent.
 func (s *service) Submit(ctx context.Context, userID, programID string, answers nutrition_questionnaire.Answers) (*Requirement, error) {
 	if err := validateIdentifiers(userID, programID); err != nil {
 		return nil, err
@@ -157,6 +193,14 @@ func (s *service) Submit(ctx context.Context, userID, programID string, answers 
 	}
 	if program.ProductType != models.ProgramProductTypePremiumLevel1 {
 		return nil, ErrProgramNotFound
+	}
+
+	locked, err := s.isLocked(ctx, userID, programID)
+	if err != nil {
+		return nil, err
+	}
+	if locked {
+		return nil, ErrLocked
 	}
 
 	normalized, err := nutrition_questionnaire.Normalize(answers)
@@ -234,6 +278,24 @@ func (s *service) Satisfied(ctx context.Context, userID, programID, productType 
 		return fmt.Errorf("failed to verify nutrition questionnaire: %w", err)
 	}
 	return nil
+}
+
+// isLocked reports whether the intake for this (user, program) pair can no
+// longer be written, which is exactly the case once an active entitlement
+// exists. A missing entitlement is the normal, unlocked state; a lookup failure
+// is never treated as "unlocked", so a database problem can never open the
+// questionnaire back up for mutation.
+func (s *service) isLocked(ctx context.Context, userID, programID string) (bool, error) {
+	if s.entitlements == nil {
+		return false, nil
+	}
+	if _, err := s.entitlements.FindActiveByUserAndProgram(ctx, userID, programID); err != nil {
+		if errors.Is(err, repositories.ErrEntitlementNotFound) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to verify program access: %w", err)
+	}
+	return true, nil
 }
 
 // FieldValidationError carries the per-field rejection reasons of a malformed
