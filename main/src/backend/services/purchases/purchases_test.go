@@ -3142,3 +3142,172 @@ func TestMBWayCaptureOwnershipEnforced(t *testing.T) {
 		t.Error("an unauthorised capture must never grant access")
 	}
 }
+
+// stubCheckoutPrerequisite records the arguments it was asked about and fails
+// or passes on demand, so a test can assert both the verdict and the exact
+// (user, program, product) tuple the service decided to gate on.
+type stubCheckoutPrerequisite struct {
+	satisfied   bool
+	err         error
+	seenUserID  string
+	seenProgID  string
+	seenProduct string
+	calls       int
+}
+
+func (s *stubCheckoutPrerequisite) Satisfied(_ context.Context, userID, programID, productType string) error {
+	s.calls++
+	s.seenUserID = userID
+	s.seenProgID = programID
+	s.seenProduct = productType
+	if s.err != nil {
+		return s.err
+	}
+	if s.satisfied {
+		return nil
+	}
+	return errors.New("intake required")
+}
+
+// The checkout prerequisite must gate the regular purchase-intent path. When it
+// rejects, no price may be snapshotted and no purchase row may be written.
+func TestCreatePurchaseIntentBlocksWhenPrerequisiteNotMet(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Name:            "Premium Level 1",
+		Type:            models.ProgramTypePremium,
+		ProductType:     models.ProgramProductTypePremiumLevel1,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 12900,
+		Currency:        "EUR",
+	}
+
+	purchasesRepo := &stubPurchaseRepository{}
+	prerequisite := &stubCheckoutPrerequisite{satisfied: false}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+		purchases.WithCheckoutPrerequisites(prerequisite),
+	)
+
+	userID := "33333333-3333-3333-3333-333333333333"
+	if _, err := svc.CreatePurchaseIntent(context.Background(), userID, program.ID); !errors.Is(err, purchases.ErrPrerequisiteNotMet) {
+		t.Fatalf("expected ErrPrerequisiteNotMet, got %v", err)
+	}
+
+	if prerequisite.calls != 1 {
+		t.Fatalf("expected exactly one prerequisite evaluation, got %d", prerequisite.calls)
+	}
+	if prerequisite.seenUserID != userID || prerequisite.seenProgID != program.ID {
+		t.Fatalf("prerequisite must be evaluated for the authenticated user and program, got user=%q program=%q", prerequisite.seenUserID, prerequisite.seenProgID)
+	}
+	if prerequisite.seenProduct != models.ProgramProductTypePremiumLevel1 {
+		t.Fatalf("prerequisite must receive the product type, got %q", prerequisite.seenProduct)
+	}
+	if purchasesRepo.purchase != nil {
+		t.Fatal("a rejected checkout must never write a purchase row")
+	}
+}
+
+// Test Mode is a real purchase path and must not be able to bypass the
+// questionnaire gate.
+func TestCompleteTestPurchaseBlocksWhenPrerequisiteNotMet(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Name:            "Premium Level 1",
+		Type:            models.ProgramTypePremium,
+		ProductType:     models.ProgramProductTypePremiumLevel1,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 12900,
+		Currency:        "EUR",
+	}
+
+	purchasesRepo := &stubPurchaseRepository{}
+	prerequisite := &stubCheckoutPrerequisite{satisfied: false}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+		purchases.WithCheckoutPrerequisites(prerequisite),
+	)
+
+	userID := "33333333-3333-3333-3333-333333333333"
+	if _, err := svc.CompleteTestPurchase(context.Background(), userID, program.ID); !errors.Is(err, purchases.ErrPrerequisiteNotMet) {
+		t.Fatalf("expected ErrPrerequisiteNotMet from Test Mode, got %v", err)
+	}
+	if purchasesRepo.purchase != nil {
+		t.Fatal("a rejected Test Mode purchase must never write a purchase row")
+	}
+}
+
+// A satisfied prerequisite must let both purchase paths proceed unchanged.
+func TestTestPurchaseProceedsWhenPrerequisiteMet(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Name:            "Premium Level 1",
+		Type:            models.ProgramTypePremium,
+		ProductType:     models.ProgramProductTypePremiumLevel1,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 12900,
+		Currency:        "EUR",
+	}
+
+	prerequisite := &stubCheckoutPrerequisite{satisfied: true}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		&stubPurchaseRepository{},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		&stubPaymentProvider{},
+		nil,
+		purchases.WithCheckoutPrerequisites(prerequisite),
+	)
+
+	userID := "33333333-3333-3333-3333-333333333333"
+	purchase, err := svc.CompleteTestPurchase(context.Background(), userID, program.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if purchase.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected status %q, got %q", models.PurchaseStatusCompleted, purchase.Status)
+	}
+}
+
+// A service without a prerequisite configured must keep the pre-Premium
+// behaviour exactly: nothing is gated.
+func TestPurchaseWithoutPrerequisiteIsUngated(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Name:            "Premium Program",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		&stubPurchaseRepository{},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{
+			resolution: purchases.CommissionResolution{CommissionBPS: 2000},
+			calc:       purchases.CommissionCalculation{PlatformAmount: 2000, TrainerAmount: 8000},
+		},
+		&stubPaymentProvider{},
+		nil,
+	)
+
+	if _, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", program.ID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
