@@ -500,17 +500,12 @@ func toStoredPlan(generated *GeneratedPlan, assignment *models.NutritionAssignme
 		Exclusions:           make([]models.NutritionPlanExclusion, 0, len(generated.Exclusions)),
 	}
 
-	// The plan identifier is assigned before any child is built so every child
-	// row can reference it before the parent exists.
-	plan.ID = uuid.NewString()
-
 	for _, meal := range generated.Meals {
 		// The meals and foods are not GORM associations — they are plain slices
-		// the repository writes explicitly — so their identifiers are assigned
-		// here rather than by a create hook.
+		// the repository writes explicitly — so only their content is built here.
+		// Identifiers and the linkage back to the plan are stamped by the
+		// repository that persists them.
 		storedMeal := models.NutritionPlanMeal{
-			ID:                uuid.NewString(),
-			PlanID:            plan.ID,
 			Position:          meal.Position,
 			Label:             meal.Label,
 			Kind:              meal.Kind,
@@ -528,9 +523,6 @@ func toStoredPlan(generated *GeneratedPlan, assignment *models.NutritionAssignme
 
 		for _, item := range meal.Items {
 			storedItem := models.NutritionPlanMealItem{
-				ID:                uuid.NewString(),
-				PlanID:            plan.ID,
-				MealID:            storedMeal.ID,
 				Position:          item.Position,
 				CatalogCode:       item.CatalogCode,
 				FoodName:          item.FoodName,
@@ -555,8 +547,6 @@ func toStoredPlan(generated *GeneratedPlan, assignment *models.NutritionAssignme
 
 	for _, exclusion := range generated.Exclusions {
 		plan.Exclusions = append(plan.Exclusions, models.NutritionPlanExclusion{
-			ID:         uuid.NewString(),
-			PlanID:     plan.ID,
 			ReasonCode: exclusion.ReasonCode,
 			Token:      exclusion.Token,
 		})
@@ -590,6 +580,7 @@ func toClientPlan(stored *models.NutritionPlan) (*Plan, error) {
 		MaintenanceCalories: stored.MaintenanceCalories,
 		TargetCalories:      stored.TargetCalories,
 		Daily: Macros{
+			Calories:     stored.TargetCalories,
 			ProteinGrams: stored.DailyProteinGrams,
 			CarbsGrams:   stored.DailyCarbsGrams,
 			FatGrams:     stored.DailyFatGrams,
@@ -630,6 +621,11 @@ func toClientPlan(stored *models.NutritionPlan) (*Plan, error) {
 		}
 
 		for _, item := range meal.Items {
+			// Fiber is summed here rather than stored per meal: it is derivable
+			// from the foods the plan already holds, so duplicating it would be a
+			// second source of truth for a number that can never disagree.
+			projected.Macros.FiberGrams += item.FiberGrams
+
 			projectedItem := MealItem{
 				Position: item.Position,
 				FoodName: item.FoodName,

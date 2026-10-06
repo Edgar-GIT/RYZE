@@ -21,6 +21,7 @@ import {
   fetchQuestionnaireRequirement,
   generateNutritionAssignment,
   isQuestionnaireLockedError,
+  nutritionGenerationErrorMessage,
   submitQuestionnaire,
   type NutritionAssignmentStatus,
   type QuestionnaireAnswers,
@@ -77,6 +78,7 @@ export const PremiumLevel1Page = () => {
 
   const [nutrition, setNutrition] = useState<NutritionAssignmentStatus>(nutritionUnavailable);
   const [nutritionLoaded, setNutritionLoaded] = useState(false);
+  const [nutritionError, setNutritionError] = useState("");
   const [generating, setGenerating] = useState(false);
 
   const programId = product?.id ?? "";
@@ -205,13 +207,21 @@ export const PremiumLevel1Page = () => {
 
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
+    setNutritionError("");
     try {
       setNutrition(await generateNutritionAssignment(programId));
       setNutritionLoaded(true);
-    } catch {
-      // An absent, unowned or not-yet-created assignment are indistinguishable
-      // server-side, so a failure collapses to the same quiet state.
-      setNutritionLoaded(false);
+    } catch (error) {
+      // Wording is translated here: a server reason token is never rendered.
+      setNutritionError(nutritionGenerationErrorMessage(error));
+      // Re-read the authoritative state so a failed update never hides a plan
+      // that is still there. If even the read fails, the view stands as it is.
+      try {
+        setNutrition(await fetchNutritionAssignment(programId));
+        setNutritionLoaded(true);
+      } catch {
+        // Nothing further to do: the previously rendered state remains correct.
+      }
     } finally {
       setGenerating(false);
     }
@@ -463,6 +473,7 @@ export const PremiumLevel1Page = () => {
                         <PremiumNutritionPlan
                           status={nutrition}
                           generating={generating}
+                          errorMessage={nutritionError}
                           onGenerate={() => void handleGenerate()}
                           onRefresh={() => void loadNutrition()}
                         />

@@ -410,34 +410,54 @@ func TestE2EPremiumPlanIsGeneratedAfterPurchaseAndIsIdempotent(t *testing.T) {
 
 	completePremiumPurchase(t, f, client, program)
 
-	// Immediately after checkout the plan is owed but not yet produced.
-	pending := client.do(t, http.MethodGet, sprintfPath(premiumNutritionRoute, program.ID), nil)
-	if pending.Code != http.StatusOK {
-		t.Fatalf("status after purchase = %d, want 200; body %s", pending.Code, pending.Body.String())
+	// Delivery is part of checkout: the post-commit hook builds the plan from
+	// the intake submitted before payment, so the buyer never has to trigger
+	// generation by hand for the common case.
+	delivered := client.do(t, http.MethodGet, sprintfPath(premiumNutritionRoute, program.ID), nil)
+	if delivered.Code != http.StatusOK {
+		t.Fatalf("status after purchase = %d, want 200; body %s", delivered.Code, delivered.Body.String())
 	}
-	if status := decodeBody(t, pending.Body.String())["status"]; status != models.NutritionAssignmentStatusPending {
-		t.Errorf("status after purchase = %v, want pending", status)
-	}
-
-	generated := client.do(t, http.MethodPost, sprintfPath(premiumGenerateRoute, program.ID), nil)
-	if generated.Code != http.StatusOK {
-		t.Fatalf("generate = %d, want 200; body %s", generated.Code, generated.Body.String())
-	}
-	payload := decodeBody(t, generated.Body.String())
+	payload := decodeBody(t, delivered.Body.String())
 	if payload["status"] != models.NutritionAssignmentStatusCompleted {
-		t.Errorf("status = %v, want completed", payload["status"])
+		t.Errorf("status after purchase = %v, want completed", payload["status"])
+	}
+	if payload["out_of_date"] != false {
+		t.Errorf("out_of_date = %v, want false", payload["out_of_date"])
 	}
 
 	plan, ok := payload["plan"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected a plan in the response, got %v", payload["plan"])
 	}
-	energy, ok := plan["energy_targets"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected energy targets in the plan, got %v", plan["energy_targets"])
+
+	// The wire contract the client renders: energy targets, real eating
+	// occasions carrying foods with a quantity and a unit, and the audit of what
+	// the plan left out. Anything less would let the interface claim a plan it
+	// cannot actually show.
+	target, ok := plan["target_calories"].(float64)
+	if !ok || target <= 0 {
+		t.Fatalf("target_calories = %v, want a positive value", plan["target_calories"])
 	}
-	if energy["target_calories"].(float64) <= 0 {
-		t.Errorf("expected a positive calorie target, got %v", energy["target_calories"])
+	meals, ok := plan["meals"].([]any)
+	if !ok || len(meals) == 0 {
+		t.Fatalf("expected meals in the plan, got %v", plan["meals"])
+	}
+	items, ok := meals[0].(map[string]any)["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected foods in the first meal, got %v", meals[0])
+	}
+	food := items[0].(map[string]any)
+	if name, _ := food["food_name"].(string); name == "" {
+		t.Error("expected a named food rather than a placeholder")
+	}
+	if quantity, ok := food["quantity"].(float64); !ok || quantity <= 0 {
+		t.Errorf("quantity = %v, want a positive amount", food["quantity"])
+	}
+	if unit, _ := food["unit"].(string); unit == "" {
+		t.Error("expected a unit alongside the quantity")
+	}
+	if _, ok := plan["exclusions"].([]any); !ok {
+		t.Errorf("expected an exclusions audit in the plan, got %v", plan["exclusions"])
 	}
 
 	// A repeated generation must converge on the same single plan.
@@ -453,6 +473,14 @@ func TestE2EPremiumPlanIsGeneratedAfterPurchaseAndIsIdempotent(t *testing.T) {
 	f.tx.Model(&models.NutritionAssignment{}).Where("program_id = ?", program.ID).Count(&assignmentRows)
 	if assignmentRows != 1 {
 		t.Errorf("expected exactly one nutrition assignment, found %d", assignmentRows)
+	}
+
+	// Delivery writes a version, and replaying it must not write a second one:
+	// exactly one active plan exists for the assignment.
+	var planRows int64
+	f.tx.Model(&models.NutritionPlan{}).Where("program_id = ? AND status = ?", program.ID, models.NutritionPlanStatusActive).Count(&planRows)
+	if planRows != 1 {
+		t.Errorf("expected exactly one active nutrition plan, found %d", planRows)
 	}
 }
 

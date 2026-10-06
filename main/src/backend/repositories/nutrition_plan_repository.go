@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -149,6 +150,11 @@ func (r *nutritionPlanRepository) Complete(ctx context.Context, userID, programI
 
 // insertPlanChildren writes the meals, foods and exclusions of a plan version.
 //
+// The linkage from a child to the plan it hangs off is stamped here rather than
+// required from the caller: the plan's own identifier is only known once the
+// header has been inserted, and a repository that writes a parent should also
+// be what binds its children to it.
+//
 // The foods of every meal go out in one statement: a plan can hold up to fourteen
 // occasions, and inserting them meal by meal would turn a single generation into a
 // long chain of round trips for no benefit.
@@ -156,8 +162,28 @@ func insertPlanChildren(tx *gorm.DB, plan *models.NutritionPlan) error {
 	meals := make([]models.NutritionPlanMeal, 0, len(plan.Meals))
 	items := make([]models.NutritionPlanMealItem, 0)
 	for _, meal := range plan.Meals {
-		items = append(items, meal.Items...)
+		meal.PlanID = plan.ID
+		if meal.ID == "" {
+			meal.ID = uuid.NewString()
+		}
+		for _, item := range meal.Items {
+			item.PlanID = plan.ID
+			item.MealID = meal.ID
+			if item.ID == "" {
+				item.ID = uuid.NewString()
+			}
+			items = append(items, item)
+		}
 		meals = append(meals, meal)
+	}
+
+	exclusions := make([]models.NutritionPlanExclusion, 0, len(plan.Exclusions))
+	for _, exclusion := range plan.Exclusions {
+		exclusion.PlanID = plan.ID
+		if exclusion.ID == "" {
+			exclusion.ID = uuid.NewString()
+		}
+		exclusions = append(exclusions, exclusion)
 	}
 
 	if len(meals) > 0 {
@@ -170,8 +196,8 @@ func insertPlanChildren(tx *gorm.DB, plan *models.NutritionPlan) error {
 			return fmt.Errorf("failed to create nutrition plan meal items: %w", err)
 		}
 	}
-	if len(plan.Exclusions) > 0 {
-		if err := tx.Create(&plan.Exclusions).Error; err != nil {
+	if len(exclusions) > 0 {
+		if err := tx.Create(&exclusions).Error; err != nil {
 			return fmt.Errorf("failed to create nutrition plan exclusions: %w", err)
 		}
 	}

@@ -158,6 +158,85 @@
   line-height: 1.55;
 }
 
+.stale {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(255, 196, 0, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 196, 0, 0.07);
+}
+
+.stale .body {
+  color: #ffe27a;
+}
+
+.notice {
+  margin: 0;
+  color: #ffd166;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+/* Percentage shares sit under the gram value rather than beside it, so the tile
+   stays one column at every width. */
+.tileNote {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.items {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-left: 2px solid rgba(46, 213, 115, 0.25);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.itemName {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.itemAmount {
+  color: var(--success, #2ed573);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.itemMacros {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.itemSwap {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.mealNotes {
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

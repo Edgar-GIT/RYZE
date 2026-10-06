@@ -9,6 +9,7 @@ import { fetchProgramAccess, type ProgramAccessDetail } from "@/services/purchas
 import {
   fetchNutritionAssignment,
   generateNutritionAssignment,
+  nutritionGenerationErrorMessage,
   type NutritionAssignmentStatus
 } from "@/services/premium_level1_api";
 import { PremiumNutritionPlan } from "@/pages/premium_level1_page/premium_nutrition_plan";
@@ -45,6 +46,7 @@ export const ProgramAccessPage = () => {
 
   const [nutrition, setNutrition] = useState<NutritionAssignmentStatus>(nutritionUnavailable);
   const [nutritionLoaded, setNutritionLoaded] = useState(false);
+  const [nutritionError, setNutritionError] = useState("");
   const [generating, setGenerating] = useState(false);
 
   const load = useCallback(async () => {
@@ -75,11 +77,21 @@ export const ProgramAccessPage = () => {
 
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
+    setNutritionError("");
     try {
       setNutrition(await generateNutritionAssignment(programId));
       setNutritionLoaded(true);
-    } catch {
-      setNutritionLoaded(false);
+    } catch (error) {
+      // Wording is translated here: a server reason token is never rendered.
+      setNutritionError(nutritionGenerationErrorMessage(error));
+      // Re-read the authoritative state so a failed update never hides a plan
+      // that is still there. If even the read fails, the view stands as it is.
+      try {
+        setNutrition(await fetchNutritionAssignment(programId));
+        setNutritionLoaded(true);
+      } catch {
+        // Nothing further to do: the previously rendered state remains correct.
+      }
     } finally {
       setGenerating(false);
     }
@@ -163,6 +175,7 @@ export const ProgramAccessPage = () => {
               <PremiumNutritionPlan
                 status={nutrition}
                 generating={generating}
+                errorMessage={nutritionError}
                 onGenerate={() => void handleGenerate()}
                 onRefresh={() => void loadNutrition()}
               />

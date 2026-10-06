@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # SECURITY.MD
 
-Version: 2.81.0
+Version: 2.82.0
 
 ---
 
@@ -2870,8 +2870,51 @@ stored record cannot contain a value the generator was never validated against.
 
 Nutrition plans are produced by a deterministic, server-side generator. There is
 no client-supplied plan content, no client-supplied calorie or macro target, and
-no client request to regenerate a delivered plan. A plan can only be built from a
-stored, validated intake belonging to the entitled client.
+no client edit of a delivered plan. A plan can only be built from a stored,
+validated intake belonging to the entitled client.
+
+The food catalog is server-owned code versioned with the engine, never a table a
+request can reach and never a client-input field. Every meal item stored with a
+plan is an immutable snapshot resolved from that catalog — name, category,
+quantity, unit and macros — so a delivered plan is byte-stable forever and can
+never drift because a catalog row changed. The snapshot also carries the catalog
+code it came from, so a plan always remains auditable back to its source.
+
+Plan delivery is attempted as part of a completed purchase (a post-commit
+fulfilment hook). That hook is idempotent and its failures are logged and
+deliberately swallowed by the purchase: no agent ever lets a nutrition problem
+unwind a verified payment. A failure leaves the assignment `failed`, which is
+retryable in place through the explicit generate endpoint; it never destroys a
+previously delivered plan.
+
+### Restrictions never echo the intake
+
+The plan records what it took into account as an exclusions audit, and that
+audit is written from controlled tokens, not from the intake:
+
+- `reason_code` is one of a fixed set of server tokens (`allergy`,
+  `intolerance`, `diet`, `excluded_food`, `disliked_food`,
+  `insufficient_alternatives`).
+- `token` is the normalised vocabulary entry that matched the intake, never the
+  free text a client typed.
+- Free-text restrictions that no controlled token resolves are surfaced only as
+  a generic caution on the plan — never echoed verbatim, never persisted into
+  the exclusions table.
+
+Sensitive answers are therefore never duplicated outside the questionnaire row.
+The internal `failure_reason` of an assignment is likewise never included in a
+response; it is a server diagnostic only. A generation whose stored restrictions
+cannot be satisfied answers `422 NUTRITION_RESTRICTIONS_UNSATISFIABLE` with a
+fixed message that names no health data and alters nothing.
+
+### Concurrent generation is safe
+
+A generation run claims the assignment with a compare-and-swap on the revision
+it read. A claim that arrives while another run is in flight, or that targets a
+revision the assignment has moved past, is refused instead of racing. The
+database additionally enforces at most one active plan version per assignment
+and one plan version per revision, so no failure mode can deliver two competing
+plans for the same purchase.
 
 ### Product isolation
 

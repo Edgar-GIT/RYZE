@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # API.MD
 
-Version: 2.81.0
+Version: 2.82.0
 
 ---
 
@@ -3093,11 +3093,12 @@ an editable draft and the nutrition programme has not been built from it yet.
 
 Once an active entitlement exists, the intake is immutable and every mutation is
 refused with `409 QUESTIONNAIRE_LOCKED`. This holds for regular purchases and for
-Test Mode purchases, because both create the same entitlement. There is no
-regeneration path and no flag that reopens editing: the intake is the basis of a
-delivered package, and silently changing it would change the plan the client
-already received. A client that edits answers to improve the plan would also
-invalidate the nutrition programme that was generated from them.
+Test Mode purchases, because both create the same entitlement. There is no flag
+that reopens editing: the intake is the basis of a delivered package, and
+silently changing it would change the plan the client already received. Because
+the intake cannot move for the life of an entitlement, a delivered plan is always
+derived from the current intake; `out_of_date` on the assignment is a holding
+safety invariant for that guarantee, not a routine client path.
 
 A refused mutation changes nothing: the stored revision is not incremented and
 no field is written.
@@ -3132,18 +3133,42 @@ GET /api/v1/me/programs/{programID}/nutrition
 Returns the calling user's nutrition assignment state and, only when it is
 `completed`, the generated plan.
 
+Both endpoints that return assignment state (`GET` here and `POST` on
+`/nutrition/generate`) answer with the same envelope:
+
+```json
+{
+  "success": true,
+  "program_id": "8e3a…",
+  "status": "completed",
+  "version": 2,
+  "questionnaire_version": 1,
+  "out_of_date": false,
+  "plan": { "…": "the nutrition plan document" }
+}
+```
+
 Fields:
 
+- `success` — always `true` on success.
 - `program_id` — the program the assignment belongs to.
-- `status` — `pending` | `processing` | `completed` | `failed`.
-- `version` — assignment revision.
+- `status` — `pending` | `processing` | `completed` | `failed`. `completed` is
+  the only status that may be rendered as a plan; `failed` is a retryable state,
+  and `pending`/`processing` mean the run has not finished.
+- `version` — the assignment revision. It equals the version of the active plan
+  and is incremented on every completed generation.
 - `questionnaire_version` — the intake revision the plan was derived from.
 - `out_of_date` — whether a newer intake revision exists than the one this plan
-  was built from.
+  was built from. Because the intake is immutable once an entitlement exists, it
+  stays `false` in practice and exists to keep the guarantee honest rather than
+  to power a routine user flow.
 - `plan` — the generated programme, or `null` for every non-completed status.
 
-`plan` is `null` unless `status` is `completed`. A purchase does not imply a
-finished plan, and no endpoint ever reports a plan that has not been generated.
+`plan` is `null` unless `status` is `completed`. A completed checkout attempts
+plan delivery as part of the purchase itself, but delivery can fail and the
+ambit is swallowed by the purchase so a payment is never undone by a plan
+problem; no endpoint ever reports a plan that has not been generated, and only
+`completed` proves one exists.
 
 This endpoint requires all three of: the program being `premium_level_1`, an
 active entitlement, and a submitted intake. Any missing condition answers
@@ -3164,26 +3189,124 @@ Failure:
 ## Generate Nutrition Assignment
 
 ```
-POST /api/v1/me/programs/{programID}/nutrition
+POST /api/v1/me/programs/{programID}/nutrition/generate
 ```
 
-Builds the nutrition programme from the stored intake.
+Runs the deterministic, server-side generation step over the stored intake.
 
 The same ownership, entitlement and intake preconditions as the status endpoint
 apply, and each missing condition answers `404 NUTRITION_NOT_FOUND`.
 
-Generation is deterministic and server-side, so the operation is idempotent: an
-existing `completed` assignment is returned as-is and no duplicate plan is
-created. A `failed` assignment is retried in place, which is why the failure
-state is recoverable without any manual intervention and without a second plan.
+Generation is idempotent. An assignment that already has the plan its intake
+revision requires is returned as-is, so retrying after a network failure
+converges on the same single plan and never produces a duplicate. A `failed`
+assignment is retried in place. If the intake revision ever moved on after a plan
+was delivered, an explicit run inserts the next plan version and marks the
+previous one superseded rather than rewriting it, so a delivered plan is never
+silently changed and the history of what a client was shown is retained. The
+`version` returned then matches the new active plan.
 
-Success: `200 OK` with the assignment fields.
+Two generation attempts can never fight: a run claims the assignment at the
+revision it read, and a claim that races one already in flight or that targets a
+revision the assignment has moved past is refused with `409 NUTRITION_NOT_READY`
+instead of generating a second plan.
+
+Success: `200 OK` with the assignment envelope.
 
 Failure:
 
 - `401 UNAUTHORIZED` — no valid session.
 - `404 NUTRITION_NOT_FOUND` — not entitled, not Premium Level 1, or no submitted
   intake.
+- `409 NUTRITION_NOT_READY` — the assignment changed during generation, is
+  already processing, or is not in a state this run can move forward. Retrying
+  later is the correct client response.
+- `422 NUTRITION_RESTRICTIONS_UNSATISFIABLE` — the stored dietary restrictions
+  cannot be satisfied by the plan catalog. Nothing was altered: the intake, the
+  assignment and any previously delivered plan are untouched, and the message
+  never echoes a health answer.
+
+---
+
+## Nutrition Plan Document
+
+The `plan` field of a `completed` assignment is the server-owned nutrition
+programme. It is generated deterministically from the normalized intake, so the
+same intake always produces the same plan, and it is written as a normalised,
+versioned record rather than an opaque blob.
+
+The document shape:
+
+```json
+{
+  "version": 2,
+  "engine_version": 2,
+  "fingerprint": "9f8b1c…",
+  "dietary_pattern": "omnivore",
+  "maintenance_calories": 2400,
+  "target_calories": 2400,
+  "daily": { "calories": 2400, "protein_grams": 150, "carbs_grams": 260, "fat_grams": 75, "fiber_grams": 30 },
+  "protein_percent": 25,
+  "carbohydrate_percent": 45,
+  "fat_percent": 30,
+  "meals_per_day": 4,
+  "snacks_per_day": 1,
+  "meals": [
+    {
+      "position": 1,
+      "label": "Breakfast",
+      "kind": "meal",
+      "percent_of_daily": 25,
+      "macros": { "calories": 600, "protein_grams": 40, "carbs_grams": 65, "fat_grams": 20, "fiber_grams": 8 },
+      "notes": "Cook from scratch where you can.",
+      "items": [
+        {
+          "position": 1,
+          "food_name": "Rolled oats",
+          "category": "grains",
+          "quantity": 80,
+          "unit": "g",
+          "macros": { "calories": 300, "protein_grams": 11, "carbs_grams": 54, "fat_grams": 6, "fiber_grams": 8 },
+          "substitution_note": "Swap for 1 slice of wholemeal bread"
+        }
+      ]
+    }
+  ],
+  "exclusions": [
+    { "reason_code": "allergy", "token": "peanut" },
+    { "reason_code": "diet", "token": "vegetarian" }
+  ],
+  "hydration": { "daily_litres": 2.5, "note": "Drink steadily through the day." },
+  "cautions": ["This plan is general guidance, not medical advice."],
+  "prep_guidance": "Batch the grains once and portion them cold.",
+  "summary": "…"
+}
+```
+
+Key points:
+
+- `daily` is the energy and macro contract for the whole day, with
+  `target_calories` as the day's energy and the three `*_percent` fields as the
+  macro split.
+- `meals` carries every eating occasion in order. `kind` is `meal` or `snack`;
+  the main meals carry the majority of the day. Each meal's `macros` is the sum
+  of its `items`.
+- Each `item` is an immutable snapshot of a food resolved from the server-owned
+  catalog: its name, category, quantity, unit and macros are exactly what was
+  generated, and their totals can never drift from a catalog row that later
+  changes.
+- `substitution_note` appears only where the engine had to swap the food; the
+  note names the equivalent the client may use instead.
+- `exclusions` is the audit of what the plan removed and why. `reason_code` is a
+  controlled token (`allergy`, `intolerance`, `diet`, `excluded_food`,
+  `disliked_food`, `insufficient_alternatives`) and `token` is a normalised
+  vocabulary entry, never raw questionnaire text, so no health answer is echoed
+  back through the plan.
+- `cautions` are the non-prescriptive safety notes shown with the plan. They are
+  a small controlled list, never questionnaire content.
+- `engine_version` and `fingerprint` make a delivered plan auditable: the engine
+  that produced it and the deterministic digest of the intake and plan body. An
+  unchanged intake is provably still current by reproducing the fingerprint.
 
 ---
 
