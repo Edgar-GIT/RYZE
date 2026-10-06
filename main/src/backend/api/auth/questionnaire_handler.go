@@ -65,7 +65,11 @@ func (h *QuestionnaireHandler) GetRequirement(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, newQuestionnaireResponse(requirement))
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Questionnaire requirement retrieved successfully.",
+		"data":    newQuestionnaireResponse(requirement),
+	})
 }
 
 // GetQuestions returns the server-owned question catalog. It requires
@@ -75,10 +79,14 @@ func (h *QuestionnaireHandler) GetQuestions(c *gin.Context) {
 		RespondError(c, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required.", nil)
 		return
 	}
-	c.JSON(http.StatusOK, questionnaireQuestionsResponse{
-		Success:   true,
-		Version:   nutrition_questionnaire.SchemaVersion,
-		Questions: nutrition_questionnaire.Catalog(),
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Questionnaire questions retrieved successfully.",
+		"data": questionnaireQuestionsResponse{
+			Success:   true,
+			Version:   nutrition_questionnaire.SchemaVersion,
+			Questions: nutrition_questionnaire.Catalog(),
+		},
 	})
 }
 
@@ -105,7 +113,11 @@ func (h *QuestionnaireHandler) Submit(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, newQuestionnaireResponse(requirement))
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Questionnaire submitted successfully.",
+		"data":    newQuestionnaireResponse(requirement),
+	})
 }
 
 // resolve reads the authenticated caller and the program identifier from the

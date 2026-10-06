@@ -193,12 +193,11 @@ type Question struct {
 // on the client; the server never depends on it for correctness.
 func Catalog() []Question {
 	number := func(v float64) *float64 { return &v }
-	days := []string{"1", "2", "3", "4", "5", "6", "7"}
 
 	return []Question{
 		{Field: FieldGoal, Label: "What is your main goal?", Type: "select", Required: true, Options: goalOptions, Help: "This drives the calorie and protein targets."},
 		{Field: FieldExperience, Label: "How would you describe your training experience?", Type: "select", Required: true, Options: experienceOptions},
-		{Field: FieldTrainingDays, Label: "How many training days per week can you train?", Type: "select", Required: true, Options: days},
+		{Field: FieldTrainingDays, Label: "How many training days per week can you train?", Type: "number", Required: true, Min: number(MinTrainingDaysPerWeek), Max: number(MaxTrainingDaysPerWeek)},
 		{Field: FieldSessionLength, Label: "How long is a typical training session?", Type: "number", Required: true, Min: number(MinSessionLengthMinutes), Max: number(MaxSessionLengthMinutes), Help: "Minutes per session."},
 		{Field: FieldDiet, Label: "Which diet best describes you?", Type: "select", Required: true, Options: dietOptions},
 		{Field: FieldAllergies, Label: "Do you have any food allergies?", Type: "list", Required: false, MaxEntries: MaxListItems, MaxLength: MaxListItemLength, Sensitive: true, Help: "Allergies are treated as strict exclusions."},
@@ -318,8 +317,8 @@ func Normalize(raw Answers) (*Normalized, error) {
 	normalized.StressLevel = requiredOption(invalid, FieldStressLevel, raw.StressLevel, stressLevelOptions)
 	normalized.CookingEffort = requiredOption(invalid, FieldCookingEffort, raw.CookingEffort, cookingEffortOptions)
 
-	// Training days are collected as a select on the client but stored as a
-	// count, so it is validated as a bounded integer instead of an option.
+	// Training days are collected as a bounded number on the client but stored
+	// as a count, so it is validated as a bounded integer instead of an option.
 	normalized.TrainingDays = requiredInt(invalid, FieldTrainingDays, raw.TrainingDays, MinTrainingDaysPerWeek, MaxTrainingDaysPerWeek)
 	normalized.SessionLength = requiredInt(invalid, FieldSessionLength, raw.SessionLength, MinSessionLengthMinutes, MaxSessionLengthMinutes)
 	normalized.MealsPerDay = requiredInt(invalid, FieldMealsPerDay, raw.MealsPerDay, MinMealsPerDay, MaxMealsPerDay)

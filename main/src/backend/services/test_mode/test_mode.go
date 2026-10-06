@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 
 	"ryze/backend/config"
@@ -109,12 +110,24 @@ type TrainerRepository interface {
 }
 
 type service struct {
-	enabled  bool
-	sessions repositories.TestSessionRepository
-	users    UserRepository
-	trainers TrainerRepository
-	hasher   PasswordHasher
+	enabled    bool
+	sessionTTL time.Duration
+	sessions   repositories.TestSessionRepository
+	users      UserRepository
+	trainers   TrainerRepository
+	hasher     PasswordHasher
 }
+
+// WithSessionTTL bounds every session to a server-side lifetime measured from
+// its creation time. Once a session is older than the TTL it no longer
+// resolves to an active persona, even if the cookie has not expired yet. A TTL
+// of zero disables the server-side limit.
+func WithSessionTTL(ttl time.Duration) Option {
+	return func(s *service) { s.sessionTTL = ttl }
+}
+
+// Option configures a Test Mode service.
+type Option func(*service)
 
 func NewService(
 	enabled bool,
@@ -122,14 +135,19 @@ func NewService(
 	users UserRepository,
 	trainers TrainerRepository,
 	hasher PasswordHasher,
+	opts ...Option,
 ) Service {
-	return &service{
+	s := &service{
 		enabled:  enabled,
 		sessions: sessions,
 		users:    users,
 		trainers: trainers,
 		hasher:   hasher,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // Enter opens a Test Mode session for one predefined persona. The original
@@ -212,8 +230,16 @@ func (s *service) Exit(ctx context.Context, rawToken string) (ExitResult, error)
 
 // ActivePersona resolves the active session bound to a raw token. The returned
 // persona user id lets the authenticated endpoints verify that the caller is
-// precisely the persona the session was opened for.
+// precisely the persona the session was opened for. A session that outlived its
+// configured lifetime or a disabled service reports ErrNoActiveSession /
+// ErrDisabled, so a captured cookie cannot be replayed past its server-side
+// limit. Exit is intentionally not gated by these checks: restoring the admin
+// from an expired session is always allowed so an admin can never be stranded
+// inside a persona.
 func (s *service) ActivePersona(ctx context.Context, rawToken string) (*Session, error) {
+	if !s.enabled {
+		return nil, ErrDisabled
+	}
 	if strings.TrimSpace(rawToken) == "" {
 		return nil, ErrNoActiveSession
 	}
@@ -224,12 +250,21 @@ func (s *service) ActivePersona(ctx context.Context, rawToken string) (*Session,
 		}
 		return nil, fmt.Errorf("failed to load test session: %w", err)
 	}
+	if s.expired(session) {
+		return nil, ErrNoActiveSession
+	}
 	return &Session{
 		AdminIdentity: session.AdminIdentity,
 		Persona:       session.Persona,
 		PersonaUserID: session.PersonaUserID,
 		ReturnPath:    session.ReturnPath,
 	}, nil
+}
+
+// expired reports whether a session has outlived its configured server-side
+// lifetime. A zero TTL means no limit.
+func (s *service) expired(session *models.TestSession) bool {
+	return s.sessionTTL > 0 && time.Since(session.CreatedAt) > s.sessionTTL
 }
 
 // IsValidPersona reports whether persona is one of the predefined identities.

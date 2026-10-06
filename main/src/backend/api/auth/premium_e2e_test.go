@@ -281,7 +281,7 @@ func TestE2EPremiumQuestionnaireGateBlocksCheckoutUntilSubmitted(t *testing.T) {
 	if submitted.Code != http.StatusOK {
 		t.Fatalf("submit questionnaire = %d, want 200; body %s", submitted.Code, submitted.Body.String())
 	}
-	if submitted := decodeBody(t, submitted.Body.String()); submitted["submitted"] != true {
+	if submitted := envelopeData(t, submitted); submitted["submitted"] != true {
 		t.Errorf("submitted = %v, want true", submitted["submitted"])
 	}
 
@@ -417,7 +417,7 @@ func TestE2EPremiumPlanIsGeneratedAfterPurchaseAndIsIdempotent(t *testing.T) {
 	if delivered.Code != http.StatusOK {
 		t.Fatalf("status after purchase = %d, want 200; body %s", delivered.Code, delivered.Body.String())
 	}
-	payload := decodeBody(t, delivered.Body.String())
+	payload := envelopeData(t, delivered)
 	if payload["status"] != models.NutritionAssignmentStatusCompleted {
 		t.Errorf("status after purchase = %v, want completed", payload["status"])
 	}
@@ -465,7 +465,7 @@ func TestE2EPremiumPlanIsGeneratedAfterPurchaseAndIsIdempotent(t *testing.T) {
 	if again.Code != http.StatusOK {
 		t.Fatalf("repeat generate = %d, want 200; body %s", again.Code, again.Body.String())
 	}
-	if againPlan := decodeBody(t, again.Body.String())["plan"].(map[string]any); againPlan["fingerprint"] != plan["fingerprint"] {
+	if againPlan := envelopeData(t, again)["plan"].(map[string]any); againPlan["fingerprint"] != plan["fingerprint"] {
 		t.Error("expected a repeated generation to return the same plan")
 	}
 
@@ -501,7 +501,7 @@ func TestE2EPremiumQuestionnaireLocksAfterPurchase(t *testing.T) {
 	}
 
 	// The requirement view advertises the locked state before the purchase.
-	preLock := decodeBody(t, client.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	preLock := envelopeData(t, client.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil))
 	if preLock["locked"] != false {
 		t.Fatalf("locked before purchase = %v, want false", preLock["locked"])
 	}
@@ -509,7 +509,7 @@ func TestE2EPremiumQuestionnaireLocksAfterPurchase(t *testing.T) {
 	completePremiumPurchase(t, f, client, program)
 
 	// The server, not the client, decides editability.
-	postLock := decodeBody(t, client.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	postLock := envelopeData(t, client.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil))
 	if postLock["locked"] != true {
 		t.Fatalf("locked after purchase = %v, want true", postLock["locked"])
 	}
@@ -529,7 +529,7 @@ func TestE2EPremiumQuestionnaireLocksAfterPurchase(t *testing.T) {
 	}
 
 	// The stored revision is untouched: a refused mutation changes nothing.
-	after := decodeBody(t, client.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	after := envelopeData(t, client.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil))
 	if after["version"] != postLock["version"] {
 		t.Fatalf("a refused mutation must not bump the revision: before %v, after %v", postLock["version"], after["version"])
 	}
@@ -554,7 +554,7 @@ func TestE2EPremiumLockedQuestionnaireStaysPrivateToItsOwner(t *testing.T) {
 	if response := intruder.do(t, http.MethodPost, sprintfPath(premiumQuestionnaireRoute, program.ID), map[string]any{"answers": intruderBody}); response.Code != http.StatusOK {
 		t.Fatalf("intruder submit = %d; body %s", response.Code, response.Body.String())
 	}
-	intruderState := decodeBody(t, intruder.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	intruderState := envelopeData(t, intruder.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil))
 	if intruderState["submitted"] != true {
 		t.Fatal("the intruder must see their own submitted intake")
 	}
@@ -565,14 +565,14 @@ func TestE2EPremiumLockedQuestionnaireStaysPrivateToItsOwner(t *testing.T) {
 	}
 	completePremiumPurchase(t, f, owner, program)
 
-	ownerState := decodeBody(t, owner.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	ownerState := envelopeData(t, owner.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil))
 	if ownerState["locked"] != true {
 		t.Fatalf("owner locked after purchase = %v, want true", ownerState["locked"])
 	}
 
 	// Re-reading as the intruder returns the intruder's own state, not the
 	// owner's locked revision.
-	afterOwnerPurchase := decodeBody(t, intruder.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil).Body.String())
+	afterOwnerPurchase := envelopeData(t, intruder.do(t, http.MethodGet, sprintfPath(premiumQuestionnaireRoute, program.ID), nil))
 	if afterOwnerPurchase["version"] != intruderState["version"] {
 		t.Fatalf("a second account observed a foreign revision: before %v, after %v", intruderState["version"], afterOwnerPurchase["version"])
 	}
@@ -615,7 +615,7 @@ func TestE2EPremiumQuestionnaireLocksAfterNutritionGeneration(t *testing.T) {
 	if status.Code != http.StatusOK {
 		t.Fatalf("status after generation = %d; body %s", status.Code, status.Body.String())
 	}
-	delivered := decodeBody(t, status.Body.String())
+	delivered := envelopeData(t, status)
 	if delivered["status"] != models.NutritionAssignmentStatusCompleted {
 		t.Fatalf("status = %v, want completed", delivered["status"])
 	}
@@ -626,7 +626,7 @@ func TestE2EPremiumQuestionnaireLocksAfterNutritionGeneration(t *testing.T) {
 	if repeat.Code != http.StatusOK {
 		t.Fatalf("repeat generate = %d; body %s", repeat.Code, repeat.Body.String())
 	}
-	if decodeBody(t, repeat.Body.String())["status"] != models.NutritionAssignmentStatusCompleted {
+	if envelopeData(t, repeat)["status"] != models.NutritionAssignmentStatusCompleted {
 		t.Fatal("regeneration must not produce a second plan state")
 	}
 }
@@ -728,7 +728,7 @@ func TestE2EQuestionCatalogDescribesTheContract(t *testing.T) {
 		t.Fatalf("questions = %d, want 200; body %s", response.Code, response.Body.String())
 	}
 
-	payload := decodeBody(t, response.Body.String())
+	payload := envelopeData(t, response)
 	questions, ok := payload["questions"].([]any)
 	if !ok || len(questions) == 0 {
 		t.Fatalf("expected a non-empty question catalog, got %v", payload["questions"])
@@ -769,6 +769,19 @@ func completePremiumPurchase(t *testing.T, f *premiumFlowFixture, client *sessio
 
 // purchaseData unwraps the `data` envelope a purchase response uses.
 func purchaseData(t *testing.T, recorder *httptest.ResponseRecorder) map[string]any {
+	t.Helper()
+
+	payload := decodeBody(t, recorder.Body.String())
+	data, ok := payload["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected a data envelope in %q", recorder.Body.String())
+	}
+	return data
+}
+
+// envelopeData unwraps the `data` envelope of a questionnaire or nutrition
+// response, which follows the same shape as every other authenticated read.
+func envelopeData(t *testing.T, recorder *httptest.ResponseRecorder) map[string]any {
 	t.Helper()
 
 	payload := decodeBody(t, recorder.Body.String())

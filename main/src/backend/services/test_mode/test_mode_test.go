@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"ryze/backend/models"
 	"ryze/backend/repositories"
@@ -111,6 +112,13 @@ func newService(enabled bool) (test_mode.Service, *fakeSessions, *fakeUsers, *fa
 	users := newFakeUsers()
 	trainers := newFakeTrainers()
 	return test_mode.NewService(enabled, sessions, users, trainers, fakeHasher{}), sessions, users, trainers
+}
+
+func newServiceWithTTL(enabled bool, ttl time.Duration) (test_mode.Service, *fakeSessions, *fakeUsers, *fakeTrainers) {
+	sessions := newFakeSessions()
+	users := newFakeUsers()
+	trainers := newFakeTrainers()
+	return test_mode.NewService(enabled, sessions, users, trainers, fakeHasher{}, test_mode.WithSessionTTL(ttl)), sessions, users, trainers
 }
 
 // --- tests ---
@@ -325,5 +333,90 @@ func TestIsValidPersonaWhitelist(t *testing.T) {
 		if test_mode.IsValidPersona(persona) {
 			t.Fatalf("expected %q to be rejected", persona)
 		}
+	}
+}
+
+func TestActivePersonaRejectsExpiredSession(t *testing.T) {
+	svc, sessions, _, _ := newServiceWithTTL(true, time.Hour)
+	ctx := context.Background()
+
+	entered, err := svc.Enter(ctx, "ADMIN_1", test_mode.PersonaClient, "/admin")
+	if err != nil {
+		t.Fatalf("Enter: %v", err)
+	}
+	for _, session := range sessions.byHash {
+		session.CreatedAt = time.Now()
+	}
+
+	if _, err := svc.ActivePersona(ctx, entered.Token); err != nil {
+		t.Fatalf("an in-lifetime session must resolve: %v", err)
+	}
+
+	for _, session := range sessions.byHash {
+		session.CreatedAt = time.Now().Add(-2 * time.Hour)
+	}
+	if _, err := svc.ActivePersona(ctx, entered.Token); !errors.Is(err, test_mode.ErrNoActiveSession) {
+		t.Fatalf("expected ErrNoActiveSession for an expired session, got %v", err)
+	}
+}
+
+func TestActivePersonaZeroTTLMeansUnlimited(t *testing.T) {
+	svc, sessions, _, _ := newServiceWithTTL(true, 0)
+	ctx := context.Background()
+
+	entered, err := svc.Enter(ctx, "ADMIN_1", test_mode.PersonaClient, "")
+	if err != nil {
+		t.Fatalf("Enter: %v", err)
+	}
+	for _, session := range sessions.byHash {
+		session.CreatedAt = time.Now().Add(-240 * time.Hour)
+	}
+	if _, err := svc.ActivePersona(ctx, entered.Token); err != nil {
+		t.Fatalf("a zero TTL must impose no server-side limit: %v", err)
+	}
+}
+
+func TestActivePersonaRejectsWhenDisabled(t *testing.T) {
+	ctx := context.Background()
+	sessions := newFakeSessions()
+	sum := sha256.Sum256([]byte("raw-token"))
+	if err := sessions.Create(ctx, &models.TestSession{
+		AdminIdentity: "ADMIN_1",
+		Persona:       test_mode.PersonaClient,
+		PersonaUserID: "persona-user",
+		TokenHash:     hex.EncodeToString(sum[:]),
+	}); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	svc := test_mode.NewService(false, sessions, newFakeUsers(), newFakeTrainers(), fakeHasher{})
+	if _, err := svc.ActivePersona(ctx, "raw-token"); !errors.Is(err, test_mode.ErrDisabled) {
+		t.Fatalf("expected ErrDisabled for a disabled service, got %v", err)
+	}
+}
+
+func TestExitRestoresAdminEvenAfterExpiry(t *testing.T) {
+	svc, sessions, _, _ := newServiceWithTTL(true, time.Hour)
+	ctx := context.Background()
+
+	entered, err := svc.Enter(ctx, "ADMIN_1", test_mode.PersonaClient, "/admin/test-mode")
+	if err != nil {
+		t.Fatalf("Enter: %v", err)
+	}
+	for _, session := range sessions.byHash {
+		session.CreatedAt = time.Now().Add(-2 * time.Hour)
+	}
+
+	// Ending a session must never be blocked by its own expiry, otherwise an
+	// admin could be stranded inside a persona with no way back.
+	exited, err := svc.Exit(ctx, entered.Token)
+	if err != nil {
+		t.Fatalf("Exit after expiry must restore the admin: %v", err)
+	}
+	if exited.AdminIdentity != "ADMIN_1" {
+		t.Fatalf("expected admin identity ADMIN_1, got %q", exited.AdminIdentity)
+	}
+	if exited.ReturnPath != "/admin/test-mode" {
+		t.Fatalf("expected the recorded return path, got %q", exited.ReturnPath)
 	}
 }

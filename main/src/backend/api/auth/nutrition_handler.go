@@ -73,13 +73,16 @@ func (h *NutritionHandler) Generate(c *gin.Context) {
 // plan is absent or the response is malformed.
 func (h *NutritionHandler) respondStatus(c *gin.Context, status *nutrition_assignment.Status) {
 	c.JSON(http.StatusOK, gin.H{
-		"success":               true,
-		"program_id":            status.ProgramID,
-		"status":                status.Status,
-		"version":               status.Version,
-		"questionnaire_version": status.QuestionnaireVersion,
-		"out_of_date":           status.OutOfDate,
-		"plan":                  status.Plan,
+		"success": true,
+		"message": "Nutrition status retrieved successfully.",
+		"data": gin.H{
+			"program_id":            status.ProgramID,
+			"status":                status.Status,
+			"version":               status.Version,
+			"questionnaire_version": status.QuestionnaireVersion,
+			"out_of_date":           status.OutOfDate,
+			"plan":                  status.Plan,
+		},
 	})
 }
 

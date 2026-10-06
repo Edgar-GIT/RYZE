@@ -196,7 +196,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	statisticsHandler := auth.NewStatisticsHandler(statisticsService)
 
 	testSessionRepository := repositories.NewTestSessionRepository(db)
-	testModeService := test_mode.NewService(testModeCfg.Enabled, testSessionRepository, userRepository, trainerRepository, password.Hasher{})
+	testModeService := test_mode.NewService(testModeCfg.Enabled, testSessionRepository, userRepository, trainerRepository, password.Hasher{}, test_mode.WithSessionTTL(jwtCfg.AccessTokenTTL))
 	testModeHandler := auth.NewTestModeHandler(testModeService, tokenService, userRepository, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
 	testModePurchaseHandler := auth.NewTestModePurchaseHandler(testModeService, purchaseService)
 
