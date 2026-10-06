@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.81.0
+Version: 2.82.0
 
 ---
 
@@ -1666,22 +1666,45 @@ readiness:
 - `pending` and `processing` — a preparing state with a refresh action, and a build
   action when `pending`.
 - `failed` — states that nothing is wrong with the purchase and that no action is
-  required from the client, with a retry action. A failed generation is never
-  presented as a broken purchase.
+  required from the client, with a retry action, in a non-alarm note. A failed
+  generation is never presented as a broken purchase, and a refused generation
+  shows client-owned wording (`NUTRITION_RESTRICTIONS_UNSATISFIABLE` → a fixed
+  "requirements cannot be met" sentence) rather than a raw server token.
 - `completed` — the plan.
 
-A completed plan shows the daily target, maintenance calories, protein,
-carbohydrate, fat and fluids as a tile grid; the daily meal structure as a list
-with each meal's share, approximate calories and protein; the dietary rules and
-allergies as tags; and the server's cautions in a highlighted note.
+A completed plan is rendered from the delivered contract:
 
-A panel that reports completion but sends no plan renders as unavailable with a
-refresh action. Inventing readiness from a missing payload would be a lie the
-client cannot detect.
+- Daily targets as a tile grid — daily calories, target versus maintenance, the
+  macro split in grams and percentages, and fluids.
+- The day's eating structure as a list of meals and snacks, each with its share of
+  the day, its energy, and its actual foods as real entries (name, quantity, unit,
+  macros). An entry that was substituted during planning shows the equivalent it
+  may be replaced with; a substituted entry never hides what it originally was.
+- The dietary guarantee as an exclusions audit — the controlled reason and the
+  resolved exclusion token. No free-text from the intake is ever shown.
+- The server's cautions in a highlighted note, and the preparation guidance and
+  summary when present.
 
-A delivered plan is read-only. There is no regeneration control anywhere in this
-flow, and the panel closes by stating that the programme is part of the package and
-is fixed from the submitted answers.
+The panel is resilient to the safety contract too:
+
+- A panel that reports completion but sends no plan renders as unavailable with a
+  refresh action. Inventing readiness from a missing payload would be a lie the
+  client cannot detect.
+- When the server marks the plan `out_of_date`, the panel keeps showing the
+  delivered plan and adds a stale banner offering to update to the latest
+  answers. This banner is defensive: the intake is locked for the life of the
+  entitlement, so it should never appear in production.
+
+A delivered plan is read-only. There is no manual regeneration control anywhere in
+this flow: the only actions that call generation are the build/retry actions of the
+`pending` and `failed` states and the defensive stale-banner update. The panel
+closes by stating that the programme is part of the package and is fixed from the
+submitted answers.
+
+### Program Access
+
+Program Access renders the same nutrition panel below the training structure for
+Premium entitlements, with the same state, readiness and resilience rules.
 
 ## My Programs and Program Access
 

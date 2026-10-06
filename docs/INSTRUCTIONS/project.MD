@@ -1,6 +1,6 @@
 # RYZE
 
-Version: 2.81.0
+Version: 2.82.0
 
 ---
 
@@ -605,7 +605,9 @@ outcome rather than a training plan alone. It is defined by one idea:
 ## What it includes
 
 - A structured training plan, already part of the existing program hierarchy.
-- A nutrition programme generated on the server from the stored questionnaire.
+- A nutrition programme generated on the server from the stored questionnaire,
+  delivered as part of a completed purchase and persisted as a normalised,
+  versioned plan (every delivered version is immutable and retained).
 - Daily energy and macronutrient targets, a daily meal structure and a hydration
   target.
 - Dietary rules built around the restrictions the client reported.
@@ -617,7 +619,7 @@ outcome rather than a training plan alone. It is defined by one idea:
 - It is not a medical or clinical assessment. The generated plan carries the
   server's own cautions and the interface repeats that it is not medical advice.
 - It is not a subscription. Entitlements do not expire.
-- It is not an AI chat product. In v2.81.0 the generator is a deterministic
+- It is not an AI chat product. In v2.82.0 the generator is a deterministic
   server-side function, which is what makes the plan reproducible and the
   questionnaire safely immutable.
 

@@ -409,7 +409,7 @@ the same scoping chain (`trainer → program → week → workout → workout_ex
 Premium Level 1 is a product family, not a separate platform. It reuses the
 program hierarchy, the purchase flow, the entitlement model and the program
 access surface that Generic Programs already use, and adds exactly two modules
-plus one prerequisite check.
+plus one prerequisite check and one persistence layer for the generated plan.
 
 The discriminator is `programs.product_type` (`generic` | `premium_level_1`).
 It is orthogonal to `programs.type`, which stays the commercial category, so
@@ -421,11 +421,17 @@ The area is layered like every other module:
   `services/questionnaires`) → `NutritionQuestionnaireRepository` (in
   `repositories`), with an `EntitlementReader` dependency for the lock decision.
 - `NutritionHandler` (in `api/auth`, thin) → `nutrition_assignment` service (in
-  `services/nutrition_assignment`) → `NutritionAssignmentRepository` (in
-  `repositories`) → `generator` (in `services/nutrition_assignment`).
+  `services/nutrition_assignment`) → `NutritionAssignmentRepository` and
+  `NutritionPlanRepository` (in `repositories`) → `generator` (in
+  `services/nutrition_assignment`) + `food_catalog` (server-owned catalog data).
 - The question catalog itself lives in `services/nutrition_questionnaire`, which
   owns field definitions, validation and normalization and is shared by both
   services.
+
+The purchase service holds a fulfilment hook (the `nutrition_assignment` service
+itself) that delivers the plan as part of a completed purchase, so the buyer does
+not have to trigger generation by hand; the hook is idempotent and its failures
+are logged, not bubbled up to the payment.
 
 Both handlers sit behind `Authenticate` only. There is no trainer ownership to
 verify and no administrator permission involved: the owner is always the
@@ -451,16 +457,25 @@ Key architectural decisions:
   regular and Test Mode purchase paths call the same check, so the two can never
   disagree.
 - **Deterministic generation.** The nutrition generator is a pure function of the
-  normalized intake. No external AI provider is involved in v2.81.0, so the same
+  normalized intake. No external AI provider is involved in v2.82.0, so the same
   inputs always yield the same plan, generation is idempotent, and a failure is
-  retryable in place instead of needing a second plan.
-- **Status is the only readiness signal.** A purchase never implies a finished
-  plan. The assignment state machine (`pending`, `processing`, `completed`,
-  `failed`) is the single observable contract, and the plan is served only from
-  `completed`.
-- **Views as the read surface.** Both repositories read through
-  `v_nutrition_questionnaire_summary` and `v_nutrition_assignment`, which omit
-  answers and internal diagnostics. The write model is never an API contract.
+  retryable in place instead of needing a second plan. The food catalog is Go
+  code versioned with the engine, so a plan can never be influenced by runtime
+  data a request could touch.
+- **Normalised, versioned persistence.** A delivered plan is stored as a
+  normalised domain (`nutrition_plans`, its meals, their foods and an exclusions
+  audit) rather than an opaque document, and each meal item is an immutable food
+  snapshot. An explicit regeneration inserts the next plan version and marks the
+  previous one superseded, so a delivered plan is never silently rewritten and
+  the read surface always serves exactly one active version per assignment.
+- **Status is the only readiness signal.** A completed checkout attempts plan
+  delivery, but delivery can fail and is never allowed to undo the payment. The
+  assignment state machine (`pending`, `processing`, `completed`, `failed`) is
+  the single observable contract, and the plan is served only from `completed`.
+- **Views as the read surface.** The repositories read through
+  `v_nutrition_questionnaire_summary`, `v_nutrition_assignment` and the
+  `v_nutrition_plan*` views, which omit answers and internal diagnostics. The
+  write model is never an API contract.
 - **Frontend reuse.** The Premium page reuses the existing purchase and payment
   APIs through `useProgramCheckout`, the shared hook extracted from the Generic
   detail page, so both families share one checkout state machine including

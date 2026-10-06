@@ -1,7 +1,7 @@
 # RYZE
 # How to Run
 
-Version: 2.81.0
+Version: 2.82.0
 
 ---
 
@@ -737,8 +737,8 @@ routed, and always fails closed.
 
 ## Premium Level 1 (Local Walkthrough)
 
-Premium Level 1 needs migration `000025` and a published Premium Level 1 program
-before the page has anything to show.
+Premium Level 1 needs migrations `000025` and `000026` and a published Premium
+Level 1 program before the page has anything to show.
 
 ### Apply the migration
 
@@ -747,7 +747,7 @@ cd main/src/backend
 go run . migrate up
 ```
 
-Verify the schema version afterwards. The expected result is version `25` with
+Verify the schema version afterwards. The expected result is version `26` with
 `dirty = false`:
 
 ```text
@@ -779,8 +779,11 @@ documented.
    configuration and no real money.
 5. The questionnaire becomes read-only immediately after the purchase. Confirm that
    resubmitting answers returns `409 QUESTIONNAIRE_LOCKED`.
-6. Build the nutrition programme from the **access** view. A `pending` assignment can
-   be built on demand; a `failed` assignment is retryable in place.
+6. The purchase itself attempts plan generation, so a completed purchase normally
+   shows a `completed` assignment with a full plan. The generate endpoint is still
+   the on-demand path: it is idempotent (repeat runs return the same plan), retries
+   a `failed` assignment in place, and is the way to confirm a revision-moved intake
+   supersedes the delivered plan.
 7. Open **My Programs**. The entitlement carries the Premium Level 1 chip, and
    Program Access renders the training structure plus the nutrition panel.
 
@@ -793,7 +796,7 @@ GET  /api/v1/me/questionnaire/questions
 GET  /api/v1/me/programs/{programID}/questionnaire
 POST /api/v1/me/programs/{programID}/questionnaire
 GET  /api/v1/me/programs/{programID}/nutrition
-POST /api/v1/me/programs/{programID}/nutrition
+POST /api/v1/me/programs/{programID}/nutrition/generate
 ```
 
 The requirement response reports `locked`. Before a purchase it is `false`; after
