@@ -139,6 +139,32 @@ const renderInput = (
     );
   }
 
+  if (question.type === "list") {
+    // List questions are free-text entries (allergies, excluded foods, medical
+    // conditions...). One item per line is the simplest unambiguous mapping of
+    // text into the array the server contract expects; blank lines are dropped
+    // and every entry is trimmed, mirroring the server-side normalisation.
+    const entries = Array.isArray(value) ? value : [];
+    return (
+      <textarea
+        id={question.field}
+        name={question.field}
+        className={joinClassNames(styles.control, styles.textarea)}
+        rows={4}
+        placeholder="One item per line"
+        value={entries.join("\n")}
+        onChange={(event) => {
+          const lines = event.target.value
+            .split("\n")
+            .map((line) => line.trim())
+            .filter((line) => line !== "");
+          onChange(lines);
+        }}
+        {...described}
+      />
+    );
+  }
+
   if (question.type === "textarea") {
     return (
       <textarea
