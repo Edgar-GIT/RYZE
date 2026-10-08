@@ -1,7 +1,7 @@
 # RYZE
 # How to Run
 
-Version: 2.82.0
+Version: 2.83.0
 
 ---
 

@@ -1,3 +1,122 @@
+# Version 2.83.0
+
+Title: End-to-end Premium Level 1 integration audit and production hardening — envelope consistency, questionnaire contract agreement, bounded Test Mode sessions and safer payment method binding
+
+Date: 2026-10-08
+
+Summary:
+
+v2.83.0 is the result of an end-to-end audit of the Premium Level 1 purchase
+lifecycle (catalog → intake → purchase → payment → capture → entitlement → plan
+delivery → access). The milestone found and fixed genuine integration defects
+across the backend contract, the questionnaire payload agreement, the payment
+flow and the frontend checkout recovery, and hardened two production
+behaviours. No schema change was made in this build: the database stays at
+migration version `26` with `dirty=false`, and no migration file was added,
+modified or removed. No refund, regeneration or Premium Level 2 surface was
+introduced; audit-only notes are recorded below and were deliberately left
+out of scope.
+
+Response envelope consistency. The three questionnaire endpoints
+(`GET /me/questionnaire/questions`, `GET /me/programs/{id}/questionnaire`,
+`POST /me/programs/{id}/questionnaire`) and the two nutrition assignment
+endpoints returned their payloads flat while every other endpoint in the
+platform returns `{ success, message, data }`. All five now wrap their payload
+under the standard `data` envelope. The premium E2E test was updated to read
+through the envelope, so the integration test asserts the real wire contract.
+
+Questionnaire contract agreement. The intake submission endpoint binds on the
+server side, so a catalog type that does not match the payload type silently
+fails to save. `training_days_per_week` was declared as a `select` with string
+options while the payload field is an integer; the catalog now declares it as
+`number` with the server's bounds, matching the int field. The catalog also
+declares several `list` questions (allergies, intolerances, excluded foods,
+disliked foods, medical conditions, injuries, limitations) that the form could
+not render — they fell through to the default text input and produced a string
+that the `*[]string` server field rejects. The form now renders `list` fields as
+one free-typed entry per line in a multi-line control (blank lines dropped,
+entries trimmed), so every server-declared type has a faithful control.
+
+Bound Test Mode sessions. The persona session had no server-side lifetime:
+`GET /auth/test-mode` and persona purchases accepted any session whose cookie
+had not expired, regardless of how old the entry was, because the server kept no
+record of time alongside the session. Persona sessions are now bounded by the
+same lifetime as the access token (`ACCESS_TOKEN_TTL`, configured server-side
+via `WithSessionTTL`); an expired session has no active persona and an absent
+persona answers `false`/`403` exactly as if no session existed. TTL zero means
+unlimited (test-only defaults preserved). Exit is deliberately exempt from the
+expiry check so the stored administrator identity can always be restored and an
+admin is never stranded in an impersonated context. The existing disabled-path
+behaviour is now explicitly tested (`TEST_MODE_DISABLED`), and the
+socket/restore surfaces preserved the previous behaviour.
+
+Safer payment method binding. `InitiatePayment` recorded the validated method
+on the purchase as soon as the provider was resolved, so a provider rejection
+left a method bound to a purchase that had no provider payment — the buyer could
+not retry with another method without a mismatch refusal. The method is now
+written only after the provider accepts the initiation; a rejection leaves the
+method unbound and retryable with any other method. The repository
+`SetPaymentMethod` gained a `WHERE payment_method IS NULL` single-writer guard
+as defense in depth, and a same-method replay (the supported retry path) is no
+longer re-persisted. Capture and webhook flows are unchanged: they still re-derive
+the provider only from the recorded method, never from client input.
+
+Frontend checkout recovery. Payment return URLs are configured for the Generic
+Program page and are shared by both product families, but the frontend had no
+route matching `/services/generic-program/{program_id}/purchase/success` or
+`.../cancelled`, so a returning buyer landed on the 404/`NotFound` fallback
+instead of the checkout detail page. Both exact routes now render
+`GenericProgramDetailPage` and are declared before the `/services/:serviceSlug`
+catch-all. The `useProgramCheckout` hook no longer resolves the retry method
+from the currently selected control (which may not be the method the purchase is
+bound to) — a retried payment now reads the purchase's recorded method from the
+purchase history and resolves the provider from it. The mount-time capture
+return leg runs before and independently of the product-detail load, so a buyer
+who already paid at the provider is never left un-captured because the program
+data failed to load.
+
+The database `payment_method` column documentation is unchanged in structure
+(it still exists, migration `000024`) but the documented write timing now
+reflects "only after provider acceptance". Test session documentation was added
+to `api.MD` and `security.MD`.
+
+Main changes:
+
+- Backend contract: `questionnaire_handler.go` and `nutrition_handler.go` wrap
+  success payloads in `{ success, message, data }`; `premium_e2e_test.go`
+  asserts through the envelope.
+- Questionnaire: the catalog (`services/nutrition_questionnaire/questionnaire.go`)
+  declares `training_days_per_week` as `number` (Min/Max from server bounds)
+  instead of `select`; frontend `premium_questionnaire_form.tsx` added a `list`
+  multi-line control.
+- Test Mode: `services/test_mode/test_mode.go` gains `WithSessionTTL` +
+  `Option` and an `enabled` gate that is now tested; `routes/routes.go` wires
+  `WithSessionTTL(jwtCfg.AccessTokenTTL)`; new tests cover expiry, zero-TTL,
+  disabled and exit-after-expiry.
+- Payments: `services/purchases/purchases.go` records the method only after
+  provider acceptance and only when unbound; `repositories/purchase_repository.go`
+  guards with `WHERE payment_method IS NULL`; `purchases_test.go` covers the
+  provider-rejection-releases-method path and the no-re-persist replay.
+- Frontend: `app_routes.tsx` registers the two payment return routes before the
+  slug catch-all; `use_program_checkout.ts` resolves the retry method from the
+  purchase record and runs the return-leg capture independently of the detail
+  load.
+- Documentation: `api.MD` (envelope, catalog types incl. `list`, payment
+  binding timing, Test Mode lifetime), `security.MD` (payment single-writer,
+  persona session TTL), `DATABASE/database.MD` (payment_method write timing),
+  `PAGES/design.MD` (list control), `how_to_run.MD` (return routes),
+  `project.MD` (payment initiation wording), and this update log. Versions
+  bumped to 2.83.0 where the document changed.
+- Audit notes deliberately left out of scope (no change): an inactive pending
+  purchase never expires (frontend recovery resumes it), the `failed` purchase
+  status is currently unreachable, a dead `payments.Provider` constructor
+  parameter, a non-transactional entitlement restore path, the exported
+  `CreateEntitlement`/`RevokeEntitlement` surface, the published re-check at
+  completion, PayPal return-context plumbing, and the hardcoded prices / Premium
+  Level 2 card in frontend constants.
+
+---
+
 # Version 2.82.0
 
 Title: Nutrition plans are now normalised, versioned and server-owned — generator v2 with an immutable plan lifecycle

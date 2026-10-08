@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # SECURITY.MD
 
-Version: 2.82.0
+Version: 2.83.0
 
 ---
 

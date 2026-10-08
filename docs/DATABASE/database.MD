@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # DATABASE.MD
 
-Version: 2.82.0
+Version: 2.83.0
 
 ---
 
@@ -439,10 +439,14 @@ The implemented `purchases` table contains:
 - `payment_method` — the payment method chosen by the buyer at initiation
   (`VARCHAR(20) NULL`, `CHECK`-constrained to `card`, `mbway` or `paypal`),
   added by migration `000024`. It is recorded server-side at `InitiatePayment`,
-  only after the method has been validated and resolved to a configured
-  provider; from that point the method is immutable for the purchase. The
-  capture flow reads it to resolve the correct capture provider, never trusting
-  client input.   `NULL` marks purchases that never reached a payment provider
+  only after the method has been validated, resolved to a configured provider
+  and accepted by that provider; from that point the method is immutable for the
+  purchase. A provider rejection leaves the method unbound (`NULL`), so the
+  purchase can be retried with a different method. The repository enforces the
+  single-writer rule with a `WHERE payment_method IS NULL` guard, so the binding
+  can never be overwritten by a stray concurrent write. The capture flow reads
+  it to resolve the correct capture provider, never trusting client input.
+  `NULL` marks purchases that never reached a payment provider
   (Test Mode purchases and legacy pending purchases created before the column
   existed); such purchases can only be captured after being re-initiated.
   `mbway` is the MB WAY method, recorded when the buyer pays through the Stripe
