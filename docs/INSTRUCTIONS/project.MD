@@ -55,7 +55,9 @@ the payment methods the backend currently supports (advertised by
 `GET /api/v1/payments/methods`, never hard-coded in the frontend), pay through
 the provider checkout flow and gain access once the payment is captured and
 verified server-side. The chosen method is recorded on the purchase at
-initiation, so the later capture always resolves the correct provider without
+initiation — only after the provider accepts the initiation, so a provider
+rejection leaves the method unbound and the buyer can retry with a different
+method — and the later capture always resolves the correct provider without
 trusting the browser. Stripe serves the
 card and MB WAY methods through hosted Checkout Sessions and PayPal serves the
 PayPal method; each provider is enabled only when it is completely configured.

@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # API.MD
 
-Version: 2.82.0
+Version: 2.83.0
 
 ---
 
@@ -656,11 +656,13 @@ Initiates a payment for an existing pending purchase via the configured payment
 provider. The purchase must belong to the authenticated user and be in "pending"
 status. The client selects the payment method (`card` or `paypal`, as
 advertised by `GET /api/v1/payments/methods`); the server validates it and routes
-it to the correct provider via a centralized `MethodProviderMap`. As soon as a
-configured provider has been resolved, the
-validated method is recorded on the purchase (`purchases.payment_method`), so it
-becomes immutable for that purchase and the later capture flow can always
-resolve the correct provider server-side without trusting any client input.
+it to the correct provider via a centralized `MethodProviderMap`. On a
+configured provider, the validated method is recorded on the purchase
+(`purchases.payment_method`) only after that provider has accepted the
+initiation, so it becomes immutable for that purchase and the later capture
+flow can always resolve the correct provider server-side without trusting any
+client input. A provider rejection therefore leaves the method unbound: no
+provider payment exists, and the buyer may retry with a different method.
 The immutable purchase snapshot is used to construct the provider request; no
 client-supplied commercial values are accepted. The purchase status is NOT
 modified during initiation — it remains "pending" until a server-verified
@@ -860,7 +862,11 @@ middleware and the `RequireAdminRole` guard; **only the Technical
 Administrator (ADMIN_1) may enter Test Mode**. The backend mints the persona
 travel session: it clears the admin access cookie and sets a
 persona-authenticated session (`ryze_test_session`) whose identity is the
-predefined persona user.
+predefined persona user. The persona session is short-lived: it carries the
+same server-side lifetime as the access token (the configured
+`ACCESS_TOKEN_TTL`), after which the persona is treated as having no active
+session. Exiting always restores the stored administrator identity regardless
+of expiry, so an admin can never be stranded in persona.
 
 Request body:
 
@@ -3026,9 +3032,15 @@ GET /api/v1/me/questionnaire/questions
 ```
 
 Returns the authoritative field contract for the intake: field name, type
-(`text` | `textarea` | `number` | `select` | `multi_select`), label, help text,
-whether the field is required or sensitive, allowed options, numeric bounds and
-entry caps.
+(`text` | `textarea` | `number` | `select` | `multi_select` | `list`), label,
+help text, whether the field is required or sensitive, allowed options, numeric
+bounds and entry caps.
+
+`list` fields hold an ordered array of free-choice strings entered one per
+line; `multi_select` fields pick from the declared options (`multi_select` is a
+future capability the server currently contracts but never emits). Numeric
+fields such as `training_days_per_week` are declared as `number` with server
+bounds, never as `select` option lists.
 
 The catalog is public product metadata with no user data attached, so it is
 resolved from the authentication context alone and does not require a program id.
@@ -3038,7 +3050,7 @@ field list, so adding a question does not require a client release. Validation
 rules are also declared server-side and are enforced again on submission; the
 catalog is a convenience, never the authority.
 
-Success: `200 OK`.
+Success: `200 OK` with the catalog under the response `data` wrapper.
 
 ---
 
@@ -3065,7 +3077,9 @@ from anything the user did. If the server cannot verify the lock it still answer
 `200` with `locked: true`, so the client can render the package it already owns
 instead of failing the page.
 
-Success: `200 OK`.
+Success: `200 OK` with the fields above under the response `data` wrapper
+(`{ success, message, data: { program_id, submitted, locked, version,
+submitted_at } }`).
 
 Failure:
 
@@ -3108,7 +3122,7 @@ option values, out-of-range numbers, over-long text and exceeded entry caps are
 all rejected.
 
 Success: `200 OK` with the requirement fields (`submitted`, `locked`, `version`,
-`submitted_at`).
+`submitted_at`) under the response `data` wrapper.
 
 Failure:
 
@@ -3139,18 +3153,20 @@ Both endpoints that return assignment state (`GET` here and `POST` on
 ```json
 {
   "success": true,
-  "program_id": "8e3a…",
-  "status": "completed",
-  "version": 2,
-  "questionnaire_version": 1,
-  "out_of_date": false,
-  "plan": { "…": "the nutrition plan document" }
+  "message": "Nutrition status retrieved successfully.",
+  "data": {
+    "program_id": "8e3a…",
+    "status": "completed",
+    "version": 2,
+    "questionnaire_version": 1,
+    "out_of_date": false,
+    "plan": { "…": "the nutrition plan document" }
+  }
 }
 ```
 
-Fields:
+Fields in `data`:
 
-- `success` — always `true` on success.
 - `program_id` — the program the assignment belongs to.
 - `status` — `pending` | `processing` | `completed` | `failed`. `completed` is
   the only status that may be rendered as a plan; `failed` is a retryable state,

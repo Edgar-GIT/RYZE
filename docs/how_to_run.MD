@@ -403,7 +403,11 @@ STRIPE_CANCEL_URL=http://localhost:5173/services/generic-program/{program_id}/pu
   redirect behaviour. The `{program_id}` and `{purchase_id}` placeholders are
   replaced server-side for each session, and `{CHECKOUT_SESSION_ID}` is reserved
   for Stripe and must be kept on the success URL so the return leg can be
-  verified.
+  verified. The frontend registers the documented
+  `/services/generic-program/{program_id}/purchase/success` and
+  `/services/generic-program/{program_id}/purchase/cancelled` paths (declared
+  before the `/services/:serviceSlug` route) for both Generic and Premium
+  purchases, since the return URL is shared by both product families.
 - `STRIPE_CANCEL_URL` — URL where the user is redirected when they cancel the
   Stripe Checkout flow. Optional; when empty, Stripe uses its default redirect
   behaviour. The same `{program_id}` / `{purchase_id}` placeholders are

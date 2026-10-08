@@ -1620,6 +1620,8 @@ release.
 - Multi-select options are pill-shaped toggles. When the server-declared entry cap
   is reached, remaining unchecked options become disabled. Nothing is ever selected
   on the buyer's behalf.
+- List fields render as one free-typed entry per line in a multi-line control;
+  blank lines are dropped and entries are trimmed.
 - Rejected fields show client-owned wording for the server's reason code. A raw
   server token is never displayed, especially for a health-related field.
 - Unsaved answers live in component state only. There is no browser persistence,

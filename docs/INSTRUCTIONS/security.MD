@@ -1374,6 +1374,11 @@ system:
   `403 TEST_MODE_DISABLED` and no session state can be created or consumed.
   Tokens, cookies and persona content are never logged (`test_mode.*` audit
   entries carry only structured identifiers).
+- **Persona sessions are short-lived.** The persona session carries the same
+  server-side lifetime as the access token (`ACCESS_TOKEN_TTL`); an expired
+  session has no active persona and every persona action is refused. Only the
+  exit path ignores expiry, so the stored administrator identity can always be
+  restored and an admin is never stranded in an impersonated context.
 
 ---
 
@@ -2322,6 +2327,18 @@ RYZE should never store:
 Payment information should remain entirely under the payment provider's responsibility.
 
 Only transaction identifiers and payment status should be stored.
+
+**Payment initiation is single-writer and server-verified:**
+
+- The payment method is recorded on the purchase only after the configured
+  provider has accepted the initiation request. A provider rejection leaves the
+  method unbound so the buyer can retry with another method; a bound method is
+  only ever written by the service and guarded in the repository
+  (`WHERE payment_method IS NULL`), so a purchase is never rebound by a stray
+  concurrent write.
+- A different-method retry on a bound purchase is rejected before any provider is
+  contacted, and the capture/webhook flow always re-derives the provider from the
+  recorded method server-side, never from client input.
 
 ---
 
