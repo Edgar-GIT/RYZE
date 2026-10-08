@@ -53,6 +53,12 @@ export const AppRoutes = () => {
             route, otherwise the slug route would swallow it. */}
         <Route exact path="/services/premium-level-1" component={PremiumLevel1Page} />
         <Route exact path="/services/generic-program/:programId" component={GenericProgramDetailPage} />
+        {/* The configured payment return URLs land here (Stripe appends
+            session_id, PayPal appends token, both with purchase_id). They must
+            be declared before the dynamic /services/:serviceSlug route so the
+            return leg of a completed or cancelled checkout is never swallowed. */}
+        <Route exact path="/services/generic-program/:programId/purchase/success" component={GenericProgramDetailPage} />
+        <Route exact path="/services/generic-program/:programId/purchase/cancelled" component={GenericProgramDetailPage} />
         <Route exact path="/services/my-programs" component={MyProgramsPage} />
         <Route exact path="/services/my-programs/:programId" component={ProgramAccessPage} />
         <Route

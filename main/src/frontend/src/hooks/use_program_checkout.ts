@@ -123,7 +123,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
   // resolved, so resuming a pending purchase must reuse the recorded method
   // rather than the one currently highlighted in the selector.
   const resolveMethodForPurchase = useCallback(
-    (purchase: { payment_method?: string | null }): string | null => {
+    (purchase: { id?: string; payment_method?: string | null }): string | null => {
       if (purchase.payment_method) return purchase.payment_method;
       if (!selectedMethod) return null;
       return selectedMethod;
@@ -210,9 +210,20 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
 
   const retryPurchase = useCallback(
     async (purchaseId: string) => {
-      await negotiatePayment(purchaseId, selectedMethod);
+      setState({ status: "negotiating" });
+      try {
+        // A pending purchase is bound to the method recorded at its first
+        // successful initiation, so retrying must reuse that method rather
+        // than whichever one the selector happens to highlight. The purchase
+        // list is the only client-side source of the recorded method.
+        const purchases = await fetchMyPurchases();
+        const purchase = purchases.find((entry) => entry.id === purchaseId);
+        await negotiatePayment(purchaseId, resolveMethodForPurchase(purchase ?? { id: purchaseId }));
+      } catch {
+        setState({ status: "error", message: "We could not start the checkout. No money was taken at this point." });
+      }
     },
-    [negotiatePayment, selectedMethod]
+    [negotiatePayment, resolveMethodForPurchase]
   );
 
   // Resolve the currently configured payment methods. The endpoint is public
@@ -240,10 +251,6 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
   // This intentionally runs alongside the content load: the entitlements
   // fetch doubles as the authentication gate.
   useEffect(() => {
-    if (!enabled || free) {
-      return;
-    }
-
     let cancelled = false;
     const params = new URLSearchParams(window.location.search);
     const purchaseId = params.get("purchase_id");
@@ -263,14 +270,23 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       }
 
       // Browser return from the payment page: attempt the server-verified
-      // capture.
+      // capture. This runs as soon as the page mounts, before and independent
+      // of the product details: a buyer who already paid at the provider must
+      // never be left un-captured just because the program data failed to load.
       if (purchaseId && providerPaymentId) {
         await runCapture(purchaseId, providerPaymentId);
         return;
       }
 
+      if (!enabled || free) {
+        return;
+      }
+
       try {
-        setState({ status: await resolveOwnership() });
+        const ownership = await resolveOwnership();
+        if (!cancelled) {
+          setState({ status: ownership });
+        }
       } catch {
         if (!cancelled) {
           setState({ status: "error", message: "We could not verify your access. Please try again." });
