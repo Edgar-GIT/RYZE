@@ -372,12 +372,14 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 // The purchase must belong to the authenticated user and be in "pending" status.
 // The immutable purchase snapshot is used to construct the provider request; no
 // client-supplied commercial values are accepted. The payment method is validated
-// and resolved to the appropriate provider before initiation. Once a configured
-// provider has been resolved, the validated method is recorded on the purchase:
-// from that point the method is immutable, so a later capture can always resolve
-// the correct provider server-side without trusting any client input. Repeating
-// the initiation with the same method is safe and replays the same provider
-// payment; repeating it with a different method fails with
+// and resolved to the appropriate provider before initiation. The validated
+// method is recorded on the purchase only once the provider accepted the
+// initiation: from that point the method is immutable, so a later capture can
+// always resolve the correct provider server-side without trusting any client
+// input. A provider rejection leaves the method unbound, so the buyer can retry
+// with another method instead of being locked to one the provider refused.
+// Repeating the initiation with the same method is safe and replays the same
+// provider payment; repeating it with a different method fails with
 // ErrPaymentMethodMismatch and never rebinds the purchase.
 // The purchase status is NOT modified during initiation — it remains "pending"
 // until a verified provider event flows through CompletePurchase().
@@ -413,9 +415,9 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 	// The recorded method is immutable for the purchase. A re-initiation with a
 	// different method is rejected instead of rebinding the purchase: the
 	// outstanding provider payment belongs to the method recorded at the first
-	// initiation, so overwriting it would make that payment uncapturable. The
-	// check runs before provider resolution so it never depends on or exposes
-	// provider configuration.
+	// successful initiation, so overwriting it would make that payment
+	// uncapturable. The check runs before provider resolution so it never
+	// depends on or exposes provider configuration.
 	if purchase.PaymentMethod != nil && *purchase.PaymentMethod != string(method) {
 		return nil, ErrPaymentMethodMismatch
 	}
@@ -423,16 +425,6 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 	provider, err := s.resolver(ctx, method)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
-	}
-
-	// Record the validated method before contacting the provider. From this
-	// point the method is immutable for the purchase, which is what lets the
-	// capture flow resolve the correct provider without any client input.
-	if err := s.purchases.SetPaymentMethod(ctx, purchase.ID, string(method)); err != nil {
-		if errors.Is(err, repositories.ErrPurchaseNotFound) {
-			return nil, ErrPurchaseNotFound
-		}
-		return nil, fmt.Errorf("failed to record payment method: %w", err)
 	}
 
 	request := payments.PaymentRequest{
@@ -445,7 +437,24 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 
 	result, err := provider.InitiatePayment(ctx, request)
 	if err != nil {
+		// Nothing has been recorded yet: a provider rejection leaves the
+		// purchase free to be retried with any method, so a buyer is never
+		// locked to a method the provider refuses.
 		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
+	}
+
+	// Record the validated method now that the provider accepted the initiation.
+	// From this point the method is immutable for the purchase, which is what
+	// lets the capture flow resolve the correct provider without any client
+	// input. A same-method replay skips the write because the method is already
+	// recorded; the mismatch check above rejects any different method.
+	if purchase.PaymentMethod == nil {
+		if err := s.purchases.SetPaymentMethod(ctx, purchase.ID, string(method)); err != nil {
+			if errors.Is(err, repositories.ErrPurchaseNotFound) {
+				return nil, ErrPurchaseNotFound
+			}
+			return nil, fmt.Errorf("failed to record payment method: %w", err)
+		}
 	}
 
 	return &PaymentResult{

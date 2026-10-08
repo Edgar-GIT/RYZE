@@ -209,14 +209,18 @@ func (r *purchaseRepository) CompleteTestPurchase(ctx context.Context, purchase 
 }
 
 // SetPaymentMethod records the immutable payment method chosen for a purchase.
-// It is called at payment initiation, only after the service has validated the
-// method and resolved a configured provider for it. The update is scoped to
-// the purchase id; an unknown or soft-deleted purchase maps to
-// ErrPurchaseNotFound.
+// It is called after the service has validated the method, resolved a
+// configured provider for it and obtained a successful initiation from the
+// provider. The `AND payment_method IS NULL` guard makes the field
+// single-writer at the database level: an already-bound purchase can never be
+// rebound by a racing or replayed initiation. The update is scoped to the
+// purchase id; an unknown purchase, a soft-deleted purchase or one that is
+// already bound maps to ErrPurchaseNotFound (the service skips the write when
+// the loaded purchase already carries the same method).
 func (r *purchaseRepository) SetPaymentMethod(ctx context.Context, purchaseID, method string) error {
 	result := r.db.WithContext(ctx).
 		Model(&models.Purchase{}).
-		Where("id = ?", purchaseID).
+		Where("id = ? AND payment_method IS NULL", purchaseID).
 		Update("payment_method", method)
 	if result.Error != nil {
 		return fmt.Errorf("failed to set payment method: %w", result.Error)

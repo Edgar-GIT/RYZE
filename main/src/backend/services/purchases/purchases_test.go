@@ -1412,6 +1412,67 @@ func TestInitiatePaymentProviderFailure(t *testing.T) {
 	}
 }
 
+func TestInitiatePaymentProviderFailureLeavesMethodUnbound(t *testing.T) {
+	// A rejected initiation must not bind the method: the buyer can retry with
+	// another method instead of being stranded behind a mismatch on a payment
+	// the provider never created.
+	purchase := &models.Purchase{
+		ID:              "purchase-unbound",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+
+	purchasesRepo := &stubPurchaseRepository{
+		findByIDPurchase: purchase,
+	}
+	rejecting := &stubPaymentProvider{err: payments.ErrProviderFailure}
+	accepting := &stubPaymentProvider{
+		result: payments.PaymentResult{
+			PaymentID:  "pay_ok",
+			Status:     payments.PaymentStatusPending,
+			Provider:   "fake",
+			PurchaseID: purchase.ID,
+		},
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		accepting,
+		func(_ context.Context, method payments.PaymentMethod) (payments.Provider, error) {
+			if method == payments.PaymentMethodMBWay {
+				return rejecting, nil
+			}
+			return accepting, nil
+		},
+	)
+
+	if _, err := svc.InitiatePayment(context.Background(), purchase.UserID, purchase.ID, "mbway"); !errors.Is(err, purchases.ErrPaymentProvider) {
+		t.Fatalf("first initiation must fail provider-side, got %v", err)
+	}
+	if purchase.PaymentMethod != nil {
+		t.Fatalf("a failed initiation must not bind a method, got %v", *purchase.PaymentMethod)
+	}
+	if purchasesRepo.setMethod != "" {
+		t.Fatalf("the failed initiation must not have persisted a method, got %q", purchasesRepo.setMethod)
+	}
+
+	if _, err := svc.InitiatePayment(context.Background(), purchase.UserID, purchase.ID, "card"); err != nil {
+		t.Fatalf("a retry with a different method must succeed, got %v", err)
+	}
+	if purchase.PaymentMethod == nil || *purchase.PaymentMethod != "card" {
+		t.Fatalf("expected the successful method to be recorded, got %v", purchase.PaymentMethod)
+	}
+	if purchasesRepo.setMethod != "card" {
+		t.Fatalf("expected the successful method to be persisted, got %q", purchasesRepo.setMethod)
+	}
+}
+
 func TestGetPurchaseByIDSuccess(t *testing.T) {
 	existing := &models.Purchase{
 		ID:              "purchase-001",
@@ -3003,8 +3064,11 @@ func TestMBWaySameMethodRetryIsIdempotent(t *testing.T) {
 	if request.Method != payments.PaymentMethodMBWay {
 		t.Errorf("expected the mbway method, got %q", request.Method)
 	}
-	if purchasesRepo.setMethod != "mbway" {
-		t.Errorf("expected mbway to stay recorded, got %q", purchasesRepo.setMethod)
+	if purchasesRepo.setMethod != "" {
+		t.Errorf("a same-method replay must not re-persist an already-bound method, got %q", purchasesRepo.setMethod)
+	}
+	if pending.PaymentMethod == nil || *pending.PaymentMethod != "mbway" {
+		t.Errorf("the purchase must stay bound to mbway, got %v", pending.PaymentMethod)
 	}
 }
 
