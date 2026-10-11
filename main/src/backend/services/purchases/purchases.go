@@ -54,7 +54,27 @@ var (
 	// be started. It is reported before any purchase row is created, so a
 	// rejected checkout never leaves a pending purchase behind.
 	ErrPrerequisiteNotMet = errors.New("purchase prerequisite not met")
+	// ErrPurchaseExpired indicates a pending purchase outlived its payment
+	// window and can no longer be initiated — a provider session for it is no
+	// longer payable. The buyer must start a fresh purchase intent. Completion
+	// paths are deliberately unaffected: a provider-verified payment that
+	// arrives late still completes instead of being discarded by a local timer.
+	ErrPurchaseExpired = errors.New("purchase has expired")
+	// ErrReconciliationConflict indicates a late, provider-verified payment
+	// could not be reconciled because the (user, program) pair already resolved
+	// another way: a completed purchase or an active entitlement exists, so the
+	// late payment cannot define a second sale. The failed purchase is left
+	// untouched as the persisted, diagnosable recovery state. This refusal is a
+	// webhook-internal signal, never surfaced to a client route.
+	ErrReconciliationConflict = errors.New("reconciliation conflict")
 )
+
+// defaultPurchaseExpiryWindow is the pending-purchase payment window applied
+// when no option overrides it. It matches the payment providers' own defaults —
+// Stripe Checkout Sessions expire after 24 hours and PayPal orders shortly
+// after — so a pending purchase older than this can no longer be meaningfully
+// paid at the provider.
+const defaultPurchaseExpiryWindow = 24 * time.Hour
 
 // ProgramRepository is the data-access surface for reading program data.
 type ProgramRepository interface {
@@ -67,10 +87,29 @@ type PurchaseRepository interface {
 	FindByID(ctx context.Context, purchaseID string) (*models.Purchase, error)
 	ListActiveByUser(ctx context.Context, userID string) ([]models.Purchase, error)
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Purchase, error)
-	Complete(ctx context.Context, purchaseID string) error
 	CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
+	// CompleteWithRestoredEntitlement atomically restores a soft-deleted
+	// entitlement for the (user, program) pair and transitions the pending
+	// purchase to completed inside one transaction, so a repurchase can never
+	// leave a restored entitlement without a completed purchase (or vice
+	// versa). It maps to ErrEntitlementNotFound when no soft-deleted
+	// entitlement exists and to ErrPurchaseNotFound when the purchase is not
+	// pending.
+	CompleteWithRestoredEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
 	CompleteTestPurchase(ctx context.Context, purchase *models.Purchase, entitlement *models.Entitlement) error
 	SetPaymentMethod(ctx context.Context, purchaseID, method string) error
+	// Fail transitions a pending purchase to the failed status. The
+	// `status = 'pending'` guard makes the transition single-writer: a
+	// concurrently completed purchase is left untouched and maps to
+	// ErrPurchaseNotFound so the caller re-evaluates the outcome. Failed is the
+	// terminal state of an expired or superseded purchase; it never grants
+	// access.
+	Fail(ctx context.Context, purchaseID string) error
+	// ReconcileFailedPurchase returns a failed purchase to completed and
+	// provisions its entitlement atomically (see the repository
+	// implementation for the full contract). It is the verdict-enforcement
+	// layer for a late, provider-verified settlement.
+	ReconcileFailedPurchase(ctx context.Context, purchaseID, userID, programID string, entitlement *models.Entitlement) error
 }
 
 // EntitlementRepository is the data-access surface for checking existing
@@ -78,7 +117,6 @@ type PurchaseRepository interface {
 type EntitlementRepository interface {
 	Create(ctx context.Context, userID, programID string, entitlement *models.Entitlement) error
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Entitlement, error)
-	RestoreByUserAndProgram(ctx context.Context, userID, programID string) error
 }
 
 // CommissionResolver resolves the applicable commission for a trainer.
@@ -165,6 +203,16 @@ type Service interface {
 	CapturePayment(ctx context.Context, userID, purchaseID, providerPaymentID string) (*Purchase, error)
 	CompletePurchaseWithCapture(ctx context.Context, purchaseID, providerPaymentID string) (*Purchase, error)
 	CompleteTestPurchase(ctx context.Context, userID, programID string) (*Purchase, error)
+	// ReconcilePurchase completes a purchase whose provider-verified payment
+	// arrived after the purchase left the pending state. It is the recovery
+	// path for a late settlement and is intended exclusively for the verified
+	// webhook layer: no client route accepts a purchase id without an
+	// authenticated owner, so a browser can never trigger it. A failed purchase
+	// is atomically returned to completed with its entitlement as long as no
+	// completed purchase or active entitlement already resolved the pair
+	// (ErrReconciliationConflict otherwise); an already-completed purchase is a
+	// safe idempotent success.
+	ReconcilePurchase(ctx context.Context, purchaseID string) (*Purchase, error)
 }
 
 type service struct {
@@ -172,8 +220,8 @@ type service struct {
 	purchases     PurchaseRepository
 	entitlements  EntitlementRepository
 	commission    CommissionResolver
-	payment       payments.Provider
 	resolver      payments.ProviderResolver
+	expiryWindow  time.Duration
 	prerequisites CheckoutPrerequisite
 	fulfiller     PurchaseFulfiller
 }
@@ -227,12 +275,24 @@ func WithFulfillment(fulfiller PurchaseFulfiller) Option {
 	}
 }
 
+// WithPurchaseExpiryWindow sets how long a pending purchase can be paid before
+// it is considered expired. The window is derived from the purchase creation
+// timestamp and is never persisted, so tuning it costs no migration. After the
+// window lapses the purchase can no longer be initiated (InitiatePayment fails
+// with ErrPurchaseExpired) but a provider-verified payment that arrives late is
+// still completed — a captured payment is never discarded because of a local
+// timer. Defaults to defaultPurchaseExpiryWindow.
+func WithPurchaseExpiryWindow(window time.Duration) Option {
+	return func(s *service) {
+		s.expiryWindow = window
+	}
+}
+
 func NewService(
 	programs ProgramRepository,
 	purchases PurchaseRepository,
 	entitlements EntitlementRepository,
 	commission CommissionResolver,
-	payment payments.Provider,
 	resolver payments.ProviderResolver,
 	options ...Option,
 ) Service {
@@ -241,8 +301,8 @@ func NewService(
 		purchases:    purchases,
 		entitlements: entitlements,
 		commission:   commission,
-		payment:      payment,
 		resolver:     resolver,
+		expiryWindow: defaultPurchaseExpiryWindow,
 	}
 	for _, option := range options {
 		option(svc)
@@ -285,6 +345,18 @@ func (s *service) checkPrerequisites(ctx context.Context, userID, programID, pro
 	return nil
 }
 
+// isExpired reports whether a pending purchase can no longer be paid. Expiry is
+// derived from the creation timestamp plus the configured window and is never
+// persisted. Only pending purchases expire, and the completion paths
+// deliberately ignore expiry so a provider-verified payment that arrives after
+// the window still completes instead of being discarded.
+func (s *service) isExpired(purchase *models.Purchase) bool {
+	if purchase.Status != models.PurchaseStatusPending {
+		return false
+	}
+	return time.Since(purchase.CreatedAt) > s.expiryWindow
+}
+
 // CreatePurchaseIntent validates the program, snapshots the current price,
 // resolves the applicable commission, calculates the split, and persists a
 // pending purchase record. The purchase status is always "pending"; no payment
@@ -318,16 +390,43 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 		return nil, err
 	}
 
+	// An active payable purchase already exists for this (user, program) pair:
+	// the buyer must resume it instead of starting another. The only exception
+	// is an expired pending purchase, which is superseded (marked failed) so
+	// its window can be reopened with a fresh intent. A superseded purchase is
+	// only ever the pending row; a concurrently completed purchase or an active
+	// entitlement fall through to the duplicate checks that follow.
+	existingPurchase, err := s.purchases.FindActiveByUserAndProgram(ctx, userID, programID)
+	switch {
+	case err == nil && existingPurchase == nil:
+		// The repository reported no error and no row; treat as not found.
+	case err != nil && !errors.Is(err, repositories.ErrPurchaseNotFound):
+		return nil, fmt.Errorf("failed to check purchase: %w", err)
+	case err == nil && s.isExpired(existingPurchase):
+		if err := s.purchases.Fail(ctx, existingPurchase.ID); err != nil {
+			switch {
+			case errors.Is(err, repositories.ErrPurchaseNotFound):
+				// The row moved on concurrently (it completed or was already
+				// superseded). Re-evaluate ownership below before deciding
+				// whether a fresh intent is still allowed.
+			default:
+				return nil, fmt.Errorf("failed to supersede expired purchase: %w", err)
+			}
+		}
+		// Fall through: the expired pending slot is closed, so a fresh intent
+		// below is allowed unless an active entitlement now exists.
+	case err == nil && !s.isExpired(existingPurchase):
+		return nil, ErrDuplicatePurchase
+	}
+
+	// After a supersede the concurrent operation may have completed the
+	// purchase and created an entitlement, so the ownership check re-runs
+	// below. It is the authoritative guard against selling a program the buyer
+	// already owns.
 	if _, err := s.entitlements.FindActiveByUserAndProgram(ctx, userID, programID); err == nil {
 		return nil, ErrDuplicateEntitlement
 	} else if !errors.Is(err, repositories.ErrEntitlementNotFound) {
 		return nil, fmt.Errorf("failed to check entitlement: %w", err)
-	}
-
-	if _, err := s.purchases.FindActiveByUserAndProgram(ctx, userID, programID); err == nil {
-		return nil, ErrDuplicatePurchase
-	} else if !errors.Is(err, repositories.ErrPurchaseNotFound) {
-		return nil, fmt.Errorf("failed to check purchase: %w", err)
 	}
 
 	resolution := CommissionResolution{CommissionBPS: 0, IsOverride: false}
@@ -362,6 +461,21 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 	}
 
 	if err := s.purchases.Create(ctx, purchase); err != nil {
+		if errors.Is(err, repositories.ErrPurchaseAlreadyExists) {
+			// A concurrent writer created a purchase (or completed one) for the
+			// same pair between the ownership checks above and the insert, which
+			// the database rejected through uq_purchases_pending_purchase or
+			// uq_purchases_completed_purchase. Re-evaluate the resolved state
+			// instead of surfacing a raw conflict: an active entitlement means
+			// the program is owned, otherwise the buyer should resume the other
+			// live intent.
+			if _, entErr := s.entitlements.FindActiveByUserAndProgram(ctx, userID, programID); entErr == nil {
+				return nil, ErrDuplicateEntitlement
+			} else if !errors.Is(entErr, repositories.ErrEntitlementNotFound) {
+				return nil, fmt.Errorf("failed to check entitlement: %w", entErr)
+			}
+			return nil, ErrDuplicatePurchase
+		}
 		return nil, fmt.Errorf("failed to create purchase: %w", err)
 	}
 
@@ -410,6 +524,28 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 
 	if purchase.Status != models.PurchaseStatusPending {
 		return nil, ErrPurchaseNotPending
+	}
+
+	// A pending purchase that outlived its payment window can no longer be
+	// initiated — the provider session for it is no longer payable, so asking
+	// the provider again would either fail or produce a payment that cannot
+	// complete. The buyer recovers by starting a fresh intent, which supersedes
+	// the expired purchase.
+	if s.isExpired(purchase) {
+		return nil, ErrPurchaseExpired
+	}
+
+	// The program must still be published and not soft-deleted before a new
+	// provider payment is opened for it. The program was checked when the
+	// intent was created, but it can be retired in between; a provider session
+	// must never be opened for a program that no longer sells. Completion paths
+	// are deliberately unaffected: a payment already captured at the provider
+	// still completes, and access rendering already derives from publication.
+	if _, err := s.programs.FindPublishedByID(ctx, purchase.ProgramID); err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to load program: %w", err)
 	}
 
 	// The recorded method is immutable for the purchase. A re-initiation with a
@@ -516,17 +652,22 @@ func (s *service) CompletePurchase(ctx context.Context, purchaseID string) (*Pur
 }
 
 // completeAndCreateEntitlement provisions the entitlement for a purchase that
-// is currently pending. Two distinct paths exist, both guarded by the
+// is currently pending. Two distinct atomic paths exist, both guarded by the
 // repository layer:
 //
 //  1. A previously soft-deleted entitlement exists for the same (user, program)
 //     pair — the row is restored (deleted_at cleared) and the purchase is
-//     completed separately. Restoration is idempotent; the second call hits a
-//     NOT FOUND and falls through to path 2.
+//     completed inside a single database transaction via
+//     CompleteWithRestoredEntitlement, so a repurchase can never leave a
+//     restored entitlement without a completed purchase (or vice versa).
 //
 //  2. No soft-deleted entitlement exists — the purchase status change and the
 //     new entitlement row are created inside a single database transaction
 //     via CompleteWithEntitlement.
+//
+// Both paths report NOT FOUND when their precondition is absent and fall
+// through to the other, mirroring the original restore-then-complete flow
+// without the non-transactional window between the two steps.
 func (s *service) completeAndCreateEntitlement(ctx context.Context, purchase *models.Purchase) error {
 	activeEntitlement, entErr := s.entitlements.FindActiveByUserAndProgram(ctx, purchase.UserID, purchase.ProgramID)
 	if entErr == nil && activeEntitlement != nil {
@@ -536,24 +677,22 @@ func (s *service) completeAndCreateEntitlement(ctx context.Context, purchase *mo
 		return fmt.Errorf("failed to check active entitlement: %w", entErr)
 	}
 
-	restoreErr := s.entitlements.RestoreByUserAndProgram(ctx, purchase.UserID, purchase.ProgramID)
-	if restoreErr == nil {
-		if err := s.purchases.Complete(ctx, purchase.ID); err != nil {
-			if errors.Is(err, repositories.ErrPurchaseNotFound) {
-				return ErrPurchaseNotFound
-			}
-			return fmt.Errorf("failed to complete purchase: %w", err)
-		}
-		return nil
-	}
-	if !errors.Is(restoreErr, repositories.ErrEntitlementNotFound) {
-		return fmt.Errorf("failed to restore entitlement: %w", restoreErr)
-	}
-
 	entitlement := &models.Entitlement{
 		UserID:    purchase.UserID,
 		ProgramID: purchase.ProgramID,
 	}
+
+	err := s.purchases.CompleteWithRestoredEntitlement(ctx, purchase.ID, entitlement)
+	switch {
+	case err == nil:
+		return nil
+	case !errors.Is(err, repositories.ErrEntitlementNotFound):
+		if errors.Is(err, repositories.ErrPurchaseNotFound) {
+			return ErrPurchaseNotFound
+		}
+		return fmt.Errorf("failed to restore entitlement and complete purchase: %w", err)
+	}
+
 	if err := s.purchases.CompleteWithEntitlement(ctx, purchase.ID, entitlement); err != nil {
 		if errors.Is(err, repositories.ErrPurchaseNotFound) {
 			return ErrPurchaseNotFound
@@ -632,6 +771,80 @@ func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID st
 	// persona bought is provisioned exactly as a paying buyer's would be.
 	s.fulfill(ctx, userID, programID)
 
+	return newPurchase(purchase), nil
+}
+
+// ReconcilePurchase completes a purchase whose provider-verified payment
+// arrived after the purchase left the pending state. It is the recovery path
+// for a late settlement: a verified provider event (signature, amount, currency
+// and method all matched against this purchase's immutable snapshot) is honoured
+// by atomically returning the failed purchase to completed and provisioning its
+// entitlement — but only when no other completed purchase or active entitlement
+// already exists for the (user, program) pair, which would mean access was
+// already granted and the late payment cannot define a second sale. Those
+// conflicts map to ErrReconciliationConflict and leave the failed purchase
+// untouched as the persisted, diagnosable recovery state.
+//
+// The operation is scoped purely by the purchase id and is intended for the
+// verified webhook layer only: it is never reachable from a client endpoint
+// because no route accepts a purchase id without an authenticated owner, so a
+// browser can never trigger it. An already-completed purchase is a safe
+// idempotent success and still runs the delivery hook.
+func (s *service) ReconcilePurchase(ctx context.Context, purchaseID string) (*Purchase, error) {
+	if err := validatePurchaseID(purchaseID); err != nil {
+		return nil, err
+	}
+
+	purchase, err := s.purchases.FindByID(ctx, purchaseID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrPurchaseNotFound) {
+			// An unknown purchase is a settled state, not a transient fault:
+			// acknowledging it stops the provider from retrying a sale that can
+			// never be granted.
+			return nil, ErrPurchaseNotCompleted
+		}
+		return nil, fmt.Errorf("failed to load purchase: %w", err)
+	}
+
+	if purchase.Status == models.PurchaseStatusCompleted {
+		existing, entErr := s.entitlements.FindActiveByUserAndProgram(ctx, purchase.UserID, purchase.ProgramID)
+		if entErr != nil && !errors.Is(entErr, repositories.ErrEntitlementNotFound) {
+			return nil, fmt.Errorf("failed to check entitlement: %w", entErr)
+		}
+		if existing != nil {
+			s.fulfill(ctx, purchase.UserID, purchase.ProgramID)
+			return newPurchase(purchase), nil
+		}
+		return nil, ErrEntitlementIntegrity
+	}
+
+	if purchase.Status != models.PurchaseStatusFailed {
+		return nil, ErrPurchaseNotCompleted
+	}
+
+	entitlement := &models.Entitlement{
+		UserID:    purchase.UserID,
+		ProgramID: purchase.ProgramID,
+	}
+
+	err = s.purchases.ReconcileFailedPurchase(ctx, purchase.ID, purchase.UserID, purchase.ProgramID, entitlement)
+	switch {
+	case err == nil:
+	case errors.Is(err, repositories.ErrPurchaseNotFound):
+		// The purchase moved on concurrently (it was reconciled or superseded
+		// again). The outcome is settled by the current state, and the call is
+		// idempotent on the next delivery, so the caller re-evaluates instead
+		// of surfacing a stale conflict.
+		return nil, ErrPurchaseNotCompleted
+	case errors.Is(err, repositories.ErrCompletedPurchaseExists), errors.Is(err, repositories.ErrEntitlementAlreadyExists):
+		return nil, ErrReconciliationConflict
+	default:
+		return nil, fmt.Errorf("failed to reconcile purchase: %w", err)
+	}
+
+	s.fulfill(ctx, purchase.UserID, purchase.ProgramID)
+
+	purchase.Status = models.PurchaseStatusCompleted
 	return newPurchase(purchase), nil
 }
 

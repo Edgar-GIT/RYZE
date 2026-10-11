@@ -77,7 +77,7 @@ func newTestModeTestRouterWithProviders(t *testing.T, enabled bool, provider pay
 	if provider != nil {
 		resolver = payments.NewMethodProviderMap(provider, provider, nil).Resolve
 	}
-	purchaseSvc := purchases.NewService(programRepo, purchaseRepo, entitlementRepo, nil, provider, resolver)
+	purchaseSvc := purchases.NewService(programRepo, purchaseRepo, entitlementRepo, nil, resolver)
 	testModePurchaseHandler := auth.NewTestModePurchaseHandler(testModeSvc, purchaseSvc)
 	adminMeHandler := auth.NewAdminMeHandler()
 

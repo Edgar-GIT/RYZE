@@ -96,7 +96,6 @@ func newPremiumFlowRouter(t *testing.T) *premiumFlowFixture {
 	purchaseSvc := purchases.NewService(
 		programRepo, purchaseRepo, entitlementRepo,
 		&commissionAdapter{svc: commissionSvc},
-		payments.NewFakeProvider(),
 		func(_ context.Context, _ payments.PaymentMethod) (payments.Provider, error) {
 			return payments.NewFakeProvider(), nil
 		},

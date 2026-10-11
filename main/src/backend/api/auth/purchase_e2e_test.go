@@ -60,7 +60,6 @@ func newE2EPurchaseRouter(t *testing.T) (*gin.Engine, purchases.Service, reposit
 		purchaseRepo,
 		entitlementRepo,
 		&commissionAdapter{svc: commissionSvc},
-		payments.NewFakeProvider(),
 		func(_ context.Context, _ payments.PaymentMethod) (payments.Provider, error) {
 			return payments.NewFakeProvider(), nil
 		},

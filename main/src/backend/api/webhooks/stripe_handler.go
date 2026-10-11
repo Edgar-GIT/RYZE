@@ -12,6 +12,7 @@ import (
 	stripe "github.com/stripe/stripe-go/v86"
 	"github.com/stripe/stripe-go/v86/webhook"
 
+	"ryze/backend/models"
 	"ryze/backend/services/payments"
 	"ryze/backend/services/purchases"
 )
@@ -24,21 +25,47 @@ import (
 // Checkout initiation does not complete a purchase. Browser redirects do not
 // complete a purchase. Only verified provider events can trigger CompletePurchase.
 //
+// Every verified delivery also leaves a durable reconciliation event describing
+// what it did (or why it did nothing), so a settlement that cannot be resolved
+// from the purchase row stays queryable through the restricted administrative
+// reconciliation surface. The durable record is always best-effort and never
+// changes the HTTP verdict.
+//
 // StripeWebhookHandler is safe for concurrent use by multiple goroutines.
 type StripeWebhookHandler struct {
 	webhookSecret   string
 	purchaseService purchases.Service
+	outcomes        ReconciliationOutcomeRecorder
+}
+
+// StripeWebhookHandlerOption configures a StripeWebhookHandler.
+type StripeWebhookHandlerOption func(*StripeWebhookHandler)
+
+// WithOutcomeRecorder wires the durable reconciliation outcome recorder into
+// the handler. It is optional for backward compatibility with existing
+// constructor call sites; without it, verdicts are only logged and the HTTP
+// behavior is unchanged.
+func WithOutcomeRecorder(outcomes ReconciliationOutcomeRecorder) StripeWebhookHandlerOption {
+	return func(h *StripeWebhookHandler) {
+		h.outcomes = outcomes
+	}
 }
 
 // NewStripeWebhookHandler returns a handler configured with the Stripe webhook
 // signing secret and the purchase service. The secret is used to verify
 // incoming Stripe-Signature headers; without a valid secret no webhook can
 // trigger purchase completion.
-func NewStripeWebhookHandler(webhookSecret string, purchaseService purchases.Service) *StripeWebhookHandler {
-	return &StripeWebhookHandler{
+func NewStripeWebhookHandler(webhookSecret string, purchaseService purchases.Service, opts ...StripeWebhookHandlerOption) *StripeWebhookHandler {
+	h := &StripeWebhookHandler{
 		webhookSecret:   webhookSecret,
 		purchaseService: purchaseService,
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(h)
+		}
+	}
+	return h
 }
 
 // Handle processes an incoming Stripe webhook. The flow is:
@@ -58,10 +85,18 @@ func NewStripeWebhookHandler(webhookSecret string, purchaseService purchases.Ser
 // Response semantics:
 //   - 400: invalid signature, missing header, malformed payload, unexpected event data
 //   - 200: unsupported event type (safely ignored), not a successful payment,
-//     unknown purchase, already completed, not pending
-//   - 500: internal errors where provider retry is desirable (completion failure,
-//     amount/currency/payment method mismatch)
-//
+//     unknown purchase, already completed, not pending, reference/amount/
+//     currency/payment-method mismatch, Test Mode purchase carrying a real
+//     payment event. The mismatches are acknowledged (not retried) because a
+//     duplicate delivery cannot change the immutable purchase snapshot: the
+//     durable reconciliation event is the operator-facing diagnosis instead.
+//     A rejected delivery that could otherwise be re-delivered (an internal
+//     load failure, or a completion/reconciliation fault) keeps a 500 so the
+//     provider retries it.
+//   - 500: internal errors where provider retry is desirable (completion
+//     failure, reconciliation or entitlement integrity fault, transient load
+//     failure).
+
 // Supported event types:
 //   - checkout.session.completed: the primary payment success event
 //   - checkout.session.async_payment_succeeded: async payment methods (e.g. bank
@@ -110,30 +145,16 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 // the session is a fully paid one-time payment belonging to the RYZE purchase,
 // then validates it against the immutable purchase snapshot, and finally calls
 // CompletePurchase.
+//
+// The RYZE purchase identifier is read from trusted Stripe metadata before any
+// other validation so that every verdict — including rejections — can be
+// attached to the durable reconciliation record for that delivery.
 func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c *gin.Context, event stripe.Event) {
+	ctx := c.Request.Context()
 	var session stripe.CheckoutSession
 	if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
 		log.Printf("[STRIPE-WEBHOOK] failed to unmarshal checkout session: %v", err)
 		c.String(http.StatusBadRequest, "invalid event data")
-		return
-	}
-
-	// A session is only a successful payment when Stripe reports it as fully
-	// paid. Delayed payment methods emit checkout.session.completed while
-	// still unpaid and settle later through async_payment_succeeded, so an
-	// unpaid session is acknowledged and ignored instead of completing
-	// anything.
-	if session.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid {
-		log.Printf("[STRIPE-WEBHOOK] session %s is not a successful payment (payment_status=%s)", session.ID, session.PaymentStatus)
-		c.String(http.StatusOK, "payment not completed")
-		return
-	}
-
-	// Only RYZE one-time payments can complete a purchase. A session from any
-	// other mode was never created by the RYZE purchase flow.
-	if session.Mode != stripe.CheckoutSessionModePayment {
-		log.Printf("[STRIPE-WEBHOOK] session %s has unsupported mode %q", session.ID, session.Mode)
-		c.String(http.StatusOK, "unsupported checkout mode")
 		return
 	}
 
@@ -144,17 +165,42 @@ func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c *gin.Context, ev
 		return
 	}
 
-	// The client reference ID is set at session creation and is the strongest
-	// binding between the Stripe session and the RYZE purchase. A mismatch
-	// means this session is not the one created for this purchase, so the event
-	// is rejected and never completes anything.
-	if session.ClientReferenceID != purchaseID {
-		log.Printf("[STRIPE-WEBHOOK] session %s reference mismatch: client_reference_id=%q metadata purchase_id=%q", session.ID, session.ClientReferenceID, purchaseID)
-		c.String(http.StatusBadRequest, "purchase reference mismatch")
+	// Only RYZE one-time payments can complete a purchase. A session from any
+	// other mode was never created by the RYZE purchase flow, and a re-delivery
+	// cannot turn it into one, so it is acknowledged and recorded as invalid.
+	if session.Mode != stripe.CheckoutSessionModePayment {
+		log.Printf("[STRIPE-WEBHOOK] session %s has unsupported mode %q", session.ID, session.Mode)
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomePermanentInvalid)
+		c.String(http.StatusOK, "unsupported checkout mode")
 		return
 	}
 
-	purchase, err := h.purchaseService.GetPurchaseByID(c.Request.Context(), purchaseID)
+	// A session is only a successful payment when Stripe reports it as fully
+	// paid. Delayed payment methods emit checkout.session.completed while
+	// still unpaid and settle later through async_payment_succeeded, so an
+	// unpaid session is acknowledged and ignored instead of completing
+	// anything. Its status is provisional: the later settlement event records
+	// its own final outcome.
+	if session.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid {
+		log.Printf("[STRIPE-WEBHOOK] session %s is not a successful payment (payment_status=%s)", session.ID, session.PaymentStatus)
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeProviderUncertain)
+		c.String(http.StatusOK, "payment not completed")
+		return
+	}
+
+	// The client reference ID is set at session creation and is the strongest
+	// binding between the Stripe session and the RYZE purchase. A mismatch
+	// means this session is not the one created for this purchase. It is
+	// permanent, so it is acknowledged (no pointless provider retries) and
+	// recorded as a reference mismatch for investigation.
+	if session.ClientReferenceID != purchaseID {
+		log.Printf("[STRIPE-WEBHOOK] session %s reference mismatch: client_reference_id=%q metadata purchase_id=%q", session.ID, session.ClientReferenceID, purchaseID)
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeReferenceMismatch)
+		c.String(http.StatusOK, "purchase reference mismatch")
+		return
+	}
+
+	purchase, err := h.purchaseService.GetPurchaseByID(ctx, purchaseID)
 	if err != nil {
 		if errors.Is(err, purchases.ErrPurchaseNotFound) {
 			log.Printf("[STRIPE-WEBHOOK] purchase %s not found", purchaseID)
@@ -162,19 +208,39 @@ func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c *gin.Context, ev
 			return
 		}
 		log.Printf("[STRIPE-WEBHOOK] failed to load purchase %s: %v", purchaseID, err)
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeTransientFailure)
 		c.String(http.StatusInternalServerError, "internal error")
 		return
 	}
 
+	// A verified real-payment event must never complete a Test Mode purchase.
+	// Test Mode IDs never reach a live provider, so a real event carrying one
+	// is an anomaly: it is acknowledged (never completing anything), recorded
+	// for investigation, and never retried — redelivering the same anomaly
+	// cannot change the outcome.
+	if purchase.Test {
+		log.Printf("[STRIPE-WEBHOOK] verified payment event %s resolved to Test Mode purchase %s; not completing", event.ID, purchaseID)
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeTestPurchaseEvent)
+		c.String(http.StatusOK, "test purchase")
+		return
+	}
+
+	// Amount, currency and payment method are immutable contracts captured at
+	// purchase creation. A verified event that contradicts them can never
+	// complete the purchase, and a redelivery cannot change the snapshot, so
+	// each mismatch is acknowledged and recorded for investigation rather than
+	// retried.
 	if session.AmountTotal != purchase.PriceMinorUnits {
 		log.Printf("[STRIPE-WEBHOOK] amount mismatch for purchase %s: provider=%d snapshot=%d", purchaseID, session.AmountTotal, purchase.PriceMinorUnits)
-		c.String(http.StatusInternalServerError, "amount mismatch")
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeAmountMismatch)
+		c.String(http.StatusOK, "amount mismatch")
 		return
 	}
 
 	if strings.ToLower(string(session.Currency)) != strings.ToLower(purchase.Currency) {
 		log.Printf("[STRIPE-WEBHOOK] currency mismatch for purchase %s: provider=%s snapshot=%s", purchaseID, session.Currency, purchase.Currency)
-		c.String(http.StatusInternalServerError, "currency mismatch")
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeCurrencyMismatch)
+		c.String(http.StatusOK, "currency mismatch")
 		return
 	}
 
@@ -183,35 +249,71 @@ func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c *gin.Context, ev
 	// purchase recorded can never complete it.
 	if purchase.PaymentMethod == "" {
 		log.Printf("[STRIPE-WEBHOOK] purchase %s has no recorded payment method", purchaseID)
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeMethodMismatch)
 		c.String(http.StatusOK, "purchase has no recorded payment method")
 		return
 	}
 	if !sessionUsesPaymentMethod(session, payments.PaymentMethod(purchase.PaymentMethod)) {
 		log.Printf("[STRIPE-WEBHOOK] payment method mismatch for purchase %s: session=%v recorded=%s", purchaseID, session.PaymentMethodTypes, purchase.PaymentMethod)
-		c.String(http.StatusInternalServerError, "payment method mismatch")
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeMethodMismatch)
+		c.String(http.StatusOK, "payment method mismatch")
 		return
 	}
 
 	if purchase.Status == "completed" {
 		log.Printf("[STRIPE-WEBHOOK] purchase %s already completed", purchaseID)
+		recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeAlreadyCompleted)
 		c.String(http.StatusOK, "already completed")
 		return
 	}
 
 	if purchase.Status != "pending" {
+		// A verified, contract-matched full payment on a purchase that is no
+		// longer pending is a late settlement: the money is confirmed captured
+		// at Stripe, so it must be honoured, not discarded. A failed purchase
+		// (superseded or expired intent) is reconciled only when the pair has
+		// not resolved another way; anything else is acknowledged and the
+		// failed record stays as the diagnosable recovery state.
+		if purchase.Status == "failed" {
+			reconcileLateSettlement(c, "STRIPE-WEBHOOK", "stripe", event.ID, purchaseID, h.purchaseService, h.outcomes)
+			return
+		}
 		log.Printf("[STRIPE-WEBHOOK] purchase %s is not pending (status=%s)", purchaseID, purchase.Status)
 		c.String(http.StatusOK, "purchase not pending")
 		return
 	}
 
-	result, err := h.purchaseService.CompletePurchase(c.Request.Context(), purchaseID)
+	result, err := h.purchaseService.CompletePurchase(ctx, purchaseID)
 	if err != nil {
-		log.Printf("[STRIPE-WEBHOOK] CompletePurchase failed for %s: %v", purchaseID, err)
-		c.String(http.StatusInternalServerError, "completion failed")
+		switch {
+		case errors.Is(err, purchases.ErrPurchaseNotCompleted), errors.Is(err, purchases.ErrPurchaseNotFound):
+			// The purchase moved on concurrently (a sibling intent completed
+			// the pair) or was superseded; the durable state is already the
+			// source of truth, so the delivery is acknowledged as settled by
+			// whatever state now holds. No provider retry is requested.
+			log.Printf("[STRIPE-WEBHOOK] CompletePurchase for %s observed the purchase moving on: %v", purchaseID, err)
+			recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomePurchaseMovedOn)
+			c.String(http.StatusOK, "purchase moved on")
+		case errors.Is(err, purchases.ErrEntitlementIntegrity):
+			// A completed purchase without its entitlement is a durable
+			// integrity violation. The delivery is retried (in case the fault
+			// is repaired) and the verdict recorded for investigation.
+			log.Printf("[STRIPE-WEBHOOK] CompletePurchase for %s hit an entitlement integrity violation: %v", purchaseID, err)
+			recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeEntitlementIntegrity)
+			c.String(http.StatusInternalServerError, "entitlement integrity")
+		default:
+			// A genuine failure (e.g. entitlement creation went down) is
+			// transient: the provider retries and the provisional record is
+			// upgraded to the retry's final verdict.
+			log.Printf("[STRIPE-WEBHOOK] CompletePurchase failed for %s: %v", purchaseID, err)
+			recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeTransientFailure)
+			c.String(http.StatusInternalServerError, "completion failed")
+		}
 		return
 	}
 
 	log.Printf("[STRIPE-WEBHOOK] purchase %s completed successfully via Stripe event %s", result.ID, event.ID)
+	recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeCompleted)
 	c.String(http.StatusOK, "completed")
 }
 

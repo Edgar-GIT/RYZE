@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # DATABASE.MD
 
-Version: 2.83.0
+Version: 2.85.0
 
 ---
 
@@ -430,7 +430,13 @@ The implemented `purchases` table contains:
   (`BIGINT NOT NULL DEFAULT 0`).
 - `status` — purchase lifecycle status (`pending`, `completed`, `failed`),
   `CHECK`-constrained, defaults to `pending`. RYZE purchases are final: there
-  is no refund workflow, so `refunded` is not a valid status.
+  is no refund workflow, so `refunded` is not a valid status. `failed` is
+  terminal for the buyer: it is set when an expired pending purchase is
+  superseded by a fresh intent (pending → failed), when a reconcile supersedes a
+  stale sibling, and it never grants access; it cannot be initiated or completed
+  by the client. A `failed` purchase can only return to `completed` through the
+  internal reconciliation path (`ReconcilePurchase`), exclusively for a
+  provider-verified late settlement — no client route can reach it.
 - `test` — boolean marker added by migration `000023`, `NOT NULL DEFAULT
   FALSE`. Test Mode purchases are real purchases (they create real
   entitlements) but never contact a payment provider and carry a zero price;
@@ -458,6 +464,10 @@ The implemented `purchases` table contains:
   them. Payment provider identity, amount and currency are all verified against
   the existing immutable snapshot, so no provider table, column or migration is
   required. Schema version remains `24`.
+- Migration `000027` (`000027_enforce_single_pending_purchase`) adds the
+  `pending_purchase` generated column with its unique index, enforcing at most
+  one active pending intent per `(user, program)` pair. The `down` migration
+  drops the index and the column. Schema version is `27`.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
 - `completed_purchase` — MariaDB generated column `IF(deleted_at IS NULL AND
@@ -467,6 +477,27 @@ The implemented `purchases` table contains:
   keep a `NULL` value so payment retries remain possible. This is the last-line
   duplicate-completion protection on top of the service-level duplicate
   purchase check.
+- `pending_purchase` — MariaDB generated column `IF(deleted_at IS NULL AND
+  status = 'pending', CONCAT(user_id, ':', program_id), NULL)`, unique. Added by
+  migration `000027`. The database itself guarantees at most one active
+  **pending** purchase per `(user, program)` pair, closing the concurrency
+  window between two clients creating intents for the same pair at the same
+  time: the losing writer is rejected through `ErrPurchaseAlreadyExists` and the
+  caller re-evaluates the resolved ownership state. Completed and failed rows
+  keep a `NULL` value. Together with `completed_purchase` this makes the pending
+  and completed uniqueness the two transactional guards a late settlement
+  reconciliation relies on: a reconcile can neither grant a second completed
+  sale nor duplicate an entitlement.
+
+Purchase expiry is **derived**, never stored: a pending purchase is payable
+only within a window measured from its `created_at` timestamp (24 hours by
+default, configurable server-side; completion paths ignore it). Because it is
+derived, superseding an expired purchase needs no new column, no generated
+column and no migration — the same guarded `status` update that marks it
+`failed` is all that is required. The pending slot is reopened by a fresh
+intent; at most one active pending intent per `(user, program)` pair is enforced
+by the database through the `pending_purchase` generated column (migration
+`000027`, described below) on top of the service-level serialization.
 
 The purchase carries a full commercial snapshot captured at creation time so the
 transaction remains historically accurate even if program pricing or commission
@@ -534,7 +565,10 @@ Lifecycle rules:
 
 - A purchase completes → an active entitlement row is created (or a
   previously soft-deleted one is reactivated) atomically within the same
-  database transaction as the purchase status change.
+  database transaction as the purchase status change. The reactivation is
+  guarded: if the purchase is not pending by the time the payment is verified,
+  the whole transaction is rolled back and the entitlement stays soft-deleted,
+  so a partial restore never survives a non-completed purchase.
 - An entitlement is revoked → only the entitlement row is soft-deleted. The
   program is never touched.
 - A soft-deleted entitlement no longer blocks a new entitlement for the same
@@ -552,8 +586,13 @@ The repository provides:
   program) pair, or `ErrEntitlementNotFound`.
 - `RestoreByUserAndProgram` — clears `deleted_at` on a soft-deleted entitlement
   for a given (user, program) pair, effectively reactivating it. Returns
-  `ErrEntitlementNotFound` when no soft-deleted row exists. Used by the purchase
-  completion flow when a user repurchases a previously revoked program.
+  `ErrEntitlementNotFound` when no soft-deleted row exists.
+- `CompleteWithRestoredEntitlement` (purchases) — restores a soft-deleted
+  entitlement for a (user, program) pair and completes the purchase inside a
+  single transaction, the flow used when a user repurchases a previously
+  revoked program. Returns `ErrEntitlementNotFound` when nothing is left to
+  restore and `ErrPurchaseNotFound` (with the restore rolled back) when the
+  purchase is not pending.
 - `SoftDelete` — clears `deleted_at` on the entitlement row only, guarded by
   the user scope.
 
@@ -1833,3 +1872,43 @@ locked, so a concurrent run can neither observe a half-written version nor race
 to deliver a competing one. The three constraints (`uq_nutrition_plans_active`,
 `uq_nutrition_plans_version`) are the storage engine's last line of defence for
 the same guarantee.
+
+---
+
+## Single pending purchase (migration 000027)
+
+Migration `000027_enforce_single_pending_purchase` hardens the purchases table
+against concurrent intent creation. It mirrors the `completed_purchase` pattern:
+
+- `pending_purchase` — MariaDB `VIRTUAL` generated column
+  `IF(deleted_at IS NULL AND status = 'pending', CONCAT(user_id, ':', program_id), NULL)`.
+- `uq_purchases_pending_purchase` — unique index on the generated column.
+
+The storage engine now guarantees at most one active *pending* purchase per
+`(user, program)` pair; completed and failed rows keep a `NULL` value so a new
+intent remains possible. The repository maps a violation to
+`ErrPurchaseAlreadyExists`, and the purchase service re-evaluates the resolved
+ownership state (an active entitlement answers `DUPLICATE_ENTITLEMENT`, otherwise
+`DUPLICATE_PURCHASE`) instead of leaking a raw driver error.
+
+### Reconciliation (v2.85.0)
+
+`ReconcileFailedPurchase` uses one transaction — the purchase repository method
+that returns a `failed` purchase to `completed` for a provider-verified late
+settlement:
+
+1. Every other pending intent for the same `(user, program)` pair is superseded
+   (pending → failed): the captured payment owns the program, so a stale sibling
+   can neither accept a second capture nor block a fresh intent.
+2. The target purchase must currently be `failed` (`WHERE status = 'failed'`);
+   a purchase that moved on maps to `ErrPurchaseNotFound`.
+3. A soft-deleted entitlement is restored (mirroring the repurchase path);
+   otherwise a fresh entitlement row is created.
+
+The two generated-column uniques are the transactional guards for the whole
+operation: if a **completed** purchase (`uq_purchases_completed_purchase`) or an
+**active** entitlement (`uq_entitlements_active_entitlement`) already exists for
+the pair, the SQL statement rejects the write and the transaction rolls back,
+leaving the failed purchase as the persisted, diagnosable recovery state. This
+is what makes it impossible for a reconciliation (or any path) to grant access
+for the same program twice.

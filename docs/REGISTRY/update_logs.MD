@@ -1,3 +1,178 @@
+# Version 2.85.0
+
+Title: Payment reconciliation, single pending intent and webhook settlement durability — late verified payments are never discarded
+
+Date: 2026-10-11
+
+Summary:
+
+v2.85.0 closes the settlement window where a provider-verified payment could be
+silently lost. One direct migration (`000027`) and one webhook-bound work
+surface were touched; the database moves to migration version `27`. No refund,
+regeneration, Premium Level 2 or new payment provider surface was introduced and
+the proven PayPal/Stripe return-context handling is unchanged; Test Mode,
+Premium Level 1 privacy and the Generic checkout are unaffected.
+
+Late settlements are reconciled, never discarded. Previously both webhooks
+answered "purchase not pending" with 200 whenever a verified payment arrived
+after the purchase left `pending`, so a payment captured on the browser return
+leg while a supersede was landing could grant nothing and be silently dropped.
+Now a `failed` purchase is the recovery state: `ReconcilePurchase`
+(service) / `ReconcileFailedPurchase` (repository) atomically returns it to
+`completed` — superseding any stale pending sibling, running the guarded
+failed→completed transition and restoring-or-creating the entitlement in one
+transaction. The two database uniqueness guards
+(`uq_purchases_completed_purchase`, `uq_entitlements_active_entitlement`) make a
+second sale impossible: a conflict rolls everything back and the failed record
+stays as the persisted, diagnosable recovery state. A webhook answers 200
+(reconciled) on success, 200 with a diagnostic on a conflict or purchase-that-moved-on,
+and 500 only on an integrity violation or transient failure so the provider
+redelivers. `ReconcilePurchase` is internal-only: no route accepts a purchase id
+without an authenticated owner, so a browser can never trigger it.
+
+Single pending intent at the database level. Migration `000027` adds the
+`pending_purchase` generated column with a unique index, so the engine itself
+enforces at most one active pending intent per `(user, program)` pair. The
+repository maps a violation to `ErrPurchaseAlreadyExists` and intent creation
+re-evaluates the resolved ownership (`DUPLICATE_ENTITLEMENT` or
+`DUPLICATE_PURCHASE`) instead of leaking a raw driver error.
+
+PayPal capture settlements ordered by proof, not by notification. The handler
+now processes `PAYMENT.CAPTURE.COMPLETED`: the order is loaded from the PayPal
+API (never trusted from the event), its single purchase-unit reference recovers
+the RYZE purchase, the captured amount and currency are verified against the
+snapshot, and the purchase is completed (pending) or reconciled (failed). A late
+`CHECKOUT.ORDER.APPROVED` for a failed purchase is consent, not money — it is
+never captured and is acknowledged with a diagnostic, letting the order lapse at
+PayPal; when funds actually moved, the capture event reconciles.
+
+Client recovery. `useProgramCheckout` now polls ownership briefly (5 × 1 s)
+after a 409 `PURCHASE_NOT_PENDING` instead of immediately declaring failure,
+and the fallback message no longer claims "no money was taken" when the payment
+may already have moved.
+
+Main changes:
+
+- Migration: `000027_enforce_single_pending_purchase` (applied, DB at version
+  `27`, `dirty=false`) adds `uq_purchases_pending_purchase`; down migration drops
+  it. Repository `Create` maps the violation to `ErrPurchaseAlreadyExists`.
+- Repository: `repositories/purchase_repository.go` adds
+  `ReconcileFailedPurchase` (one transaction: supersede stale pending siblings,
+  guarded failed→completed with `ErrCompletedPurchaseExists` /
+  `ErrPurchaseNotFound` verdicts, restore-or-create entitlement with
+  `ErrEntitlementAlreadyExists`).
+- Service: `services/purchases/purchases.go` adds the `ReconcilePurchase` service
+  method and `ErrReconciliationConflict`; an unknown purchase is a settled state
+  (`ErrPurchaseNotCompleted`), a completed purchase is idempotent, and intent
+  creation handles the concurrent-writer duplicate.
+- Webhooks: shared `reconcileLateSettlement` helper; Stripe routes a `failed`
+  purchase into reconciliation; PayPal gains the combined verifier surface
+  (`PayPalWebhookVerifier`), a `PAYMENT.CAPTURE.COMPLETED` handler backed by a
+  server-side order read, and the late-approval diagnostic (never captured).
+- Tests: repository reconcile suite (success, restore, conflicts, sibling
+  supersede, single-pending rejection), service reconcile suite, and webhook
+  late-settlement suites for both providers including the no-refund sweep.
+- Frontend: `use_program_checkout.ts` polls ownership after 409
+  `PURCHASE_NOT_PENDING` and uses an honest confirmation message.
+- Docs: `api.MD`, `security.MD`, `project.MD` and `database.MD` document the
+  reconciliation lifecycle, the single-pending guarantee and migration `000027`.
+
+---
+
+# Version 2.84.0
+
+Title: Purchase integrity, payment recovery and transaction safety — expired-purchase supersede, published-program revalidation at initiation, and atomic entitlement restoration
+
+Date: 2026-10-09
+
+Summary:
+
+v2.84.0 closes the purchase-integrity audit of the payment lifecycle with three
+production fixes and one removal. No schema change was made: the database stays
+at migration version `26` with `dirty=false`, and no migration file was added,
+modified or removed. Expiry is derived and never stored, so superseding an
+expired purchase needs no new column. No refund, regeneration, Premium Level 2
+or new payment provider surface was introduced; the proven PayPal/Stripe
+return-context handling was re-verified and left untouched.
+
+Second charge protection for abandoned checkouts. A pending purchase could be
+paid at the provider without any server-side time limit, so a buyer who created
+an intent and abandoned it could be charged by a provider session opened long
+after the checkout was meant to end. A pending purchase is now payable only
+within a payment window measured from its creation timestamp (24 hours by
+default, configurable server-side via `WithPurchaseExpiryWindow`): once the
+window lapses, `InitiatePayment` refuses with `409 PURCHASE_EXPIRED` and never
+opens a new provider session. The buyer recovers by starting a fresh intent,
+which supersedes the expired purchase — it is marked `failed`, closing the
+pending slot — and returns a new pending purchase. The supersede only ever acts
+on the pending row and is guarded at the database level (`WHERE status =
+'pending'`), so a concurrently completed purchase or a competing supersede is
+left untouched and ownership is re-evaluated before a fresh intent is allowed.
+A `failed` purchase is terminal: it cannot be initiated, completed or reach
+access. Completion paths deliberately ignore expiry: a provider-verified
+payment that settles after the window still completes instead of being
+discarded, so a buyer who genuinely paid is never stranded.
+
+No provider payments for retired programs. `InitiatePayment` revalidated
+nothing about the program after the intent was created, so a pending purchase
+for a program that was unpublished or soft-deleted in the meantime could still
+open a new provider session. Initiation now reloads the program through the
+published-only lookup and refuses new provider contact with
+`404 PROGRAM_NOT_FOUND` when it is no longer published. Completion is
+deliberately unaffected: money already captured at the provider still
+completes, and access rendering already derives from publication.
+
+Atomic entitlement restoration. When a buyer completed a repurchase over a
+soft-deleted entitlement, the restore and the completion were separate
+database operations: a crash or a racing completion between them could leave an
+active entitlement with a pending (or missing) purchase. The purchase
+repository now provides `CompleteWithRestoredEntitlement`, which restores the
+soft-deleted entitlement and completes the purchase inside a single transaction
+and rolls everything back if the purchase is not pending. The service drops its
+two-step restore-then-complete path and the dead `payment payments.Provider`
+constructor argument from `purchases.NewService`. Error mapping for the new
+expiry refusal was added to the handler surface.
+
+Frontend recovery. The shared checkout hook recovers from `PURCHASE_EXPIRED`
+transparently: it creates a fresh intent once (the backend supersedes the
+expired purchase) and continues the checkout instead of showing a dead end. The
+guard is bounded — a checkout freshens its intent at most once.
+
+Main changes:
+
+- Expiry: `services/purchases/purchases.go` gains `ErrPurchaseExpired`,
+  `defaultPurchaseExpiryWindow` (24h) and `WithPurchaseExpiryWindow`;
+  `CreatePurchaseIntent` supersedes an expired pending purchase (`Fail`) and
+  re-checks ownership; `InitiatePayment` refuses expired purchases.
+- Published revalidation: `InitiatePayment` reloads the program via
+  `FindPublishedByID` and refuses (`ProgramNotFound`) before contacting any
+  provider; completion paths are untouched.
+- Atomic restoration: `repositories/purchase_repository.go` adds
+  `CompleteWithRestoredEntitlement` (single tx, restore rolled back on
+  non-pending) and `Fail` (pending-guarded); the service completion path uses
+  the atomic method and falls back to a fresh entitlement only when nothing is
+  left to restore; the service interface drops `Complete` and
+  `RestoreByUserAndProgram`.
+- Removal: `payment payments.Provider` parameter removed from
+  `purchases.NewService` (dead argument); `routes/routes.go` and all test call
+  sites updated.
+- Handler: `api/auth/purchase_handler.go` maps `ErrPurchaseExpired` to
+  `409 PURCHASE_EXPIRED`.
+- Tests: service tests cover expiry boundaries, supersede vs completion race,
+  unpublished-program refusal, failed-purchase refusal and the not-expired
+  happy path; repository tests cover `Fail` guards, restore+complete success,
+  replay fail-closed and rollback on non-pending purchases; handler table adds
+  the `PURCHASE_EXPIRED` code.
+- Frontend: `use_program_checkout.ts` handles `PURCHASE_EXPIRED` with a
+  one-shot fresh-intent recovery.
+- Documentation: `api.MD` (initiation validity window + `409 PURCHASE_EXPIRED`
+  + `404 PROGRAM_NOT_FOUND` at initiation, completion ignoring expiry, restore
+  atomicity, failed status semantics), `security.MD` (expiry, published check,
+  restore rollback), `DATABASE/database.MD` (derived expiry — no migration;
+  `CompleteWithRestoredEntitlement`; failed status), `project.MD` (payment
+  window and authoritative completion wording), and this update log. Versions
+  bumped to 2.84.0 where the document changed.
+
 # Version 2.83.0
 
 Title: End-to-end Premium Level 1 integration audit and production hardening — envelope consistency, questionnaire contract agreement, bounded Test Mode sessions and safer payment method binding

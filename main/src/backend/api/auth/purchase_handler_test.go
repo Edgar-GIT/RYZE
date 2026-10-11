@@ -65,7 +65,7 @@ func newPurchaseTestRouter(t *testing.T) (*gin.Engine, repositories.UserReposito
 	commissionCfg := config.CommissionConfig{DefaultPlatformCommissionBPS: 2000}
 	commissionSvc := commission_rules.NewService(commissionRuleRepo, trainerRepo, commissionCfg)
 
-	svc := purchases.NewService(programRepo, purchaseRepo, entitlementRepo, &commissionAdapter{svc: commissionSvc}, payments.NewFakeProvider(), func(_ context.Context, _ payments.PaymentMethod) (payments.Provider, error) {
+	svc := purchases.NewService(programRepo, purchaseRepo, entitlementRepo, &commissionAdapter{svc: commissionSvc}, func(_ context.Context, _ payments.PaymentMethod) (payments.Provider, error) {
 		return payments.NewFakeProvider(), nil
 	})
 	handler := auth.NewPurchaseHandler(svc)
@@ -159,6 +159,10 @@ func (s *stubPurchaseService) CompletePurchaseWithCapture(_ context.Context, _, 
 func (s *stubPurchaseService) CompleteTestPurchase(_ context.Context, userID, programID string) (*purchases.Purchase, error) {
 	s.gotUser = userID
 	s.gotProg = programID
+	return s.purchase, s.err
+}
+
+func (s *stubPurchaseService) ReconcilePurchase(_ context.Context, _ string) (*purchases.Purchase, error) {
 	return s.purchase, s.err
 }
 
@@ -1058,6 +1062,7 @@ func TestPaymentHandlerErrorMapping(t *testing.T) {
 		{name: "invalid input", err: purchases.ErrInvalidInput, status: http.StatusBadRequest, code: "VALIDATION_ERROR"},
 		{name: "purchase not found", err: purchases.ErrPurchaseNotFound, status: http.StatusNotFound, code: "PURCHASE_NOT_FOUND"},
 		{name: "purchase not pending", err: purchases.ErrPurchaseNotPending, status: http.StatusConflict, code: "PURCHASE_NOT_PENDING"},
+		{name: "purchase expired", err: purchases.ErrPurchaseExpired, status: http.StatusConflict, code: "PURCHASE_EXPIRED"},
 		{name: "payment method mismatch", err: purchases.ErrPaymentMethodMismatch, status: http.StatusConflict, code: "PAYMENT_METHOD_MISMATCH"},
 		{name: "payment provider error", err: purchases.ErrPaymentProvider, status: http.StatusBadGateway, code: "PAYMENT_PROVIDER_ERROR"},
 	}

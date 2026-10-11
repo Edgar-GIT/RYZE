@@ -29,17 +29,22 @@ func (s *stubProgramRepository) FindPublishedByID(_ context.Context, _ string) (
 }
 
 type stubPurchaseRepository struct {
-	purchase         *models.Purchase
-	existing         *models.Purchase
-	createErr        error
-	findErr          error
-	findByIDPurchase *models.Purchase
-	findByIDErr      error
-	list             []models.Purchase
-	listErr          error
-	setMethodID      string
-	setMethod        string
-	entitlement      *models.Entitlement
+	purchase           *models.Purchase
+	existing           *models.Purchase
+	createErr          error
+	findErr            error
+	findByIDPurchase   *models.Purchase
+	findByIDErr        error
+	list               []models.Purchase
+	listErr            error
+	setMethodID        string
+	setMethod          string
+	entitlement        *models.Entitlement
+	failErr            error
+	failedID           string
+	restoreCompleteErr error
+	reconcileErr       error
+	reconciledID       string
 }
 
 func (s *stubPurchaseRepository) Create(_ context.Context, purchase *models.Purchase) error {
@@ -65,6 +70,10 @@ func (s *stubPurchaseRepository) FindByID(_ context.Context, _ string) (*models.
 		return nil, s.findByIDErr
 	}
 	if s.findByIDPurchase != nil {
+		// The database stamps created_at on insert, so a test purchase built
+		// without one is treated as freshly created. An expiry test instead
+		// provides an explicit old timestamp, which is preserved here.
+		stampCreatedAt(s.findByIDPurchase)
 		return s.findByIDPurchase, nil
 	}
 	return nil, repositories.ErrPurchaseNotFound
@@ -75,9 +84,21 @@ func (s *stubPurchaseRepository) FindActiveByUserAndProgram(_ context.Context, _
 		return nil, s.findErr
 	}
 	if s.existing != nil {
+		stampCreatedAt(s.existing)
 		return s.existing, nil
 	}
 	return nil, repositories.ErrPurchaseNotFound
+}
+
+// stampCreatedAt gives a purchase the creation timestamp the database would
+// have assigned on insert, so isolated InitiatePayment and duplicate tests do
+// not accidentally observe them as expired. An explicitly configured old
+// timestamp is preserved.
+func stampCreatedAt(purchase *models.Purchase) {
+	if purchase.CreatedAt.IsZero() {
+		purchase.CreatedAt = time.Now()
+		purchase.UpdatedAt = time.Now()
+	}
 }
 
 func (s *stubPurchaseRepository) Complete(_ context.Context, _ string) error {
@@ -111,6 +132,46 @@ func (s *stubPurchaseRepository) SetPaymentMethod(_ context.Context, purchaseID,
 		}
 	}
 	return nil
+}
+
+// CompleteWithRestoredEntitlement simulates the atomic restore+complete path.
+// By default no soft-deleted entitlement exists, mirroring the fresh-buyer
+// case; a test can configure restoreCompleteErr to exercise a repurchase.
+func (s *stubPurchaseRepository) CompleteWithRestoredEntitlement(_ context.Context, _ string, _ *models.Entitlement) error {
+	if s.restoreCompleteErr != nil {
+		return s.restoreCompleteErr
+	}
+	return repositories.ErrEntitlementNotFound
+}
+
+// Fail simulates the guarded pending->failed transition: only a pending row
+// transitions, everything else reports ErrPurchaseNotFound exactly like the
+// database-backed WHERE clause.
+func (s *stubPurchaseRepository) Fail(_ context.Context, purchaseID string) error {
+	if s.failErr != nil {
+		return s.failErr
+	}
+	if s.existing != nil && s.existing.ID == purchaseID && s.existing.Status == models.PurchaseStatusPending {
+		s.existing.Status = models.PurchaseStatusFailed
+		s.failedID = purchaseID
+		return nil
+	}
+	return repositories.ErrPurchaseNotFound
+}
+
+// ReconcileFailedPurchase simulates the atomic failed->completed transition.
+// A scripted reconcileErr stands in for the repository's conflict verdicts
+// (ErrCompletedPurchaseExists / ErrEntitlementAlreadyExists / ErrPurchaseNotFound).
+func (s *stubPurchaseRepository) ReconcileFailedPurchase(_ context.Context, purchaseID, _, _ string, _ *models.Entitlement) error {
+	if s.reconcileErr != nil {
+		return s.reconcileErr
+	}
+	if s.existing != nil && s.existing.ID == purchaseID && s.existing.Status == models.PurchaseStatusFailed {
+		s.existing.Status = models.PurchaseStatusCompleted
+		s.reconciledID = purchaseID
+		return nil
+	}
+	return repositories.ErrPurchaseNotFound
 }
 
 type stubEntitlementRepository struct {
@@ -230,7 +291,7 @@ func TestCreatePurchaseIntentSuccess(t *testing.T) {
 		calc:       purchases.CommissionCalculation{PlatformAmount: 2000, TrainerAmount: 8000},
 	}
 
-	svc := purchases.NewService(programs, purchasesRepo, entitlements, commission, &stubPaymentProvider{}, nil)
+	svc := purchases.NewService(programs, purchasesRepo, entitlements, commission, nil)
 
 	purchase, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
 	if err != nil {
@@ -263,7 +324,6 @@ func TestCreatePurchaseIntentEmptyUserID(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -282,7 +342,6 @@ func TestCreatePurchaseIntentEmptyProgramID(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -302,7 +361,6 @@ func TestCreatePurchaseIntentProgramNotFound(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -329,7 +387,6 @@ func TestCreatePurchaseIntentFreeProgram(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -365,7 +422,6 @@ func TestCreatePurchaseIntentDuplicateEntitlement(t *testing.T) {
 		&stubPurchaseRepository{},
 		entitlements,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -399,7 +455,6 @@ func TestCreatePurchaseIntentDuplicatePurchase(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -409,6 +464,202 @@ func TestCreatePurchaseIntentDuplicatePurchase(t *testing.T) {
 	}
 	if !errors.Is(err, purchases.ErrDuplicatePurchase) {
 		t.Fatalf("expected ErrDuplicatePurchase, got %v", err)
+	}
+}
+
+func TestCreatePurchaseIntentSupersedesExpiredPurchase(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 5000,
+		Currency:        "EUR",
+	}
+
+	expiredPurchase := &models.Purchase{
+		ID:        "55555555-5555-5555-5555-555555555555",
+		UserID:    "33333333-3333-3333-3333-333333333333",
+		ProgramID: "11111111-1111-1111-1111-111111111111",
+		Status:    models.PurchaseStatusPending,
+		CreatedAt: time.Now().Add(-purchaseExpiryWindow),
+	}
+
+	purchasesRepo := &stubPurchaseRepository{existing: expiredPurchase}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	result, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if purchasesRepo.failedID != "55555555-5555-5555-5555-555555555555" {
+		t.Fatalf("expected the expired purchase to be superseded (failed), got failedID=%q", purchasesRepo.failedID)
+	}
+	if result.Status != models.PurchaseStatusPending {
+		t.Fatalf("expected a fresh pending intent, got %q", result.Status)
+	}
+}
+
+func TestCreatePurchaseIntentSupersedeRacesCompletion(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 5000,
+		Currency:        "EUR",
+	}
+
+	expiredPurchase := &models.Purchase{
+		ID:        "55555555-5555-5555-5555-555555555555",
+		UserID:    "33333333-3333-3333-3333-333333333333",
+		ProgramID: "11111111-1111-1111-1111-111111111111",
+		Status:    models.PurchaseStatusPending,
+		CreatedAt: time.Now().Add(-purchaseExpiryWindow),
+	}
+
+	// The supersede loses the race because the purchase completed concurrently
+	// (its row is no longer pending), so ownership re-evaluation below must
+	// refuse a fresh intent once the entitlement exists.
+	purchasesRepo := &stubPurchaseRepository{
+		existing: expiredPurchase,
+		failErr:  repositories.ErrPurchaseNotFound,
+	}
+	entitlements := &stubEntitlementRepository{
+		existing: &models.Entitlement{UserID: expiredPurchase.UserID, ProgramID: expiredPurchase.ProgramID},
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	_, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111")
+	if !errors.Is(err, purchases.ErrDuplicateEntitlement) {
+		t.Fatalf("expected ErrDuplicateEntitlement when the superseded purchase completed concurrently, got %v", err)
+	}
+}
+
+// purchaseExpiryWindow mirrors the service default (24h) plus one hour, so a
+// purchase stamped at now-window is strictly beyond the mandate.
+const purchaseExpiryWindow = 25 * time.Hour
+
+func publishedProgram() *models.Program {
+	return &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+	}
+}
+
+func TestInitiatePaymentExpiredPurchase(t *testing.T) {
+	expiredPurchase := &models.Purchase{
+		ID:              "aaaa1111-1111-1111-1111-111111111111",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		CreatedAt:       time.Now().Add(-purchaseExpiryWindow),
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: publishedProgram()},
+		&stubPurchaseRepository{findByIDPurchase: expiredPurchase},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	_, err := svc.InitiatePayment(context.Background(), expiredPurchase.UserID, expiredPurchase.ID, "card")
+	if !errors.Is(err, purchases.ErrPurchaseExpired) {
+		t.Fatalf("expected ErrPurchaseExpired, got %v", err)
+	}
+}
+
+func TestInitiatePaymentNotExpiredProceeds(t *testing.T) {
+	freshPurchase := &models.Purchase{
+		ID:              "aaaa1111-1111-1111-1111-111111111111",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		CreatedAt:       time.Now().Add(-10 * time.Minute),
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: publishedProgram()},
+		&stubPurchaseRepository{findByIDPurchase: freshPurchase},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		stubResolver(&stubCaptureProvider{}),
+	)
+
+	if _, err := svc.InitiatePayment(context.Background(), freshPurchase.UserID, freshPurchase.ID, "card"); err != nil {
+		t.Fatalf("a purchase inside its window must initiate, got %v", err)
+	}
+}
+
+func TestInitiatePaymentUnpublishedProgram(t *testing.T) {
+	purchase := &models.Purchase{
+		ID:              "aaaa1111-1111-1111-1111-111111111111",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+
+	// A pending purchase for a program that is no longer published must not
+	// open a new provider payment; the resolve failure is indistinguishable
+	// from a program that never existed.
+	programs := &stubProgramRepository{err: repositories.ErrProgramNotFound}
+
+	svc := purchases.NewService(
+		programs,
+		&stubPurchaseRepository{findByIDPurchase: purchase},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	_, err := svc.InitiatePayment(context.Background(), purchase.UserID, purchase.ID, "card")
+	if !errors.Is(err, purchases.ErrProgramNotFound) {
+		t.Fatalf("expected ErrProgramNotFound for an unpublished program, got %v", err)
+	}
+}
+
+func TestInitiatePaymentFailedPurchaseRefused(t *testing.T) {
+	failedPurchase := &models.Purchase{
+		ID:              "aaaa1111-1111-1111-1111-111111111111",
+		UserID:          "33333333-3333-3333-3333-333333333333",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 10000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusFailed,
+	}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: publishedProgram()},
+		&stubPurchaseRepository{findByIDPurchase: failedPurchase},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	if _, err := svc.InitiatePayment(context.Background(), failedPurchase.UserID, failedPurchase.ID, "card"); !errors.Is(err, purchases.ErrPurchaseNotPending) {
+		t.Fatalf("a failed purchase must never be initiated, got %v", err)
 	}
 }
 
@@ -429,7 +680,6 @@ func TestCreatePurchaseIntentCommissionResolutionFailure(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		commission,
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -463,7 +713,6 @@ func TestCreatePurchaseIntentCreateFailure(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		commission,
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -497,7 +746,6 @@ func TestCreatePurchaseIntentPlatformOwnedProgramNoCommission(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		commission,
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -550,7 +798,6 @@ func TestListPurchasesScopedToUser(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -621,7 +868,6 @@ func TestListPurchasesAccessAndTestFlags(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -664,7 +910,6 @@ func TestListPurchasesEmptyUserID(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -680,7 +925,6 @@ func TestListPurchasesRepositoryFailure(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -713,7 +957,6 @@ func TestCreatePurchaseIntentOverrideCommission(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		commission,
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -736,13 +979,17 @@ func TestCreatePurchaseIntentOverrideCommission(t *testing.T) {
 // --- CompletePurchase tests ---
 
 type completionPurchaseRepo struct {
-	findByIDPurchase      *models.Purchase
-	findByIDErr           error
-	completeErr           error
-	completeWithEntErr    error
-	completedPurchaseID   string
-	completedWithEntID    string
-	completedWithEntModel *models.Entitlement
+	findByIDPurchase         *models.Purchase
+	findByIDErr              error
+	completeErr              error
+	completeWithEntErr       error
+	completedPurchaseID      string
+	completedWithEntID       string
+	completedWithEntModel    *models.Entitlement
+	completeWithRestoredErr  error
+	completeWithRestoredID   string
+	completeWithRestoredUser string
+	completeWithRestoredProg string
 }
 
 func (r *completionPurchaseRepo) Create(_ context.Context, _ *models.Purchase) error { return nil }
@@ -764,6 +1011,14 @@ func (r *completionPurchaseRepo) CompleteWithEntitlement(_ context.Context, purc
 	r.completedWithEntModel = entitlement
 	return r.completeWithEntErr
 }
+func (r *completionPurchaseRepo) CompleteWithRestoredEntitlement(_ context.Context, purchaseID string, entitlement *models.Entitlement) error {
+	r.completeWithRestoredID = purchaseID
+	if entitlement != nil {
+		r.completeWithRestoredUser = entitlement.UserID
+		r.completeWithRestoredProg = entitlement.ProgramID
+	}
+	return r.completeWithRestoredErr
+}
 
 func (r *completionPurchaseRepo) CompleteTestPurchase(_ context.Context, purchase *models.Purchase, entitlement *models.Entitlement) error {
 	r.completedWithEntModel = entitlement
@@ -771,14 +1026,15 @@ func (r *completionPurchaseRepo) CompleteTestPurchase(_ context.Context, purchas
 }
 
 func (r *completionPurchaseRepo) SetPaymentMethod(_ context.Context, _, _ string) error { return nil }
+func (r *completionPurchaseRepo) Fail(_ context.Context, _ string) error                { return nil }
+func (r *completionPurchaseRepo) ReconcileFailedPurchase(_ context.Context, _, _, _ string, _ *models.Entitlement) error {
+	return nil
+}
 
 type completionEntitlementRepo struct {
 	activeEntitlement *models.Entitlement
 	activeErr         error
 	createErr         error
-	restoreErr        error
-	restoredUserID    string
-	restoredProgramID string
 }
 
 func (r *completionEntitlementRepo) Create(_ context.Context, userID, programID string, _ *models.Entitlement) error {
@@ -789,11 +1045,6 @@ func (r *completionEntitlementRepo) FindActiveByUserAndProgram(_ context.Context
 		return r.activeEntitlement, r.activeErr
 	}
 	return nil, repositories.ErrEntitlementNotFound
-}
-func (r *completionEntitlementRepo) RestoreByUserAndProgram(_ context.Context, userID, programID string) error {
-	r.restoredUserID = userID
-	r.restoredProgramID = programID
-	return r.restoreErr
 }
 
 func TestCompletePurchaseSuccess(t *testing.T) {
@@ -806,15 +1057,14 @@ func TestCompletePurchaseSuccess(t *testing.T) {
 		Status:          models.PurchaseStatusPending,
 	}
 
-	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase}
-	entitlementsRepo := &completionEntitlementRepo{restoreErr: repositories.ErrEntitlementNotFound}
+	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase, completeWithRestoredErr: repositories.ErrEntitlementNotFound}
+	entitlementsRepo := &completionEntitlementRepo{}
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
 		purchasesRepo,
 		entitlementsRepo,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -854,7 +1104,6 @@ func TestCompletePurchaseIdempotentSuccess(t *testing.T) {
 		purchasesRepo,
 		entitlementsRepo,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -891,7 +1140,6 @@ func TestCompletePurchaseEntitlementIntegrityError(t *testing.T) {
 		purchasesRepo,
 		entitlementsRepo,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -911,7 +1159,6 @@ func TestCompletePurchaseNotFound(t *testing.T) {
 		purchasesRepo,
 		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -927,7 +1174,6 @@ func TestCompletePurchaseEmptyID(t *testing.T) {
 		&completionPurchaseRepo{},
 		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -953,7 +1199,6 @@ func TestCompletePurchaseFailedStatus(t *testing.T) {
 		purchasesRepo,
 		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -982,7 +1227,6 @@ func TestCreatePurchaseIntentEntitlementCheckFailure(t *testing.T) {
 		&stubPurchaseRepository{},
 		entitlements,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1013,7 +1257,6 @@ func TestCreatePurchaseIntentPurchaseCheckFailure(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1032,7 +1275,6 @@ func TestInitiatePaymentInvalidMethod(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1055,15 +1297,19 @@ func TestCompletePurchaseEntitlementReactivation(t *testing.T) {
 		Status:          models.PurchaseStatusPending,
 	}
 
-	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase}
-	entitlementsRepo := &completionEntitlementRepo{restoreErr: nil}
+	// A soft-deleted entitlement exists for the pair, so the atomic
+	// restore+complete path is taken instead of the fresh-create path.
+	purchasesRepo := &completionPurchaseRepo{
+		findByIDPurchase:        purchase,
+		completeWithRestoredErr: nil,
+	}
+	entitlementsRepo := &completionEntitlementRepo{}
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
 		purchasesRepo,
 		entitlementsRepo,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1074,17 +1320,20 @@ func TestCompletePurchaseEntitlementReactivation(t *testing.T) {
 	if result.Status != models.PurchaseStatusCompleted {
 		t.Fatalf("expected status %q, got %q", models.PurchaseStatusCompleted, result.Status)
 	}
-	if entitlementsRepo.restoredUserID != purchase.UserID {
-		t.Fatalf("expected restore called with user %q, got %q", purchase.UserID, entitlementsRepo.restoredUserID)
+	if purchasesRepo.completeWithRestoredID != purchase.ID {
+		t.Fatalf("expected CompleteWithRestoredEntitlement called with %q, got %q", purchase.ID, purchasesRepo.completeWithRestoredID)
 	}
-	if entitlementsRepo.restoredProgramID != purchase.ProgramID {
-		t.Fatalf("expected restore called with program %q, got %q", purchase.ProgramID, entitlementsRepo.restoredProgramID)
+	if purchasesRepo.completeWithRestoredUser != purchase.UserID {
+		t.Fatalf("expected restore scoped to user %q, got %q", purchase.UserID, purchasesRepo.completeWithRestoredUser)
 	}
-	if purchasesRepo.completedPurchaseID != purchase.ID {
-		t.Fatalf("expected Complete called with %q, got %q", purchase.ID, purchasesRepo.completedPurchaseID)
+	if purchasesRepo.completeWithRestoredProg != purchase.ProgramID {
+		t.Fatalf("expected restore scoped to program %q, got %q", purchase.ProgramID, purchasesRepo.completeWithRestoredProg)
+	}
+	if purchasesRepo.completedPurchaseID != "" {
+		t.Fatal("Complete must not be called when the atomic restore path is taken")
 	}
 	if purchasesRepo.completedWithEntID != "" {
-		t.Fatal("CompleteWithEntitlement must not be called when restore succeeds")
+		t.Fatal("CompleteWithEntitlement must not be called when the atomic restore path is taken")
 	}
 }
 
@@ -1101,15 +1350,14 @@ func TestCompletePurchaseSnapshotPreserved(t *testing.T) {
 		Status:          models.PurchaseStatusPending,
 	}
 
-	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase}
-	entitlementsRepo := &completionEntitlementRepo{restoreErr: repositories.ErrEntitlementNotFound}
+	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase, completeWithRestoredErr: repositories.ErrEntitlementNotFound}
+	entitlementsRepo := &completionEntitlementRepo{}
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
 		purchasesRepo,
 		entitlementsRepo,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1140,17 +1388,17 @@ func TestCompletePurchaseInternalErrorNotExposed(t *testing.T) {
 	}
 
 	purchasesRepo := &completionPurchaseRepo{
-		findByIDPurchase:   purchase,
-		completeWithEntErr: errors.New("database connection lost"),
+		findByIDPurchase:        purchase,
+		completeWithRestoredErr: repositories.ErrEntitlementNotFound,
+		completeWithEntErr:      errors.New("database connection lost"),
 	}
-	entitlementsRepo := &completionEntitlementRepo{restoreErr: repositories.ErrEntitlementNotFound}
+	entitlementsRepo := &completionEntitlementRepo{}
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
 		purchasesRepo,
 		entitlementsRepo,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1191,7 +1439,6 @@ func TestInitiatePaymentSuccess(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -1222,7 +1469,6 @@ func TestInitiatePaymentEmptyUserID(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1241,7 +1487,6 @@ func TestInitiatePaymentEmptyPurchaseID(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1264,7 +1509,6 @@ func TestInitiatePaymentPurchaseNotFound(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1287,7 +1531,6 @@ func TestInitiatePaymentRepositoryFailureNotExposed(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1319,7 +1562,6 @@ func TestInitiatePaymentIDOR(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1362,7 +1604,6 @@ func TestInitiatePaymentNotPending(t *testing.T) {
 				purchasesRepo,
 				&stubEntitlementRepository{},
 				&stubCommissionResolver{},
-				&stubPaymentProvider{},
 				nil,
 			)
 
@@ -1399,7 +1640,6 @@ func TestInitiatePaymentProviderFailure(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -1443,7 +1683,6 @@ func TestInitiatePaymentProviderFailureLeavesMethodUnbound(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		accepting,
 		func(_ context.Context, method payments.PaymentMethod) (payments.Provider, error) {
 			if method == payments.PaymentMethodMBWay {
 				return rejecting, nil
@@ -1491,7 +1730,6 @@ func TestGetPurchaseByIDSuccess(t *testing.T) {
 		&stubPurchaseRepository{findByIDPurchase: existing},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1528,7 +1766,6 @@ func TestGetPurchaseByIDEmptyID(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1547,7 +1784,6 @@ func TestGetPurchaseByIDNotFound(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1566,7 +1802,6 @@ func TestGetPurchaseByIDRepositoryFailureNotExposed(t *testing.T) {
 		&stubPurchaseRepository{findByIDErr: errors.New("database connection lost")},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1607,7 +1842,6 @@ func TestInitiatePaymentStatusNotMutated(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -1643,7 +1877,6 @@ func TestInitiatePaymentProviderFailureDoesNotComplete(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -1676,14 +1909,13 @@ func TestCompletePurchaseEntitlementAlreadyActiveDuringPending(t *testing.T) {
 		UserID:    purchase.UserID,
 		ProgramID: purchase.ProgramID,
 	}
-	entitlementsRepo := &completionEntitlementRepo{activeEntitlement: activeEntitlement, restoreErr: repositories.ErrEntitlementNotFound}
+	entitlementsRepo := &completionEntitlementRepo{activeEntitlement: activeEntitlement}
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
 		purchasesRepo,
 		entitlementsRepo,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1706,7 +1938,6 @@ func TestCompletePurchaseRepositoryLoadFailure(t *testing.T) {
 		purchasesRepo,
 		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1729,15 +1960,17 @@ func TestCompletePurchaseEntitlementReactivationFailure(t *testing.T) {
 		Status:          models.PurchaseStatusPending,
 	}
 
-	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase}
-	entitlementsRepo := &completionEntitlementRepo{restoreErr: errors.New("database failure")}
+	// A soft-deleted entitlement exists but the atomic restore+complete step in
+	// the purchase repository fails, so nothing is granted and the internal
+	// error is not exposed to the buyer.
+	purchasesRepo := &completionPurchaseRepo{findByIDPurchase: purchase, completeWithRestoredErr: errors.New("database failure")}
+	entitlementsRepo := &completionEntitlementRepo{}
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
 		purchasesRepo,
 		entitlementsRepo,
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -1780,7 +2013,6 @@ func TestInitiatePaymentUsesSnapshotValues(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -1840,7 +2072,6 @@ func TestInitiatePaymentMBWayIsAValidEnumValueOnly(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -1895,7 +2126,6 @@ func TestInitiatePaymentPayPalAccepted(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -1946,7 +2176,6 @@ func TestInitiatePaymentProviderResolutionError(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		failingResolver,
 	)
 
@@ -1989,7 +2218,6 @@ func TestInitiatePaymentMethodCannotAlterSnapshot(t *testing.T) {
 			purchasesRepo,
 			&stubEntitlementRepository{},
 			&stubCommissionResolver{},
-			payment,
 			stubResolver(payment),
 		)
 
@@ -2043,7 +2271,6 @@ func TestInitiatePaymentKeepsRecordedMethodImmutable(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -2094,7 +2321,6 @@ func TestInitiatePaymentSameMethodIsIdempotent(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -2131,7 +2357,6 @@ func TestCapturePaymentSuccess(t *testing.T) {
 		purchasesRepo,
 		entitlements,
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2172,7 +2397,6 @@ func TestCapturePaymentOwnershipEnforced(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2190,7 +2414,6 @@ func TestCapturePaymentUnknownPurchase(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2222,7 +2445,6 @@ func TestCapturePaymentIdempotentForCompletedPurchase(t *testing.T) {
 		purchasesRepo,
 		entitlements,
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2254,7 +2476,6 @@ func TestCapturePaymentCompletedWithoutEntitlement(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2280,13 +2501,241 @@ func TestCapturePaymentRejectsNonPendingPurchase(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
 	_, err := svc.CapturePayment(context.Background(), failed.UserID, failed.ID, "paypal-order-123")
 	if !errors.Is(err, purchases.ErrPurchaseNotPending) {
 		t.Fatalf("failed purchase must surface as ErrPurchaseNotPending, got %v", err)
+	}
+}
+
+func TestReconcilePurchaseCompletesFailedPurchase(t *testing.T) {
+	failed := &models.Purchase{
+		ID:              "purchase-reconcile",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusFailed,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: failed, existing: failed}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	result, err := svc.ReconcilePurchase(context.Background(), failed.ID)
+	if err != nil {
+		t.Fatalf("reconciling a failed purchase with a verified payment must succeed, got %v", err)
+	}
+	if result.ID != failed.ID {
+		t.Fatalf("expected purchase %s, got %s", failed.ID, result.ID)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected a completed purchase after reconciliation, got %s", result.Status)
+	}
+	if purchasesRepo.reconciledID != failed.ID {
+		t.Fatalf("expected the repository to reconcile purchase %s, got %s", failed.ID, purchasesRepo.reconciledID)
+	}
+}
+
+func TestReconcilePurchaseAlreadyCompletedIsIdempotent(t *testing.T) {
+	completed := &models.Purchase{
+		ID:              "purchase-reconcile-done",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusCompleted,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: completed}
+	entitlements := &stubEntitlementRepository{existing: &models.Entitlement{UserID: completed.UserID, ProgramID: completed.ProgramID}}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	result, err := svc.ReconcilePurchase(context.Background(), completed.ID)
+	if err != nil {
+		t.Fatalf("an already-completed purchase must reconcile idempotently, got %v", err)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected completed status, got %s", result.Status)
+	}
+	if purchasesRepo.reconciledID != "" {
+		t.Fatalf("an already-completed purchase must not re-enter the repository reconcile path, reconciled %s", purchasesRepo.reconciledID)
+	}
+}
+
+func TestReconcilePurchaseCompletedWithoutEntitlementFailsIntegrity(t *testing.T) {
+	completed := &models.Purchase{
+		ID:              "purchase-reconcile-no-ent",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusCompleted,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: completed}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	_, err := svc.ReconcilePurchase(context.Background(), completed.ID)
+	if !errors.Is(err, purchases.ErrEntitlementIntegrity) {
+		t.Fatalf("completed purchase without an active entitlement must surface as ErrEntitlementIntegrity, got %v", err)
+	}
+}
+
+func TestReconcilePurchaseConflictMapsToReconciliationConflict(t *testing.T) {
+	for name, repoErr := range map[string]error{
+		"completed-purchase-exists": repositories.ErrCompletedPurchaseExists,
+		"entitlement-exists":        repositories.ErrEntitlementAlreadyExists,
+	} {
+		t.Run(name, func(t *testing.T) {
+			failed := &models.Purchase{
+				ID:              "purchase-conflict-" + name,
+				UserID:          "22222222-2222-2222-2222-222222222222",
+				ProgramID:       "11111111-1111-1111-1111-111111111111",
+				PriceMinorUnits: 1000,
+				Currency:        "EUR",
+				Status:          models.PurchaseStatusFailed,
+			}
+			purchasesRepo := &stubPurchaseRepository{findByIDPurchase: failed, reconcileErr: repoErr}
+			svc := purchases.NewService(
+				&stubProgramRepository{},
+				purchasesRepo,
+				&stubEntitlementRepository{},
+				&stubCommissionResolver{},
+				nil,
+			)
+
+			_, err := svc.ReconcilePurchase(context.Background(), failed.ID)
+			if !errors.Is(err, purchases.ErrReconciliationConflict) {
+				t.Fatalf("expected ErrReconciliationConflict, got %v", err)
+			}
+			if purchasesRepo.reconciledID != "" {
+				t.Fatalf("a conflicting reconciliation must not transition the purchase, reconciled %s", purchasesRepo.reconciledID)
+			}
+		})
+	}
+}
+
+func TestReconcilePurchaseRejectsNonFailedPurchase(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-pending-no-reconcile",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	_, err := svc.ReconcilePurchase(context.Background(), pending.ID)
+	if !errors.Is(err, purchases.ErrPurchaseNotCompleted) {
+		t.Fatalf("a pending purchase must surface as ErrPurchaseNotCompleted, got %v", err)
+	}
+}
+
+func TestReconcilePurchaseRepoNotFoundMapsToNotCompleted(t *testing.T) {
+	failed := &models.Purchase{
+		ID:              "purchase-moved-on",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusFailed,
+	}
+
+	// The purchase moved on between the load and the reconcile: the guarded
+	// transition reports ErrPurchaseNotFound, the outcome is settled by the
+	// current state, and the webhook acknowledges instead of marking a paid
+	// sale as a retryable failure.
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: failed, reconcileErr: repositories.ErrPurchaseNotFound}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	_, err := svc.ReconcilePurchase(context.Background(), failed.ID)
+	if !errors.Is(err, purchases.ErrPurchaseNotCompleted) {
+		t.Fatalf("expected ErrPurchaseNotCompleted, got %v", err)
+	}
+}
+
+func TestReconcilePurchaseUnknownPurchaseMapsToNotCompleted(t *testing.T) {
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		&stubPurchaseRepository{findByIDErr: repositories.ErrPurchaseNotFound},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	_, err := svc.ReconcilePurchase(context.Background(), "purchase-missing")
+	if !errors.Is(err, purchases.ErrPurchaseNotCompleted) {
+		t.Fatalf("expected ErrPurchaseNotCompleted for an unknown purchase, got %v", err)
+	}
+}
+
+func TestReconcilePurchaseRejectsInvalidID(t *testing.T) {
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		&stubPurchaseRepository{},
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	_, err := svc.ReconcilePurchase(context.Background(), "")
+	if !errors.Is(err, purchases.ErrInvalidInput) {
+		t.Fatalf("empty purchase id must surface as ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestReconcilePurchaseRepoTransientErrorPropagates(t *testing.T) {
+	failed := &models.Purchase{
+		ID:              "purchase-reconcile-db-down",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusFailed,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: failed, reconcileErr: errors.New("database connection lost")}
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		nil,
+	)
+
+	_, err := svc.ReconcilePurchase(context.Background(), failed.ID)
+	if err == nil || errors.Is(err, purchases.ErrReconciliationConflict) {
+		t.Fatalf("a transient repository failure must propagate, got %v", err)
 	}
 }
 
@@ -2306,7 +2755,6 @@ func TestCapturePaymentRejectsEmptyProviderPaymentID(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2335,7 +2783,6 @@ func TestCapturePaymentProviderFailure(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2366,7 +2813,6 @@ func TestCapturePaymentResolverRejectsNonCaptureProvider(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -2398,7 +2844,6 @@ func TestCompletePurchaseWithCaptureSuccess(t *testing.T) {
 		purchasesRepo,
 		entitlements,
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2422,7 +2867,6 @@ func TestCompletePurchaseWithCaptureUnknownPurchase(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2457,7 +2901,6 @@ func TestInitiatePaymentPersistsRecordedMethod(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		payment,
 		stubResolver(payment),
 	)
 
@@ -2492,7 +2935,6 @@ func TestInitiatePaymentDoesNotPersistBeforeProviderResolution(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		failingResolver,
 	)
 
@@ -2521,7 +2963,6 @@ func TestCapturePaymentRejectsMissingRecordedMethod(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		provider,
 		stubResolver(provider),
 	)
 
@@ -2561,7 +3002,6 @@ func TestCapturePaymentResolvesProviderFromRecordedMethod(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		provider,
 		methodSensitive,
 	)
 
@@ -2593,7 +3033,6 @@ func TestCompleteTestPurchaseSuccess(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		nil,
-		nil,
 	)
 
 	result, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-test-1")
@@ -2622,7 +3061,7 @@ func TestCompleteTestPurchaseSuccess(t *testing.T) {
 }
 
 func TestCompleteTestPurchaseInvalidInput(t *testing.T) {
-	svc := purchases.NewService(&stubProgramRepository{}, &stubPurchaseRepository{}, &stubEntitlementRepository{}, &stubCommissionResolver{}, nil, nil)
+	svc := purchases.NewService(&stubProgramRepository{}, &stubPurchaseRepository{}, &stubEntitlementRepository{}, &stubCommissionResolver{}, nil)
 
 	if _, err := svc.CompleteTestPurchase(context.Background(), "", "program-test-1"); !errors.Is(err, purchases.ErrInvalidInput) {
 		t.Fatalf("missing user must surface as ErrInvalidInput, got %v", err)
@@ -2638,7 +3077,6 @@ func TestCompleteTestPurchaseProgramNotFound(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		nil,
 		nil,
 	)
 
@@ -2657,7 +3095,6 @@ func TestCompleteTestPurchaseRejectsFreeProgram(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		nil,
-		nil,
 	)
 
 	_, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-free")
@@ -2671,7 +3108,7 @@ func TestCompleteTestPurchaseDuplicateEntitlement(t *testing.T) {
 		program: &models.Program{ID: "program-test-1", Type: models.ProgramTypePremium, Status: models.ProgramStatusPublished},
 	}
 	entitlements := &stubEntitlementRepository{existing: &models.Entitlement{ID: "entitlement-existing"}}
-	svc := purchases.NewService(programs, &stubPurchaseRepository{}, entitlements, &stubCommissionResolver{}, nil, nil)
+	svc := purchases.NewService(programs, &stubPurchaseRepository{}, entitlements, &stubCommissionResolver{}, nil)
 
 	_, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-test-1")
 	if !errors.Is(err, purchases.ErrDuplicateEntitlement) {
@@ -2688,7 +3125,7 @@ func TestCompleteTestPurchaseDuplicatePersistence(t *testing.T) {
 			programs := &stubProgramRepository{
 				program: &models.Program{ID: "program-test-1", Type: models.ProgramTypePremium, Status: models.ProgramStatusPublished},
 			}
-			svc := purchases.NewService(programs, &stubPurchaseRepository{createErr: createErr}, &stubEntitlementRepository{}, &stubCommissionResolver{}, nil, nil)
+			svc := purchases.NewService(programs, &stubPurchaseRepository{createErr: createErr}, &stubEntitlementRepository{}, &stubCommissionResolver{}, nil)
 
 			_, err := svc.CompleteTestPurchase(context.Background(), "user-test-1", "program-test-1")
 			if !errors.Is(err, purchases.ErrDuplicateEntitlement) {
@@ -2735,7 +3172,6 @@ func TestCardPaymentFlowRecordsMethodAndCompletesOnCapture(t *testing.T) {
 		purchasesRepo,
 		entitlements,
 		&stubCommissionResolver{},
-		card,
 		routing.Resolve,
 	)
 
@@ -2787,7 +3223,6 @@ func TestMBWayFailsClosedWithoutProvider(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		card,
 		// MB WAY has no provider configured: only card and paypal resolve.
 		payments.NewMethodProviderMap(card, nil, paypal).Resolve,
 	)
@@ -2828,7 +3263,6 @@ func TestCardPaymentCaptureIsIdempotent(t *testing.T) {
 		purchasesRepo,
 		entitlements,
 		&stubCommissionResolver{},
-		card,
 		payments.NewMethodProviderMap(card, nil, nil).Resolve,
 	)
 
@@ -2867,7 +3301,6 @@ func TestUnpaidCardCaptureNeverCompletesPurchase(t *testing.T) {
 		purchasesRepo,
 		entitlements,
 		&stubCommissionResolver{},
-		card,
 		payments.NewMethodProviderMap(card, nil, nil).Resolve,
 	)
 
@@ -2907,7 +3340,6 @@ func TestCardCaptureCannotBeRedirectedToAnotherPurchase(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		card,
 		payments.NewMethodProviderMap(card, nil, nil).Resolve,
 	)
 
@@ -2951,7 +3383,6 @@ func TestMBWayPaymentInitiatesThroughSharedStripeProvider(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		stripe,
 		// Real production wiring: one Stripe instance serves card and MB WAY.
 		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
 	)
@@ -3007,7 +3438,6 @@ func TestRecordedMethodIsImmutableAcrossEveryMethod(t *testing.T) {
 					purchasesRepo,
 					&stubEntitlementRepository{},
 					&stubCommissionResolver{},
-					stripe,
 					payments.NewMethodProviderMap(stripe, stripe, stripe).Resolve,
 				)
 
@@ -3054,7 +3484,6 @@ func TestMBWaySameMethodRetryIsIdempotent(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		stripe,
 		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
 	)
 
@@ -3099,7 +3528,6 @@ func TestMBWayCaptureCompletesPurchase(t *testing.T) {
 		purchasesRepo,
 		entitlements,
 		&stubCommissionResolver{},
-		stripe,
 		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
 	)
 
@@ -3147,7 +3575,6 @@ func TestUnpaidMBWayCaptureNeverCompletesPurchase(t *testing.T) {
 		purchasesRepo,
 		entitlements,
 		&stubCommissionResolver{},
-		stripe,
 		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
 	)
 
@@ -3188,7 +3615,6 @@ func TestMBWayCaptureOwnershipEnforced(t *testing.T) {
 		purchasesRepo,
 		entitlements,
 		&stubCommissionResolver{},
-		stripe,
 		payments.NewMethodProviderMap(stripe, stripe, nil).Resolve,
 	)
 
@@ -3254,7 +3680,6 @@ func TestCreatePurchaseIntentBlocksWhenPrerequisiteNotMet(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 		purchases.WithCheckoutPrerequisites(prerequisite),
 	)
@@ -3299,7 +3724,6 @@ func TestCompleteTestPurchaseBlocksWhenPrerequisiteNotMet(t *testing.T) {
 		purchasesRepo,
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 		purchases.WithCheckoutPrerequisites(prerequisite),
 	)
@@ -3332,7 +3756,6 @@ func TestTestPurchaseProceedsWhenPrerequisiteMet(t *testing.T) {
 		&stubPurchaseRepository{},
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 		purchases.WithCheckoutPrerequisites(prerequisite),
 	)
@@ -3367,7 +3790,6 @@ func TestPurchaseWithoutPrerequisiteIsUngated(t *testing.T) {
 			resolution: purchases.CommissionResolution{CommissionBPS: 2000},
 			calc:       purchases.CommissionCalculation{PlatformAmount: 2000, TrainerAmount: 8000},
 		},
-		&stubPaymentProvider{},
 		nil,
 	)
 
@@ -3406,10 +3828,9 @@ func TestCompletePurchaseDeliversTheProductItOwes(t *testing.T) {
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
-		&completionPurchaseRepo{findByIDPurchase: purchase},
-		&completionEntitlementRepo{restoreErr: repositories.ErrEntitlementNotFound},
+		&completionPurchaseRepo{findByIDPurchase: purchase, completeWithRestoredErr: repositories.ErrEntitlementNotFound},
+		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 		purchases.WithFulfillment(fulfiller),
 	)
@@ -3443,7 +3864,6 @@ func TestCompletePurchaseDeliversOnAReplayedDelivery(t *testing.T) {
 		&completionPurchaseRepo{findByIDPurchase: purchase},
 		&completionEntitlementRepo{activeEntitlement: &models.Entitlement{UserID: purchase.UserID, ProgramID: purchase.ProgramID}},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 		purchases.WithFulfillment(fulfiller),
 	)
@@ -3471,10 +3891,9 @@ func TestCompletePurchaseSurvivesAFailedDelivery(t *testing.T) {
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
-		&completionPurchaseRepo{findByIDPurchase: purchase},
-		&completionEntitlementRepo{restoreErr: repositories.ErrEntitlementNotFound},
+		&completionPurchaseRepo{findByIDPurchase: purchase, completeWithRestoredErr: repositories.ErrEntitlementNotFound},
+		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 		purchases.WithFulfillment(fulfiller),
 	)
@@ -3512,7 +3931,6 @@ func TestCompleteTestPurchaseDeliversTheProductItOwes(t *testing.T) {
 		&stubEntitlementRepository{},
 		&stubCommissionResolver{},
 		nil,
-		nil,
 		purchases.WithFulfillment(fulfiller),
 	)
 
@@ -3539,10 +3957,9 @@ func TestPurchaseWithoutAFulfillerStillCompletes(t *testing.T) {
 
 	svc := purchases.NewService(
 		&stubProgramRepository{},
-		&completionPurchaseRepo{findByIDPurchase: purchase},
-		&completionEntitlementRepo{restoreErr: repositories.ErrEntitlementNotFound},
+		&completionPurchaseRepo{findByIDPurchase: purchase, completeWithRestoredErr: repositories.ErrEntitlementNotFound},
+		&completionEntitlementRepo{},
 		&stubCommissionResolver{},
-		&stubPaymentProvider{},
 		nil,
 	)
 

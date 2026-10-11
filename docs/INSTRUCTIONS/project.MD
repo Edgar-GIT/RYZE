@@ -1,6 +1,6 @@
 # RYZE
 
-Version: 2.83.0
+Version: 2.85.0
 
 ---
 
@@ -65,9 +65,28 @@ MB WAY is offered through the same Stripe provider as card and therefore appears
 and disappears with it. Purchase
 creation snapshots the current price and currency, applies zero commission for
 platform-owned content, blocks duplicate completed purchases, and exposes the
-user's purchases. Payment completion is always authoritative on the backend — a
-browser redirect never equates to a payment, only a verified server-side capture
-or a verified payment provider webhook can complete a purchase.
+user's purchases. A pending purchase is payable only within its payment window
+(24 hours, derived from its creation timestamp): once expired it cannot be paid,
+and the next intent for the same program supersedes it (marks it `failed`) so
+the checkout can start fresh. Payment completion is always authoritative on the
+backend — a browser redirect never equates to a payment, only a verified
+server-side capture or a verified payment provider webhook can complete a
+purchase, and such a completion is never discarded for arriving after the window.
+A pending purchase for a program that is no longer published is never re-opened
+for payment.
+
+Late settlements are reconciled, never discarded. A provider-verified payment
+that arrives after the purchase left `pending` (a Supersede marked it `failed`,
+or the payment was captured on the return leg while a completion raced ahead) is
+honoured: a `failed` purchase is atomically returned to `completed` with its
+entitlement, and the stale pending intent for the same `(user, program)` pair is
+superseded inside the same transaction — but only when no other completed
+purchase or active entitlement already resolved the pair, which is enforced by
+two database uniqueness guards. When access was already granted, the late
+payment cannot define a second sale and the `failed` record is retained as the
+persisted, diagnosable recovery state; a verified approval that never moved any
+money is never captured. No event can revert a completed purchase and no refund
+workflow exists.
 
 ---
 

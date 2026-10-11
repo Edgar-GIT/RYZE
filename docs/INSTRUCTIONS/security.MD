@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # SECURITY.MD
 
-Version: 2.83.0
+Version: 2.85.0
 
 ---
 
@@ -858,6 +858,17 @@ follows a strict security model:
   leakage.
 - Only pending purchases can accept payment initiation. Completed or failed
   purchases are rejected with a clear error code.
+- A pending purchase is only payable within its payment window (24 hours by
+  default, derived from its creation timestamp). Once expired it returns
+  `409 PURCHASE_EXPIRED` and no provider payment is opened — the session for it
+  would no longer be payable. The buyer recovers by creating a fresh intent,
+  which supersedes (marks `failed`) the expired purchase. The window is never
+  persisted and completion paths ignore it, so a provider-verified payment that
+  settles late still completes.
+- The program must still be published when a payment is initiated. A pending
+  purchase for a program that was retired after the intent was created returns
+  `404 PROGRAM_NOT_FOUND` instead of opening a provider session, and expiry
+  is never used to bypass the check.
 - The payment request is constructed exclusively from the immutable purchase
   snapshot (amount, currency, program ID). No client-supplied commercial values
   are ever forwarded to the provider.
@@ -948,6 +959,12 @@ endpoints plus provider-side verification:
 - Capture and completion are atomic: the provider capture runs first, then the
   internal completion transitions the status and provisions the entitlement in
   a single database transaction.
+- When a soft-deleted entitlement already exists for the (user, program), the
+  completion restores that entitlement and completes the purchase in the same
+  transaction instead of inserting a duplicate row; if the purchase is not
+  pending by the time the payment is verified, the whole transaction is rolled
+  back and no entitlement is restored, so a buyer can never be left with a
+  restored entitlement behind a non-completed purchase.
 - The capture provider is resolved server-side from the payment method recorded
   on the purchase at initiation — never from client input. A purchase with no
   recorded method fails closed (generic 502, purchase left pending) and must be
@@ -1067,6 +1084,35 @@ capture endpoint (see Payment Capture Security) or a verified provider event
 - A browser capture racing a verified webhook is safe: the second path finds the
   purchase (or provider order) already completed and returns the completed
   snapshot without re-capturing or duplicating the entitlement
+
+**Late settlement reconciliation (v2.85.0):**
+
+A verified, contract-matched full payment that arrives after the purchase left
+`pending` is never silently discarded. A `failed` purchase is reconciled
+(failed → completed plus entitlement, atomically); how the webhook answers keeps
+provider retries honest and the diagnosis persistent:
+
+- A reconciliation conflict or a purchase that moved on is acknowledged with 200
+  together with a diagnostic log. Access was already granted (a completed
+  purchase or an active entitlement exists) or the state settled another way, so
+  the late payment cannot define a second sale and the `failed` record is kept
+  as the persisted, diagnosable recovery state. Asking the provider to retry
+  would never change the outcome.
+- An entitlement-integrity violation or a transient failure returns 500 so the
+  provider redelivers.
+- Reconciliation is ONLY reachable from forged-verification-proof provider
+  events. `ReconcilePurchase` accepts a purchase id with no authenticated owner,
+  so no client route can ever mount it; the only public entry is the internals,
+  and a client can never trigger a reconciliation.
+- The trickier guard: reconciliation cannot grant a second sale. Both
+  `uq_purchases_completed_purchase` and `uq_entitlements_active_entitlement` are
+  enforced inside the same transaction as the failed→completed transition, so an
+  already-granted sale rolls everything back and the failed purchase remains.
+- A late PayPal `CHECKOUT.ORDER.APPROVED` is consent, not money. It is never
+  captured: the order lapses at PayPal and no funds move. Only a
+  `PAYMENT.CAPTURE.COMPLETED` event (a capture that actually settled) is treated
+  as a late settlement, after verifying the captured amount and currency against
+  the purchase snapshot and the order's single purchase-unit reference.
 
 **What webhook handlers never do:**
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError } from "@utils/http_client";
 import {
@@ -18,11 +18,21 @@ const DUPLICATE_PURCHASE = "DUPLICATE_PURCHASE";
 // The backend refuses to rebind a pending purchase to a different payment
 // method, so the checkout must always resume with the recorded one.
 const PAYMENT_METHOD_MISMATCH = "PAYMENT_METHOD_MISMATCH";
+// A pending purchase outlived its payment window and can no longer be paid.
+// The backend supersedes it (marks it failed) on the next intent, so the
+// checkout recovers by creating a fresh intent once and continuing.
+const PURCHASE_EXPIRED = "PURCHASE_EXPIRED";
 // Query parameters each provider appends to the return URL: Stripe substitutes
 // {CHECKOUT_SESSION_ID} into the configured success URL, while PayPal appends
 // the order token to the configured return URL.
 const STRIPE_SESSION_PARAM = "session_id";
 const PAYPAL_TOKEN_PARAM = "token";
+// A 409 PURCHASE_NOT_PENDING means the capture raced the server-side webhook
+// reconciliation, which may still be settling a few hundred milliseconds after
+// the browser returns. Bounded polling reflects the real ownership state
+// instead of declaring a failure the instant the capture loses the race.
+const OWNERSHIP_POLL_ATTEMPTS = 5;
+const OWNERSHIP_POLL_INTERVAL_MS = 1000;
 
 // The checkout lifecycle is purely client convenience: the backend is fully
 // authoritative. Browser redirects never complete a purchase — only the
@@ -77,6 +87,9 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
   const [state, setState] = useState<PurchaseState>({ status: "checking" });
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodInfo[]>([]);
   const [selectedMethod, setSelectedMethod] = useState("");
+  // Guards the PURCHASE_EXPIRED recovery so a checkout freshens its intent at
+  // most once, keeping the auto-recovery bounded instead of recursive.
+  const freshenedIntent = useRef(false);
 
   const resolveOwnership = useCallback(async (): Promise<"guest" | "owned" | "ready"> => {
     try {
@@ -102,18 +115,29 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       } catch (error) {
         // 409 (PURCHASE_NOT_PENDING) can mean the purchase was already
         // completed by the server-side webhook between approval and capture.
-        // Falling back to the ownership check reflects the actual state.
+        // The payment may already have moved, so the capture outcome is
+        // decided by the real access state, which the server is still settling.
         if (error instanceof ApiError && error.status === 409) {
           try {
-            if ((await resolveOwnership()) === "owned") {
-              setState({ status: "success", purchase: { id: purchaseId } as Purchase });
-              return;
+            for (let attempt = 0; attempt < OWNERSHIP_POLL_ATTEMPTS; attempt += 1) {
+              if ((await resolveOwnership()) === "owned") {
+                setState({ status: "success", purchase: { id: purchaseId } as Purchase });
+                return;
+              }
+              if (attempt < OWNERSHIP_POLL_ATTEMPTS - 1) {
+                await new Promise((resolve) => setTimeout(resolve, OWNERSHIP_POLL_INTERVAL_MS));
+              }
             }
           } catch {
             // fall through to the error state
           }
+          setState({
+            status: "error",
+            message: "Your payment is being confirmed. If your access does not appear within a few minutes, please try again later."
+          });
+          return;
         }
-        setState({ status: "error", message: "We could not confirm your payment. No money was taken at this point." });
+        setState({ status: "error", message: "We could not confirm your payment." });
       }
     },
     [resolveOwnership]
@@ -153,9 +177,22 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
         });
         return;
       }
+      // The pending purchase outlived its window, so the provider session for
+      // it can no longer be paid. Recover by starting a fresh intent, which
+      // the backend uses to supersede (fail) the expired purchase.
+      if (error instanceof ApiError && error.code === PURCHASE_EXPIRED && !freshenedIntent.current) {
+        freshenedIntent.current = true;
+        try {
+          const fresh = await createPurchaseIntent(programId);
+          await negotiatePayment(fresh.id, resolveMethodForPurchase(fresh));
+          return;
+        } catch {
+          // fall through to the error state
+        }
+      }
       setState({ status: "error", message: "We could not start the checkout. No money was taken at this point." });
     }
-  }, []);
+  }, [programId, resolveMethodForPurchase]);
 
   const runTestModePurchase = useCallback(async () => {
     setState({ status: "creating" });

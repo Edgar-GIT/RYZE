@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # API.MD
 
-Version: 2.83.0
+Version: 2.85.0
 
 ---
 
@@ -520,8 +520,10 @@ Responses:
 **RYZE purchases are final.** A customer purchases a plan once and the purchase
 is final: the product does not expose or support a refund workflow. There are no
 refund endpoints, no refund status, and no refund management. The purchase
-lifecycle only moves through `pending` → `completed` (or `failed`, when payment
-does not complete).
+lifecycle moves through `pending` → `completed` (or `failed`, when payment does
+not complete, and `failed` → `completed` only through the internal
+reconciliation path described below, exclusively for provider-verified late
+settlements).
 
 #### `POST /api/v1/me/programs/:programID/purchase`
 
@@ -565,8 +567,24 @@ Responses:
   not published.
 - `409 PROGRAM_NOT_PURCHASABLE` — the program is free and cannot be purchased.
 - `409 DUPLICATE_ENTITLEMENT` — the user already owns this program.
-- `409 DUPLICATE_PURCHASE` — a purchase for this program is already in
-  progress.
+- `409 DUPLICATE_PURCHASE` — a non-expired purchase for this program is already
+  in progress.
+
+Expiry: a pending purchase is only payable within its payment window (24 hours
+by default, derived from its creation timestamp — it is never persisted). Once
+the window lapses, the next intent creation for the same program supersedes the
+expired purchase: it is atomically marked `"failed"` (`purchases.status`) so the
+pending slot is closed and a fresh intent is returned. An expired purchase can
+never be resumed; a failed purchase is terminal, cannot be paid or completed and
+never grants access. If a concurrent completion wins the race during a
+supersede, ownership is re-evaluated and the request refuses with
+`409 DUPLICATE_ENTITLEMENT` instead of reopening the slot.
+
+A `failed` purchase can only come back through the internal reconciliation
+path: a provider-verified late settlement (`ReconcilePurchase`, below) returns
+it to `"completed"` with its entitlement when no other sale of the same pair
+already resolved. A client can never trigger this — no route accepts a purchase
+id without an authenticated owner on the reconciliation surface.
 
 Commission exemption: platform-owned generic programs (`trainer_id` NULL) have
 no owning trainer, so no commission rule is resolved and no commission is
@@ -603,7 +621,9 @@ Response `data` (array of purchase history objects, newest first):
 - `program_id` — the purchased program reference.
 - `price_minor_units` — snapshot of the program price at creation time.
 - `currency` — snapshot of the program currency at creation time.
-- `status` — `"pending"`, `"completed"` or `"failed"`.
+- `status` — `"pending"`, `"completed"` or `"failed"`. A `failed` purchase is
+  terminal: it was superseded (for example an expired pending purchase reopened
+  by a fresh intent) or abandoned, and it never grants access.
 - `test` — boolean; `true` for zero-price Test Mode purchases.
 - `access` — boolean; `true` only when the purchase is `completed` and the
   program is published and not deleted. A completed purchase of a retired or
@@ -640,6 +660,16 @@ it to "completed" while provisioning the entitlement. It is idempotent:
 calling it on an already-completed purchase with an existing entitlement
 returns a success; if the entitlement is missing, an integrity error is raised.
 
+Completion deliberately ignores purchase expiry: a provider-verified payment
+that settles after the payment window still completes instead of being
+discarded. When the buyer already owns a soft-deleted entitlement for the
+program (for example a previous purchase that was later reversed), completion
+restores that entitlement and completes the purchase inside a single database
+transaction instead of inserting a duplicate row; if the purchase is not
+pending by the time the payment is verified, the restore is rolled back and the
+completion refuses, never leaving a restored entitlement behind a non-completed
+purchase.
+
 Error codes (service-level, not HTTP):
 
 - `ErrPurchaseNotFound` — purchase does not exist, is soft-deleted or not in a
@@ -648,6 +678,40 @@ Error codes (service-level, not HTTP):
   prevents completion.
 - `ErrEntitlementIntegrity` — purchase is completed but entitlement is missing;
   a data consistency violation.
+- `ErrInvalidInput` — empty purchase id.
+
+#### Internal: `ReconcilePurchase`
+
+The `ReconcilePurchase` service method is an internal-only operation with no
+HTTP endpoint, intended exclusively for the verified webhook layer: no route
+accepts a purchase id without an authenticated owner on it, so a browser can
+never trigger it.
+
+It completes a purchase whose provider-verified, contract-matched payment
+arrived after the purchase left `pending`. A `failed` purchase (superseded or
+expired intent) is atomically returned to `completed` — any other pending intent
+for the same `(user, program)` pair is superseded, the guarded failed→completed
+transition runs, and the entitlement is restored or created, all in one
+transaction. The database uniqueness guards (`uq_purchases_completed_purchase`
+and `uq_entitlements_active_entitlement`) make double-granting impossible: if a
+completed purchase or an active entitlement already exists for the pair, the
+whole transaction rolls back and the purchase stays `failed` as the persisted,
+diagnosable recovery state.
+
+- An already-completed purchase is a safe idempotent success and still runs the
+  delivery hook; a completed purchase without an entitlement is an integrity
+  error.
+- A pending purchase surfaced with `ErrPurchaseNotCompleted`, as is an unknown
+  purchase id (a settled state, never a retryable fault).
+
+Error codes (service-level, not HTTP):
+
+- `ErrReconciliationConflict` — the pair already resolved (a completed purchase
+  or an active entitlement exists), so the late payment cannot define a second
+  sale; the failed record is kept untouched.
+- `ErrPurchaseNotCompleted` — purchase unknown or not in a failed or completed
+  state.
+- `ErrEntitlementIntegrity` — completed purchase without its entitlement.
 - `ErrInvalidInput` — empty purchase id.
 
 #### `POST /api/v1/me/purchases/:purchaseID/payment`
@@ -694,6 +758,15 @@ Validation:
   immutable: the outstanding provider payment belongs to it, so the purchase is
   never rebound and no provider is contacted. The client must resume the
   purchase with the method reported in `payment_method`.
+- A pending purchase that outlived its payment window (24 hours by default)
+  returns `409 PURCHASE_EXPIRED` and never opens a new provider payment. The
+  buyer recovers by calling `POST /api/v1/me/purchases` again, which supersedes
+  (marks `failed`) the expired purchase and returns a fresh intent.
+- The program must still be published when the payment is initiated: a pending
+  purchase for a program that was retired after the intent was created returns
+  `404 PROGRAM_NOT_FOUND` and no provider session is opened. Completion paths
+  are unaffected by both checks — a payment already captured at the provider
+  still completes.
 
 Response `200 OK`:
 
@@ -711,7 +784,11 @@ Error codes:
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid session.
 - `404 PURCHASE_NOT_FOUND` — purchase does not exist, is soft-deleted or does
   not belong to the authenticated user.
+- `404 PROGRAM_NOT_FOUND` — the program is no longer published, so a new
+  provider payment cannot be opened for it.
 - `409 PURCHASE_NOT_PENDING` — the purchase is not in "pending" status.
+- `409 PURCHASE_EXPIRED` — the pending purchase outlived its payment window and
+  can no longer be paid; start a fresh intent.
 - `409 PAYMENT_METHOD_MISMATCH` — the requested method differs from the method
   already recorded on the pending purchase.
 - `502 PAYMENT_PROVIDER_ERROR` — the payment provider could not initiate the
@@ -977,18 +1054,31 @@ MB WAY is served by the same Checkout Session as card, so it completes through
 the same two events. The buyer approves the payment in the MB WAY app, and the
 session is only honored once Stripe reports it as paid.
 
+**Late settlements are reconciled, never discarded.** A verified, fully paid
+event for a purchase that is no longer pending is routed by its state: a
+`failed` purchase is reconciled through `ReconcilePurchase` (reconciled → 200),
+a reconciliation conflict or a purchase that moved on is acknowledged with 200
+and the diagnostics are logged (the failed record stays as the persisted
+recovery state), while an integrity violation or transient failure returns 500
+so Stripe retries. A completed purchase stays idempotently acknowledged. No
+event type — including refunds and disputes — can revert a completed purchase:
+RYZE purchases are final, there is no refund workflow, and a refund event is
+acknowledged and ignored.
+
 All other event types are safely acknowledged with 200 and ignored, including
 refunds and disputes: RYZE purchases are final, there is no refund workflow, and
 no event type can revert a completed purchase.
 
 Responses:
 
-- `200` — event processed (completed, already completed, not a successful
-  payment, unsupported mode, unsupported event type, unknown purchase, purchase
-  not pending, purchase without a recorded payment method)
+- `200` — event processed (completed, reconciled, already completed, not a
+  successful payment, unsupported mode, unsupported event type, unknown purchase,
+  purchase not pending, late settlement acknowledged, purchase without a
+  recorded payment method)
 - `400` — invalid signature, missing header, malformed payload, purchase
   reference mismatch
-- `500` — amount, currency or payment method mismatch, completion failure
+- `500` — amount, currency or payment method mismatch, reconciliation failure
+  (integrity or transient, retried), completion failure
 
 **Checkout initiation does not complete a purchase. Browser redirects do not
 complete a purchase. Completion is reachable only through two server-side
@@ -1013,16 +1103,33 @@ Supported event types:
   `reference_id` (RYZE purchase id) and the `resource.id` (PayPal order id)
   from the event payload, verifies the amount and currency against the purchase
   snapshot, captures the approved order server-side (`CompletePurchaseWithCapture`)
-  and completes the purchase atomically.
+  and completes the purchase atomically. A verified approval for a purchase that
+  is no longer pending is **not** captured: approval is consent, not a settled
+  payment, so a late approval for a failed purchase is acknowledged with 200 and
+  a diagnostic log, leaving the order to lapse at PayPal with no funds moved —
+  when those funds actually did move, `PAYMENT.CAPTURE.COMPLETED` reconciles.
+- `PAYMENT.CAPTURE.COMPLETED` — an order was captured and the funds settled
+  (this proves the money moved, unlike approval). The related `order_id` is read
+  from `supplementary_data`, the RYZE purchase is recovered by loading that
+  order from the PayPal API and reading its single purchase-unit reference
+  (never trusted from the event), and the captured amount and currency are
+  verified against the purchase snapshot. The purchase is then routed by state:
+  a still-pending purchase is completed through the pure completion path (the
+  funds are already captured, so nothing is re-captured), a failed purchase is
+  reconciled through `ReconcilePurchase`, and a completed purchase is an
+  idempotent acknowledgement. This closes the race where the browser return leg
+  captured the order while a supersede was landing on the purchase.
 
 All other event types are safely acknowledged with 200.
 
 Responses:
 
-- `200` — event processed
+- `200` — event processed (completed, reconciled, idempotent acknowledgement,
+  late settlement acknowledged, unsupported or non-completed event type)
 - `400` — invalid verification, malformed payload
-- `500` — amount/currency mismatch, missing order id, capture failure, completion
-  failure. The event is NOT acknowledged so PayPal retries it.
+- `500` — amount/currency mismatch, missing order id, order resolution failure,
+  capture failure, completion or reconciliation failure. The event is NOT
+  acknowledged so PayPal retries it.
 
 ---
 

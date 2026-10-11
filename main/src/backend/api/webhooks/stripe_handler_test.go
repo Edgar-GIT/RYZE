@@ -25,8 +25,15 @@ func init() {
 // --- stubs ---
 
 type stubPurchaseService struct {
-	purchase *purchases.Purchase
-	err      error
+	purchase       *purchases.Purchase
+	err            error
+	reconcileErr   error
+	reconcileCount int
+}
+
+func (s *stubPurchaseService) ReconcilePurchase(_ context.Context, _ string) (*purchases.Purchase, error) {
+	s.reconcileCount++
+	return s.purchase, s.reconcileErr
 }
 
 func (s *stubPurchaseService) CreatePurchaseIntent(_ context.Context, _, _ string) (*purchases.Purchase, error) {
@@ -71,6 +78,32 @@ func (s *stubPurchaseService) CompleteTestPurchase(_ context.Context, _, _ strin
 		return nil, s.err
 	}
 	return s.purchase, nil
+}
+
+// recordingOutcomeRecorder is a RecordingOutcomeRecorder stub that captures the
+// durable outcomes written by the handlers under test.
+type recordingOutcomeRecorder struct {
+	records []recordedOutcome
+}
+
+type recordedOutcome struct {
+	purchaseID string
+	provider   string
+	eventID    string
+	outcome    string
+}
+
+func (r *recordingOutcomeRecorder) Record(_ context.Context, purchaseID, provider, eventID, outcome string) error {
+	r.records = append(r.records, recordedOutcome{purchaseID: purchaseID, provider: provider, eventID: eventID, outcome: outcome})
+	return nil
+}
+
+func (r *recordingOutcomeRecorder) outcomes() map[string]string {
+	byEvent := make(map[string]string)
+	for _, rec := range r.records {
+		byEvent[rec.eventID] = rec.outcome
+	}
+	return byEvent
 }
 
 // --- helpers ---
@@ -327,12 +360,13 @@ func TestStripeWebhook_AmountMismatch(t *testing.T) {
 		PaymentMethod:   "card",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
+	records := &recordingOutcomeRecorder{}
 
 	session := newPaidCheckoutSession("cs_test_amt", "purchase-amt", 9999, "eur")
 	payload := buildCheckoutSessionEvent(t, session)
 	sigHeader := signPayload(t, payload)
 
-	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc, webhooks.WithOutcomeRecorder(records))
 	router := newTestRouter(handler)
 
 	w := httptest.NewRecorder()
@@ -340,8 +374,11 @@ func TestStripeWebhook_AmountMismatch(t *testing.T) {
 	req.Header.Set("Stripe-Signature", sigHeader)
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 for amount mismatch, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for amount mismatch, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := records.outcomes()["evt_test_123"]; got != "amount_mismatch" {
+		t.Fatalf("expected durable outcome amount_mismatch, got %q", got)
 	}
 }
 
@@ -354,12 +391,13 @@ func TestStripeWebhook_CurrencyMismatch(t *testing.T) {
 		PaymentMethod:   "card",
 	}
 	svc := &stubPurchaseService{purchase: purchase}
+	records := &recordingOutcomeRecorder{}
 
 	session := newPaidCheckoutSession("cs_test_cur", "purchase-cur", 1000, "usd")
 	payload := buildCheckoutSessionEvent(t, session)
 	sigHeader := signPayload(t, payload)
 
-	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc, webhooks.WithOutcomeRecorder(records))
 	router := newTestRouter(handler)
 
 	w := httptest.NewRecorder()
@@ -367,8 +405,11 @@ func TestStripeWebhook_CurrencyMismatch(t *testing.T) {
 	req.Header.Set("Stripe-Signature", sigHeader)
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 for currency mismatch, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for currency mismatch, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := records.outcomes()["evt_test_123"]; got != "currency_mismatch" {
+		t.Fatalf("expected durable outcome currency_mismatch, got %q", got)
 	}
 }
 
@@ -598,6 +639,10 @@ func (s *completionCountingService) CompleteTestPurchase(_ context.Context, _, _
 	return s.purchase, nil
 }
 
+func (s *completionCountingService) ReconcilePurchase(_ context.Context, _ string) (*purchases.Purchase, error) {
+	return s.purchase, s.err
+}
+
 func TestStripeWebhook_UnpaidSessionIsIgnored(t *testing.T) {
 	purchase := &purchases.Purchase{
 		ID:              "purchase-unpaid",
@@ -706,15 +751,18 @@ func TestStripeWebhook_ClientReferenceMismatchRejected(t *testing.T) {
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+	records := &recordingOutcomeRecorder{}
 
 	// Metadata points at one purchase while the client reference ID — the
 	// binding set at session creation — points at another. The session is not
-	// the one created for this purchase, so the event is rejected.
+	// the one created for this purchase, so the event is rejected. The mismatch
+	// is permanent, so it is acknowledged (no provider retries) and recorded
+	// for investigation.
 	session := newPaidCheckoutSession("cs_test_ref", "purchase-other", 4500, "eur")
 	session.Metadata = map[string]string{"purchase_id": "purchase-ref"}
 
 	payload := buildCheckoutSessionEvent(t, session)
-	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc, webhooks.WithOutcomeRecorder(records))
 	router := newTestRouter(handler)
 
 	w := httptest.NewRecorder()
@@ -722,11 +770,14 @@ func TestStripeWebhook_ClientReferenceMismatchRejected(t *testing.T) {
 	req.Header.Set("Stripe-Signature", signPayload(t, payload))
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for purchase reference mismatch, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for purchase reference mismatch, got %d: %s", w.Code, w.Body.String())
 	}
 	if completeCount != 0 {
 		t.Errorf("reference mismatch must never complete a purchase, CompletePurchase called %d times", completeCount)
+	}
+	if got := records.outcomes()["evt_test_123"]; got != "reference_mismatch" {
+		t.Fatalf("expected durable outcome reference_mismatch, got %q", got)
 	}
 }
 
@@ -740,12 +791,13 @@ func TestStripeWebhook_MissingClientReferenceIDRejected(t *testing.T) {
 	}
 	completeCount := 0
 	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+	records := &recordingOutcomeRecorder{}
 
 	session := newPaidCheckoutSession("cs_test_noref", "purchase-noref", 4500, "eur")
 	session.ClientReferenceID = ""
 
 	payload := buildCheckoutSessionEvent(t, session)
-	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc, webhooks.WithOutcomeRecorder(records))
 	router := newTestRouter(handler)
 
 	w := httptest.NewRecorder()
@@ -753,11 +805,14 @@ func TestStripeWebhook_MissingClientReferenceIDRejected(t *testing.T) {
 	req.Header.Set("Stripe-Signature", signPayload(t, payload))
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for missing client reference ID, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for missing client reference ID, got %d: %s", w.Code, w.Body.String())
 	}
 	if completeCount != 0 {
 		t.Errorf("missing client reference ID must never complete a purchase, CompletePurchase called %d times", completeCount)
+	}
+	if got := records.outcomes()["evt_test_123"]; got != "reference_mismatch" {
+		t.Fatalf("expected durable outcome reference_mismatch, got %q", got)
 	}
 }
 
@@ -1075,8 +1130,8 @@ func TestStripeWebhook_PaymentMethodMismatchDoesNotComplete(t *testing.T) {
 			if w.Body.String() == "completed" {
 				t.Error("a method mismatch must never complete a purchase")
 			}
-			if w.Code != http.StatusInternalServerError {
-				t.Fatalf("expected 500 so Stripe retries the event, got %d: %s", w.Code, w.Body.String())
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200 for a permanent method mismatch, got %d: %s", w.Code, w.Body.String())
 			}
 		})
 	}
@@ -1141,5 +1196,135 @@ func TestStripeWebhook_PurchaseWithoutRecordedMethodNeverCompletes(t *testing.T)
 	}
 	if w.Body.String() == "completed" {
 		t.Error("a purchase without a recorded method must never complete")
+	}
+}
+
+// --- late settlements ---
+
+func payStripePaidSession(t *testing.T, svc *stubPurchaseService) (int, string) {
+	t.Helper()
+	session := newPaidCheckoutSession("cs_test_late_settlement", svc.purchase.ID, svc.purchase.PriceMinorUnits, "eur")
+	payload := buildCheckoutSessionEvent(t, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc)
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+	return w.Code, w.Body.String()
+}
+
+// TestStripeWebhook_LateVerifiedSettlementReconcilesFailedPurchase proves the
+// primary reconciliation path: a provider-verified full payment that arrives
+// after the purchase was superseded (status failed) completes the sale instead
+// of being silently discarded.
+func TestStripeWebhook_LateVerifiedSettlementReconcilesFailedPurchase(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-late-settlement",
+		PriceMinorUnits: 4500,
+		Currency:        "EUR",
+		Status:          "failed",
+		PaymentMethod:   "card",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+
+	code, body := payStripePaidSession(t, svc)
+	if code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", code, body)
+	}
+	if body != "reconciled" {
+		t.Fatalf("expected a reconciled acknowledgement, got %q", body)
+	}
+	if svc.reconcileCount != 1 {
+		t.Fatalf("expected exactly one reconciliation, got %d", svc.reconcileCount)
+	}
+}
+
+// TestStripeWebhook_ReconciliationConflictIsAcknowledged proves a late payment
+// that cannot define a second sale (the pair already resolved) is acknowledged
+// with 200 so the provider stops retrying, and the failed record stays as the
+// diagnosable recovery state.
+func TestStripeWebhook_ReconciliationConflictIsAcknowledged(t *testing.T) {
+	for name, reconcileErr := range map[string]error{
+		"conflict":       purchases.ErrReconciliationConflict,
+		"purchase-moved": purchases.ErrPurchaseNotCompleted,
+	} {
+		t.Run(name, func(t *testing.T) {
+			purchase := &purchases.Purchase{
+				ID:              "purchase-reconcile-ack-" + name,
+				PriceMinorUnits: 4500,
+				Currency:        "EUR",
+				Status:          "failed",
+				PaymentMethod:   "card",
+			}
+			svc := &stubPurchaseService{purchase: purchase, reconcileErr: reconcileErr}
+
+			code, body := payStripePaidSession(t, svc)
+			if code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", code, body)
+			}
+			if svc.reconcileCount != 1 {
+				t.Fatalf("expected one reconciliation attempt, got %d", svc.reconcileCount)
+			}
+		})
+	}
+}
+
+// TestStripeWebhook_ReconciliationFailuresRetry proves a reconciliation that
+// hit an integrity violation or a transient fault is answered with 500 so the
+// provider redelivers and the diagnosis is retried. These are the only paths
+// where a verified payment is not acknowledged.
+func TestStripeWebhook_ReconciliationFailuresRetry(t *testing.T) {
+	for name, reconcileErr := range map[string]error{
+		"integrity": purchases.ErrEntitlementIntegrity,
+		"transient": errors.New("database connection lost"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			purchase := &purchases.Purchase{
+				ID:              "purchase-reconcile-retry-" + name,
+				PriceMinorUnits: 4500,
+				Currency:        "EUR",
+				Status:          "failed",
+				PaymentMethod:   "card",
+			}
+			svc := &stubPurchaseService{purchase: purchase, reconcileErr: reconcileErr}
+
+			code, _ := payStripePaidSession(t, svc)
+			if code != http.StatusInternalServerError {
+				t.Fatalf("expected 500, got %d", code)
+			}
+			if svc.reconcileCount != 1 {
+				t.Fatalf("expected one reconciliation attempt, got %d", svc.reconcileCount)
+			}
+		})
+	}
+}
+
+// TestStripeWebhook_CompletedPurchaseIsNeverReconciled proves the idempotent
+// completed path stays untouched: reconciliation is exclusive to the failed
+// state and a completed purchase is acknowledged as such without triggering
+// reconcile.
+func TestStripeWebhook_CompletedPurchaseIsNeverReconciled(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-already-done",
+		PriceMinorUnits: 4500,
+		Currency:        "EUR",
+		Status:          "completed",
+		PaymentMethod:   "card",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+
+	code, body := payStripePaidSession(t, svc)
+	if code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", code, body)
+	}
+	if body != "already completed" {
+		t.Fatalf("expected an idempotent acknowledgement, got %q", body)
+	}
+	if svc.reconcileCount != 0 {
+		t.Fatalf("a completed purchase must never be reconciled, got %d attempts", svc.reconcileCount)
 	}
 }

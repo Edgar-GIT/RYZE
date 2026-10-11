@@ -194,6 +194,8 @@ func (h *PurchaseHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusNotFound, "PURCHASE_NOT_FOUND", "Purchase not found.", nil)
 	case errors.Is(err, purchases.ErrPurchaseNotPending):
 		RespondError(c, http.StatusConflict, "PURCHASE_NOT_PENDING", "This purchase is not pending.", nil)
+	case errors.Is(err, purchases.ErrPurchaseExpired):
+		RespondError(c, http.StatusConflict, "PURCHASE_EXPIRED", "This purchase has expired. Please start a new checkout.", nil)
 	case errors.Is(err, purchases.ErrPaymentMethodMismatch):
 		RespondError(c, http.StatusConflict, "PAYMENT_METHOD_MISMATCH", "This purchase is already bound to a different payment method.", nil)
 	case errors.Is(err, purchases.ErrPaymentProvider):

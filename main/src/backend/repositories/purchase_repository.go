@@ -15,6 +15,12 @@ var (
 	// ErrPurchaseNotFound indicates the purchase does not exist, is
 	// soft-deleted or does not belong to the requested user.
 	ErrPurchaseNotFound = errors.New("purchase not found")
+	// ErrPurchaseAlreadyExists indicates a conflicting purchase already exists
+	// for the (user, program) pair, so the insert was rejected by a database
+	// uniqueness constraint. It mirrors uq_purchases_completed_purchase and
+	// uq_purchases_pending_purchase at the service layer so the concurrent
+	// creation race surfaces as a domain error instead of a raw driver error.
+	ErrPurchaseAlreadyExists = errors.New("conflicting purchase already exists")
 	// ErrCompletedPurchaseExists indicates a completed purchase already exists
 	// for the (user, program) pair, so a new test purchase cannot be created.
 	// It mirrors the completed_purchase uniqueness constraint at the service
@@ -75,11 +81,37 @@ type PurchaseRepository interface {
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Purchase, error)
 	Complete(ctx context.Context, purchaseID string) error
 	CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
+	// CompleteWithRestoredEntitlement atomically restores a soft-deleted
+	// entitlement for the purchase's (user, program) pair and transitions the
+	// pending purchase to completed inside one transaction, so a repurchase can
+	// never leave a restored entitlement without a completed purchase (or vice
+	// versa). It maps to ErrEntitlementNotFound when no soft-deleted entitlement
+	// exists and to ErrPurchaseNotFound when the purchase is not pending or
+	// missing.
+	CompleteWithRestoredEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
 	CompleteTestPurchase(ctx context.Context, purchase *models.Purchase, entitlement *models.Entitlement) error
 	// SetPaymentMethod records the immutable payment method chosen at payment
 	// initiation. It is only called after the method has been validated and a
 	// configured provider has been resolved for it.
 	SetPaymentMethod(ctx context.Context, purchaseID, method string) error
+	// Fail transitions a pending purchase to the failed status. The
+	// `status = 'pending'` guard makes the transition single-writer: a
+	// concurrently completed purchase is left untouched and maps to
+	// ErrPurchaseNotFound so the caller re-evaluates the outcome. Failed is the
+	// terminal state of an expired or superseded purchase and never grants
+	// access.
+	Fail(ctx context.Context, purchaseID string) error
+	// ReconcileFailedPurchase atomically returns a failed purchase to the
+	// completed status and provisions its entitlement inside a single database
+	// transaction, superseding any other pending intent for the same (user,
+	// program) pair in the same transaction. It is the explicit recovery path
+	// for a late, provider-verified payment: a confirmed settlement that
+	// arrives after the purchase was superseded completes the sale instead of
+	// being discarded, but only when no other completed purchase or active
+	// entitlement already resolved the pair — both database uniqueness guards
+	// reject that transition and roll the whole transaction back, leaving the
+	// failed purchase as the persisted, diagnosable recovery state.
+	ReconcileFailedPurchase(ctx context.Context, purchaseID, userID, programID string, entitlement *models.Entitlement) error
 
 	// ListAdmin returns one page of purchases matching the admin filter, most
 	// recently created first, with the customer and the program preloaded
@@ -110,9 +142,15 @@ func NewPurchaseRepository(db *gorm.DB) PurchaseRepository {
 }
 
 // Create persists a new purchase record. The caller must verify that the user
-// and program exist and that no duplicate active purchase already exists.
+// and program exist and that no duplicate active purchase already exists. A
+// uniqueness violation from a concurrent writer maps to ErrPurchaseAlreadyExists
+// so the caller can re-evaluate the resolved ownership state instead of leaking
+// a raw driver error.
 func (r *purchaseRepository) Create(ctx context.Context, purchase *models.Purchase) error {
 	if err := r.db.WithContext(ctx).Create(purchase).Error; err != nil {
+		if isDuplicateEntry(err) {
+			return ErrPurchaseAlreadyExists
+		}
 		return fmt.Errorf("failed to create purchase: %w", err)
 	}
 	return nil
@@ -153,6 +191,25 @@ func (r *purchaseRepository) Complete(ctx context.Context, purchaseID string) er
 	return nil
 }
 
+// Fail transitions a pending purchase to the failed status. The update is
+// guarded by `status = 'pending'` so a concurrently completed purchase is left
+// untouched; an unknown, soft-deleted or non-pending purchase maps to
+// ErrPurchaseNotFound. A failed purchase is terminal: it cannot be initiated or
+// completed and it never grants access.
+func (r *purchaseRepository) Fail(ctx context.Context, purchaseID string) error {
+	result := r.db.WithContext(ctx).
+		Model(&models.Purchase{}).
+		Where("id = ? AND status = ?", purchaseID, models.PurchaseStatusPending).
+		Update("status", models.PurchaseStatusFailed)
+	if result.Error != nil {
+		return fmt.Errorf("failed to fail purchase: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrPurchaseNotFound
+	}
+	return nil
+}
+
 // CompleteWithEntitlement atomically transitions a pending purchase to
 // completed and creates the entitlement row inside a single database
 // transaction. If the purchase is not pending or does not exist,
@@ -177,6 +234,40 @@ func (r *purchaseRepository) CompleteWithEntitlement(ctx context.Context, purcha
 				return ErrEntitlementAlreadyExists
 			}
 			return fmt.Errorf("failed to create entitlement: %w", err)
+		}
+		return nil
+	})
+}
+
+// CompleteWithRestoredEntitlement atomically restores a soft-deleted
+// entitlement for the (user, program) pair carried by the entitlement argument
+// and transitions the pending purchase to completed inside a single database
+// transaction. When no soft-deleted entitlement exists, ErrEntitlementNotFound
+// is returned and nothing is modified. When the purchase is not pending or no
+// longer exists, ErrPurchaseNotFound is returned and the restore is rolled
+// back, so a repurchase can never leave behind a restored entitlement without a
+// completed purchase.
+func (r *purchaseRepository) CompleteWithRestoredEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		restore := tx.Unscoped().
+			Model(&models.Entitlement{}).
+			Where("user_id = ? AND program_id = ? AND deleted_at IS NOT NULL", entitlement.UserID, entitlement.ProgramID).
+			Update("deleted_at", nil)
+		if restore.Error != nil {
+			return fmt.Errorf("failed to restore entitlement: %w", restore.Error)
+		}
+		if restore.RowsAffected == 0 {
+			return ErrEntitlementNotFound
+		}
+
+		update := tx.Model(&models.Purchase{}).
+			Where("id = ? AND status = ?", purchaseID, models.PurchaseStatusPending).
+			Update("status", models.PurchaseStatusCompleted)
+		if update.Error != nil {
+			return fmt.Errorf("failed to complete purchase: %w", update.Error)
+		}
+		if update.RowsAffected == 0 {
+			return ErrPurchaseNotFound
 		}
 		return nil
 	})
@@ -229,6 +320,70 @@ func (r *purchaseRepository) SetPaymentMethod(ctx context.Context, purchaseID, m
 		return ErrPurchaseNotFound
 	}
 	return nil
+}
+
+// ReconcileFailedPurchase atomically returns a failed purchase to the completed
+// status and provisions its entitlement inside a single database transaction.
+// It is the explicit recovery path for a late, provider-verified payment: a
+// confirmed settlement that arrives after the purchase was superseded completes
+// the sale instead of being discarded, but only when no other sale of the same
+// program has already resolved. The database uniqueness guards reject an
+// illegal transition and the transaction rolls back, leaving the failed
+// purchase as the persisted, diagnosable recovery state.
+//
+// Inside the transaction:
+//   - Every other pending intent for the (user, program) pair is superseded
+//     (pending -> failed): the captured payment grants access, so a stale
+//     sibling intent can neither accept a second payment nor block a fresh one.
+//   - The target purchase must currently be failed; a purchase that moved on
+//     concurrently maps to ErrPurchaseNotFound and nothing is modified.
+//   - A soft-deleted entitlement is restored when one exists (mirroring the
+//     repurchase path); otherwise a fresh entitlement row is created.
+//
+// Conflicts map to ErrCompletedPurchaseExists (a completed purchase already
+// exists for the pair) and ErrEntitlementAlreadyExists (an active entitlement
+// already exists); in both cases the whole transaction is rolled back.
+func (r *purchaseRepository) ReconcileFailedPurchase(ctx context.Context, purchaseID, userID, programID string, entitlement *models.Entitlement) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		supersede := tx.Model(&models.Purchase{}).
+			Where("user_id = ? AND program_id = ? AND status = ? AND id <> ?", userID, programID, models.PurchaseStatusPending, purchaseID).
+			Update("status", models.PurchaseStatusFailed)
+		if supersede.Error != nil {
+			return fmt.Errorf("failed to supersede stale pending purchases: %w", supersede.Error)
+		}
+
+		update := tx.Model(&models.Purchase{}).
+			Where("id = ? AND status = ?", purchaseID, models.PurchaseStatusFailed).
+			Update("status", models.PurchaseStatusCompleted)
+		if update.Error != nil {
+			if isDuplicateEntry(update.Error) {
+				return ErrCompletedPurchaseExists
+			}
+			return fmt.Errorf("failed to reconcile purchase: %w", update.Error)
+		}
+		if update.RowsAffected == 0 {
+			return ErrPurchaseNotFound
+		}
+
+		restore := tx.Unscoped().
+			Model(&models.Entitlement{}).
+			Where("user_id = ? AND program_id = ? AND deleted_at IS NOT NULL", userID, programID).
+			Update("deleted_at", nil)
+		if restore.Error != nil {
+			return fmt.Errorf("failed to restore entitlement: %w", restore.Error)
+		}
+		if restore.RowsAffected == 1 {
+			return nil
+		}
+
+		if err := tx.Create(entitlement).Error; err != nil {
+			if isDuplicateEntry(err) {
+				return ErrEntitlementAlreadyExists
+			}
+			return fmt.Errorf("failed to create entitlement: %w", err)
+		}
+		return nil
+	})
 }
 
 // ListActiveByUser returns every active (non-deleted) purchase belonging to

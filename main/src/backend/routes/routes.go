@@ -160,7 +160,6 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 		purchaseRepository,
 		entitlementRepository,
 		&commissionAdapter{svc: commissionRulesService},
-		nil,
 		methodMap.Resolve,
 		purchases.WithCheckoutPrerequisites(questionnaireService),
 		// Completing a purchase delivers what the product owes. Nutrition is the

@@ -21,10 +21,37 @@ import (
 type stubPayPalVerifier struct {
 	response *paypal.VerifyWebhookResponse
 	err      error
+	order    *paypal.Order
+	orderErr error
 }
 
 func (s *stubPayPalVerifier) VerifyWebhookSignature(_ context.Context, _ *http.Request, _ string) (*paypal.VerifyWebhookResponse, error) {
 	return s.response, s.err
+}
+
+func (s *stubPayPalVerifier) GetOrder(_ context.Context, orderID string) (*paypal.Order, error) {
+	if s.orderErr != nil {
+		return nil, s.orderErr
+	}
+	// Fail closed when no order is configured: existing APPROVED tests never
+	// reach order resolution, so this keeps them honest instead of returning a
+	// dangling success.
+	if s.order == nil || s.order.ID != orderID {
+		return nil, errors.New("order not found")
+	}
+	return s.order, nil
+}
+
+// buildPayPalOrder returns an order carrying the given purchase reference on
+// its single purchase unit, mirroring what the server-side order creation
+// writes.
+func buildPayPalOrder(orderID, referenceID string) *paypal.Order {
+	return &paypal.Order{
+		ID: orderID,
+		PurchaseUnits: []paypal.PurchaseUnit{
+			{ReferenceID: referenceID},
+		},
+	}
 }
 
 func buildPayPalOrderApprovedEvent(t *testing.T, referenceID, amountValue, currencyCode string) []byte {
@@ -612,5 +639,430 @@ func TestPayPalWebhook_PayPalMethodCompletes(t *testing.T) {
 	}
 	if completeCount != 1 {
 		t.Errorf("expected exactly one completion, got %d", completeCount)
+	}
+}
+
+// buildPayPalCaptureCompletedEvent builds a verified PAYMENT.CAPTURE.COMPLETED
+// settlement referencing the given related order id.
+func buildPayPalCaptureCompletedEvent(orderID, amountValue, currencyCode, captureStatus string) []byte {
+	resource := map[string]interface{}{
+		"id":     "CAP-" + orderID,
+		"status": captureStatus,
+		"amount": map[string]interface{}{
+			"currency_code": currencyCode,
+			"value":         amountValue,
+		},
+	}
+	if orderID != "" {
+		resource["supplementary_data"] = map[string]interface{}{
+			"related_ids": map[string]interface{}{
+				"order_id": orderID,
+			},
+		}
+	}
+	event := map[string]interface{}{
+		"id":         "WH-CAPTURE-" + orderID,
+		"event_type": "PAYMENT.CAPTURE.COMPLETED",
+		"resource":   resource,
+	}
+	payload, _ := json.Marshal(event)
+	return payload
+}
+
+// --- PAYMENT.CAPTURE.COMPLETED ---
+
+// TestPayPalWebhook_CaptureCompletedPendingPurchaseCompletes proves a confirmed
+// capture settlement on a still-pending purchase completes it through the pure
+// completion path: the funds already moved at PayPal, so no re-capture happens.
+func TestPayPalWebhook_CaptureCompletedPendingPurchaseCompletes(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p1",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "paypal",
+	}
+	completeCount := 0
+	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+		order:    buildPayPalOrder("ORDER-CAPTURE-1", "p1"),
+	}
+
+	payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-1", "1.00", "EUR", "COMPLETED")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "completed" {
+		t.Fatalf("expected the purchase to be completed, got %q", w.Body.String())
+	}
+	if completeCount != 1 {
+		t.Fatalf("expected exactly one completion, got %d", completeCount)
+	}
+}
+
+// TestPayPalWebhook_CaptureCompletedFailedPurchaseReconciles proves the
+// primary late-settlement path for PayPal: a confirmed capture that settled a
+// purchase already superseded (failed) is reconciled to completed.
+func TestPayPalWebhook_CaptureCompletedFailedPurchaseReconciles(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p-late-capture",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "failed",
+		PaymentMethod:   "paypal",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+		order:    buildPayPalOrder("ORDER-CAPTURE-LATE", "p-late-capture"),
+	}
+
+	payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-LATE", "1.00", "EUR", "COMPLETED")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "reconciled" {
+		t.Fatalf("expected the capture to reconcile, got %q", w.Body.String())
+	}
+	if svc.reconcileCount != 1 {
+		t.Fatalf("expected exactly one reconciliation, got %d", svc.reconcileCount)
+	}
+}
+
+// TestPayPalWebhook_CaptureCompletedFailedPurchaseConflictAcknowledged proves a
+// capture that cannot define a second sale is acknowledged so the provider
+// stops redelivering.
+func TestPayPalWebhook_CaptureCompletedFailedPurchaseConflictAcknowledged(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p-capture-conflict",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "failed",
+		PaymentMethod:   "paypal",
+	}
+	svc := &stubPurchaseService{purchase: purchase, reconcileErr: purchases.ErrReconciliationConflict}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+		order:    buildPayPalOrder("ORDER-CAPTURE-CONFLICT", "p-capture-conflict"),
+	}
+
+	payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-CONFLICT", "1.00", "EUR", "COMPLETED")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if svc.reconcileCount != 1 {
+		t.Fatalf("expected one reconciliation attempt, got %d", svc.reconcileCount)
+	}
+}
+
+// TestPayPalWebhook_CaptureCompletedAlreadyCompletedIsIdempotent proves a
+// repeated capture delivery for a completed purchase is acknowledged without
+// re-completing or re-reconciling.
+func TestPayPalWebhook_CaptureCompletedAlreadyCompletedIsIdempotent(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p-capture-done",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "completed",
+		PaymentMethod:   "paypal",
+	}
+	completeCount := 0
+	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+		order:    buildPayPalOrder("ORDER-CAPTURE-DONE", "p-capture-done"),
+	}
+
+	payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-DONE", "1.00", "EUR", "COMPLETED")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "already completed" {
+		t.Fatalf("expected an idempotent acknowledgement, got %q", w.Body.String())
+	}
+	if completeCount != 0 {
+		t.Fatalf("expected no completion, got %d", completeCount)
+	}
+}
+
+// TestPayPalWebhook_CaptureEventStatusIsEnforced proves only a COMPLETED
+// capture resource is a settlement; any other status proves nothing and is
+// acknowledged without touching the purchase.
+func TestPayPalWebhook_CaptureEventStatusIsEnforced(t *testing.T) {
+	for _, status := range []string{"", "PENDING", "FAILED", "REFUNDED"} {
+		t.Run("status="+status, func(t *testing.T) {
+			purchase := &purchases.Purchase{
+				ID:              "p-capture-status",
+				PriceMinorUnits: 100,
+				Currency:        "EUR",
+				Status:          "pending",
+				PaymentMethod:   "paypal",
+			}
+			completeCount := 0
+			svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+			verifier := &stubPayPalVerifier{
+				response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+				order:    buildPayPalOrder("ORDER-CAPTURE-STATUS", "p-capture-status"),
+			}
+
+			payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-STATUS", "1.00", "EUR", status)
+			handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+			router := newPayPalTestRouter(handler)
+
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+			}
+			if w.Body.String() == "completed" || w.Body.String() == "reconciled" {
+				t.Fatalf("a %q capture must never settle a purchase, got %q", status, w.Body.String())
+			}
+			if completeCount != 0 {
+				t.Fatalf("expected no completion, got %d", completeCount)
+			}
+		})
+	}
+}
+
+// TestPayPalWebhook_CaptureEventWithoutRelatedOrderIDIsIgnored proves a capture
+// settlement with no traceable order cannot be verified and is ignored, not
+// answered with a retry the provider could never satisfy.
+func TestPayPalWebhook_CaptureEventWithoutRelatedOrderIDIsIgnored(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p-capture-noorder",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "paypal",
+	}
+	completeCount := 0
+	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+		order:    buildPayPalOrder("ORDER-UNUSED", "p-capture-noorder"),
+	}
+
+	payload := buildPayPalCaptureCompletedEvent("", "1.00", "EUR", "COMPLETED")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if completeCount != 0 {
+		t.Fatalf("expected no completion, got %d", completeCount)
+	}
+}
+
+// TestPayPalWebhook_CaptureOrderResolutionFailureRetries proves an order-load
+// failure (API unavailable) is answered with 500 so the provider redelivers;
+// the settlement must never be guessed from the event payload alone.
+func TestPayPalWebhook_CaptureOrderResolutionFailureRetries(t *testing.T) {
+	for name, verifier := range map[string]*stubPayPalVerifier{
+		"api-unavailable": {
+			response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+			orderErr: errors.New("paypal API unavailable"),
+		},
+		"order-missing": {
+			response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			purchase := &purchases.Purchase{
+				ID:              "p-capture-orderfail",
+				PriceMinorUnits: 100,
+				Currency:        "EUR",
+				Status:          "pending",
+				PaymentMethod:   "paypal",
+			}
+			completeCount := 0
+			svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+
+			payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-ORDERFAIL", "1.00", "EUR", "COMPLETED")
+			handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+			router := newPayPalTestRouter(handler)
+
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusInternalServerError {
+				t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+			}
+			if completeCount != 0 {
+				t.Fatalf("expected no completion without order resolution, got %d", completeCount)
+			}
+		})
+	}
+}
+
+// TestPayPalWebhook_CaptureAmountMismatchRetries proves the captured amount is
+// verified against the immutable snapshot before any completion; a mismatch is
+// a provider-integration signal, so it is answered with 500.
+func TestPayPalWebhook_CaptureAmountMismatchRetries(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p-capture-amount",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "paypal",
+	}
+	completeCount := 0
+	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+		order:    buildPayPalOrder("ORDER-CAPTURE-AMOUNT", "p-capture-amount"),
+	}
+
+	payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-AMOUNT", "9.99", "EUR", "COMPLETED")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+	if completeCount != 0 {
+		t.Fatalf("expected no completion on an amount mismatch, got %d", completeCount)
+	}
+}
+
+// TestPayPalWebhook_CaptureMethodMismatchDoesNotComplete proves a verified
+// capture can never settle a purchase bound to a different method, mirroring
+// the APPROVED path.
+func TestPayPalWebhook_CaptureMethodMismatchDoesNotComplete(t *testing.T) {
+	for _, recorded := range []string{"card", "mbway", ""} {
+		t.Run("recorded="+recorded, func(t *testing.T) {
+			purchase := &purchases.Purchase{
+				ID:              "p-capture-method",
+				PriceMinorUnits: 100,
+				Currency:        "EUR",
+				Status:          "pending",
+				PaymentMethod:   recorded,
+			}
+			completeCount := 0
+			svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+			verifier := &stubPayPalVerifier{
+				response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+				order:    buildPayPalOrder("ORDER-CAPTURE-METHOD", "p-capture-method"),
+			}
+
+			payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-METHOD", "1.00", "EUR", "COMPLETED")
+			handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+			router := newPayPalTestRouter(handler)
+
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+			}
+			if w.Body.String() == "completed" || w.Body.String() == "reconciled" {
+				t.Fatal("a method mismatch must never settle a purchase")
+			}
+			if completeCount != 0 {
+				t.Fatalf("expected no completion, got %d", completeCount)
+			}
+		})
+	}
+}
+
+// TestPayPalWebhook_CaptureUnknownPurchaseIsIgnored proves a capture for an
+// order the backend cannot find is acknowledged: it cannot be granted, and
+// a retry would never change that. This is the "no record" settlement.
+func TestPayPalWebhook_CaptureUnknownPurchaseIsIgnored(t *testing.T) {
+	svc := &stubPurchaseService{err: purchases.ErrPurchaseNotFound}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+		order:    buildPayPalOrder("ORDER-CAPTURE-UNKNOWN", "p-does-not-exist"),
+	}
+
+	payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-UNKNOWN", "1.00", "EUR", "COMPLETED")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// --- late approvals ---
+
+// TestPayPalWebhook_LateApprovalOnFailedPurchaseIsNotCaptured proves a late
+// APPROVAL is consent, not a payment: the order is deliberately left
+// uncaptured, so no funds move, and the acknowledgement is purely diagnostic.
+func TestPayPalWebhook_LateApprovalOnFailedPurchaseIsNotCaptured(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p-late-approval",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "failed",
+		PaymentMethod:   "paypal",
+	}
+	completeCount := 0
+	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+	}
+
+	payload := buildPayPalOrderApprovedEvent(t, "p-late-approval", "1.00", "EUR")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "late approval acknowledged" {
+		t.Fatalf("expected a late-approval acknowledgement, got %q", w.Body.String())
+	}
+	if completeCount != 0 {
+		t.Fatalf("a late approval must never capture or complete, got %d attempts", completeCount)
 	}
 }
