@@ -42,6 +42,21 @@ type ProgramRepository interface {
 	FindAllByIDsUnscoped(ctx context.Context, ids []string) ([]models.Program, error)
 }
 
+// ReconciliationEventRepository is the data-access surface for the durable
+// reconciliation diagnostic records written by the verified webhook layer.
+type ReconciliationEventRepository interface {
+	ListAdmin(ctx context.Context, filter repositories.AdminReconciliationFilter, page, limit int) ([]models.PurchaseReconciliationEvent, int64, error)
+}
+
+// ReconciliationFilter narrows the administrative reconciliation event view.
+// Every value is optional; Open restricts the view to the outcomes that need
+// investigation and is ignored when an exact Outcome is given.
+type ReconciliationFilter struct {
+	Outcome  string
+	Open     bool
+	Provider string
+}
+
 // PurchaseFilter narrows the administrator commerce queries. Every value is
 // optional; Test is a tri-state (nil means both) and the created range is
 // half-open [CreatedFrom, CreatedTo). ProgramIDs restricts a program sale
@@ -143,6 +158,30 @@ type ListProgramSalesResult struct {
 	Limit int
 }
 
+// ReconciliationEvent is the safe representation of one durable reconciliation
+// diagnostic record in the administrative view. It carries the outcome code,
+// the backend provider, the provider event id (needed to correlate the
+// delivery in the provider dashboards during an investigation) and the resolved
+// purchase in its existing safe shape. It never exposes provider secrets,
+// signatures or raw payloads.
+type ReconciliationEvent struct {
+	ID        string
+	Provider  string
+	EventID   string
+	Outcome   string
+	CreatedAt time.Time
+	Purchase  Purchase
+}
+
+// ListReconciliationEventsResult carries one page of reconciliation events
+// plus the pagination metadata.
+type ListReconciliationEventsResult struct {
+	Events []ReconciliationEvent
+	Total  int64
+	Page   int
+	Limit  int
+}
+
 // Service implements the administrative commerce view over the purchases data.
 // Authorization (which administrator may read commerce data) is enforced by the
 // route middleware; this service only implements the domain rules.
@@ -150,15 +189,38 @@ type Service interface {
 	ListPurchases(ctx context.Context, filter PurchaseFilter, page, limit int) (ListPurchasesResult, error)
 	GetPurchase(ctx context.Context, purchaseID string) (*Purchase, error)
 	ListProgramSales(ctx context.Context, filter PurchaseFilter, page, limit int) (ListProgramSalesResult, error)
+	ListReconciliationEvents(ctx context.Context, filter ReconciliationFilter, page, limit int) (ListReconciliationEventsResult, error)
 }
 
 type service struct {
 	purchases PurchaseRepository
 	programs  ProgramRepository
+	events    ReconciliationEventRepository
 }
 
-func NewService(purchases PurchaseRepository, programs ProgramRepository) Service {
-	return &service{purchases: purchases, programs: programs}
+// NewService returns the admin commerce service over the purchases data. The
+// optional WithReconciliationEvents option wires the durable reconciliation
+// event read surface; without it the reconciliation listing reports an error.
+func NewService(purchases PurchaseRepository, programs ProgramRepository, opts ...ServiceOption) Service {
+	s := &service{purchases: purchases, programs: programs}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(s)
+		}
+	}
+	return s
+}
+
+// ServiceOption configures the admin commerce service.
+type ServiceOption func(*service)
+
+// WithReconciliationEvents wires the reconciliation event repository into the
+// admin commerce service so the administrative view can list the durable
+// diagnostic records written by the verified webhook layer.
+func WithReconciliationEvents(events ReconciliationEventRepository) ServiceOption {
+	return func(s *service) {
+		s.events = events
+	}
 }
 
 // ListPurchases returns one page of purchases matching the filter, most
@@ -339,6 +401,74 @@ func mapProgramSale(program *models.Program, row *repositories.AdminProgramSales
 		PendingPurchases:  row.Pending,
 		FailedPurchases:   row.Failed,
 	}
+}
+
+// ListReconciliationEvents returns one page of durable reconciliation events
+// matching the filter, most recently recorded first, with the resolved purchase
+// (customer and program) in the existing safe admin shape. It is read-only: the
+// administrative view can investigate a settlement, but no admin action can
+// mark a payment successful or bypass provider verification — completion
+// remains exclusive to the trusted webhook layer.
+func (s *service) ListReconciliationEvents(ctx context.Context, filter ReconciliationFilter, page, limit int) (ListReconciliationEventsResult, error) {
+	page, limit, err := normalizePagination(page, limit)
+	if err != nil {
+		return ListReconciliationEventsResult{}, err
+	}
+	if err := validateReconciliationFilter(filter); err != nil {
+		return ListReconciliationEventsResult{}, err
+	}
+	if s.events == nil {
+		return ListReconciliationEventsResult{}, fmt.Errorf("%w: reconciliation events are not configured", ErrInvalidInput)
+	}
+
+	records, total, err := s.events.ListAdmin(ctx, repositories.AdminReconciliationFilter{
+		Outcome:  filter.Outcome,
+		Open:     filter.Open,
+		Provider: filter.Provider,
+	}, page, limit)
+	if err != nil {
+		return ListReconciliationEventsResult{}, fmt.Errorf("failed to list reconciliation events: %w", err)
+	}
+
+	events := make([]ReconciliationEvent, 0, len(records))
+	for i := range records {
+		purchase := Purchase{}
+		if records[i].Purchase != nil {
+			purchase = *newPurchase(records[i].Purchase)
+		}
+		events = append(events, ReconciliationEvent{
+			ID:        records[i].ID,
+			Provider:  records[i].Provider,
+			EventID:   records[i].EventID,
+			Outcome:   records[i].Outcome,
+			CreatedAt: records[i].CreatedAt,
+			Purchase:  purchase,
+		})
+	}
+
+	return ListReconciliationEventsResult{
+		Events: events,
+		Total:  total,
+		Page:   page,
+		Limit:  limit,
+	}, nil
+}
+
+// validateReconciliationFilter rejects malformed reconciliation filter values
+// before any database access. An exact outcome must belong to the fixed
+// documented vocabulary, a provider must be one of the backend providers and
+// an open filter never coexists with a conflicting outcome since the exact
+// outcome wins.
+func validateReconciliationFilter(filter ReconciliationFilter) error {
+	if filter.Outcome != "" && !models.IsValidReconciliationOutcome(filter.Outcome) {
+		return fmt.Errorf("%w: invalid reconciliation outcome", ErrInvalidInput)
+	}
+	switch filter.Provider {
+	case "", "stripe", "paypal":
+	default:
+		return fmt.Errorf("%w: invalid reconciliation provider", ErrInvalidInput)
+	}
+	return nil
 }
 
 func newCustomer(user *models.User) Customer {

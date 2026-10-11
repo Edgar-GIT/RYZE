@@ -687,6 +687,9 @@ HTTP endpoint, intended exclusively for the verified webhook layer: no route
 accepts a purchase id without an authenticated owner on it, so a browser can
 never trigger it.
 
+Every call site records its outcome in `purchase_reconciliation_events`, keyed
+by provider event id (see [ADMIN COMMERCE: Reconciliation Events](#reconciliation-events)).
+
 It completes a purchase whose provider-verified, contract-matched payment
 arrived after the purchase left `pending`. A `failed` purchase (superseded or
 expired intent) is atomically returned to `completed` — any other pending intent
@@ -1058,12 +1061,27 @@ session is only honored once Stripe reports it as paid.
 event for a purchase that is no longer pending is routed by its state: a
 `failed` purchase is reconciled through `ReconcilePurchase` (reconciled → 200),
 a reconciliation conflict or a purchase that moved on is acknowledged with 200
-and the diagnostics are logged (the failed record stays as the persisted
-recovery state), while an integrity violation or transient failure returns 500
-so Stripe retries. A completed purchase stays idempotently acknowledged. No
-event type — including refunds and disputes — can revert a completed purchase:
-RYZE purchases are final, there is no refund workflow, and a refund event is
-acknowledged and ignored.
+and a diagnostic outcome is recorded, while an integrity violation or transient
+failure returns 500 so Stripe retries. A completed purchase stays idempotently
+acknowledged with `already_completed`. No event type — including refunds and
+disputes — can revert a completed purchase: RYZE purchases are final, there is
+no refund workflow, and a refund event is acknowledged and ignored.
+
+**Every verified delivery is recorded.** Each verified event writes one durable
+record to `purchase_reconciliation_events` keyed by the provider event id,
+stamped with a fixed outcome code (`completed`, `already_completed`,
+`reconciled`, `conflict_pair_resolved`, `purchase_moved_on`,
+`entitlement_integrity`, `transient_failure`, `amount_mismatch`,
+`currency_mismatch`, `method_mismatch`, `reference_mismatch`,
+`provider_uncertain`, `late_approval`, `permanent_invalid`,
+`test_purchase_event`). The outcome is recorded best-effort — a persistence
+failure never changes the HTTP verdict — and is immutable once resolved: only
+the provisional outcomes (`transient_failure`, `provider_uncertain`) may be
+overwritten by a later delivery of the same event. Permanent mismatches (amount,
+currency, method, reference, malformed but verified event) and Test Mode
+purchases are acknowledged with 200 and recorded, so the provider stops
+redelivering and the diagnostic is preserved for the administrative
+reconciliation view instead of being lost in a 500.
 
 All other event types are safely acknowledged with 200 and ignored, including
 refunds and disputes: RYZE purchases are final, there is no refund workflow, and
@@ -1073,12 +1091,13 @@ Responses:
 
 - `200` — event processed (completed, reconciled, already completed, not a
   successful payment, unsupported mode, unsupported event type, unknown purchase,
-  purchase not pending, late settlement acknowledged, purchase without a
-  recorded payment method)
-- `400` — invalid signature, missing header, malformed payload, purchase
-  reference mismatch
-- `500` — amount, currency or payment method mismatch, reconciliation failure
-  (integrity or transient, retried), completion failure
+  purchase not pending, late settlement acknowledged, permanent mismatch
+  recorded, Test Mode purchase guarded, purchase without a recorded payment
+  method)
+- `400` — invalid signature, missing header, malformed payload, unverifiable
+  mode or payment status
+- `500` — reconciliation failure (integrity or transient, retried), internal
+  completion failure
 
 **Checkout initiation does not complete a purchase. Browser redirects do not
 complete a purchase. Completion is reachable only through two server-side
@@ -1122,14 +1141,21 @@ Supported event types:
 
 All other event types are safely acknowledged with 200.
 
+Every verified delivery is recorded with the same durable outcome vocabulary
+described for the Stripe webhook, keyed by the PayPal `event.id`; permanent
+mismatches and Test Mode bounds are acknowledged with 200 plus the recorded
+outcome so PayPal stops redelivering while the administrative reconciliation
+view keeps the diagnostic.
+
 Responses:
 
 - `200` — event processed (completed, reconciled, idempotent acknowledgement,
-  late settlement acknowledged, unsupported or non-completed event type)
+  late settlement acknowledged, permanent mismatch recorded, Test Mode guarded,
+  unsupported or non-completed event type)
 - `400` — invalid verification, malformed payload
-- `500` — amount/currency mismatch, missing order id, order resolution failure,
-  capture failure, completion or reconciliation failure. The event is NOT
-  acknowledged so PayPal retries it.
+- `500` — missing order id, order resolution failure, capture failure, internal
+  completion or reconciliation failure. The event is NOT acknowledged so PayPal
+  retries it.
 
 ---
 
@@ -4724,6 +4750,88 @@ Response `data`:
 - `pagination` — `page`, `limit`, `total`, `total_pages`.
 
 Responses mirrors List Purchases.
+
+## Reconciliation Events
+
+```
+GET /api/v1/admin/purchases/reconciliation-events
+```
+
+Returns one page of purchase reconciliation events, newest first. The route is
+published before `/purchases/:id` and the surface is read-only: it exists only
+to give the Management Administrator visibility over provider-settlement
+diagnostics. It can never change a purchase, an entitlement or an event, and it
+exposes no decisions users can take from the browser: recovery is always
+server-side and idempotent.
+
+Query parameters:
+
+- `page` — page number, default `1`.
+- `limit` — page size, default `20`, clamped to a maximum of `100`.
+- `scope` — optional `open` | `all`, default `open`. `open` (the default) only
+  returns events that still need attention (provisional, misdelivered or
+  conflicting outcomes): resolved settlements (`completed`,
+  `already_completed`, `reconciled`) are hidden from an open view. `all` returns
+  the complete audit trail.
+- `outcome` — optional exact outcome code to filter on (see the vocabulary
+  below). Takes precedence over `scope`: when set, the event must match that
+  outcome.
+- `provider` — optional `stripe` | `paypal` to restrict the source provider.
+
+Response `data`:
+
+- `events` — array of safe event objects, newest first (`created_at` desc, id
+  desc for stable ordering):
+  - `id` — event row identifier.
+  - `purchase` — the safe purchase object (same shape as List Purchases,
+    including `customer` and `program`). The customer and program are preloaded
+    unscoped so soft-deleted buyers and retired programs keep resolving.
+  - `provider` — `stripe` | `paypal`.
+  - `event_id` — the provider event identifier (Stripe `id` / PayPal `id`).
+  - `outcome` — one code from the vocabulary below.
+  - `created_at` — record timestamp.
+  - The response never includes user ids, secrets, signatures, raw provider
+    payloads, `failure_reason`, trainer identifiers or any revenue/commission
+    breakdown.
+
+Outcome vocabulary:
+
+- `completed` — a verified delivery completed a pending purchase.
+- `reconciled` — a late verified delivery reconciled a failed purchase.
+- `already_completed` — the purchase was already completed when the delivery
+  arrived (idempotent acknowledgement).
+- `conflict_pair_resolved` — a verified delivery won a reconciliation conflict
+  against a stale pending sibling.
+- `purchase_moved_on` — a verified delivery arrived but the purchase had already
+  left the recoverable state.
+- `entitlement_integrity` — a settlement could not restore the entitlement
+  (recoverable, provider should retry).
+- `transient_failure` — a transient/internal failure; the provider is retrying.
+  A later delivery of the same event may overwrite this provisional outcome.
+- `provider_uncertain` — provider acknowledgement uncertain; the event may be
+  redelivered.
+- `amount_mismatch`, `currency_mismatch`, `method_mismatch`,
+  `reference_mismatch` — the verified event did not match the purchase snapshot
+  (recorded and acknowledged with 200).
+- `permanent_invalid` — a verified event that can never settle the purchase.
+- `late_approval` — PayPal approval arrived for a purchase already failed
+  (consent, not money); the order was left to lapse.
+- `test_purchase_event` — a verified delivery for a Test Mode purchase, guarded
+  and acknowledged with 200.
+- `conflict_pair_resolved` vs `entitlement_integrity` are the only outcomes that
+  change under retry semantics: the former is final, the latter is provisional.
+
+Only `transient_failure` and `provider_uncertain` are provisional: a later
+redelivery overwrites them. Every other outcome is immutable; an idempotent
+duplicate delivery leaves the resolved outcome untouched.
+
+Responses:
+
+- `200 OK` — events and pagination.
+- `400 VALIDATION_ERROR` — malformed `page`/`limit`, unknown `outcome`, unknown
+  `scope`, unknown `provider`.
+- `401 AUTHENTICATION_REQUIRED` / `403 FORBIDDEN` — missing or invalid admin
+  session / admin without the `commerce` permission.
 
 ---
 

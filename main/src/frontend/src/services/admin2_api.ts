@@ -150,6 +150,133 @@ export interface AdminProgramSalesListResult {
   pagination: AdminPagination;
 }
 
+/* ------------------------------------------------------------------ */
+/* Purchase reconciliation events                                       */
+/* ------------------------------------------------------------------ */
+
+// The reconciliation outcome vocabulary is fixed by the backend audit layer.
+// These server codes are mapped to client-owned wording before rendering; the
+// raw codes are never surfaced to the operator.
+export const ReconciliationOutcomeEnum = {
+  COMPLETED: "completed",
+  ALREADY_COMPLETED: "already_completed",
+  RECONCILED: "reconciled",
+  CONFLICT_PAIR_RESOLVED: "conflict_pair_resolved",
+  PURCHASE_MOVED_ON: "purchase_moved_on",
+  ENTITLEMENT_INTEGRITY: "entitlement_integrity",
+  TRANSIENT_FAILURE: "transient_failure",
+  AMOUNT_MISMATCH: "amount_mismatch",
+  CURRENCY_MISMATCH: "currency_mismatch",
+  METHOD_MISMATCH: "method_mismatch",
+  REFERENCE_MISMATCH: "reference_mismatch",
+  PROVIDER_UNCERTAIN: "provider_uncertain",
+  LATE_APPROVAL: "late_approval",
+  PERMANENT_INVALID: "permanent_invalid",
+  TEST_PURCHASE_EVENT: "test_purchase_event"
+} as const;
+
+export type ReconciliationOutcomeValue =
+  typeof ReconciliationOutcomeEnum[keyof typeof ReconciliationOutcomeEnum];
+
+export const reconciliationProviderLabel = (provider: string): string =>
+  provider === "paypal" ? "PayPal" : "Stripe";
+
+export type ReconciliationOutcomeCategory = "settled" | "needs-attention" | "rejected";
+
+// Badge tone values mirror the Admin2StatusBadge contract.
+export type AdminBadgeTone = "success" | "warning" | "danger" | "neutral";
+
+export interface ReconciliationOutcomeMeta {
+  label: string;
+  category: ReconciliationOutcomeCategory;
+  tone: AdminBadgeTone;
+}
+
+// Client-owned wording for every documented server outcome. The three
+// "settled" outcomes are routine and excluded from the default open scope;
+// everything else is flagged for investigation so the reconciliation view opens
+// on what needs attention.
+export const reconciliationOutcomeMeta = (outcome: string): ReconciliationOutcomeMeta => {
+  switch (outcome) {
+    case ReconciliationOutcomeEnum.COMPLETED:
+      return { label: "Completed", category: "settled", tone: "success" };
+    case ReconciliationOutcomeEnum.ALREADY_COMPLETED:
+      return { label: "Already completed", category: "settled", tone: "success" };
+    case ReconciliationOutcomeEnum.RECONCILED:
+      return { label: "Reconciled", category: "settled", tone: "success" };
+    case ReconciliationOutcomeEnum.CONFLICT_PAIR_RESOLVED:
+      return { label: "Conflict resolved", category: "needs-attention", tone: "warning" };
+    case ReconciliationOutcomeEnum.PURCHASE_MOVED_ON:
+      return { label: "Purchase moved on", category: "needs-attention", tone: "warning" };
+    case ReconciliationOutcomeEnum.ENTITLEMENT_INTEGRITY:
+      return { label: "Entitlement integrity", category: "rejected", tone: "danger" };
+    case ReconciliationOutcomeEnum.TRANSIENT_FAILURE:
+      return { label: "Transient failure", category: "needs-attention", tone: "warning" };
+    case ReconciliationOutcomeEnum.AMOUNT_MISMATCH:
+      return { label: "Amount mismatch", category: "rejected", tone: "danger" };
+    case ReconciliationOutcomeEnum.CURRENCY_MISMATCH:
+      return { label: "Currency mismatch", category: "rejected", tone: "danger" };
+    case ReconciliationOutcomeEnum.METHOD_MISMATCH:
+      return { label: "Payment method mismatch", category: "rejected", tone: "danger" };
+    case ReconciliationOutcomeEnum.REFERENCE_MISMATCH:
+      return { label: "Reference mismatch", category: "rejected", tone: "danger" };
+    case ReconciliationOutcomeEnum.PROVIDER_UNCERTAIN:
+      return { label: "Uncertain delivery", category: "needs-attention", tone: "warning" };
+    case ReconciliationOutcomeEnum.LATE_APPROVAL:
+      return { label: "Late approval", category: "needs-attention", tone: "warning" };
+    case ReconciliationOutcomeEnum.PERMANENT_INVALID:
+      return { label: "Invalid delivery", category: "rejected", tone: "danger" };
+    case ReconciliationOutcomeEnum.TEST_PURCHASE_EVENT:
+      return { label: "Test purchase event", category: "needs-attention", tone: "neutral" };
+    default:
+      return { label: "Unknown outcome", category: "needs-attention", tone: "neutral" };
+  }
+};
+
+export interface AdminReconciliationEvent {
+  id: string;
+  outcome: string;
+  provider: string;
+  event_id: string;
+  created_at: string;
+  purchase: AdminPurchase;
+}
+
+export interface AdminReconciliationListParams {
+  page: number;
+  limit: number;
+  // "open" (default) surfaces the outcomes that need investigation; "all"
+  // widens to the complete audit trail including routine settlements.
+  scope?: "open" | "all";
+  outcome?: ReconciliationOutcomeValue | "";
+}
+
+export interface AdminReconciliationListResult {
+  events: AdminReconciliationEvent[];
+  pagination: AdminPagination;
+}
+
+const reconciliationQuery = (params: AdminReconciliationListParams): string => {
+  const query = new URLSearchParams({
+    page: String(params.page),
+    limit: String(params.limit)
+  });
+  if (params.scope) {
+    query.set("scope", params.scope);
+  }
+  if (params.outcome) {
+    query.set("outcome", params.outcome);
+  }
+  return query.toString();
+};
+
+export const fetchAdminReconciliationEvents = (
+  params: AdminReconciliationListParams
+): Promise<AdminReconciliationListResult> =>
+  apiGet<AdminReconciliationListResult>(
+    `/admin/purchases/reconciliation-events?${reconciliationQuery(params)}`
+  );
+
 const purchaseQuery = (params: AdminPurchaseListParams): string => {
   const query = new URLSearchParams({
     page: String(params.page),

@@ -15,6 +15,7 @@ import (
 	"github.com/stripe/stripe-go/v86/webhook"
 
 	"ryze/backend/api/webhooks"
+	"ryze/backend/models"
 	"ryze/backend/services/purchases"
 )
 
@@ -379,6 +380,151 @@ func TestStripeWebhook_AmountMismatch(t *testing.T) {
 	}
 	if got := records.outcomes()["evt_test_123"]; got != "amount_mismatch" {
 		t.Fatalf("expected durable outcome amount_mismatch, got %q", got)
+	}
+}
+
+// TestStripeWebhook_CompletedOutcomeRecorded proves a successful verified
+// delivery persists a durable "completed" reconciliation record keyed by the
+// provider event, giving the audit trail the correlation id it needs.
+func TestStripeWebhook_CompletedOutcomeRecorded(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-recon-success",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "card",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+	records := &recordingOutcomeRecorder{}
+
+	session := newPaidCheckoutSession("cs_recon_success", "purchase-recon-success", 1000, "eur")
+	payload := buildCheckoutSessionEvent(t, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc, webhooks.WithOutcomeRecorder(records))
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := records.outcomes()["evt_test_123"]; got != models.ReconciliationOutcomeCompleted {
+		t.Fatalf("expected durable outcome completed, got %q", got)
+	}
+}
+
+// TestStripeWebhook_AlreadyCompletedOutcomeRecorded proves a duplicate delivery
+// of an already-settled purchase persists "already_completed" instead of
+// silently re-running completion.
+func TestStripeWebhook_AlreadyCompletedOutcomeRecorded(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-recon-duplicate",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          "completed",
+		PaymentMethod:   "card",
+	}
+	svc := &stubPurchaseService{purchase: purchase}
+	records := &recordingOutcomeRecorder{}
+
+	session := newPaidCheckoutSession("cs_recon_duplicate", "purchase-recon-duplicate", 1000, "eur")
+	payload := buildCheckoutSessionEvent(t, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc, webhooks.WithOutcomeRecorder(records))
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := records.outcomes()["evt_test_123"]; got != models.ReconciliationOutcomeAlreadyCompleted {
+		t.Fatalf("expected durable outcome already_completed, got %q", got)
+	}
+}
+
+// TestStripeWebhook_TransientFailureOutcomeRecorded proves an internal delivery
+// failure persists a provisional "transient_failure" record the retry can later
+// upgrade, instead of losing the diagnostic trail.
+func TestStripeWebhook_TransientFailureOutcomeRecorded(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-recon-transient",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "card",
+	}
+	svc := &stubPurchaseService{
+		purchase: purchase,
+		err:      errors.New("database connection lost"),
+	}
+	records := &recordingOutcomeRecorder{}
+
+	session := newPaidCheckoutSession("cs_recon_transient", "purchase-recon-transient", 1000, "eur")
+	payload := buildCheckoutSessionEvent(t, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc, webhooks.WithOutcomeRecorder(records))
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := records.outcomes()["evt_test_123"]; got != models.ReconciliationOutcomeTransientFailure {
+		t.Fatalf("expected durable outcome transient_failure, got %q", got)
+	}
+}
+
+// TestStripeWebhook_TestPurchaseEventIsRecorded proves a genuine verified
+// delivery aimed at a Test Mode purchase is acknowledged and recorded as a
+// test_purchase_event without ever completing it: real-provider signals must
+// never settle a test purchase.
+func TestStripeWebhook_TestPurchaseEventIsRecorded(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-recon-test",
+		PriceMinorUnits: 1000,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "card",
+		Test:            true,
+	}
+	completeCount := 0
+	svc := &completionCountingService{purchase: purchase, completeCount: &completeCount}
+	records := &recordingOutcomeRecorder{}
+
+	session := newPaidCheckoutSession("cs_recon_test", "purchase-recon-test", 1000, "eur")
+	payload := buildCheckoutSessionEvent(t, session)
+	sigHeader := signPayload(t, payload)
+
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc, webhooks.WithOutcomeRecorder(records))
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", sigHeader)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if completeCount != 0 {
+		t.Fatalf("a verified real delivery must never settle a test purchase, completed=%d", completeCount)
+	}
+	if got := records.outcomes()["evt_test_123"]; got != models.ReconciliationOutcomeTestPurchaseEvent {
+		t.Fatalf("expected durable outcome test_purchase_event, got %q", got)
 	}
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
+  AlertTriangle,
   Banknote,
   CheckCircle2,
   Clock,
@@ -27,15 +28,20 @@ import { Button } from "@/components/button/button";
 import {
   fetchAdminProgramSales,
   fetchAdminPurchases,
+  fetchAdminReconciliationEvents,
   fetchAdminSalesByProgramIds,
   formatAdminPrice,
   programTypeLabel,
   programTypeShortLabel,
   PurchaseStatusEnum,
+  reconciliationOutcomeMeta,
+  reconciliationProviderLabel,
   type AdminProgramSale,
   type AdminPurchase,
+  type AdminReconciliationEvent,
   type AdminSalesSummary,
-  type PurchaseStatus
+  type PurchaseStatus,
+  type ReconciliationOutcomeValue
 } from "@/services/admin2_api";
 import { formatAdminDate, type AdminPagination } from "@/services/admin_api";
 
@@ -57,6 +63,23 @@ const TEST_TYPE_OPTIONS: Array<{ id: "all" | "real" | "test"; label: string }> =
   { id: "all", label: "Real & test" },
   { id: "real", label: "Real only" },
   { id: "test", label: "Test only" }
+];
+
+const RECONCILIATION_SCOPE_OPTIONS: Array<{ id: "open" | "all"; label: string }> = [
+  { id: "open", label: "Needs attention" },
+  { id: "all", label: "Complete trail" }
+];
+
+const RECONCILIATION_OUTCOME_OPTIONS: Array<{ id: ReconciliationOutcomeValue | ""; label: string }> = [
+  { id: "", label: "All outcomes" },
+  { id: "transient_failure", label: "Transient failure" },
+  { id: "provider_uncertain", label: "Uncertain delivery" },
+  { id: "amount_mismatch", label: "Amount mismatch" },
+  { id: "currency_mismatch", label: "Currency mismatch" },
+  { id: "method_mismatch", label: "Payment method mismatch" },
+  { id: "reference_mismatch", label: "Reference mismatch" },
+  { id: "late_approval", label: "Late approval" },
+  { id: "entitlement_integrity", label: "Entitlement integrity" }
 ];
 
 const statusMeta = (status: PurchaseStatus): { label: string; tone: Admin2BadgeTone } => {
@@ -90,6 +113,15 @@ export default function Admin2SalesPage() {
   const [programSalesPagination, setProgramSalesPagination] =
     useState<AdminPagination | null>(null);
   const [programSalesPage, setProgramSalesPage] = useState(1);
+
+  const [reconciliationEvents, setReconciliationEvents] = useState<AdminReconciliationEvent[]>([]);
+  const [reconciliationPagination, setReconciliationPagination] =
+    useState<AdminPagination | null>(null);
+  const [reconciliationScope, setReconciliationScope] = useState<"open" | "all">("open");
+  const [reconciliationOutcome, setReconciliationOutcome] = useState<ReconciliationOutcomeValue | "">("");
+  const [reconciliationPage, setReconciliationPage] = useState(1);
+  const [reconciliationLoading, setReconciliationLoading] = useState(true);
+  const [reconciliationError, setReconciliationError] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -146,6 +178,28 @@ export default function Admin2SalesPage() {
     }
   }, [programSalesPage, programId, status, testFilter, from, to]);
 
+  const loadReconciliation = useCallback(async () => {
+    setReconciliationLoading(true);
+    setReconciliationError("");
+
+    try {
+      const result = await fetchAdminReconciliationEvents({
+        page: reconciliationPage,
+        limit: PAGE_SIZE,
+        scope: reconciliationScope,
+        outcome: reconciliationOutcome
+      });
+      setReconciliationEvents(result.events);
+      setReconciliationPagination(result.pagination);
+    } catch {
+      setReconciliationEvents([]);
+      setReconciliationPagination(null);
+      setReconciliationError("Unable to load reconciliation events. Please try again.");
+    } finally {
+      setReconciliationLoading(false);
+    }
+  }, [reconciliationPage, reconciliationScope, reconciliationOutcome]);
+
   useEffect(() => {
     void loadPurchases();
   }, [loadPurchases]);
@@ -153,6 +207,10 @@ export default function Admin2SalesPage() {
   useEffect(() => {
     void loadProgramSales();
   }, [loadProgramSales]);
+
+  useEffect(() => {
+    void loadReconciliation();
+  }, [loadReconciliation]);
 
   useEffect(() => {
     let cancelled = false;
@@ -365,6 +423,65 @@ export default function Admin2SalesPage() {
     }
   ];
 
+  const reconciliationColumns: Array<Admin2Column<AdminReconciliationEvent>> = [
+    {
+      key: "outcome",
+      label: "Outcome",
+      render: (event) => {
+        const meta = reconciliationOutcomeMeta(event.outcome);
+        return <Admin2StatusBadge label={meta.label} tone={meta.tone} />;
+      }
+    },
+    {
+      key: "purchase",
+      label: "Purchase",
+      render: (event) => (
+        <>
+          <span className={styles.cellTitle}>{event.purchase.program.name}</span>
+          <span className={styles.cellMeta}>
+            {event.purchase.customer.email}
+            {event.purchase.test ? (
+              <Admin2StatusBadge label="Test" tone="neutral" withDot={false} className={styles.inlineBadge} />
+            ) : null}
+          </span>
+        </>
+      )
+    },
+    {
+      key: "amount",
+      label: "Amount",
+      render: (event) => (
+        <span className={styles.amount}>
+          {formatAdminPrice(event.purchase.price_minor_units, event.purchase.currency)}
+        </span>
+      )
+    },
+    {
+      key: "provider",
+      label: "Provider",
+      render: (event) => <span className={styles.tableMuted}>{reconciliationProviderLabel(event.provider)}</span>
+    },
+    {
+      key: "event_id",
+      label: "Provider event",
+      render: (event) => <span className={styles.detailMono}>{event.event_id}</span>
+    },
+    {
+      key: "date",
+      label: "Recorded",
+      render: (event) => <span className={styles.tableMuted}>{formatAdminDate(event.created_at)}</span>
+    },
+    {
+      key: "actions",
+      label: "",
+      render: (event) => (
+        <Button variant="ghost" size="small" icon={<Eye size={14} />} onClick={() => setSelected(event.purchase)}>
+          View
+        </Button>
+      )
+    }
+  ];
+
   return (
     <>
       <Admin2PageHeader
@@ -561,6 +678,108 @@ export default function Admin2SalesPage() {
                 pageSize={programSalesPagination.limit}
                 totalItems={programSalesPagination.total}
                 onChange={(next) => setProgramSalesPage(next)}
+              />
+            ) : null}
+          </>
+        )}
+      </Admin2Section>
+
+      <Admin2Section
+        title="Reconciliation"
+        subtitle={
+          reconciliationLoading
+            ? "Loading…"
+            : reconciliationError
+              ? ""
+              : reconciliationPagination
+                ? `${reconciliationPagination.total} event${reconciliationPagination.total === 1 ? "" : "s"}`
+                : ""
+        }
+      >
+        <div className={styles.toolbar}>
+          <div className={styles.filters}>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Scope</span>
+              <select
+                className={styles.select}
+                value={reconciliationScope}
+                aria-label="Reconciliation event scope"
+                onChange={(event) => {
+                  setReconciliationScope(event.target.value as "open" | "all");
+                  setReconciliationPage(1);
+                }}
+              >
+                {RECONCILIATION_SCOPE_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Outcome</span>
+              <select
+                className={styles.select}
+                value={reconciliationOutcome}
+                aria-label="Filter reconciliation events by outcome"
+                onChange={(event) => {
+                  setReconciliationOutcome(event.target.value as ReconciliationOutcomeValue | "");
+                  setReconciliationPage(1);
+                }}
+              >
+                {RECONCILIATION_OUTCOME_OPTIONS.map((option) => (
+                  <option key={option.id || "all"} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        {reconciliationLoading ? (
+          <div className={styles.pageState}>
+            <p className={styles.tableMuted}>Loading reconciliation events…</p>
+          </div>
+        ) : reconciliationError ? (
+          <div className={styles.pageState}>
+            <p className={styles.pageError}>{reconciliationError}</p>
+            <div style={{ marginTop: "0.75rem" }}>
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={() => void loadReconciliation()}
+                icon={<RefreshCw size={15} />}
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        ) : reconciliationEvents.length === 0 ? (
+          <Admin2EmptyState
+            icon={AlertTriangle}
+            title={reconciliationScope === "all" ? "No reconciliation events yet" : "No settlement issues"}
+            message={
+              reconciliationScope === "all"
+                ? "Verified provider deliveries will leave a durable audit record here."
+                : "Every verified provider delivery settled cleanly — nothing needs attention."
+            }
+          />
+        ) : (
+          <>
+            <Admin2Table
+              columns={reconciliationColumns}
+              rows={reconciliationEvents}
+              rowKey={(event) => event.id}
+            />
+            {reconciliationPagination && reconciliationPagination.total > 1 ? (
+              <Admin2Pagination
+                page={reconciliationPagination.page}
+                totalPages={reconciliationPagination.total_pages}
+                pageSize={reconciliationPagination.limit}
+                totalItems={reconciliationPagination.total}
+                onChange={(next) => setReconciliationPage(next)}
               />
             ) : null}
           </>

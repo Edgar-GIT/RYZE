@@ -77,8 +77,8 @@ const (
 // record ends with the final outcome instead of the intermediate one.
 func ProvisionalReconciliationOutcomes() map[string]bool {
 	return map[string]bool{
-		ReconciliationOutcomeTransientFailure:   true,
-		ReconciliationOutcomeProviderUncertain:  true,
+		ReconciliationOutcomeTransientFailure:  true,
+		ReconciliationOutcomeProviderUncertain: true,
 	}
 }
 
@@ -89,18 +89,18 @@ func ProvisionalReconciliationOutcomes() map[string]bool {
 // routine settlements.
 func OpenReconciliationOutcomes() map[string]bool {
 	return map[string]bool{
-		ReconciliationOutcomeConflictPairResolved:      true,
-		ReconciliationOutcomePurchaseMovedOn:           true,
-		ReconciliationOutcomeEntitlementIntegrity:      true,
-		ReconciliationOutcomeTransientFailure:          true,
-		ReconciliationOutcomeAmountMismatch:            true,
-		ReconciliationOutcomeCurrencyMismatch:          true,
-		ReconciliationOutcomeMethodMismatch:            true,
-		ReconciliationOutcomeReferenceMismatch:         true,
-		ReconciliationOutcomeProviderUncertain:         true,
-		ReconciliationOutcomeLateApproval:              true,
-		ReconciliationOutcomePermanentInvalid:          true,
-		ReconciliationOutcomeTestPurchaseEvent:         true,
+		ReconciliationOutcomeConflictPairResolved: true,
+		ReconciliationOutcomePurchaseMovedOn:      true,
+		ReconciliationOutcomeEntitlementIntegrity: true,
+		ReconciliationOutcomeTransientFailure:     true,
+		ReconciliationOutcomeAmountMismatch:       true,
+		ReconciliationOutcomeCurrencyMismatch:     true,
+		ReconciliationOutcomeMethodMismatch:       true,
+		ReconciliationOutcomeReferenceMismatch:    true,
+		ReconciliationOutcomeProviderUncertain:    true,
+		ReconciliationOutcomeLateApproval:         true,
+		ReconciliationOutcomePermanentInvalid:     true,
+		ReconciliationOutcomeTestPurchaseEvent:    true,
 	}
 }
 

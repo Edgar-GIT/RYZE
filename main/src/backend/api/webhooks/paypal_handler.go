@@ -130,24 +130,30 @@ func NewPayPalWebhookHandler(verifier PayPalWebhookVerifier, webhookID string, p
 // Handle processes an incoming PayPal webhook. The flow is:
 //
 //  1. Read the raw request body (needed for both verification and parsing).
+//
 //  2. Verify the webhook authenticity using PayPal's server-side verification.
+//
 //  3. Parse the verified event.
+//
 //  4. Handle only CHECKOUT.ORDER.APPROVED and PAYMENT.CAPTURE.COMPLETED events.
+//
 //  5. Extract the RYZE purchase identifier (purchase-unit reference for an
 //     approved order, related order id for a confirmed capture).
+//
 //  6. Verify payment amount and currency against the immutable purchase snapshot.
+//
 //  7. Capture approved orders server-side and complete; reconcile confirmed
 //     captures when the purchase was superseded in the meantime.
 //
-//   - 400: invalid verification, malformed payload
-//   - 200: unsupported event type (safely ignored), unknown purchase, already
+//     - 400: invalid verification, malformed payload
+//     - 200: unsupported event type (safely ignored), unknown purchase, already
 //     completed, not pending, late settlements (reconciled or diagnosed),
 //     reference/amount/currency/payment-method mismatch, late approval, Test
 //     Mode purchase carrying a real payment event. The mismatches are
 //     acknowledged (not retried) because a duplicate delivery cannot change the
 //     immutable purchase snapshot: the durable reconciliation event is the
 //     operator-facing diagnosis instead.
-//   - 500: internal errors where provider retry is desirable (completion or
+//     - 500: internal errors where provider retry is desirable (completion or
 //     reconciliation failure, transient load failure).
 //
 // Supported event types:

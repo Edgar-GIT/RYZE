@@ -170,7 +170,13 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)
 
-	adminCommerceService := admin_commerce.NewService(purchaseRepository, trainerProgramRepository)
+	// Reconciliation diagnostics are written by the verified webhook layer and
+	// read by the restricted commerce surface. The same repository instance
+	// backs both, so the recorder and the reader are always the same table.
+	reconciliationEventRepository := repositories.NewReconciliationEventRepository(db)
+
+	adminCommerceService := admin_commerce.NewService(purchaseRepository, trainerProgramRepository,
+		admin_commerce.WithReconciliationEvents(reconciliationEventRepository))
 	adminCommerceHandler := auth.NewAdminCommerceHandler(adminCommerceService)
 
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
@@ -351,9 +357,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	adminCommerce := admin.Group("")
 	adminCommerce.Use(middleware.RequireAdminPermission(adminroles.PermissionCommerce))
-	// The static /programs path must be registered before /:id so the router
-	// resolves both without ambiguity.
+	// The static /programs and /reconciliation-events paths must be registered
+	// before /purchases/:id so the router resolves both without ambiguity.
 	adminCommerce.GET("/purchases/programs", adminCommerceHandler.ListProgramSales)
+	adminCommerce.GET("/purchases/reconciliation-events", adminCommerceHandler.ListReconciliationEvents)
 	adminCommerce.GET("/purchases", adminCommerceHandler.ListPurchases)
 	adminCommerce.GET("/purchases/:id", adminCommerceHandler.GetPurchase)
 
@@ -362,13 +369,15 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// the endpoint stays unregistered rather than accepting deliveries for a
 	// flow the rest of the stack has disabled.
 	if stripeEnabled(stripeCfg, webhookCfg) {
-		stripeWebhookHandler := webhooks.NewStripeWebhookHandler(webhookCfg.StripeWebhookSecret, purchaseService)
+		stripeWebhookHandler := webhooks.NewStripeWebhookHandler(webhookCfg.StripeWebhookSecret, purchaseService,
+			webhooks.WithOutcomeRecorder(reconciliationEventRepository))
 		v1.POST("/webhooks/stripe", stripeWebhookHandler.Handle)
 	}
 	if webhookCfg.PayPalWebhookID != "" && paypalCfg.ClientID != "" {
 		paypalVerifier, err := createPayPalWebhookVerifier(paypalCfg)
 		if err == nil {
-			paypalWebhookHandler := webhooks.NewPayPalWebhookHandler(paypalVerifier, webhookCfg.PayPalWebhookID, purchaseService)
+			paypalWebhookHandler := webhooks.NewPayPalWebhookHandler(paypalVerifier, webhookCfg.PayPalWebhookID, purchaseService,
+				webhooks.WithPayPalOutcomeRecorder(reconciliationEventRepository))
 			v1.POST("/webhooks/paypal", paypalWebhookHandler.Handle)
 		}
 	}

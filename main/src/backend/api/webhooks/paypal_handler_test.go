@@ -321,15 +321,19 @@ func TestPayPalWebhook_AmountMismatch(t *testing.T) {
 	}
 
 	payload := buildPayPalOrderApprovedEvent(t, "purchase-amt-pp", "99.99", "EUR")
-	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	records := &recordingOutcomeRecorder{}
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc, webhooks.WithPayPalOutcomeRecorder(records))
 	router := newPayPalTestRouter(handler)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 for amount mismatch, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for amount mismatch, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := records.outcomes()["WH-TEST-123"]; got != "amount_mismatch" {
+		t.Fatalf("expected amount_mismatch outcome for the delivered event, got %q", got)
 	}
 }
 
@@ -347,15 +351,19 @@ func TestPayPalWebhook_CurrencyMismatch(t *testing.T) {
 	}
 
 	payload := buildPayPalOrderApprovedEvent(t, "purchase-cur-pp", "10.00", "USD")
-	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	records := &recordingOutcomeRecorder{}
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc, webhooks.WithPayPalOutcomeRecorder(records))
 	router := newPayPalTestRouter(handler)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 for currency mismatch, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for currency mismatch, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := records.outcomes()["WH-TEST-123"]; got != "currency_mismatch" {
+		t.Fatalf("expected currency_mismatch outcome for the delivered event, got %q", got)
 	}
 }
 
@@ -950,15 +958,19 @@ func TestPayPalWebhook_CaptureAmountMismatchRetries(t *testing.T) {
 	}
 
 	payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-AMOUNT", "9.99", "EUR", "COMPLETED")
-	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc)
+	records := &recordingOutcomeRecorder{}
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc, webhooks.WithPayPalOutcomeRecorder(records))
 	router := newPayPalTestRouter(handler)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for amount mismatch, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := records.outcomes()["WH-CAPTURE-ORDER-CAPTURE-AMOUNT"]; got != "amount_mismatch" {
+		t.Fatalf("expected amount_mismatch outcome for the delivered event, got %q", got)
 	}
 	if completeCount != 0 {
 		t.Fatalf("expected no completion on an amount mismatch, got %d", completeCount)

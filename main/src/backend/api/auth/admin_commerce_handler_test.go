@@ -27,6 +27,7 @@ const (
 	adminCommerceListRoute     = "/api/v1/admin/purchases"
 	adminCommerceDetailRoute   = "/api/v1/admin/purchases/%s"
 	adminCommerceProgramsRoute = "/api/v1/admin/purchases/programs"
+	adminCommerceEventsRoute   = "/api/v1/admin/purchases/reconciliation-events"
 )
 
 // newAdminCommerceTestRouter wires the admin commerce endpoints behind the real
@@ -61,7 +62,8 @@ func newAdminCommerceTestRouter(t *testing.T) (*gin.Engine, repositories.UserRep
 
 	purchaseRepo := repositories.NewPurchaseRepository(tx)
 	programRepo := repositories.NewProgramRepository(tx)
-	commerceSvc := admin_commerce.NewService(purchaseRepo, programRepo)
+	eventsRepo := repositories.NewReconciliationEventRepository(tx)
+	commerceSvc := admin_commerce.NewService(purchaseRepo, programRepo, admin_commerce.WithReconciliationEvents(eventsRepo))
 	commerceHandler := auth.NewAdminCommerceHandler(commerceSvc)
 
 	router := gin.New()
@@ -69,9 +71,11 @@ func newAdminCommerceTestRouter(t *testing.T) (*gin.Engine, repositories.UserRep
 	admin.Use(middleware.AdminAuthenticate(tokenSvc))
 	adminCommerce := admin.Group("")
 	adminCommerce.Use(middleware.RequireAdminPermission(adminroles.PermissionCommerce))
-	// The static /purchases/programs path must be registered before
-	// /purchases/:id so the router resolves both without ambiguity.
+	// The static /purchases/programs and /purchases/reconciliation-events paths
+	// must be registered before /purchases/:id so the router resolves both
+	// without ambiguity.
 	adminCommerce.GET("/purchases/programs", commerceHandler.ListProgramSales)
+	adminCommerce.GET("/purchases/reconciliation-events", commerceHandler.ListReconciliationEvents)
 	adminCommerce.GET("/purchases", commerceHandler.ListPurchases)
 	adminCommerce.GET("/purchases/:id", commerceHandler.GetPurchase)
 
@@ -564,5 +568,131 @@ func TestAdminCommerceResponsesUseSafeShape(t *testing.T) {
 		if _, ok := programPayload[forbidden]; ok {
 			t.Fatalf("sensitive program key %q leaked: %s", forbidden, raw)
 		}
+	}
+}
+
+// seedReconciliationEvent wires a durable reconciliation outcome record for an
+// existing purchase through the same repository the webhook layer writes to.
+func seedReconciliationEvent(t *testing.T, tx *gorm.DB, purchaseID, provider, eventID, outcome string) {
+	t.Helper()
+	repo := repositories.NewReconciliationEventRepository(tx)
+	if err := repo.Record(context.Background(), purchaseID, provider, eventID, outcome); err != nil {
+		t.Fatalf("seed reconciliation event: %v", err)
+	}
+}
+
+// TestAdminCommerceReconciliationEventsOpenScope proves the reconciliation view
+// defaults to the outcomes that require investigation, resolves the impacted
+// purchase in the safe shape and exposes no write surface.
+func TestAdminCommerceReconciliationEventsOpenScope(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newAdminCommerceTestRouter(t)
+	cookie := adminToken(t, tokenSvc, config.Admin2ID)
+
+	program, _ := seedPremiumProgram(t, tx, userRepo)
+	buyer := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	purchase := seedCompletedPurchase(t, tx, buyer.ID, program.ID, false)
+	seedReconciliationEvent(t, tx, purchase.ID, "stripe", "evt-open", models.ReconciliationOutcomeProviderUncertain)
+	seedReconciliationEvent(t, tx, purchase.ID, "stripe", "evt-clean", models.ReconciliationOutcomeCompleted)
+
+	rec, data, raw := adminCommerceRequest(router, cookie, http.MethodGet, adminCommerceEventsRoute)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	events := data["events"].([]any)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 open outcome, got %d (%s)", len(events), raw)
+	}
+	event := events[0].(map[string]any)
+	if event["outcome"] != models.ReconciliationOutcomeProviderUncertain {
+		t.Fatalf("expected the open outcome, got %v (%s)", event["outcome"], raw)
+	}
+	if event["provider"] != "stripe" {
+		t.Fatalf("expected provider stripe, got %v", event["provider"])
+	}
+	if event["event_id"] != "evt-open" {
+		t.Fatalf("expected the provider event id for correlation, got %v", event["event_id"])
+	}
+
+	purchasePayload := event["purchase"].(map[string]any)
+	if purchasePayload["id"] != purchase.ID {
+		t.Fatalf("expected the impacted purchase, got %v", purchasePayload["id"])
+	}
+	customer := purchasePayload["customer"].(map[string]any)
+	if customer["email"] != buyer.Email {
+		t.Fatalf("customer not resolved in the event record: %s", raw)
+	}
+	for _, forbidden := range []string{"user_id", "commission_bps", "platform_amount", "trainer_amount"} {
+		if _, ok := purchasePayload[forbidden]; ok {
+			t.Fatalf("sensitive key %q leaked in reconciliation view: %s", forbidden, raw)
+		}
+	}
+
+	// There is no write surface: any mutating attempt is rejected by the router.
+	rec = httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, adminCommerceEventsRoute, nil)
+	router.ServeHTTP(rec, req)
+	if rec.Code == http.StatusOK {
+		t.Fatal("the reconciliation view must expose no write surface")
+	}
+}
+
+// TestAdminCommerceReconciliationEventsScopeAndFilters proves scope=all widens
+// to clean settlements and an exact outcome narrows to that outcome alone.
+func TestAdminCommerceReconciliationEventsScopeAndFilters(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newAdminCommerceTestRouter(t)
+	cookie := adminToken(t, tokenSvc, config.Admin2ID)
+
+	program, _ := seedPremiumProgram(t, tx, userRepo)
+	buyer := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	purchase := seedCompletedPurchase(t, tx, buyer.ID, program.ID, false)
+	seedReconciliationEvent(t, tx, purchase.ID, "stripe", "evt-open", models.ReconciliationOutcomeProviderUncertain)
+	seedReconciliationEvent(t, tx, purchase.ID, "paypal", "evt-clean", models.ReconciliationOutcomeCompleted)
+
+	rec, data, raw := adminCommerceRequest(router, cookie, http.MethodGet, adminCommerceEventsRoute+"?scope=all")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if len(data["events"].([]any)) != 2 {
+		t.Fatalf("expected scope=all to include clean settlements: %s", raw)
+	}
+
+	rec, data, raw = adminCommerceRequest(router, cookie, http.MethodGet, adminCommerceEventsRoute+"?scope=all&outcome="+models.ReconciliationOutcomeCompleted)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	events := data["events"].([]any)
+	if len(events) != 1 || events[0].(map[string]any)["outcome"] != models.ReconciliationOutcomeCompleted {
+		t.Fatalf("expected the exact outcome to win over scope: %s", raw)
+	}
+}
+
+// TestAdminCommerceReconciliationEventsValidation proves malformed filters are
+// rejected before any database access.
+func TestAdminCommerceReconciliationEventsValidation(t *testing.T) {
+	router, _, _, tokenSvc := newAdminCommerceTestRouter(t)
+	cookie := adminToken(t, tokenSvc, config.Admin2ID)
+
+	for _, query := range []string{
+		"?outcome=admin_forced_paid",
+		"?provider=bitcoin",
+	} {
+		rec, raw := adminUsersRequest(router, cookie, http.MethodGet, adminCommerceEventsRoute+query)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for %s, got %d (body: %s)", query, rec.Code, raw)
+		}
+	}
+}
+
+// TestAdminCommerceReconciliationEventsAuthorization proves the events view is
+// behind the commerce permission: a technical administrator without commerce
+// rights is rejected even for the reconciliation surface.
+func TestAdminCommerceReconciliationEventsAuthorization(t *testing.T) {
+	router, _, _, tokenSvc := newAdminCommerceTestRouter(t)
+	cookie := adminToken(t, tokenSvc, config.Admin1ID)
+
+	rec, raw := adminUsersRequest(router, cookie, http.MethodGet, adminCommerceEventsRoute)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d (body: %s)", rec.Code, raw)
 	}
 }

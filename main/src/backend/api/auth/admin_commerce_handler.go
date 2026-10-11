@@ -66,6 +66,22 @@ type adminSalesSummaryResponse struct {
 	ProgramsWithSales     int64 `json:"programs_with_sales"`
 }
 
+// adminReconciliationEventResponse is the safe representation of one durable
+// reconciliation diagnostic record. It carries the outcome code, the backend
+// provider, the provider event id needed to correlate the delivery with the
+// provider dashboards, and the resolved purchase in its existing safe shape.
+// Provider secrets, signatures and raw payloads are never exposed. There is
+// deliberately no write surface: an administrator can investigate a settlement
+// but never mark a payment successful by hand.
+type adminReconciliationEventResponse struct {
+	ID        string                `json:"id"`
+	Outcome   string                `json:"outcome"`
+	Provider  string                `json:"provider"`
+	EventID   string                `json:"event_id"`
+	CreatedAt time.Time             `json:"created_at"`
+	Purchase  adminPurchaseResponse `json:"purchase"`
+}
+
 // adminProgramSaleResponse aggregates the purchase counts and revenue of a
 // single program. RealSales is the completed non-test purchase count: Test
 // Mode purchases are reported separately and never inflate the real sales
@@ -139,6 +155,17 @@ func newAdminProgramSaleResponse(s *admin_commerce.ProgramSale) adminProgramSale
 		TestPurchases:     s.TestPurchases,
 		PendingPurchases:  s.PendingPurchases,
 		FailedPurchases:   s.FailedPurchases,
+	}
+}
+
+func newAdminReconciliationEventResponse(e *admin_commerce.ReconciliationEvent) adminReconciliationEventResponse {
+	return adminReconciliationEventResponse{
+		ID:        e.ID,
+		Outcome:   e.Outcome,
+		Provider:  e.Provider,
+		EventID:   e.EventID,
+		CreatedAt: e.CreatedAt,
+		Purchase:  newAdminPurchaseResponse(&e.Purchase),
 	}
 }
 
@@ -251,6 +278,57 @@ func (h *AdminCommerceHandler) ListProgramSales(c *gin.Context) {
 		"message": "Program sales retrieved successfully.",
 		"data": gin.H{
 			"sales": sales,
+			"pagination": gin.H{
+				"page":        result.Page,
+				"limit":       result.Limit,
+				"total":       result.Total,
+				"total_pages": totalPages(result.Total, result.Limit),
+			},
+		},
+	})
+}
+
+// ListReconciliationEvents returns one page of durable reconciliation events,
+// newest first. The view defaults to the "open" scope: only the outcomes that
+// require investigation, so the dashboard opens on what needs attention instead
+// of burying it under routine settlements. scope=all widens it to every outcome
+// and an exact outcome parameter narrows to that outcome alone. It is read-only
+// — no administrative action can mark a payment successful or bypass provider
+// verification.
+func (h *AdminCommerceHandler) ListReconciliationEvents(c *gin.Context) {
+	page, err := queryInt(c, "page", 1)
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+	limit, err := queryInt(c, "limit", 20)
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+
+	filter := admin_commerce.ReconciliationFilter{
+		Outcome:  c.Query("outcome"),
+		Provider: c.Query("provider"),
+		Open:     c.Query("scope") != "all",
+	}
+
+	result, err := h.service.ListReconciliationEvents(c.Request.Context(), filter, page, limit)
+	if err != nil {
+		h.respondError(c, err)
+		return
+	}
+
+	events := make([]adminReconciliationEventResponse, 0, len(result.Events))
+	for i := range result.Events {
+		events = append(events, newAdminReconciliationEventResponse(&result.Events[i]))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Reconciliation events retrieved successfully.",
+		"data": gin.H{
+			"events": events,
 			"pagination": gin.H{
 				"page":        result.Page,
 				"limit":       result.Limit,

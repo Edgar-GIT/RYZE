@@ -42,6 +42,11 @@ type ReconciliationEventRepository interface {
 	// a resolved verdict is immutable and survives any redelivery, so the
 	// history of a settlement is never overwritten by a duplicate probe.
 	Upsert(ctx context.Context, event *models.PurchaseReconciliationEvent) error
+	// Record is the ReconciliationOutcomeRecorder adapter consumed by the
+	// webhook layer: it persists one durable reconciliation verdict for a
+	// verified delivery. It is best-effort-friendly and returns only a
+	// persistence error.
+	Record(ctx context.Context, purchaseID, provider, eventID, outcome string) error
 	// ListAdmin returns one page of reconciliation events matching the filter,
 	// most recently recorded first, with the purchase, customer and program
 	// preloaded (all unscoped for historical accuracy), plus the total count.
@@ -54,6 +59,18 @@ type reconciliationEventRepository struct {
 
 func NewReconciliationEventRepository(db *gorm.DB) ReconciliationEventRepository {
 	return &reconciliationEventRepository{db: db}
+}
+
+// Record is the ReconciliationOutcomeRecorder adapter used by the webhook
+// layer: it derives a durable event record from the outcome arguments and
+// delegates to Upsert.
+func (r *reconciliationEventRepository) Record(ctx context.Context, purchaseID, provider, eventID, outcome string) error {
+	return r.Upsert(ctx, &models.PurchaseReconciliationEvent{
+		PurchaseID: purchaseID,
+		Provider:   provider,
+		EventID:    eventID,
+		Outcome:    outcome,
+	})
 }
 
 // Upsert persists one durable record of a verified provider delivery's outcome.
@@ -136,8 +153,13 @@ func (r *reconciliationEventRepository) ListAdmin(ctx context.Context, filter Ad
 	return events, total, nil
 }
 
-// applyReconciliationFilter applies the admin reconciliation WHERE clauses.
+// applyReconciliationFilter applies the admin reconciliation WHERE clauses:
+// an exact outcome always wins, otherwise the open scope restricts to the
+// outcomes that require investigation; the provider narrows either case.
 func applyReconciliationFilter(db *gorm.DB, filter AdminReconciliationFilter) *gorm.DB {
+	if filter.Provider != "" {
+		db = db.Where("provider = ?", filter.Provider)
+	}
 	if filter.Outcome != "" {
 		return db.Where("outcome = ?", filter.Outcome)
 	}
