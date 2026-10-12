@@ -73,14 +73,26 @@ var SetTypeValues = []string{"warmup", "working", "drop", "backoff", "failure"}
 
 // GenericProgramRepository is the data-access surface required by the generic
 // program service. It is the platform-owned counterpart of the trainer program
-// repository and never carries a trainer id.
+// repository and never carries a trainer id. Every operation takes an explicit
+// product family; the family is derived from the route the request arrived on,
+// never from client data.
 type GenericProgramRepository interface {
 	CreateFull(ctx context.Context, program *models.Program) error
-	UpdateFull(ctx context.Context, programID string, program *models.Program) error
-	FindByID(ctx context.Context, programID string) (*models.Program, error)
-	Search(ctx context.Context, filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error)
-	SoftDelete(ctx context.Context, programID string) error
-	Publish(ctx context.Context, programID string) error
+	UpdateFull(ctx context.Context, productType, programID string, program *models.Program) error
+	FindByID(ctx context.Context, productType, programID string) (*models.Program, error)
+	Search(ctx context.Context, productType string, filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error)
+	SoftDelete(ctx context.Context, productType, programID string) error
+	Publish(ctx context.Context, productType, programID string) error
+}
+
+// SupportedProductTypes is the closed list of platform-owned program families.
+// Every family-specific condition (public catalog scope, generic administration
+// scope, purchase prerequisite check, client rendering) must be updated for the
+// same set when a family is added or changed. premium_level_1 is included here
+// on purpose, and premium_level_2 is absent on purpose.
+var SupportedProductTypes = []string{
+	models.ProgramProductTypeGeneric,
+	models.ProgramProductTypePremiumLevel1,
 }
 
 // SetInput carries one prescription set of a workout exercise.
@@ -115,11 +127,14 @@ type WeekInput struct {
 	Workouts   []WorkoutInput
 }
 
-// ProgramInput is the full desired state of a generic program, used by both
-// create and update. Level is empty when unset; DurationWeeks and
-// FrequencyPerWeek are 0 when unset. String coercion of client identifiers is
-// deliberately absent: the hierarchy is always addressed by its server-owned
-// structural keys.
+// ProgramInput is the full desired state of a platform-owned program, used by
+// both create and update. The product family is deliberately not part of the
+// input: it is derived from the route (generic vs premium-level-1) and passed
+// as an explicit parameter, so a client can never choose which family a program
+// is created in. Level is empty when unset; DurationWeeks and FrequencyPerWeek
+// are 0 when unset. String coercion of client identifiers is deliberately
+// absent: the hierarchy is always addressed by its server-owned structural
+// keys.
 type ProgramInput struct {
 	Name             string
 	Description      string
@@ -193,14 +208,17 @@ type Week struct {
 	Workouts   []Workout
 }
 
-// Program is the safe metadata summary of a generic program. Platform ownership
-// is implicit: the owning trainer is never exposed.
+// Program is the safe metadata summary of a platform-owned program. Platform
+// ownership is implicit: the owning trainer is never exposed. ProductType
+// echoes the family (generic or premium_level_1) so the client never guesses
+// which lifecycle and prerequisite rules apply.
 type Program struct {
 	ID               string
 	Name             string
 	Description      string
 	Type             string
 	Status           string
+	ProductType      string
 	Level            *string
 	DurationWeeks    *int
 	FrequencyPerWeek *int
@@ -227,18 +245,21 @@ type ListProgramsResult struct {
 	Limit    int
 }
 
-// Service implements the platform-owned generic program flow. Authorization
-// (which administrator may operate) is enforced by the route middleware; the
-// platform ownership itself is guaranteed because every operation is scoped to
-// the generic (trainer_id IS NULL) state and never accepts a trainer id. This
-// service never knows about HTTP, Gin or the admin context.
+// Service implements the platform-owned program flow for exactly one product
+// family per instance. Authorization (which administrator may operate) is
+// enforced by the route middleware; the platform ownership itself is guaranteed
+// because every operation is scoped to the platform-owned (trainer_id IS NULL)
+// state and never accepts a trainer id. The product family is an explicit
+// parameter derived from the route the request arrived on; the service never
+// trusts a client-supplied family. This service never knows about HTTP, Gin or
+// the admin context.
 type Service interface {
-	CreateProgram(ctx context.Context, input ProgramInput) (*ProgramDetail, error)
-	ListPrograms(ctx context.Context, filter ProgramFilter, page, limit int) (ListProgramsResult, error)
-	GetProgram(ctx context.Context, programID string) (*ProgramDetail, error)
-	UpdateProgram(ctx context.Context, programID string, input ProgramInput) (*ProgramDetail, error)
-	PublishProgram(ctx context.Context, programID string) (Program, error)
-	DeleteProgram(ctx context.Context, programID string) error
+	CreateProgram(ctx context.Context, productType string, input ProgramInput) (*ProgramDetail, error)
+	ListPrograms(ctx context.Context, productType string, filter ProgramFilter, page, limit int) (ListProgramsResult, error)
+	GetProgram(ctx context.Context, productType, programID string) (*ProgramDetail, error)
+	UpdateProgram(ctx context.Context, productType, programID string, input ProgramInput) (*ProgramDetail, error)
+	PublishProgram(ctx context.Context, productType, programID string) (Program, error)
+	DeleteProgram(ctx context.Context, productType, programID string) error
 }
 
 type service struct {
@@ -250,27 +271,34 @@ func NewService(programs GenericProgramRepository, pricing config.PricingConfig)
 	return &service{programs: programs, pricing: pricing}
 }
 
-// CreateProgram creates a new platform-owned generic program together with its
-// full structure in a single transaction. A client-supplied trainer id is never
-// accepted: the program is always created with trainer_id NULL.
-func (s *service) CreateProgram(ctx context.Context, input ProgramInput) (*ProgramDetail, error) {
+// CreateProgram creates a new platform-owned program of the given product
+// family together with its full structure in a single transaction. A
+// client-supplied trainer id is never accepted: the program is always created
+// with trainer_id NULL.
+func (s *service) CreateProgram(ctx context.Context, productType string, input ProgramInput) (*ProgramDetail, error) {
+	if err := validateProductType(productType); err != nil {
+		return nil, err
+	}
 	if err := s.validateProgramInput(input); err != nil {
 		return nil, err
 	}
 
-	program := buildProgramModel(input)
+	program := buildProgramModel(productType, input)
 	if err := s.programs.CreateFull(ctx, program); err != nil {
 		if errors.Is(err, repositories.ErrExerciseNotFound) {
 			return nil, ErrExerciseNotFound
 		}
 		return nil, fmt.Errorf("failed to create generic program: %w", err)
 	}
-	return s.GetProgram(ctx, program.ID)
+	return s.GetProgram(ctx, productType, program.ID)
 }
 
-// ListPrograms returns one page of active generic programs narrowed by the
-// filter, plus the pagination metadata.
-func (s *service) ListPrograms(ctx context.Context, filter ProgramFilter, page, limit int) (ListProgramsResult, error) {
+// ListPrograms returns one page of active platform-owned programs of the given
+// product family narrowed by the filter, plus the pagination metadata.
+func (s *service) ListPrograms(ctx context.Context, productType string, filter ProgramFilter, page, limit int) (ListProgramsResult, error) {
+	if err := validateProductType(productType); err != nil {
+		return ListProgramsResult{}, err
+	}
 	page, limit, err := normalizePagination(page, limit)
 	if err != nil {
 		return ListProgramsResult{}, err
@@ -280,7 +308,7 @@ func (s *service) ListPrograms(ctx context.Context, filter ProgramFilter, page, 
 		return ListProgramsResult{}, err
 	}
 
-	models, total, err := s.programs.Search(ctx, repositories.GenericProgramFilter{
+	models, total, err := s.programs.Search(ctx, productType, repositories.GenericProgramFilter{
 		Query:            filter.Query,
 		Type:             filter.Type,
 		Level:            filter.Level,
@@ -298,14 +326,18 @@ func (s *service) ListPrograms(ctx context.Context, filter ProgramFilter, page, 
 	return ListProgramsResult{Programs: programs, Total: total, Page: page, Limit: limit}, nil
 }
 
-// GetProgram returns one active generic program with its complete structure. A
-// missing or soft-deleted program maps to ErrProgramNotFound.
-func (s *service) GetProgram(ctx context.Context, programID string) (*ProgramDetail, error) {
+// GetProgram returns one active platform-owned program of the given product
+// family with its complete structure. A missing, soft-deleted or
+// foreign-family program maps to ErrProgramNotFound.
+func (s *service) GetProgram(ctx context.Context, productType, programID string) (*ProgramDetail, error) {
+	if err := validateProductType(productType); err != nil {
+		return nil, err
+	}
 	if err := validateProgramID(programID); err != nil {
 		return nil, err
 	}
 
-	model, err := s.programs.FindByID(ctx, programID)
+	model, err := s.programs.FindByID(ctx, productType, programID)
 	if err != nil {
 		if errors.Is(err, repositories.ErrGenericProgramNotFound) {
 			return nil, ErrProgramNotFound
@@ -315,10 +347,14 @@ func (s *service) GetProgram(ctx context.Context, programID string) (*ProgramDet
 	return newProgramDetail(model), nil
 }
 
-// UpdateProgram reconciles an existing generic program with the full desired
-// structure in a single transaction, preserving the ids of reused structural
-// rows.
-func (s *service) UpdateProgram(ctx context.Context, programID string, input ProgramInput) (*ProgramDetail, error) {
+// UpdateProgram reconciles an existing platform-owned program of the given
+// product family with the full desired structure in a single transaction,
+// preserving the ids of reused structural rows. The family itself is never part
+// of the update, so a program can never be reclassified through an edit.
+func (s *service) UpdateProgram(ctx context.Context, productType, programID string, input ProgramInput) (*ProgramDetail, error) {
+	if err := validateProductType(productType); err != nil {
+		return nil, err
+	}
 	if err := validateProgramID(programID); err != nil {
 		return nil, err
 	}
@@ -326,8 +362,8 @@ func (s *service) UpdateProgram(ctx context.Context, programID string, input Pro
 		return nil, err
 	}
 
-	program := buildProgramModel(input)
-	if err := s.programs.UpdateFull(ctx, programID, program); err != nil {
+	program := buildProgramModel(productType, input)
+	if err := s.programs.UpdateFull(ctx, productType, programID, program); err != nil {
 		if errors.Is(err, repositories.ErrGenericProgramNotFound) {
 			return nil, ErrProgramNotFound
 		}
@@ -336,18 +372,22 @@ func (s *service) UpdateProgram(ctx context.Context, programID string, input Pro
 		}
 		return nil, fmt.Errorf("failed to update generic program: %w", err)
 	}
-	return s.GetProgram(ctx, programID)
+	return s.GetProgram(ctx, productType, programID)
 }
 
-// PublishProgram transitions a draft generic program to published. The
-// transition draft → published is the only allowed state change; publishing an
-// already published program returns ErrProgramAlreadyPublished.
-func (s *service) PublishProgram(ctx context.Context, programID string) (Program, error) {
+// PublishProgram transitions a draft platform-owned program of the given
+// product family to published. The transition draft → published is the only
+// allowed state change; publishing an already published program returns
+// ErrProgramAlreadyPublished.
+func (s *service) PublishProgram(ctx context.Context, productType, programID string) (Program, error) {
+	if err := validateProductType(productType); err != nil {
+		return Program{}, err
+	}
 	if err := validateProgramID(programID); err != nil {
 		return Program{}, err
 	}
 
-	model, err := s.programs.FindByID(ctx, programID)
+	model, err := s.programs.FindByID(ctx, productType, programID)
 	if err != nil {
 		if errors.Is(err, repositories.ErrGenericProgramNotFound) {
 			return Program{}, ErrProgramNotFound
@@ -366,14 +406,14 @@ func (s *service) PublishProgram(ctx context.Context, programID string) (Program
 		return Program{}, err
 	}
 
-	err = s.programs.Publish(ctx, programID)
+	err = s.programs.Publish(ctx, productType, programID)
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrGenericProgramNotFound):
 			// The repository returns ErrGenericProgramNotFound for missing,
-			// soft-deleted and already-published programs. Our pre-check
-			// already confirmed this is a draft; a concurrent change between
-			// the pre-check and the publish is reported as a conflict.
+			// soft-deleted, foreign-family and already-published programs. Our
+			// pre-check already confirmed this is a draft; a concurrent change
+			// between the pre-check and the publish is reported as a conflict.
 			return Program{}, ErrProgramAlreadyPublished
 		default:
 			return Program{}, fmt.Errorf("failed to publish generic program: %w", err)
@@ -384,14 +424,18 @@ func (s *service) PublishProgram(ctx context.Context, programID string) (Program
 	return newProgramSummary(model), nil
 }
 
-// DeleteProgram soft-deletes one active generic program. Only the program row
-// is touched and it is never removed from the database.
-func (s *service) DeleteProgram(ctx context.Context, programID string) error {
+// DeleteProgram soft-deletes one active platform-owned program of the given
+// product family. Only the program row is touched and it is never removed from
+// the database.
+func (s *service) DeleteProgram(ctx context.Context, productType, programID string) error {
+	if err := validateProductType(productType); err != nil {
+		return err
+	}
 	if err := validateProgramID(programID); err != nil {
 		return err
 	}
 
-	if err := s.programs.SoftDelete(ctx, programID); err != nil {
+	if err := s.programs.SoftDelete(ctx, productType, programID); err != nil {
 		if errors.Is(err, repositories.ErrGenericProgramNotFound) {
 			return ErrProgramNotFound
 		}
@@ -529,8 +573,10 @@ func (s *service) normalizeFilter(filter ProgramFilter) (ProgramFilter, error) {
 
 // buildProgramModel maps the validated input into the model tree handed to the
 // repository. Optional fields map to nil pointers so the nullable columns stay
-// NULL when unset.
-func buildProgramModel(input ProgramInput) *models.Program {
+// NULL when unset. The product family comes from the route and is stamped onto
+// the model; the model hook defaults an empty family to generic, but the family
+// is never empty here because every caller has validated it first.
+func buildProgramModel(productType string, input ProgramInput) *models.Program {
 	var level *string
 	if strings.TrimSpace(input.Level) != "" {
 		v := strings.TrimSpace(input.Level)
@@ -557,6 +603,7 @@ func buildProgramModel(input ProgramInput) *models.Program {
 		Description:      input.Description,
 		Type:             input.Type,
 		Status:           strings.TrimSpace(input.Status),
+		ProductType:      productType,
 		Level:            level,
 		DurationWeeks:    duration,
 		FrequencyPerWeek: frequency,
@@ -616,6 +663,7 @@ func newProgramSummary(model *models.Program) Program {
 		Description:      model.Description,
 		Type:             model.Type,
 		Status:           model.Status,
+		ProductType:      model.ProductType,
 		Level:            model.Level,
 		DurationWeeks:    model.DurationWeeks,
 		FrequencyPerWeek: model.FrequencyPerWeek,
@@ -741,6 +789,19 @@ func validateType(programType string) error {
 	default:
 		return fmt.Errorf("%w: invalid program type", ErrInvalidInput)
 	}
+}
+
+// validateProductType restricts platform-owned program families to the closed
+// SupportedProductTypes list. premium_level_2 is not implemented and is never
+// accepted here; it is absent from the database product_type CHECK constraint
+// on purpose.
+func validateProductType(productType string) error {
+	for _, supported := range SupportedProductTypes {
+		if productType == supported {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: unsupported product type", ErrInvalidInput)
 }
 
 func validateStatus(status string) error {

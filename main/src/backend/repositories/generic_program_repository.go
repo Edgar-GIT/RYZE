@@ -30,78 +30,90 @@ type GenericProgramFilter struct {
 }
 
 // GenericProgramRepository defines the data-access operations for the
-// platform-owned (generic) program entity. A generic program is identified by
-// product_type = 'generic': a platform-owned Premium Level 1 program is not a
-// generic program and is never managed through these endpoints.
+// platform-owned program entity. Platform-owned programs carry trainer_id NULL
+// and are managed exclusively by an authorized administrator; every operation
+// is additionally scoped to exactly one product family (product_type):
+// 'generic' or 'premium_level_1'. A platform-owned Premium Level 1 program is
+// therefore never reachable through the generic scope and vice versa, so family
+// isolation is enforced by the data-access layer, not only by the service.
 //
-// trainer_id IS NULL: it is owned by no trainer and is managed exclusively by
-// an authorized administrator. Every query is scoped to that NULL owner so a
-// trainer-owned program can never be reached or mutated through this surface.
-// Soft-deleted rows are excluded from regular queries through GORM's default
-// scope.
+// Every query is scoped to the NULL owner so a trainer-owned program can never
+// be reached or mutated through this surface. Soft-deleted rows are excluded
+// from regular queries through GORM's default scope.
 type GenericProgramRepository interface {
-	// CreateFull persists a generic program together with its full structure
-	// (weeks → workouts → workout exercises → sets) in a single transaction.
-	// The trainer id is always left NULL; a client-supplied trainer id is never
-	// accepted.
+	// CreateFull persists a platform-owned program together with its full
+	// structure (weeks → workouts → workout exercises → sets) in a single
+	// transaction. The trainer id is always left NULL; a client-supplied
+	// trainer id is never accepted. The product family is taken from the
+	// program model and must already be validated by the caller.
 	CreateFull(ctx context.Context, program *models.Program) error
-	// UpdateFull reconciles the full structure of an existing generic program
-	// with the provided desired state inside a single transaction. Children are
-	// matched pairwise by their ordering key (week_number, position,
-	// set_number): reused rows keep their ids and are updated in place, missing
-	// rows are created, and rows beyond the desired range are soft-deleted.
-	UpdateFull(ctx context.Context, programID string, program *models.Program) error
-	// FindByID returns one active generic program with its complete nested
-	// structure, ordered deterministically.
-	FindByID(ctx context.Context, programID string) (*models.Program, error)
-	// Search returns one page of active generic programs narrowed by the
-	// filter, plus the total count. Results are ordered by creation time
-	// (newest first) with the id as a deterministic tie-breaker.
-	Search(ctx context.Context, filter GenericProgramFilter, page, limit int) ([]models.Program, int64, error)
-	// SoftDelete soft-deletes one active generic program. Only the program row
-	// is touched; it is never removed from the database.
-	SoftDelete(ctx context.Context, programID string) error
-	// Publish transitions a draft generic program to published through a
-	// conditional update; missing, soft-deleted or already published programs
-	// map to ErrGenericProgramNotFound.
-	Publish(ctx context.Context, programID string) error
+	// UpdateFull reconciles the full structure of an existing platform-owned
+	// program with the provided desired state inside a single transaction,
+	// scoped to one product family. Children are matched pairwise by their
+	// ordering key (week_number, position, set_number): reused rows keep their
+	// ids and are updated in place, missing rows are created, and rows beyond
+	// the desired range are soft-deleted. The product family column is never
+	// part of the update, so a program can never be reclassified through an
+	// edit.
+	UpdateFull(ctx context.Context, productType, programID string, program *models.Program) error
+	// FindByID returns one active platform-owned program of the given product
+	// family with its complete nested structure, ordered deterministically.
+	FindByID(ctx context.Context, productType, programID string) (*models.Program, error)
+	// Search returns one page of active platform-owned programs of the given
+	// product family narrowed by the filter, plus the total count. Results are
+	// ordered by creation time (newest first) with the id as a deterministic
+	// tie-breaker.
+	Search(ctx context.Context, productType string, filter GenericProgramFilter, page, limit int) ([]models.Program, int64, error)
+	// SoftDelete soft-deletes one active platform-owned program of the given
+	// product family. Only the program row is touched; it is never removed from
+	// the database.
+	SoftDelete(ctx context.Context, productType, programID string) error
+	// Publish transitions a draft platform-owned program of the given product
+	// family to published through a conditional update; missing, soft-deleted,
+	// foreign-family or already published programs map to
+	// ErrGenericProgramNotFound.
+	Publish(ctx context.Context, productType, programID string) error
 }
 
 type genericProgramRepository struct {
 	db *gorm.DB
 }
 
-// genericScope applies both conditions that define generic-program management to
-// a single-program query. Both are required: ownership alone is not enough,
-// because a platform-owned Premium Level 1 program also has trainer_id NULL and
-// must stay out of reach here, as the questionnaire prerequisite and the
-// nutrition lifecycle only apply to it.
+// genericScope applies both conditions that define platform-owned program
+// management to a single-program query. Both are required: ownership alone is
+// not enough, because a trainer-owned program that happens to share the product
+// family must stay out of reach here, just as a platform-owned program of
+// another family must. The product family parameter is supplied by the caller
+// (the route the request arrived on), so the scope is always explicit and never
+// derived from client data.
 //
 // The two conditions are separate Where calls on purpose. A single combined
 // placeholder string would have to be arity-matched exactly, and a mismatch is
 // silently absorbed by the LIMIT placeholder that First adds, which binds an id
 // to the wrong column instead of failing loudly.
-func genericScope(db *gorm.DB, programID string) *gorm.DB {
+func genericScope(db *gorm.DB, productType, programID string) *gorm.DB {
 	return db.Where("trainer_id IS NULL AND id = ?", programID).
-		Where("product_type = ?", models.ProgramProductTypeGeneric)
+		Where("product_type = ?", productType)
 }
 
 // genericListScope applies the same two conditions to a multi-row query, which
 // has no id to bind.
-func genericListScope(db *gorm.DB) *gorm.DB {
+func genericListScope(db *gorm.DB, productType string) *gorm.DB {
 	return db.Where("trainer_id IS NULL").
-		Where("product_type = ?", models.ProgramProductTypeGeneric)
+		Where("product_type = ?", productType)
 }
 
 func NewGenericProgramRepository(db *gorm.DB) GenericProgramRepository {
 	return &genericProgramRepository{db: db}
 }
 
-// CreateFull persists the generic program and its full structure in one
+// CreateFull persists a platform-owned program and its full structure in one
 // transaction. The trainer id is deliberately omitted from the INSERT so the
 // platform-owned (trainer_id NULL) invariant is enforced by the database
 // itself, never by trusting a client-supplied value. Nested children are
 // created with their explicit parent ids so every level lands deterministically.
+// The product family is read from the program model, whose value the service
+// has already validated against the supported families.
 func (r *genericProgramRepository) CreateFull(ctx context.Context, program *models.Program) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := verifyCatalogExercises(tx, catalogExerciseIDs(program.Weeks)); err != nil {
@@ -117,14 +129,16 @@ func (r *genericProgramRepository) CreateFull(ctx context.Context, program *mode
 	})
 }
 
-// UpdateFull reconciles an existing generic program with the desired structure
-// in one transaction. Bespoke exercises are matched pairwise by their ordering
-// keys: reused children keep their row ids and are updated in place while the
-// parent row itself is locked, so concurrent edits are serialized.
-func (r *genericProgramRepository) UpdateFull(ctx context.Context, programID string, program *models.Program) error {
+// UpdateFull reconciles an existing platform-owned program of the given product
+// family with the desired structure in one transaction. The product_type column
+// is never written, so an edit can never reclassify a program. Bespoke
+// exercises are matched pairwise by their ordering keys: reused children keep
+// their row ids and are updated in place while the parent row itself is locked,
+// so concurrent edits are serialized.
+func (r *genericProgramRepository) UpdateFull(ctx context.Context, productType, programID string, program *models.Program) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var existing models.Program
-		if err := genericScope(tx.Clauses(clause.Locking{Strength: "UPDATE"}), programID).
+		if err := genericScope(tx.Clauses(clause.Locking{Strength: "UPDATE"}), productType, programID).
 			First(&existing).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrGenericProgramNotFound
@@ -136,7 +150,7 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, programID str
 			return err
 		}
 
-		if err := genericScope(tx.Model(&models.Program{}), programID).
+		if err := genericScope(tx.Model(&models.Program{}), productType, programID).
 			Updates(map[string]any{
 				"name":               program.Name,
 				"description":        program.Description,
@@ -173,12 +187,13 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, programID str
 	})
 }
 
-// FindByID returns one active generic program with its full nested structure
-// preloaded in deterministic order (weeks by week_number, workouts and workout
-// exercises by position, sets by set_number).
-func (r *genericProgramRepository) FindByID(ctx context.Context, programID string) (*models.Program, error) {
+// FindByID returns one active platform-owned program of the given product
+// family with its full nested structure preloaded in deterministic order (weeks
+// by week_number, workouts and workout exercises by position, sets by
+// set_number).
+func (r *genericProgramRepository) FindByID(ctx context.Context, productType, programID string) (*models.Program, error) {
 	var program models.Program
-	err := genericScope(r.db.WithContext(ctx), programID).
+	err := genericScope(r.db.WithContext(ctx), productType, programID).
 		Preload("Weeks", orderedWeek()).
 		Preload("Weeks.Workouts", orderedByPosition()).
 		Preload("Weeks.Workouts.Exercises", orderedByPosition()).
@@ -194,12 +209,12 @@ func (r *genericProgramRepository) FindByID(ctx context.Context, programID strin
 	return &program, nil
 }
 
-// Search returns one page of active generic programs narrowed by the filter.
-// The name query uses case-insensitive LIKE with escaped wildcards against both
-// name and description; empty filter values are ignored. Ordering is
-// deterministic: newest first, then id.
-func (r *genericProgramRepository) Search(ctx context.Context, filter GenericProgramFilter, page, limit int) ([]models.Program, int64, error) {
-	query := genericListScope(r.db.WithContext(ctx).Model(&models.Program{}))
+// Search returns one page of active platform-owned programs of the given
+// product family narrowed by the filter. The name query uses case-insensitive
+// LIKE with escaped wildcards against both name and description; empty filter
+// values are ignored. Ordering is deterministic: newest first, then id.
+func (r *genericProgramRepository) Search(ctx context.Context, productType string, filter GenericProgramFilter, page, limit int) ([]models.Program, int64, error) {
+	query := genericListScope(r.db.WithContext(ctx).Model(&models.Program{}), productType)
 
 	if strings.TrimSpace(filter.Query) != "" {
 		escaped := escapeSQLLike(strings.TrimSpace(filter.Query))
@@ -237,12 +252,13 @@ func (r *genericProgramRepository) Search(ctx context.Context, filter GenericPro
 	return programs, total, nil
 }
 
-// SoftDelete soft-deletes one active generic program. Only the program row is
-// touched; children become unreachable through the program scope and are never
-// removed. An unknown, soft-deleted, trainer-owned or non-generic program is
-// indistinguishable and maps to ErrGenericProgramNotFound.
-func (r *genericProgramRepository) SoftDelete(ctx context.Context, programID string) error {
-	result := genericScope(r.db.WithContext(ctx), programID).
+// SoftDelete soft-deletes one active platform-owned program of the given
+// product family. Only the program row is touched; children become unreachable
+// through the program scope and are never removed. An unknown, soft-deleted,
+// trainer-owned or foreign-family program is indistinguishable and maps to
+// ErrGenericProgramNotFound.
+func (r *genericProgramRepository) SoftDelete(ctx context.Context, productType, programID string) error {
+	result := genericScope(r.db.WithContext(ctx), productType, programID).
 		Delete(&models.Program{})
 	if result.Error != nil {
 		return fmt.Errorf("failed to soft delete generic program: %w", result.Error)
@@ -253,15 +269,15 @@ func (r *genericProgramRepository) SoftDelete(ctx context.Context, programID str
 	return nil
 }
 
-// Publish transitions a draft generic program to published through a
-// conditional update scoped to the generic (platform-owned, generic product
-// family) state. The
+// Publish transitions a draft platform-owned program of the given product
+// family to published through a conditional update scoped to the platform-owned
+// state of that family. The
 // WHERE clause enforces status = 'draft' so the operation is idempotent and
 // race-safe; a zero RowsAffected result maps to ErrGenericProgramNotFound,
-// which covers missing, soft-deleted, foreign and already-published in a single
-// indistinguishable domain error that the caller may disambiguate.
-func (r *genericProgramRepository) Publish(ctx context.Context, programID string) error {
-	result := genericScope(r.db.WithContext(ctx).Model(&models.Program{}), programID).
+// which covers missing, soft-deleted, foreign-family and already-published in a
+// single indistinguishable domain error that the caller may disambiguate.
+func (r *genericProgramRepository) Publish(ctx context.Context, productType, programID string) error {
+	result := genericScope(r.db.WithContext(ctx).Model(&models.Program{}), productType, programID).
 		Where("status = ?", models.ProgramStatusDraft).
 		Update("status", models.ProgramStatusPublished)
 	if result.Error != nil {

@@ -11,14 +11,18 @@ import (
 )
 
 // genericProgramResponse exposes only safe program metadata of a
-// platform-owned generic program. The owning trainer is never exposed (generic
-// programs are always platform-owned) and deletion markers are never returned.
+// platform-owned program. The owning trainer is never exposed (platform-owned
+// programs always have trainer_id NULL) and deletion markers are never
+// returned. ProductType tells the client which product family the program
+// belongs to (generic or premium_level_1), so it never renders a program under
+// the wrong lifecycle and prerequisite rules.
 type genericProgramResponse struct {
 	ID               string    `json:"id"`
 	Name             string    `json:"name"`
 	Description      string    `json:"description"`
 	Type             string    `json:"type"`
 	Status           string    `json:"status"`
+	ProductType      string    `json:"product_type"`
 	Level            *string   `json:"level"`
 	DurationWeeks    *int      `json:"duration_weeks"`
 	FrequencyPerWeek *int      `json:"frequency_per_week"`
@@ -36,6 +40,7 @@ func newGenericProgramResponse(program generic_programs.Program) genericProgramR
 		Description:      program.Description,
 		Type:             program.Type,
 		Status:           program.Status,
+		ProductType:      program.ProductType,
 		Level:            program.Level,
 		DurationWeeks:    program.DurationWeeks,
 		FrequencyPerWeek: program.FrequencyPerWeek,
@@ -256,22 +261,30 @@ func toGenericProgramInput(req *genericProgramRequest) generic_programs.ProgramI
 	return input
 }
 
-// GenericProgramsHandler exposes the platform-managed generic program CRUD and
+// GenericProgramsHandler exposes the platform-managed program CRUD and
 // lifecycle operations for administrators. Authorization (which administrator
 // role may operate) is enforced by the AdminAuthenticate and
 // RequireAdminPermission middleware mounted on the routes; this handler never
-// performs authorization itself and never accepts a trainer id, because generic
-// programs are always platform-owned (trainer_id NULL).
+// performs authorization itself and never accepts a trainer id, because
+// platform-owned programs always have trainer_id NULL.
+//
+// The handler is bound to exactly one product family at construction time (the
+// route group it is mounted on). Every request is executed against that family
+// and the client is never allowed to choose a family: a program created through
+// the generic group is always generic, and one created through the
+// premium-level-1 group is always premium_level_1. The family is therefore
+// server-authoritative and cannot be smuggled through the request body.
 type GenericProgramsHandler struct {
-	service generic_programs.Service
+	service     generic_programs.Service
+	productType string
 }
 
-func NewGenericProgramsHandler(svc generic_programs.Service) *GenericProgramsHandler {
-	return &GenericProgramsHandler{service: svc}
+func NewGenericProgramsHandler(svc generic_programs.Service, productType string) *GenericProgramsHandler {
+	return &GenericProgramsHandler{service: svc, productType: productType}
 }
 
-// CreateProgram creates a new platform-owned generic program with its full
-// structure in a single transaction.
+// CreateProgram creates a new platform-owned program of the bound product
+// family with its full structure in a single transaction.
 func (h *GenericProgramsHandler) CreateProgram(c *gin.Context) {
 	var req genericProgramRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -279,7 +292,7 @@ func (h *GenericProgramsHandler) CreateProgram(c *gin.Context) {
 		return
 	}
 
-	program, err := h.service.CreateProgram(c.Request.Context(), toGenericProgramInput(&req))
+	program, err := h.service.CreateProgram(c.Request.Context(), h.productType, toGenericProgramInput(&req))
 	if err != nil {
 		h.respondGenericProgramsError(c, err)
 		return
@@ -287,13 +300,14 @@ func (h *GenericProgramsHandler) CreateProgram(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
-		"message": "Generic program created successfully.",
+		"message": "Program created successfully.",
 		"data":    newGenericProgramDetailResponse(program),
 	})
 }
 
-// ListPrograms returns one page of active generic programs narrowed by the
-// optional search query and type/level/duration/frequency filters.
+// ListPrograms returns one page of active platform-owned programs of the bound
+// product family narrowed by the optional search query and
+// type/level/duration/frequency filters.
 func (h *GenericProgramsHandler) ListPrograms(c *gin.Context) {
 	page, err := queryInt(c, "page", 1)
 	if err != nil {
@@ -316,7 +330,7 @@ func (h *GenericProgramsHandler) ListPrograms(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ListPrograms(c.Request.Context(), generic_programs.ProgramFilter{
+	result, err := h.service.ListPrograms(c.Request.Context(), h.productType, generic_programs.ProgramFilter{
 		Query:            c.Query("search"),
 		Type:             c.Query("type"),
 		Level:            c.Query("level"),
@@ -336,7 +350,7 @@ func (h *GenericProgramsHandler) ListPrograms(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Generic programs retrieved successfully.",
+		"message": "Programs retrieved successfully.",
 		"data": gin.H{
 			"programs": programs,
 			"pagination": gin.H{
@@ -349,9 +363,10 @@ func (h *GenericProgramsHandler) ListPrograms(c *gin.Context) {
 	})
 }
 
-// GetProgram returns one active generic program with its complete structure.
+// GetProgram returns one active platform-owned program of the bound product
+// family with its complete structure.
 func (h *GenericProgramsHandler) GetProgram(c *gin.Context) {
-	program, err := h.service.GetProgram(c.Request.Context(), c.Param("programID"))
+	program, err := h.service.GetProgram(c.Request.Context(), h.productType, c.Param("programID"))
 	if err != nil {
 		h.respondGenericProgramsError(c, err)
 		return
@@ -359,13 +374,13 @@ func (h *GenericProgramsHandler) GetProgram(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Generic program retrieved successfully.",
+		"message": "Program retrieved successfully.",
 		"data":    newGenericProgramDetailResponse(program),
 	})
 }
 
-// UpdateProgram reconciles an existing generic program with the full desired
-// structure in a single transaction.
+// UpdateProgram reconciles an existing platform-owned program of the bound
+// product family with the full desired structure in a single transaction.
 func (h *GenericProgramsHandler) UpdateProgram(c *gin.Context) {
 	var req genericProgramRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -373,7 +388,7 @@ func (h *GenericProgramsHandler) UpdateProgram(c *gin.Context) {
 		return
 	}
 
-	program, err := h.service.UpdateProgram(c.Request.Context(), c.Param("programID"), toGenericProgramInput(&req))
+	program, err := h.service.UpdateProgram(c.Request.Context(), h.productType, c.Param("programID"), toGenericProgramInput(&req))
 	if err != nil {
 		h.respondGenericProgramsError(c, err)
 		return
@@ -381,14 +396,15 @@ func (h *GenericProgramsHandler) UpdateProgram(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Generic program updated successfully.",
+		"message": "Program updated successfully.",
 		"data":    newGenericProgramDetailResponse(program),
 	})
 }
 
-// PublishProgram transitions a draft generic program to published.
+// PublishProgram transitions a draft platform-owned program of the bound
+// product family to published.
 func (h *GenericProgramsHandler) PublishProgram(c *gin.Context) {
-	program, err := h.service.PublishProgram(c.Request.Context(), c.Param("programID"))
+	program, err := h.service.PublishProgram(c.Request.Context(), h.productType, c.Param("programID"))
 	if err != nil {
 		h.respondGenericProgramsError(c, err)
 		return
@@ -396,14 +412,15 @@ func (h *GenericProgramsHandler) PublishProgram(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Generic program published successfully.",
+		"message": "Program published successfully.",
 		"data":    newGenericProgramResponse(program),
 	})
 }
 
-// DeleteProgram soft-deletes one active generic program.
+// DeleteProgram soft-deletes one active platform-owned program of the bound
+// product family.
 func (h *GenericProgramsHandler) DeleteProgram(c *gin.Context) {
-	err := h.service.DeleteProgram(c.Request.Context(), c.Param("programID"))
+	err := h.service.DeleteProgram(c.Request.Context(), h.productType, c.Param("programID"))
 	if err != nil {
 		h.respondGenericProgramsError(c, err)
 		return
@@ -411,7 +428,7 @@ func (h *GenericProgramsHandler) DeleteProgram(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Generic program deleted successfully.",
+		"message": "Program deleted successfully.",
 		"data":    gin.H{},
 	})
 }
@@ -429,7 +446,7 @@ func (h *GenericProgramsHandler) respondGenericProgramsError(c *gin.Context, err
 	case errors.Is(err, generic_programs.ErrDuplicateExercise):
 		RespondError(c, http.StatusConflict, "DUPLICATE_EXERCISE", "The same exercise cannot appear more than once in a workout.", nil)
 	case errors.Is(err, generic_programs.ErrProgramAlreadyPublished):
-		RespondError(c, http.StatusConflict, "PROGRAM_ALREADY_PUBLISHED", "Generic program is already published.", nil)
+		RespondError(c, http.StatusConflict, "PROGRAM_ALREADY_PUBLISHED", "Program is already published.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}

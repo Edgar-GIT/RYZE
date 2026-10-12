@@ -1325,6 +1325,20 @@ Pages implemented in the current cycle:
   query parameter as a deep link from the plan detail: it pre-selects the
   program filter on mount and guarantees that program appears in the dropdown
   even when it falls outside the top-100 option list.
+- **ADMIN_2 Sales Reconciliation** — the settlement audit section on the Sales
+  page backed by `GET /admin/purchases/reconciliation-events`
+  (Management Administrator only, read-only). A scope select (Needs attention —
+  the default, hiding resolved settlements — vs Complete trail) and an outcome
+  select (All outcomes plus each recorded outcome code, client-owned wording:
+  transient failure, uncertain delivery, amount/currency/method/reference
+  mismatch, late approval, entitlement integrity), an accessible events table
+  (outcome badge with settled/needs-attention/rejected tone, program + customer
+  with a Test marker, currency-formatted amount, provider, provider event id in
+  mono, recorded date, and a View action opening the same purchase detail modal
+  as the transactions table) with loading / error+retry / empty states and
+  pagination. The section is visibility-only: no action on an event can modify a
+  purchase, entitlement or outcome, and provider event ids are displayed as
+  opaque identifiers never passed anywhere.
 - **ADMIN_2 Feedback** — honest unavailable state: feedback is not part of the
   product scope yet, so the page explains the gap instead of fabricating data.
 - **ADMIN_2 Analytics** — real aggregates (total accounts, product mix, average

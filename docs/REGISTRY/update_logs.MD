@@ -1,3 +1,90 @@
+# Version 2.86.0
+
+Title: Commerce integrity, durable reconciliation diagnostics and read-only administrative visibility — every verified settlement leaves an immutable audit record
+
+Date: 2026-10-12
+
+Summary:
+
+v2.86.0 hardens the settlement audit and gives the Management Administrator a
+read-only reconciliation view. One direct migration (`000028`) recording every
+verified provider webhook delivery, the webhook layers answering permanent
+mismatches with 200 plus a durable outcome, and a read-only
+`/admin/purchases/reconciliation-events` surface (ADMIN_2, `commerce`
+permission only) were added. No refund, regeneration, Premium Level 2 or new
+payment provider surface was introduced; reconciliation logic, the single-pending
+guarantee, Test Mode, Premium Level 1 privacy and the Generic checkout are
+unchanged. Schema version moves to `28`.
+
+Every verified webhook delivery is now durably recorded. Each Stripe or PayPal
+event that passes verification writes one row to
+`purchase_reconciliation_events`, keyed by `(provider, event_id)`, stamped with a
+closed outcome vocabulary (15 codes). Recording is best-effort observability: a
+persistence failure never changes the HTTP verdict and never decides whether a
+purchase completes. Outcomes are immutable once resolved — only the provisional
+codes (`transient_failure`, `provider_uncertain`) may be overwritten by a later
+redelivery of the same event — so a provider retry can never flip a settled fact
+and duplicate deliveries stay idempotent.
+
+Permanent contract mismatches and Test Mode bounds are answered 200 and recorded
+instead of returned as 500. An amount, currency, payment method or reference
+mismatch can never settle the purchase, so retrying is pointless: RYZE now
+acknowledges with 200, records the outcome (`amount_mismatch`,
+`currency_mismatch`, `method_mismatch`, `reference_mismatch`,
+`permanent_invalid`, `test_purchase_event`), and lets the provider stop
+redelivering while the administrative view preserves the diagnostic. 500 remains
+only for transient failures and integrity violations so the provider genuinely
+retries.
+
+Administrative visibility without a write surface. `GET
+/admin/purchases/reconciliation-events` (ADMIN_2, `commerce` permission, route
+published before `/purchases/:id`) returns the audit trail newest-first with
+scope (`open` default — resolved settlements hidden — vs `all`), optional exact
+`outcome` and `provider` filters. It is read-only: no endpoint can change a
+purchase, an entitlement or an event, and it exposes no decision a browser can
+take — recovery stays server-side. The response never projects user ids,
+`failure_reason`, secrets, raw payloads or any revenue/commission breakdown. The
+frontend Sales page adds the Reconciliation section: scope + outcome selects,
+an outcome-badged events table, pagination, loading / error+retry / empty states
+and the shared purchase detail modal — visibility only, with client-owned
+wording for every outcome code.
+
+Main changes:
+
+- Migration: `000028_create_purchase_reconciliation_events` (applied, DB at
+  version `28`, `dirty=false`) adds the audit table, `(provider, event_id)`
+  unique index and helper indexes; down drops it. The pre-existing `000025`
+  `down` migration remains broken on MariaDB (error 1064), documented and
+  unrelated.
+- Model: `PurchaseReconciliationEvent` with the closed outcome vocabulary,
+  provisional/resolved helpers and `IsValidReconciliationOutcome`.
+- Repository: `reconciliation_event_repository.go` adds `Upsert`
+  (final-outcomes-immutable upsert), `Record` (the webhook
+  `ReconciliationOutcomeRecorder` adapter) and `ListAdmin` (outcome, provider
+  and open/all scope filters, unscoped purchase preload, safe projection without
+  `failure_reason`).
+- Webhooks: shared outcome recorder thread through both handlers; Stripe and
+  PayPal record every outcome, return 200 on permanent mismatches and Test Mode
+  bounds, 500 only on transient/integrity failures, and stay best-effort on
+  persistence errors.
+- Admin commerce: `ListReconciliationEvents` service method + validated filter,
+  handler, DTO and route before `/purchases/:id`; ADMIN_1 forbidden, ADMIN_2
+  `commerce` only.
+- Tests: webhook recorder + permanent-mismatch/200 suites for both providers,
+  events repository suite (provisional overwrite, immutable finals, filters,
+  validation), admin endpoint suite (scope, filters, 400s, authorization, lean
+  projections), real-DB concurrency suites (reconcile and complete, single
+  winner under `-count=3`).
+- Frontend: `admin2_api.ts` adds reconciliation types, outcome metadata with
+  client-owned wording and the events fetcher; the Sales page adds the
+  read-only Reconciliation section (types, tests and typecheck/build pass).
+- Docs: `api.MD` (endpoint contract + outcome vocabulary + webhook
+  semantics), `security.MD` (recording best-effort, immutability, read-only
+  surface, lean projections), `project.MD`, `database.MD` (table + migration
+  `000028`) and `design.MD` (Reconciliation section) updated.
+
+---
+
 # Version 2.85.0
 
 Title: Payment reconciliation, single pending intent and webhook settlement durability — late verified payments are never discarded

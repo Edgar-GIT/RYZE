@@ -88,6 +88,13 @@ persisted, diagnosable recovery state; a verified approval that never moved any
 money is never captured. No event can revert a completed purchase and no refund
 workflow exists.
 
+Every verified webhook delivery is durably recorded in
+`purchase_reconciliation_events` with an immutable outcome code (visibility for
+the Management Administrator only, never a client surface), so provider retries
+are both honest and idempotent and the settlement trail survives without relying
+on logs. Permanent mismatches and Test Mode bounds are answered 200 and
+recorded — the provider stops redelivering and the diagnostic is preserved.
+
 ---
 
 # Team
@@ -335,12 +342,16 @@ Trainer application review (list, view, approve and reject, under
 backend foundation shared by **both** administrators, matching the operational
 responsibility of approving trainer applications.
 
-The admin sales view (list purchases, purchase details and per-program sales
-under `GET /api/v1/admin/purchases*`) is implemented as a backend foundation
-exclusive to the Management Administrator under the `commerce` permission. It
-is read-only and reports revenue from completed non-test purchases; Test Mode
-purchases are accounted separately. The Technical Administrator holds no
-commerce permission.
+The admin sales view (list purchases, purchase details, per-program sales and
+reconciliation events under `GET /api/v1/admin/purchases*`) is implemented as a
+backend foundation exclusive to the Management Administrator under the
+`commerce` permission. It is read-only and reports revenue from completed
+non-test purchases; Test Mode purchases are accounted separately. The Technical
+Administrator holds no commerce permission. The reconciliation events surface
+(`GET /admin/purchases/reconciliation-events`) is visibility-only: it shows the
+durable, immutable outcome each verified webhook delivery recorded, with an
+"open" scope that surfaces only the settlements that still need attention. It
+can never modify a purchase, entitlement or event — recovery stays server-side.
 
 The generic program management workflow (plans list, plan detail) reads its
 per-program sales exclusively from the same commerce surface: the plans list

@@ -1114,6 +1114,38 @@ provider retries honest and the diagnosis persistent:
   as a late settlement, after verifying the captured amount and currency against
   the purchase snapshot and the order's single purchase-unit reference.
 
+**Durable outcome recording (v2.86.0):**
+
+- Every verified webhook delivery persists one row in
+  `purchase_reconciliation_events`, keyed by `(provider, event_id)`. Recording is
+  best-effort by design: a persistence failure never changes the HTTP verdict
+  and never decides whether a purchase completes or an entitlement is granted —
+  the recording layer is observability, not control flow.
+- The recorded outcome is immutable once resolved. Only the provisional codes
+  (`transient_failure`, `provider_uncertain`) may be overwritten by a later
+  redelivery of the same event, so a retry cannot flip a settled fact.
+- Permanent contract mismatches (amount, currency, payment method, reference)
+  and Test Mode deliveries are answered 200 and recorded, never retried: they
+  can never settle the purchase, so asking the provider to redeliver is
+  pointless. The durable record is what preserves the diagnostic instead of a
+  log line.
+- `failure_reason` is a server-internal diagnostic: it is never returned by any
+  endpoint and never rendered for admins in any view.
+
+**Read-only reconciliation visibility (v2.86.0):**
+
+- `GET /admin/purchases/reconciliation-events` is ADMIN_2-only (`commerce`
+  permission), read-only, and exists solely for visibility. It can never
+  change a purchase, an entitlement or an event, and exposes no action a
+  browser can take: recovery remains server-side and idempotent.
+- The response never projects user ids, purchase `user_id`, `failure_reason`,
+  provider secrets/signatures, raw event payloads, trainer identifiers or any
+  revenue/commission breakdown. The customer object is the same safe
+  `{name, email}` shape used by List Purchases.
+- Distinct refusals are omitted by design: a reconciliation answer does not
+  exist as a client-callable surface, so there is no distinguishable refusal a
+  competitor could probe for another client's payment state.
+
 **What webhook handlers never do:**
 
 - Trust client-supplied purchase IDs
