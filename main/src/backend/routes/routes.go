@@ -16,6 +16,7 @@ import (
 	"ryze/backend/middleware"
 	"ryze/backend/middleware/adminroles"
 	"ryze/backend/middleware/trainerroles"
+	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_commerce"
 	"ryze/backend/services/admin_login"
@@ -124,7 +125,13 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	genericProgramRepository := repositories.NewGenericProgramRepository(db)
 	genericProgramService := generic_programs.NewService(genericProgramRepository, pricingCfg)
-	genericProgramHandler := auth.NewGenericProgramsHandler(genericProgramService)
+	// One handler instance per product family: the handler stamps the route's
+	// family onto every request and the client can never choose it. The generic
+	// and the premium_level_1 families are administered through separate route
+	// groups with the same permission, so a program is only ever managed under
+	// its own family.
+	genericProgramHandler := auth.NewGenericProgramsHandler(genericProgramService, models.ProgramProductTypeGeneric)
+	premiumLevel1ProgramHandler := auth.NewGenericProgramsHandler(genericProgramService, models.ProgramProductTypePremiumLevel1)
 
 	commissionRuleRepository := repositories.NewCommissionRuleRepository(db)
 	commissionRulesService := commission_rules.NewService(commissionRuleRepository, trainerRepository, commissionCfg)
@@ -301,6 +308,23 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	genericPrograms.PATCH("/:programID", genericProgramHandler.UpdateProgram)
 	genericPrograms.POST("/:programID/publish", genericProgramHandler.PublishProgram)
 	genericPrograms.DELETE("/:programID", genericProgramHandler.DeleteProgram)
+
+	// Premium Level 1 administration: the same platform-owned program management
+	// surface as the generic family, pointed at the premium_level_1 family. The
+	// static prefix reaches neither the generic static paths nor the public
+	// "/programs/:programID" group, and the handler keeps the family
+	// server-authoritative regardless of the request body. A premium_level_1
+	// program remains isolated: it is invisible to /programs/generic and can
+	// never be created as, edited into or published under any other family.
+	premiumLevel1Programs := v1.Group("/programs/premium-level-1")
+	premiumLevel1Programs.Use(middleware.AdminAuthenticate(tokenService))
+	premiumLevel1Programs.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
+	premiumLevel1Programs.GET("", premiumLevel1ProgramHandler.ListPrograms)
+	premiumLevel1Programs.POST("", premiumLevel1ProgramHandler.CreateProgram)
+	premiumLevel1Programs.GET("/:programID", premiumLevel1ProgramHandler.GetProgram)
+	premiumLevel1Programs.PATCH("/:programID", premiumLevel1ProgramHandler.UpdateProgram)
+	premiumLevel1Programs.POST("/:programID/publish", premiumLevel1ProgramHandler.PublishProgram)
+	premiumLevel1Programs.DELETE("/:programID", premiumLevel1ProgramHandler.DeleteProgram)
 
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))

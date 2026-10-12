@@ -25,26 +25,31 @@ var errRepoFailure = errors.New("repository failure")
 
 // stubGenericRepo is an in-memory fake of the generic program data-access
 // surface. It behaves like the real repository (create fills identifiers and
-// timestamps, find/list respect soft-deletes) and records every identifier
-// passed to each operation so tests can prove the service never forwards,
-// invents or accepts a trainer id.
+// timestamps, find/list respect soft-deletes) and records every identifier and
+// the product family passed to each operation so tests can prove the service
+// always forwards the caller's family and never forwards, invents or accepts a
+// trainer id.
 type stubGenericRepo struct {
 	program          *models.Program
 	deleted          bool
 	create           func(program *models.Program) error
-	find             func(programID string) (*models.Program, error)
-	search           func(filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error)
-	update           func(programID string, program *models.Program) error
-	softDelete       func(programID string) error
-	publish          func(programID string) error
+	find             func(productType, programID string) (*models.Program, error)
+	search           func(productType string, filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error)
+	update           func(productType, programID string, program *models.Program) error
+	softDelete       func(productType, programID string) error
+	publish          func(productType, programID string) error
 	createTrainerID  string
+	createProductType string
 	updateProgramID  string
 	deleteProgramID  string
 	publishProgramID string
+	findProductType  string
+	searchProductType string
 }
 
 func (s *stubGenericRepo) CreateFull(_ context.Context, program *models.Program) error {
 	s.createTrainerID = program.TrainerID
+	s.createProductType = program.ProductType
 	if s.create != nil {
 		return s.create(program)
 	}
@@ -62,10 +67,10 @@ func (s *stubGenericRepo) CreateFull(_ context.Context, program *models.Program)
 	return nil
 }
 
-func (s *stubGenericRepo) UpdateFull(_ context.Context, programID string, program *models.Program) error {
+func (s *stubGenericRepo) UpdateFull(_ context.Context, productType, programID string, program *models.Program) error {
 	s.updateProgramID = programID
 	if s.update != nil {
-		return s.update(programID, program)
+		return s.update(productType, programID, program)
 	}
 	if s.program == nil || s.deleted {
 		return repositories.ErrGenericProgramNotFound
@@ -77,9 +82,10 @@ func (s *stubGenericRepo) UpdateFull(_ context.Context, programID string, progra
 	return nil
 }
 
-func (s *stubGenericRepo) FindByID(_ context.Context, reqID string) (*models.Program, error) {
+func (s *stubGenericRepo) FindByID(_ context.Context, productType, reqID string) (*models.Program, error) {
+	s.findProductType = productType
 	if s.find != nil {
-		return s.find(reqID)
+		return s.find(productType, reqID)
 	}
 	if s.program == nil || s.deleted || s.program.ID != reqID {
 		return nil, repositories.ErrGenericProgramNotFound
@@ -87,9 +93,10 @@ func (s *stubGenericRepo) FindByID(_ context.Context, reqID string) (*models.Pro
 	return s.program, nil
 }
 
-func (s *stubGenericRepo) Search(_ context.Context, filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error) {
+func (s *stubGenericRepo) Search(_ context.Context, productType string, filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error) {
+	s.searchProductType = productType
 	if s.search != nil {
-		return s.search(filter, page, limit)
+		return s.search(productType, filter, page, limit)
 	}
 	if s.program == nil || s.deleted {
 		return nil, 0, nil
@@ -97,10 +104,10 @@ func (s *stubGenericRepo) Search(_ context.Context, filter repositories.GenericP
 	return []models.Program{*s.program}, 1, nil
 }
 
-func (s *stubGenericRepo) SoftDelete(_ context.Context, programID string) error {
+func (s *stubGenericRepo) SoftDelete(_ context.Context, productType, programID string) error {
 	s.deleteProgramID = programID
 	if s.softDelete != nil {
-		return s.softDelete(programID)
+		return s.softDelete(productType, programID)
 	}
 	if s.program == nil || s.deleted || s.program.ID != programID {
 		return repositories.ErrGenericProgramNotFound
@@ -109,10 +116,10 @@ func (s *stubGenericRepo) SoftDelete(_ context.Context, programID string) error 
 	return nil
 }
 
-func (s *stubGenericRepo) Publish(_ context.Context, programID string) error {
+func (s *stubGenericRepo) Publish(_ context.Context, productType, programID string) error {
 	s.publishProgramID = programID
 	if s.publish != nil {
-		return s.publish(programID)
+		return s.publish(productType, programID)
 	}
 	if s.program == nil || s.deleted || s.program.ID != programID || s.program.Status != models.ProgramStatusDraft {
 		return repositories.ErrGenericProgramNotFound
@@ -212,6 +219,7 @@ func validProgramModel() *models.Program {
 		Description:      "A 12 week hypertrophy program.",
 		Type:             models.ProgramTypePremium,
 		Status:           models.ProgramStatusDraft,
+		ProductType:      models.ProgramProductTypeGeneric,
 		Level:            &level,
 		DurationWeeks:    &duration,
 		FrequencyPerWeek: &frequency,
@@ -268,7 +276,7 @@ func TestCreateProgramSuccess(t *testing.T) {
 	repo := &stubGenericRepo{}
 	svc := newService(repo)
 
-	program, err := svc.CreateProgram(context.Background(), validProgramInput())
+	program, err := svc.CreateProgram(context.Background(), models.ProgramProductTypeGeneric, validProgramInput())
 	if err != nil {
 		t.Fatalf("CreateProgram: %v", err)
 	}
@@ -316,7 +324,7 @@ func TestCreateProgramDefaults(t *testing.T) {
 	input.DurationWeeks = 0
 	input.FrequencyPerWeek = 0
 
-	program, err := svc.CreateProgram(context.Background(), input)
+	program, err := svc.CreateProgram(context.Background(), models.ProgramProductTypeGeneric, input)
 	if err != nil {
 		t.Fatalf("CreateProgram: %v", err)
 	}
@@ -394,7 +402,7 @@ func TestCreateProgramRejectsInvalidInput(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			input := validProgramInput()
 			tc.mutate(&input)
-			if _, err := svc.CreateProgram(context.Background(), input); !errors.Is(err, generic_programs.ErrInvalidInput) {
+			if _, err := svc.CreateProgram(context.Background(), models.ProgramProductTypeGeneric, input); !errors.Is(err, generic_programs.ErrInvalidInput) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 		})
@@ -407,7 +415,7 @@ func TestCreateProgramRejectsDuplicateExercise(t *testing.T) {
 	input := validProgramInput()
 	input.Weeks[0].Workouts[0].Exercises = append(input.Weeks[0].Workouts[0].Exercises, input.Weeks[0].Workouts[0].Exercises[0])
 
-	if _, err := svc.CreateProgram(context.Background(), input); !errors.Is(err, generic_programs.ErrDuplicateExercise) {
+	if _, err := svc.CreateProgram(context.Background(), models.ProgramProductTypeGeneric, input); !errors.Is(err, generic_programs.ErrDuplicateExercise) {
 		t.Fatalf("expected ErrDuplicateExercise, got %v", err)
 	}
 }
@@ -424,7 +432,7 @@ func TestCreateProgramAllowsExerciseAcrossDifferentWorkouts(t *testing.T) {
 		},
 	})
 
-	program, err := svc.CreateProgram(context.Background(), input)
+	program, err := svc.CreateProgram(context.Background(), models.ProgramProductTypeGeneric, input)
 	if err != nil {
 		t.Fatalf("same exercise in different workouts must be allowed, got %v", err)
 	}
@@ -441,7 +449,7 @@ func TestCreateProgramExerciseNotFound(t *testing.T) {
 	}
 	svc := newService(repo)
 
-	if _, err := svc.CreateProgram(context.Background(), validProgramInput()); !errors.Is(err, generic_programs.ErrExerciseNotFound) {
+	if _, err := svc.CreateProgram(context.Background(), models.ProgramProductTypeGeneric, validProgramInput()); !errors.Is(err, generic_programs.ErrExerciseNotFound) {
 		t.Fatalf("expected ErrExerciseNotFound, got %v", err)
 	}
 }
@@ -454,7 +462,7 @@ func TestCreateProgramRepositoryFailure(t *testing.T) {
 	}
 	svc := newService(repo)
 
-	_, err := svc.CreateProgram(context.Background(), validProgramInput())
+	_, err := svc.CreateProgram(context.Background(), models.ProgramProductTypeGeneric, validProgramInput())
 	if errors.Is(err, generic_programs.ErrInvalidInput) || errors.Is(err, generic_programs.ErrExerciseNotFound) {
 		t.Fatalf("repository failure must not map to a domain error, got %v", err)
 	}
@@ -466,7 +474,7 @@ func TestCreateProgramRepositoryFailure(t *testing.T) {
 func TestListProgramsSuccess(t *testing.T) {
 	var gotFilter repositories.GenericProgramFilter
 	repo := &stubGenericRepo{
-		search: func(filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error) {
+		search: func(_ string, filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error) {
 			gotFilter = filter
 			if page != 2 || limit != 10 {
 				t.Fatalf("expected page 2 limit 10, got %d/%d", page, limit)
@@ -476,7 +484,7 @@ func TestListProgramsSuccess(t *testing.T) {
 	}
 	svc := newService(repo)
 
-	result, err := svc.ListPrograms(context.Background(), generic_programs.ProgramFilter{
+	result, err := svc.ListPrograms(context.Background(), models.ProgramProductTypeGeneric, generic_programs.ProgramFilter{
 		Query:            " hypertrophy ",
 		Type:             models.ProgramTypePremium,
 		Level:            "Intermediate",
@@ -503,14 +511,14 @@ func TestListProgramsSuccess(t *testing.T) {
 func TestListProgramsClampsLimit(t *testing.T) {
 	var gotLimit int
 	repo := &stubGenericRepo{
-		search: func(_ repositories.GenericProgramFilter, _, limit int) ([]models.Program, int64, error) {
+		search: func(_ string, _ repositories.GenericProgramFilter, _, limit int) ([]models.Program, int64, error) {
 			gotLimit = limit
 			return nil, 0, nil
 		},
 	}
 	svc := newService(repo)
 
-	if _, err := svc.ListPrograms(context.Background(), generic_programs.ProgramFilter{}, 1, 99999); err != nil {
+	if _, err := svc.ListPrograms(context.Background(), models.ProgramProductTypeGeneric, generic_programs.ProgramFilter{}, 1, 99999); err != nil {
 		t.Fatalf("ListPrograms: %v", err)
 	}
 	if gotLimit != generic_programs.MaxPageSize {
@@ -528,38 +536,38 @@ func TestListProgramsRejectsInvalidInput(t *testing.T) {
 		"limit negative": {1, -5},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := svc.ListPrograms(context.Background(), generic_programs.ProgramFilter{}, args[0], args[1]); !errors.Is(err, generic_programs.ErrInvalidInput) {
+			if _, err := svc.ListPrograms(context.Background(), models.ProgramProductTypeGeneric, generic_programs.ProgramFilter{}, args[0], args[1]); !errors.Is(err, generic_programs.ErrInvalidInput) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 		})
 	}
 
-	if _, err := svc.ListPrograms(context.Background(), generic_programs.ProgramFilter{Query: strings.Repeat("a", generic_programs.MaxSearchLength+1)}, 1, 10); !errors.Is(err, generic_programs.ErrInvalidInput) {
+	if _, err := svc.ListPrograms(context.Background(), models.ProgramProductTypeGeneric, generic_programs.ProgramFilter{Query: strings.Repeat("a", generic_programs.MaxSearchLength+1)}, 1, 10); !errors.Is(err, generic_programs.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput for long search, got %v", err)
 	}
 
-	if _, err := svc.ListPrograms(context.Background(), generic_programs.ProgramFilter{Level: "Expert"}, 1, 10); !errors.Is(err, generic_programs.ErrInvalidInput) {
+	if _, err := svc.ListPrograms(context.Background(), models.ProgramProductTypeGeneric, generic_programs.ProgramFilter{Level: "Expert"}, 1, 10); !errors.Is(err, generic_programs.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput for invalid level filter, got %v", err)
 	}
 
-	if _, err := svc.ListPrograms(context.Background(), generic_programs.ProgramFilter{Type: "random"}, 1, 10); !errors.Is(err, generic_programs.ErrInvalidInput) {
+	if _, err := svc.ListPrograms(context.Background(), models.ProgramProductTypeGeneric, generic_programs.ProgramFilter{Type: "random"}, 1, 10); !errors.Is(err, generic_programs.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput for invalid type filter, got %v", err)
 	}
 
-	if _, err := svc.ListPrograms(context.Background(), generic_programs.ProgramFilter{DurationWeeks: -1}, 1, 10); !errors.Is(err, generic_programs.ErrInvalidInput) {
+	if _, err := svc.ListPrograms(context.Background(), models.ProgramProductTypeGeneric, generic_programs.ProgramFilter{DurationWeeks: -1}, 1, 10); !errors.Is(err, generic_programs.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput for negative duration filter, got %v", err)
 	}
 }
 
 func TestListProgramsRepositoryFailure(t *testing.T) {
 	repo := &stubGenericRepo{
-		search: func(_ repositories.GenericProgramFilter, _, _ int) ([]models.Program, int64, error) {
+		search: func(_ string, _ repositories.GenericProgramFilter, _, _ int) ([]models.Program, int64, error) {
 			return nil, 0, errRepoFailure
 		},
 	}
 	svc := newService(repo)
 
-	_, err := svc.ListPrograms(context.Background(), generic_programs.ProgramFilter{}, 1, 10)
+	_, err := svc.ListPrograms(context.Background(), models.ProgramProductTypeGeneric, generic_programs.ProgramFilter{}, 1, 10)
 	if errors.Is(err, generic_programs.ErrInvalidInput) {
 		t.Fatalf("repository failure must not map to a domain error, got %v", err)
 	}
@@ -572,7 +580,7 @@ func TestGetProgramSuccess(t *testing.T) {
 	repo := &stubGenericRepo{program: validProgramModel()}
 	svc := newService(repo)
 
-	program, err := svc.GetProgram(context.Background(), programID)
+	program, err := svc.GetProgram(context.Background(), models.ProgramProductTypeGeneric, programID)
 	if err != nil {
 		t.Fatalf("GetProgram: %v", err)
 	}
@@ -589,13 +597,13 @@ func TestGetProgramSuccess(t *testing.T) {
 
 func TestGetProgramNotFound(t *testing.T) {
 	repo := &stubGenericRepo{
-		find: func(_ string) (*models.Program, error) {
+		find: func(_, _ string) (*models.Program, error) {
 			return nil, repositories.ErrGenericProgramNotFound
 		},
 	}
 	svc := newService(repo)
 
-	if _, err := svc.GetProgram(context.Background(), programID); !errors.Is(err, generic_programs.ErrProgramNotFound) {
+	if _, err := svc.GetProgram(context.Background(), models.ProgramProductTypeGeneric, programID); !errors.Is(err, generic_programs.ErrProgramNotFound) {
 		t.Fatalf("expected ErrProgramNotFound, got %v", err)
 	}
 }
@@ -608,7 +616,7 @@ func TestGetProgramRejectsInvalidID(t *testing.T) {
 		"not a uuid": "not-a-uuid",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := svc.GetProgram(context.Background(), id); !errors.Is(err, generic_programs.ErrInvalidInput) {
+			if _, err := svc.GetProgram(context.Background(), models.ProgramProductTypeGeneric, id); !errors.Is(err, generic_programs.ErrInvalidInput) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 		})
@@ -617,13 +625,13 @@ func TestGetProgramRejectsInvalidID(t *testing.T) {
 
 func TestGetProgramRepositoryFailure(t *testing.T) {
 	repo := &stubGenericRepo{
-		find: func(_ string) (*models.Program, error) {
+		find: func(_, _ string) (*models.Program, error) {
 			return nil, errRepoFailure
 		},
 	}
 	svc := newService(repo)
 
-	_, err := svc.GetProgram(context.Background(), programID)
+	_, err := svc.GetProgram(context.Background(), models.ProgramProductTypeGeneric, programID)
 	if errors.Is(err, generic_programs.ErrProgramNotFound) || errors.Is(err, generic_programs.ErrInvalidInput) {
 		t.Fatalf("repository failure must not map to a domain error, got %v", err)
 	}
@@ -639,7 +647,7 @@ func TestUpdateProgramSuccess(t *testing.T) {
 	input := validProgramInput()
 	input.Name = "  Advanced Power  "
 	input.Level = "Advanced"
-	program, err := svc.UpdateProgram(context.Background(), programID, input)
+	program, err := svc.UpdateProgram(context.Background(), models.ProgramProductTypeGeneric, programID, input)
 	if err != nil {
 		t.Fatalf("UpdateProgram: %v", err)
 	}
@@ -662,7 +670,7 @@ func TestUpdateProgramNotFound(t *testing.T) {
 	// locks and checks the program inside the same transaction that applies the
 	// structure. A missing program surfaces as ErrProgramNotFound without any
 	// mutation being persisted.
-	if _, err := svc.UpdateProgram(context.Background(), programID, validProgramInput()); !errors.Is(err, generic_programs.ErrProgramNotFound) {
+	if _, err := svc.UpdateProgram(context.Background(), models.ProgramProductTypeGeneric, programID, validProgramInput()); !errors.Is(err, generic_programs.ErrProgramNotFound) {
 		t.Fatalf("expected ErrProgramNotFound, got %v", err)
 	}
 	if repo.program != nil {
@@ -678,7 +686,7 @@ func TestUpdateProgramRejectsInvalidIDs(t *testing.T) {
 		"not a uuid": "not-a-uuid",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := svc.UpdateProgram(context.Background(), id, validProgramInput()); !errors.Is(err, generic_programs.ErrInvalidInput) {
+			if _, err := svc.UpdateProgram(context.Background(), models.ProgramProductTypeGeneric, id, validProgramInput()); !errors.Is(err, generic_programs.ErrInvalidInput) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 		})
@@ -688,13 +696,13 @@ func TestUpdateProgramRejectsInvalidIDs(t *testing.T) {
 func TestUpdateProgramExerciseNotFound(t *testing.T) {
 	repo := &stubGenericRepo{
 		program: validProgramModel(),
-		update: func(_ string, _ *models.Program) error {
+		update: func(_, _ string, _ *models.Program) error {
 			return repositories.ErrExerciseNotFound
 		},
 	}
 	svc := newService(repo)
 
-	if _, err := svc.UpdateProgram(context.Background(), programID, validProgramInput()); !errors.Is(err, generic_programs.ErrExerciseNotFound) {
+	if _, err := svc.UpdateProgram(context.Background(), models.ProgramProductTypeGeneric, programID, validProgramInput()); !errors.Is(err, generic_programs.ErrExerciseNotFound) {
 		t.Fatalf("expected ErrExerciseNotFound, got %v", err)
 	}
 }
@@ -702,13 +710,13 @@ func TestUpdateProgramExerciseNotFound(t *testing.T) {
 func TestUpdateProgramRepositoryFailure(t *testing.T) {
 	repo := &stubGenericRepo{
 		program: validProgramModel(),
-		update: func(_ string, _ *models.Program) error {
+		update: func(_, _ string, _ *models.Program) error {
 			return errRepoFailure
 		},
 	}
 	svc := newService(repo)
 
-	_, err := svc.UpdateProgram(context.Background(), programID, validProgramInput())
+	_, err := svc.UpdateProgram(context.Background(), models.ProgramProductTypeGeneric, programID, validProgramInput())
 	if errors.Is(err, generic_programs.ErrProgramNotFound) || errors.Is(err, generic_programs.ErrInvalidInput) {
 		t.Fatalf("repository failure must not map to a domain error, got %v", err)
 	}
@@ -721,7 +729,7 @@ func TestPublishProgramSuccess(t *testing.T) {
 	repo := &stubGenericRepo{program: validProgramModel()}
 	svc := newService(repo)
 
-	program, err := svc.PublishProgram(context.Background(), programID)
+	program, err := svc.PublishProgram(context.Background(), models.ProgramProductTypeGeneric, programID)
 	if err != nil {
 		t.Fatalf("PublishProgram: %v", err)
 	}
@@ -744,7 +752,7 @@ func TestPublishProgramAlreadyPublished(t *testing.T) {
 	}
 	svc := newService(repo)
 
-	if _, err := svc.PublishProgram(context.Background(), programID); !errors.Is(err, generic_programs.ErrProgramAlreadyPublished) {
+	if _, err := svc.PublishProgram(context.Background(), models.ProgramProductTypeGeneric, programID); !errors.Is(err, generic_programs.ErrProgramAlreadyPublished) {
 		t.Fatalf("expected ErrProgramAlreadyPublished, got %v", err)
 	}
 }
@@ -754,13 +762,13 @@ func TestPublishProgramNotFound(t *testing.T) {
 		publish: func(_ string) error {
 			return repositories.ErrGenericProgramNotFound
 		},
-		find: func(_ string) (*models.Program, error) {
+		find: func(_, _ string) (*models.Program, error) {
 			return nil, repositories.ErrGenericProgramNotFound
 		},
 	}
 	svc := newService(repo)
 
-	if _, err := svc.PublishProgram(context.Background(), programID); !errors.Is(err, generic_programs.ErrProgramNotFound) {
+	if _, err := svc.PublishProgram(context.Background(), models.ProgramProductTypeGeneric, programID); !errors.Is(err, generic_programs.ErrProgramNotFound) {
 		t.Fatalf("expected ErrProgramNotFound, got %v", err)
 	}
 }
@@ -773,7 +781,7 @@ func TestPublishProgramRejectsInvalidIDs(t *testing.T) {
 		"not a uuid": "not-a-uuid",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := svc.PublishProgram(context.Background(), id); !errors.Is(err, generic_programs.ErrInvalidInput) {
+			if _, err := svc.PublishProgram(context.Background(), models.ProgramProductTypeGeneric, id); !errors.Is(err, generic_programs.ErrInvalidInput) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 		})
@@ -791,7 +799,7 @@ func TestPublishProgramRepositoryFailure(t *testing.T) {
 	}
 	svc := newService(repo)
 
-	_, err := svc.PublishProgram(context.Background(), programID)
+	_, err := svc.PublishProgram(context.Background(), models.ProgramProductTypeGeneric, programID)
 	if errors.Is(err, generic_programs.ErrProgramNotFound) || errors.Is(err, generic_programs.ErrInvalidInput) || errors.Is(err, generic_programs.ErrProgramAlreadyPublished) {
 		t.Fatalf("repository failure must not map to a domain error, got %v", err)
 	}
@@ -821,7 +829,7 @@ func TestPublishProgramRejectsInvalidPrice(t *testing.T) {
 			repo := &stubGenericRepo{program: tc.model}
 			svc := newService(repo)
 
-			if _, err := svc.PublishProgram(context.Background(), programID); !errors.Is(err, generic_programs.ErrInvalidInput) {
+			if _, err := svc.PublishProgram(context.Background(), models.ProgramProductTypeGeneric, programID); !errors.Is(err, generic_programs.ErrInvalidInput) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 			if repo.publishProgramID != "" {
@@ -838,7 +846,7 @@ func TestPublishProgramFreeWithoutPrice(t *testing.T) {
 	repo := &stubGenericRepo{program: free}
 	svc := newService(repo)
 
-	program, err := svc.PublishProgram(context.Background(), programID)
+	program, err := svc.PublishProgram(context.Background(), models.ProgramProductTypeGeneric, programID)
 	if err != nil {
 		t.Fatalf("PublishProgram: %v", err)
 	}
@@ -851,7 +859,7 @@ func TestDeleteProgramSuccess(t *testing.T) {
 	repo := &stubGenericRepo{program: validProgramModel()}
 	svc := newService(repo)
 
-	if err := svc.DeleteProgram(context.Background(), programID); err != nil {
+	if err := svc.DeleteProgram(context.Background(), models.ProgramProductTypeGeneric, programID); err != nil {
 		t.Fatalf("DeleteProgram: %v", err)
 	}
 	if repo.deleteProgramID != programID {
@@ -867,7 +875,7 @@ func TestDeleteProgramNotFound(t *testing.T) {
 	}
 	svc := newService(repo)
 
-	if err := svc.DeleteProgram(context.Background(), programID); !errors.Is(err, generic_programs.ErrProgramNotFound) {
+	if err := svc.DeleteProgram(context.Background(), models.ProgramProductTypeGeneric, programID); !errors.Is(err, generic_programs.ErrProgramNotFound) {
 		t.Fatalf("expected ErrProgramNotFound, got %v", err)
 	}
 }
@@ -880,7 +888,7 @@ func TestDeleteProgramRejectsInvalidIDs(t *testing.T) {
 		"not a uuid": "not-a-uuid",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := svc.DeleteProgram(context.Background(), id); !errors.Is(err, generic_programs.ErrInvalidInput) {
+			if err := svc.DeleteProgram(context.Background(), models.ProgramProductTypeGeneric, id); !errors.Is(err, generic_programs.ErrInvalidInput) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 		})
@@ -895,7 +903,7 @@ func TestDeleteProgramRepositoryFailure(t *testing.T) {
 	}
 	svc := newService(repo)
 
-	err := svc.DeleteProgram(context.Background(), programID)
+	err := svc.DeleteProgram(context.Background(), models.ProgramProductTypeGeneric, programID)
 	if errors.Is(err, generic_programs.ErrProgramNotFound) || errors.Is(err, generic_programs.ErrInvalidInput) {
 		t.Fatalf("repository failure must not map to a domain error, got %v", err)
 	}
@@ -908,7 +916,7 @@ func TestNeverExposesSecrets(t *testing.T) {
 	repo := &stubGenericRepo{program: validProgramModel()}
 	svc := newService(repo)
 
-	program, err := svc.GetProgram(context.Background(), programID)
+	program, err := svc.GetProgram(context.Background(), models.ProgramProductTypeGeneric, programID)
 	if err != nil {
 		t.Fatalf("GetProgram: %v", err)
 	}
