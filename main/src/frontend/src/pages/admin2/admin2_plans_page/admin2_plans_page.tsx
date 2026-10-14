@@ -13,12 +13,16 @@ import {
   fetchAdminSalesByProgramIds,
   fetchGenericPrograms,
   formatAdminPrice,
+  isProgramProductType,
+  PROGRAM_PRODUCT_TYPE,
+  programFamilyLabel,
   programTypeLabel,
   ProgramStatusEnum,
   ProgramType,
   type AdminProgramSale,
   type GenericProgramLevel,
   type GenericProgramSummary,
+  type ProgramProductTypeValue,
   type ProgramTypeValue
 } from "@/services/admin2_api";
 import { formatAdminDate, type AdminPagination } from "@/services/admin_api";
@@ -27,15 +31,24 @@ import styles from "./admin2_plans_page.module.css";
 
 const PAGE_SIZE = 25;
 
-type PlansTab = "ALL" | ProgramTypeValue;
+type PlanFamilyTab = ProgramProductTypeValue;
 
-// These tabs filter `type`, the commercial pricing category, and are labelled
-// as such. They are deliberately not labelled as product tiers: `product_type`
-// is the product family dimension, every program managed here is in the generic
-// family, and calling `premium` "Premium · L1" would describe a family the row
-// does not belong to.
-const PLANS_TABS: Array<{ id: PlansTab; label: string }> = [
-  { id: "ALL", label: "All programs" },
+// These tabs filter `product_type`, the product family dimension. Each family is
+// administered through its own backend route (scoped to `trainer_id IS NULL`
+// plus one family), so the list always shows exactly one family at a time and
+// never a merged view. They are deliberately not labelled as pricing categories:
+// `type` (free/premium/personalized) is the commercial category and lives in the
+// per-row table plus the pricing-category dropdown filter.
+const PLANS_FAMILY_TABS: Array<{ id: PlanFamilyTab; label: string }> = [
+  { id: PROGRAM_PRODUCT_TYPE.GENERIC, label: programFamilyLabel(PROGRAM_PRODUCT_TYPE.GENERIC) },
+  {
+    id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1,
+    label: programFamilyLabel(PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1)
+  }
+];
+
+const TYPE_FILTERS: Array<{ id: ProgramTypeValue | ""; label: string }> = [
+  { id: "", label: "All pricing categories" },
   { id: ProgramType.FREE, label: "Free" },
   { id: ProgramType.PREMIUM, label: "Premium" },
   { id: ProgramType.PERSONALIZED, label: "Personalized" }
@@ -48,13 +61,16 @@ const LEVEL_FILTERS: Array<{ id: GenericProgramLevel | ""; label: string }> = [
   { id: "Advanced", label: "Advanced" }
 ];
 
-const tabFromQuery = (search: string): PlansTab => {
-  const type = new URLSearchParams(search).get("type");
-  if (type === ProgramType.FREE || type === ProgramType.PREMIUM || type === ProgramType.PERSONALIZED) {
-    return type;
-  }
-  return "ALL";
+// familyFromQuery reads the family from the URL. The family is never inventable
+// client-side beyond the closed PRODUCT_TYPE list: an unknown value (or no value
+// at all) falls back to the generic family.
+const familyFromQuery = (search: string): PlanFamilyTab => {
+  const family = new URLSearchParams(search).get("family");
+  return isProgramProductType(family) ? family : PROGRAM_PRODUCT_TYPE.GENERIC;
 };
+
+const familyPhrase = (family: PlanFamilyTab): string =>
+  family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? "premium level 1" : "generic";
 
 const levelLabel = (level: GenericProgramLevel | null): string => level ?? "—";
 
@@ -107,7 +123,7 @@ const DeleteDialog = ({
 export default function Admin2PlansPage() {
   const history = useHistory();
   const location = useLocation();
-  const activeTab = tabFromQuery(location.search);
+  const activeFamily = familyFromQuery(location.search);
 
   const [programs, setPrograms] = useState<GenericProgramSummary[]>([]);
   const [pagination, setPagination] = useState<AdminPagination | null>(null);
@@ -116,6 +132,7 @@ export default function Admin2PlansPage() {
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<ProgramTypeValue | "">("");
   const [level, setLevel] = useState<GenericProgramLevel | "">("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -133,11 +150,11 @@ export default function Admin2PlansPage() {
     setErrorMessage("");
 
     try {
-      const result = await fetchGenericPrograms({
+      const result = await fetchGenericPrograms(activeFamily, {
         page,
         limit: PAGE_SIZE,
         search: debouncedQuery.trim() || undefined,
-        type: activeTab === "ALL" ? undefined : activeTab,
+        type: typeFilter || undefined,
         level: level || undefined
       });
       setPrograms(result.programs);
@@ -162,16 +179,20 @@ export default function Admin2PlansPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedQuery, activeTab, level]);
+  }, [page, debouncedQuery, activeFamily, typeFilter, level]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const changeTab = (tab: PlansTab) => {
+  const changeFamily = (family: PlanFamilyTab) => {
     setPage(1);
-    const search = tab === "ALL" ? "" : `?type=${tab}`;
-    history.push({ pathname: "/admin2/plans", search });
+    history.push({ pathname: "/admin2/plans", search: `?family=${family}` });
+  };
+
+  const changeTypeFilter = (value: ProgramTypeValue | "") => {
+    setTypeFilter(value);
+    setPage(1);
   };
 
   const changeLevel = (value: GenericProgramLevel | "") => {
@@ -187,7 +208,7 @@ export default function Admin2PlansPage() {
     setDeleteError("");
 
     try {
-      await deleteGenericProgram(deleteTarget.id);
+      await deleteGenericProgram(deleteTarget.product_type, deleteTarget.id);
       setDeleteTarget(null);
       await load();
     } catch (error) {
@@ -199,50 +220,45 @@ export default function Admin2PlansPage() {
     }
   };
 
-  const isFiltered = debouncedQuery.trim().length > 0 || level !== "";
+  const isFiltered =
+    debouncedQuery.trim().length > 0 || typeFilter !== "" || level !== "";
 
   const emptyCopy = useMemo(() => {
     if (isFiltered) {
       return {
-        title: "No plans match your search",
+        title: "No plans match your filters",
         message: "Try a different search term or clear the filters to see every plan."
       };
     }
-    if (activeTab === "ALL") {
-      return {
-        title: "No plans yet",
-        message: "Create your first generic plan from the plan creation workspace."
-      };
-    }
     return {
-      title: `No ${programTypeLabel(activeTab as ProgramTypeValue).toLowerCase()} plans`,
-      message: "Create a plan of this type to make it appear in this filter."
+      title: `No ${familyPhrase(activeFamily)} plans yet`,
+      message: `Create your first ${familyPhrase(activeFamily)} plan from the plan creation workspace.`
     };
-  }, [activeTab, isFiltered]);
+  }, [activeFamily, isFiltered]);
 
   return (
     <>
       <Admin2PageHeader
         eyebrow="Programs"
         title="Plans"
-        description="Every platform-owned generic program. Search, open, edit or remove catalogue plans."
+        description={`Every platform-owned ${familyPhrase(activeFamily)} program. Search, open, edit or remove catalogue plans.`}
         actions={
-          <Button to="/admin2/plans/create" size="small" icon={<Plus size={15} />}>
+          <Button to={`/admin2/plans/create?family=${activeFamily}`} size="small" icon={<Plus size={15} />}>
             New plan
           </Button>
         }
       />
 
       <div className={styles.toolbar}>
-        <div className={styles.tabs} role="tablist" aria-label="Filter plans by type">
-          {PLANS_TABS.map((tab) => (
+        <div className={styles.tabs} role="tablist" aria-label="Filter plans by product family">
+          {PLANS_FAMILY_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               role="tab"
-              aria-selected={activeTab === tab.id}
-              className={joinClassNames(styles.tab, activeTab === tab.id && styles.tabActive)}
-              onClick={() => changeTab(tab.id)}
+              aria-selected={activeFamily === tab.id}
+              className={joinClassNames(styles.tab, activeFamily === tab.id && styles.tabActive)}
+              onClick={() => changeFamily(tab.id)}
             >
               {tab.label}
             </button>
@@ -265,6 +281,21 @@ export default function Admin2PlansPage() {
             />
           </div>
           <label className={styles.levelField}>
+            <span className={styles.levelFieldLabel}>Category</span>
+            <select
+              className={styles.levelSelect}
+              value={typeFilter}
+              aria-label="Filter plans by pricing category"
+              onChange={(event) => changeTypeFilter(event.target.value as ProgramTypeValue | "")}
+            >
+              {TYPE_FILTERS.map((option) => (
+                <option key={option.id || "all-types"} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.levelField}>
             <span className={styles.levelFieldLabel}>Level</span>
             <select
               className={styles.levelSelect}
@@ -283,7 +314,7 @@ export default function Admin2PlansPage() {
       </div>
 
       <Admin2Section
-        title={activeTab === "ALL" ? "All plans" : programTypeLabel(activeTab as ProgramTypeValue)}
+        title={programFamilyLabel(activeFamily)}
         subtitle={
           loading
             ? "Loading…"
@@ -318,7 +349,7 @@ export default function Admin2PlansPage() {
             <p className={styles.emptyMessage}>{emptyCopy.message}</p>
             <div className={styles.emptyAction}>
               <Button
-                to="/admin2/plans/create"
+                to={`/admin2/plans/create?family=${activeFamily}`}
                 variant="secondary"
                 size="small"
                 icon={<ArrowRight size={15} />}
@@ -353,7 +384,9 @@ export default function Admin2PlansPage() {
                     return (
                       <tr key={program.id}>
                         <td>
-                          <Link to={`/admin2/plans/${program.id}`}>{program.name}</Link>
+                          <Link to={`/admin2/plans/${program.id}?family=${program.product_type}`}>
+                            {program.name}
+                          </Link>
                         </td>
                         <td>
                           <Admin2StatusBadge
@@ -384,7 +417,7 @@ export default function Admin2PlansPage() {
                         <td className={styles.tableMuted}>{formatAdminDate(program.updated_at)}</td>
                         <td className={styles.tableAction}>
                           <Button
-                            to={`/admin2/plans/create?edit=${program.id}`}
+                            to={`/admin2/plans/create?edit=${program.id}&family=${program.product_type}`}
                             variant="ghost"
                             size="small"
                             icon={<Edit size={14} />}

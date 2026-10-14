@@ -1474,6 +1474,24 @@ Authorization, validation and auditing must always accompany authentication.
 
 ---
 
+# TRANSPORT HARDENING
+
+The HTTP server enforces the following before any route handler runs:
+
+- Connection timeouts (read-header, read, write and idle) so a slow or stalled
+  client cannot hold a connection open indefinitely.
+- A request body size limit (`SERVER_MAX_BODY_BYTES`, default 1 MiB). A larger
+  body is rejected with `413 REQUEST_ENTITY_TOO_LARGE` before it is read into
+  memory, so a single client cannot force unbounded allocation.
+- Graceful shutdown on `SIGINT`/`SIGTERM`: the server stops accepting new
+  connections, drains in-flight requests within the shutdown timeout, and then
+  closes the database handle.
+
+The body limit never alters the bytes a handler observes: the payment webhooks
+still verify signatures against the exact raw request body.
+
+---
+
 # REQUEST VALIDATION
 
 Every incoming request must be validated.

@@ -109,3 +109,19 @@ type WebhookConfig struct {
 type TestModeConfig struct {
 	Enabled bool
 }
+
+// ServerConfig holds the HTTP server safety configuration. The timeouts bound
+// how long a single connection may take to send a request, read the body and
+// write a response, and how long in-flight requests are allowed to drain during
+// a graceful shutdown. MaxBodyBytes bounds the size of any request body the
+// server will read, so a single client cannot force unbounded memory
+// allocation. Every value has a safe default and can be overridden through the
+// environment.
+type ServerConfig struct {
+	ReadHeaderTimeout time.Duration
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
+	ShutdownTimeout   time.Duration
+	MaxBodyBytes      int64
+}

@@ -41,6 +41,7 @@ interface DashboardData {
     id: string;
     name: string;
     type: string;
+    product_type: string;
     price_minor_units: number;
     currency: string;
     created_at: string;
@@ -79,6 +80,7 @@ export default function Admin2DashboardPage() {
           id: program.id,
           name: program.name,
           type: program.type,
+          product_type: program.product_type,
           price_minor_units: program.price_minor_units,
           currency: program.currency,
           created_at: program.created_at
@@ -269,7 +271,7 @@ export default function Admin2DashboardPage() {
               {(data?.programs ?? []).slice(0, 6).map((program) => (
                 <tr key={program.id}>
                   <td>
-                    <Link to={`/admin2/plans/${program.id}`}>{program.name}</Link>
+                    <Link to={`/admin2/plans/${program.id}?family=${program.product_type}`}>{program.name}</Link>
                   </td>
                   <td>
                     <Admin2StatusBadge label={programTypeShortLabel(program.type as ProgramTypeValue)} tone="success" withDot={false} />

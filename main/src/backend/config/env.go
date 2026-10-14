@@ -21,6 +21,12 @@ const (
 	minAdminAccessCodeLen                   = 8
 	defaultMinProgramPriceMinorUnits        = 100
 	defaultPlatformCommissionBPS     uint32 = 2000
+	defaultReadHeaderTimeout                = 10 * time.Second
+	defaultReadTimeout                      = 30 * time.Second
+	defaultWriteTimeout                     = 60 * time.Second
+	defaultIdleTimeout                      = 120 * time.Second
+	defaultShutdownTimeout                  = 20 * time.Second
+	defaultMaxBodyBytes                     = 1 << 20
 )
 
 // LoadEnvFile loads the repository .env file so environment variables defined
@@ -267,4 +273,61 @@ func LoadTestMode() (TestModeConfig, error) {
 		return TestModeConfig{}, fmt.Errorf("TEST_MODE_ENABLED must be a boolean, got %q", raw)
 	}
 	return TestModeConfig{Enabled: enabled}, nil
+}
+
+// LoadServer reads the HTTP server safety configuration from environment
+// variables. Every value is optional and falls back to a safe default; a
+// present-but-invalid value fails at startup so a typo can never silently leave
+// a timeout disabled or the body limit unbounded.
+func LoadServer() (ServerConfig, error) {
+	cfg := ServerConfig{
+		ReadHeaderTimeout: defaultReadHeaderTimeout,
+		ReadTimeout:       defaultReadTimeout,
+		WriteTimeout:      defaultWriteTimeout,
+		IdleTimeout:       defaultIdleTimeout,
+		ShutdownTimeout:   defaultShutdownTimeout,
+		MaxBodyBytes:      defaultMaxBodyBytes,
+	}
+
+	var err error
+	if cfg.ReadHeaderTimeout, err = durationOr("SERVER_READ_HEADER_TIMEOUT", cfg.ReadHeaderTimeout); err != nil {
+		return ServerConfig{}, err
+	}
+	if cfg.ReadTimeout, err = durationOr("SERVER_READ_TIMEOUT", cfg.ReadTimeout); err != nil {
+		return ServerConfig{}, err
+	}
+	if cfg.WriteTimeout, err = durationOr("SERVER_WRITE_TIMEOUT", cfg.WriteTimeout); err != nil {
+		return ServerConfig{}, err
+	}
+	if cfg.IdleTimeout, err = durationOr("SERVER_IDLE_TIMEOUT", cfg.IdleTimeout); err != nil {
+		return ServerConfig{}, err
+	}
+	if cfg.ShutdownTimeout, err = durationOr("SERVER_SHUTDOWN_TIMEOUT", cfg.ShutdownTimeout); err != nil {
+		return ServerConfig{}, err
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("SERVER_MAX_BODY_BYTES")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed <= 0 {
+			return ServerConfig{}, fmt.Errorf("SERVER_MAX_BODY_BYTES must be a positive integer, got %q", raw)
+		}
+		cfg.MaxBodyBytes = parsed
+	}
+
+	return cfg, nil
+}
+
+// durationOr parses a positive duration from the environment. It returns the
+// fallback when the variable is unset and an error when it is present but
+// invalid or non-positive.
+func durationOr(key string, fallback time.Duration) (time.Duration, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback, nil
+	}
+	parsed, err := time.ParseDuration(raw)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("%s must be a positive duration, got %q", key, raw)
+	}
+	return parsed, nil
 }

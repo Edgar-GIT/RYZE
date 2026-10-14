@@ -1,3 +1,137 @@
+# Version 2.88.0
+
+Title: HTTP server hardening — connection timeouts, request body limit and graceful shutdown
+
+Date: 2026-10-13
+
+Summary:
+
+v2.88.0 hardens the HTTP transport the API is served over. The server was
+previously started with Gin's `Run`, which builds an `http.Server` with no
+read/write/idle timeouts and terminates abruptly on a signal, and no endpoint
+bounded the size of a request body. Now `main.go` runs an explicit `http.Server`
+with bounded connection timeouts, a global request body limit that rejects
+oversized bodies with `413 REQUEST_ENTITY_TOO_LARGE`, and a graceful shutdown
+that drains in-flight requests on `SIGINT`/`SIGTERM` before closing the database
+handle. No migration was added and no schema changed: the database stays at
+migration version `28`, `dirty=false`. The only API contract addition is the new
+413 status; every existing behaviour, including webhook signature verification
+against the raw request body, is unchanged.
+
+The body limit never mutates a request. The middleware buffers each body up to
+the configured limit, rejects anything larger with a deterministic 413 before
+any handler runs, and re-exposes the exact bytes it read. Buffering in the
+middleware, rather than relying on `http.MaxBytesReader` alone, is what makes the
+rejection a 413: the JSON binding layer would otherwise report an oversized body
+as a generic 400. The webhook handlers therefore still verify their provider
+signatures against the precise raw body they receive.
+
+Two failure modes are closed. A slow or stalled client can no longer hold a
+connection open indefinitely (read-header, read, write and idle timeouts), and a
+single client can no longer force unbounded memory allocation by streaming an
+arbitrarily large body. A deploy or restart now stops accepting new connections,
+lets in-flight requests finish within the shutdown timeout, and only then closes
+the database handle, so a restart never drops an in-flight request.
+
+Main changes:
+
+- Config: `config.ServerConfig` plus `LoadServer`, reading
+  `SERVER_READ_HEADER_TIMEOUT` (10s), `SERVER_READ_TIMEOUT` (30s),
+  `SERVER_WRITE_TIMEOUT` (60s), `SERVER_IDLE_TIMEOUT` (120s),
+  `SERVER_SHUTDOWN_TIMEOUT` (20s) and `SERVER_MAX_BODY_BYTES` (1 MiB). Every
+  value has a safe default; a present-but-invalid value fails startup.
+- Middleware: `middleware.BodyLimit` rejects a declared oversized body up front,
+  bounds an undeclared (chunked) body through a limited reader, and returns the
+  project error envelope with 413 `REQUEST_ENTITY_TOO_LARGE`.
+- Routes: `routes.Setup` takes the server configuration and installs
+  `BodyLimit` after `CORS`, so even a body-limit rejection carries the CORS
+  headers a browser needs to read it.
+- Main: an explicit `http.Server` (read-header/read/write/idle timeouts) run
+  until it fails or receives `SIGINT`/`SIGTERM`, then `Shutdown` within the
+  configured timeout and an explicit database close.
+- Tests: `config` cover the server defaults, custom values and the invalid
+  duration / body-limit rejections; `middleware` cover a body within the limit,
+  a body exactly at the limit, a declared oversized body, an undeclared
+  (chunked) oversized body, the disabled limit and the 413 error envelope.
+  `gofmt`, `go build ./...` and `go vet ./...` are clean.
+- Docs: `how_to_run.MD` (server safety section, env template), `security.MD`
+  (transport hardening), `api.MD` (413) and `.env.example` document the new
+  behaviour and configuration.
+
+---
+
+# Version 2.87.0
+
+Title: Family-aware platform-owned program management — Premium Level 1 becomes administrable through its own route group
+
+Date: 2026-10-12
+
+Summary:
+
+v2.87.0 makes the platform-owned program administration family-aware end to end,
+so a Premium Level 1 program can be created, edited, listed, published and
+soft-deleted by the Management Administrator instead of being seeded directly. No
+migration was added and no schema changed: the database stays at migration
+version `28`, `dirty=false`. No refund, regeneration, Premium Level 2 or new
+payment provider surface was introduced, and the storefront keeps rendering the
+premium family through the existing `premium_level_1` public catalog scope.
+
+The family is a route property, never client data. The generic administration
+service accepts an explicit product family on every operation
+(`SupportedProductTypes` = `generic` and `premium_level_1`), and one handler
+instance per family stamps the family of the route the request arrived on
+(`/api/v1/programs/generic` and `/api/v1/programs/premium-level-1`, both under
+the same `PermissionPlans` gate). Requests carry no `product_type` field, the
+family can never be reclassified through an edit, and every repository query is
+scoped to `trainer_id IS NULL` **and** one family, so a generic operation can
+never touch a Premium Level 1 program and vice versa. Responses expose the
+family as `product_type` so the client renders the right lifecycle.
+
+The management console follows the same rule. The Plans page lists one family at
+a time (Generic / Premium · Level 1 tabs, never a merged view), the plan
+workspace selects the family at creation and locks it afterwards, and the plan
+detail page reads, edits, publishes and deletes through the family route and
+links the Premium Level 1 storefront for published premium programs. The labels
+are also corrected: FREE/PREMIUM/PERSONALIZED are the commercial pricing
+categories (Free Plan / Premium Plan / Personalized Plan) and are no longer
+described as product tiers, which removes the "Premium · Level 2" suggestion for
+a category whose family is absent from the constraint on purpose.
+
+Main changes:
+
+- Service: `generic_programs` takes the family as an explicit parameter on every
+  method, validates it against the closed `SupportedProductTypes` list, stamps it
+  onto the model and echoes it in summaries; coverage includes
+  `TestCreateProgramStampsProductFamily`,
+  `TestUnsupportedProductFamilyRejectedEverywhere` and family-forwarding checks.
+- Handler: `NewGenericProgramsHandler(svc, productType)` binds the route's
+  family; the response gains `product_type` and a body-supplied family is ignored
+  (`TestGenericProgramsFamilyBinding`).
+- Routes: `/programs/premium-level-1` mirrors the generic group under
+  `AdminAuthenticate` + `RequireAdminPermission(adminroles.PermissionPlans)`.
+- Repository: every query scoped to `trainer_id IS NULL` plus one family; the
+  family is never part of an update, so reclassification is impossible
+  (`TestGenericProgramRepositoryPremiumLevel1Family` proves isolation in both
+  directions).
+- Tests (all passing): services `generic_programs`, handler suite across both
+  route families, repository suite, and transactional routes e2e; `gofmt`,
+  `go build ./...` and `go vet ./...` clean. The api/auth suite still fails only
+  the 4 known baseline tests and repositories only the known
+  `TestTrainerRepository`.
+- Frontend: `admin2_api.ts` adds the family constants/helpers and separates the
+  commercial-category labels from the family labels, exposes `product_type` on
+  program summaries, and routes the six generic program calls through
+  `/programs/{family}` with the family as the first argument;
+  `plan_builder_model.ts` carries the family on the draft; the Plans page uses
+  family tabs plus a pricing-category filter; the create workspace adds a family
+  selector (locked on edit); the detail page acts through the family route and
+  links the premium storefront; dashboard and marketplace rows keep the family on
+  their plan links. Frontend typecheck and production build pass.
+- Docs: `how_to_run.MD` replaces the "seed a Premium Level 1 program directly"
+  step with the real ADMIN_2 workflow through the Plans page.
+
+---
+
 # Version 2.86.0
 
 Title: Commerce integrity, durable reconciliation diagnostics and read-only administrative visibility — every verified settlement leaves an immutable audit record

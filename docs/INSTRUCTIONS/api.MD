@@ -232,6 +232,11 @@ Resource not found.
 
 Conflict.
 
+413
+
+Request body too large. Returned before any handler runs when a request body
+exceeds the configured limit.
+
 422
 
 Validation error.
@@ -2867,6 +2872,11 @@ GET /api/v1/health
 
 Returns the current API status.
 
+- `200 OK` — `data`: `{ status: "ok" }`. The database is reachable.
+- `503 SERVICE_UNAVAILABLE` — the database is unreachable. Used by load
+  balancers and orchestrators so traffic is not routed to an instance that
+  cannot serve requests.
+
 ---
 
 ## API Version
@@ -2876,6 +2886,9 @@ GET /api/v1/version
 ```
 
 Returns the running API version.
+
+- `200 OK` — `data`: `{ version }`. The value the binary was built with
+  (`dev` for local builds, the released version in production).
 
 ---
 

@@ -53,9 +53,14 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig) *gin.Engine {
 	router := gin.Default()
+	// CORS runs first so every response, including a body-limit rejection,
+	// carries the headers the browser needs to read it. The body limit then
+	// bounds every request body before any handler (or webhook signature
+	// verification) can read it.
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
+	router.Use(middleware.BodyLimit(serverCfg.MaxBodyBytes))
 
 	userRepository := repositories.NewUserRepository(db)
 
@@ -70,6 +75,14 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	meHandler := auth.NewMeHandler(userRepository)
 	logoutHandler := auth.NewLogoutHandler(jwtCfg.CookieSecure)
+
+	// The health endpoint probes the database only when a handle is available,
+	// so it never reports a false failure before the pool is wired.
+	var healthPinger auth.DatabasePinger
+	if sqlDB, err := db.DB(); err == nil {
+		healthPinger = sqlDB
+	}
+	healthHandler := auth.NewHealthHandler(healthPinger)
 
 	adminMeHandler := auth.NewAdminMeHandler()
 	adminLogoutHandler := auth.NewAdminLogoutHandler(jwtCfg.CookieSecure)
@@ -213,6 +226,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	testModePurchaseHandler := auth.NewTestModePurchaseHandler(testModeService, purchaseService)
 
 	v1 := router.Group("/api/v1")
+	v1.GET("/health", healthHandler.Status)
+	v1.GET("/version", healthHandler.Version)
 	v1.POST("/auth/register", registerHandler.Register)
 	v1.POST("/auth/login", loginHandler.Login)
 	v1.POST("/auth/logout", logoutHandler.Logout)

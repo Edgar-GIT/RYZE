@@ -1,0 +1,37 @@
+[Unit]
+Description=RYZE API
+Documentation=file:///opt/ryze/DEPLOYMENT.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ryze
+Group=ryze
+
+# Secrets and configuration live outside the unit file so they are never
+# committed. See config/env.go for the full list of variables.
+EnvironmentFile=/etc/ryze/ryze.env
+WorkingDirectory=/opt/ryze
+
+ExecStart=/opt/ryze/ryze-api
+
+# The API traps SIGTERM and drains in-flight requests (SERVER_SHUTDOWN_TIMEOUT,
+# default 20s). TimeoutStopSec must be larger, otherwise systemd kills the
+# process mid-drain.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+Restart=on-failure
+RestartSec=5
+
+# Hardening: the service cannot write anywhere except its data directory and
+# cannot gain new privileges. Adjust ReadWritePaths if media storage moves.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/ryze
+
+[Install]
+WantedBy=multi-user.target

@@ -98,7 +98,7 @@ export default function Admin2MarketplacePage() {
                 key: "name",
                 label: "Program",
                 render: (program: AdminProgram) => (
-                  <Link to={`/admin2/plans/${program.id}`}>{program.name}</Link>
+                  <Link to={`/admin2/plans/${program.id}?family=${program.product_type}`}>{program.name}</Link>
                 )
               },
               {

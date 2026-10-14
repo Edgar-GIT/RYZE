@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"ryze/backend/api/auth"
 	"ryze/backend/middleware"
 	"ryze/backend/middleware/adminroles"
+	"ryze/backend/models"
 	"ryze/backend/services/generic_programs"
 	"ryze/backend/services/token"
 )
@@ -24,29 +26,36 @@ var errGenericRepoFailure = errors.New("repository failure")
 const (
 	genericProgramsRoute        = "/api/v1/programs/generic"
 	genericProgramsRouteProgram = "/api/v1/programs/generic/"
+	premiumLevel1ProgramsRoute  = "/api/v1/programs/premium-level-1"
 )
 
-// newGenericProgramsTestRouter wires the generic program endpoints behind the
-// real AdminAuthenticate and RequireAdminPermission middleware. The handler
-// uses a scripted service so every security and mapping path can be exercised
+// newGenericProgramsTestRouter wires the platform-owned program endpoints behind
+// the real AdminAuthenticate and RequireAdminPermission middleware, mounting
+// both the generic and the premium-level-1 family groups on the same scripted
+// service so the family binding, security and mapping paths can be exercised
 // without a database.
 func newGenericProgramsTestRouter(t *testing.T, svc generic_programs.Service) (*gin.Engine, token.Service) {
 	t.Helper()
 
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
 
-	handler := auth.NewGenericProgramsHandler(svc)
+	genericHandler := auth.NewGenericProgramsHandler(svc, models.ProgramProductTypeGeneric)
+	premiumHandler := auth.NewGenericProgramsHandler(svc, models.ProgramProductTypePremiumLevel1)
 
 	router := gin.New()
-	group := router.Group(genericProgramsRoute)
-	group.Use(middleware.AdminAuthenticate(tokenSvc))
-	group.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
-	group.GET("", handler.ListPrograms)
-	group.POST("", handler.CreateProgram)
-	group.GET("/:programID", handler.GetProgram)
-	group.PATCH("/:programID", handler.UpdateProgram)
-	group.POST("/:programID/publish", handler.PublishProgram)
-	group.DELETE("/:programID", handler.DeleteProgram)
+	mount := func(route string, handler *auth.GenericProgramsHandler) {
+		group := router.Group(route)
+		group.Use(middleware.AdminAuthenticate(tokenSvc))
+		group.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
+		group.GET("", handler.ListPrograms)
+		group.POST("", handler.CreateProgram)
+		group.GET("/:programID", handler.GetProgram)
+		group.PATCH("/:programID", handler.UpdateProgram)
+		group.POST("/:programID/publish", handler.PublishProgram)
+		group.DELETE("/:programID", handler.DeleteProgram)
+	}
+	mount(genericProgramsRoute, genericHandler)
+	mount(premiumLevel1ProgramsRoute, premiumHandler)
 
 	return router, tokenSvc
 }
@@ -84,11 +93,13 @@ type stubGenericProgramsService struct {
 	gotProgramID   string
 	gotPage        int
 	gotLimit       int
+	gotProductType string
 	gotCreateInput generic_programs.ProgramInput
 	gotUpdateInput generic_programs.ProgramInput
 }
 
-func (s *stubGenericProgramsService) CreateProgram(_ context.Context, input generic_programs.ProgramInput) (*generic_programs.ProgramDetail, error) {
+func (s *stubGenericProgramsService) CreateProgram(_ context.Context, productType string, input generic_programs.ProgramInput) (*generic_programs.ProgramDetail, error) {
+	s.gotProductType = productType
 	s.gotCreateInput = input
 	if s.err != nil {
 		return nil, s.err
@@ -96,7 +107,8 @@ func (s *stubGenericProgramsService) CreateProgram(_ context.Context, input gene
 	return s.detail, nil
 }
 
-func (s *stubGenericProgramsService) ListPrograms(_ context.Context, _ generic_programs.ProgramFilter, page, limit int) (generic_programs.ListProgramsResult, error) {
+func (s *stubGenericProgramsService) ListPrograms(_ context.Context, productType string, _ generic_programs.ProgramFilter, page, limit int) (generic_programs.ListProgramsResult, error) {
+	s.gotProductType = productType
 	s.gotPage = page
 	s.gotLimit = limit
 	if s.err != nil {
@@ -105,7 +117,8 @@ func (s *stubGenericProgramsService) ListPrograms(_ context.Context, _ generic_p
 	return s.listResult, nil
 }
 
-func (s *stubGenericProgramsService) GetProgram(_ context.Context, programID string) (*generic_programs.ProgramDetail, error) {
+func (s *stubGenericProgramsService) GetProgram(_ context.Context, productType, programID string) (*generic_programs.ProgramDetail, error) {
+	s.gotProductType = productType
 	s.gotProgramID = programID
 	if s.err != nil {
 		return nil, s.err
@@ -113,7 +126,8 @@ func (s *stubGenericProgramsService) GetProgram(_ context.Context, programID str
 	return s.detail, nil
 }
 
-func (s *stubGenericProgramsService) UpdateProgram(_ context.Context, programID string, input generic_programs.ProgramInput) (*generic_programs.ProgramDetail, error) {
+func (s *stubGenericProgramsService) UpdateProgram(_ context.Context, productType, programID string, input generic_programs.ProgramInput) (*generic_programs.ProgramDetail, error) {
+	s.gotProductType = productType
 	s.gotProgramID = programID
 	s.gotUpdateInput = input
 	if s.err != nil {
@@ -122,7 +136,8 @@ func (s *stubGenericProgramsService) UpdateProgram(_ context.Context, programID 
 	return s.detail, nil
 }
 
-func (s *stubGenericProgramsService) PublishProgram(_ context.Context, programID string) (generic_programs.Program, error) {
+func (s *stubGenericProgramsService) PublishProgram(_ context.Context, productType, programID string) (generic_programs.Program, error) {
+	s.gotProductType = productType
 	s.gotProgramID = programID
 	if s.err != nil {
 		return generic_programs.Program{}, s.err
@@ -130,7 +145,8 @@ func (s *stubGenericProgramsService) PublishProgram(_ context.Context, programID
 	return s.summary, nil
 }
 
-func (s *stubGenericProgramsService) DeleteProgram(_ context.Context, programID string) error {
+func (s *stubGenericProgramsService) DeleteProgram(_ context.Context, productType, programID string) error {
+	s.gotProductType = productType
 	s.gotProgramID = programID
 	return s.err
 }
@@ -146,6 +162,7 @@ func validGenericDetail() *generic_programs.ProgramDetail {
 			Description:      "A 12 week hypertrophy program.",
 			Type:             "premium",
 			Status:           "draft",
+			ProductType:      models.ProgramProductTypeGeneric,
 			Level:            &level,
 			DurationWeeks:    &duration,
 			FrequencyPerWeek: &frequency,
@@ -389,5 +406,51 @@ func TestGenericProgramsQueryParsing(t *testing.T) {
 	pagination := data["pagination"].(map[string]any)
 	if pagination["total_pages"] != float64(1) {
 		t.Fatalf("expected 1 total page, got %v", pagination["total_pages"])
+	}
+}
+
+// TestGenericProgramsFamilyBinding verifies that the handler derives the product
+// family exclusively from the route group it is mounted on and never from the
+// request. A body that tries to smuggle the opposite family is ignored because
+// the request schema has no product_type field; the premium route must always
+// operate on the premium_level_1 family and the generic route on generic.
+func TestGenericProgramsFamilyBinding(t *testing.T) {
+	tests := []struct {
+		name       string
+		route      string
+		wantFamily string
+	}{
+		{name: "generic route binds generic family", route: genericProgramsRoute, wantFamily: models.ProgramProductTypeGeneric},
+		{name: "premium level 1 route binds premium family", route: premiumLevel1ProgramsRoute, wantFamily: models.ProgramProductTypePremiumLevel1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			opposite := models.ProgramProductTypeGeneric
+			if tc.wantFamily == opposite {
+				opposite = models.ProgramProductTypePremiumLevel1
+			}
+
+			detail := validGenericDetail()
+			detail.ProductType = tc.wantFamily
+			svc := &stubGenericProgramsService{detail: detail}
+			router, tokenSvc := newGenericProgramsTestRouter(t, svc)
+
+			cookie := genericAdminCookie(t, tokenSvc, "ADMIN_2")
+			body := strings.Replace(validGenericProgramBody(),
+				`"currency": "EUR",`,
+				`"currency": "EUR",
+		"product_type": "`+opposite+`",`, 1)
+			rec := genericProgramsRequest(router, cookie, http.MethodPost, tc.route, body)
+			if rec.Code != http.StatusCreated {
+				t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+			}
+			if svc.gotProductType != tc.wantFamily {
+				t.Fatalf("family forwarded to service = %q, want %q", svc.gotProductType, tc.wantFamily)
+			}
+			data := decodeBody(t, rec.Body.String())["data"].(map[string]any)
+			if data["product_type"] != tc.wantFamily {
+				t.Fatalf("response product_type = %v, want %q", data["product_type"], tc.wantFamily)
+			}
+		})
 	}
 }

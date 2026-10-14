@@ -3,6 +3,7 @@ package config_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"ryze/backend/config"
 )
@@ -176,5 +177,108 @@ func TestLoadPricingRejectsNonNumeric(t *testing.T) {
 	_, err := config.LoadPricing()
 	if err == nil {
 		t.Fatal("expected error for non-numeric value")
+	}
+}
+
+// clearServerEnv clears every server variable so a test observes the defaults
+// regardless of the ambient environment.
+func clearServerEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"SERVER_READ_HEADER_TIMEOUT",
+		"SERVER_READ_TIMEOUT",
+		"SERVER_WRITE_TIMEOUT",
+		"SERVER_IDLE_TIMEOUT",
+		"SERVER_SHUTDOWN_TIMEOUT",
+		"SERVER_MAX_BODY_BYTES",
+	} {
+		t.Setenv(key, "")
+	}
+}
+
+func TestLoadServerDefaults(t *testing.T) {
+	clearServerEnv(t)
+
+	cfg, err := config.LoadServer()
+	if err != nil {
+		t.Fatalf("LoadServer: %v", err)
+	}
+	if cfg.ReadHeaderTimeout != 10*time.Second {
+		t.Fatalf("expected default read header timeout 10s, got %s", cfg.ReadHeaderTimeout)
+	}
+	if cfg.ReadTimeout != 30*time.Second {
+		t.Fatalf("expected default read timeout 30s, got %s", cfg.ReadTimeout)
+	}
+	if cfg.WriteTimeout != 60*time.Second {
+		t.Fatalf("expected default write timeout 60s, got %s", cfg.WriteTimeout)
+	}
+	if cfg.IdleTimeout != 120*time.Second {
+		t.Fatalf("expected default idle timeout 120s, got %s", cfg.IdleTimeout)
+	}
+	if cfg.ShutdownTimeout != 20*time.Second {
+		t.Fatalf("expected default shutdown timeout 20s, got %s", cfg.ShutdownTimeout)
+	}
+	if cfg.MaxBodyBytes != 1<<20 {
+		t.Fatalf("expected default max body bytes 1 MiB, got %d", cfg.MaxBodyBytes)
+	}
+}
+
+func TestLoadServerCustomValues(t *testing.T) {
+	clearServerEnv(t)
+	t.Setenv("SERVER_READ_HEADER_TIMEOUT", "3s")
+	t.Setenv("SERVER_READ_TIMEOUT", "7s")
+	t.Setenv("SERVER_WRITE_TIMEOUT", "9s")
+	t.Setenv("SERVER_IDLE_TIMEOUT", "11s")
+	t.Setenv("SERVER_SHUTDOWN_TIMEOUT", "13s")
+	t.Setenv("SERVER_MAX_BODY_BYTES", "2048")
+
+	cfg, err := config.LoadServer()
+	if err != nil {
+		t.Fatalf("LoadServer: %v", err)
+	}
+	if cfg.ReadHeaderTimeout != 3*time.Second || cfg.ReadTimeout != 7*time.Second || cfg.WriteTimeout != 9*time.Second {
+		t.Fatalf("unexpected read/write timeouts: %+v", cfg)
+	}
+	if cfg.IdleTimeout != 11*time.Second || cfg.ShutdownTimeout != 13*time.Second {
+		t.Fatalf("unexpected idle/shutdown timeouts: %+v", cfg)
+	}
+	if cfg.MaxBodyBytes != 2048 {
+		t.Fatalf("expected max body bytes 2048, got %d", cfg.MaxBodyBytes)
+	}
+}
+
+func TestLoadServerRejectsInvalidDuration(t *testing.T) {
+	clearServerEnv(t)
+	t.Setenv("SERVER_READ_TIMEOUT", "not-a-duration")
+
+	if _, err := config.LoadServer(); err == nil {
+		t.Fatal("expected error for an invalid duration")
+	}
+}
+
+func TestLoadServerRejectsNonPositiveDuration(t *testing.T) {
+	clearServerEnv(t)
+	t.Setenv("SERVER_WRITE_TIMEOUT", "0s")
+
+	if _, err := config.LoadServer(); err == nil {
+		t.Fatal("expected error for a non-positive duration")
+	}
+}
+
+func TestLoadServerRejectsInvalidBodyBytes(t *testing.T) {
+	clearServerEnv(t)
+	t.Setenv("SERVER_MAX_BODY_BYTES", "abc")
+
+	if _, err := config.LoadServer(); err == nil {
+		t.Fatal("expected error for a non-numeric body limit")
+	}
+}
+
+func TestLoadServerRejectsNonPositiveBodyBytes(t *testing.T) {
+	clearServerEnv(t)
+	t.Setenv("SERVER_MAX_BODY_BYTES", "0")
+
+	if _, err := config.LoadServer(); err == nil {
+		t.Fatal("expected error for a non-positive body limit")
 	}
 }

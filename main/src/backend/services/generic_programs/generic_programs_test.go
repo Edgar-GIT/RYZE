@@ -30,21 +30,24 @@ var errRepoFailure = errors.New("repository failure")
 // always forwards the caller's family and never forwards, invents or accepts a
 // trainer id.
 type stubGenericRepo struct {
-	program          *models.Program
-	deleted          bool
-	create           func(program *models.Program) error
-	find             func(productType, programID string) (*models.Program, error)
-	search           func(productType string, filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error)
-	update           func(productType, programID string, program *models.Program) error
-	softDelete       func(productType, programID string) error
-	publish          func(productType, programID string) error
-	createTrainerID  string
-	createProductType string
-	updateProgramID  string
-	deleteProgramID  string
-	publishProgramID string
-	findProductType  string
-	searchProductType string
+	program            *models.Program
+	deleted            bool
+	create             func(program *models.Program) error
+	find               func(productType, programID string) (*models.Program, error)
+	search             func(productType string, filter repositories.GenericProgramFilter, page, limit int) ([]models.Program, int64, error)
+	update             func(productType, programID string, program *models.Program) error
+	softDelete         func(productType, programID string) error
+	publish            func(productType, programID string) error
+	createTrainerID    string
+	createProductType  string
+	updateProgramID    string
+	deleteProgramID    string
+	publishProgramID   string
+	findProductType    string
+	searchProductType  string
+	updateProductType  string
+	deleteProductType  string
+	publishProductType string
 }
 
 func (s *stubGenericRepo) CreateFull(_ context.Context, program *models.Program) error {
@@ -69,6 +72,7 @@ func (s *stubGenericRepo) CreateFull(_ context.Context, program *models.Program)
 
 func (s *stubGenericRepo) UpdateFull(_ context.Context, productType, programID string, program *models.Program) error {
 	s.updateProgramID = programID
+	s.updateProductType = productType
 	if s.update != nil {
 		return s.update(productType, programID, program)
 	}
@@ -106,6 +110,7 @@ func (s *stubGenericRepo) Search(_ context.Context, productType string, filter r
 
 func (s *stubGenericRepo) SoftDelete(_ context.Context, productType, programID string) error {
 	s.deleteProgramID = programID
+	s.deleteProductType = productType
 	if s.softDelete != nil {
 		return s.softDelete(productType, programID)
 	}
@@ -118,6 +123,7 @@ func (s *stubGenericRepo) SoftDelete(_ context.Context, productType, programID s
 
 func (s *stubGenericRepo) Publish(_ context.Context, productType, programID string) error {
 	s.publishProgramID = programID
+	s.publishProductType = productType
 	if s.publish != nil {
 		return s.publish(productType, programID)
 	}
@@ -746,7 +752,7 @@ func TestPublishProgramAlreadyPublished(t *testing.T) {
 	published.Status = models.ProgramStatusPublished
 	repo := &stubGenericRepo{
 		program: published,
-		publish: func(_ string) error {
+		publish: func(_, _ string) error {
 			return repositories.ErrGenericProgramNotFound
 		},
 	}
@@ -759,7 +765,7 @@ func TestPublishProgramAlreadyPublished(t *testing.T) {
 
 func TestPublishProgramNotFound(t *testing.T) {
 	repo := &stubGenericRepo{
-		publish: func(_ string) error {
+		publish: func(_, _ string) error {
 			return repositories.ErrGenericProgramNotFound
 		},
 		find: func(_, _ string) (*models.Program, error) {
@@ -790,10 +796,10 @@ func TestPublishProgramRejectsInvalidIDs(t *testing.T) {
 
 func TestPublishProgramRepositoryFailure(t *testing.T) {
 	repo := &stubGenericRepo{
-		find: func(_ string) (*models.Program, error) {
+		find: func(_, _ string) (*models.Program, error) {
 			return validProgramModel(), nil
 		},
-		publish: func(_ string) error {
+		publish: func(_, _ string) error {
 			return errRepoFailure
 		},
 	}
@@ -869,7 +875,7 @@ func TestDeleteProgramSuccess(t *testing.T) {
 
 func TestDeleteProgramNotFound(t *testing.T) {
 	repo := &stubGenericRepo{
-		softDelete: func(_ string) error {
+		softDelete: func(_, _ string) error {
 			return repositories.ErrGenericProgramNotFound
 		},
 	}
@@ -897,7 +903,7 @@ func TestDeleteProgramRejectsInvalidIDs(t *testing.T) {
 
 func TestDeleteProgramRepositoryFailure(t *testing.T) {
 	repo := &stubGenericRepo{
-		softDelete: func(_ string) error {
+		softDelete: func(_, _ string) error {
 			return errRepoFailure
 		},
 	}
@@ -934,5 +940,130 @@ func TestNeverExposesSecrets(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// TestCreateProgramStampsProductFamily verifies that the service stamps the
+// caller-supplied family onto the persisted model and that the created summary
+// echoes it back. The family is route-derived upstream, so the input never
+// carries one.
+func TestCreateProgramStampsProductFamily(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		typ  string
+	}{
+		{name: "generic", typ: models.ProgramProductTypeGeneric},
+		{name: "premium level 1", typ: models.ProgramProductTypePremiumLevel1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &stubGenericRepo{}
+			svc := newService(repo)
+
+			program, err := svc.CreateProgram(context.Background(), tc.typ, validProgramInput())
+			if err != nil {
+				t.Fatalf("CreateProgram: %v", err)
+			}
+			if repo.createProductType != tc.typ {
+				t.Fatalf("expected model stamped %q, got %q", tc.typ, repo.createProductType)
+			}
+			if program.ProductType != tc.typ {
+				t.Fatalf("expected summary product type %q, got %q", tc.typ, program.ProductType)
+			}
+		})
+	}
+}
+
+// TestUnsupportedProductFamilyRejectedEverywhere verifies that every service
+// entry point validates the family before any repository access and rejects
+// anything outside the supported list. premium_level_2 in particular is not an
+// implemented family and must never slip through a single surface.
+func TestUnsupportedProductFamilyRejectedEverywhere(t *testing.T) {
+	repo := &stubGenericRepo{program: validProgramModel()}
+	svc := newService(repo)
+
+	for name, call := range map[string]func() error{
+		"create": func() error {
+			_, err := svc.CreateProgram(context.Background(), "premium_level_2", validProgramInput())
+			return err
+		},
+		"list": func() error {
+			_, err := svc.ListPrograms(context.Background(), "premium_level_2", generic_programs.ProgramFilter{}, 1, 10)
+			return err
+		},
+		"get": func() error { _, err := svc.GetProgram(context.Background(), "premium_level_2", programID); return err },
+		"update": func() error {
+			_, err := svc.UpdateProgram(context.Background(), "premium_level_2", programID, validProgramInput())
+			return err
+		},
+		"publish": func() error {
+			_, err := svc.PublishProgram(context.Background(), "premium_level_2", programID)
+			return err
+		},
+		"delete":       func() error { return svc.DeleteProgram(context.Background(), "premium_level_2", programID) },
+		"create empty": func() error { _, err := svc.CreateProgram(context.Background(), "", validProgramInput()); return err },
+		"list garbage": func() error {
+			_, err := svc.ListPrograms(context.Background(), "not-a-family", generic_programs.ProgramFilter{}, 1, 10)
+			return err
+		},
+		"publish empty": func() error { _, err := svc.PublishProgram(context.Background(), "", programID); return err },
+		"delete empty":  func() error { return svc.DeleteProgram(context.Background(), "", programID) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := call(); !errors.Is(err, generic_programs.ErrInvalidInput) {
+				t.Fatalf("expected ErrInvalidInput, got %v", err)
+			}
+		})
+	}
+
+	if repo.deleteProgramID != "" || repo.updateProgramID != "" || repo.publishProgramID != "" ||
+		repo.findProductType != "" || repo.searchProductType != "" || repo.createProductType != "" {
+		t.Fatal("no repository operation may run for an unsupported family")
+	}
+}
+
+// TestFamilyForwardedToRepository verifies that the family the caller passed is
+// forwarded unchanged to every repository operation, so the data-access scope
+// always matches the route the request arrived on.
+func TestFamilyForwardedToRepository(t *testing.T) {
+	repo := &stubGenericRepo{program: validProgramModel()}
+	svc := newService(repo)
+
+	if _, err := svc.ListPrograms(context.Background(), models.ProgramProductTypePremiumLevel1, generic_programs.ProgramFilter{}, 1, 10); err != nil {
+		t.Fatalf("ListPrograms: %v", err)
+	}
+	if repo.searchProductType != models.ProgramProductTypePremiumLevel1 {
+		t.Fatalf("search family = %q, want %q", repo.searchProductType, models.ProgramProductTypePremiumLevel1)
+	}
+
+	premium := validProgramModel()
+	premium.ProductType = models.ProgramProductTypePremiumLevel1
+	repo.program = premium
+	if _, err := svc.GetProgram(context.Background(), models.ProgramProductTypePremiumLevel1, programID); err != nil {
+		t.Fatalf("GetProgram: %v", err)
+	}
+	if repo.findProductType != models.ProgramProductTypePremiumLevel1 {
+		t.Fatalf("find family = %q, want %q", repo.findProductType, models.ProgramProductTypePremiumLevel1)
+	}
+
+	repo.program = validProgramModel()
+	if _, err := svc.UpdateProgram(context.Background(), models.ProgramProductTypeGeneric, programID, validProgramInput()); err != nil {
+		t.Fatalf("UpdateProgram: %v", err)
+	}
+	if repo.updateProductType != models.ProgramProductTypeGeneric {
+		t.Fatalf("update family = %q, want %q", repo.updateProductType, models.ProgramProductTypeGeneric)
+	}
+
+	if _, err := svc.PublishProgram(context.Background(), models.ProgramProductTypePremiumLevel1, programID); err != nil {
+		t.Fatalf("PublishProgram: %v", err)
+	}
+	if repo.publishProductType != models.ProgramProductTypePremiumLevel1 {
+		t.Fatalf("publish family = %q, want %q", repo.publishProductType, models.ProgramProductTypePremiumLevel1)
+	}
+
+	if err := svc.DeleteProgram(context.Background(), models.ProgramProductTypePremiumLevel1, programID); err != nil {
+		t.Fatalf("DeleteProgram: %v", err)
+	}
+	if repo.deleteProductType != models.ProgramProductTypePremiumLevel1 {
+		t.Fatalf("delete family = %q, want %q", repo.deleteProductType, models.ProgramProductTypePremiumLevel1)
 	}
 }

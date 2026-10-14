@@ -26,11 +26,15 @@ import { joinClassNames } from "@utils/class_names";
 import {
   createGenericProgram,
   fetchGenericProgram,
+  isProgramProductType,
+  PROGRAM_PRODUCT_TYPE,
+  programFamilyLabel,
   ProgramStatusEnum,
   ProgramType,
   updateGenericProgram,
   type GenericProgramLevel,
   type GenericTrainingType,
+  type ProgramProductTypeValue,
   type ProgramTypeValue
 } from "@/services/admin2_api";
 import {
@@ -88,6 +92,23 @@ const TRAINING_TYPE_OPTIONS: Array<{ id: GenericTrainingType | ""; label: string
   { id: "CrossFit", label: "CrossFit" },
   { id: "Fat Loss", label: "Fat Loss" },
   { id: "At Home", label: "At Home" }
+];
+
+// FAMILY_OPTIONS names the closed product-family list an administrator may build
+// in. The family decides which backend route the plan is administered through
+// and which lifecycle it participates in; it is assigned at creation and never
+// changes afterwards.
+const FAMILY_OPTIONS: Array<{ id: ProgramProductTypeValue; label: string; description: string }> = [
+  {
+    id: PROGRAM_PRODUCT_TYPE.GENERIC,
+    label: programFamilyLabel(PROGRAM_PRODUCT_TYPE.GENERIC),
+    description: "Ready-made catalogue plans without a nutrition lifecycle."
+  },
+  {
+    id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1,
+    label: programFamilyLabel(PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1),
+    description: "Catalogue plans that deliver training plus server-generated nutrition."
+  }
 ];
 
 const describeSaveError = (error: unknown): string => {
@@ -326,8 +347,17 @@ export default function Admin2PlanCreatePage() {
   const location = useLocation();
   const editId = new URLSearchParams(location.search).get("edit");
   const editing = typeof editId === "string" && editId.length > 0;
+  const familyQuery = new URLSearchParams(location.search).get("family");
+  // The family comes from the URL the caller built (the plans list and any plan
+  // row always carry it). An unknown or missing value falls back to generic so
+  // the workspace stays usable; the family is never read from a request payload
+  // because the backend derives it from the route alone.
+  const initialFamily = isProgramProductType(familyQuery)
+    ? familyQuery
+    : PROGRAM_PRODUCT_TYPE.GENERIC;
 
-  const [draft, setDraft] = useState<PlanDraft>(createPlanDraft);
+  const [family, setFamily] = useState<ProgramProductTypeValue>(initialFamily);
+  const [draft, setDraft] = useState<PlanDraft>(() => createPlanDraft(initialFamily));
   const [originalDraft, setOriginalDraft] = useState<PlanDraft | null>(null);
   const [loadError, setLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(editing);
@@ -379,12 +409,13 @@ export default function Admin2PlanCreatePage() {
     }
     let cancelled = false;
 
-    fetchGenericProgram(editId)
+    fetchGenericProgram(family, editId)
       .then((detail) => {
         if (cancelled) {
           return;
         }
         const loaded = detailToPlanDraft(detail);
+        setFamily(detail.product_type);
         setDraft(loaded);
         setOriginalDraft(loaded);
         setStep(0);
@@ -408,7 +439,7 @@ export default function Admin2PlanCreatePage() {
     return () => {
       cancelled = true;
     };
-  }, [editing, editId]);
+  }, [editing, editId, family]);
 
   useEffect(() => {
     if (!dirty) {
@@ -505,7 +536,7 @@ export default function Admin2PlanCreatePage() {
     if (editing && originalDraft) {
       setDraft(originalDraft);
     } else {
-      setDraft(createPlanDraft());
+      setDraft(createPlanDraft(family));
     }
     setDirty(false);
     setStep(0);
@@ -525,8 +556,8 @@ export default function Admin2PlanCreatePage() {
     try {
       const input = toGenericProgramInput(draft);
       const saved = editing && editId
-        ? await updateGenericProgram(editId, input)
-        : await createGenericProgram(input);
+        ? await updateGenericProgram(family, editId, input)
+        : await createGenericProgram(family, input);
       setDirty(false);
       setSuccessMessage(
         editing
@@ -648,17 +679,17 @@ export default function Admin2PlanCreatePage() {
       const types: Array<{ id: ProgramTypeValue; name: string; description: string }> = [
         {
           id: ProgramType.FREE,
-          name: "Generic",
-          description: "Ready-made training-only catalogue plans, free for members."
+          name: "Free plan",
+          description: "Free for members. Ready-made training-only catalogue plan."
         },
         {
           id: ProgramType.PREMIUM,
-          name: "Premium · Level 1",
-          description: "Training plus AI-composed nutrition guidance."
+          name: "Premium plan",
+          description: "Priced once. Ready-made catalogue plan."
         },
         {
           id: ProgramType.PERSONALIZED,
-          name: "Premium · Level 2",
+          name: "Personalized plan",
           description: "Trainer-created individualized plans."
         }
       ];
@@ -670,7 +701,37 @@ export default function Admin2PlanCreatePage() {
         >
           <div className={styles.sectionBody}>
             <div className={styles.formRow}>
-              <span className={styles.formLabel}>Product type</span>
+              <span className={styles.formLabel}>Product family</span>
+              <div className={styles.typeGrid}>
+                {FAMILY_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    disabled={editing}
+                    className={joinClassNames(
+                      styles.typeCard,
+                      family === option.id && styles.typeCardActive
+                    )}
+                    onClick={() => {
+                      setFamily(option.id);
+                      update((current) => ({ ...current, product_type: option.id }));
+                    }}
+                    aria-pressed={family === option.id}
+                  >
+                    <p className={styles.typeCardName}>{option.label}</p>
+                    <p className={styles.typeCardDesc}>{option.description}</p>
+                  </button>
+                ))}
+              </div>
+              <p className={styles.formHint}>
+                {editing
+                  ? "The product family is assigned when the plan is created and cannot be changed."
+                  : "The family decides the lifecycle the plan participates in. It is locked at creation."}
+              </p>
+            </div>
+
+            <div className={styles.formRow}>
+              <span className={styles.formLabel}>Pricing category</span>
               <div className={styles.typeGrid}>
                 {types.map((typeOption) => (
                   <button

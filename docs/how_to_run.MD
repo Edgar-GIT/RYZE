@@ -294,6 +294,31 @@ frontend) by listing them:
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173
 ```
 
+## HTTP Server Safety Configuration
+
+The backend runs an explicit `http.Server` with connection timeouts and a
+request body limit, and drains in-flight requests on shutdown. Every value is
+optional and has a safe default; a present-but-invalid value fails at startup so
+a typo can never silently disable a timeout or the body limit.
+
+- `SERVER_READ_HEADER_TIMEOUT` (optional, default `10s`) — time allowed to read
+  the request headers.
+- `SERVER_READ_TIMEOUT` (optional, default `30s`) — time allowed to read the
+  full request, including the body.
+- `SERVER_WRITE_TIMEOUT` (optional, default `60s`) — time allowed to write the
+  response.
+- `SERVER_IDLE_TIMEOUT` (optional, default `120s`) — time an idle keep-alive
+  connection is kept open.
+- `SERVER_SHUTDOWN_TIMEOUT` (optional, default `20s`) — time in-flight requests
+  are allowed to finish after a termination signal.
+- `SERVER_MAX_BODY_BYTES` (optional, default `1048576`, i.e. 1 MiB) — maximum
+  request body size. A larger body is rejected with
+  `413 REQUEST_ENTITY_TOO_LARGE` before any handler reads it.
+
+A deploy or restart that delivers `SIGINT` or `SIGTERM` stops accepting new
+connections, lets in-flight requests finish within the shutdown timeout, and
+then closes the database handle, so a restart never drops an in-flight request.
+
 ## Admin Authentication Configuration
 
 Platform administrators are configuration-only accounts, never stored in the
@@ -505,7 +530,9 @@ If the database is unreachable, misconfigured, or the credentials are
 rejected, the backend prints a clear error and exits with a non-zero status.
 
 After the connection succeeds the backend starts the HTTP API. The listen port
-is read from the `PORT` environment variable and defaults to `8080`.
+is read from the `PORT` environment variable and defaults to `8080`. The server
+applies the connection timeouts and the request body limit described in "HTTP
+Server Safety Configuration", and shuts down gracefully on `SIGINT`/`SIGTERM`.
 
 ```bash
 cd main/src/backend
@@ -516,6 +543,12 @@ go run .
 
 Current API surface (versioned under `/api/v1`):
 
+- `GET /api/v1/health` — reports API status (`{"status":"ok"}`). Probes the
+  database and answers `503 SERVICE_UNAVAILABLE` when it is unreachable, so a
+  load balancer never routes traffic to an instance that cannot serve requests
+  (public).
+- `GET /api/v1/version` — reports the running API version the binary was built
+  with (public).
 - `POST /api/v1/auth/register` — creates a new user account (public).
 - `POST /api/v1/auth/login` — authenticates with email/password and sets the
   `ryze_access_token` HttpOnly cookie (public).
@@ -615,6 +648,84 @@ go run . migrate version
 
 The migration commands must be executed from the `main/src/backend`
 directory.
+
+## Deployment
+
+A production-like stack is defined in `docker-compose.yml` at the repository
+root. It runs three services: `db` (MariaDB, never published to the host),
+`backend` (the API image) and `frontend` (nginx serving the built client and
+proxying `/api/` to the backend on the same origin, so the session cookie stays
+first-party).
+
+1. Create the environment file from the template and fill in every required
+   value. The containerised database additionally needs `DB_ROOT_PASSWORD`:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Set `COOKIE_SECURE=false` for a local HTTP stack; production behind HTTPS must
+   keep it `true`.
+
+2. Build and start:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. Apply migrations against the compose database (migrations never run on boot):
+
+   ```bash
+   docker compose run --rm backend migrate up
+   ```
+
+The API listens on `http://localhost:8080` and the client on `http://localhost`.
+`VITE_API_BASE_URL` is a build-time value (default `/api/v1`); changing it
+requires rebuilding the `frontend` image.
+
+For a non-containerised host, `deploy/ryze-backend.service` is a hardened
+systemd unit template. Install the binary at `/opt/ryze/ryze-api`, the
+environment file at `/etc/ryze/ryze.env` and create the `ryze` user. The unit
+sends `SIGTERM` and allows 30s for in-flight requests to drain
+(`SERVER_SHUTDOWN_TIMEOUT` defaults to 20s).
+
+### Health and version
+
+Monitor `GET /api/v1/health`: `200` with `{"status":"ok"}` when the database is
+reachable, `503 SERVICE_UNAVAILABLE` otherwise. `GET /api/v1/version` reports the
+version the image was built with; inject it at build time so it matches the
+release notes:
+
+```bash
+docker build --build-arg VERSION=2.89.0 -t ryze-api ./main/src/backend
+```
+
+### Backups
+
+`scripts/backup_db.sh` writes a consistent, compressed snapshot to `backups/`
+(override with `BACKUP_DIR`) using the connection settings from `.env`. It
+supports optional GPG encryption via `BACKUP_GPG_RECIPIENT` and local retention
+via `BACKUP_RETENTION_DAYS`.
+
+Because the compose database is not published to the host, dump it through the
+container instead:
+
+```bash
+docker compose exec -T db mariadb-dump \
+  --user="${DB_USER}" --password="${DB_PASSWORD}" \
+  --single-transaction --routines --triggers --events "${DB_NAME}" \
+  | gzip -9 > "backups/${DB_NAME}-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+```
+
+Restore (destructive, refuses to run without `--yes`):
+
+```bash
+scripts/restore_db.sh backups/ryze-20260101T000000Z.sql.gz --yes
+```
+
+`security.MD` requires backups to be encrypted before storage, kept off the
+production host, and validated by periodic restoration tests. Validate a backup
+by restoring it into a throwaway database first.
 
 ---
 
@@ -763,14 +874,22 @@ go run . migrate status
 
 The `/services/premium-level-1` page reads real product data, so it renders an
 unavailable state until a program in the `premium_level_1` family is published.
-Create one as the Management Administrator (ADMIN_2) and publish it.
+Create and publish one as the Management Administrator (ADMIN_2):
 
-Generic administration endpoints cannot create a Premium Level 1 program: generic
-management is scoped to `trainer_id IS NULL` **and** `product_type = 'generic'`,
-and the generic request payloads carry no product family field at all. Seeding one
-directly for a local walkthrough is acceptable, but the family and the published
-state must both be set correctly or the prerequisites will not behave as
-documented.
+1. Log into the administration console and open **Plans** (Programs → Plans).
+2. Switch to the **Premium · Level 1** family tab.
+3. Select **New plan**. The plan workspace opens in the Premium Level 1 family.
+   Choose the **Premium plan** pricing category, set the price, build the weeks,
+   training days and exercises, and publish it.
+
+The Premium Level 1 family is administered through `/api/v1/programs/premium-level-1`:
+the family is derived from the route alone and the request payloads carry no
+product family field, so a client can never choose which family a plan lives in.
+Generic management stays scoped to `trainer_id IS NULL` **and**
+`product_type = 'generic'`, so it can neither create nor edit a Premium Level 1
+program, and the family is locked once the plan exists. After publishing, the
+program surfaces on `/services/premium-level-1` through the existing
+`premium_level_1` catalog scope.
 
 ### Walk the flow
 

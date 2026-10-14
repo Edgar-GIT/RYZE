@@ -1,6 +1,7 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@utils/http_client";
 import { AdminPagination } from "./admin_api";
 import type { SetType } from "./exercise_library";
+import { PREMIUM_LEVEL_1_PRODUCT_TYPE } from "./premium_level1_api";
 
 export const ProgramType = {
   FREE: "free",
@@ -9,6 +10,32 @@ export const ProgramType = {
 } as const;
 
 export type ProgramTypeValue = typeof ProgramType[keyof typeof ProgramType];
+
+// PROGRAM_PRODUCT_TYPE identifies the product family a program belongs to
+// (programs.product_type), which is orthogonal to ProgramType: the latter is
+// the commercial/pricing category. The family decides which parts of the
+// purchase lifecycle a program participates in and, for the management
+// surfaces, which route a program is administered under. The value is kept in
+// sync with the backend; the premium family constant is the single source
+// already used by the Premium Level 1 product surfaces.
+export const PROGRAM_PRODUCT_TYPE = {
+  GENERIC: "generic",
+  PREMIUM_LEVEL_1: PREMIUM_LEVEL_1_PRODUCT_TYPE
+} as const;
+
+export type ProgramProductTypeValue = typeof PROGRAM_PRODUCT_TYPE[keyof typeof PROGRAM_PRODUCT_TYPE];
+
+export const PROGRAM_PRODUCT_TYPES: readonly ProgramProductTypeValue[] = [
+  PROGRAM_PRODUCT_TYPE.GENERIC,
+  PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1
+];
+
+// isProgramProductType narrows an unknown query value to a real family. Query
+// strings are the only place a family value is ever read from the URL; storing
+// it in a request payload would let the client choose a family, which the
+// backend derives exclusively from the route.
+export const isProgramProductType = (value: unknown): value is ProgramProductTypeValue =>
+  PROGRAM_PRODUCT_TYPES.includes(value as ProgramProductTypeValue);
 
 export const ProgramStatusEnum = {
   DRAFT: "draft",
@@ -34,6 +61,7 @@ export interface AdminProgram {
   description: string;
   type: ProgramTypeValue;
   status: ProgramStatusValue;
+  product_type: ProgramProductTypeValue;
   price_minor_units: number;
   currency: string;
   created_at: string;
@@ -338,24 +366,55 @@ export interface AdminFeedbackListResult {
   reason: string;
 }
 
+// programTypeLabel names the commercial pricing category (programs.type). It is
+// deliberately independent of the product family: FREE/PREMIUM/PERSONALIZED are
+// the pricing categories, while programFamilyLabel names the product family.
 export const programTypeLabel = (type: ProgramTypeValue): string => {
+  if (type === ProgramType.FREE) {
+    return "Free Plan";
+  }
   if (type === ProgramType.PREMIUM) {
-    return "Premium · Level 1";
+    return "Premium Plan";
   }
-  if (type === ProgramType.PERSONALIZED) {
-    return "Premium · Level 2";
-  }
-  return "Generic Plan";
+  return "Personalized Plan";
 };
 
 export const programTypeShortLabel = (type: ProgramTypeValue): string => {
-  if (type === ProgramType.PREMIUM) {
-    return "Premium L1";
+  if (type === ProgramType.FREE) {
+    return "Free";
   }
-  if (type === ProgramType.PERSONALIZED) {
-    return "Premium L2";
+  if (type === ProgramType.PREMIUM) {
+    return "Premium";
+  }
+  return "Personalized";
+};
+
+// programFamilyLabel names the product family (programs.product_type). The
+// family is a lifecycle discriminator, not a pricing category: a Premium Level 1
+// program sells under the `premium` pricing category but belongs to its own
+// family because it participates in the questionnaire/nutrition lifecycle.
+export const programFamilyLabel = (family: ProgramProductTypeValue): string => {
+  if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) {
+    return "Premium · Level 1";
   }
   return "Generic";
+};
+
+export const programFamilyShortLabel = (family: ProgramProductTypeValue): string => {
+  if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) {
+    return "Premium L1";
+  }
+  return "Generic";
+};
+
+// programFamilyPath maps a family to its administration route segment. The
+// backend exposes one route group per family and derives the family exclusively
+// from this segment, so every management call must address the family that way.
+export const programFamilyPath = (family: ProgramProductTypeValue): string => {
+  if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) {
+    return "premium-level-1";
+  }
+  return "generic";
 };
 
 export const formatAdminPrice = (minorUnits: number, currency: string): string => {
@@ -419,6 +478,7 @@ export interface GenericProgramSummary {
   name: string;
   description: string;
   type: ProgramTypeValue;
+  product_type: ProgramProductTypeValue;
   status: ProgramStatusValue;
   level: GenericProgramLevel | null;
   duration_weeks: number | null;
@@ -524,7 +584,13 @@ export interface GenericProgramListParams {
   training_type?: GenericTrainingType;
 }
 
-export const fetchGenericPrograms = (params: GenericProgramListParams): Promise<GenericProgramsList> => {
+// The family is the first argument of every generic program call: the request
+// is routed to the family's route group and the backend derives the family from
+// that route. A client can never choose a family through a payload field.
+export const fetchGenericPrograms = (
+  family: ProgramProductTypeValue,
+  params: GenericProgramListParams
+): Promise<GenericProgramsList> => {
   const query = new URLSearchParams({
     page: String(params.page),
     limit: String(params.limit)
@@ -541,23 +607,23 @@ export const fetchGenericPrograms = (params: GenericProgramListParams): Promise<
   if (params.training_type) {
     query.set("training_type", params.training_type);
   }
-  return apiGet<GenericProgramsList>(`/programs/generic?${query.toString()}`);
+  return apiGet<GenericProgramsList>(`/programs/${programFamilyPath(family)}?${query.toString()}`);
 };
 
-export const fetchGenericProgram = (id: string) =>
-  apiGet<GenericProgramDetail>(`/programs/generic/${id}`);
+export const fetchGenericProgram = (family: ProgramProductTypeValue, id: string) =>
+  apiGet<GenericProgramDetail>(`/programs/${programFamilyPath(family)}/${id}`);
 
-export const createGenericProgram = (input: GenericProgramInput) =>
-  apiPost<GenericProgramDetail>("/programs/generic", input);
+export const createGenericProgram = (family: ProgramProductTypeValue, input: GenericProgramInput) =>
+  apiPost<GenericProgramDetail>(`/programs/${programFamilyPath(family)}`, input);
 
-export const updateGenericProgram = (id: string, input: GenericProgramInput) =>
-  apiPatch<GenericProgramDetail>(`/programs/generic/${id}`, input);
+export const updateGenericProgram = (family: ProgramProductTypeValue, id: string, input: GenericProgramInput) =>
+  apiPatch<GenericProgramDetail>(`/programs/${programFamilyPath(family)}/${id}`, input);
 
-export const publishGenericProgram = (id: string) =>
-  apiPost<GenericProgramSummary>(`/programs/generic/${id}/publish`, {});
+export const publishGenericProgram = (family: ProgramProductTypeValue, id: string) =>
+  apiPost<GenericProgramSummary>(`/programs/${programFamilyPath(family)}/${id}/publish`, {});
 
-export const deleteGenericProgram = (id: string) =>
-  apiDelete<never>(`/programs/generic/${id}`);
+export const deleteGenericProgram = (family: ProgramProductTypeValue, id: string) =>
+  apiDelete<never>(`/programs/${programFamilyPath(family)}/${id}`);
 
 /**
  * Resolves the admin feedback list. Feedback is not part of the product yet,

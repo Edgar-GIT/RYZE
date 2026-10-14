@@ -1,0 +1,65 @@
+# RYZE production-like stack.
+#
+# Prerequisites:
+#   cp .env.example .env    # then fill in every required value
+#   # add DB_ROOT_PASSWORD (only the containerised database uses it)
+#
+# Start:
+#   docker compose up -d --build
+#   docker compose run --rm backend migrate up
+#
+# The database is not published to the host: only the backend can reach it.
+# The frontend is published on :80 and proxies /api/ to the backend on :8080.
+
+name: ryze
+
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-ryze}
+      MARIADB_USER: ${DB_USER:-ryze_admin}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD in .env}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    build:
+      context: ./main/src/backend
+      args:
+        VERSION: ${RYZE_VERSION:-dev}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Override the local .env host so the API reaches the compose database.
+      DB_HOST: db
+      DB_PORT: "3306"
+      PORT: "8080"
+    expose:
+      - "8080"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: main/src/frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: /api/v1
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  db_data:

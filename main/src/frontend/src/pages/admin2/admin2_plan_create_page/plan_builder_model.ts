@@ -1,10 +1,12 @@
 import {
+  PROGRAM_PRODUCT_TYPE,
   ProgramStatusEnum,
   ProgramType,
   type GenericProgramDetail,
   type GenericProgramInput,
   type GenericProgramLevel,
   type GenericTrainingType,
+  type ProgramProductTypeValue,
   type ProgramStatusValue,
   type ProgramTypeValue
 } from "@/services/admin2_api";
@@ -47,6 +49,7 @@ export interface PlanDraft {
   name: string;
   description: string;
   type: ProgramTypeValue;
+  product_type: ProgramProductTypeValue;
   status: ProgramStatusValue;
   price: string;
   currency: string;
@@ -113,10 +116,17 @@ const renumberSets = (sets: PlanDraftSet[]): PlanDraftSet[] =>
     set_number: index + 1
   }));
 
-export const createPlanDraft = (): PlanDraft => ({
+// createPlanDraft starts a new plan in the given product family. The family is a
+// property of what is being built, not of the serialized payload: it chooses
+// which administration route saves the plan, and it is never editable once the
+// plan exists because the backend derives it from the route addressed.
+export const createPlanDraft = (
+  productType: ProgramProductTypeValue = PROGRAM_PRODUCT_TYPE.GENERIC
+): PlanDraft => ({
   name: "",
   description: "",
   type: ProgramType.FREE,
+  product_type: productType,
   status: ProgramStatusEnum.DRAFT,
   price: "0.00",
   currency: "EUR",
@@ -424,6 +434,7 @@ export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
   name: detail.name,
   description: detail.description,
   type: detail.type,
+  product_type: detail.product_type,
   status: detail.status,
   price: (detail.price_minor_units / 100).toFixed(2),
   currency: detail.currency,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useHistory, useParams } from "react-router-dom";
+import { Link, useHistory, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, Edit, ExternalLink, RefreshCw, Trash2 } from "lucide-react";
 
 import { Admin2PageHeader } from "@/components/admin2/admin2_page_header/admin2_page_header";
@@ -12,6 +12,9 @@ import {
   fetchAdminSalesByProgramIds,
   fetchGenericProgram,
   formatAdminPrice,
+  isProgramProductType,
+  PROGRAM_PRODUCT_TYPE,
+  programFamilyLabel,
   programTypeLabel,
   ProgramStatusEnum,
   publishGenericProgram,
@@ -19,6 +22,7 @@ import {
   type AdminProgramSale,
   type GenericProgramDetail,
   type GenericProgramSet,
+  type ProgramProductTypeValue,
   type ProgramStatusValue
 } from "@/services/admin2_api";
 import { formatAdminDate } from "@/services/admin_api";
@@ -106,6 +110,16 @@ const DeleteDialog = ({
 export default function Admin2PlanDetailPage() {
   const { programId } = useParams<{ programId: string }>();
   const history = useHistory();
+  const location = useLocation();
+  // The family comes from the URL (the plans list and the dashboard/marketplace
+  // rows always carry it). It selects which family route the plan is read from;
+  // once loaded, the program's own product_type is authoritative for every
+  // action.
+  const familyQuery = new URLSearchParams(location.search).get("family");
+  const initialFamily = isProgramProductType(familyQuery)
+    ? familyQuery
+    : PROGRAM_PRODUCT_TYPE.GENERIC;
+  const [family, setFamily] = useState<ProgramProductTypeValue>(initialFamily);
   const [program, setProgram] = useState<GenericProgramDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -137,7 +151,8 @@ export default function Admin2PlanDetailPage() {
     setErrorMessage("");
 
     try {
-      const result = await fetchGenericProgram(programId);
+      const result = await fetchGenericProgram(family, programId);
+      setFamily(result.product_type);
       setProgram(result);
       await loadSales(result.id, result.status);
     } catch {
@@ -145,7 +160,7 @@ export default function Admin2PlanDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [programId, loadSales]);
+  }, [programId, family, loadSales]);
 
   useEffect(() => {
     void load();
@@ -159,8 +174,8 @@ export default function Admin2PlanDetailPage() {
     setDeleteError("");
 
     try {
-      await deleteGenericProgram(program.id);
-      history.push("/admin2/plans");
+      await deleteGenericProgram(program.product_type, program.id);
+      history.push(`/admin2/plans?family=${program.product_type}`);
     } catch (error) {
       setDeleteError(
         error instanceof Error ? error.message : "Unable to delete the plan. Please try again."
@@ -179,10 +194,10 @@ export default function Admin2PlanDetailPage() {
 
     try {
       if (status === ProgramStatusEnum.PUBLISHED) {
-        await publishGenericProgram(program.id);
+        await publishGenericProgram(program.product_type, program.id);
       } else {
         const input = toGenericProgramInput({ ...detailToPlanDraft(program), status });
-        await updateGenericProgram(program.id, input);
+        await updateGenericProgram(program.product_type, program.id, input);
       }
       await load();
     } catch (error) {
@@ -202,7 +217,7 @@ export default function Admin2PlanDetailPage() {
         description={program?.description ?? undefined}
         actions={
           <Button
-            to="/admin2/plans"
+            to={`/admin2/plans?family=${program?.product_type ?? family}`}
             variant="ghost"
             size="small"
             icon={<ArrowLeft size={15} />}
@@ -290,6 +305,10 @@ export default function Admin2PlanDetailPage() {
             <Admin2Section title="Summary" subtitle="Program facts">
               <div className={styles.detailList}>
                 <div className={styles.row}>
+                  <p className={styles.rowLabel}>Product family</p>
+                  <p className={styles.rowValue}>{programFamilyLabel(program.product_type)}</p>
+                </div>
+                <div className={styles.row}>
                   <p className={styles.rowLabel}>Type</p>
                   <p className={styles.rowValue}>{programTypeLabel(program.type)}</p>
                 </div>
@@ -369,9 +388,18 @@ export default function Admin2PlanDetailPage() {
                   </Button>
                 ) : (
                   <>
-                    <Button to={`/services/generic-program/${program.id}`} variant="secondary" size="small" icon={<ExternalLink size={14} />}>
-                      View in marketplace
-                    </Button>
+                    <Button
+                    to={
+                      program.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1
+                        ? "/services/premium-level-1"
+                        : `/services/generic-program/${program.id}`
+                    }
+                    variant="secondary"
+                    size="small"
+                    icon={<ExternalLink size={14} />}
+                  >
+                    View in marketplace
+                  </Button>
                     <Button
                       variant="ghost"
                       size="small"
@@ -384,7 +412,7 @@ export default function Admin2PlanDetailPage() {
                 )}
 
                 <Button
-                  to={`/admin2/plans/create?edit=${program.id}`}
+                  to={`/admin2/plans/create?edit=${program.id}&family=${program.product_type}`}
                   variant="secondary"
                   size="small"
                   icon={<Edit size={14} />}
@@ -402,7 +430,7 @@ export default function Admin2PlanDetailPage() {
                 >
                   Delete
                 </Button>
-                <Link className={styles.backLink} to="/admin2/plans">
+                <Link className={styles.backLink} to={`/admin2/plans?family=${program.product_type}`}>
                   Back to the plan list
                 </Link>
               </div>
