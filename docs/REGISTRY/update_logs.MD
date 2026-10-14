@@ -1,3 +1,65 @@
+# Version 2.89.0
+
+Title: Launch infrastructure — health and version endpoints, build CI, deployment manifests and backup tooling
+
+Date: 2026-10-13
+
+Summary:
+
+v2.89.0 adds the operational surface the documentation promised but the code
+never exposed, and the tooling needed to build, deploy and back it up
+reproducibly. `api.MD` documented `GET /api/v1/health` and
+`GET /api/v1/version`, but neither route existed; the version the API reported
+had no single source. Now both endpoints exist, the version comes from the binary
+the process was built from, and a continuous-integration workflow, container
+definitions, a systemd unit and backup scripts accompany them. No migration was
+added and no schema changed: the database stays at migration version `28`,
+`dirty=false`. No existing endpoint changed shape and no product behaviour
+changed.
+
+The health endpoint probes the database and answers `503 SERVICE_UNAVAILABLE`
+when it is unreachable, so a load balancer never routes traffic to an instance
+that cannot serve requests. When no database handle is configured it reports
+healthy without probing, which keeps the endpoint usable during startup wiring.
+The version endpoint reports a build-time value that defaults to `dev` for local
+builds and is injected in production, so the reported version and the release
+notes cannot drift.
+
+The deployment surface is host-agnostic. `docker-compose.yml` runs the database,
+the API and an nginx frontend; the frontend proxies `/api/` to the backend so the
+session cookie stays first-party and no CORS exception is needed. `scripts/`
+provide a consistent, optionally encrypted dump and a restore that refuses to run
+without an explicit confirmation.
+
+Main changes:
+
+- Endpoints: public `GET /api/v1/health` (database probe; `200 {status:"ok"}` or
+  `503 SERVICE_UNAVAILABLE`) and `GET /api/v1/version` (`{version}`), registered
+  in `routes.Setup` and served by `auth.HealthHandler`.
+- Version: new `version` package whose `Version` variable is overridden at build
+  time with `-ldflags "-X ryze/backend/version.Version=<version>"` and defaults
+  to `dev`.
+- Tests: `api/auth` cover a healthy database, a missing database handle, an
+  unreachable database (503 envelope) and the build version reported by the
+  version endpoint; `gofmt`, `go build ./...` and `go vet ./...` are clean.
+- CI: `.github/workflows/ci.yml` runs backend formatting, build, vet and the
+  database-independent unit tests, plus frontend typecheck and build. The
+  database-backed suite is intentionally excluded because it requires a
+  provisioned MariaDB and still carries known pre-existing failures.
+- Deployment: `docker-compose.yml`, `main/src/backend/Dockerfile` (distroless,
+  non-root, version injected), `main/src/frontend/Dockerfile` (Vite build served
+  by nginx), `main/src/frontend/nginx.conf` (SPA fallback + `/api/` proxy),
+  `deploy/ryze-backend.service` (hardened systemd unit) and `.dockerignore`
+  files.
+- Backups: `scripts/backup_db.sh` (transactionally consistent, compressed,
+  optional GPG encryption and local retention) and `scripts/restore_db.sh`
+  (gzip/GPG aware, refuses without `--yes`).
+- Docs: `how_to_run.MD` (endpoints list, deployment, health/version, backups),
+  `api.MD` (health/version response shapes and 503) and `.env.example`
+  (`DB_ROOT_PASSWORD`, `RYZE_VERSION`).
+
+---
+
 # Version 2.88.0
 
 Title: HTTP server hardening — connection timeouts, request body limit and graceful shutdown
