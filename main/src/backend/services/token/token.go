@@ -198,8 +198,12 @@ func (s *service) ValidateAccessToken(tokenString string) (*Claims, error) {
 }
 
 // ValidateAdminToken verifies the signature, rejects algorithms other than the
-// expected one, enforces an expiration claim, rejects user and stage tokens
-// and returns the admin identity stored as the token subject.
+// expected one, enforces an expiration claim, requires the admin token kind,
+// rejects user and stage tokens, and requires the credential version carried by
+// the token to match the version currently registered for the admin identity.
+// An identity with no registered credentials fails closed, so an admin token is
+// never accepted without a known credential version. It returns the admin
+// identity stored as the token subject.
 func (s *service) ValidateAdminToken(tokenString string) (string, error) {
 	claims, err := s.parse(tokenString)
 	if err != nil {
@@ -211,6 +215,11 @@ func (s *service) ValidateAdminToken(tokenString string) (string, error) {
 
 	adminID, err := claims.GetSubject()
 	if err != nil || adminID == "" {
+		return "", ErrInvalidToken
+	}
+
+	expected, ok := s.adminCredentialVersion(adminID)
+	if !ok || subtle.ConstantTimeCompare([]byte(expected), []byte(claims.AdminCredentialVersion)) != 1 {
 		return "", ErrInvalidToken
 	}
 	return adminID, nil
