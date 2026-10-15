@@ -35,6 +35,9 @@ func newAdminLoginTestRouter(t *testing.T, secure bool) (*gin.Engine, token.Serv
 	t.Helper()
 
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
+	for _, c := range testAdminCredentials {
+		tokenSvc.RegisterAdminCredentials(c.ID, c.Password, c.AccessCode)
+	}
 	loginSvc := admin_login.NewService(testAdminCredentials)
 	handler := auth.NewAdminLoginHandler(loginSvc, tokenSvc, testTokenTTL, secure)
 

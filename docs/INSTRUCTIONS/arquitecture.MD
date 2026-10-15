@@ -1812,6 +1812,22 @@ The architecture prioritizes:
 
 Security should always take priority over convenience.
 
+Authentication hardening is implemented as reusable middleware and
+configuration rather than inside handlers:
+
+- `middleware.BodyLimit` bounds every request body before any handler runs.
+- `middleware.Limiter` and `middleware.RateLimit` rate limit the credential and
+  account endpoints, keyed by client IP and by a hashed account identifier; the
+  limits are declared per scope in `routes/ratelimit.go`.
+- The shared password policy lives in `services/password` and is applied at
+  every point that sets a password.
+- The token service enforces token kinds and embeds a per-user `session_version`
+  and a per-administrator credential version, so both user and admin sessions
+  are revocable.
+- Configuration for these layers is loaded in `config` (`LoadServer`,
+  `LoadRateLimit`, `LoadJWT`, `LoadAdmin`) and fails at startup on invalid
+  values.
+
 ---
 
 # PERFORMANCE

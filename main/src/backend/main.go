@@ -65,6 +65,11 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
+	rateLimitCfg, err := config.LoadRateLimit()
+	if err != nil {
+		fail("configuration error: %v", err)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		runMigrateCommand(cfg, os.Args[2:])
 		return
@@ -87,7 +92,7 @@ func main() {
 		port = "8080"
 	}
 
-	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg)
+	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg)
 
 	server := &http.Server{
 		Addr:              ":" + port,

@@ -123,7 +123,7 @@ func assertNoAuthorizationLeak(t *testing.T, body string) {
 }
 
 func TestTechnicalAdminAllowedOnTechnicalResource(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleTechnicalAdministrator)
 
 	rec := roleRequestWithCookie(router, validAdminToken(t, svc, config.Admin1ID))
@@ -136,7 +136,7 @@ func TestTechnicalAdminAllowedOnTechnicalResource(t *testing.T) {
 }
 
 func TestManagementAdminRejectedOnTechnicalResource(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleTechnicalAdministrator)
 
 	rec := roleRequestWithCookie(router, validAdminToken(t, svc, config.Admin2ID))
@@ -151,7 +151,7 @@ func TestManagementAdminRejectedOnTechnicalResource(t *testing.T) {
 }
 
 func TestManagementAdminAllowedOnManagementResource(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleManagementAdministrator)
 
 	rec := roleRequestWithCookie(router, validAdminToken(t, svc, config.Admin2ID))
@@ -164,7 +164,7 @@ func TestManagementAdminAllowedOnManagementResource(t *testing.T) {
 }
 
 func TestTechnicalAdminRejectedOnManagementResource(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleManagementAdministrator)
 
 	rec := roleRequestWithCookie(router, validAdminToken(t, svc, config.Admin1ID))
@@ -179,7 +179,7 @@ func TestTechnicalAdminRejectedOnManagementResource(t *testing.T) {
 }
 
 func TestSharedResourceAllowedForBothRoles(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 
 	for _, adminID := range []string{config.Admin1ID, config.Admin2ID} {
 		t.Run(adminID, func(t *testing.T) {
@@ -197,7 +197,7 @@ func TestSharedResourceAllowedForBothRoles(t *testing.T) {
 }
 
 func TestMissingAuthenticationRejectedOnRoleRoute(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleTechnicalAdministrator)
 
 	rec := roleRequest(router)
@@ -211,7 +211,7 @@ func TestMissingAuthenticationRejectedOnRoleRoute(t *testing.T) {
 }
 
 func TestInvalidAuthenticationRejectedOnRoleRoute(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleTechnicalAdministrator)
 
 	for _, value := range []string{"not.a.jwt", "garbage"} {
@@ -227,7 +227,7 @@ func TestInvalidAuthenticationRejectedOnRoleRoute(t *testing.T) {
 }
 
 func TestExpiredAuthenticationRejectedOnRoleRoute(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), -1*time.Minute)
+	svc := newAdminTokenServiceWithTTL(t, -1*time.Minute)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleTechnicalAdministrator)
 
 	rec := roleRequestWithCookie(router, validAdminToken(t, svc, config.Admin1ID))
@@ -241,7 +241,7 @@ func TestExpiredAuthenticationRejectedOnRoleRoute(t *testing.T) {
 }
 
 func TestUserTokenRejectedOnRoleRoute(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleTechnicalAdministrator)
 
 	jwtValue, err := svc.GenerateAccessToken(uuid.NewString(), 0)
@@ -260,7 +260,7 @@ func TestUserTokenRejectedOnRoleRoute(t *testing.T) {
 }
 
 func TestStageTokenRejectedOnRoleRoute(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleTechnicalAdministrator)
 
 	jwtValue, err := svc.GenerateAdminStageToken(config.Admin1ID)
@@ -279,7 +279,7 @@ func TestStageTokenRejectedOnRoleRoute(t *testing.T) {
 }
 
 func TestUnknownIdentityRejectedOnRoleRoute(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newRoleProtectedRouter(t, svc, adminroles.RoleTechnicalAdministrator)
 
 	for _, identity := range []string{"ADMIN_3", "admin", "user-42"} {
@@ -331,7 +331,7 @@ func permissionOnlyRequest(router http.Handler) *httptest.ResponseRecorder {
 }
 
 func TestReadPermissionAllowedForBothRoles(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 
 	for _, adminID := range []string{config.Admin1ID, config.Admin2ID} {
 		t.Run(adminID, func(t *testing.T) {
@@ -349,7 +349,7 @@ func TestReadPermissionAllowedForBothRoles(t *testing.T) {
 }
 
 func TestManagePermissionTechnicalAdminAllowed(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionUsersManage)
 
 	rec := permissionRequestWithCookie(router, validAdminToken(t, svc, config.Admin1ID))
@@ -362,7 +362,7 @@ func TestManagePermissionTechnicalAdminAllowed(t *testing.T) {
 }
 
 func TestManagePermissionManagementAdminForbidden(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionUsersManage)
 
 	rec := permissionRequestWithCookie(router, validAdminToken(t, svc, config.Admin2ID))
@@ -377,7 +377,7 @@ func TestManagePermissionManagementAdminForbidden(t *testing.T) {
 }
 
 func TestTrainerReadPermissionAllowedForBothRoles(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 
 	for _, adminID := range []string{config.Admin1ID, config.Admin2ID} {
 		t.Run(adminID, func(t *testing.T) {
@@ -395,7 +395,7 @@ func TestTrainerReadPermissionAllowedForBothRoles(t *testing.T) {
 }
 
 func TestTrainerManagePermissionTechnicalAdminAllowed(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionTrainersManage)
 
 	rec := permissionRequestWithCookie(router, validAdminToken(t, svc, config.Admin1ID))
@@ -408,7 +408,7 @@ func TestTrainerManagePermissionTechnicalAdminAllowed(t *testing.T) {
 }
 
 func TestTrainerManagePermissionManagementAdminForbidden(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionTrainersManage)
 
 	rec := permissionRequestWithCookie(router, validAdminToken(t, svc, config.Admin2ID))
@@ -437,7 +437,7 @@ func TestPermissionMiddlewareFailsClosedWithoutAuthentication(t *testing.T) {
 }
 
 func TestPermissionMiddlewareRejectsUnknownIdentity(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached := newPermissionProtectedRouter(t, svc, adminroles.PermissionUsersRead)
 
 	for _, identity := range []string{"ADMIN_3", "admin", "user-42"} {

@@ -34,6 +34,16 @@ func tokenAdminStageClaimsWith(claims jwt.RegisteredClaims) jwt.Claims {
 	return adminStageTestClaims{Kind: "admin-stage", RegisteredClaims: claims}
 }
 
+// userTestClaims embeds the kind claim so tests can forge user tokens.
+type userTestClaims struct {
+	Kind string `json:"kind"`
+	jwt.RegisteredClaims
+}
+
+func tokenUserClaimsWith(claims jwt.RegisteredClaims) jwt.Claims {
+	return userTestClaims{Kind: "user", RegisteredClaims: claims}
+}
+
 func newService(t *testing.T, ttl time.Duration) token.Service {
 	t.Helper()
 	return token.NewService([]byte(testSecret), ttl)
@@ -100,6 +110,7 @@ func TestSessionVersionRoundTrip(t *testing.T) {
 
 func TestGenerateAndValidateAdminToken(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
+	svc.RegisterAdminCredentials("ADMIN_1", "admin-password", "admin-access-code")
 
 	raw, err := svc.GenerateAdminToken("ADMIN_1")
 	if err != nil {
@@ -112,6 +123,38 @@ func TestGenerateAndValidateAdminToken(t *testing.T) {
 	}
 	if adminID != "ADMIN_1" {
 		t.Fatalf("expected admin identity %q, got %q", "ADMIN_1", adminID)
+	}
+}
+
+func TestAdminTokenRejectedAfterCredentialChange(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+	svc.RegisterAdminCredentials("ADMIN_1", "admin-password", "admin-access-code")
+
+	raw, err := svc.GenerateAdminToken("ADMIN_1")
+	if err != nil {
+		t.Fatalf("GenerateAdminToken: %v", err)
+	}
+	if _, err := svc.ValidateAdminToken(raw); err != nil {
+		t.Fatalf("token must validate before the credential change: %v", err)
+	}
+
+	// Rotating the password (or access code) must revoke the previously issued
+	// admin session.
+	svc.RegisterAdminCredentials("ADMIN_1", "rotated-password", "admin-access-code")
+	if _, err := svc.ValidateAdminToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("token issued before a credential change must be rejected, got %v", err)
+	}
+}
+
+func TestAdminTokenRejectedWithoutRegisteredCredentials(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+	// No credentials registered for ADMIN_1: validation must fail closed.
+	raw, err := svc.GenerateAdminToken("ADMIN_1")
+	if err != nil {
+		t.Fatalf("GenerateAdminToken: %v", err)
+	}
+	if _, err := svc.ValidateAdminToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("admin token must be rejected when no credentials are registered, got %v", err)
 	}
 }
 
@@ -295,11 +338,11 @@ func TestStageTokenEmptySubjectRejected(t *testing.T) {
 func TestMissingSessionVersionDefaultsToZero(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 
-	claims := jwt.RegisteredClaims{
+	claims := tokenUserClaimsWith(jwt.RegisteredClaims{
 		Subject:   uuid.NewString(),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-	}
+	})
 	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
@@ -311,6 +354,26 @@ func TestMissingSessionVersionDefaultsToZero(t *testing.T) {
 	}
 	if parsed.SessionVersion != 0 {
 		t.Fatalf("expected session version 0 for a token without a ver claim, got %d", parsed.SessionVersion)
+	}
+}
+
+func TestTokenWithoutKindRejected(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	// A well-formed, correctly signed token that does not carry the expected
+	// kind claim must never be interpreted as a valid user token.
+	claims := jwt.RegisteredClaims{
+		Subject:   uuid.NewString(),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+	}
+	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+
+	if _, err := svc.ValidateAccessToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("token without the user kind must be rejected, got %v", err)
 	}
 }
 

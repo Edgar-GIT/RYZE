@@ -46,6 +46,7 @@ func (failingTokenService) GenerateAdminStageToken(string) (string, error) {
 func (failingTokenService) ValidateAdminStageToken(string) (string, error) {
 	return "", errors.New("database exploded")
 }
+func (failingTokenService) RegisterAdminCredentials(string, string, string) {}
 
 // fakeSessionProvider returns a fixed session version for every user so tests
 // can control whether the token's session version matches.

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,6 +23,8 @@ const (
 	defaultAllowedOrigin                    = "http://localhost:5173,http://127.0.0.1:5173"
 	minAdminPasswordLen                     = password.MinPasswordLength
 	minAdminAccessCodeLen                   = 8
+	defaultRateLimitEnabled                 = true
+	defaultRateLimitMaxKeys                 = 10000
 	defaultMinProgramPriceMinorUnits        = 100
 	defaultPlatformCommissionBPS     uint32 = 2000
 	defaultReadHeaderTimeout                = 10 * time.Second
@@ -318,6 +321,59 @@ func LoadServer() (ServerConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+// LoadRateLimit reads the authentication rate-limit configuration from
+// environment variables. It is disabled only through an explicit value,
+// trusted proxies default to none so the client address can never be spoofed
+// through forwarded headers, and an entry that is neither an IP nor a CIDR
+// range fails at startup instead of silently being ignored.
+func LoadRateLimit() (RateLimitConfig, error) {
+	cfg := RateLimitConfig{
+		Enabled: defaultRateLimitEnabled,
+		MaxKeys: defaultRateLimitMaxKeys,
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT_ENABLED")); raw != "" {
+		enabled, err := strconv.ParseBool(raw)
+		if err != nil {
+			return RateLimitConfig{}, fmt.Errorf("RATE_LIMIT_ENABLED must be a boolean, got %q", raw)
+		}
+		cfg.Enabled = enabled
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT_MAX_KEYS")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 {
+			return RateLimitConfig{}, fmt.Errorf("RATE_LIMIT_MAX_KEYS must be a positive integer, got %q", raw)
+		}
+		cfg.MaxKeys = parsed
+	}
+
+	if raw := os.Getenv("RATE_LIMIT_TRUSTED_PROXIES"); strings.TrimSpace(raw) != "" {
+		for _, entry := range strings.Split(raw, ",") {
+			entry = strings.TrimSpace(entry)
+			if entry == "" {
+				continue
+			}
+			if !isTrustedProxyEntry(entry) {
+				return RateLimitConfig{}, fmt.Errorf("RATE_LIMIT_TRUSTED_PROXIES entry %q is neither an IP address nor a CIDR range", entry)
+			}
+			cfg.TrustedProxies = append(cfg.TrustedProxies, entry)
+		}
+	}
+
+	return cfg, nil
+}
+
+// isTrustedProxyEntry reports whether a configured proxy entry is a valid IPv4
+// or IPv6 address or a valid CIDR range, which is exactly what the framework
+// accepts when the trusted proxy list is applied.
+func isTrustedProxyEntry(entry string) bool {
+	if _, _, err := net.ParseCIDR(entry); err == nil {
+		return true
+	}
+	return net.ParseIP(entry) != nil
 }
 
 // durationOr parses a positive duration from the environment. It returns the

@@ -243,7 +243,9 @@ Validation error.
 
 429
 
-Too many requests.
+Too many requests. Returned as `RATE_LIMITED` by the authentication rate
+limiter with a `Retry-After` header naming the whole seconds left in the
+window.
 
 500
 
@@ -2007,6 +2009,39 @@ Less restrictive.
 
 Authenticated users may receive higher limits than anonymous visitors.
 
+## Authentication rate limiting (v2.90.0)
+
+Rate limiting is currently applied to the credential and account endpoints:
+`POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
+`POST /api/v1/admin/auth/login`, `POST /api/v1/admin/auth/verify`,
+`POST /api/v1/auth/change-password` and `POST /api/v1/auth/delete-account`.
+Each endpoint is limited independently, by client IP and — where the body
+carries an account identifier — by the normalised (trimmed, lowercased) `email`
+(user endpoints) or `username` (admin login).
+
+An exhausted limit returns:
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: <seconds>
+```
+
+```json
+{
+  "success": false,
+  "message": "Too many requests. Please try again later.",
+  "error": {
+    "code": "RATE_LIMITED",
+    "details": null
+  }
+}
+```
+
+`Retry-After` is a whole number of seconds and is never below 1. Counters are
+in memory and per instance, bounded by least-recently-used eviction; no body is
+altered and no identifier is stored in clear. Webhooks and non-authentication
+endpoints are never rate limited.
+
 ---
 
 # CACHING
@@ -2101,6 +2136,23 @@ POST /api/v1/auth/login
 
 Authenticates a user using email and password.
 
+Request body:
+
+```json
+{
+  "email": "...",
+  "password": "..."
+}
+```
+
+Only these two fields are used. Empty email or password, or malformed JSON,
+returns HTTP 400 `VALIDATION_ERROR`. An unknown email and a wrong password both
+return the same HTTP 401 `INVALID_CREDENTIALS`; the unknown-email path still
+performs a dummy password verification so the response time does not reveal
+whether the account exists. The endpoint is rate limited per IP and per
+normalised email; an exhausted limit returns HTTP 429 `RATE_LIMITED` with a
+`Retry-After` header.
+
 Public endpoint.
 
 ---
@@ -2140,7 +2192,9 @@ success the endpoint returns HTTP 200 with an empty `data` object and sets a
 short-lived temporary HttpOnly cookie `ryze_admin_stage_token` (`SameSite=Lax`,
 `Secure` per `COOKIE_SECURE`, lifetime 5 minutes). This cookie only proves that
 step 1 succeeded; it is not an authenticated admin session and is rejected by
-the admin token validator.
+the admin token validator. The endpoint is rate limited per IP and per
+normalised username; an exhausted limit returns HTTP 429 `RATE_LIMITED` with a
+`Retry-After` header.
 
 Public endpoint.
 
@@ -2178,7 +2232,8 @@ so the two session kinds cannot be confused. The admin JWT carries the
 administrator identity (`ADMIN_1`/`ADMIN_2`) as its subject and is only
 accepted by admin token validation; user, admin and stage tokens are mutually
 rejected. No password, access code, username, JWT, JWT secret or internal
-details are ever returned.
+details are ever returned. The endpoint is rate limited per IP; an exhausted
+limit returns HTTP 429 `RATE_LIMITED` with a `Retry-After` header.
 
 Public endpoint.
 
@@ -2240,6 +2295,9 @@ Public endpoint.
 
 Accounts are inactive until email verification is completed.
 
+The `password` must satisfy the shared password policy (12 to 128 characters);
+a shorter or longer password returns HTTP 400 `VALIDATION_ERROR`.
+
 If the email belongs to a soft-deleted (previously deleted) account, the same
 registration restores that account instead of creating a duplicate: the
 original UUID and creation date are kept, the names are updated and the
@@ -2247,6 +2305,9 @@ password is replaced by the new password hash. The endpoint still returns
 HTTP 201 and the same response structure in both cases. Registering an email
 that belongs to an active account returns HTTP 409
 `EMAIL_ALREADY_REGISTERED`.
+
+The endpoint is rate limited per IP and per normalised email; an exhausted limit
+returns HTTP 429 `RATE_LIMITED` with a `Retry-After` header.
 
 ---
 
@@ -2284,11 +2345,15 @@ Only these two fields are accepted. The user identity is resolved exclusively
 from the authenticated session; client-provided identifiers are never accepted.
 
 The current password must be verified, otherwise the request fails with
-HTTP 401 `INVALID_CREDENTIALS`. The new password replaces the stored
+HTTP 401 `INVALID_CREDENTIALS`. The new password must satisfy the shared
+password policy (12 to 128 characters); an out-of-policy password returns
+HTTP 400 `VALIDATION_ERROR`. The new password replaces the stored
 `password_hash` and the account's `session_version` is incremented, revoking
 every previously issued access token. On success the response clears the
 `ryze_access_token` cookie (HTTP 200, empty `data`) and the user must
-authenticate again. Empty passwords return HTTP 400 `VALIDATION_ERROR`.
+authenticate again. Empty passwords return HTTP 400 `VALIDATION_ERROR`. The
+endpoint is rate limited per IP; an exhausted limit returns HTTP 429
+`RATE_LIMITED` with a `Retry-After` header.
 
 Authentication required.
 
@@ -2326,6 +2391,8 @@ hash all fail with the same HTTP 401 `INVALID_CREDENTIALS`. An empty password
 or malformed JSON returns HTTP 400 `VALIDATION_ERROR`. On success the response
 returns HTTP 200 with an empty `data` object. No password, hash, JWT, JWT
 secret or internal details (`deleted_at`, database columns) are ever returned.
+The endpoint is rate limited per IP; an exhausted limit returns HTTP 429
+`RATE_LIMITED` with a `Retry-After` header.
 
 Authentication required.
 

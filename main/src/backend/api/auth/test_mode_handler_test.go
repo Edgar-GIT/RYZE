@@ -69,6 +69,8 @@ func newTestModeTestRouterWithProviders(t *testing.T, enabled bool, provider pay
 	sessionRepo := repositories.NewTestSessionRepository(tx)
 
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
+	tokenSvc.RegisterAdminCredentials("ADMIN_1", "test-admin-password", "test-admin-access-code")
+	tokenSvc.RegisterAdminCredentials("ADMIN_2", "test-admin-password", "test-admin-access-code")
 
 	testModeSvc := test_mode.NewService(enabled, sessionRepo, userRepo, trainerRepo, password.Hasher{})
 	testModeHandler := auth.NewTestModeHandler(testModeSvc, tokenSvc, userRepo, testTokenTTL, false)

@@ -53,8 +53,15 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig) *gin.Engine {
 	router := gin.Default()
+	// Only the configured proxies may set the client address from forwarded
+	// headers; with the default (no trusted proxies) ClientIP is the socket
+	// address, so a client can never spoof the key the rate limiters use. A
+	// rejected list fails closed by trusting nothing.
+	if err := router.SetTrustedProxies(rateLimitCfg.TrustedProxies); err != nil {
+		_ = router.SetTrustedProxies(nil)
+	}
 	// CORS runs first so every response, including a body-limit rejection,
 	// carries the headers the browser needs to read it. The body limit then
 	// bounds every request body before any handler (or webhook signature
@@ -67,6 +74,12 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	registrationService := registration.NewRegistrationService(userRepository, password.Hasher{})
 	registerHandler := auth.NewRegisterHandler(registrationService)
 	tokenService := token.NewService([]byte(jwtCfg.Secret), jwtCfg.AccessTokenTTL)
+	// Bind admin tokens to the credentials configured for each administrator so
+	// that rotating a password or access code revokes outstanding admin
+	// sessions on the next start.
+	for _, admin := range adminCfg.Admins {
+		tokenService.RegisterAdminCredentials(admin.ID, admin.Password, admin.AccessCode)
+	}
 	loginService := login.NewLoginService(userRepository, password.Verifier{})
 	loginHandler := auth.NewLoginHandler(loginService, tokenService, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
 
@@ -225,14 +238,18 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	testModeHandler := auth.NewTestModeHandler(testModeService, tokenService, userRepository, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
 	testModePurchaseHandler := auth.NewTestModePurchaseHandler(testModeService, purchaseService)
 
+	// Authentication rate limiters. Webhooks and non-authentication endpoints
+	// are never limited; only credential and account endpoints are.
+	limits := newAuthRateLimiters(rateLimitCfg)
+
 	v1 := router.Group("/api/v1")
 	v1.GET("/health", healthHandler.Status)
 	v1.GET("/version", healthHandler.Version)
-	v1.POST("/auth/register", registerHandler.Register)
-	v1.POST("/auth/login", loginHandler.Login)
+	v1.POST("/auth/register", append(limits.chain(scopeAuthRegister), registerHandler.Register)...)
+	v1.POST("/auth/login", append(limits.chain(scopeAuthLogin), loginHandler.Login)...)
 	v1.POST("/auth/logout", logoutHandler.Logout)
-	v1.POST("/admin/auth/login", adminLoginHandler.Login)
-	v1.POST("/admin/auth/verify", adminLoginHandler.Verify)
+	v1.POST("/admin/auth/login", append(limits.chain(scopeAdminLogin), adminLoginHandler.Login)...)
+	v1.POST("/admin/auth/verify", append(limits.chain(scopeAdminVerify), adminLoginHandler.Verify)...)
 	v1.POST("/admin/auth/logout", adminLogoutHandler.Logout)
 	v1.GET("/exercises", exercisesHandler.ListExercises)
 	v1.GET("/exercises/search", exercisesHandler.SearchExercises)
@@ -240,8 +257,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/programs", publicProgramHandler.ListPublishedPrograms)
 	v1.GET("/programs/:programID", publicProgramHandler.GetPublishedProgram)
 	v1.GET("/payments/methods", paymentMethodsHandler.List)
-	v1.POST("/auth/change-password", middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)
-	v1.POST("/auth/delete-account", middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)
+	v1.POST("/auth/change-password", append(limits.chain(scopeAuthChangePassword), middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)...)
+	v1.POST("/auth/delete-account", append(limits.chain(scopeAuthDeleteAccount), middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)...)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
 	v1.GET("/me/entitlements", middleware.Authenticate(tokenService, userRepository), entitlementHandler.ListEntitlements)

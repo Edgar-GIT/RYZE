@@ -1,3 +1,93 @@
+# Version 2.90.0
+
+Title: Authentication hardening — rate limiting, uniform password policy, admin session revocation and token-kind enforcement
+
+Date: 2026-10-15
+
+Summary:
+
+v2.90.0 hardens the authentication surface. The credential and account
+endpoints had no abuse protection, every path that sets a password enforced a
+different rule (client registration and self-service change required a
+non-empty password while the administrator bootstrap required 6 characters),
+admin sessions could not be revoked without rotating the JWT secret, and token
+validation still accepted an access token that carried no `kind` claim. Now the
+authentication endpoints are rate limited, a single reusable password policy of
+12–128 characters is applied everywhere a password is set, an administrator
+password or access-code rotation revokes outstanding admin sessions, and token
+validation requires the expected kind. No migration was added and no schema
+changed: the database stays at migration version `28`, `dirty=false`. No
+existing endpoint changed shape; the only contract additions are the `429
+RATE_LIMITED` response and the tightened password-validation outcomes, both
+documented in `api.MD`.
+
+Rate limiting is applied only to the six credential and account endpoints
+(`/auth/register`, `/auth/login`, `/admin/auth/login`, `/admin/auth/verify`,
+`/auth/change-password`, `/auth/delete-account`) so provider webhooks and every
+other endpoint are never rejected by it. Each endpoint limits independently by
+client IP, and the endpoints that carry an account identifier add a second
+counter keyed by the normalised identifier, so credential stuffing against one
+account is slowed even from many addresses. Identifiers are never stored in
+clear: the counter key is an HMAC-SHA256 digest under a process-local random
+key. Counters are in memory, per instance, and bounded with least-recently-used
+eviction. The client address is only taken from forwarded headers when the
+proxy is explicitly trusted, so a client cannot spoof its own key.
+
+Login no longer leaks account existence through timing: an unknown email still
+performs a dummy Argon2id verification, so it is indistinguishable from a wrong
+password in both response and timing. Registration keeps its
+`EMAIL_ALREADY_REGISTERED` conflict as an accepted, documented residual
+enumeration risk because the frontend and the (as-yet unbuilt)
+email-verification recovery flow depend on it; the registration rate limit
+mitigates it.
+
+Main changes:
+
+- Rate limiting: new `middleware/ratelimit.go` (`Limiter`, `RateLimit`,
+  `IPRateLimitKey`, `AccountRateLimitKey`; fixed window, injectable clock,
+  LRU-bounded), new `routes/ratelimit.go` (per-scope policies and the
+  `authRateLimiters` chain), and the six authentication routes wired through
+  it in `routes/routes.go`. An exhausted limit returns `429 RATE_LIMITED` with a
+  `Retry-After` header.
+- Trusted proxies: `routes.Setup` now calls `SetTrustedProxies` with
+  `RATE_LIMIT_TRUSTED_PROXIES` (default none, so the socket address is used);
+  an invalid list fails closed by trusting nothing.
+- Password policy: `services/password` gained `ValidatePolicy`,
+  `ErrPasswordTooShort`, `ErrPasswordTooLong`, `MinPasswordLength` (12) and
+  `MaxPasswordLength` (128). Registration, change-password, trainer creation
+  and the administrative create/reset paths all apply it and report
+  `400 VALIDATION_ERROR`. The admin bootstrap minimum in `config/env.go` now
+  reuses `password.MinPasswordLength`.
+- Admin session revocation: `services/token` registers, at startup, an
+  HMAC-SHA256 credential version per configured administrator derived from the
+  password and access code; admin tokens embed it and the validator requires a
+  constant-time match against the registered version, so rotating an admin
+  credential revokes every outstanding admin session.
+- Token kinds: `ValidateAccessToken` now rejects any token whose `kind` is not
+  `user`, so a token that omits the claim can no longer be treated as a user
+  session (admin tokens already required `kind = admin`).
+- Login hardening: unknown-account logins verify against a fixed dummy
+  Argon2id hash before returning the shared invalid-credentials error.
+- Config: `config.RateLimitConfig` and `config.LoadRateLimit` with
+  `RATE_LIMIT_ENABLED` (default true), `RATE_LIMIT_MAX_KEYS` (default 10000)
+  and `RATE_LIMIT_TRUSTED_PROXIES`; `main.go` loads it and passes it to
+  `routes.Setup`.
+- Tests: `middleware/ratelimit_test.go` (window, reset, isolation, disabled,
+  LRU, 429 + `Retry-After`, identifier normalisation, body preservation,
+  pass-through), `routes/ratelimit_test.go` (scope wiring), rate-limit config
+  tests in `config/env_test.go`, token tests for admin credential revocation and
+  missing/empty kind, and updated auth/admin-auth test helpers to register
+  administrator credentials.
+- Docs: `security.MD` (password policy, account-enumeration resistance,
+  admin session revocation, token kind strictness, implemented rate limiting,
+  brute-force mitigations), `api.MD` (429 `RATE_LIMITED` shape, per-endpoint
+  rate limits, password policy, login/enumeration behaviour), `arquitecture.MD`
+  (authentication middleware/configuration layer), `conventions.MD`
+  (password policy), `how_to_run.MD` and `.env.example` (`RATE_LIMIT_*`,
+  administrator password minimum, compliant test password).
+
+---
+
 # Version 2.89.0
 
 Title: Launch infrastructure — health and version endpoints, build CI, deployment manifests and backup tooling

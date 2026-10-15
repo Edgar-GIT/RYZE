@@ -203,11 +203,15 @@ Forgotten passwords must always be reset.
 
 Minimum length:
 
-6 characters
+12 characters
+
+Maximum length:
+
+128 characters
 
 Recommended:
 
-12+
+16+
 
 Password should include a combination of:
 
@@ -217,6 +221,15 @@ Password should include a combination of:
 - Symbols
 
 Weak passwords should be rejected.
+
+The minimum and maximum are enforced server-side by a single reusable policy
+(`services/password.ValidatePolicy`): every path that sets a password — client
+registration, self-service change, administrative creation and administrative
+reset — applies the exact same rule, and each path maps a policy rejection to
+`400 VALIDATION_ERROR`. Length is counted in Unicode code points, and an
+over-long password is rejected rather than silently truncated. The
+administrator bootstrap password configured through `ADMIN_*_PASSWORD` is
+validated against the same minimum at startup.
 
 Future versions may include password strength estimation using libraries such as zxcvbn.
 
@@ -240,10 +253,31 @@ After password reset:
 
 ---
 
+## Account Enumeration Resistance
+
+Authentication must never reveal whether an account exists.
+
+- Login is indistinguishable: an unknown email and a wrong password both return
+  the same `401 INVALID_CREDENTIALS`. The unknown-email path still performs a
+  full password verification against a fixed dummy Argon2id hash, so the two
+  paths also take comparable time and a response-time difference cannot be
+  turned into an existence oracle.
+- Administrative authentication already treats an unknown administrator, a
+  wrong password and a wrong access code identically.
+- Registration is the one deliberate exception: it answers
+  `409 EMAIL_ALREADY_REGISTERED` for an email that already has an active
+  account. The frontend depends on this to offer login instead of a duplicate
+  registration, and no email-verification recovery flow exists yet to replace
+  it. It is an accepted, documented residual enumeration risk, mitigated by
+  rate limiting the registration endpoint (see RATE LIMITING). Once email
+  verification is introduced, registration should return the same response
+  whether or not the address is already in use.
+
+---
+
 ## Email Verification
 
 New accounts should verify ownership of the email address.
-
 Verification links should:
 
 - Expire automatically
@@ -307,6 +341,12 @@ JWT tokens must:
 Never store sensitive user information inside JWT payloads.
 
 JWT should only contain the minimum information necessary.
+
+Token validation is kind-strict. A user access token must carry `kind = user`
+and an admin token must carry `kind = admin`; a token that omits the `kind`
+claim, or carries a kind that does not match the validator in use, is rejected.
+An absent or wrong kind can therefore never be treated as a valid user session,
+and user, admin and stage tokens stay mutually exclusive.
 
 ---
 
@@ -389,6 +429,18 @@ that differs from the user cookie (`ryze_access_token`) so the two session
 kinds cannot be confused in the same browser. All other cookie hardening
 (`SameSite=Lax`, `Secure` per `COOKIE_SECURE`, JWT only inside the cookie,
 credentials never returned by the API) applies identically to admin sessions.
+
+Administrator sessions are revocable. Each admin token embeds a credential
+version derived (HMAC-SHA256 keyed with the JWT secret) from the administrator
+identity and the configured password and access code that were in force when
+the token was issued. At startup the running process registers the credential
+version currently in force for each configured administrator, and the admin
+token validator requires the token's version to match the registered one,
+compared in constant time. Rotating an administrator's password or access code
+and restarting therefore revokes every outstanding admin session at once, while
+a token whose version is unknown, missing or mismatched is rejected exactly like
+any other invalid token. This mirrors the per-user `session_version` mechanism
+that revokes user sessions (see Session Revocation).
 
 Admin-protected routes are guarded by a dedicated admin authentication
 middleware (`middleware.AdminAuthenticate`). It accepts only the final admin
@@ -1811,6 +1863,48 @@ Rate limits may differ depending on endpoint sensitivity.
 
 Administrative endpoints should use stricter limits.
 
+## Implemented rate limiting (v2.90.0)
+
+Authentication rate limiting is implemented in the reusable middleware
+(`middleware.Limiter` and `middleware.RateLimit`) and applied to the credential
+and account endpoints only:
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/admin/auth/login`
+- `POST /api/v1/admin/auth/verify`
+- `POST /api/v1/auth/change-password`
+- `POST /api/v1/auth/delete-account`
+
+Design rules:
+
+- Each endpoint has an independent fixed-window counter keyed by client IP, so
+  a flood against one endpoint never locks a user out of another. Endpoints
+  that carry an account identifier additionally have a second counter keyed by
+  the normalised identifier read from the JSON body (`email` for user login and
+  registration, `username` for admin login), which slows credential stuffing
+  against a single account from many addresses.
+- The identifier is normalised (trimmed and lowercased) and never stored in
+  clear: the counter key is an HMAC-SHA256 digest of the identifier under a
+  process-local random key, so a leaked counter table cannot be turned into a
+  dictionary of accounts. Raw identifiers are never logged.
+- An exhausted limit returns `429 RATE_LIMITED` with a `Retry-After` header
+  naming the whole seconds left in the window.
+- Counters are in memory and per instance, bounded by least-recently-used
+  eviction (`RATE_LIMIT_MAX_KEYS`, default 10000) so distinct keys cannot grow
+  the process without bound. Multi-instance deployments enforce the limits per
+  instance; infrastructure-level limiting (reverse proxy, WAF, CDN) remains the
+  recommended complement for a global limit.
+- The client address comes from `gin`'s `ClientIP`, and only the proxies listed
+  in `RATE_LIMIT_TRUSTED_PROXIES` may set it from forwarded headers. The default
+  (no trusted proxy) uses the socket address, so a client cannot spoof its own
+  key through `X-Forwarded-For`.
+- Webhooks and every non-authentication endpoint are never rate limited, so a
+  provider retry or a normal user action is never rejected by this layer.
+- Rate limiting can be disabled with `RATE_LIMIT_ENABLED=false`; the middleware
+  is then not mounted at all, so toggling it never changes route behaviour
+  beyond the limits.
+
 ---
 
 # BRUTE FORCE PROTECTION
@@ -1825,6 +1919,13 @@ Possible protections include:
 - CAPTCHA after repeated failures
 
 Password spraying attacks should also be considered.
+
+Current mitigations (v2.90.0): per-IP and per-identifier rate limiting on the
+authentication endpoints, indistinguishable `401 INVALID_CREDENTIALS` responses,
+and a dummy password verification on unknown accounts so brute forcing cannot be
+guided by response timing or error differences. Progressive delays, temporary
+lockouts and CAPTCHA remain future options if the deployed limits prove
+insufficient.
 
 ---
 

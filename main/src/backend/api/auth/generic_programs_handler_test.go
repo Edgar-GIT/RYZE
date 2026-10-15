@@ -62,6 +62,7 @@ func newGenericProgramsTestRouter(t *testing.T, svc generic_programs.Service) (*
 
 func genericAdminCookie(t *testing.T, tokenSvc token.Service, adminID string) string {
 	t.Helper()
+	tokenSvc.RegisterAdminCredentials(adminID, "test-admin-password", "test-admin-access-code")
 	value, err := tokenSvc.GenerateAdminToken(adminID)
 	if err != nil {
 		t.Fatalf("GenerateAdminToken: %v", err)

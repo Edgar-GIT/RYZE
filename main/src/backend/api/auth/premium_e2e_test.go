@@ -105,6 +105,8 @@ func newPremiumFlowRouter(t *testing.T) *premiumFlowFixture {
 	purchaseHandler := auth.NewPurchaseHandler(purchaseSvc)
 
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
+	tokenSvc.RegisterAdminCredentials("ADMIN_1", "test-admin-password", "test-admin-access-code")
+	tokenSvc.RegisterAdminCredentials("ADMIN_2", "test-admin-password", "test-admin-access-code")
 	router := gin.New()
 	me := router.Group("/api/v1/me")
 	me.Use(middleware.Authenticate(tokenSvc, userRepo))

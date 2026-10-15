@@ -99,6 +99,9 @@ func newAdminUsersTestRouter(t *testing.T, secure bool) (*gin.Engine, repositori
 
 func adminToken(t *testing.T, tokenSvc token.Service, adminID string) string {
 	t.Helper()
+	// Bind the identity to a credential version so the token is accepted by
+	// ValidateAdminToken, mirroring how the router registers configured admins.
+	tokenSvc.RegisterAdminCredentials(adminID, "test-admin-password", "test-admin-access-code")
 	jwtValue, err := tokenSvc.GenerateAdminToken(adminID)
 	if err != nil {
 		t.Fatalf("GenerateAdminToken: %v", err)

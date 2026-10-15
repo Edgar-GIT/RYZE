@@ -282,3 +282,78 @@ func TestLoadServerRejectsNonPositiveBodyBytes(t *testing.T) {
 		t.Fatal("expected error for a non-positive body limit")
 	}
 }
+
+// clearRateLimitEnv removes every rate-limit variable so a test observes the
+// documented defaults.
+func clearRateLimitEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{"RATE_LIMIT_ENABLED", "RATE_LIMIT_MAX_KEYS", "RATE_LIMIT_TRUSTED_PROXIES"} {
+		t.Setenv(key, "")
+	}
+}
+
+func TestLoadRateLimitDefaults(t *testing.T) {
+	clearRateLimitEnv(t)
+
+	cfg, err := config.LoadRateLimit()
+	if err != nil {
+		t.Fatalf("LoadRateLimit: %v", err)
+	}
+	if !cfg.Enabled {
+		t.Fatal("rate limiting must be enabled by default")
+	}
+	if cfg.MaxKeys != 10000 {
+		t.Fatalf("expected default max keys 10000, got %d", cfg.MaxKeys)
+	}
+	if len(cfg.TrustedProxies) != 0 {
+		t.Fatalf("no proxy must be trusted by default, got %v", cfg.TrustedProxies)
+	}
+}
+
+func TestLoadRateLimitCustomValues(t *testing.T) {
+	clearRateLimitEnv(t)
+	t.Setenv("RATE_LIMIT_ENABLED", "false")
+	t.Setenv("RATE_LIMIT_MAX_KEYS", "500")
+	t.Setenv("RATE_LIMIT_TRUSTED_PROXIES", "127.0.0.1, 10.0.0.0/8, 2001:db8::1")
+
+	cfg, err := config.LoadRateLimit()
+	if err != nil {
+		t.Fatalf("LoadRateLimit: %v", err)
+	}
+	if cfg.Enabled {
+		t.Fatal("explicit disable must be honoured")
+	}
+	if cfg.MaxKeys != 500 {
+		t.Fatalf("expected max keys 500, got %d", cfg.MaxKeys)
+	}
+	if len(cfg.TrustedProxies) != 3 {
+		t.Fatalf("expected 3 trusted proxies, got %v", cfg.TrustedProxies)
+	}
+}
+
+func TestLoadRateLimitRejectsInvalidBool(t *testing.T) {
+	clearRateLimitEnv(t)
+	t.Setenv("RATE_LIMIT_ENABLED", "yes-please")
+
+	if _, err := config.LoadRateLimit(); err == nil {
+		t.Fatal("expected error for an invalid boolean")
+	}
+}
+
+func TestLoadRateLimitRejectsNonPositiveMaxKeys(t *testing.T) {
+	clearRateLimitEnv(t)
+	t.Setenv("RATE_LIMIT_MAX_KEYS", "0")
+
+	if _, err := config.LoadRateLimit(); err == nil {
+		t.Fatal("expected error for a non-positive max keys")
+	}
+}
+
+func TestLoadRateLimitRejectsInvalidTrustedProxy(t *testing.T) {
+	clearRateLimitEnv(t)
+	t.Setenv("RATE_LIMIT_TRUSTED_PROXIES", "127.0.0.1,not-an-address")
+
+	if _, err := config.LoadRateLimit(); err == nil {
+		t.Fatal("expected error for an entry that is neither an IP nor a CIDR")
+	}
+}

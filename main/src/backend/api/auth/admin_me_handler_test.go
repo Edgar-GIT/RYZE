@@ -22,6 +22,8 @@ func newAdminMeTestRouter(t *testing.T) (*gin.Engine, token.Service) {
 	t.Helper()
 
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
+	tokenSvc.RegisterAdminCredentials("ADMIN_1", "test-admin-password", "test-admin-access-code")
+	tokenSvc.RegisterAdminCredentials("ADMIN_2", "test-admin-password", "test-admin-access-code")
 	handler := auth.NewAdminMeHandler()
 
 	router := gin.New()

@@ -319,12 +319,34 @@ A deploy or restart that delivers `SIGINT` or `SIGTERM` stops accepting new
 connections, lets in-flight requests finish within the shutdown timeout, and
 then closes the database handle, so a restart never drops an in-flight request.
 
+## Authentication Rate Limiting Configuration
+
+The credential and account endpoints (register, login, admin login/verify,
+change-password, delete-account) are rate limited in memory, per client IP and
+per account identifier. Every value is optional.
+
+- `RATE_LIMIT_ENABLED` (optional, default `true`) — set to `false` to disable
+  the limits entirely. The middleware is then not mounted at all.
+- `RATE_LIMIT_MAX_KEYS` (optional, default `10000`) — maximum counters tracked
+  per limiter, evicted least-recently-used first.
+- `RATE_LIMIT_TRUSTED_PROXIES` (optional, default empty) — comma-separated IP
+  addresses or CIDR ranges whose forwarded client-address headers are trusted.
+  Leave empty unless the API runs behind a known reverse proxy; with the
+  default the socket address is used, so a client cannot spoof its rate-limit
+  key through `X-Forwarded-For`. Any entry that is neither an IP nor a CIDR
+  range fails at startup.
+
+An exhausted limit returns `429 RATE_LIMITED` with a `Retry-After` header.
+Counting is per instance, so multi-instance deployments should complement it
+with infrastructure-level limiting. Webhooks are never rate limited.
+
 ## Admin Authentication Configuration
 
 Platform administrators are configuration-only accounts, never stored in the
 database. Each administrator requires a username, a password and an access
-code (the second authentication factor). The access code must be at least 8
-characters long. If any value is missing or too short, the backend fails at
+code (the second authentication factor). The password must be at least 12
+characters (the same minimum applied to user passwords) and the access code at
+least 8 characters. If any value is missing or too short, the backend fails at
 startup instead of silently disabling an administrator.
 
 ```text
@@ -351,7 +373,8 @@ defined in `.env` under `TEST_USER_EMAIL` / `TEST_USER_PASSWORD`. Current local
 development values:
 
 - Email: `teste1@gmail.com`
-- Password: `test1`
+- Password: `RyzeTest1234` (12 characters, the minimum the password policy
+  accepts)
 
 The account is not seeded by migrations — it is created through the public
 registration endpoint. After a database reset, recreate it with the same
@@ -360,8 +383,12 @@ endpoint (or simply register it again in the frontend):
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"teste1@gmail.com","password":"test1","first_name":"Teste","last_name":"Um"}'
+  -d '{"email":"teste1@gmail.com","password":"RyzeTest1234","first_name":"Teste","last_name":"Um"}'
 ```
+
+Passwords must be 12 to 128 characters on every endpoint that sets one
+(registration, change-password, administrative creation and administrative
+reset); a shorter or longer value returns `400 VALIDATION_ERROR`.
 
 ### Administrator accounts
 

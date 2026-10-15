@@ -534,6 +534,11 @@ Never expose secrets.
 
 Passwords must always be securely hashed.
 
+Every path that sets a password uses the shared server-side policy
+(`services/password.ValidatePolicy`, 12 to 128 characters) and reports a
+rejection as `400 VALIDATION_ERROR`; no endpoint may accept a client-supplied
+password hash, identifier, role or session version.
+
 ---
 
 # GIT CONVENTIONS

@@ -125,3 +125,26 @@ type ServerConfig struct {
 	ShutdownTimeout   time.Duration
 	MaxBodyBytes      int64
 }
+
+// RateLimitConfig holds the authentication rate-limit configuration.
+//
+// Enabled toggles the whole subsystem so it can be bypassed in controlled
+// environments (integration tests, load tests) without changing code.
+//
+// TrustedProxies lists the reverse proxies the application is allowed to take
+// the client address from, so limits key on the real client instead of the
+// proxy address. An empty list means the socket address is used, which is the
+// safe default when the application is reachable directly.
+//
+// MaxKeys bounds how many distinct keys (IPs or account identifiers) a limiter
+// may track at once; the least recently used key is evicted past the bound so
+// the limiters cannot be made to grow without bound.
+//
+// The limiters live in process memory: with several application instances each
+// instance applies the limits independently. Multi-instance deployments should
+// account for that (see security.MD).
+type RateLimitConfig struct {
+	Enabled        bool
+	TrustedProxies []string
+	MaxKeys        int
+}

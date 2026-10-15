@@ -65,8 +65,23 @@ func validAdminToken(t *testing.T, svc token.Service, adminID string) string {
 	return jwtValue
 }
 
+// newAdminTokenService builds a token service whose admin identities have
+// registered credentials, mirroring how the router binds admin tokens to the
+// configured credentials.
+func newAdminTokenService(t *testing.T) token.Service {
+	return newAdminTokenServiceWithTTL(t, 15*time.Minute)
+}
+
+func newAdminTokenServiceWithTTL(t *testing.T, ttl time.Duration) token.Service {
+	t.Helper()
+	svc := token.NewService([]byte(testSecret), ttl)
+	svc.RegisterAdminCredentials(config.Admin1ID, "test-admin-1-password", "test-admin-1-access-code")
+	svc.RegisterAdminCredentials(config.Admin2ID, "test-admin-2-password", "test-admin-2-access-code")
+	return svc
+}
+
 func TestAdminValidTokenContinues(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 
 	for _, adminID := range []string{config.Admin1ID, config.Admin2ID} {
 		t.Run(adminID, func(t *testing.T) {
@@ -84,7 +99,7 @@ func TestAdminValidTokenContinues(t *testing.T) {
 }
 
 func TestAdminIdentityStoredInContext(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 
 	for _, adminID := range []string{config.Admin1ID, config.Admin2ID} {
 		t.Run(adminID, func(t *testing.T) {
@@ -102,7 +117,7 @@ func TestAdminIdentityStoredInContext(t *testing.T) {
 }
 
 func TestAdminMissingCookieRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached, _ := newAdminProtectedRouter(t, svc)
 
 	rec := adminRequest(router)
@@ -116,7 +131,7 @@ func TestAdminMissingCookieRejected(t *testing.T) {
 }
 
 func TestAdminEmptyCookieRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached, _ := newAdminProtectedRouter(t, svc)
 
 	rec := adminRequestWithCookie(router, "")
@@ -130,7 +145,7 @@ func TestAdminEmptyCookieRejected(t *testing.T) {
 }
 
 func TestAdminMalformedJWTRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, _, _ := newAdminProtectedRouter(t, svc)
 
 	for _, value := range []string{"not.a.jwt", "garbage", "a.b.c.d.e"} {
@@ -143,7 +158,7 @@ func TestAdminMalformedJWTRejected(t *testing.T) {
 }
 
 func TestAdminExpiredJWTRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), -1*time.Minute)
+	svc := newAdminTokenServiceWithTTL(t, -1*time.Minute)
 	router, reached, _ := newAdminProtectedRouter(t, svc)
 
 	rec := adminRequestWithCookie(router, validAdminToken(t, svc, config.Admin1ID))
@@ -157,7 +172,7 @@ func TestAdminExpiredJWTRejected(t *testing.T) {
 }
 
 func TestAdminTamperedJWTRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached, _ := newAdminProtectedRouter(t, svc)
 
 	valid := validAdminToken(t, svc, config.Admin1ID)
@@ -177,7 +192,7 @@ func TestAdminTamperedJWTRejected(t *testing.T) {
 }
 
 func TestAdminUserTokenRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached, _ := newAdminProtectedRouter(t, svc)
 
 	jwtValue, err := svc.GenerateAccessToken(uuid.NewString(), 0)
@@ -196,7 +211,7 @@ func TestAdminUserTokenRejected(t *testing.T) {
 }
 
 func TestAdminStageTokenRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached, _ := newAdminProtectedRouter(t, svc)
 
 	jwtValue, err := svc.GenerateAdminStageToken(config.Admin1ID)
@@ -215,7 +230,7 @@ func TestAdminStageTokenRejected(t *testing.T) {
 }
 
 func TestAdminMissingIdentityRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached, _ := newAdminProtectedRouter(t, svc)
 
 	rec := adminRequestWithCookie(router, validAdminToken(t, svc, ""))
@@ -229,7 +244,7 @@ func TestAdminMissingIdentityRejected(t *testing.T) {
 }
 
 func TestAdminInvalidIdentityRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached, _ := newAdminProtectedRouter(t, svc)
 
 	for _, identity := range []string{"ADMIN_3", "admin", "user-42"} {
@@ -245,7 +260,7 @@ func TestAdminInvalidIdentityRejected(t *testing.T) {
 }
 
 func TestAdminWrongSecretRejected(t *testing.T) {
-	svc := token.NewService([]byte(testSecret), 15*time.Minute)
+	svc := newAdminTokenService(t)
 	router, reached, _ := newAdminProtectedRouter(t, svc)
 
 	other := token.NewService([]byte("other-secret-that-is-longer-than-32-bytes-99"), 15*time.Minute)
@@ -263,7 +278,7 @@ func TestAdminWrongSecretRejected(t *testing.T) {
 func TestAdminInternalValidationFailureDoesNotExposeDetails(t *testing.T) {
 	router, reached, _ := newAdminProtectedRouter(t, failingTokenService{})
 
-	rec := adminRequestWithCookie(router, validAdminToken(t, token.NewService([]byte(testSecret), 15*time.Minute), config.Admin1ID))
+	rec := adminRequestWithCookie(router, validAdminToken(t, newAdminTokenService(t), config.Admin1ID))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rec.Code)
 	}
