@@ -98,8 +98,8 @@ func validateInput(input Input) error {
 	if input.CurrentPassword == "" {
 		return password.ErrEmptyPassword
 	}
-	if input.NewPassword == "" {
-		return password.ErrEmptyPassword
+	if err := password.ValidatePolicy(input.NewPassword); err != nil {
+		return err
 	}
 	return nil
 }

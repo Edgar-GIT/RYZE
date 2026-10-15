@@ -215,7 +215,7 @@ func (s *adminTrainerService) CreateTrainer(ctx context.Context, input CreateTra
 		switch {
 		case errors.Is(err, repositories.ErrDuplicateEmail):
 			return nil, ErrDuplicateEmail
-		case errors.Is(err, registration.ErrInvalidInput), errors.Is(err, password.ErrEmptyPassword):
+		case errors.Is(err, registration.ErrInvalidInput), password.IsPolicyError(err):
 			return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 		default:
 			return nil, fmt.Errorf("failed to create trainer user: %w", err)

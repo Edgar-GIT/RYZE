@@ -179,7 +179,7 @@ func (s *adminUserService) CreateUser(ctx context.Context, input CreateUserInput
 		switch {
 		case errors.Is(err, repositories.ErrDuplicateEmail):
 			return nil, ErrDuplicateEmail
-		case errors.Is(err, registration.ErrInvalidInput), errors.Is(err, password.ErrEmptyPassword):
+		case errors.Is(err, registration.ErrInvalidInput), password.IsPolicyError(err):
 			return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 		default:
 			return nil, fmt.Errorf("failed to create user: %w", err)
@@ -309,8 +309,8 @@ func (s *adminUserService) ResetUserPassword(ctx context.Context, id, newPasswor
 	if err := validateUserID(id); err != nil {
 		return err
 	}
-	if newPassword == "" {
-		return password.ErrEmptyPassword
+	if err := password.ValidatePolicy(newPassword); err != nil {
+		return err
 	}
 
 	hash, err := s.hasher.HashPassword(newPassword)

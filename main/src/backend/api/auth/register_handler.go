@@ -58,7 +58,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 		switch {
 		case errors.Is(err, repositories.ErrDuplicateEmail):
 			RespondError(c, http.StatusConflict, "EMAIL_ALREADY_REGISTERED", "Email already in use.", nil)
-		case errors.Is(err, registration.ErrInvalidInput), errors.Is(err, password.ErrEmptyPassword):
+		case errors.Is(err, registration.ErrInvalidInput), password.IsPolicyError(err):
 			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		default:
 			RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)

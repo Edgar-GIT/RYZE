@@ -8,14 +8,57 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
 )
 
 var (
-	ErrEmptyPassword = errors.New("password must not be empty")
-	ErrInvalidHash   = errors.New("invalid password hash")
+	ErrEmptyPassword    = errors.New("password must not be empty")
+	ErrInvalidHash      = errors.New("invalid password hash")
+	ErrPasswordTooShort = fmt.Errorf("password must be at least %d characters long", MinPasswordLength)
+	ErrPasswordTooLong  = fmt.Errorf("password must be at most %d characters long", MaxPasswordLength)
 )
+
+// Password policy. Every path that sets a new password enforces the same
+// minimum and maximum, measured in Unicode code points (runes) rather than
+// bytes so a password is never rejected or truncated because of how a character
+// is encoded. The minimum matches the security documentation's recommendation;
+// the maximum bounds the work a single password can force during hashing and
+// verification. Existing passwords shorter than the minimum remain usable: the
+// policy only applies when a password is set.
+const (
+	MinPasswordLength = 12
+	MaxPasswordLength = 128
+)
+
+// ValidatePolicy reports whether a candidate password satisfies the shared
+// password policy. It returns ErrEmptyPassword for an empty password,
+// ErrPasswordTooShort below the minimum and ErrPasswordTooLong above the
+// maximum. Passwords are never truncated and the rejected value is never
+// included in the returned error.
+func ValidatePolicy(password string) error {
+	if password == "" {
+		return ErrEmptyPassword
+	}
+	length := utf8.RuneCountInString(password)
+	if length < MinPasswordLength {
+		return ErrPasswordTooShort
+	}
+	if length > MaxPasswordLength {
+		return ErrPasswordTooLong
+	}
+	return nil
+}
+
+// IsPolicyError reports whether err is one of the password-policy violations
+// (empty, too short or too long). It lets callers map every policy failure to a
+// single validation response without inspecting the concrete error.
+func IsPolicyError(err error) bool {
+	return errors.Is(err, ErrEmptyPassword) ||
+		errors.Is(err, ErrPasswordTooShort) ||
+		errors.Is(err, ErrPasswordTooLong)
+}
 
 // Argon2id parameters. Explicit so hashing behaviour is reproducible and
 // never scattered as magic numbers.

@@ -168,7 +168,7 @@ func (h *AdminUserHandler) CreateUser(c *gin.Context) {
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, admin_users.ErrInvalidInput), errors.Is(err, password.ErrEmptyPassword):
+		case errors.Is(err, admin_users.ErrInvalidInput), password.IsPolicyError(err):
 			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		case errors.Is(err, admin_users.ErrDuplicateEmail):
 			RespondError(c, http.StatusConflict, "EMAIL_ALREADY_REGISTERED", "Email already in use.", nil)
@@ -277,7 +277,7 @@ func (h *AdminUserHandler) ResetUserPassword(c *gin.Context) {
 
 	if err := h.service.ResetUserPassword(c.Request.Context(), c.Param("id"), req.NewPassword); err != nil {
 		switch {
-		case errors.Is(err, admin_users.ErrInvalidInput), errors.Is(err, password.ErrEmptyPassword):
+		case errors.Is(err, admin_users.ErrInvalidInput), password.IsPolicyError(err):
 			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		case errors.Is(err, admin_users.ErrUserNotFound):
 			RespondError(c, http.StatusNotFound, "USER_NOT_FOUND", "User not found.", nil)

@@ -109,8 +109,8 @@ func validateInput(input RegisterInput) error {
 	if input.LastName == "" {
 		return fmt.Errorf("%w: last_name is required", ErrInvalidInput)
 	}
-	if input.Password == "" {
-		return password.ErrEmptyPassword
+	if err := password.ValidatePolicy(input.Password); err != nil {
+		return err
 	}
 	return nil
 }

@@ -51,7 +51,7 @@ func (h *ChangePasswordHandler) ChangePassword(c *gin.Context) {
 		switch {
 		case errors.Is(err, change_password.ErrInvalidCredentials):
 			RespondError(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid credentials.", nil)
-		case errors.Is(err, change_password.ErrInvalidInput), errors.Is(err, password.ErrEmptyPassword):
+		case errors.Is(err, change_password.ErrInvalidInput), password.IsPolicyError(err):
 			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		default:
 			RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)

@@ -189,7 +189,7 @@ func (h *AdminTrainerHandler) CreateTrainer(c *gin.Context) {
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, admin_trainers.ErrInvalidInput), errors.Is(err, password.ErrEmptyPassword):
+		case errors.Is(err, admin_trainers.ErrInvalidInput), password.IsPolicyError(err):
 			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		case errors.Is(err, admin_trainers.ErrDuplicateEmail):
 			RespondError(c, http.StatusConflict, "EMAIL_ALREADY_REGISTERED", "Email already in use.", nil)

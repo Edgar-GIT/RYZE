@@ -7,8 +7,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/joho/godotenv"
+
+	"ryze/backend/services/password"
 )
 
 const (
@@ -17,7 +20,7 @@ const (
 	defaultTokenTTL                         = 15 * time.Minute
 	minJWTSecretLength                      = 32
 	defaultAllowedOrigin                    = "http://localhost:5173,http://127.0.0.1:5173"
-	minAdminPasswordLen                     = 6
+	minAdminPasswordLen                     = password.MinPasswordLength
 	minAdminAccessCodeLen                   = 8
 	defaultMinProgramPriceMinorUnits        = 100
 	defaultPlatformCommissionBPS     uint32 = 2000
@@ -137,7 +140,7 @@ func LoadAdmin() (AdminConfig, error) {
 		if username == "" {
 			return AdminConfig{}, fmt.Errorf("%s_USERNAME is required", admin.ID)
 		}
-		if len(password) < minAdminPasswordLen {
+		if utf8.RuneCountInString(password) < minAdminPasswordLen {
 			return AdminConfig{}, fmt.Errorf("%s_PASSWORD is required and must be at least %d characters long", admin.ID, minAdminPasswordLen)
 		}
 		if len(accessCode) < minAdminAccessCodeLen {
