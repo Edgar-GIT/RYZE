@@ -165,12 +165,10 @@ func TestAddClientRejectsInvalidIDs(t *testing.T) {
 	svc := newService(&stubClientRepo{})
 
 	for name, ids := range map[string][2]string{
-		"empty trainer":  {"", userID},
-		"bad trainer":    {"not-a-uuid", userID},
-		"empty user":     {trainerID, ""},
-		"bad user":       {trainerID, "not-a-uuid"},
-		"self relation":  {trainerID, trainerID},
-		"same uuid pair": {userID, userID},
+		"empty trainer": {"", userID},
+		"bad trainer":   {"not-a-uuid", userID},
+		"empty user":    {trainerID, ""},
+		"bad user":      {trainerID, "not-a-uuid"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := svc.AddClient(context.Background(), ids[0], ids[1]); !errors.Is(err, trainer_clients.ErrInvalidInput) {

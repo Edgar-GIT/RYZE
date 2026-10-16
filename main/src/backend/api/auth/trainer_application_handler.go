@@ -191,7 +191,7 @@ type ownApplicationResponse struct {
 // accessStatusResponse describes the authenticated caller's trainer access
 // state. Application is null when the caller has never applied.
 type accessStatusResponse struct {
-	IsTrainer   bool                   `json:"is_trainer"`
+	IsTrainer   bool                    `json:"is_trainer"`
 	Application *ownApplicationResponse `json:"application"`
 }
 

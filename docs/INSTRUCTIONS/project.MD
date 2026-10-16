@@ -308,13 +308,19 @@ Trainers can:
 - Access trainer dashboards
 
 Trainer applications are created by authenticated users through
-`POST /api/v1/trainer/apply` and reviewed by both administrators.
+`POST /api/v1/trainer/apply` and reviewed by both administrators. The applicant
+resolves their own state through `GET /api/v1/trainer/access`, which is the
+single source of truth for "is this user a trainer" and for the latest
+application outcome. The trainer web area (`/trainer/*`) is built on these
+endpoints and on the existing trainer, client and program routes; it never
+infers trainer status client-side.
 
 Client management is a first-class trainer capability (under `trainer.clients`):
-an active trainer can list their clients and add or remove the relationship with
-any active user. The relationship has its own lifecycle and is independent of
-the user account and the trainer profile (see the Trainer Clients sections in
-`database.MD` and `api.MD`).
+an active trainer can list their clients, resolve an exact email to confirm the
+account, and add or remove the relationship with any active user. The
+relationship has its own lifecycle and is independent of the user account and
+the trainer profile (see the Trainer Clients sections in `database.MD` and
+`api.MD`).
 
 ---
 

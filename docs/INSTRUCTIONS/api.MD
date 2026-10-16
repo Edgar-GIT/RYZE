@@ -1214,7 +1214,6 @@ Protected trainer routes mount `RequireTrainerPermission` behind
 Returns the authenticated trainer's own profile with the nested user details.
 Identity comes exclusively from the authenticated trainer context; client
 supplied `user_id` / `trainer_id` query or body values are ignored.
-
 Response `data`:
 
 - `id` — trainer UUID.
@@ -1287,6 +1286,39 @@ Requires `trainer.clients`.
 
 ---
 
+### `GET /api/v1/trainer/clients/lookup`
+
+Resolves an active user by **exact** email so the trainer can confirm who will
+be added before creating the relationship. Identity comes exclusively from the
+authenticated trainer context. The lookup is exact-match only: it never searches
+or lists users, and it returns the minimal identity needed to confirm the match.
+The trainer's own email resolves to their own account only as a candidate; the
+add step rejects it.
+
+Query parameters:
+
+- `email` — required; trimmed server-side; empty values return
+  `400 VALIDATION_ERROR`.
+
+Response `data`:
+
+- `user_id` — the matched user UUID.
+- `email`, `first_name`, `last_name` — safe identity fields.
+
+Responses:
+
+- `200 OK` — exact match found.
+- `400 VALIDATION_ERROR` — missing or blank email.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication or trainer
+  context.
+- `403 FORBIDDEN` — non-trainer or missing `trainer.clients` permission.
+- `404 CLIENT_NOT_FOUND` — no active user has that email (a soft-deleted user
+  is reported identically).
+
+Requires `trainer.clients`.
+
+---
+
 ### `POST /api/v1/trainer/clients`
 
 Creates the active relationship between the authenticated trainer and an
@@ -1302,8 +1334,10 @@ Responses:
 
 - `201 Created` — relationship created; response `data` uses the same shape as
   a list item.
-- `400 VALIDATION_ERROR` — missing/malformed identifiers, self-relationship,
-  invalid body.
+- `400 VALIDATION_ERROR` — missing/malformed identifiers, self-relationship
+  (the trainer's own user account is resolved from the trainer profile, so the
+  two different identifiers for the same person are still rejected), invalid
+  body.
 - `404 CLIENT_NOT_FOUND` — the client user does not exist or is soft-deleted
   (a soft-deleted user can never be added).
 - `409 CLIENT_ALREADY_ADDED` — an active relationship already exists.
@@ -4226,6 +4260,32 @@ Errors:
 
 A rejected application stays in history; the user can apply again. An approved
 application is final.
+
+## Access Status
+
+```
+GET /api/v1/trainer/access
+```
+
+Authentication required (user cookie `ryze_access_token`). Returns the
+authenticated user's trainer access state, resolved exclusively from the
+session: it is the single source of truth the frontend uses to decide whether
+to show the apply screen, wait for review or open the trainer area. Nothing is
+inferred client-side.
+
+Response `data`:
+
+- `is_trainer` — `true` when an active trainer profile exists for the user.
+- `application` — `null` when the user has never applied, otherwise the latest
+  application with `id`, `status` (`PENDING`, `APPROVED` or `REJECTED`) and
+  `created_at` / `updated_at`. The applicant's own view omits the nested user
+  object.
+
+Errors:
+
+- HTTP 401 `AUTHENTICATION_REQUIRED` — no valid user session (including a
+  soft-deleted user).
+- HTTP 500 `INTERNAL_ERROR` — unexpected failure.
 
 Future application data (curriculum vitae, certificates, personal information)
 extends this endpoint without changing the identity rule.

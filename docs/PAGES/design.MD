@@ -1081,6 +1081,88 @@ CTA
 
 ---
 
+# Trainer Area
+
+Routes: `/trainer/apply`, `/trainer/dashboard`, `/trainer/clients`,
+`/trainer/programs`, `/trainer/programs/:programId`, `/trainer/profile`.
+
+The trainer area reuses the existing dark RYZE design language (near-black
+backgrounds, cyan accents, rounded translucent cards, the shared `Button` and
+`LoadingScreen` components) and the existing typography. It introduces no new
+visual pattern.
+
+Access is decided exclusively by the backend: the shared session context loads
+`GET /api/v1/trainer/access` on entry. Unauthenticated users are sent to
+`/login`; authenticated non-trainers are sent to the apply page; approved
+trainers see the trainer layout. The frontend never infers trainer status
+client-side.
+
+Entry point
+
+- The Profile page hub shows a single trainer link resolved from the access
+  endpoint: "Trainer Dashboard" for approved trainers, "Become a Trainer"
+  otherwise. A failed access request hides the link; it never blocks the page.
+
+Trainer layout
+
+- Left/top navigation with four items — Dashboard, Clients, Programs, Profile —
+  rendered as links with an active state.
+- Desktop: sidebar; small screens: horizontal navigation that wraps. Content
+  sits on the same dark surface as the rest of the account area.
+
+Apply page (`/trainer/apply`)
+
+- Presentational states derived from the access payload: no application (the
+  form), `PENDING` (waiting for review), `REJECTED` (reapply is allowed),
+  or an existing trainer (link into the trainer area).
+- The application collects no screening fields today; the backend endpoint
+  accepts no body, so the page submits and explains the review step instead of
+  inventing personal-data collection.
+
+Dashboard (`/trainer/dashboard`)
+
+- Greeting plus real totals only: number of active clients, number of own
+  programs, and the trainer's profile summary, all from the existing list
+  endpoints (pagination totals). No fake statistics, revenue, ratings or
+  placeholder charts.
+
+Clients (`/trainer/clients`)
+
+- Add-by-exact-email flow: look up the account, show the matched identity, then
+  confirm. No fuzzy search and no user directory.
+- One card list of active clients (name, email, relationship date) with
+  pagination and an inline two-step remove confirmation.
+- Server codes are mapped to plain wording (unknown email, already added,
+  already removed, self-add); raw tokens are never displayed.
+
+Programs (`/trainer/programs`)
+
+- One card list of the trainer's own programs (name, type, status, price) with
+  pagination and a compact create form: name, description, type
+  (free / premium / personalized), price in EUR. Free is fixed at 0,00;
+  paid programs enforce the platform minimum. The form states that programs
+  start as drafts.
+- Success navigates to the program detail.
+
+Program detail (`/trainer/programs/:programId`)
+
+- Metadata card: edit name/description/type/price, publish (POST publish) and
+  unpublish (back to draft).
+- Builder card: weeks → workouts → exercises, each level with inline add,
+  block-style up/down reorder buttons and delete. Exercises are picked from the
+  existing exercise library dialog; already-added exercises are disabled in the
+  picker. Workout exercises load lazily per workout.
+- Danger zone: delete program with inline confirmation.
+- Honest empty states at every level; no placeholder content.
+
+Profile (`/trainer/profile`)
+
+- View-only summary of the trainer identity (name, email, member since) with a
+  note that trainer profile editing is not available yet. No invented editable
+  fields.
+
+---
+
 # Client Dashboard
 
 The dashboard is the client's main workspace.

@@ -300,6 +300,36 @@ service or any repository. Missing or invalid trainer identity fails closed
 with HTTP 401 `AUTHENTICATION_REQUIRED`; unknown or unheld required permissions
 fail closed with HTTP 403 `FORBIDDEN`.
 
+#### Trainer Web Area
+
+The trainer frontend reuses the existing application shell and introduces no
+parallel authentication or API layer:
+
+- `services/trainer_api.ts` — one typed client for the trainer endpoints
+  (`GET /trainer/access`, apply, profile, clients list/lookup/add/remove,
+  programs and the week → workout → exercise structure). It wraps the shared
+  `@utils/http_client`, so sessions, cookies and the error envelope behave
+  exactly like the rest of the account area.
+- `components/trainer/trainer_session_context.tsx` — a session provider that
+  loads `GET /trainer/access` once per trainer route tree and exposes
+  `{ access, unauthenticated, loaded, refresh }`. It is the only place trainer
+  status is decided; a 401 marks the session unauthenticated.
+- `components/trainer/trainer_layout/` — the shared shell (navigation +
+  redirect rules): loading → loading screen, unauthenticated → `/login`,
+  authenticated non-trainer → `/trainer/apply`. Routes render their page inside
+  the layout inside the provider.
+- `pages/trainer/*` — one folder per page (apply, dashboard, clients, programs,
+  program detail, profile), with page-local CSS modules over the design tokens
+  and a shared `trainer_page.module.css` for the common card/list/form styles.
+- The apply route (`/trainer/apply`) is declared before the trainer shell route
+  and is reachable by any authenticated user; every other `/trainer/*` route
+  sits behind the layout's trainer check.
+
+Program building reuses the incremental structure endpoints (weeks, workouts,
+workout exercises) rather than the administrator nested-input program API, and
+the exercise picker reuses `components/exercise_library` — no parallel upload,
+media or catalog system is introduced.
+
 ### Trainer Clients
 
 The trainer-client relationship (a trainer managing a user as their client) is

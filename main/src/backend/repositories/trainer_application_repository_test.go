@@ -34,6 +34,22 @@ func TestTrainerApplicationRepository(t *testing.T) {
 	applicationRepo := repositories.NewTrainerApplicationRepository(tx)
 	ctx := context.Background()
 
+	// The development database may already contain committed applications, so
+	// every count assertion below is expressed as a delta against a baseline
+	// captured before this test seeds its own rows.
+	_, baselineTotal, err := applicationRepo.List(ctx, 1, 20, "")
+	if err != nil {
+		t.Fatalf("baseline list applications: %v", err)
+	}
+	_, baselinePending, err := applicationRepo.List(ctx, 1, 20, models.ApplicationStatusPending)
+	if err != nil {
+		t.Fatalf("baseline list pending applications: %v", err)
+	}
+	_, baselineApproved, err := applicationRepo.List(ctx, 1, 20, models.ApplicationStatusApproved)
+	if err != nil {
+		t.Fatalf("baseline list approved applications: %v", err)
+	}
+
 	seedUser := func() *models.User {
 		user := &models.User{
 			Email:        fmt.Sprintf("application-repo-%d@ryze.local", time.Now().UnixNano()),
@@ -97,22 +113,22 @@ func TestTrainerApplicationRepository(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list applications: %v", err)
 	}
-	if total != 1 || len(all) != 1 || all[0].ID != application.ID {
-		t.Fatalf("list applications: expected 1 application, got total=%d len=%d", total, len(all))
+	if total != baselineTotal+1 || !containsApplication(all, application.ID) {
+		t.Fatalf("list applications: expected the created application to be listed, got total=%d baseline=%d", total, baselineTotal)
 	}
 	pending, pendingTotal, err := applicationRepo.List(ctx, 1, 20, models.ApplicationStatusPending)
 	if err != nil {
 		t.Fatalf("list pending applications: %v", err)
 	}
-	if pendingTotal != 1 || len(pending) != 1 {
-		t.Fatalf("list pending: expected 1, got total=%d len=%d", pendingTotal, len(pending))
+	if pendingTotal != baselinePending+1 || !containsApplication(pending, application.ID) {
+		t.Fatalf("list pending: expected the created application to be listed, got total=%d baseline=%d", pendingTotal, baselinePending)
 	}
-	approved, approvedTotal, err := applicationRepo.List(ctx, 1, 20, models.ApplicationStatusApproved)
+	_, approvedTotal, err := applicationRepo.List(ctx, 1, 20, models.ApplicationStatusApproved)
 	if err != nil {
 		t.Fatalf("list approved applications: %v", err)
 	}
-	if approvedTotal != 0 || len(approved) != 0 {
-		t.Fatalf("list approved: expected 0, got total=%d len=%d", approvedTotal, len(approved))
+	if approvedTotal != baselineApproved {
+		t.Fatalf("list approved: expected no additional approved applications, got total=%d baseline=%d", approvedTotal, baselineApproved)
 	}
 
 	// 6. Reject the PENDING application; it stays in history.
@@ -256,4 +272,15 @@ func TestTrainerApplicationRepository(t *testing.T) {
 	if _, err := applicationRepo.FindLatestByUserID(ctx, fifth.ID); !errors.Is(err, repositories.ErrApplicationNotFound) {
 		t.Fatalf("find latest without application: expected ErrApplicationNotFound, got %v", err)
 	}
+}
+
+// containsApplication reports whether the listed applications include the
+// given id.
+func containsApplication(applications []models.TrainerApplication, id string) bool {
+	for i := range applications {
+		if applications[i].ID == id {
+			return true
+		}
+	}
+	return false
 }

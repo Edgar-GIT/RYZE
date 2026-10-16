@@ -1,3 +1,116 @@
+# Version 2.91.0
+
+Title: Trainer platform — access status, exact-email client lookup, self-add guard, trainer web area and migration rollback fix
+
+Date: 2026-10-16
+
+Summary:
+
+v2.91.0 ships the trainer platform end to end and fixes three verified
+defects. The backend gains the two endpoints the trainer frontend needs
+(`GET /api/v1/trainer/access` and `GET /api/v1/trainer/clients/lookup`) and the
+existing `POST /api/v1/trainer/clients` self-relationship guard now actually
+works: it previously compared the trainer profile UUID with the user UUID,
+which can never be equal for the same person, so a trainer could add their own
+account as a client. The guard now resolves the trainer's linked user id and
+rejects the self-add with `400 VALIDATION_ERROR` (verified live). The trainer
+web area is built entirely on existing RYZE systems: the shared HTTP client,
+the shared exercise-library dialog and the incremental program-structure
+endpoints; no parallel auth, upload, media or catalog system was introduced.
+Three down migrations were also corrected: MariaDB rejects `DROP CHECK`, so
+`000019`, `000024` and `000025` now use `DROP CONSTRAINT`. No schema changed
+and no migration was added; the database stays at migration version `28`,
+`dirty=false`.
+
+Main changes:
+
+- Trainer access status: new `FindLatestByUserID` on
+  `TrainerApplicationRepository` (`created_at DESC, id ASC`), `AccessStatus`
+  and `GetAccessStatus` on the `trainer_applications` service, and the
+  `TrainerApplicationHandler.GetAccessStatus` handler for
+  `GET /api/v1/trainer/access` (authenticated user, 401
+  `AUTHENTICATION_REQUIRED`, 500 `INTERNAL_ERROR`). Response:
+  `{is_trainer, application|null}` with the applicant's own view of the latest
+  application (no nested user object). Registered in `routes/routes.go` right
+  after `POST /trainer/apply`.
+- Exact-email client lookup: new `FindByEmail` on `UserRepository`,
+  `ClientCandidate` and `LookupClientByEmail` on the `trainer_clients` service
+  (trimmed exact match, `400 VALIDATION_ERROR` on empty, `404 CLIENT_NOT_FOUND`
+  when no active user matches) and the `TrainerClientsHandler.LookupClient`
+  handler for `GET /api/v1/trainer/clients/lookup` behind `trainer.clients`.
+  Registered before `/clients/:userID`.
+- Self-add guard fix: `trainer_clients` service now depends on a
+  `TrainerRepository`, resolves the authenticated trainer's linked user id and
+  rejects adding that same user as a client. Dead `trainerID == userID`
+  comparison removed. New tests `TestAddClientRejectsTrainersOwnAccount` and
+  `TestAddClientTrainerCheckRepositoryFailure`; the invalid-id test loop keeps
+  only genuinely malformed identifiers.
+- Migration rollback: `DROP CHECK` replaced with `DROP CONSTRAINT` in
+  `database/migrations/000019_add_generic_program_fields.down.sql`,
+  `000024_add_payment_method_to_purchases.down.sql` and
+  `000025_add_premium_level_1.down.sql`. Statement-level verified against
+  MariaDB with disposable clone tables; a full up/down/up chain drill was not
+  run because no disposable database is available in this environment.
+- Trainer web area (`main/src/frontend/src`): new `services/trainer_api.ts`
+  (typed client over the shared `http_client`), `components/trainer/`
+  (`trainer_session_context.tsx` as the single backend-driven source of trainer
+  status; `trainer_layout/` shell with loading-login-apply redirects and
+  navigation; shared `trainer_page.module.css`), and `pages/trainer/` (apply,
+  dashboard, clients, programs, program detail with the week/workout/exercise
+  builder, profile). Routes wired in `routes/app_routes.tsx` with
+  `/trainer/apply` declared before the `/trainer` shell; the Profile page hub
+  links to "Trainer Dashboard" or "Become a Trainer" based on the access
+  endpoint. All totals shown are real (pagination totals); no fake statistics.
+- Trainer list responses: the frontend client unwraps the actual
+  `{weeks: [...]}` and `{exercises: [...]}` envelopes of
+  `GET /trainer/programs/:programID/weeks` and
+  `GET .../workouts/:workoutID/exercises` (an earlier client draft assumed raw
+  arrays; caught by the live smoke test).
+- Repository test robustness: `TestTrainerApplicationRepository` now expresses
+  list/count assertions as deltas against a baseline captured before seeding
+  (the development database already contained committed applications),
+  consistent with the existing trainer-repository test fixes. No assertion was
+  weakened: the created application must still be listed and the status filter
+  must still count it.
+- Documentation: `api.MD` (access status, client lookup, self-add wording),
+  `project.MD` (access endpoint and trainer web area), `arquitecture.MD`
+  (trainer web area module map), `PAGES/design.MD` (Trainer Area pages).
+
+Reason:
+
+The trainer platform is a core RYZE capability: certified trainers manage their
+clients and their programs. The work order required a complete, verified
+trainer surface built only from existing systems, an honest audit of what
+exists, and fixes for verified defects. The self-add guard was ineffective
+(proved by a live end-to-end run creating a trainer → self client
+relationship), and the migration down files would have failed on MariaDB.
+
+Validation:
+
+- Backend: `gofmt -l`, `go vet ./...` clean; `go test ./... -count=1` green
+  (40 packages).
+- Frontend: `npm run typecheck` and `npm run build` green.
+- Live end-to-end smoke test against the development database covering:
+  register/login, access before/after apply, duplicate apply conflict, trainer
+  routes blocked before approval, admin login + verify, approval, access after
+  approval, profile, lookup (found/unknown), add/re-add/self-add/remove/re-remove
+  client, program create/update/list/detail, price validation, client-supplied
+  `product_type` not honored, weeks/workouts/exercise add-reorder-delete,
+  publish/unpublish, cross-user access denied, and public catalog visibility
+  (draft hidden, published visible, unpublish and delete hide again). Test
+  accounts created during the run remain in the development database.
+
+Residual and unverified (not claimed):
+
+- Full migration up/down/up chain could not be executed (no disposable
+  database; Docker unavailable in this environment).
+- Provider sandbox/Live payment flows and off-host backups remain unverified.
+- Browser/responsive validation of the trainer area was not performed.
+- Frontend tests are not yet set up; adopting a frontend test framework needs
+  explicit approval (new dependency).
+
+---
+
 # Version 2.90.0
 
 Title: Authentication hardening — rate limiting, uniform password policy, admin session revocation and token-kind enforcement

@@ -62,7 +62,7 @@ func newTrainerClientsTestRouter(t *testing.T, permissions ...trainerroles.Permi
 	trainerClientRepo := repositories.NewTrainerClientRepository(tx)
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
 
-	service := trainer_clients.NewService(trainerClientRepo, userRepo)
+	service := trainer_clients.NewService(trainerClientRepo, userRepo, trainerRepo)
 	handler := auth.NewTrainerClientsHandler(service)
 
 	router := gin.New()
