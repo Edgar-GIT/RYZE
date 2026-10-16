@@ -1,7 +1,7 @@
 import { fileURLToPath, URL } from "node:url";
 
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
@@ -11,6 +11,11 @@ export default defineConfig({
       "@resources": fileURLToPath(new URL("./main/src/resources", import.meta.url)),
       "@utils": fileURLToPath(new URL("./main/src/utils", import.meta.url))
     }
+  },
+  test: {
+    environment: "jsdom",
+    include: ["main/src/**/*.test.{ts,tsx}"],
+    restoreMocks: true
   },
   server: {
     host: "0.0.0.0",

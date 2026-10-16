@@ -104,6 +104,23 @@ dist/
 
 ---
 
+# Frontend Tests
+
+Run:
+
+```bash
+npm test
+```
+
+The frontend unit tests run with Vitest (`vitest run`) in the jsdom
+environment. Configuration lives in `vite.config.ts` (`test` block) and the
+same path aliases used by the application are available inside tests. Test
+files follow the `*.test.ts` / `*.test.tsx` suffix. Current coverage targets
+the shared HTTP client consumers and the trainer session logic; the command is
+part of the normal validation loop together with `npm run typecheck`.
+
+---
+
 # Preview Production Build
 
 After building, run:

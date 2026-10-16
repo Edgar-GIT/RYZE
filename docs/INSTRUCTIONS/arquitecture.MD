@@ -330,6 +330,10 @@ workout exercises) rather than the administrator nested-input program API, and
 the exercise picker reuses `components/exercise_library` — no parallel upload,
 media or catalog system is introduced.
 
+Frontend tests run with Vitest in the jsdom environment (`npm test`), sharing
+the application's path aliases through `vite.config.ts`. The trainer API client
+and the trainer session provider are the first covered modules.
+
 ### Trainer Clients
 
 The trainer-client relationship (a trainer managing a user as their client) is

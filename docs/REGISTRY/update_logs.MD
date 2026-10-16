@@ -17,10 +17,12 @@ rejects the self-add with `400 VALIDATION_ERROR` (verified live). The trainer
 web area is built entirely on existing RYZE systems: the shared HTTP client,
 the shared exercise-library dialog and the incremental program-structure
 endpoints; no parallel auth, upload, media or catalog system was introduced.
-Three down migrations were also corrected: MariaDB rejects `DROP CHECK`, so
-`000019`, `000024` and `000025` now use `DROP CONSTRAINT`. No schema changed
-and no migration was added; the database stays at migration version `28`,
-`dirty=false`.
+The frontend also gains its first automated test baseline (Vitest + Testing
+Library, explicitly approved) and the trainer pages are validated live against
+the development database. Three down migrations were also corrected: MariaDB
+rejects `DROP CHECK`, so `000019`, `000024` and `000025` now use
+`DROP CONSTRAINT`. No schema changed and no migration was added; the database
+stays at migration version `28`, `dirty=false`.
 
 Main changes:
 
@@ -72,9 +74,17 @@ Main changes:
   consistent with the existing trainer-repository test fixes. No assertion was
   weakened: the created application must still be listed and the status filter
   must still count it.
+- Frontend test setup (new dev dependencies, explicitly approved: `vitest`,
+  `jsdom`, `@testing-library/react`): Vitest configuration in `vite.config.ts`
+  (`jsdom`, same path aliases), `npm test` script, and the first test files —
+  `services/trainer_api.test.ts` (endpoint contracts, id encoding, the
+  `{weeks}` / `{exercises}` envelope unwrapping) and
+  `components/trainer/trainer_session_context.test.tsx` (loaded payload, 401 →
+  unauthenticated, non-401 failures not treated as unauthenticated).
 - Documentation: `api.MD` (access status, client lookup, self-add wording),
   `project.MD` (access endpoint and trainer web area), `arquitecture.MD`
-  (trainer web area module map), `PAGES/design.MD` (Trainer Area pages).
+  (trainer web area module map), `PAGES/design.MD` (Trainer Area pages),
+  `how_to_run.MD` (frontend test command).
 
 Reason:
 
@@ -89,7 +99,8 @@ Validation:
 
 - Backend: `gofmt -l`, `go vet ./...` clean; `go test ./... -count=1` green
   (40 packages).
-- Frontend: `npm run typecheck` and `npm run build` green.
+- Frontend: `npm run typecheck` and `npm run build` green; `npm test` green
+  (2 files, 15 tests).
 - Live end-to-end smoke test against the development database covering:
   register/login, access before/after apply, duplicate apply conflict, trainer
   routes blocked before approval, admin login + verify, approval, access after
@@ -106,8 +117,8 @@ Residual and unverified (not claimed):
   database; Docker unavailable in this environment).
 - Provider sandbox/Live payment flows and off-host backups remain unverified.
 - Browser/responsive validation of the trainer area was not performed.
-- Frontend tests are not yet set up; adopting a frontend test framework needs
-  explicit approval (new dependency).
+- Frontend automated coverage is a baseline (API client and trainer session);
+  page-level component tests are not part of this milestone.
 
 ---
 
