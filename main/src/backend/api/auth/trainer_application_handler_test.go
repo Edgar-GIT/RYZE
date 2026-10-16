@@ -30,6 +30,7 @@ import (
 
 const (
 	applyRoute             = "/api/v1/trainer/apply"
+	accessRoute            = "/api/v1/trainer/access"
 	adminApplicationsRoute = "/api/v1/admin/trainer-applications"
 )
 
@@ -81,6 +82,7 @@ func newTrainerApplicationTestRouter(t *testing.T, secure bool) (*gin.Engine, re
 	router.POST(loginRoute, loginHandler.Login)
 	router.GET(meRoute, middleware.Authenticate(tokenSvc, userRepo), meHandler.GetMe)
 	router.POST(applyRoute, middleware.Authenticate(tokenSvc, userRepo), userHandler.Apply)
+	router.GET(accessRoute, middleware.Authenticate(tokenSvc, userRepo), userHandler.GetAccessStatus)
 
 	admin := router.Group("/api/v1/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenSvc))
@@ -154,6 +156,95 @@ func TestApplyUnauthenticated(t *testing.T) {
 	}
 	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
 		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
+func TestAccessStatusUnauthenticated(t *testing.T) {
+	router, _, _, _, _ := newTrainerApplicationTestRouter(t, true)
+
+	rec, raw := applyRequest(router, "", http.MethodGet, accessRoute, "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
+		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
+func TestAccessStatusWithoutApplication(t *testing.T) {
+	router, userRepo, _, _, tokenSvc := newTrainerApplicationTestRouter(t, true)
+	user := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	cookie := userToken(t, tokenSvc, user.ID, user.SessionVersion)
+
+	rec, raw := applyRequest(router, cookie, http.MethodGet, accessRoute, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"is_trainer":false`) {
+		t.Fatalf("expected is_trainer false, got %s", raw)
+	}
+	if !strings.Contains(raw, `"application":null`) {
+		t.Fatalf("expected a null application, got %s", raw)
+	}
+	if strings.Contains(raw, user.Email) {
+		t.Fatalf("access status must not echo the caller's own email, got %s", raw)
+	}
+}
+
+func TestAccessStatusPendingApplication(t *testing.T) {
+	router, userRepo, _, applicationRepo, tokenSvc := newTrainerApplicationTestRouter(t, true)
+	user, _ := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
+	cookie := userToken(t, tokenSvc, user.ID, user.SessionVersion)
+
+	rec, raw := applyRequest(router, cookie, http.MethodGet, accessRoute, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"is_trainer":false`) {
+		t.Fatalf("expected is_trainer false while pending, got %s", raw)
+	}
+	if !strings.Contains(raw, `"status":"PENDING"`) {
+		t.Fatalf("expected PENDING application, got %s", raw)
+	}
+}
+
+func TestAccessStatusApprovedTrainer(t *testing.T) {
+	router, userRepo, _, applicationRepo, tokenSvc := newTrainerApplicationTestRouter(t, true)
+	user, application := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
+	if _, err := applicationRepo.Approve(context.Background(), application.ID); err != nil {
+		t.Fatalf("approve application: %v", err)
+	}
+	cookie := userToken(t, tokenSvc, user.ID, user.SessionVersion)
+
+	rec, raw := applyRequest(router, cookie, http.MethodGet, accessRoute, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"is_trainer":true`) {
+		t.Fatalf("expected is_trainer true for an approved trainer, got %s", raw)
+	}
+	if !strings.Contains(raw, `"status":"APPROVED"`) {
+		t.Fatalf("expected APPROVED application, got %s", raw)
+	}
+}
+
+func TestAccessStatusRejectedApplication(t *testing.T) {
+	router, userRepo, _, applicationRepo, tokenSvc := newTrainerApplicationTestRouter(t, true)
+	user, application := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
+	if err := applicationRepo.Reject(context.Background(), application.ID); err != nil {
+		t.Fatalf("reject application: %v", err)
+	}
+	cookie := userToken(t, tokenSvc, user.ID, user.SessionVersion)
+
+	rec, raw := applyRequest(router, cookie, http.MethodGet, accessRoute, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"is_trainer":false`) {
+		t.Fatalf("expected is_trainer false after rejection, got %s", raw)
+	}
+	if !strings.Contains(raw, `"status":"REJECTED"`) {
+		t.Fatalf("expected REJECTED application so the outcome is visible, got %s", raw)
 	}
 }
 
@@ -547,6 +638,11 @@ func TestAdminApproveApplicationAlreadyApproved(t *testing.T) {
 		t.Fatalf("Approve: %v", err)
 	}
 
+	beforeTrainers, beforeTotal, err := trainerRepo.ListActive(context.Background(), 1, trainer_applications.MaxPageSize)
+	if err != nil {
+		t.Fatalf("ListActive before: %v", err)
+	}
+
 	rec, raw := adminApplicationRequest(router, cookie, http.MethodPost, adminApplicationsRoute+"/"+application.ID+"/approve")
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("expected 409, got %d (body: %s)", rec.Code, raw)
@@ -559,8 +655,8 @@ func TestAdminApproveApplicationAlreadyApproved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListActive: %v", err)
 	}
-	if total != 1 || len(trainers) != 1 {
-		t.Fatalf("approval must never create a duplicate trainer profile, got total=%d", total)
+	if total != beforeTotal || len(trainers) != len(beforeTrainers) {
+		t.Fatalf("approval must never create a duplicate trainer profile, got total=%d before=%d", total, beforeTotal)
 	}
 }
 
@@ -618,6 +714,10 @@ func TestAdminApproveApplicationAlreadyTrainerAtomicity(t *testing.T) {
 	if err := trainerRepo.Create(context.Background(), &models.Trainer{UserID: user.ID}); err != nil {
 		t.Fatalf("seed trainer: %v", err)
 	}
+	_, beforeTotal, err := trainerRepo.ListActive(context.Background(), 1, trainer_applications.MaxPageSize)
+	if err != nil {
+		t.Fatalf("ListActive before: %v", err)
+	}
 	application := &models.TrainerApplication{
 		UserID: user.ID,
 		Status: models.ApplicationStatusPending,
@@ -642,12 +742,12 @@ func TestAdminApproveApplicationAlreadyTrainerAtomicity(t *testing.T) {
 		t.Fatalf("failed approval must leave the application PENDING, got %q", persisted.Status)
 	}
 
-	trainers, total, err := trainerRepo.ListActive(context.Background(), 1, trainer_applications.MaxPageSize)
+	_, total, err := trainerRepo.ListActive(context.Background(), 1, trainer_applications.MaxPageSize)
 	if err != nil {
 		t.Fatalf("ListActive: %v", err)
 	}
-	if total != 1 || len(trainers) != 1 {
-		t.Fatalf("failed approval must never create a trainer profile, got total=%d", total)
+	if total != beforeTotal {
+		t.Fatalf("failed approval must never create a trainer profile, got total=%d before=%d", total, beforeTotal)
 	}
 }
 
@@ -731,6 +831,11 @@ func TestAdminRejectThenReapplyApproved(t *testing.T) {
 	user := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
 	userCookie := userToken(t, tokenSvc, user.ID, user.SessionVersion)
 
+	_, beforeTotal, err := trainerRepo.ListActive(context.Background(), 1, trainer_applications.MaxPageSize)
+	if err != nil {
+		t.Fatalf("ListActive before: %v", err)
+	}
+
 	rec, raw := applyRequest(router, userCookie, http.MethodPost, applyRoute, "")
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("apply: expected 201, got %d (body: %s)", rec.Code, raw)
@@ -788,12 +893,12 @@ func TestAdminRejectThenReapplyApproved(t *testing.T) {
 		t.Fatalf("expected trainer linked to the same user id, got %q", trainer.UserID)
 	}
 
-	trainers, total, err := trainerRepo.ListActive(context.Background(), 1, trainer_applications.MaxPageSize)
+	_, total, err := trainerRepo.ListActive(context.Background(), 1, trainer_applications.MaxPageSize)
 	if err != nil {
 		t.Fatalf("ListActive: %v", err)
 	}
-	if total != 1 || len(trainers) != 1 {
-		t.Fatalf("the whole lifecycle must produce exactly one trainer profile, got total=%d", total)
+	if total != beforeTotal+1 {
+		t.Fatalf("the whole lifecycle must produce exactly one new trainer profile, got total=%d before=%d", total, beforeTotal)
 	}
 
 	if rec, _, _ := attemptLogin(router, loginBody(user.Email, "Password123!")); rec.Code != http.StatusOK {
@@ -871,6 +976,9 @@ func (failingApplicationRepo) Create(_ context.Context, _ *models.TrainerApplica
 	return errApplicationRepoFailure
 }
 func (failingApplicationRepo) FindActiveByUserID(_ context.Context, _ string) (*models.TrainerApplication, error) {
+	return nil, errApplicationRepoFailure
+}
+func (failingApplicationRepo) FindLatestByUserID(_ context.Context, _ string) (*models.TrainerApplication, error) {
 	return nil, errApplicationRepoFailure
 }
 func (failingApplicationRepo) FindByID(_ context.Context, _ string) (*models.TrainerApplication, error) {

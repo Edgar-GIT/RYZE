@@ -178,6 +178,23 @@ func NewTrainerApplicationHandler(svc trainer_applications.Service) *TrainerAppl
 	return &TrainerApplicationHandler{service: svc}
 }
 
+// ownApplicationResponse is the applicant's view of their own trainer
+// application. It deliberately omits the user link: the caller is the user, so
+// the user object would only echo data they already know.
+type ownApplicationResponse struct {
+	ID        string    `json:"id"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// accessStatusResponse describes the authenticated caller's trainer access
+// state. Application is null when the caller has never applied.
+type accessStatusResponse struct {
+	IsTrainer   bool                   `json:"is_trainer"`
+	Application *ownApplicationResponse `json:"application"`
+}
+
 // Apply creates a PENDING trainer application for the authenticated user. The
 // user ID is resolved exclusively from the authenticated session; any
 // client-provided identity is ignored.
@@ -207,5 +224,43 @@ func (h *TrainerApplicationHandler) Apply(c *gin.Context) {
 		"success": true,
 		"message": "Trainer application submitted successfully.",
 		"data":    newApplicationResponse(application),
+	})
+}
+
+// GetAccessStatus returns the authenticated user's trainer access state: the
+// presence of an active trainer profile and their latest application, if any.
+// The user ID is resolved exclusively from the authenticated session.
+func (h *TrainerApplicationHandler) GetAccessStatus(c *gin.Context) {
+	userID, err := authcontext.UserIDFromContext(c)
+	if err != nil {
+		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
+		return
+	}
+
+	status, err := h.service.GetAccessStatus(c.Request.Context(), userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, trainer_applications.ErrInvalidInput), errors.Is(err, trainer_applications.ErrUserNotFound):
+			RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
+		default:
+			RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
+		}
+		return
+	}
+
+	response := accessStatusResponse{IsTrainer: status.IsTrainer}
+	if status.Application != nil {
+		response.Application = &ownApplicationResponse{
+			ID:        status.Application.ID,
+			Status:    status.Application.Status,
+			CreatedAt: status.Application.CreatedAt,
+			UpdatedAt: status.Application.UpdatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Trainer access status retrieved successfully.",
+		"data":    response,
 	})
 }

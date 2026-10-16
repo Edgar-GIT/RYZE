@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarDays, Eye, EyeOff, KeyRound, LayoutGrid, Lock, LogOut, Mail, ReceiptText, ShoppingBag, Trash2, UserRound } from "lucide-react";
+import { CalendarDays, Dumbbell, Eye, EyeOff, KeyRound, LayoutGrid, Lock, LogOut, Mail, ReceiptText, ShoppingBag, Trash2, UserRound } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
@@ -9,6 +9,7 @@ import { AnimatedBackground } from "@/components/animated_background/animated_ba
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { fetchTrainerAccess, type TrainerAccessStatus } from "@/services/trainer_api";
 import { joinClassNames } from "@utils/class_names";
 import { ApiError, apiGet, apiPost } from "@utils/http_client";
 
@@ -237,6 +238,7 @@ export const ProfilePage = () => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [activePanel, setActivePanel] = useState<AccountPanel>(null);
+  const [trainerAccess, setTrainerAccess] = useState<TrainerAccessStatus | null>(null);
 
   const togglePanel = (panel: Exclude<AccountPanel, null>) => {
     setActivePanel((current) => (current === panel ? null : panel));
@@ -284,6 +286,23 @@ export const ProfilePage = () => {
       cancelled = true;
     };
   }, [history, retryCount]);
+
+  // The trainer entry resolves from the backend access endpoint. A failure
+  // simply hides the entry: it is an additional hub link, never the reason the
+  // page fails to render.
+  useEffect(() => {
+    let cancelled = false;
+    fetchTrainerAccess()
+      .then((access) => {
+        if (!cancelled) {
+          setTrainerAccess(access);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLogout = async () => {
     if (loggingOut) {
@@ -374,6 +393,24 @@ export const ProfilePage = () => {
                   <span className={styles.hubHint}>Discover training plans</span>
                 </span>
               </Link>
+              {trainerAccess?.is_trainer ? (
+                <Link className={styles.hubLink} to="/trainer/dashboard">
+                  <Dumbbell className={styles.hubIcon} aria-hidden="true" />
+                  <span className={styles.hubLabel}>
+                    <span className={styles.hubTitle}>Trainer Dashboard</span>
+                    <span className={styles.hubHint}>Manage your programs and clients</span>
+                  </span>
+                </Link>
+              ) : null}
+              {trainerAccess && !trainerAccess.is_trainer ? (
+                <Link className={styles.hubLink} to="/trainer/apply">
+                  <Dumbbell className={styles.hubIcon} aria-hidden="true" />
+                  <span className={styles.hubLabel}>
+                    <span className={styles.hubTitle}>Become a Trainer</span>
+                    <span className={styles.hubHint}>Create programs and manage clients</span>
+                  </span>
+                </Link>
+              ) : null}
             </nav>
 
             {logoutError ? (

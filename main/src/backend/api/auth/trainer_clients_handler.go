@@ -42,6 +42,16 @@ func newTrainerClientResponse(client *trainer_clients.Client) trainerClientRespo
 	}
 }
 
+// clientCandidateResponse is the minimal safe identity of a user resolved by
+// the exact-email lookup. It exists solely so the trainer can confirm who will
+// be added before creating the relationship.
+type clientCandidateResponse struct {
+	UserID    string `json:"user_id"`
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
 // addClientRequest is the request DTO for POST /api/v1/trainer/clients. It only
 // carries the client user id; the trainer identity never comes from the body and
 // is always resolved from the authenticated trainer context.
@@ -132,6 +142,35 @@ func (h *TrainerClientsHandler) GetClient(c *gin.Context) {
 		"success": true,
 		"message": "Client profile retrieved successfully.",
 		"data":    newTrainerClientResponse(client),
+	})
+}
+
+// LookupClient resolves an active user by exact email so the authenticated
+// trainer can confirm who will be added before creating the relationship. The
+// lookup never searches or lists users and only exposes the minimal identity
+// needed to confirm the match. The trainer identity always comes from the
+// trainer context.
+func (h *TrainerClientsHandler) LookupClient(c *gin.Context) {
+	trainerID, ok := requireTrainerContext(c)
+	if !ok {
+		return
+	}
+
+	candidate, err := h.service.LookupClientByEmail(c.Request.Context(), trainerID, c.Query("email"))
+	if err != nil {
+		h.respondClientsError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Client candidate retrieved successfully.",
+		"data": clientCandidateResponse{
+			UserID:    candidate.UserID,
+			Email:     candidate.Email,
+			FirstName: candidate.FirstName,
+			LastName:  candidate.LastName,
+		},
 	})
 }
 

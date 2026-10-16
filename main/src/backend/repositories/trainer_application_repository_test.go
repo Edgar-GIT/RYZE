@@ -130,8 +130,24 @@ func TestTrainerApplicationRepository(t *testing.T) {
 		t.Fatalf("find active after reject: expected ErrApplicationNotFound, got %v", err)
 	}
 
-	// 7. A rejected user can apply again with a new application.
+	// 7. A rejected user can apply again with a new application. The latest
+	// application (including a rejected one) is visible so the applicant can see
+	// the outcome of their last submission.
+	latest, err := applicationRepo.FindLatestByUserID(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("find latest application after reject: %v", err)
+	}
+	if latest.ID != application.ID || latest.Status != models.ApplicationStatusRejected {
+		t.Fatalf("find latest after reject: expected rejected application %q, got %q (%s)", application.ID, latest.ID, latest.Status)
+	}
 	reapplication := seedApplication(user.ID)
+	latest, err = applicationRepo.FindLatestByUserID(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("find latest application after reapply: %v", err)
+	}
+	if latest.ID != reapplication.ID || latest.Status != models.ApplicationStatusPending {
+		t.Fatalf("find latest after reapply: expected pending application %q, got %q (%s)", reapplication.ID, latest.ID, latest.Status)
+	}
 
 	// 8. Approve atomically creates the trainer profile for the same user.
 	approvedApplication, err := applicationRepo.Approve(ctx, reapplication.ID)
@@ -233,5 +249,11 @@ func TestTrainerApplicationRepository(t *testing.T) {
 	}
 	if err := applicationRepo.Create(ctx, &models.TrainerApplication{UserID: fourth.ID, Status: models.ApplicationStatusPending}); err != nil {
 		t.Fatalf("create application after soft delete: %v", err)
+	}
+
+	// 16. A user with no applications has no latest application.
+	fifth := seedUser()
+	if _, err := applicationRepo.FindLatestByUserID(ctx, fifth.ID); !errors.Is(err, repositories.ErrApplicationNotFound) {
+		t.Fatalf("find latest without application: expected ErrApplicationNotFound, got %v", err)
 	}
 }

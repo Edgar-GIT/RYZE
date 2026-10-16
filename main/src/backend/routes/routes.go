@@ -122,7 +122,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerProfileHandler := auth.NewTrainerProfileHandler(trainerProfileService)
 
 	trainerClientRepository := repositories.NewTrainerClientRepository(db)
-	trainerClientService := trainer_clients.NewService(trainerClientRepository, userRepository)
+	trainerClientService := trainer_clients.NewService(trainerClientRepository, userRepository, trainerRepository)
 	trainerClientHandler := auth.NewTrainerClientsHandler(trainerClientService)
 
 	programAssignmentRepository := repositories.NewProgramAssignmentRepository(db)
@@ -276,6 +276,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
+	v1.GET("/trainer/access", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.GetAccessStatus)
 
 	// Test Mode: Enter is restricted to the technical administrator through
 	// the standard admin authorization middleware. Exit deliberately has no
@@ -297,6 +298,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.Use(middleware.TrainerAuthenticate(trainerRepository))
 	trainer.GET("/profile", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerProfileHandler.GetProfile)
 	trainer.GET("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.ListClients)
+	trainer.GET("/clients/lookup", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.LookupClient)
 	trainer.GET("/clients/:userID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.GetClient)
 	trainer.POST("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.AddClient)
 	trainer.DELETE("/clients/:userID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.RemoveClient)

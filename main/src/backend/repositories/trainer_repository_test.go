@@ -33,6 +33,18 @@ func TestTrainerRepository(t *testing.T) {
 	trainerRepo := repositories.NewTrainerRepository(tx)
 	ctx := context.Background()
 
+	// The development database already holds committed trainers, and the test
+	// transaction sees them, so list assertions compare deltas instead of
+	// absolute totals.
+	_, beforeTotal, err := trainerRepo.ListActive(ctx, 1, 20)
+	if err != nil {
+		t.Fatalf("list active trainers before: %v", err)
+	}
+	_, beforeDeletedTotal, err := trainerRepo.ListDeleted(ctx, 1, 20)
+	if err != nil {
+		t.Fatalf("list deleted trainers before: %v", err)
+	}
+
 	seedUser := func() *models.User {
 		user := &models.User{
 			Email:        fmt.Sprintf("trainer-repo-%d@ryze.local", time.Now().UnixNano()),
@@ -108,16 +120,13 @@ func TestTrainerRepository(t *testing.T) {
 		t.Fatalf("find by id and user with unknown id: expected ErrTrainerNotFound, got %v", err)
 	}
 
-	// 6. List active trainers includes both and reports the total.
-	active, total, err := trainerRepo.ListActive(ctx, 1, 20)
+	// 6. List active trainers reports the two new trainers in the total.
+	_, total, err := trainerRepo.ListActive(ctx, 1, 20)
 	if err != nil {
 		t.Fatalf("list active trainers: %v", err)
 	}
-	if total != 2 {
-		t.Fatalf("list active: expected total 2, got %d", total)
-	}
-	if len(active) != 2 {
-		t.Fatalf("list active: expected 2 trainers, got %d", len(active))
+	if total != beforeTotal+2 {
+		t.Fatalf("list active: expected total %d, got %d", beforeTotal+2, total)
 	}
 
 	// 7. Soft delete the trainer.
@@ -198,24 +207,29 @@ func TestTrainerRepository(t *testing.T) {
 		t.Fatalf("reactivate active trainer: expected ErrTrainerNotFound, got %v", err)
 	}
 
-	// 16. Soft-deleting the replacement then listing deleted trainers returns
-	// both soft-deleted rows.
-	active, total, err = trainerRepo.ListActive(ctx, 1, 20)
+	// 16. After soft-deleting the replacement and reactivating the original,
+	// the list deltas reflect exactly one active trainer and one deleted row
+	// created by this test.
+	_, total, err = trainerRepo.ListActive(ctx, 1, 20)
 	if err != nil {
 		t.Fatalf("list active after reactivation: %v", err)
 	}
-	if total != 2 {
-		t.Fatalf("list active after reactivation: expected total 2, got %d", total)
+	if total != beforeTotal+2 {
+		t.Fatalf("list active after reactivation: expected total %d, got %d", beforeTotal+2, total)
 	}
-	deletedList, deletedTotal, err := trainerRepo.ListDeleted(ctx, 1, 20)
+	_, deletedTotal, err := trainerRepo.ListDeleted(ctx, 1, 20)
 	if err != nil {
 		t.Fatalf("list deleted trainers: %v", err)
 	}
-	if deletedTotal != 1 {
-		t.Fatalf("list deleted: expected total 1, got %d", deletedTotal)
+	if deletedTotal != beforeDeletedTotal+1 {
+		t.Fatalf("list deleted: expected total %d, got %d", beforeDeletedTotal+1, deletedTotal)
 	}
-	if len(deletedList) != 1 || deletedList[0].ID != replacement.ID {
-		t.Fatalf("list deleted: expected only the replacement trainer, got %+v", deletedList)
+	deletedReplacement, err := trainerRepo.FindByIDIncludingDeleted(ctx, replacement.ID)
+	if err != nil {
+		t.Fatalf("find deleted replacement: %v", err)
+	}
+	if !deletedReplacement.DeletedAt.Valid {
+		t.Fatal("list deleted: expected the replacement trainer to be soft-deleted")
 	}
 
 	// 17. Deleting a non-existent trainer is reported as not found.

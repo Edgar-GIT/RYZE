@@ -9,5 +9,5 @@ DROP TABLE IF EXISTS nutrition_questionnaires;
 
 ALTER TABLE programs
     DROP INDEX idx_programs_product_type,
-    DROP CHECK chk_programs_product_type,
+    DROP CONSTRAINT chk_programs_product_type,
     DROP COLUMN product_type;

@@ -1,0 +1,74 @@
+.page {
+  min-height: 100vh;
+}
+
+.main {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 720px;
+  min-height: calc(100vh - 4.5rem);
+  margin: 0 auto;
+  padding: 2rem 1.5rem 5rem;
+}
+
+.card {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: start;
+  width: 100%;
+  padding: 2.25rem;
+  border: 1px solid rgba(24, 216, 255, 0.16);
+  border-radius: 20px;
+  background: rgba(7, 11, 18, 0.74);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.4);
+}
+
+.icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid rgba(24, 216, 255, 0.3);
+  border-radius: 16px;
+  color: var(--accent-cyan);
+  background: rgba(24, 216, 255, 0.08);
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.5rem, 3.4vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
+.points {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-secondary);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.error {
+  margin: 0;
+  color: #ff8892;
+  font-size: 0.9rem;
+}
+
+.actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+}

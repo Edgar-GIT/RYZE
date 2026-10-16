@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	trainerID = "11111111-1111-1111-1111-111111111111"
-	userID    = "22222222-2222-2222-2222-222222222222"
+	trainerID     = "11111111-1111-1111-1111-111111111111"
+	userID        = "22222222-2222-2222-2222-222222222222"
+	trainerUserID = "44444444-4444-4444-4444-444444444444"
 )
 
 var errRepoFailure = errors.New("repository failure")
@@ -84,7 +85,8 @@ func (s *stubClientRepo) Reactivate(_ context.Context, trainerID, userID string)
 }
 
 type stubUserRepo struct {
-	findByID func(userID string) (*models.User, error)
+	findByID    func(userID string) (*models.User, error)
+	findByEmail func(email string) (*models.User, error)
 }
 
 func (s stubUserRepo) FindByID(_ context.Context, userID string) (*models.User, error) {
@@ -92,6 +94,27 @@ func (s stubUserRepo) FindByID(_ context.Context, userID string) (*models.User, 
 		return &models.User{ID: userID}, nil
 	}
 	return s.findByID(userID)
+}
+
+func (s stubUserRepo) FindByEmail(_ context.Context, email string) (*models.User, error) {
+	if s.findByEmail == nil {
+		return nil, repositories.ErrUserNotFound
+	}
+	return s.findByEmail(email)
+}
+
+// stubTrainerRepo resolves the trainer the authenticated context belongs to.
+// By default it returns a trainer whose linked user differs from the tested
+// client user, so only tests that opt in exercise the self-add guard.
+type stubTrainerRepo struct {
+	findByID func(trainerID string) (*models.Trainer, error)
+}
+
+func (s stubTrainerRepo) FindByID(_ context.Context, trainerID string) (*models.Trainer, error) {
+	if s.findByID == nil {
+		return &models.Trainer{ID: trainerID, UserID: trainerUserID}, nil
+	}
+	return s.findByID(trainerID)
 }
 
 func validRelation() *models.TrainerClient {
@@ -113,7 +136,7 @@ func validRelation() *models.TrainerClient {
 }
 
 func newService(repo *stubClientRepo) trainer_clients.Service {
-	return trainer_clients.NewService(repo, stubUserRepo{})
+	return trainer_clients.NewService(repo, stubUserRepo{}, stubTrainerRepo{})
 }
 
 func TestAddClientSuccess(t *testing.T) {
@@ -163,7 +186,7 @@ func TestAddClientClientNotFound(t *testing.T) {
 		findByID: func(_ string) (*models.User, error) {
 			return nil, repositories.ErrUserNotFound
 		},
-	})
+	}, stubTrainerRepo{})
 
 	_, err := svc.AddClient(context.Background(), trainerID, userID)
 	if !errors.Is(err, trainer_clients.ErrClientNotFound) {
@@ -171,6 +194,36 @@ func TestAddClientClientNotFound(t *testing.T) {
 	}
 	if repo.createGotTrainerID != "" {
 		t.Fatalf("no relationship may be created for a missing client, got trainer id %q", repo.createGotTrainerID)
+	}
+}
+
+func TestAddClientRejectsTrainersOwnAccount(t *testing.T) {
+	repo := &stubClientRepo{}
+	svc := trainer_clients.NewService(repo, stubUserRepo{}, stubTrainerRepo{
+		findByID: func(id string) (*models.Trainer, error) {
+			return &models.Trainer{ID: id, UserID: userID}, nil
+		},
+	})
+
+	_, err := svc.AddClient(context.Background(), trainerID, userID)
+	if !errors.Is(err, trainer_clients.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+	if repo.createGotTrainerID != "" {
+		t.Fatalf("no relationship may be created for the trainer's own account, got trainer id %q", repo.createGotTrainerID)
+	}
+}
+
+func TestAddClientTrainerCheckRepositoryFailure(t *testing.T) {
+	svc := trainer_clients.NewService(&stubClientRepo{}, stubUserRepo{}, stubTrainerRepo{
+		findByID: func(string) (*models.Trainer, error) {
+			return nil, errRepoFailure
+		},
+	})
+
+	_, err := svc.AddClient(context.Background(), trainerID, userID)
+	if err == nil || errors.Is(err, trainer_clients.ErrInvalidInput) || errors.Is(err, trainer_clients.ErrClientNotFound) {
+		t.Fatalf("trainer repository failure must surface as an internal error, got %v", err)
 	}
 }
 
@@ -212,7 +265,7 @@ func TestAddClientUserCheckRepositoryFailure(t *testing.T) {
 		findByID: func(_ string) (*models.User, error) {
 			return nil, errRepoFailure
 		},
-	})
+	}, stubTrainerRepo{})
 
 	_, err := svc.AddClient(context.Background(), trainerID, userID)
 	if errors.Is(err, trainer_clients.ErrClientNotFound) || errors.Is(err, trainer_clients.ErrInvalidInput) {
@@ -464,7 +517,7 @@ func TestReactivateClientClientNotFound(t *testing.T) {
 		findByID: func(_ string) (*models.User, error) {
 			return nil, repositories.ErrUserNotFound
 		},
-	})
+	}, stubTrainerRepo{})
 
 	_, err := svc.ReactivateClient(context.Background(), trainerID, userID)
 	if !errors.Is(err, trainer_clients.ErrClientNotFound) {
@@ -522,5 +575,53 @@ func TestClientNeverExposesSecrets(t *testing.T) {
 	// version or deletion marker fields, so they can never be exposed.
 	if client.Email == "" || client.FirstName == "" {
 		t.Fatal("safe user fields must be present")
+	}
+}
+
+func TestLookupClientByEmailSuccess(t *testing.T) {
+	service := trainer_clients.NewService(&stubClientRepo{}, stubUserRepo{
+		findByEmail: func(email string) (*models.User, error) {
+			if email != "jane@ryze.local" {
+				t.Fatalf("expected the trimmed email to reach the repository, got %q", email)
+			}
+			return &models.User{ID: userID, Email: "jane@ryze.local", FirstName: "Jane", LastName: "Roe"}, nil
+		},
+	}, stubTrainerRepo{})
+
+	candidate, err := service.LookupClientByEmail(context.Background(), trainerID, "  jane@ryze.local  ")
+	if err != nil {
+		t.Fatalf("LookupClientByEmail: %v", err)
+	}
+	if candidate.UserID != userID || candidate.Email != "jane@ryze.local" || candidate.FirstName != "Jane" || candidate.LastName != "Roe" {
+		t.Fatalf("unexpected candidate: %+v", candidate)
+	}
+}
+
+func TestLookupClientByEmailInvalidInput(t *testing.T) {
+	service := trainer_clients.NewService(&stubClientRepo{}, stubUserRepo{}, stubTrainerRepo{})
+
+	if _, err := service.LookupClientByEmail(context.Background(), "not-a-uuid", "jane@ryze.local"); !errors.Is(err, trainer_clients.ErrInvalidInput) {
+		t.Fatalf("invalid trainer id: expected ErrInvalidInput, got %v", err)
+	}
+	if _, err := service.LookupClientByEmail(context.Background(), trainerID, "   "); !errors.Is(err, trainer_clients.ErrInvalidInput) {
+		t.Fatalf("empty email: expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestLookupClientByEmailNotFound(t *testing.T) {
+	service := trainer_clients.NewService(&stubClientRepo{}, stubUserRepo{}, stubTrainerRepo{})
+
+	if _, err := service.LookupClientByEmail(context.Background(), trainerID, "nobody@ryze.local"); !errors.Is(err, trainer_clients.ErrClientNotFound) {
+		t.Fatalf("expected ErrClientNotFound, got %v", err)
+	}
+}
+
+func TestLookupClientByEmailRepositoryFailure(t *testing.T) {
+	service := trainer_clients.NewService(&stubClientRepo{}, stubUserRepo{
+		findByEmail: func(string) (*models.User, error) { return nil, errRepoFailure },
+	}, stubTrainerRepo{})
+
+	if _, err := service.LookupClientByEmail(context.Background(), trainerID, "jane@ryze.local"); !errors.Is(err, errRepoFailure) {
+		t.Fatalf("expected wrapped repository failure, got %v", err)
 	}
 }

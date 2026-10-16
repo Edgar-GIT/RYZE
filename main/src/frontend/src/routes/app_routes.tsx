@@ -4,6 +4,8 @@ import { Redirect, Route, Switch, useLocation } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/admin_layout/admin_layout";
 import Admin2Layout from "@/components/admin2/admin2_layout/admin2_layout";
 import { Admin2SessionProvider } from "@/components/admin2/admin2_session_context";
+import { TrainerLayout } from "@/components/trainer/trainer_layout/trainer_layout";
+import { TrainerSessionProvider } from "@/components/trainer/trainer_session_context";
 import { AccountPurchaseHistoryPage } from "@/pages/account_purchase_history_page/account_purchase_history_page";
 import { ContactPage } from "@/pages/contact_page/contact_page";
 import { FeedbackPage } from "@/pages/feedback_page/feedback_page";
@@ -39,6 +41,12 @@ import Admin2SalesPage from "@/pages/admin2/admin2_sales_page/admin2_sales_page"
 import Admin2AnalyticsPage from "@/pages/admin2/admin2_analytics_page/admin2_analytics_page";
 import Admin2FeedbackPage from "@/pages/admin2/admin2_feedback_page/admin2_feedback_page";
 import Admin2SettingsPage from "@/pages/admin2/admin2_settings_page/admin2_settings_page";
+import { TrainerApplyPage } from "@/pages/trainer/trainer_apply_page/trainer_apply_page";
+import { TrainerClientsPage } from "@/pages/trainer/trainer_clients_page/trainer_clients_page";
+import { TrainerDashboardPage } from "@/pages/trainer/trainer_dashboard_page/trainer_dashboard_page";
+import { TrainerProfilePage } from "@/pages/trainer/trainer_profile_page/trainer_profile_page";
+import { TrainerProgramDetailPage } from "@/pages/trainer/trainer_program_detail_page/trainer_program_detail_page";
+import { TrainerProgramsPage } from "@/pages/trainer/trainer_programs_page/trainer_programs_page";
 
 export const AppRoutes = () => {
   const location = useLocation();
@@ -93,6 +101,36 @@ export const AppRoutes = () => {
         />
         <Route exact path="/profile" component={ProfilePage} />
         <Route exact path="/account/purchases" component={AccountPurchaseHistoryPage} />
+        {/* /trainer/apply must stay declared before the /trainer shell route:
+            it is reachable by any authenticated user (including applicants),
+            while every other /trainer route requires an approved trainer. */}
+        <Route
+          exact
+          path="/trainer/apply"
+          render={() => (
+            <TrainerSessionProvider>
+              <TrainerApplyPage />
+            </TrainerSessionProvider>
+          )}
+        />
+        <Route
+          path="/trainer"
+          render={() => (
+            <TrainerSessionProvider>
+              <TrainerLayout>
+                <Switch>
+                  <Redirect from="/trainer" exact to="/trainer/dashboard" />
+                  <Route exact path="/trainer/dashboard" component={TrainerDashboardPage} />
+                  <Route exact path="/trainer/clients" component={TrainerClientsPage} />
+                  <Route exact path="/trainer/programs" component={TrainerProgramsPage} />
+                  <Route exact path="/trainer/programs/:programId" component={TrainerProgramDetailPage} />
+                  <Route exact path="/trainer/profile" component={TrainerProfilePage} />
+                  <Redirect to="/trainer/dashboard" />
+                </Switch>
+              </TrainerLayout>
+            </TrainerSessionProvider>
+          )}
+        />
         <Route
           path="/admin2"
           render={() => (

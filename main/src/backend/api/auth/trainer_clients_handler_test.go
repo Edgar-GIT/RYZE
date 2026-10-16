@@ -70,6 +70,7 @@ func newTrainerClientsTestRouter(t *testing.T, permissions ...trainerroles.Permi
 	trainer.Use(middleware.Authenticate(tokenSvc, userRepo))
 	trainer.Use(middleware.TrainerAuthenticate(trainerRepo))
 	trainer.GET("/clients", middleware.RequireTrainerPermission(permissions...), handler.ListClients)
+	trainer.GET("/clients/lookup", middleware.RequireTrainerPermission(permissions...), handler.LookupClient)
 	trainer.GET("/clients/:userID", middleware.RequireTrainerPermission(permissions...), handler.GetClient)
 	trainer.POST("/clients", middleware.RequireTrainerPermission(permissions...), handler.AddClient)
 	trainer.DELETE("/clients/:userID", middleware.RequireTrainerPermission(permissions...), handler.RemoveClient)
@@ -92,6 +93,7 @@ func newTrainerClientsHandlerRouter(svc trainer_clients.Service, identity any) *
 		c.Next()
 	})
 	trainer.GET("/clients", handler.ListClients)
+	trainer.GET("/clients/lookup", handler.LookupClient)
 	trainer.GET("/clients/:userID", handler.GetClient)
 	trainer.POST("/clients", handler.AddClient)
 	trainer.DELETE("/clients/:userID", handler.RemoveClient)
@@ -104,9 +106,11 @@ func newTrainerClientsHandlerRouter(svc trainer_clients.Service, identity any) *
 type stubTrainerClientsService struct {
 	listResult trainer_clients.ListClientsResult
 	client     *trainer_clients.Client
+	candidate  *trainer_clients.ClientCandidate
 	err        error
 	gotTrainer string
 	gotUserID  string
+	gotEmail   string
 }
 
 func (s *stubTrainerClientsService) ListClients(_ context.Context, trainerID string, _, _ int) (trainer_clients.ListClientsResult, error) {
@@ -118,6 +122,12 @@ func (s *stubTrainerClientsService) GetClient(_ context.Context, trainerID, user
 	s.gotTrainer = trainerID
 	s.gotUserID = userID
 	return s.client, s.err
+}
+
+func (s *stubTrainerClientsService) LookupClientByEmail(_ context.Context, trainerID, email string) (*trainer_clients.ClientCandidate, error) {
+	s.gotTrainer = trainerID
+	s.gotEmail = email
+	return s.candidate, s.err
 }
 
 func (s *stubTrainerClientsService) AddClient(_ context.Context, trainerID, userID string) (*trainer_clients.Client, error) {
@@ -921,5 +931,102 @@ func TestTrainerClientsNeverExposesSecrets(t *testing.T) {
 		if strings.Contains(raw, sensitive) {
 			t.Fatalf("response must never contain %q", sensitive)
 		}
+	}
+}
+
+func TestTrainerClientsLookupSuccess(t *testing.T) {
+	router, userRepo, trainerRepo, _, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	_, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+
+	rec, data, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsListRoute+"/lookup?email="+clientUser.Email, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if userID, _ := data["user_id"].(string); userID != clientUser.ID {
+		t.Fatalf("expected user_id %q, got %q", clientUser.ID, userID)
+	}
+	if email, _ := data["email"].(string); email != clientUser.Email {
+		t.Fatalf("expected email %q, got %q", clientUser.Email, email)
+	}
+	if firstName, _ := data["first_name"].(string); firstName != clientUser.FirstName {
+		t.Fatalf("expected first_name %q, got %q", clientUser.FirstName, firstName)
+	}
+	if lastName, _ := data["last_name"].(string); lastName != clientUser.LastName {
+		t.Fatalf("expected last_name %q, got %q", clientUser.LastName, lastName)
+	}
+	assertNoSensitiveLeak(t, raw)
+}
+
+func TestTrainerClientsLookupNotFound(t *testing.T) {
+	router, userRepo, trainerRepo, _, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	_, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsListRoute+"/lookup?email=nobody@ryze.local", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"CLIENT_NOT_FOUND"`) {
+		t.Fatalf("expected CLIENT_NOT_FOUND, got %s", raw)
+	}
+}
+
+func TestTrainerClientsLookupValidation(t *testing.T) {
+	router, userRepo, trainerRepo, _, tokenSvc := newTrainerClientsTestRouter(t, trainerroles.PermissionClients)
+	_, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsListRoute+"/lookup?email=", "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
+		t.Fatalf("expected VALIDATION_ERROR, got %s", raw)
+	}
+}
+
+func TestTrainerClientsLookupRequiresPermission(t *testing.T) {
+	router, userRepo, trainerRepo, _, tokenSvc := newTrainerClientsTestRouter(t)
+	_, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodGet, clientsListRoute+"/lookup?email=someone@ryze.local", "")
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d (body: %s)", rec.Code, raw)
+	}
+	assertNoSensitiveLeak(t, raw)
+}
+
+func TestTrainerClientsLookupHandlerForwardsContextIdentity(t *testing.T) {
+	identity := trainercontext.Identity{UserID: uuid.NewString(), TrainerID: uuid.NewString()}
+	svc := &stubTrainerClientsService{
+		candidate: &trainer_clients.ClientCandidate{
+			UserID:    uuid.NewString(),
+			Email:     "jane@ryze.local",
+			FirstName: "Jane",
+			LastName:  "Roe",
+		},
+	}
+	router := newTrainerClientsHandlerRouter(svc, identity)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodGet, clientsListRoute+"/lookup?email=jane@ryze.local", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if svc.gotTrainer != identity.TrainerID {
+		t.Fatalf("expected context trainer %q, got %q", identity.TrainerID, svc.gotTrainer)
+	}
+	if svc.gotEmail != "jane@ryze.local" {
+		t.Fatalf("expected the query email forwarded, got %q", svc.gotEmail)
+	}
+}
+
+func TestTrainerClientsLookupHandlerMissingContext(t *testing.T) {
+	router := newTrainerClientsHandlerRouter(&stubTrainerClientsService{}, nil)
+
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodGet, clientsListRoute+"/lookup?email=jane@ryze.local", "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
+		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
 	}
 }

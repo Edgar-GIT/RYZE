@@ -45,6 +45,7 @@ const MaxPageSize = admin_users.MaxPageSize
 type ApplicationRepository interface {
 	Create(ctx context.Context, application *models.TrainerApplication) error
 	FindActiveByUserID(ctx context.Context, userID string) (*models.TrainerApplication, error)
+	FindLatestByUserID(ctx context.Context, userID string) (*models.TrainerApplication, error)
 	FindByID(ctx context.Context, id string) (*models.TrainerApplication, error)
 	List(ctx context.Context, page, limit int, status string) ([]models.TrainerApplication, int64, error)
 	Approve(ctx context.Context, applicationID string) (*models.TrainerApplication, error)
@@ -72,6 +73,15 @@ type ListApplicationsResult struct {
 	Limit        int
 }
 
+// AccessStatus describes the authenticated caller's trainer access state: the
+// presence of an active trainer profile and the latest application, if any.
+// It backs the client surfaces that must distinguish "can open the trainer
+// dashboard" from "can apply" (or see the outcome of a previous application).
+type AccessStatus struct {
+	IsTrainer   bool
+	Application *models.TrainerApplication
+}
+
 // Service implements the trainer-application flow: users apply to become
 // trainers and administrators review those applications. Authorization (which
 // administrator may review applications) is enforced by the route middleware;
@@ -80,6 +90,7 @@ type Service interface {
 	Apply(ctx context.Context, userID string) (*models.TrainerApplication, error)
 	ListApplications(ctx context.Context, page, limit int, status string) (ListApplicationsResult, error)
 	GetApplication(ctx context.Context, id string) (*models.TrainerApplication, error)
+	GetAccessStatus(ctx context.Context, userID string) (AccessStatus, error)
 	ApproveApplication(ctx context.Context, id string) (*models.TrainerApplication, error)
 	RejectApplication(ctx context.Context, id string) error
 }
@@ -168,6 +179,34 @@ func (s *service) GetApplication(ctx context.Context, id string) (*models.Traine
 		return nil, fmt.Errorf("failed to get trainer application: %w", err)
 	}
 	return application, nil
+}
+
+// GetAccessStatus reports whether the authenticated user owns an active
+// trainer profile and returns their latest application, including a rejected
+// one, so the applicant can see the outcome of their last submission. The user
+// ID always comes from the authenticated session, so the read can never expose
+// another user's application.
+func (s *service) GetAccessStatus(ctx context.Context, userID string) (AccessStatus, error) {
+	if err := validateUserID(userID); err != nil {
+		return AccessStatus{}, err
+	}
+
+	status := AccessStatus{}
+	if _, err := s.trainers.FindByUserID(ctx, userID); err == nil {
+		status.IsTrainer = true
+	} else if !errors.Is(err, repositories.ErrTrainerNotFound) {
+		return AccessStatus{}, fmt.Errorf("failed to check trainer profile: %w", err)
+	}
+
+	application, err := s.applications.FindLatestByUserID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrApplicationNotFound) {
+			return status, nil
+		}
+		return AccessStatus{}, fmt.Errorf("failed to load trainer application: %w", err)
+	}
+	status.Application = application
+	return status, nil
 }
 
 // ApproveApplication approves a PENDING application and creates the trainer

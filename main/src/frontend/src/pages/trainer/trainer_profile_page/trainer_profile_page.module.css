@@ -1,0 +1,37 @@
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.avatar {
+  display: grid;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border: 1px solid rgba(42, 140, 255, 0.35);
+  border-radius: 50%;
+  color: var(--text-muted);
+  background: rgba(7, 11, 18, 0.72);
+  box-shadow: 0 0 26px rgba(42, 140, 255, 0.18);
+}
+
+.avatar svg {
+  width: 30px;
+  height: 30px;
+}
+
+.name {
+  color: var(--text-primary);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.metaGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(24, 216, 255, 0.12);
+}

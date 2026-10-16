@@ -217,7 +217,7 @@ func TestTrainerProgramsCreateSuccess(t *testing.T) {
 	router, userRepo, trainerRepo, programRepo, tokenSvc := newTrainerProgramsTestRouter(t, trainerroles.PermissionPrograms)
 	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
 
-	body := `{"name":"Strength Builder","description":"A 12 week strength program.","type":"premium","status":"published"}`
+	body := `{"name":"Strength Builder","description":"A 12 week strength program.","type":"premium","status":"published","price_minor_units":1999}`
 	rec, data, raw := trainerProgramsRequest(router, jwtValue, http.MethodPost, programsRoute, body)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d (body: %s)", rec.Code, raw)

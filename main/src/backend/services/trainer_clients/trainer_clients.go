@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,9 +48,19 @@ type ClientRepository interface {
 }
 
 // UserRepository is the data-access surface required for verifying that the
-// client exists and is active.
+// client exists and is active, and for resolving a user by exact email.
 type UserRepository interface {
 	FindByID(ctx context.Context, id string) (*models.User, error)
+	FindByEmail(ctx context.Context, email string) (*models.User, error)
+}
+
+// TrainerRepository is the data-access surface required for resolving the
+// authenticated trainer's own user account. The trainer id and the user id are
+// primary keys of different tables, so the only reliable way to prevent a
+// trainer from adding themselves as a client is to resolve the trainer's
+// linked user id.
+type TrainerRepository interface {
+	FindByID(ctx context.Context, id string) (*models.Trainer, error)
 }
 
 // Client is the safe representation of one trainer→client relationship. It
@@ -77,6 +88,17 @@ type ListClientsResult struct {
 	Limit   int
 }
 
+// ClientCandidate is the safe, minimal representation of a user a trainer can
+// add as a client. It exists only to confirm an exact email match before the
+// relationship is created; it never exposes authentication data, roles or
+// deletion markers.
+type ClientCandidate struct {
+	UserID    string
+	Email     string
+	FirstName string
+	LastName  string
+}
+
 // Service implements the trainer→client relationship flow. Authorization
 // (which trainer may operate) is enforced by the route middleware; ownership
 // is guaranteed because the trainer id always comes from the authenticated
@@ -85,18 +107,20 @@ type ListClientsResult struct {
 type Service interface {
 	ListClients(ctx context.Context, trainerID string, page, limit int) (ListClientsResult, error)
 	GetClient(ctx context.Context, trainerID, userID string) (*Client, error)
+	LookupClientByEmail(ctx context.Context, trainerID, email string) (*ClientCandidate, error)
 	AddClient(ctx context.Context, trainerID, userID string) (*Client, error)
 	RemoveClient(ctx context.Context, trainerID, userID string) error
 	ReactivateClient(ctx context.Context, trainerID, userID string) (*Client, error)
 }
 
 type service struct {
-	clients ClientRepository
-	users   UserRepository
+	clients  ClientRepository
+	users    UserRepository
+	trainers TrainerRepository
 }
 
-func NewService(clients ClientRepository, users UserRepository) Service {
-	return &service{clients: clients, users: users}
+func NewService(clients ClientRepository, users UserRepository, trainers TrainerRepository) Service {
+	return &service{clients: clients, users: users, trainers: trainers}
 }
 
 // AddClient creates the active relationship between the trainer and an
@@ -112,7 +136,16 @@ func (s *service) AddClient(ctx context.Context, trainerID, userID string) (*Cli
 	if err := validateUserID(userID); err != nil {
 		return nil, err
 	}
-	if trainerID == userID {
+
+	// The trainer's own account can never become their client. The trainer id
+	// belongs to the trainers table and the user id to the users table, so the
+	// two identifiers are never equal even for the same person: the trainer's
+	// linked user id must be resolved and compared instead.
+	trainer, err := s.trainers.FindByID(ctx, trainerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check trainer: %w", err)
+	}
+	if trainer.UserID == userID {
 		return nil, fmt.Errorf("%w: a trainer cannot be their own client", ErrInvalidInput)
 	}
 
@@ -193,6 +226,36 @@ func (s *service) GetClient(ctx context.Context, trainerID, userID string) (*Cli
 
 	client := newClient(relation)
 	return &client, nil
+}
+
+// LookupClientByEmail resolves an active user by exact email so a trainer can
+// confirm who will be added before creating the relationship. The lookup is
+// exact-match only: it never searches or lists users, and it returns the
+// minimal identity needed to confirm the match. A user that does not exist or
+// is soft-deleted is reported identically as not found.
+func (s *service) LookupClientByEmail(ctx context.Context, trainerID, email string) (*ClientCandidate, error) {
+	if err := validateTrainerID(trainerID); err != nil {
+		return nil, err
+	}
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return nil, fmt.Errorf("%w: email is required", ErrInvalidInput)
+	}
+
+	user, err := s.users.FindByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, repositories.ErrUserNotFound) {
+			return nil, ErrClientNotFound
+		}
+		return nil, fmt.Errorf("failed to look up client user: %w", err)
+	}
+
+	return &ClientCandidate{
+		UserID:    user.ID,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+	}, nil
 }
 
 // RemoveClient soft-deletes the relationship between the trainer and the user.

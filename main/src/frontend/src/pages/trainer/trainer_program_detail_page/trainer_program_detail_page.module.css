@@ -1,0 +1,145 @@
+.builderHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.weekList {
+  display: grid;
+  gap: 1rem;
+}
+
+.weekCard {
+  border: 1px solid rgba(24, 216, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(7, 11, 18, 0.62);
+  overflow: hidden;
+}
+
+.weekHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1.15rem;
+  border-bottom: 1px solid rgba(24, 216, 255, 0.12);
+  background: rgba(24, 216, 255, 0.05);
+}
+
+.weekTitle {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.workoutList {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 1.15rem 1.15rem;
+}
+
+.workoutCard {
+  border: 1px solid rgba(24, 216, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(7, 11, 18, 0.55);
+}
+
+.workoutHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.65rem 0.9rem;
+}
+
+.expandButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0;
+  border: none;
+  color: var(--text-primary);
+  background: none;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.expandButton:hover {
+  color: var(--accent-cyan);
+}
+
+.exerciseList {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0 0.9rem 0.9rem;
+  border-top: 1px dashed rgba(24, 216, 255, 0.12);
+}
+
+.exerciseRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(24, 216, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(7, 11, 18, 0.6);
+}
+
+.exerciseName {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.iconRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.iconButton {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(24, 216, 255, 0.2);
+  border-radius: 9px;
+  color: var(--text-secondary);
+  background: rgba(24, 216, 255, 0.06);
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.iconButton:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: rgba(24, 216, 255, 0.45);
+  background: rgba(24, 216, 255, 0.12);
+}
+
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dangerZone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid rgba(255, 136, 146, 0.25);
+  border-radius: 14px;
+  background: rgba(255, 136, 146, 0.05);
+}

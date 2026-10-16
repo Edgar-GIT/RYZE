@@ -61,6 +61,25 @@ func (s *stubApplicationRepo) FindActiveByUserID(_ context.Context, userID strin
 	return nil, repositories.ErrApplicationNotFound
 }
 
+func (s *stubApplicationRepo) FindLatestByUserID(_ context.Context, userID string) (*models.TrainerApplication, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	latest := -1
+	for i := range s.apps {
+		if s.apps[i].UserID != userID {
+			continue
+		}
+		if latest == -1 || s.apps[i].CreatedAt.After(s.apps[latest].CreatedAt) {
+			latest = i
+		}
+	}
+	if latest == -1 {
+		return nil, repositories.ErrApplicationNotFound
+	}
+	return &s.apps[latest], nil
+}
+
 func (s *stubApplicationRepo) FindByID(_ context.Context, id string) (*models.TrainerApplication, error) {
 	if s.findErr != nil {
 		return nil, s.findErr
@@ -420,5 +439,72 @@ func TestRejectThenReapply(t *testing.T) {
 
 	if _, err := service.ApproveApplication(context.Background(), reapplied.ID); err != nil {
 		t.Fatalf("ApproveApplication after re-apply: %v", err)
+	}
+}
+
+func TestGetAccessStatusTrainer(t *testing.T) {
+	apps := &stubApplicationRepo{
+		apps: []models.TrainerApplication{testApp(models.ApplicationStatusApproved)},
+	}
+	service := newTestService(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{
+		trainers: []models.Trainer{{ID: "trainer-1", UserID: activeUserID}},
+	})
+
+	status, err := service.GetAccessStatus(context.Background(), activeUserID)
+	if err != nil {
+		t.Fatalf("GetAccessStatus: %v", err)
+	}
+	if !status.IsTrainer {
+		t.Fatal("expected IsTrainer true for an active trainer profile")
+	}
+	if status.Application == nil || status.Application.Status != models.ApplicationStatusApproved {
+		t.Fatalf("expected the approved application, got %+v", status.Application)
+	}
+}
+
+func TestGetAccessStatusRejectedApplication(t *testing.T) {
+	apps := &stubApplicationRepo{
+		apps: []models.TrainerApplication{testApp(models.ApplicationStatusRejected)},
+	}
+	service := newTestService(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{})
+
+	status, err := service.GetAccessStatus(context.Background(), activeUserID)
+	if err != nil {
+		t.Fatalf("GetAccessStatus: %v", err)
+	}
+	if status.IsTrainer {
+		t.Fatal("expected IsTrainer false without a trainer profile")
+	}
+	if status.Application == nil || status.Application.Status != models.ApplicationStatusRejected {
+		t.Fatalf("expected the rejected application, got %+v", status.Application)
+	}
+}
+
+func TestGetAccessStatusNoApplication(t *testing.T) {
+	service := newTestService(&stubApplicationRepo{}, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{})
+
+	status, err := service.GetAccessStatus(context.Background(), activeUserID)
+	if err != nil {
+		t.Fatalf("GetAccessStatus: %v", err)
+	}
+	if status.IsTrainer || status.Application != nil {
+		t.Fatalf("expected no trainer access and no application, got %+v", status)
+	}
+}
+
+func TestGetAccessStatusInvalidUserID(t *testing.T) {
+	service := newTestService(&stubApplicationRepo{}, stubUserRepo{}, stubTrainerRepo{})
+
+	if _, err := service.GetAccessStatus(context.Background(), "not-a-uuid"); !errors.Is(err, trainer_applications.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestGetAccessStatusRepositoryError(t *testing.T) {
+	apps := &stubApplicationRepo{findErr: errRepoFailure}
+	service := newTestService(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{})
+
+	if _, err := service.GetAccessStatus(context.Background(), activeUserID); !errors.Is(err, errRepoFailure) {
+		t.Fatalf("expected wrapped repository failure, got %v", err)
 	}
 }

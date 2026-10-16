@@ -32,6 +32,7 @@ var (
 type TrainerApplicationRepository interface {
 	Create(ctx context.Context, application *models.TrainerApplication) error
 	FindActiveByUserID(ctx context.Context, userID string) (*models.TrainerApplication, error)
+	FindLatestByUserID(ctx context.Context, userID string) (*models.TrainerApplication, error)
 	FindByID(ctx context.Context, id string) (*models.TrainerApplication, error)
 	List(ctx context.Context, page, limit int, status string) ([]models.TrainerApplication, int64, error)
 	Approve(ctx context.Context, applicationID string) (*models.TrainerApplication, error)
@@ -68,6 +69,23 @@ func (r *trainerApplicationRepository) FindActiveByUserID(ctx context.Context, u
 			return nil, ErrApplicationNotFound
 		}
 		return nil, fmt.Errorf("failed to find trainer application by user id: %w", err)
+	}
+	return &application, nil
+}
+
+// FindLatestByUserID returns the most recent trainer application owned by the
+// given user, including REJECTED ones, so an applicant can be shown the outcome
+// of their last application. Soft-deleted applications are never returned.
+func (r *trainerApplicationRepository) FindLatestByUserID(ctx context.Context, userID string) (*models.TrainerApplication, error) {
+	var application models.TrainerApplication
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at DESC, id ASC").
+		First(&application).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrApplicationNotFound
+		}
+		return nil, fmt.Errorf("failed to find latest trainer application by user id: %w", err)
 	}
 	return &application, nil
 }
