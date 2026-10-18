@@ -777,6 +777,11 @@ Validation:
   `404 PROGRAM_NOT_FOUND` and no provider session is opened. Completion paths
   are unaffected by both checks — a payment already captured at the provider
   still completes.
+- A pending purchase whose (user, program) pair already resolved another way —
+  a sibling purchase completed or was reconciled first — returns
+  `409 DUPLICATE_ENTITLEMENT` and never opens a provider payment: the money
+  could never grant access. The client recovers by checking its ownership
+  state (an active entitlement answers the same way).
 
 Response `200 OK`:
 
@@ -801,6 +806,9 @@ Error codes:
   can no longer be paid; start a fresh intent.
 - `409 PAYMENT_METHOD_MISMATCH` — the requested method differs from the method
   already recorded on the pending purchase.
+- `409 DUPLICATE_ENTITLEMENT` — the (user, program) pair is already resolved
+  (an active entitlement or a completed sibling purchase), so the pending
+  purchase can never complete and no provider session is opened.
 - `502 PAYMENT_PROVIDER_ERROR` — the payment provider could not initiate the
   payment. Internal provider details are never exposed.
 
@@ -848,6 +856,17 @@ The operation is idempotent: an already-completed purchase (e.g. the webhook
 racing the browser return) returns the completed snapshot safely without
 re-capturing or duplicating the entitlement.
 
+The capture also fails closed when the pair already resolved another way: a
+purchase whose (user, program) pair already owns an active entitlement (a
+sibling purchase completed mid-flight) is never presented to the provider —
+the money could not grant access — and returns `409 DUPLICATE_ENTITLEMENT`.
+When the purchase moves on while the capture is in flight (a concurrent
+verified delivery completed it, or it was superseded), the outcome is read
+back from the durable state instead of surfacing a stale failure: a completed
+purchase returns the completed snapshot, and a superseded purchase returns
+`409 PURCHASE_NOT_PENDING` so the client re-resolves the buyer's real access
+instead of retrying blindly.
+
 Authentication: required (client session).
 
 Parameters:
@@ -880,8 +899,11 @@ Error codes:
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid session.
 - `404 PURCHASE_NOT_FOUND` — purchase does not exist, is soft-deleted or does
   not belong to the authenticated user.
-- `409 PURCHASE_NOT_PENDING` — the purchase is not in "pending" status (e.g. it
-  already failed).
+- `409 PURCHASE_NOT_PENDING` — the purchase is not in "pending" status (e.g.
+  it already failed, or it was superseded while the payment was being
+  verified).
+- `409 DUPLICATE_ENTITLEMENT` — the (user, program) pair is already resolved,
+  so the capture is refused and the provider is not contacted.
 - `502 PAYMENT_PROVIDER_ERROR` — the provider could not be reached, the payment
   could not be verified/captured (including an unpaid, expired, foreign or
   mismatched Stripe Checkout Session), or the purchase has no recorded payment
@@ -1067,12 +1089,16 @@ session is only honored once Stripe reports it as paid.
 **Late settlements are reconciled, never discarded.** A verified, fully paid
 event for a purchase that is no longer pending is routed by its state: a
 `failed` purchase is reconciled through `ReconcilePurchase` (reconciled → 200),
-a reconciliation conflict or a purchase that moved on is acknowledged with 200
-and a diagnostic outcome is recorded, while an integrity violation or transient
-failure returns 500 so Stripe retries. A completed purchase stays idempotently
-acknowledged with `already_completed`. No event type — including refunds and
-disputes — can revert a completed purchase: RYZE purchases are final, there is
-no refund workflow, and a refund event is acknowledged and ignored.
+while a reconciliation conflict, a purchase that moved on, or a completion
+that finds the (user, program) pair already resolved (a duplicate sale racing
+a sibling purchase) is acknowledged with 200 and a diagnostic outcome
+(`conflict_pair_resolved` / `purchase_moved_on`) is recorded — a redelivery
+cannot change the durable state, so it is never retried forever. Only an
+integrity violation or transient failure returns 500 so Stripe retries. A
+completed purchase stays idempotently acknowledged with `already_completed`. No
+event type — including refunds and disputes — can revert a completed purchase:
+RYZE purchases are final, there is no refund workflow, and a refund event is
+acknowledged and ignored.
 
 **Every verified delivery is recorded.** Each verified event writes one durable
 record to `purchase_reconciliation_events` keyed by the provider event id,
@@ -1099,8 +1125,8 @@ Responses:
 - `200` — event processed (completed, reconciled, already completed, not a
   successful payment, unsupported mode, unsupported event type, unknown purchase,
   purchase not pending, late settlement acknowledged, permanent mismatch
-  recorded, Test Mode purchase guarded, purchase without a recorded payment
-  method)
+  recorded, duplicate sale already resolved by a sibling purchase, Test Mode
+  purchase guarded, purchase without a recorded payment method)
 - `400` — invalid signature, missing header, malformed payload, unverifiable
   mode or payment status
 - `500` — reconciliation failure (integrity or transient, retried), internal
@@ -1134,6 +1160,9 @@ Supported event types:
   payment, so a late approval for a failed purchase is acknowledged with 200 and
   a diagnostic log, leaving the order to lapse at PayPal with no funds moved —
   when those funds actually did move, `PAYMENT.CAPTURE.COMPLETED` reconciles.
+  An approval whose (user, program) pair already resolved another way is
+  likewise **not** captured — the money could never grant access — and is
+  acknowledged with 200 with a `conflict_pair_resolved` outcome.
 - `PAYMENT.CAPTURE.COMPLETED` — an order was captured and the funds settled
   (this proves the money moved, unlike approval). The related `order_id` is read
   from `supplementary_data`, the RYZE purchase is recovered by loading that
@@ -1142,8 +1171,10 @@ Supported event types:
   verified against the purchase snapshot. The purchase is then routed by state:
   a still-pending purchase is completed through the pure completion path (the
   funds are already captured, so nothing is re-captured), a failed purchase is
-  reconciled through `ReconcilePurchase`, and a completed purchase is an
-  idempotent acknowledgement. This closes the race where the browser return leg
+  reconciled through `ReconcilePurchase`, a completed purchase is an
+  idempotent acknowledgement, and a completion that finds the (user, program)
+  pair already resolved is acknowledged with a `conflict_pair_resolved`
+  outcome. This closes the race where the browser return leg
   captured the order while a supersede was landing on the purchase.
 
 All other event types are safely acknowledged with 200.
@@ -4940,8 +4971,9 @@ Outcome vocabulary:
 - `reconciled` — a late verified delivery reconciled a failed purchase.
 - `already_completed` — the purchase was already completed when the delivery
   arrived (idempotent acknowledgement).
-- `conflict_pair_resolved` — a verified delivery won a reconciliation conflict
-  against a stale pending sibling.
+- `conflict_pair_resolved` — a verified settlement found the (user, program)
+  pair already resolved another way (a sibling purchase completed first), so
+  the payment could not define a second sale.
 - `purchase_moved_on` — a verified delivery arrived but the purchase had already
   left the recoverable state.
 - `entitlement_integrity` — a settlement could not restore the entitlement
@@ -4958,8 +4990,6 @@ Outcome vocabulary:
   (consent, not money); the order was left to lapse.
 - `test_purchase_event` — a verified delivery for a Test Mode purchase, guarded
   and acknowledged with 200.
-- `conflict_pair_resolved` vs `entitlement_integrity` are the only outcomes that
-  change under retry semantics: the former is final, the latter is provisional.
 
 Only `transient_failure` and `provider_uncertain` are provisional: a later
 redelivery overwrites them. Every other outcome is immutable; an idempotent

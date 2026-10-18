@@ -1,3 +1,115 @@
+# Version 2.92.0
+
+Title: Commerce reliability — PayPal readiness parity, duplicate-sale acknowledgement, capture race recovery and resolved-pair guards
+
+Date: 2026-10-18
+
+Summary:
+
+v2.92.0 is a reliability pass over the purchase lifecycle, driven by an audit
+of the commerce surfaces. Five verified defects were fixed. (1) The PayPal
+provider and its webhook endpoint disagreed on readiness: provider creation
+required a client id, secret and a supported mode, but the webhook was mounted
+on a weaker condition and the verifier silently fell back to the sandbox API
+for an unsupported mode, so a mistyped mode could accept deliveries for a
+disabled provider. Both now share one readiness predicate and the verifier
+fails closed. (2) A verified provider delivery for a purchase whose (user,
+program) pair had already resolved another way (a sibling purchase completed
+first) surfaced as an internal error and was retried forever with a
+`transient_failure` record; it is now acknowledged with 200 and recorded as
+`conflict_pair_resolved`. (3) The browser capture return leg could surface a
+stale `404 PURCHASE_NOT_FOUND` when a concurrent verified webhook completed
+the purchase mid-transaction; it now re-reads the durable state and returns
+the idempotent success (or `409 PURCHASE_NOT_PENDING` when the purchase was
+superseded) so the existing ownership-polling recovery applies. (4) The
+completed-purchase unique index collision on the atomic completion paths was
+unmapped, feeding the same retry loop; both repository paths now map it to
+`ErrCompletedPurchaseExists` and the service reports it as
+`ErrDuplicateEntitlement`. (5) Payment initiation could open a provider
+session for a pending purchase whose pair was already owned, taking money
+that could never grant access; initiation and capture now refuse resolved
+pairs before the provider is contacted. The checkout hook correspondingly
+recovers 409 `DUPLICATE_ENTITLEMENT` by resolving real ownership instead of
+showing a dead-end error. No schema changed and no migration was added: the
+database stays at migration version `28`, `dirty=false`.
+
+Main changes:
+
+- `routes/routes.go`: new `paypalEnabled` single readiness predicate (client
+  id and secret present, mode `sandbox` or `live`). `resolvePaymentProviders`
+  and the PayPal webhook mount share it (the webhook additionally requires
+  `PAYPAL_WEBHOOK_ID`), so the provider and the endpoint can never disagree.
+  `createPayPalWebhookVerifier` fails closed on an unsupported mode instead of
+  silently verifying against the sandbox API.
+  `routes/payment_providers_test.go`: predicate table test, provider-creation
+  parity test, verifier fail-closed test.
+- `services/purchases/purchases.go`: `InitiatePayment` refuses a purchase
+  whose pair already resolved (`ErrDuplicateEntitlement`) before any provider
+  is resolved or contacted. `captureAndComplete` refuses a pair that already
+  owns an active entitlement before the capture call, and re-reads the durable
+  state when its completion observes the purchase moving on: completed →
+  idempotent success with the delivery hook, superseded →
+  `ErrPurchaseNotPending`. `completeAndCreateEntitlement` maps the
+  completed-purchase collision on both atomic paths to `ErrDuplicateEntitlement`.
+  `ErrDuplicateEntitlement` documentation extended to mean "the pair is
+  already resolved (active entitlement or completed sibling purchase)".
+- `repositories/purchase_repository.go`: `CompleteWithEntitlement` and
+  `CompleteWithRestoredEntitlement` map a duplicate-entry error on the
+  purchase status update (the completed-purchase unique index) to
+  `ErrCompletedPurchaseExists` instead of a raw wrapped driver error.
+- `api/webhooks/stripe_handler.go` and `api/webhooks/paypal_handler.go`: both
+  handlers map `ErrDuplicateEntitlement` to `200 "pair already resolved"` and
+  record the durable `conflict_pair_resolved` outcome (PayPal covers both the
+  capture-on-approval path and the capture-completed path). A redelivery can
+  no longer loop with `transient_failure`.
+- Frontend `hooks/use_program_checkout.ts`: shared `recoverOwnershipOrFail`
+  helper; 409 `DUPLICATE_ENTITLEMENT` from intent creation, initiation and
+  Test Mode completion now resolves the real access state (owned) instead of
+  displaying a failure for a program the user owns.
+- Tests: service regression tests for initiation refusal, capture refusal,
+  completion collision mapping on both atomic paths, concurrent-completion
+  recovery and superseded reporting; webhook acknowledgement tests for Stripe
+  and both PayPal completion paths; new `use_program_checkout.test.tsx`
+  (guest resolution, capture return leg, raced-capture recovery,
+  duplicate-entitlement initiation, Test Mode conflict).
+- Documentation: `api.MD` (initiation/capture `409 DUPLICATE_ENTITLEMENT`,
+  capture race semantics, webhook resolved-pair acknowledgement, outcome
+  vocabulary), `security.MD` (PayPal endpoint readiness parity, fail-closed
+  verifier, mismatch verdicts corrected to the acknowledged/recorded
+  behaviour, duplicate-sale acknowledgement), `arquitecture.MD` (PayPal
+  availability rule, initiation guard, capture guard and moved-on recovery,
+  repository collision mapping, webhook resolved-pair acknowledgement).
+
+Reason:
+
+The commerce audit found a retry loop on duplicate sales (money already
+settled, pair already owned, delivery rejected forever with a 500), a
+readiness asymmetry that could mount a webhook for a disabled PayPal, stale
+failures on the capture return leg for buyers whose payment was already
+settled, and provider sessions opened for purchases that could never
+complete. Payment flows must be exactly-once per sale and fail closed, and a
+buyer whose access settled by any path must never see a failure. Documentation
+was corrected where it no longer matched the implementation (the webhook
+mismatch verdicts were already acknowledged with 200 and recorded; some
+documents still described 500 responses).
+
+Validation:
+
+- Backend: `gofmt -l`, `go vet ./...` clean; `go test ./...` green (full
+  suite, including repository and route tests against the development
+  database).
+- Frontend: `npx tsc --noEmit` clean; `npx vitest run` green (3 files, 20
+  tests).
+
+Residual and unverified (not claimed):
+
+- Live Stripe/PayPal sandbox flows were not executed.
+- The concurrency races (sibling completion, capture race) are covered by
+  deterministic stub-based tests, not by a live concurrent payment run.
+- No schema change was made, so no migration up/down drill was required.
+
+---
+
 # Version 2.91.0
 
 Title: Trainer platform — access status, exact-email client lookup, self-add guard, trainer web area and migration rollback fix

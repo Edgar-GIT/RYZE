@@ -1001,11 +1001,16 @@ The payment service routes payment methods to providers through a centralized
    one; otherwise the request fails with `ErrPaymentMethodMismatch` and no
    provider is contacted. The outstanding provider payment belongs to the
    recorded method, so the purchase is never rebound.
-4. The `MethodProviderMap` resolves the method to the correct provider.
-5. As soon as a configured provider has been resolved, the validated method is
+4. A pending purchase whose (user, program) pair already resolved another way
+   (an active entitlement, or a completed sibling purchase) fails with
+   `ErrDuplicateEntitlement` and no provider is contacted: the purchase could
+   never complete, so opening a session would take money that can never grant
+   access.
+5. The `MethodProviderMap` resolves the method to the correct provider.
+6. As soon as a configured provider has been resolved, the validated method is
    recorded on the purchase (`purchases.payment_method`), making it immutable for
    that purchase.
-6. The provider creates the checkout session using the immutable purchase
+7. The provider creates the checkout session using the immutable purchase
    snapshot.
 
 Because the method is recorded server-side at initiation, the later capture flow
@@ -1045,8 +1050,9 @@ PayPal provider:
 - The redirect templates may contain the `{program_id}` and `{purchase_id}`
   placeholders, substituted when each order is created via
   `SetCheckoutRedirectURLs`. PayPal appends the order token to both URLs.
-- PayPal is optional; when credentials are empty, the PayPal method is
-  rejected at routing time.
+- PayPal is optional; when the client id or secret is empty, or the mode is not
+  `sandbox`/`live`, the provider is not created and the PayPal method is
+  rejected at routing time. An unsupported mode never falls back to sandbox.
 - The provider owns the `paypal` method only: any other method, and any request
   with no recorded method, is rejected before the PayPal API is contacted, on
   both initiation and capture.
@@ -1079,8 +1085,12 @@ Provider availability:
   same condition gates the Stripe webhook endpoint, so the provider and the
   endpoint can never disagree. Because both methods share one provider, they are
   always advertised together and never independently.
-- **PayPal serves the `paypal` method** and is enabled when `PAYPAL_CLIENT_ID`
-  and its credentials are configured.
+- **PayPal serves the `paypal` method** and is enabled only when
+  `PAYPAL_CLIENT_ID` and `PAYPAL_SECRET` are both configured and the mode is
+  `sandbox` or `live`. The same condition gates the PayPal webhook endpoint
+  (plus `PAYPAL_WEBHOOK_ID`, which only the endpoint needs), so the provider
+  and the endpoint can never disagree; an unsupported mode disables PayPal
+  instead of silently falling back to sandbox.
 - The providers are resolved independently: a misconfigured provider never
   affects the other, and a provider that is not created is never advertised.
 - MB WAY additionally requires the `mb_way_payments` capability on the Stripe
@@ -1111,6 +1121,10 @@ Completion flow (`CompletePurchase`):
    - `RestoreByUserAndProgram` succeeds → `Complete` (status only).
    - `RestoreByUserAndProgram` returns NOT FOUND → `CompleteWithEntitlement`
      (purchase status + new entitlement in single DB transaction).
+6. Either atomic path that collides with a completed sibling purchase for the
+   same (user, program) pair (the completed-purchase unique index rejects the
+   status update) returns `ErrDuplicateEntitlement`: the pair is already
+   resolved and a second sale can never be defined.
 
 Capture flow:
 
@@ -1124,9 +1138,14 @@ Capture flow:
 - Both converge on the shared `captureAndComplete` step:
   1. The purchase must be pending; an already-completed purchase returns an
      idempotent success without re-capturing.
-  2. The method recorded on the purchase resolves the capture provider, which
+  2. A pending purchase whose (user, program) pair already owns an active
+     entitlement is refused with `ErrDuplicateEntitlement` before the provider
+     is contacted: the money could never grant access. This only narrows the
+     race window — the completion path still enforces the same rule under its
+     own atomic guards.
+  3. The method recorded on the purchase resolves the capture provider, which
      must implement `CaptureProvider`.
-  3. `CapturePayment` is called with the immutable purchase snapshot (id,
+  4. `CapturePayment` is called with the immutable purchase snapshot (id,
      amount, currency) and the provider identifier received from the client. The
      provider reloads the real payment and verifies it belongs to the purchase
      and is genuinely paid before anything is completed:
@@ -1137,8 +1156,13 @@ Capture flow:
        one-time payment matching the purchase reference, amount and currency.
        Verification is idempotent, so the browser return leg and the webhook can
        race safely.
-  4. On success, control flows into `CompletePurchase` for the atomic status
-     transition and entitlement provision.
+  5. On success, control flows into `CompletePurchase` for the atomic status
+     transition and entitlement provision. If the completion observes the
+     purchase moving on (a concurrent verified delivery completed it, or it was
+     superseded mid-capture), the durable state is re-read: a completed purchase
+     is the idempotent success it is, and a superseded purchase reports
+     `ErrPurchaseNotPending` so the caller re-resolves real access instead of
+     surfacing a stale failure.
 
 The repository layer provides two atomic primitives:
 
@@ -1254,6 +1278,11 @@ PayPal → POST /api/v1/webhooks/paypal → Read raw body → VerifyWebhookSigna
   captured, mirroring the Stripe webhook's session method check. An event for a
   purchase recorded with another method, or with no recorded method at all, is
   acknowledged with 200 and ignored: it can never complete that purchase
+- A verified delivery whose (user, program) pair already resolved another way
+  (a sibling purchase completed first) is acknowledged with 200 and recorded as
+  a `conflict_pair_resolved` outcome on both providers: the durable state is
+  authoritative and a redelivery cannot change it, so the delivery is never
+  retried forever for a duplicate sale that can never succeed
 
 ---
 

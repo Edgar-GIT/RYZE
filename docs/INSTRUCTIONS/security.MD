@@ -1104,8 +1104,10 @@ capture endpoint (see Payment Capture Security) or a verified provider event
 - The session `payment_method_types` must contain the payment method type of the
   purchase's recorded `payment_method`, and that recorded method must be
   non-empty. A session created for one method can therefore never complete a
-  purchase bound to the other; a mismatch is answered with 500 so Stripe retries
-  the event, and a purchase with no recorded method is ignored with 200
+  purchase bound to the other; a mismatch is a permanent contract violation, so
+  it is acknowledged with 200 and recorded as a `method_mismatch` outcome
+  instead of being retried, and a purchase with no recorded method is ignored
+  with 200
 - Refund, dispute and every other event type are acknowledged with 200 and
   ignored. RYZE purchases are final: no event type can revert a completed
   purchase and no refund workflow exists
@@ -1115,6 +1117,12 @@ capture endpoint (see Payment Capture Security) or a verified provider event
 - Authenticity verification using PayPal's official `VerifyWebhookSignature` API
 - Invalid verification is rejected with 400
 - The webhook ID must be configured via `PAYPAL_WEBHOOK_ID`
+- The endpoint follows the same single readiness rule as the PayPal provider:
+  it is mounted exactly when `PAYPAL_CLIENT_ID` and `PAYPAL_SECRET` are both
+  configured, the mode is `sandbox` or `live`, and the webhook id is present.
+  An unsupported mode disables PayPal entirely (provider and endpoint) instead
+  of silently falling back to the sandbox API, and the verifier fails closed on
+  an unsupported mode rather than verifying against the wrong environment
 - Events are parsed only AFTER verification succeeds
 - A `CHECKOUT.ORDER.APPROVED` event without an order id cannot be captured
   server-side; it is answered with 500 so PayPal retries it, never completed
@@ -1124,8 +1132,9 @@ capture endpoint (see Payment Capture Security) or a verified provider event
 - Provider-confirmed payment amounts are compared against the immutable purchase
   snapshot
 - Currency codes are compared case-insensitively
-- Mismatches are logged and return 500 (triggering provider retry) — the
-  purchase is NOT completed
+- Mismatches are permanent contract violations: they are acknowledged with 200
+  and recorded as an `amount_mismatch` / `currency_mismatch` outcome instead of
+  being retried — the purchase is NOT completed
 - This is defense-in-depth against configuration/provider mistakes
 
 **Idempotency:**
@@ -1133,6 +1142,10 @@ capture endpoint (see Payment Capture Security) or a verified provider event
 - Duplicate webhook deliveries are safe — the completion path is idempotent
 - Already-completed purchases return 200 without re-processing
 - No duplicate entitlements are created
+- A verified delivery whose (user, program) pair already resolved another way
+  (a duplicate sale racing a sibling purchase) is acknowledged with 200 and
+  recorded as a `conflict_pair_resolved` outcome: the durable state decides and
+  a redelivery cannot change it, so it is never retried forever
 - A browser capture racing a verified webhook is safe: the second path finds the
   purchase (or provider order) already completed and returns the completed
   snapshot without re-capturing or duplicating the entitlement
