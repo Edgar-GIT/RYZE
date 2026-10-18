@@ -28,6 +28,12 @@ const (
 	kindAdmin      = "admin"
 	kindAdminStage = "admin-stage"
 
+	// tokenIssuer and tokenAudience bind every token to this platform. They are
+	// verified on parse, so a token signed with the same secret by another
+	// service (or replayed against a different audience) is never accepted.
+	tokenIssuer   = "ryze"
+	tokenAudience = "ryze-api"
+
 	// AdminStageTokenTTL is the lifetime of the temporary authentication state
 	// issued after the username/password stage of the admin login flow. The
 	// state expires quickly and must be completed with the access code before
