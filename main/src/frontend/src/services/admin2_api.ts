@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from "@utils/http_client";
+import { apiDelete, apiGet, apiPatch, apiPost, encodePathSegment } from "@utils/http_client";
 import { AdminPagination } from "./admin_api";
 import type { SetType } from "./exercise_library";
 import { PREMIUM_LEVEL_1_PRODUCT_TYPE } from "./premium_level1_api";
@@ -335,7 +335,7 @@ export const fetchAdminPurchases = (params: AdminPurchaseListParams): Promise<Ad
   apiGet<AdminPurchaseListResult>(`/admin/purchases?${purchaseQuery(params)}`);
 
 export const fetchAdminPurchase = (id: string): Promise<AdminPurchase> =>
-  apiGet<AdminPurchaseDetailResponse>(`/admin/purchases/${id}`).then((result) => result.purchase);
+  apiGet<AdminPurchaseDetailResponse>(`/admin/purchases/${encodePathSegment(id)}`).then((result) => result.purchase);
 
 export const fetchAdminProgramSales = (
   params: AdminPurchaseListParams
@@ -432,21 +432,21 @@ export const fetchAdminPrograms = (page: number, limit: number, type?: ProgramTy
   return apiGet<AdminProgramsList>(`/programs?page=${page}&limit=${limit}${typeQuery}`);
 };
 
-export const fetchAdminProgram = (id: string) => apiGet<AdminProgram>(`/admin/programs/${id}`);
+export const fetchAdminProgram = (id: string) => apiGet<AdminProgram>(`/admin/programs/${encodePathSegment(id)}`);
 
 export const updateAdminProgramPricing = (id: string, input: AdminPricingInput) =>
-  apiPatch<AdminProgram>(`/admin/programs/${id}/pricing`, input);
+  apiPatch<AdminProgram>(`/admin/programs/${encodePathSegment(id)}/pricing`, input);
 
 export const updateCommissionRule = (trainerId: string, commissionBps: number) =>
-  apiPatch<AdminCommissionRule>(`/admin/trainers/${trainerId}/commission`, {
+  apiPatch<AdminCommissionRule>(`/admin/trainers/${encodePathSegment(trainerId)}/commission`, {
     commission_bps: commissionBps
   });
 
 export const deleteCommissionRule = (trainerId: string) =>
-  apiDelete<never>(`/admin/trainers/${trainerId}/commission`);
+  apiDelete<never>(`/admin/trainers/${encodePathSegment(trainerId)}/commission`);
 
 export const fetchCommissionResolution = (trainerId: string) =>
-  apiGet<AdminCommissionResolution>(`/admin/trainers/${trainerId}/commission/resolve`);
+  apiGet<AdminCommissionResolution>(`/admin/trainers/${encodePathSegment(trainerId)}/commission/resolve`);
 
 /* ------------------------------------------------------------------ */
 /* Generic programs (platform-owned catalogue plans)                   */
@@ -611,19 +611,19 @@ export const fetchGenericPrograms = (
 };
 
 export const fetchGenericProgram = (family: ProgramProductTypeValue, id: string) =>
-  apiGet<GenericProgramDetail>(`/programs/${programFamilyPath(family)}/${id}`);
+  apiGet<GenericProgramDetail>(`/programs/${programFamilyPath(family)}/${encodePathSegment(id)}`);
 
 export const createGenericProgram = (family: ProgramProductTypeValue, input: GenericProgramInput) =>
   apiPost<GenericProgramDetail>(`/programs/${programFamilyPath(family)}`, input);
 
 export const updateGenericProgram = (family: ProgramProductTypeValue, id: string, input: GenericProgramInput) =>
-  apiPatch<GenericProgramDetail>(`/programs/${programFamilyPath(family)}/${id}`, input);
+  apiPatch<GenericProgramDetail>(`/programs/${programFamilyPath(family)}/${encodePathSegment(id)}`, input);
 
 export const publishGenericProgram = (family: ProgramProductTypeValue, id: string) =>
-  apiPost<GenericProgramSummary>(`/programs/${programFamilyPath(family)}/${id}/publish`, {});
+  apiPost<GenericProgramSummary>(`/programs/${programFamilyPath(family)}/${encodePathSegment(id)}/publish`, {});
 
 export const deleteGenericProgram = (family: ProgramProductTypeValue, id: string) =>
-  apiDelete<never>(`/programs/${programFamilyPath(family)}/${id}`);
+  apiDelete<never>(`/programs/${programFamilyPath(family)}/${encodePathSegment(id)}`);
 
 /**
  * Resolves the admin feedback list. Feedback is not part of the product yet,

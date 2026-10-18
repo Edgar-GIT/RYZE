@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "@utils/http_client";
+import { apiGet, apiPost, encodePathSegment } from "@utils/http_client";
 
 import type { Purchase } from "@/services/purchases_api";
 
@@ -58,4 +58,4 @@ export const exitTestMode = (): Promise<TestModeExitResult> =>
 // persona. They are capped to an active Test Mode session bound to the
 // authenticated persona user and never touch a payment provider.
 export const completeTestPurchase = (programId: string): Promise<Purchase> =>
-  apiPost<Purchase>(`/auth/test-mode/programs/${programId}/purchase`, {});
+  apiPost<Purchase>(`/auth/test-mode/programs/${encodePathSegment(programId)}/purchase`, {});

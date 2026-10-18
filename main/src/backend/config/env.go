@@ -20,6 +20,7 @@ const (
 	defaultPort                             = "3306"
 	defaultTokenTTL                         = 15 * time.Minute
 	minJWTSecretLength                      = 32
+	maxTokenTTL                             = 24 * time.Hour
 	defaultAllowedOrigin                    = "http://localhost:5173,http://127.0.0.1:5173"
 	minAdminPasswordLen                     = password.MinPasswordLength
 	minAdminAccessCodeLen                   = 8
@@ -107,6 +108,12 @@ func LoadJWT() (JWTConfig, error) {
 		parsed, err := time.ParseDuration(raw)
 		if err != nil || parsed <= 0 {
 			return JWTConfig{}, fmt.Errorf("JWT_ACCESS_TOKEN_TTL must be a positive duration, got %q", raw)
+		}
+		// A session token outlives every revocation shortcut, so its lifetime
+		// is capped: a misconfigured days-long TTL would silently weaken the
+		// session model. Longer sessions must be an explicit future decision.
+		if parsed > maxTokenTTL {
+			return JWTConfig{}, fmt.Errorf("JWT_ACCESS_TOKEN_TTL must not exceed %s, got %q", maxTokenTTL, raw)
 		}
 		ttl = parsed
 	}
@@ -357,7 +364,7 @@ func LoadRateLimit() (RateLimitConfig, error) {
 				continue
 			}
 			if !isTrustedProxyEntry(entry) {
-				return RateLimitConfig{}, fmt.Errorf("RATE_LIMIT_TRUSTED_PROXIES entry %q is neither an IP address nor a CIDR range", entry)
+				return RateLimitConfig{}, fmt.Errorf("RATE_LIMIT_TRUSTED_PROXIES entry %q is not a valid trusted proxy: a bare IP address or a CIDR range narrower than /0 is required", entry)
 			}
 			cfg.TrustedProxies = append(cfg.TrustedProxies, entry)
 		}
@@ -367,11 +374,13 @@ func LoadRateLimit() (RateLimitConfig, error) {
 }
 
 // isTrustedProxyEntry reports whether a configured proxy entry is a valid IPv4
-// or IPv6 address or a valid CIDR range, which is exactly what the framework
-// accepts when the trusted proxy list is applied.
+// or IPv6 address or a valid CIDR range that is narrower than /0. A /0 range
+// trusts every address and would let any client spoof its address through
+// forwarded headers, so it is rejected like any other invalid entry.
 func isTrustedProxyEntry(entry string) bool {
-	if _, _, err := net.ParseCIDR(entry); err == nil {
-		return true
+	if _, network, err := net.ParseCIDR(entry); err == nil {
+		ones, _ := network.Mask.Size()
+		return ones > 0
 	}
 	return net.ParseIP(entry) != nil
 }

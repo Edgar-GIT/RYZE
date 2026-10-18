@@ -16,6 +16,10 @@
 # this script only produces the local artefact and prints the reminder.
 set -euo pipefail
 
+# Backups hold the full database content; restrict everything this script
+# creates to the owner (files 600, directories 700) before the first write.
+umask 077
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ -f "${ROOT_DIR}/.env" ]]; then
@@ -71,6 +75,9 @@ if [[ -n "${GPG_RECIPIENT}" ]]; then
   gpg --yes --encrypt --recipient "${GPG_RECIPIENT}" "${target}"
   rm -f "${target}"
   target="${target}.gpg"
+else
+  echo "warning: BACKUP_GPG_RECIPIENT is unset, so ${target} is unencrypted." >&2
+  echo "warning: move it off-host and encrypt it before storing or sharing it." >&2
 fi
 
 if [[ "${RETENTION_DAYS}" -gt 0 ]]; then

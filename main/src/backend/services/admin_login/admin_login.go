@@ -64,18 +64,30 @@ func NewService(credentials []AdminCredential) AdminService {
 	return &adminLoginService{credentials: credentials}
 }
 
+// Login verifies the username/password stage. Every configured credential is
+// evaluated with constant-time comparisons and no credential short-circuits
+// the loop, so the time taken does not depend on whether the username exists,
+// which credential matched or where in the list it sits. Failures always
+// report the single indistinguishable ErrInvalidCredentials.
 func (s *adminLoginService) Login(_ context.Context, input LoginInput) (Admin, error) {
 	username := strings.TrimSpace(input.Username)
 	if username == "" || input.Password == "" {
 		return Admin{}, ErrInvalidInput
 	}
 
-	for _, credential := range s.credentials {
-		if credential.Username == username && constantTimeEqual(input.Password, credential.Password) {
-			return Admin{ID: credential.ID, Username: credential.Username}, nil
+	var matched *AdminCredential
+	for i := range s.credentials {
+		credential := &s.credentials[i]
+		usernameMatch := constantTimeEqual(username, credential.Username)
+		passwordMatch := constantTimeEqual(input.Password, credential.Password)
+		if usernameMatch && passwordMatch {
+			matched = credential
 		}
 	}
-	return Admin{}, ErrInvalidCredentials
+	if matched == nil {
+		return Admin{}, ErrInvalidCredentials
+	}
+	return Admin{ID: matched.ID, Username: matched.Username}, nil
 }
 
 func (s *adminLoginService) VerifyAccessCode(_ context.Context, input VerifyInput) (Admin, error) {

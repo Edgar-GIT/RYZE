@@ -25,6 +25,13 @@ export class ApiError extends Error {
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:8080/api/v1";
 
+/**
+ * Encodes a value that is interpolated into a single URL path segment. The
+ * backend always validates identifiers, but encoding here guarantees a value
+ * can never add path separators or query syntax to the request URL.
+ */
+export const encodePathSegment = (value: string): string => encodeURIComponent(value);
+
 export async function apiGet<T>(path: string): Promise<T> {
   let response: Response;
 

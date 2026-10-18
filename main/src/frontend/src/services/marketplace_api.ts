@@ -1,4 +1,4 @@
-import { apiGet } from "@utils/http_client";
+import { apiGet, encodePathSegment } from "@utils/http_client";
 
 /**
  * Read-only public marketplace contract. This service talks to the public
@@ -178,7 +178,7 @@ export const fetchAllMarketplacePrograms = async (
 };
 
 export const fetchMarketplaceProgram = (id: string): Promise<MarketplaceProgramDetail> =>
-  apiGet<MarketplaceProgramDetail>(`/programs/${id}`);
+  apiGet<MarketplaceProgramDetail>(`/programs/${encodePathSegment(id)}`);
 // PREMIUM_SCOPE is the catalog scope for the Premium Level 1 product family.
 const PREMIUM_SCOPE = "premium_level_1";
 

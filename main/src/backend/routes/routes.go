@@ -243,7 +243,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	// Authentication rate limiters. Webhooks and non-authentication endpoints
 	// are never limited; only credential and account endpoints are.
-	limits := newAuthRateLimiters(rateLimitCfg)
+	limits := newAuthRateLimiters(rateLimitCfg, serverCfg.MaxBodyBytes)
 
 	v1 := router.Group("/api/v1")
 	v1.GET("/health", healthHandler.Status)

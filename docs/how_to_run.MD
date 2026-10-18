@@ -278,15 +278,27 @@ The backend signs access tokens with HMAC-SHA256. The configuration is read
 from environment variables:
 
 - `JWT_SECRET` (required, at least 32 characters)
-- `JWT_ACCESS_TOKEN_TTL` (optional, defaults to `15m`)
+- `JWT_ACCESS_TOKEN_TTL` (optional, defaults to `15m`; capped at `24h` — a
+  larger value fails at startup)
 - `COOKIE_SECURE` (optional, defaults to `true`; the auth cookie is served
-  with the Secure flag, which must be `false` only for local HTTP development)
+  with the Secure flag, which must be `false` only for local HTTP development.
+  Setting it to `false` prints a startup warning)
 
 If `JWT_SECRET` is missing or too short, the backend fails at startup instead
 of falling back to an insecure default secret.
 
+Every issued token carries the issuer `ryze` and audience `ryze-api`, and
+validation requires both plus an expiration; access tokens issued before an
+upgrade to v2.93.0 lack these claims and are rejected, so users simply log in
+again after deploying.
+
 The access token is delivered as an HttpOnly cookie named `ryze_access_token`
 (SameSite=Lax, Path=/), not in the JSON response.
+
+State-changing browser requests are origin-checked: the request origin must be
+the API's own host or a `CORS_ALLOWED_ORIGINS` entry, otherwise the request is
+rejected with `403 CROSS_ORIGIN_FORBIDDEN`. Non-browser clients (curl, webhook
+providers) send no origin and are unaffected.
 
 The `.env.example` template uses placeholders. Generate a local secret (never
 commit a real value) with:

@@ -28,6 +28,12 @@ func main() {
 	if err != nil {
 		fail("configuration error: %v", err)
 	}
+	// Refusing to start would break local HTTP development, so the insecure
+	// cookie mode is loud instead: auth cookies must never travel over plain
+	// HTTP outside a developer machine.
+	if !jwtCfg.CookieSecure {
+		fmt.Fprintln(os.Stderr, "warning: COOKIE_SECURE=false - authentication cookies are sent without the Secure attribute; never use this outside local development")
+	}
 
 	corsCfg, err := config.LoadCORS()
 	if err != nil {

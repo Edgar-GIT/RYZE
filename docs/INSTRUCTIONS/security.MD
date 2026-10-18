@@ -348,6 +348,15 @@ claim, or carries a kind that does not match the validator in use, is rejected.
 An absent or wrong kind can therefore never be treated as a valid user session,
 and user, admin and stage tokens stay mutually exclusive.
 
+The standard claims named above are enforced, not merely included: every token
+is issued with issuer `ryze`, audience `ryze-api` and an issued-at timestamp,
+and validation requires the issuer, the audience and an expiration before any
+other claim is trusted, so a token signed with the same secret outside this
+platform is rejected. The configured access-token lifetime
+(`JWT_ACCESS_TOKEN_TTL`) is capped at 24 hours: a larger value fails at
+startup, so a misconfiguration cannot silently create sessions that outlive
+every revocation mechanism.
+
 ---
 
 ## Session Revocation
@@ -416,6 +425,14 @@ by the API. Wrong credentials, wrong access codes, expired stage state and
 unknown administrators all map to the same indistinguishable HTTP 401, so a
 failed login never reveals which stage failed or whether an administrator
 exists.
+
+The credential comparison is hardened against timing side channels: usernames
+and passwords are compared as constant-time digests, and every configured
+credential is evaluated without short-circuiting, so the response time does not
+depend on whether a username exists or where it sits in the configuration list.
+The access-code stage is rate limited by both the client address and the stage
+cookie, so guessing codes against a single pending login is slowed even from
+many addresses.
 
 Admin login uses the same JWT infrastructure as user login but issues a
 distinct token kind. User tokens, admin tokens and the temporary stage tokens
@@ -1515,8 +1532,9 @@ system:
 - **Global kill switch.** `TEST_MODE_ENABLED` (default false) disables the
   whole feature; when false every Test Mode action answers
   `403 TEST_MODE_DISABLED` and no session state can be created or consumed.
-  Tokens, cookies and persona content are never logged (`test_mode.*` audit
-  entries carry only structured identifiers).
+  Exit enforces the same switch: a disabled service never restores an identity
+  from a stored session. Tokens, cookies and persona content are never logged
+  (`test_mode.*` audit entries carry only structured identifiers).
 - **Persona sessions are short-lived.** The persona session carries the same
   server-side lifetime as the access token (`ACCESS_TOKEN_TTL`); an expired
   session has no active persona and every persona action is refused. Only the
@@ -1709,6 +1727,26 @@ Whenever cookies are used:
 
 State-changing requests should never rely solely on browser cookies.
 
+## Implemented CSRF protection (v2.93.0)
+
+Session cookies are `HttpOnly` + `SameSite=Lax`, which already stops cross-site
+cookie submission in modern browsers, and CORS is allow-list only. On top of
+that, every state-changing request that carries a browser origin context must
+pass `middleware.OriginGuard`:
+
+- When the request carries an `Origin` header (or, as a fallback, a `Referer`),
+  it is allowed only when the origin is in the configured CORS allow list
+  (`CORS_ALLOWED_ORIGINS`) or names the request's own host. Anything else gets
+  `403 CROSS_ORIGIN_FORBIDDEN` before the request body is read.
+- Same-site sibling hosts are not automatically trusted: `SameSite` treats the
+  whole registrable domain as trusted, but the origin guard requires an exact
+  host (and port) match or an explicit allow-list entry.
+- Requests without any origin context (curl, provider webhooks, server-to-server
+  integrations) pass through, because CSRF is a browser-only attack class and
+  these clients cannot be driven by a victim's cookies.
+- The guard is mounted after CORS and before the body limit, so every response,
+  including a rejection, still carries the headers a browser needs to read it.
+
 ---
 
 # SSRF (Server Side Request Forgery)
@@ -1897,6 +1935,14 @@ Design rules:
   the normalised identifier read from the JSON body (`email` for user login and
   registration, `username` for admin login), which slows credential stuffing
   against a single account from many addresses.
+- `POST /api/v1/admin/auth/verify` has no body identifier; its second counter is
+  keyed by the digest of the stage cookie (`ryze_admin_stage_token`), so access
+  codes cannot be guessed against one pending login from many addresses. Like
+  body identifiers, the cookie value is only ever used as an HMAC-SHA256 digest
+  and never stored in clear.
+- The body identifier is read up to `SERVER_MAX_BODY_BYTES`, the same bound the
+  body-limit middleware enforces, so a larger configured body limit can never
+  turn into an account-limiter bypass.
 - The identifier is normalised (trimmed and lowercased) and never stored in
   clear: the counter key is an HMAC-SHA256 digest of the identifier under a
   process-local random key, so a leaked counter table cannot be turned into a
@@ -1911,7 +1957,9 @@ Design rules:
 - The client address comes from `gin`'s `ClientIP`, and only the proxies listed
   in `RATE_LIMIT_TRUSTED_PROXIES` may set it from forwarded headers. The default
   (no trusted proxy) uses the socket address, so a client cannot spoof its own
-  key through `X-Forwarded-For`.
+  key through `X-Forwarded-For`. A `/0` range (for example `0.0.0.0/0` or
+  `::/0`) would trust every address and is rejected at startup like any other
+  invalid entry.
 - Webhooks and every non-authentication endpoint are never rate limited, so a
   provider retry or a normal user action is never rejected by this layer.
 - Rate limiting can be disabled with `RATE_LIMIT_ENABLED=false`; the middleware
@@ -2351,6 +2399,15 @@ Never commit secrets to Git.
 
 Never expose secrets through frontend code.
 
+Implemented practices (v2.93.0): test fixtures never contain real credential
+values, so no test file can leak a deployed secret; `.env` is Git-ignored and
+restricted to the owner (600); and rotating a credential set means editing
+`.env` (or the deployment environment) and restarting, which revokes the
+sessions derived from the old values (admin credential versions, see
+Administrator Authentication). A credential that ever reached a repository
+must be treated as compromised and rotated, because Git history cannot be
+un-published by removing the file.
+
 ---
 
 # LOGGING
@@ -2374,6 +2431,11 @@ Logs should never contain:
 - Tokens
 - Secrets
 - Personal questionnaire answers
+
+Implemented practice (v2.93.0): the database layer configures GORM with
+`ParameterizedQueries`, so emitted SQL is logged structurally (placeholders,
+not interpolated values). Statement logs therefore cannot leak request data
+such as emails, hashes or identifiers into log files.
 
 ---
 
@@ -2465,6 +2527,15 @@ Backups should never remain on the same machine as the production server.
 
 Periodic restoration tests should be performed to verify backup integrity.
 
+`scripts/backup_db.sh` follows these rules operationally: it runs with
+`umask 077` so the backup directory (700) and dump files (600) are owner-only
+from the first write, and it refuses to continue only when GPG encryption was
+configured but unavailable. When `BACKUP_GPG_RECIPIENT` is unset the dump is
+unencrypted, so the script prints a warning and the operator is responsible for
+encrypting and moving the artefact off-host. Backup output directories
+(`backups/`) and upload directories (`uploads/`) are excluded from Git, from
+the Docker build context and from the repository ignore rules.
+
 ---
 
 # DISASTER RECOVERY
@@ -2501,6 +2572,12 @@ Before adding any dependency, verify:
 Unused dependencies should be removed.
 
 Dependencies should be updated regularly to receive security patches.
+
+Implemented practice (v2.93.0): CI runs the database-independent backend
+packages under the race detector (`go test -race`) and the frontend typecheck,
+test suite and build; `npm audit` is kept at zero known advisories (the two
+dev-only findings in the transitive Vite/PostCSS chain were resolved by lockfile
+updates).
 
 ---
 

@@ -125,19 +125,27 @@ func (s *service) adminCredentialVersion(adminID string) (string, bool) {
 	return version, ok && version != ""
 }
 
+// registeredClaims builds the standard claims shared by every token kind:
+// issuer, audience, subject, issued-at and expiration.
+func registeredClaims(subject string, now time.Time, ttl time.Duration) jwt.RegisteredClaims {
+	return jwt.RegisteredClaims{
+		Issuer:    tokenIssuer,
+		Subject:   subject,
+		Audience:  jwt.ClaimStrings{tokenAudience},
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+	}
+}
+
 // GenerateAccessToken returns a signed HMAC-SHA256 JWT carrying only the
 // user UUID as subject, the session version and issued-at/expiration claims.
 // No personal information is embedded in the token.
 func (s *service) GenerateAccessToken(userID string, sessionVersion int) (string, error) {
 	now := time.Now()
 	claims := accessTokenClaims{
-		Kind:           kindUser,
-		SessionVersion: sessionVersion,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   userID,
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(s.ttl)),
-		},
+		Kind:             kindUser,
+		SessionVersion:   sessionVersion,
+		RegisteredClaims: registeredClaims(userID, now, s.ttl),
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
 }
@@ -153,11 +161,7 @@ func (s *service) GenerateAdminToken(adminID string) (string, error) {
 	claims := accessTokenClaims{
 		Kind:                   kindAdmin,
 		AdminCredentialVersion: version,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   adminID,
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(s.ttl)),
-		},
+		RegisteredClaims:       registeredClaims(adminID, now, s.ttl),
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
 }
@@ -169,12 +173,8 @@ func (s *service) GenerateAdminToken(adminID string) (string, error) {
 func (s *service) GenerateAdminStageToken(adminID string) (string, error) {
 	now := time.Now()
 	claims := accessTokenClaims{
-		Kind: kindAdminStage,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   adminID,
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(AdminStageTokenTTL)),
-		},
+		Kind:             kindAdminStage,
+		RegisteredClaims: registeredClaims(adminID, now, AdminStageTokenTTL),
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
 }
@@ -252,14 +252,19 @@ func (s *service) ValidateAdminStageToken(tokenString string) (string, error) {
 	return adminID, nil
 }
 
-// parse performs the signature, algorithm and expiration validation shared by
-// both token kinds.
+// parse performs the signature, algorithm, issuer, audience, issued-at and
+// expiration validation shared by all token kinds. The issuer and audience are
+// required, so a token minted with the same secret outside this platform is
+// rejected.
 func (s *service) parse(tokenString string) (*accessTokenClaims, error) {
 	claims := &accessTokenClaims{}
 	parsed, err := jwt.ParseWithClaims(tokenString, claims,
 		func(_ *jwt.Token) (any, error) { return s.secret, nil },
 		jwt.WithValidMethods([]string{signingAlgorithm}),
 		jwt.WithExpirationRequired(),
+		jwt.WithIssuer(tokenIssuer),
+		jwt.WithAudience(tokenAudience),
+		jwt.WithIssuedAt(),
 	)
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {

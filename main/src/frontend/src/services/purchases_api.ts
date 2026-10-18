@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "@utils/http_client";
+import { apiGet, apiPost, encodePathSegment } from "@utils/http_client";
 
 /**
  * Authenticated purchase contract. This service talks to the private purchase
@@ -175,13 +175,13 @@ export interface ProgramAccessSet {
 }
 
 export const createPurchaseIntent = (programId: string): Promise<Purchase> =>
-  apiPost<Purchase>(`/me/programs/${programId}/purchase`, {});
+  apiPost<Purchase>(`/me/programs/${encodePathSegment(programId)}/purchase`, {});
 
 export const initiatePayment = (
   purchaseId: string,
   paymentMethod: string
 ): Promise<PaymentInitiation> =>
-  apiPost<PaymentInitiation>(`/me/purchases/${purchaseId}/payment`, {
+  apiPost<PaymentInitiation>(`/me/purchases/${encodePathSegment(purchaseId)}/payment`, {
     payment_method: paymentMethod
   });
 
@@ -193,7 +193,7 @@ export const initiatePayment = (
  * payment on the provider API before completing anything.
  */
 export const capturePayment = (purchaseId: string, providerPaymentId: string): Promise<Purchase> =>
-  apiPost<Purchase>(`/me/purchases/${purchaseId}/capture`, { provider_payment_id: providerPaymentId });
+  apiPost<Purchase>(`/me/purchases/${encodePathSegment(purchaseId)}/capture`, { provider_payment_id: providerPaymentId });
 
 /**
  * Public, unauthenticated contract exposing the currently configured payment
@@ -210,4 +210,4 @@ export const fetchEntitlements = (): Promise<Entitlement[]> =>
   apiGet<Entitlement[]>("/me/entitlements");
 
 export const fetchProgramAccess = (programId: string): Promise<ProgramAccessDetail> =>
-  apiGet<ProgramAccessDetail>(`/me/programs/${programId}`);
+  apiGet<ProgramAccessDetail>(`/me/programs/${encodePathSegment(programId)}`);

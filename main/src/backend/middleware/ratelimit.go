@@ -156,10 +156,11 @@ var identifierKey = sync.OnceValue(func() []byte {
 	return key
 })
 
-// rateLimitFieldMaxBodyBytes bounds how much of a body the account limiter will
-// read to locate the identifier. Bodies already bounded by BodyLimit are read
-// in full in practice; a larger body simply yields no identifier and the
-// account limiter is skipped for that request.
+// rateLimitFieldMaxBodyBytes is the fallback bound used to read an identifier
+// from a request body when no explicit body bound is supplied. Callers should
+// pass the same bound the body-limit middleware enforces, so a body the server
+// accepts is always readable for limiting and a larger configured body limit
+// can never turn into an account-limiter bypass.
 const rateLimitFieldMaxBodyBytes = 1 << 20
 
 // rateLimitKey builds the composite key for a scope, a key kind and a value.
@@ -184,13 +185,16 @@ func IPRateLimitKey(scope string) func(*gin.Context) string {
 }
 
 // AccountRateLimitKey keys a request by the normalised value of a string field
-// in the JSON body (for example "email" on login). When the body carries no
-// readable value for that field, the key is empty and the caller skips the
-// account limiter, leaving the IP limiter in place. The body is restored after
-// reading, so the handler observes the original content unchanged.
-func AccountRateLimitKey(scope, field string) func(*gin.Context) string {
+// in the JSON body (for example "email" on login). maxBodyBytes bounds how much
+// of the body is read to locate the identifier and should equal the configured
+// request body limit; a non-positive value falls back to the default bound.
+// When the body carries no readable value for that field, the key is empty and
+// the caller skips the account limiter, leaving the IP limiter in place. The
+// body is restored after reading, so the handler observes the original content
+// unchanged.
+func AccountRateLimitKey(scope, field string, maxBodyBytes int64) func(*gin.Context) string {
 	return func(c *gin.Context) string {
-		value := stringField(c, field)
+		value := stringField(c, field, maxBodyBytes)
 		if value == "" {
 			return ""
 		}
@@ -198,19 +202,37 @@ func AccountRateLimitKey(scope, field string) func(*gin.Context) string {
 	}
 }
 
+// CookieRateLimitKey keys a request by the digest of a cookie's value within a
+// scope. The value is a credential (for example the admin stage token), so only
+// its keyed digest is used and the raw value never enters a limiter table.
+// Requests without the cookie yield an empty key and fall through to the other
+// limiters in the chain.
+func CookieRateLimitKey(scope, cookieName string) func(*gin.Context) string {
+	return func(c *gin.Context) string {
+		value, err := c.Cookie(cookieName)
+		if err != nil || strings.TrimSpace(value) == "" {
+			return ""
+		}
+		return rateLimitKey(scope, "cookie", rateLimitDigest(value))
+	}
+}
+
 // stringField reads a top-level string field from the request body and puts the
 // body back exactly as it was found.
-func stringField(c *gin.Context, field string) string {
+func stringField(c *gin.Context, field string, maxBodyBytes int64) string {
 	if c.Request == nil || c.Request.Body == nil {
 		return ""
 	}
+	if maxBodyBytes <= 0 {
+		maxBodyBytes = rateLimitFieldMaxBodyBytes
+	}
 
-	data, err := io.ReadAll(io.LimitReader(c.Request.Body, rateLimitFieldMaxBodyBytes+1))
+	data, err := io.ReadAll(io.LimitReader(c.Request.Body, maxBodyBytes+1))
 	// Re-expose everything read plus whatever remains, so a body larger than the
 	// bound is never truncated for the handler.
 	restored := io.NopCloser(io.MultiReader(bytes.NewReader(data), c.Request.Body))
 	c.Request.Body = restored
-	if err != nil || len(data) > rateLimitFieldMaxBodyBytes {
+	if err != nil || int64(len(data)) > maxBodyBytes {
 		return ""
 	}
 

@@ -1879,17 +1879,22 @@ Authentication hardening is implemented as reusable middleware and
 configuration rather than inside handlers:
 
 - `middleware.BodyLimit` bounds every request body before any handler runs.
+- `middleware.CORS` serves headers only to configured origins and
+  `middleware.OriginGuard` rejects browser-originated state-changing requests
+  that come from neither the API's own host nor an allow-listed origin.
 - `middleware.Limiter` and `middleware.RateLimit` rate limit the credential and
-  account endpoints, keyed by client IP and by a hashed account identifier; the
-  limits are declared per scope in `routes/ratelimit.go`.
+  account endpoints, keyed by client IP and by a hashed account identifier or
+  credential cookie; the limits are declared per scope in `routes/ratelimit.go`
+  and the identifier read bound follows `SERVER_MAX_BODY_BYTES`.
 - The shared password policy lives in `services/password` and is applied at
   every point that sets a password.
-- The token service enforces token kinds and embeds a per-user `session_version`
-  and a per-administrator credential version, so both user and admin sessions
-  are revocable.
+- The token service enforces token kinds plus issuer, audience and expiration
+  claims, and embeds a per-user `session_version` and a per-administrator
+  credential version, so both user and admin sessions are revocable.
 - Configuration for these layers is loaded in `config` (`LoadServer`,
   `LoadRateLimit`, `LoadJWT`, `LoadAdmin`) and fails at startup on invalid
-  values.
+  values (including an access-token lifetime above `24h` and `/0` trusted
+  proxy ranges).
 
 ---
 

@@ -2,12 +2,15 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"net"
+	"os"
 	"time"
 
 	gomysql "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"ryze/backend/config"
 )
@@ -18,6 +21,10 @@ const (
 	connMaxIdleTime = 5 * time.Minute
 	connMaxLifetime = 2 * time.Hour
 	connectTimeout  = 5 * time.Second
+
+	// slowQueryThreshold is how long a statement may run before it is logged
+	// as slow, matching the GORM default.
+	slowQueryThreshold = 200 * time.Millisecond
 )
 
 // mysqlConfig builds the go-sql-driver connection configuration. The DSN is
@@ -51,7 +58,19 @@ func DSN(cfg config.DatabaseConfig) string {
 // The connection is verified with a ping so an unavailable database fails
 // immediately with a meaningful error.
 func Connect(cfg config.DatabaseConfig) (*gorm.DB, error) {
-	db, err := gorm.Open(mysql.Open(DSN(cfg)), &gorm.Config{})
+	// ParameterizedQueries keeps the GORM logger from interpolating values into
+	// the SQL it emits: error and slow-query logs stay structural, so request
+	// data can never leak into log files through a logged statement.
+	dbLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:        slowQueryThreshold,
+			LogLevel:             logger.Warn,
+			ParameterizedQueries: true,
+		},
+	)
+
+	db, err := gorm.Open(mysql.Open(DSN(cfg)), &gorm.Config{Logger: dbLogger})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}

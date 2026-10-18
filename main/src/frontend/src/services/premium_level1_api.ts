@@ -1,4 +1,4 @@
-import { apiGet, apiPost, ApiError } from "@utils/http_client";
+import { apiGet, apiPost, encodePathSegment, ApiError } from "@utils/http_client";
 
 // PREMIUM_LEVEL_1_PRODUCT_TYPE identifies the Premium Level 1 product family.
 // It is the value the backend stores in programs.product_type. The frontend
@@ -170,7 +170,7 @@ export const fetchQuestionnaireCatalog = (): Promise<QuestionnaireCatalog> =>
 // fetchQuestionnaireRequirement reports whether the intake is required, already
 // stored, and — authoritatively — whether it is locked.
 export const fetchQuestionnaireRequirement = (programId: string): Promise<QuestionnaireRequirement> =>
-  apiGet<QuestionnaireRequirement>(`/me/programs/${programId}/questionnaire`);
+  apiGet<QuestionnaireRequirement>(`/me/programs/${encodePathSegment(programId)}/questionnaire`);
 
 // submitQuestionnaire validates and stores the intake. It rejects with
 // QUESTIONNAIRE_LOCKED once the purchase completed; the caller must then render
@@ -179,13 +179,13 @@ export const submitQuestionnaire = (
   programId: string,
   input: QuestionnaireSubmitInput
 ): Promise<QuestionnaireRequirement> =>
-  apiPost<QuestionnaireRequirement>(`/me/programs/${programId}/questionnaire`, input);
+  apiPost<QuestionnaireRequirement>(`/me/programs/${encodePathSegment(programId)}/questionnaire`, input);
 
 // fetchNutritionAssignment returns the assignment state for a program the
 // caller owns. A missing plan and an unowned program both surface as
 // NUTRITION_NOT_FOUND.
 export const fetchNutritionAssignment = (programId: string): Promise<NutritionAssignmentStatus> =>
-  apiGet<NutritionAssignmentStatus>(`/me/programs/${programId}/nutrition`);
+  apiGet<NutritionAssignmentStatus>(`/me/programs/${encodePathSegment(programId)}/nutrition`);
 
 // generateNutritionAssignment runs the server-side generation step. It is
 // idempotent, so retrying after a network failure converges on the same single
@@ -193,7 +193,7 @@ export const fetchNutritionAssignment = (programId: string): Promise<NutritionAs
 // with a new version rather than rewritten, so the previous version stays
 // recoverable; that is why the server alone decides when a refresh happens.
 export const generateNutritionAssignment = (programId: string): Promise<NutritionAssignmentStatus> =>
-  apiPost<NutritionAssignmentStatus>(`/me/programs/${programId}/nutrition/generate`, {});
+  apiPost<NutritionAssignmentStatus>(`/me/programs/${encodePathSegment(programId)}/nutrition/generate`, {});
 
 // nutritionGenerationErrorMessage translates a failed generation into wording
 // the client owns. The server's reason token is never rendered directly: only

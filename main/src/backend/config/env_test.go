@@ -331,6 +331,22 @@ func TestLoadRateLimitCustomValues(t *testing.T) {
 	}
 }
 
+func TestLoadRateLimitRejectsWildcardTrustedProxy(t *testing.T) {
+	clearRateLimitEnv(t)
+
+	// A /0 range trusts every address and lets any client spoof its address
+	// through forwarded headers, so it must fail at startup.
+	t.Setenv("RATE_LIMIT_TRUSTED_PROXIES", "0.0.0.0/0")
+	if _, err := config.LoadRateLimit(); err == nil {
+		t.Fatal("expected error for an IPv4 /0 trusted proxy range")
+	}
+
+	t.Setenv("RATE_LIMIT_TRUSTED_PROXIES", "::/0")
+	if _, err := config.LoadRateLimit(); err == nil {
+		t.Fatal("expected error for an IPv6 /0 trusted proxy range")
+	}
+}
+
 func TestLoadRateLimitRejectsInvalidBool(t *testing.T) {
 	clearRateLimitEnv(t)
 	t.Setenv("RATE_LIMIT_ENABLED", "yes-please")

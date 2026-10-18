@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"ryze/backend/api/auth"
 	"ryze/backend/config"
 	"ryze/backend/middleware"
 )
@@ -22,8 +23,9 @@ const (
 
 // authRateLimitScope is one endpoint's policy. The IP limiter always applies.
 // accountLimit > 0 additionally limits by a normalised, hashed identifier read
-// from the JSON body field accountField, so credential stuffing against a
-// single account is slowed even from many addresses.
+// either from the JSON body field accountField or from the credential cookie
+// accountCookie, so credential stuffing against a single account is slowed
+// even from many addresses.
 //
 // The windows are deliberately generous: ordinary users, including someone who
 // mistypes a password a few times, never reach a limit. The IP limits are looser
@@ -36,13 +38,17 @@ type authRateLimitScope struct {
 	accountLimit  int
 	accountWindow time.Duration
 	accountField  string
+	accountCookie string
 }
 
 var authRateLimitScopes = []authRateLimitScope{
 	{name: scopeAuthRegister, ipLimit: 10, ipWindow: time.Hour, accountLimit: 10, accountWindow: time.Hour, accountField: "email"},
 	{name: scopeAuthLogin, ipLimit: 20, ipWindow: 15 * time.Minute, accountLimit: 10, accountWindow: 15 * time.Minute, accountField: "email"},
 	{name: scopeAdminLogin, ipLimit: 10, ipWindow: 15 * time.Minute, accountLimit: 10, accountWindow: 15 * time.Minute, accountField: "username"},
-	{name: scopeAdminVerify, ipLimit: 10, ipWindow: 15 * time.Minute},
+	// The verify stage has no body identifier; the stage cookie identifies the
+	// pending login, so guessing access codes is limited per pending login as
+	// well as per address.
+	{name: scopeAdminVerify, ipLimit: 10, ipWindow: 15 * time.Minute, accountLimit: 10, accountWindow: 15 * time.Minute, accountCookie: auth.AdminStageTokenCookieName},
 	{name: scopeAuthChangePassword, ipLimit: 20, ipWindow: 15 * time.Minute},
 	{name: scopeAuthDeleteAccount, ipLimit: 10, ipWindow: time.Hour},
 }
@@ -53,17 +59,26 @@ type authRateLimiters struct {
 	ip           map[string]*middleware.Limiter
 	account      map[string]*middleware.Limiter
 	accountField map[string]string
+	// accountCookie names the cookie that keys a scope's account limiter when
+	// the scope is cookie-keyed instead of body-keyed.
+	accountCookie map[string]string
+	// accountBodyBytes is the configured request body bound, shared with the
+	// body-limit middleware so the identifier read can never be bypassed with
+	// a body larger than the default.
+	accountBodyBytes int64
 }
 
 // newAuthRateLimiters builds one IP limiter per scope and, where configured, one
 // account limiter per scope. Every limiter shares the same key bound from the
 // configuration.
-func newAuthRateLimiters(cfg config.RateLimitConfig) *authRateLimiters {
+func newAuthRateLimiters(cfg config.RateLimitConfig, maxBodyBytes int64) *authRateLimiters {
 	limiters := &authRateLimiters{
-		enabled:      cfg.Enabled,
-		ip:           make(map[string]*middleware.Limiter, len(authRateLimitScopes)),
-		account:      make(map[string]*middleware.Limiter),
-		accountField: make(map[string]string),
+		enabled:          cfg.Enabled,
+		ip:               make(map[string]*middleware.Limiter, len(authRateLimitScopes)),
+		account:          make(map[string]*middleware.Limiter),
+		accountField:     make(map[string]string),
+		accountCookie:    make(map[string]string),
+		accountBodyBytes: maxBodyBytes,
 	}
 
 	for _, scope := range authRateLimitScopes {
@@ -71,12 +86,13 @@ func newAuthRateLimiters(cfg config.RateLimitConfig) *authRateLimiters {
 			middleware.RateLimitPolicy{Limit: scope.ipLimit, Window: scope.ipWindow},
 			cfg.MaxKeys,
 		)
-		if scope.accountLimit > 0 && scope.accountField != "" {
+		if scope.accountLimit > 0 {
 			limiters.account[scope.name] = middleware.NewLimiter(
 				middleware.RateLimitPolicy{Limit: scope.accountLimit, Window: scope.accountWindow},
 				cfg.MaxKeys,
 			)
 			limiters.accountField[scope.name] = scope.accountField
+			limiters.accountCookie[scope.name] = scope.accountCookie
 		}
 	}
 
@@ -100,7 +116,12 @@ func (l *authRateLimiters) chain(scope string) []gin.HandlerFunc {
 		middleware.RateLimit(ipLimiter, middleware.IPRateLimitKey(scope)),
 	}
 	if limiter, ok := l.account[scope]; ok {
-		handlers = append(handlers, middleware.RateLimit(limiter, middleware.AccountRateLimitKey(scope, l.accountField[scope])))
+		switch {
+		case l.accountField[scope] != "":
+			handlers = append(handlers, middleware.RateLimit(limiter, middleware.AccountRateLimitKey(scope, l.accountField[scope], l.accountBodyBytes)))
+		case l.accountCookie[scope] != "":
+			handlers = append(handlers, middleware.RateLimit(limiter, middleware.CookieRateLimitKey(scope, l.accountCookie[scope])))
+		}
 	}
 	return handlers
 }

@@ -4,5 +4,6 @@
 .env.*
 *.md
 backups/
+uploads/
 coverage.out
 ryze-api

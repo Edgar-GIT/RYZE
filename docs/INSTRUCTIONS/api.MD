@@ -222,7 +222,11 @@ Authentication required.
 
 403
 
-Permission denied.
+Permission denied. A browser-originated state-changing request whose origin is
+neither the API's own host nor an allow-listed origin (`CORS_ALLOWED_ORIGINS`)
+is rejected before the handler runs with `CROSS_ORIGIN_FORBIDDEN`; requests
+with no browser origin context (curl, webhooks, server-to-server) are not
+affected.
 
 404
 
@@ -2903,6 +2907,11 @@ Removes a notification from the interface.
 ---
 
 # FILE UPLOAD ENDPOINTS
+
+> **Status: not implemented.** The endpoints in this section are the planned
+> upload contract; no upload route, handler, storage or media-processing code
+> exists in the backend yet. They are documented so the future implementation
+> has an agreed contract, and none of them can currently be reached.
 
 Handles media uploaded by users.
 

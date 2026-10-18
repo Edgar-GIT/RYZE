@@ -151,7 +151,7 @@ func TestRateLimitReturns429WithRetryAfter(t *testing.T) {
 func TestAccountRateLimitSharesCounterAcrossNormalisedValues(t *testing.T) {
 	now := time.Unix(0, 0)
 	limiter := newTestLimiter(1, time.Minute, &now, 100)
-	router := rateLimitRouter(limiter, middleware.AccountRateLimitKey("test", "email"))
+	router := rateLimitRouter(limiter, middleware.AccountRateLimitKey("test", "email", 1<<20))
 
 	first := httptest.NewRecorder()
 	router.ServeHTTP(first, newJSONRequest(t, `{"email":"Ada@Example.com","password":"x"}`))
@@ -171,7 +171,7 @@ func TestAccountRateLimitSharesCounterAcrossNormalisedValues(t *testing.T) {
 func TestAccountRateLimitRestoresBodyForHandler(t *testing.T) {
 	now := time.Unix(0, 0)
 	limiter := newTestLimiter(5, time.Minute, &now, 100)
-	router := rateLimitRouter(limiter, middleware.AccountRateLimitKey("test", "email"))
+	router := rateLimitRouter(limiter, middleware.AccountRateLimitKey("test", "email", 1<<20))
 
 	payload := `{"email":"ada@example.com","password":"secret"}`
 	rec := httptest.NewRecorder()
@@ -188,7 +188,7 @@ func TestAccountRateLimitRestoresBodyForHandler(t *testing.T) {
 func TestAccountRateLimitPassesThroughWithoutIdentifier(t *testing.T) {
 	now := time.Unix(0, 0)
 	limiter := newTestLimiter(1, time.Minute, &now, 100)
-	router := rateLimitRouter(limiter, middleware.AccountRateLimitKey("test", "email"))
+	router := rateLimitRouter(limiter, middleware.AccountRateLimitKey("test", "email", 1<<20))
 
 	for i := 0; i < 3; i++ {
 		rec := httptest.NewRecorder()
@@ -196,6 +196,82 @@ func TestAccountRateLimitPassesThroughWithoutIdentifier(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("a request without the identifier must fall back to the IP limiter, got %d", rec.Code)
 		}
+	}
+}
+
+func TestAccountRateLimitReadsIdentifierWithinConfiguredBound(t *testing.T) {
+	now := time.Unix(0, 0)
+	limiter := newTestLimiter(1, time.Minute, &now, 100)
+	router := rateLimitRouter(limiter, middleware.AccountRateLimitKey("test", "email", 64))
+
+	first := httptest.NewRecorder()
+	router.ServeHTTP(first, newJSONRequest(t, `{"email":"ada@example.com"}`))
+	if first.Code != http.StatusOK {
+		t.Fatalf("first request must succeed, got %d", first.Code)
+	}
+
+	second := httptest.NewRecorder()
+	router.ServeHTTP(second, newJSONRequest(t, `{"email":"ada@example.com"}`))
+	if second.Code != http.StatusTooManyRequests {
+		t.Fatalf("the identifier must be read within the configured bound, got %d", second.Code)
+	}
+}
+
+func TestAccountRateLimitSkipsBodiesLargerThanConfiguredBound(t *testing.T) {
+	now := time.Unix(0, 0)
+	limiter := newTestLimiter(1, time.Minute, &now, 100)
+	router := rateLimitRouter(limiter, middleware.AccountRateLimitKey("test", "email", 8))
+
+	// A body larger than the configured bound yields no identifier, and the
+	// handler must still observe every byte of the original body.
+	payload := `{"email":"ada@example.com"}`
+	for i := 0; i < 2; i++ {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, newJSONRequest(t, payload))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("request %d must pass through, got %d", i+1, rec.Code)
+		}
+		if rec.Body.String() != payload {
+			t.Fatalf("the handler must observe the full body, got %q", rec.Body.String())
+		}
+	}
+}
+
+func TestCookieRateLimitKeysByCookieValue(t *testing.T) {
+	now := time.Unix(0, 0)
+	limiter := newTestLimiter(1, time.Minute, &now, 100)
+	router := rateLimitRouter(limiter, middleware.CookieRateLimitKey("test", "stage"))
+
+	request := func(cookie string) *http.Request {
+		req := httptest.NewRequest(http.MethodPost, "/login", nil)
+		if cookie != "" {
+			req.AddCookie(&http.Cookie{Name: "stage", Value: cookie})
+		}
+		return req
+	}
+
+	first := httptest.NewRecorder()
+	router.ServeHTTP(first, request("stage-token-a"))
+	if first.Code != http.StatusOK {
+		t.Fatalf("first request must succeed, got %d", first.Code)
+	}
+
+	second := httptest.NewRecorder()
+	router.ServeHTTP(second, request("stage-token-a"))
+	if second.Code != http.StatusTooManyRequests {
+		t.Fatalf("the same cookie value must share a counter, got %d", second.Code)
+	}
+
+	third := httptest.NewRecorder()
+	router.ServeHTTP(third, request("stage-token-b"))
+	if third.Code != http.StatusOK {
+		t.Fatalf("a different cookie value must have its own counter, got %d", third.Code)
+	}
+
+	fourth := httptest.NewRecorder()
+	router.ServeHTTP(fourth, request(""))
+	if fourth.Code != http.StatusOK {
+		t.Fatalf("a request without the cookie must pass through, got %d", fourth.Code)
 	}
 }
 

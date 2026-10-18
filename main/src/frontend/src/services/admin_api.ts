@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "@utils/http_client";
+import { apiGet, apiPatch, apiPost, encodePathSegment } from "@utils/http_client";
 
 // AdminIdentity is the authenticated administrator returned by GET
 // /admin/auth/me. The role is always derived server-side from the configured
@@ -87,14 +87,14 @@ export const createAdminUser = (input: { email: string; password: string; first_
 export const updateAdminUser = (
   id: string,
   input: { email?: string; first_name?: string; last_name?: string }
-) => apiPatch<AdminUser>(`/admin/users/${id}`, input);
+) => apiPatch<AdminUser>(`/admin/users/${encodePathSegment(id)}`, input);
 
-export const disableAdminUser = (id: string) => apiPatch<never>(`/admin/users/${id}/disable`, {});
+export const disableAdminUser = (id: string) => apiPatch<never>(`/admin/users/${encodePathSegment(id)}/disable`, {});
 
-export const reactivateAdminUser = (id: string) => apiPost<AdminUser>(`/admin/users/${id}/reactivate`, {});
+export const reactivateAdminUser = (id: string) => apiPost<AdminUser>(`/admin/users/${encodePathSegment(id)}/reactivate`, {});
 
 export const resetAdminUserPassword = (id: string, newPassword: string) =>
-  apiPost<never>(`/admin/users/${id}/password`, { new_password: newPassword });
+  apiPost<never>(`/admin/users/${encodePathSegment(id)}/password`, { new_password: newPassword });
 
 export const fetchAdminTrainers = (page: number, limit: number) =>
   apiGet<AdminTrainersList>(`/admin/trainers?page=${page}&limit=${limit}`);
@@ -102,9 +102,9 @@ export const fetchAdminTrainers = (page: number, limit: number) =>
 export const fetchAdminDeletedTrainers = (page: number, limit: number) =>
   apiGet<AdminTrainersList>(`/admin/trainers/deleted?page=${page}&limit=${limit}`);
 
-export const disableAdminTrainer = (id: string) => apiPatch<never>(`/admin/trainers/${id}/disable`, {});
+export const disableAdminTrainer = (id: string) => apiPatch<never>(`/admin/trainers/${encodePathSegment(id)}/disable`, {});
 
-export const reactivateAdminTrainer = (id: string) => apiPost<AdminTrainer>(`/admin/trainers/${id}/reactivate`, {});
+export const reactivateAdminTrainer = (id: string) => apiPost<AdminTrainer>(`/admin/trainers/${encodePathSegment(id)}/reactivate`, {});
 
 export const fetchAdminTrainerApplications = (page: number, limit: number, status?: string) => {
   const statusQuery = status && status !== "ALL" ? `&status=${status}` : "";
@@ -112,10 +112,10 @@ export const fetchAdminTrainerApplications = (page: number, limit: number, statu
 };
 
 export const approveAdminTrainerApplication = (id: string) =>
-  apiPost<AdminTrainerApplication>(`/admin/trainer-applications/${id}/approve`, {});
+  apiPost<AdminTrainerApplication>(`/admin/trainer-applications/${encodePathSegment(id)}/approve`, {});
 
 export const rejectAdminTrainerApplication = (id: string) =>
-  apiPost<AdminTrainerApplication>(`/admin/trainer-applications/${id}/reject`, {});
+  apiPost<AdminTrainerApplication>(`/admin/trainer-applications/${encodePathSegment(id)}/reject`, {});
 
 export const adminRoleName = (role: string): string => {
   if (role === TECHNICAL_ADMINISTRATOR) {

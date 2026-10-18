@@ -14,6 +14,25 @@ import (
 
 const testSecret = "test-secret-that-is-longer-than-32-bytes-1234"
 
+// The issuer and audience are part of the token wire format; tests pin the
+// expected values so a regression in either is caught.
+const (
+	testIssuer   = "ryze"
+	testAudience = "ryze-api"
+)
+
+// standardClaims builds the standard claim set every test-forged token needs
+// to pass the shared issuer/audience/expiration validation.
+func standardClaims(subject string, issuedAt, expiresAt time.Time) jwt.RegisteredClaims {
+	return jwt.RegisteredClaims{
+		Issuer:    testIssuer,
+		Subject:   subject,
+		Audience:  jwt.ClaimStrings{testAudience},
+		IssuedAt:  jwt.NewNumericDate(issuedAt),
+		ExpiresAt: jwt.NewNumericDate(expiresAt),
+	}
+}
+
 // adminTestClaims embeds the kind claim so tests can forge admin tokens.
 type adminTestClaims struct {
 	Kind string `json:"kind"`
@@ -191,10 +210,7 @@ func TestAdminTokenEmptySubjectRejected(t *testing.T) {
 		t.Fatalf("expected ErrInvalidToken for empty token, got %v", err)
 	}
 
-	claims := jwt.RegisteredClaims{
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-	}
+	claims := standardClaims("", time.Now(), time.Now().Add(15*time.Minute))
 	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, tokenAdminClaimsWith(claims)).SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
@@ -303,11 +319,7 @@ func TestUserTokenRejectedAsStageToken(t *testing.T) {
 func TestExpiredAdminStageTokenIsRejected(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 
-	claims := tokenAdminStageClaimsWith(jwt.RegisteredClaims{
-		Subject:   "ADMIN_1",
-		IssuedAt:  jwt.NewNumericDate(time.Now().Add(-6 * time.Minute)),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Minute)),
-	})
+	claims := tokenAdminStageClaimsWith(standardClaims("ADMIN_1", time.Now().Add(-6*time.Minute), time.Now().Add(-1*time.Minute)))
 	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
@@ -321,10 +333,7 @@ func TestExpiredAdminStageTokenIsRejected(t *testing.T) {
 func TestStageTokenEmptySubjectRejected(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 
-	claims := tokenAdminStageClaimsWith(jwt.RegisteredClaims{
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-	})
+	claims := tokenAdminStageClaimsWith(standardClaims("", time.Now(), time.Now().Add(15*time.Minute)))
 	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
@@ -338,11 +347,7 @@ func TestStageTokenEmptySubjectRejected(t *testing.T) {
 func TestMissingSessionVersionDefaultsToZero(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 
-	claims := tokenUserClaimsWith(jwt.RegisteredClaims{
-		Subject:   uuid.NewString(),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-	})
+	claims := tokenUserClaimsWith(standardClaims(uuid.NewString(), time.Now(), time.Now().Add(15*time.Minute)))
 	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
@@ -362,11 +367,7 @@ func TestTokenWithoutKindRejected(t *testing.T) {
 
 	// A well-formed, correctly signed token that does not carry the expected
 	// kind claim must never be interpreted as a valid user token.
-	claims := jwt.RegisteredClaims{
-		Subject:   uuid.NewString(),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-	}
+	claims := standardClaims(uuid.NewString(), time.Now(), time.Now().Add(15*time.Minute))
 	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
@@ -421,6 +422,47 @@ func TestTokenSignedWithWrongSecretIsRejected(t *testing.T) {
 	}
 }
 
+func TestTokenWithoutIssuerIsRejected(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	// Same secret, same audience, but no issuer claim: only tokens minted by
+	// this platform may authenticate.
+	claims := tokenUserClaimsWith(jwt.RegisteredClaims{
+		Subject:   uuid.NewString(),
+		Audience:  jwt.ClaimStrings{testAudience},
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+	})
+	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+
+	if _, err := svc.ValidateAccessToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken for a token without an issuer, got %v", err)
+	}
+}
+
+func TestTokenWithWrongAudienceIsRejected(t *testing.T) {
+	svc := newService(t, 15*time.Minute)
+
+	claims := tokenUserClaimsWith(jwt.RegisteredClaims{
+		Issuer:    testIssuer,
+		Subject:   uuid.NewString(),
+		Audience:  jwt.ClaimStrings{"other-service"},
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+	})
+	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+
+	if _, err := svc.ValidateAccessToken(raw); !errors.Is(err, token.ErrInvalidToken) {
+		t.Fatalf("expected ErrInvalidToken for a token minted for another audience, got %v", err)
+	}
+}
+
 func TestUnexpectedSigningAlgorithmIsRejected(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 
@@ -443,10 +485,7 @@ func TestUnexpectedSigningAlgorithmIsRejected(t *testing.T) {
 func TestMissingSubjectIsRejected(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 
-	claims := jwt.RegisteredClaims{
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-	}
+	claims := standardClaims("", time.Now(), time.Now().Add(15*time.Minute))
 	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
@@ -461,11 +500,7 @@ func TestMissingSubjectIsRejected(t *testing.T) {
 func TestInvalidUUIDSubjectIsRejected(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 
-	claims := jwt.RegisteredClaims{
-		Subject:   "not-a-uuid",
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-	}
+	claims := standardClaims("not-a-uuid", time.Now(), time.Now().Add(15*time.Minute))
 	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
@@ -481,6 +516,8 @@ func TestMissingExpirationIsRejected(t *testing.T) {
 	svc := newService(t, 15*time.Minute)
 
 	claims := jwt.RegisteredClaims{
+		Issuer:   testIssuer,
+		Audience: jwt.ClaimStrings{testAudience},
 		Subject:  uuid.NewString(),
 		IssuedAt: jwt.NewNumericDate(time.Now()),
 	}
@@ -539,6 +576,26 @@ func TestLoadJWTConfig(t *testing.T) {
 		}
 		if cfg.AccessTokenTTL != time.Hour {
 			t.Fatalf("expected ttl 1h, got %s", cfg.AccessTokenTTL)
+		}
+	})
+
+	t.Run("ttl above ceiling", func(t *testing.T) {
+		t.Setenv("JWT_SECRET", testSecret)
+		t.Setenv("JWT_ACCESS_TOKEN_TTL", "25h")
+		if _, err := config.LoadJWT(); err == nil {
+			t.Fatal("expected error when JWT_ACCESS_TOKEN_TTL exceeds the ceiling")
+		}
+	})
+
+	t.Run("ttl at ceiling", func(t *testing.T) {
+		t.Setenv("JWT_SECRET", testSecret)
+		t.Setenv("JWT_ACCESS_TOKEN_TTL", "24h")
+		cfg, err := config.LoadJWT()
+		if err != nil {
+			t.Fatalf("LoadJWT: %v", err)
+		}
+		if cfg.AccessTokenTTL != 24*time.Hour {
+			t.Fatalf("expected ttl 24h, got %s", cfg.AccessTokenTTL)
 		}
 	})
 }

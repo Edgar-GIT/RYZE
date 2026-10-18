@@ -8,3 +8,6 @@ AGENTS.md
 node_modules/
 dist/
 main/src/frontend/dist/
+backups/
+uploads/
+*.log

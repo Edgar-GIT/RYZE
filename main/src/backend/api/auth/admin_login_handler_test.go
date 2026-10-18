@@ -123,7 +123,9 @@ func expiredStageToken(t *testing.T) string {
 	}{
 		Kind: "admin-stage",
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "ryze",
 			Subject:   "ADMIN_1",
+			Audience:  jwt.ClaimStrings{"ryze-api"},
 			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-6 * time.Minute)),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Minute)),
 		},

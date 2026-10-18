@@ -36,15 +36,16 @@ jobs:
         run: go vet ./...
 
       # Database-backed packages are intentionally excluded: they require a
-      # provisioned MariaDB, and the suite still carries known pre-existing
-      # failures. This job stays green and catches build, vet and formatting
-      # regressions; the database suite is exercised in the deployment pipeline.
-      - name: Unit tests (database-independent)
+      # provisioned MariaDB. This job stays green and catches build, vet,
+      # formatting, race and dependency-free test regressions; the full suite
+      # (including database-backed packages) is exercised in the deployment
+      # pipeline against a provisioned database.
+      - name: Unit tests (database-independent, race detector)
         working-directory: main/src/backend
-        run: go test ./config/... ./middleware/... ./version/...
+        run: go test -race ./config/... ./middleware/... ./version/... ./services/token/...
 
   frontend:
-    name: Frontend (typecheck, build)
+    name: Frontend (typecheck, tests, build)
     runs-on: ubuntu-latest
 
     steps:
@@ -60,6 +61,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Tests
+        run: npm test
 
       - name: Build
         run: npm run build
