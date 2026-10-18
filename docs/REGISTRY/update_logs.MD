@@ -1,3 +1,156 @@
+# Version 2.93.0
+
+Title: Security audit and hardening — credential-leak remediation, CSRF origin guard, required JWT claims, rate-limiter and backup hardening
+
+Date: 2026-10-18
+
+Summary:
+
+v2.93.0 is a full security audit with implemented remediation. Six audit domains
+were reviewed: authentication/session/JWT, route authorization and ownership
+(IDOR), SQL construction, uploads/media, frontend security, and
+infrastructure/secrets/CI. The audit verified several strengths (parameterized
+SQL everywhere, server-side ownership checks on every route, no XSS sinks or
+token storage in the frontend, no upload surface exists) and one critical
+finding: live administrator credentials were committed verbatim in backend test
+fixtures, in a publicly reachable repository, alongside `.env` permissions of
+644. The fixtures now use fake values, `.env` was rotated (new passwords and
+access codes, mode 600), and the documentation states that a credential which
+ever reached a repository must be treated as compromised and rotated by the
+operator, since Git history cannot be un-published. High-severity gaps closed:
+Test Mode `Exit` ignored the `TEST_MODE_ENABLED` kill switch, and state-changing
+requests relied on `SameSite=Lax` + CORS alone (a same-site sibling host was
+implicitly trusted). Both are fixed: `Exit` now refuses to restore any identity
+from a stored session when the feature is disabled, and a new
+`middleware.OriginGuard` requires browser-originated state-changing requests to
+come from the API's own host or a `CORS_ALLOWED_ORIGINS` entry
+(`403 CROSS_ORIGIN_FORBIDDEN`). Medium gaps closed: JWTs now carry and require
+issuer `ryze` and audience `ryze-api`, the access-token lifetime is capped at
+24h, the account rate limiter reads its identifier up to the configured
+`SERVER_MAX_BODY_BYTES` (a raised body limit can no longer become a limiter
+bypass), `POST /admin/auth/verify` gained a stage-cookie-keyed limiter, `/0`
+trusted-proxy ranges are rejected at startup, GORM logs parameterized SQL only,
+and the backup script runs under `umask 077` with an explicit warning when
+unencrypted. Low gaps closed: admin credential checks are constant-time and
+non-short-circuiting, `COOKIE_SECURE=false` prints a startup warning, frontend
+service modules encode path segments, CI runs the race detector plus the
+frontend test suite, and the two dev-only `npm audit` advisories were resolved.
+No schema changed and no migration was added: the database stays at migration
+version `28`, `dirty=false`.
+
+Main changes:
+
+- Backend, new `middleware/csrf.go` + `middleware/csrf_test.go`: `OriginGuard`
+  rejects a state-changing request whose `Origin` (or fallback `Referer`) is
+  neither an allow-listed origin nor the request's own host; malformed and
+  opaque (`null`) origins are rejected; requests without any browser origin
+  (curl, webhooks) pass; safe methods are exempt. Normalized to lowercase
+  scheme/host; the scheme is not compared so a TLS-terminating proxy stays
+  compatible.
+- `routes/routes.go`: `middleware.OriginGuard(corsCfg.AllowedOrigins)` mounted
+  after CORS and before the body limit; `newAuthRateLimiters` now receives
+  `serverCfg.MaxBodyBytes`.
+- `routes/ratelimit.go` + `routes/ratelimit_test.go`: `authRateLimitScope`
+  gained `accountCookie`; the admin verify scope is keyed by
+  `auth.AdminStageTokenCookieName`; `newAuthRateLimiters(cfg, maxBodyBytes)`
+  carries the body bound into every account limiter.
+- `middleware/ratelimit.go` + `middleware/ratelimit_test.go`:
+  `AccountRateLimitKey(scope, field, maxBodyBytes)` reads the identifier up to
+  the configured bound (fallback constant documented); new `CookieRateLimitKey`
+  keys by an HMAC digest of a cookie value, so a credential cookie never enters
+  a limiter table in clear. Tests for bound reading, oversized-body fallback,
+  body restoration and cookie keying.
+- `services/token/token.go` + `token_test.go`: all tokens are issued with
+  issuer `ryze`, audience `ryze-api` and issued-at; parse requires
+  issuer/audience/expiration and validates issued-at. Tests forge claims with
+  the pinned values; new negative tests for missing issuer and wrong audience.
+- `api/auth/admin_login_handler_test.go`: the forged expired stage token now
+  carries issuer/audience so it exercises expiry instead of claim rejection.
+- `config/env.go` + `config/env_test.go`: `JWT_ACCESS_TOKEN_TTL` is capped at
+  24h (`maxTokenTTL`); `isTrustedProxyEntry` rejects `/0` ranges (`0.0.0.0/0`,
+  `::/0`) with a clarified startup error. Tests for the ceiling and both
+  wildcard forms.
+- `services/test_mode/test_mode.go` + `test_mode_test.go`:
+  `Exit` returns `ErrDisabled` when the feature is disabled; enforces the kill
+  switch while still ignoring session age. `api/auth/test_mode_handler_test.go`
+  asserts `403 TEST_MODE_DISABLED`.
+- `services/admin_login/admin_login.go`: every configured credential is
+  evaluated with digest-based constant-time comparisons and no short-circuit,
+  so timing does not reveal whether a username exists or its list position.
+- `database/database.go`: the GORM logger is configured with
+  `ParameterizedQueries`, so error and slow-query logs emit SQL structure, not
+  interpolated values.
+- `main.go`: startup warning when `COOKIE_SECURE=false`.
+- Credential fixtures scrubbed (fake values, usernames kept as identifiers):
+  `api/auth/admin_login_handler_test.go`, `api/auth/admin_me_handler_test.go`,
+  `config/env_test.go`, `services/admin_login/admin_login_test.go`. `.env`
+  administrator passwords and access codes rotated and the file restricted to
+  600 (not tracked).
+- Frontend: new `main/src/utils/http_client.ts` helper `encodePathSegment`
+  (+ `http_client.test.ts`); path parameters encoded in `admin2_api.ts`,
+  `admin_api.ts`, `marketplace_api.ts`, `premium_level1_api.ts`,
+  `purchases_api.ts`, `test_mode_api.ts`.
+- Repository hygiene: `.gitignore` adds `backups/`, `uploads/`, `*.log`; both
+  `.dockerignore` files exclude `uploads/`; `scripts/backup_db.sh` sets
+  `umask 077` and warns when producing an unencrypted dump; CI runs
+  `go test -race` on database-independent packages plus `npm test` on the
+  frontend.
+- `package-lock.json`: dev-only `nanoid` and `source-map-js` advisories
+  resolved; `npm audit` reports zero vulnerabilities.
+- Documentation: `security.MD` (implemented CSRF guard, required token claims
+  and TTL ceiling, constant-time admin login and stage-cookie limiting, Test
+  Mode kill switch on exit, body-bound and cookie-limiter rate limiting, `/0`
+  proxy rejection, GORM parameterized logging, backup/umask practice, CI and
+  dependency practice), `api.MD` (`403 CROSS_ORIGIN_FORBIDDEN`, upload
+  endpoints marked not implemented), `arquitecture.MD` (middleware and
+  validation list), `how_to_run.MD` (TTL cap, `COOKIE_SECURE` warning, origin
+  guard, token-claim session invalidation on upgrade), `update_logs.MD`.
+
+Reason:
+
+A security audit found a committed credential leak (critical), a kill-switch
+bypass on Test Mode exit and a CSRF gap beyond SameSite (high), missing JWT
+claim validation, a body-limit-dependent rate-limiter bypass, an IP-only
+access-code limiter, SQL values in ORM logs, insecure backup handling and CI
+coverage gaps (medium/low). Test fixtures must never contain deployed
+credentials, a disabled feature must be fully disabled, browser requests must
+be origin-checked beyond SameSite, and identifiers read for rate limiting must
+follow the configured body bound.
+
+Validation:
+
+- Backend: `gofmt -l .` empty; `go vet ./...` clean; `go test ./...` exit 0
+  (40 tested packages, 0 failures, including database-backed suites);
+  `go test -race ./config/... ./middleware/... ./version/... ./services/token/...`
+  green.
+- Frontend: `npx tsc --noEmit` clean; `npx vitest run` green (4 files, 23
+  tests).
+- Dependencies: `npm audit` reports 0 vulnerabilities.
+- Secrets: the four previously committed credential literals and all rotated
+  `.env` values have zero matches in tracked files at `HEAD`.
+- `bash -n scripts/backup_db.sh` clean.
+
+Residual and unverified (not claimed):
+
+- The previous administrator credential values remain in the Git history of
+  the public repository. Rotating the deployed environments overrides the
+  leaked values operationally; history remediation (history rewrite) or
+  provider-side secret scanning remains an operator action and was not
+  performed here.
+- `__Host-` cookie prefixes were not introduced (they conflict with the
+  documented local HTTP development mode); the residual risk is mitigated by
+  `SameSite=Lax`, `Secure` in production and the new origin guard.
+- Browser-level CSRF/origin behaviour was verified by deterministic middleware
+  tests, not by a live browser run.
+- The race detector ran on the database-independent packages; the full
+  database-backed suite ran without `-race`.
+- Backup script hardening was verified by syntax check and inspection; no live
+  backup/restore drill was executed.
+- Live Stripe/PayPal provider flows were not executed (unchanged from v2.92.0).
+- No schema change was made, so no migration up/down drill was required.
+
+---
+
 # Version 2.92.0
 
 Title: Commerce reliability — PayPal readiness parity, duplicate-sale acknowledgement, capture race recovery and resolved-pair guards
