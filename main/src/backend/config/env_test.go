@@ -10,11 +10,11 @@ import (
 
 const (
 	admin1Username   = "ryzeADMIN1"
-	admin1Password   = "edgar_manager123#"
-	admin1AccessCode = "mz7Qx2!ryze2fa_admin1"
+	admin1Password   = "test-admin-one-password"
+	admin1AccessCode = "test-admin-one-access-code"
 	admin2Username   = "ryzeADMIN2"
-	admin2Password   = "sandro_manager123#"
-	admin2AccessCode = "np9Wv4#ryze2fa_admin2"
+	admin2Password   = "test-admin-two-password"
+	admin2AccessCode = "test-admin-two-access-code"
 )
 
 // setAdminEnv sets every admin variable, so tests can clear or replace single

@@ -25,8 +25,8 @@ const (
 )
 
 var testAdminCredentials = []admin_login.AdminCredential{
-	{ID: "ADMIN_1", Username: "ryzeADMIN1", Password: "edgar_manager123#", AccessCode: "mz7Qx2!ryze2fa_admin1"},
-	{ID: "ADMIN_2", Username: "ryzeADMIN2", Password: "sandro_manager123#", AccessCode: "np9Wv4#ryze2fa_admin2"},
+	{ID: "ADMIN_1", Username: "ryzeADMIN1", Password: "test-admin-one-password", AccessCode: "test-admin-one-access-code"},
+	{ID: "ADMIN_2", Username: "ryzeADMIN2", Password: "test-admin-two-password", AccessCode: "test-admin-two-access-code"},
 }
 
 // newAdminLoginTestRouter builds a router with the admin login flow wired to
@@ -140,8 +140,8 @@ func TestAdminStage1Success(t *testing.T) {
 		username string
 		password string
 	}{
-		{username: "ryzeADMIN1", password: "edgar_manager123#"},
-		{username: "ryzeADMIN2", password: "sandro_manager123#"},
+		{username: "ryzeADMIN1", password: "test-admin-one-password"},
+		{username: "ryzeADMIN2", password: "test-admin-two-password"},
 	} {
 		t.Run(tc.username, func(t *testing.T) {
 			router, _ := newAdminLoginTestRouter(t, true)
@@ -163,7 +163,7 @@ func TestAdminStage1Success(t *testing.T) {
 func TestAdminStage1DoesNotIssueFinalCookie(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
-	rec, _, raw := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
+	rec, _, raw := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -191,7 +191,7 @@ func TestAdminStage1WrongPassword(t *testing.T) {
 func TestAdminStage1UnknownUsername(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
-	rec, stageToken, raw := performAdminStage1(router, "nobody", "edgar_manager123#")
+	rec, stageToken, raw := performAdminStage1(router, "nobody", "test-admin-one-password")
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
 	}
@@ -219,7 +219,7 @@ func TestAdminStage1MissingFields(t *testing.T) {
 
 	for name, body := range map[string]string{
 		"empty object":     `{}`,
-		"missing username": `{"password": "edgar_manager123#"}`,
+		"missing username": `{"password": "test-admin-one-password"}`,
 		"missing password": `{"username": "ryzeADMIN1"}`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -240,7 +240,7 @@ func TestAdminVerifyWithoutStageStateRejected(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
 	for _, stageToken := range []string{"", "not.a.jwt", "garbage"} {
-		rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("mz7Qx2!ryze2fa_admin1"))
+		rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("test-admin-one-access-code"))
 		if rec.Code != http.StatusUnauthorized {
 			t.Fatalf("stage token %q: expected 401, got %d (body: %s)", stageToken, rec.Code, raw)
 		}
@@ -257,8 +257,8 @@ func TestAdminVerifySuccess(t *testing.T) {
 		accessCode string
 		identity   string
 	}{
-		{username: "ryzeADMIN1", password: "edgar_manager123#", accessCode: "mz7Qx2!ryze2fa_admin1", identity: "ADMIN_1"},
-		{username: "ryzeADMIN2", password: "sandro_manager123#", accessCode: "np9Wv4#ryze2fa_admin2", identity: "ADMIN_2"},
+		{username: "ryzeADMIN1", password: "test-admin-one-password", accessCode: "test-admin-one-access-code", identity: "ADMIN_1"},
+		{username: "ryzeADMIN2", password: "test-admin-two-password", accessCode: "test-admin-two-access-code", identity: "ADMIN_2"},
 	} {
 		t.Run(tc.identity, func(t *testing.T) {
 			router, tokenSvc := newAdminLoginTestRouter(t, true)
@@ -292,8 +292,8 @@ func TestAdminVerifySuccess(t *testing.T) {
 func TestAdminVerifyClearsStageCookie(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
-	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
-	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("mz7Qx2!ryze2fa_admin1"))
+	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
+	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("test-admin-one-access-code"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -313,8 +313,8 @@ func TestAdminVerifyWrongAccessCode(t *testing.T) {
 		password string
 		wrong    string
 	}{
-		{username: "ryzeADMIN1", password: "edgar_manager123#", wrong: "wrong_code_admin_1!"},
-		{username: "ryzeADMIN2", password: "sandro_manager123#", wrong: "wrong_code_admin_2!"},
+		{username: "ryzeADMIN1", password: "test-admin-one-password", wrong: "wrong_code_admin_1!"},
+		{username: "ryzeADMIN2", password: "test-admin-two-password", wrong: "wrong_code_admin_2!"},
 	} {
 		t.Run(tc.username, func(t *testing.T) {
 			router, _ := newAdminLoginTestRouter(t, true)
@@ -344,8 +344,8 @@ func TestAdminVerifyCrossAdminAccessCodes(t *testing.T) {
 		password string
 		foreign  string
 	}{
-		{username: "ryzeADMIN1", password: "edgar_manager123#", foreign: "np9Wv4#ryze2fa_admin2"},
-		{username: "ryzeADMIN2", password: "sandro_manager123#", foreign: "mz7Qx2!ryze2fa_admin1"},
+		{username: "ryzeADMIN1", password: "test-admin-one-password", foreign: "test-admin-two-access-code"},
+		{username: "ryzeADMIN2", password: "test-admin-two-password", foreign: "test-admin-one-access-code"},
 	} {
 		t.Run(tc.username, func(t *testing.T) {
 			router, _ := newAdminLoginTestRouter(t, true)
@@ -369,7 +369,7 @@ func TestAdminVerifyCrossAdminAccessCodes(t *testing.T) {
 func TestAdminVerifyExpiredStageStateRejected(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
-	rec, raw := attemptAdminVerify(router, expiredStageToken(t), adminVerifyBody("mz7Qx2!ryze2fa_admin1"))
+	rec, raw := attemptAdminVerify(router, expiredStageToken(t), adminVerifyBody("test-admin-one-access-code"))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for an expired stage state, got %d (body: %s)", rec.Code, raw)
 	}
@@ -381,7 +381,7 @@ func TestAdminVerifyExpiredStageStateRejected(t *testing.T) {
 func TestAdminVerifyMissingFields(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
-	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
+	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
 
 	for name, body := range map[string]string{
 		"empty object": `{}`,
@@ -402,7 +402,7 @@ func TestAdminVerifyMissingFields(t *testing.T) {
 func TestAdminVerifyInvalidJSON(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
-	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
+	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
 	rec, raw := attemptAdminVerify(router, stageToken, `{"access_code": "broken"`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d (body: %s)", rec.Code, raw)
@@ -412,8 +412,8 @@ func TestAdminVerifyInvalidJSON(t *testing.T) {
 func TestAdminCookieAttributes(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
-	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
-	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("mz7Qx2!ryze2fa_admin1"))
+	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
+	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("test-admin-one-access-code"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -442,8 +442,8 @@ func TestAdminCookieAttributes(t *testing.T) {
 func TestAdminSecureCookieDisabledForLocalHTTP(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, false)
 
-	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
-	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("mz7Qx2!ryze2fa_admin1"))
+	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
+	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("test-admin-one-access-code"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -457,7 +457,7 @@ func TestAdminSecureCookieDisabledForLocalHTTP(t *testing.T) {
 func TestAdminStageCookieAttributes(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
-	rec, _, _ := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
+	rec, _, _ := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
 
 	stage := cookieAttrs(rec, testStageCookieName)
 	if stage == nil {
@@ -477,8 +477,8 @@ func TestAdminStageCookieAttributes(t *testing.T) {
 func TestAdminLoginUsesDedicatedCookieName(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
-	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
-	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("mz7Qx2!ryze2fa_admin1"))
+	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
+	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("test-admin-one-access-code"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -491,8 +491,8 @@ func TestAdminLoginUsesDedicatedCookieName(t *testing.T) {
 func TestFinalAdminTokenRejectedAsUserToken(t *testing.T) {
 	router, tokenSvc := newAdminLoginTestRouter(t, true)
 
-	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
-	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("mz7Qx2!ryze2fa_admin1"))
+	_, stageToken, _ := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
+	rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("test-admin-one-access-code"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -514,7 +514,7 @@ func TestUserTokenRejectedAsAdminToken(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, adminVerifyRoute, bytes.NewBufferString(adminVerifyBody("mz7Qx2!ryze2fa_admin1")))
+	req := httptest.NewRequest(http.MethodPost, adminVerifyRoute, bytes.NewBufferString(adminVerifyBody("test-admin-one-access-code")))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: auth.AdminStageTokenCookieName, Value: userToken})
 	rec := httptest.NewRecorder()
@@ -529,12 +529,12 @@ func TestAdminLoginResponseNeverExposesSecrets(t *testing.T) {
 	router, _ := newAdminLoginTestRouter(t, true)
 
 	for _, secrets := range [][]string{
-		{"edgar_manager123#", "sandro_manager123#"},
-		{"mz7Qx2!ryze2fa_admin1", "np9Wv4#ryze2fa_admin2"},
+		{"test-admin-one-password", "test-admin-two-password"},
+		{"test-admin-one-access-code", "test-admin-two-access-code"},
 		{"ryzeADMIN1", "ryzeADMIN2"},
 		{testSecret},
 	} {
-		_, stageToken, raw := performAdminStage1(router, "ryzeADMIN1", "edgar_manager123#")
+		_, stageToken, raw := performAdminStage1(router, "ryzeADMIN1", "test-admin-one-password")
 		if stageToken == "" {
 			t.Fatal("expected a stage cookie")
 		}
@@ -544,7 +544,7 @@ func TestAdminLoginResponseNeverExposesSecrets(t *testing.T) {
 			}
 		}
 
-		rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("mz7Qx2!ryze2fa_admin1"))
+		rec, raw := attemptAdminVerify(router, stageToken, adminVerifyBody("test-admin-one-access-code"))
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 		}

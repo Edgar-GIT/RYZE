@@ -10,8 +10,8 @@ import (
 )
 
 var testCredentials = []admin_login.AdminCredential{
-	{ID: "ADMIN_1", Username: "ryzeADMIN1", Password: "edgar_manager123#", AccessCode: "mz7Qx2!ryze2fa_admin1"},
-	{ID: "ADMIN_2", Username: "ryzeADMIN2", Password: "sandro_manager123#", AccessCode: "np9Wv4#ryze2fa_admin2"},
+	{ID: "ADMIN_1", Username: "ryzeADMIN1", Password: "test-admin-one-password", AccessCode: "test-admin-one-access-code"},
+	{ID: "ADMIN_2", Username: "ryzeADMIN2", Password: "test-admin-two-password", AccessCode: "test-admin-two-access-code"},
 }
 
 func newTestService() admin_login.AdminService {
@@ -21,7 +21,7 @@ func newTestService() admin_login.AdminService {
 func TestLoginAdmin1Valid(t *testing.T) {
 	admin, err := newTestService().Login(context.Background(), admin_login.LoginInput{
 		Username: "ryzeADMIN1",
-		Password: "edgar_manager123#",
+		Password: "test-admin-one-password",
 	})
 	if err != nil {
 		t.Fatalf("Login: %v", err)
@@ -37,7 +37,7 @@ func TestLoginAdmin1Valid(t *testing.T) {
 func TestLoginAdmin2Valid(t *testing.T) {
 	admin, err := newTestService().Login(context.Background(), admin_login.LoginInput{
 		Username: "ryzeADMIN2",
-		Password: "sandro_manager123#",
+		Password: "test-admin-two-password",
 	})
 	if err != nil {
 		t.Fatalf("Login: %v", err)
@@ -65,7 +65,7 @@ func TestLoginWrongPassword(t *testing.T) {
 func TestLoginUnknownUsername(t *testing.T) {
 	_, err := newTestService().Login(context.Background(), admin_login.LoginInput{
 		Username: "nobody",
-		Password: "edgar_manager123#",
+		Password: "test-admin-one-password",
 	})
 	if !errors.Is(err, admin_login.ErrInvalidCredentials) {
 		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
@@ -75,7 +75,7 @@ func TestLoginUnknownUsername(t *testing.T) {
 func TestLoginCrossAdminCredentials(t *testing.T) {
 	_, err := newTestService().Login(context.Background(), admin_login.LoginInput{
 		Username: "ryzeADMIN1",
-		Password: "sandro_manager123#",
+		Password: "test-admin-two-password",
 	})
 	if !errors.Is(err, admin_login.ErrInvalidCredentials) {
 		t.Fatalf("expected ErrInvalidCredentials for mismatched credentials, got %v", err)
@@ -84,8 +84,8 @@ func TestLoginCrossAdminCredentials(t *testing.T) {
 
 func TestLoginEmptyUsername(t *testing.T) {
 	for _, attempt := range []admin_login.LoginInput{
-		{Username: "", Password: "edgar_manager123#"},
-		{Username: "   ", Password: "edgar_manager123#"},
+		{Username: "", Password: "test-admin-one-password"},
+		{Username: "   ", Password: "test-admin-one-password"},
 	} {
 		_, err := newTestService().Login(context.Background(), attempt)
 		if !errors.Is(err, admin_login.ErrInvalidInput) {
@@ -107,7 +107,7 @@ func TestLoginEmptyPassword(t *testing.T) {
 func TestLoginTrimsUsername(t *testing.T) {
 	admin, err := newTestService().Login(context.Background(), admin_login.LoginInput{
 		Username: "  ryzeADMIN1  ",
-		Password: "edgar_manager123#",
+		Password: "test-admin-one-password",
 	})
 	if err != nil {
 		t.Fatalf("Login: %v", err)
@@ -119,16 +119,16 @@ func TestLoginTrimsUsername(t *testing.T) {
 
 func TestLoginErrorsNeverExposeCredentials(t *testing.T) {
 	for _, attempt := range []admin_login.LoginInput{
-		{Username: "ryzeADMIN1", Password: "edgar_manager123#"},
+		{Username: "ryzeADMIN1", Password: "test-admin-one-password"},
 		{Username: "ryzeADMIN1", Password: "wrong_password_123#"},
-		{Username: "nobody", Password: "edgar_manager123#"},
+		{Username: "nobody", Password: "test-admin-one-password"},
 	} {
 		_, err := newTestService().Login(context.Background(), attempt)
 		if err == nil {
 			continue
 		}
 		message := err.Error()
-		if strings.Contains(message, "edgar_manager123#") || strings.Contains(message, "sandro_manager123#") {
+		if strings.Contains(message, "test-admin-one-password") || strings.Contains(message, "test-admin-two-password") {
 			t.Fatalf("errors must never contain admin passwords: %q", message)
 		}
 		if strings.Contains(message, "ryzeADMIN") {
@@ -140,7 +140,7 @@ func TestLoginErrorsNeverExposeCredentials(t *testing.T) {
 func TestVerifyAccessCodeAdmin1Valid(t *testing.T) {
 	admin, err := newTestService().VerifyAccessCode(context.Background(), admin_login.VerifyInput{
 		AdminID:    "ADMIN_1",
-		AccessCode: "mz7Qx2!ryze2fa_admin1",
+		AccessCode: "test-admin-one-access-code",
 	})
 	if err != nil {
 		t.Fatalf("VerifyAccessCode: %v", err)
@@ -156,7 +156,7 @@ func TestVerifyAccessCodeAdmin1Valid(t *testing.T) {
 func TestVerifyAccessCodeAdmin2Valid(t *testing.T) {
 	admin, err := newTestService().VerifyAccessCode(context.Background(), admin_login.VerifyInput{
 		AdminID:    "ADMIN_2",
-		AccessCode: "np9Wv4#ryze2fa_admin2",
+		AccessCode: "test-admin-two-access-code",
 	})
 	if err != nil {
 		t.Fatalf("VerifyAccessCode: %v", err)
@@ -183,8 +183,8 @@ func TestVerifyAccessCodeWrongCode(t *testing.T) {
 
 func TestVerifyAccessCodeCrossAdminCodes(t *testing.T) {
 	for _, attempt := range []admin_login.VerifyInput{
-		{AdminID: "ADMIN_1", AccessCode: "np9Wv4#ryze2fa_admin2"},
-		{AdminID: "ADMIN_2", AccessCode: "mz7Qx2!ryze2fa_admin1"},
+		{AdminID: "ADMIN_1", AccessCode: "test-admin-two-access-code"},
+		{AdminID: "ADMIN_2", AccessCode: "test-admin-one-access-code"},
 	} {
 		_, err := newTestService().VerifyAccessCode(context.Background(), attempt)
 		if !errors.Is(err, admin_login.ErrInvalidCredentials) {
@@ -196,7 +196,7 @@ func TestVerifyAccessCodeCrossAdminCodes(t *testing.T) {
 func TestVerifyAccessCodeUnknownAdmin(t *testing.T) {
 	_, err := newTestService().VerifyAccessCode(context.Background(), admin_login.VerifyInput{
 		AdminID:    "ADMIN_3",
-		AccessCode: "mz7Qx2!ryze2fa_admin1",
+		AccessCode: "test-admin-one-access-code",
 	})
 	if !errors.Is(err, admin_login.ErrInvalidCredentials) {
 		t.Fatalf("expected ErrInvalidCredentials for an unknown admin id, got %v", err)
@@ -205,7 +205,7 @@ func TestVerifyAccessCodeUnknownAdmin(t *testing.T) {
 
 func TestVerifyAccessCodeEmptyInput(t *testing.T) {
 	for _, attempt := range []admin_login.VerifyInput{
-		{AdminID: "", AccessCode: "mz7Qx2!ryze2fa_admin1"},
+		{AdminID: "", AccessCode: "test-admin-one-access-code"},
 		{AdminID: "ADMIN_1", AccessCode: ""},
 		{AdminID: "", AccessCode: ""},
 	} {
@@ -218,16 +218,16 @@ func TestVerifyAccessCodeEmptyInput(t *testing.T) {
 
 func TestVerifyAccessCodeErrorsNeverExposeCredentials(t *testing.T) {
 	for _, attempt := range []admin_login.VerifyInput{
-		{AdminID: "ADMIN_1", AccessCode: "mz7Qx2!ryze2fa_admin1"},
+		{AdminID: "ADMIN_1", AccessCode: "test-admin-one-access-code"},
 		{AdminID: "ADMIN_1", AccessCode: "wrong_access_code_1!"},
-		{AdminID: "ADMIN_3", AccessCode: "np9Wv4#ryze2fa_admin2"},
+		{AdminID: "ADMIN_3", AccessCode: "test-admin-two-access-code"},
 	} {
 		_, err := newTestService().VerifyAccessCode(context.Background(), attempt)
 		if err == nil {
 			continue
 		}
 		message := err.Error()
-		if strings.Contains(message, "mz7Qx2!ryze2fa_admin1") || strings.Contains(message, "np9Wv4#ryze2fa_admin2") {
+		if strings.Contains(message, "test-admin-one-access-code") || strings.Contains(message, "test-admin-two-access-code") {
 			t.Fatalf("errors must never contain admin access codes: %q", message)
 		}
 		if strings.Contains(message, "ryzeADMIN") {

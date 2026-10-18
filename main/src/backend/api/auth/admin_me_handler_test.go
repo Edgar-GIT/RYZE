@@ -178,7 +178,7 @@ func TestAdminLogoutResponseNeverExposesSecrets(t *testing.T) {
 	if strings.Contains(rec.Body.String(), testSecret) {
 		t.Fatal("logout response must never expose the JWT secret")
 	}
-	if strings.Contains(rec.Body.String(), "ryzeADMIN1") || strings.Contains(rec.Body.String(), "edgar_manager123#") {
+	if strings.Contains(rec.Body.String(), "ryzeADMIN1") || strings.Contains(rec.Body.String(), "test-admin-one-password") {
 		t.Fatal("logout response must never expose admin credentials")
 	}
 }
