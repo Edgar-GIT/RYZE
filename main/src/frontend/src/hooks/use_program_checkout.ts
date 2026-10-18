@@ -15,6 +15,9 @@ import { completeTestPurchase } from "@/services/test_mode_api";
 
 const CANCELLED_STATUS = "cancelled";
 const DUPLICATE_PURCHASE = "DUPLICATE_PURCHASE";
+// The pair resolved another way (a sibling purchase completed first), so no
+// provider session can ever grant access. The real access state is owned.
+const DUPLICATE_ENTITLEMENT = "DUPLICATE_ENTITLEMENT";
 // The backend refuses to rebind a pending purchase to a different payment
 // method, so the checkout must always resume with the recorded one.
 const PAYMENT_METHOD_MISMATCH = "PAYMENT_METHOD_MISMATCH";
@@ -106,6 +109,26 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
     }
   }, [programId]);
 
+  // A conflict (409) may simply mean the (user, program) pair is already
+  // owned — a sibling purchase completed, or the persona bought it in an
+  // earlier session. The checkout resolves the real access state so an owned
+  // program is never presented as a failure; anything else falls back to the
+  // caller's message.
+  const recoverOwnershipOrFail = useCallback(
+    async (fallbackMessage: string) => {
+      try {
+        if ((await resolveOwnership()) === "owned") {
+          setState({ status: "owned" });
+          return;
+        }
+      } catch {
+        // fall through to the error state
+      }
+      setState({ status: "error", message: fallbackMessage });
+    },
+    [resolveOwnership]
+  );
+
   const runCapture = useCallback(
     async (purchaseId: string, providerPaymentId: string) => {
       setState({ status: "processing" });
@@ -177,6 +200,14 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
         });
         return;
       }
+      // 409 DUPLICATE_ENTITLEMENT: the provider refused because the pair is
+      // already resolved — a sibling purchase completed while this one waited,
+      // so no provider session can ever grant access. Resolving ownership
+      // reflects the actual access state.
+      if (error instanceof ApiError && error.code === DUPLICATE_ENTITLEMENT) {
+        await recoverOwnershipOrFail("We could not start the checkout. No money was taken at this point.");
+        return;
+      }
       // The pending purchase outlived its window, so the provider session for
       // it can no longer be paid. Recover by starting a fresh intent, which
       // the backend uses to supersede (fail) the expired purchase.
@@ -192,7 +223,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       }
       setState({ status: "error", message: "We could not start the checkout. No money was taken at this point." });
     }
-  }, [programId, resolveMethodForPurchase]);
+  }, [programId, recoverOwnershipOrFail, resolveMethodForPurchase]);
 
   const runTestModePurchase = useCallback(async () => {
     setState({ status: "creating" });
@@ -204,18 +235,12 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       // (e.g. it was purchased in a previous Test Mode session). Resolving
       // ownership reflects the actual access state.
       if (error instanceof ApiError && error.status === 409) {
-        try {
-          if ((await resolveOwnership()) === "owned") {
-            setState({ status: "owned" });
-            return;
-          }
-        } catch {
-          // fall through to the error state
-        }
+        await recoverOwnershipOrFail("We could not complete this Test Mode purchase. Please try again.");
+        return;
       }
       setState({ status: "error", message: "We could not complete this Test Mode purchase. Please try again." });
     }
-  }, [programId, resolveOwnership]);
+  }, [programId, recoverOwnershipOrFail]);
 
   const buy = useCallback(async () => {
     if (testModeActive) {
@@ -241,9 +266,16 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
           // fall through to the error state
         }
       }
+      // 409 DUPLICATE_ENTITLEMENT on intent creation: the pair resolved
+      // between the ownership check and this click, so the user already owns
+      // the program. Reflect the real access state.
+      if (error instanceof ApiError && error.code === DUPLICATE_ENTITLEMENT) {
+        await recoverOwnershipOrFail("We could not start your purchase. No money was taken at this point.");
+        return;
+      }
       setState({ status: "error", message: "We could not start your purchase. No money was taken at this point." });
     }
-  }, [programId, negotiatePayment, resolveMethodForPurchase, runTestModePurchase, testModeActive]);
+  }, [programId, negotiatePayment, recoverOwnershipOrFail, resolveMethodForPurchase, runTestModePurchase, testModeActive]);
 
   const retryPurchase = useCallback(
     async (purchaseId: string) => {

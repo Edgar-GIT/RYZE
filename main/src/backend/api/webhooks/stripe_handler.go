@@ -87,9 +87,10 @@ func NewStripeWebhookHandler(webhookSecret string, purchaseService purchases.Ser
 //   - 200: unsupported event type (safely ignored), not a successful payment,
 //     unknown purchase, already completed, not pending, reference/amount/
 //     currency/payment-method mismatch, Test Mode purchase carrying a real
-//     payment event. The mismatches are acknowledged (not retried) because a
-//     duplicate delivery cannot change the immutable purchase snapshot: the
-//     durable reconciliation event is the operator-facing diagnosis instead.
+//     payment event, pair already resolved by a sibling purchase. The
+//     mismatches are acknowledged (not retried) because a duplicate delivery
+//     cannot change the immutable purchase snapshot: the durable
+//     reconciliation event is the operator-facing diagnosis instead.
 //     A rejected delivery that could otherwise be re-delivered (an internal
 //     load failure, or a completion/reconciliation fault) keeps a 500 so the
 //     provider retries it.
@@ -294,6 +295,16 @@ func (h *StripeWebhookHandler) handleCheckoutSessionCompleted(c *gin.Context, ev
 			log.Printf("[STRIPE-WEBHOOK] CompletePurchase for %s observed the purchase moving on: %v", purchaseID, err)
 			recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomePurchaseMovedOn)
 			c.String(http.StatusOK, "purchase moved on")
+		case errors.Is(err, purchases.ErrDuplicateEntitlement):
+			// The (user, program) pair already resolved another way — a
+			// sibling purchase completed or was reconciled first — so this
+			// verified payment can never define a second sale. A redelivery
+			// cannot change the durable state, so the delivery is
+			// acknowledged and recorded as a resolved conflict instead of
+			// being retried forever.
+			log.Printf("[STRIPE-WEBHOOK] CompletePurchase for %s found the pair already resolved: %v", purchaseID, err)
+			recordOutcome(ctx, h.outcomes, "stripe", purchaseID, event.ID, models.ReconciliationOutcomeConflictPairResolved)
+			c.String(http.StatusOK, "pair already resolved")
 		case errors.Is(err, purchases.ErrEntitlementIntegrity):
 			// A completed purchase without its entitlement is a durable
 			// integrity violation. The delivery is retried (in case the fault

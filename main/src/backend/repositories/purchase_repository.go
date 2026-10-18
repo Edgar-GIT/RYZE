@@ -213,16 +213,20 @@ func (r *purchaseRepository) Fail(ctx context.Context, purchaseID string) error 
 // CompleteWithEntitlement atomically transitions a pending purchase to
 // completed and creates the entitlement row inside a single database
 // transaction. If the purchase is not pending or does not exist,
-// ErrPurchaseNotFound is returned and no row is modified. Duplicate entry
-// errors on the entitlement are mapped to ErrEntitlementAlreadyExists so the
-// service can react with an integrity error rather than exposing raw driver
-// details.
+// ErrPurchaseNotFound is returned and no row is modified. A completed sibling
+// purchase for the same (user, program) pair rejects the status update with
+// ErrCompletedPurchaseExists. Duplicate entry errors on the entitlement are
+// mapped to ErrEntitlementAlreadyExists so the service can react with an
+// integrity error rather than exposing raw driver details.
 func (r *purchaseRepository) CompleteWithEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&models.Purchase{}).
 			Where("id = ? AND status = ?", purchaseID, models.PurchaseStatusPending).
 			Update("status", models.PurchaseStatusCompleted)
 		if result.Error != nil {
+			if isDuplicateEntry(result.Error) {
+				return ErrCompletedPurchaseExists
+			}
 			return fmt.Errorf("failed to complete purchase: %w", result.Error)
 		}
 		if result.RowsAffected == 0 {
@@ -246,7 +250,8 @@ func (r *purchaseRepository) CompleteWithEntitlement(ctx context.Context, purcha
 // is returned and nothing is modified. When the purchase is not pending or no
 // longer exists, ErrPurchaseNotFound is returned and the restore is rolled
 // back, so a repurchase can never leave behind a restored entitlement without a
-// completed purchase.
+// completed purchase. A completed sibling purchase for the pair rejects the
+// status update with ErrCompletedPurchaseExists.
 func (r *purchaseRepository) CompleteWithRestoredEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		restore := tx.Unscoped().
@@ -264,6 +269,9 @@ func (r *purchaseRepository) CompleteWithRestoredEntitlement(ctx context.Context
 			Where("id = ? AND status = ?", purchaseID, models.PurchaseStatusPending).
 			Update("status", models.PurchaseStatusCompleted)
 		if update.Error != nil {
+			if isDuplicateEntry(update.Error) {
+				return ErrCompletedPurchaseExists
+			}
 			return fmt.Errorf("failed to complete purchase: %w", update.Error)
 		}
 		if update.RowsAffected == 0 {

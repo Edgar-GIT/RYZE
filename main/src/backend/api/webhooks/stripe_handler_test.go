@@ -28,6 +28,7 @@ func init() {
 type stubPurchaseService struct {
 	purchase       *purchases.Purchase
 	err            error
+	completeErr    error
 	reconcileErr   error
 	reconcileCount int
 }
@@ -46,6 +47,11 @@ func (s *stubPurchaseService) InitiatePayment(_ context.Context, _, _, _ string)
 }
 
 func (s *stubPurchaseService) CompletePurchase(_ context.Context, _ string) (*purchases.Purchase, error) {
+	// completeErr simulates a completion verdict that only the completion
+	// methods observe; err stays the load-failure fault used by shared tests.
+	if s.completeErr != nil {
+		return nil, s.completeErr
+	}
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -68,6 +74,9 @@ func (s *stubPurchaseService) CapturePayment(_ context.Context, _, _, _ string) 
 }
 
 func (s *stubPurchaseService) CompletePurchaseWithCapture(_ context.Context, _, _ string) (*purchases.Purchase, error) {
+	if s.completeErr != nil {
+		return nil, s.completeErr
+	}
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -1472,5 +1481,42 @@ func TestStripeWebhook_CompletedPurchaseIsNeverReconciled(t *testing.T) {
 	}
 	if svc.reconcileCount != 0 {
 		t.Fatalf("a completed purchase must never be reconciled, got %d attempts", svc.reconcileCount)
+	}
+}
+
+// TestStripeWebhook_DuplicateEntitlementIsAcknowledged proves a verified full
+// payment for a pair that already resolved another way (a sibling purchase
+// completed first) is acknowledged with 200 and recorded as a resolved
+// conflict, instead of being retried forever for a duplicate sale that can
+// never succeed.
+func TestStripeWebhook_DuplicateEntitlementIsAcknowledged(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "purchase-duplicate-pair",
+		PriceMinorUnits: 4500,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "card",
+	}
+	records := &recordingOutcomeRecorder{}
+	svc := &stubPurchaseService{purchase: purchase, completeErr: purchases.ErrDuplicateEntitlement}
+
+	session := newPaidCheckoutSession("cs_test_duplicate_pair", purchase.ID, purchase.PriceMinorUnits, "eur")
+	payload := buildCheckoutSessionEvent(t, session)
+	handler := webhooks.NewStripeWebhookHandler(testWebhookSecret, svc, webhooks.WithOutcomeRecorder(records))
+	router := newTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/stripe", bytes.NewReader(payload))
+	req.Header.Set("Stripe-Signature", signPayload(t, payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for a resolved pair, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "pair already resolved" {
+		t.Fatalf("expected a resolved-pair acknowledgement, got %q", w.Body.String())
+	}
+	if got := records.outcomes()["evt_test_123"]; got != models.ReconciliationOutcomeConflictPairResolved {
+		t.Fatalf("expected a %s outcome, got %q", models.ReconciliationOutcomeConflictPairResolved, got)
 	}
 }

@@ -431,7 +431,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 			webhooks.WithOutcomeRecorder(reconciliationEventRepository))
 		v1.POST("/webhooks/stripe", stripeWebhookHandler.Handle)
 	}
-	if webhookCfg.PayPalWebhookID != "" && paypalCfg.ClientID != "" {
+	// The PayPal webhook follows the same complete-configuration rule as the
+	// provider: it is mounted exactly when PayPal is enabled and its webhook id
+	// is configured, so a half-configured PayPal never accepts deliveries for a
+	// flow the rest of the stack has disabled.
+	if paypalEnabled(paypalCfg) && webhookCfg.PayPalWebhookID != "" {
 		paypalVerifier, err := createPayPalWebhookVerifier(paypalCfg)
 		if err == nil {
 			paypalWebhookHandler := webhooks.NewPayPalWebhookHandler(paypalVerifier, webhookCfg.PayPalWebhookID, purchaseService,
@@ -477,6 +481,25 @@ func stripeEnabled(stripeCfg config.StripeConfig, webhookCfg config.WebhookConfi
 	return stripeCfg.SecretKey != "" && webhookCfg.StripeWebhookSecret != ""
 }
 
+// paypalEnabled reports whether PayPal is usable: the client id and secret
+// must both be present and the mode must be one PayPal supports. It is the
+// single readiness predicate for PayPal: the provider is created and the
+// webhook endpoint is registered under exactly this condition (plus the
+// webhook id, which only the endpoint needs), so the two can never disagree.
+// An unsupported mode disables PayPal instead of silently falling back to
+// sandbox.
+func paypalEnabled(paypalCfg config.PayPalConfig) bool {
+	if strings.TrimSpace(paypalCfg.ClientID) == "" || strings.TrimSpace(paypalCfg.Secret) == "" {
+		return false
+	}
+	switch strings.TrimSpace(strings.ToLower(paypalCfg.Mode)) {
+	case "sandbox", "live":
+		return true
+	default:
+		return false
+	}
+}
+
 // resolvePaymentProviders returns the configured payment providers. When a
 // valid secret key / client ID is configured the corresponding provider is
 // created; otherwise nil is returned for that provider. The Stripe global key
@@ -485,6 +508,7 @@ func stripeEnabled(stripeCfg config.StripeConfig, webhookCfg config.WebhookConfi
 // Stripe is only enabled when it is completely configured: see stripeEnabled.
 // A half-configured Stripe is never created and never advertised. The global
 // key is cleared when Stripe is not enabled so no stale credential can be used.
+// PayPal is only created when paypalEnabled reports it usable.
 func resolvePaymentProviders(stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig) (payments.Provider, payments.Provider) {
 	var stripeProvider payments.Provider
 	if stripeEnabled(stripeCfg, webhookCfg) {
@@ -495,7 +519,7 @@ func resolvePaymentProviders(stripeCfg config.StripeConfig, paypalCfg config.Pay
 	}
 
 	var pp payments.Provider
-	if paypalCfg.ClientID != "" {
+	if paypalEnabled(paypalCfg) {
 		provider, err := payments.NewPayPalProvider(paypalCfg.ClientID, paypalCfg.Secret, paypalCfg.Mode)
 		if err == nil {
 			provider.SetCheckoutRedirectURLs(paypalCfg.ReturnURL, paypalCfg.CancelURL)
@@ -508,7 +532,9 @@ func resolvePaymentProviders(stripeCfg config.StripeConfig, paypalCfg config.Pay
 
 // createPayPalWebhookVerifier creates a PayPal client suitable for webhook
 // signature verification. The client is separate from the payment-initiation
-// provider to maintain clean separation of concerns.
+// provider to maintain clean separation of concerns. An unsupported mode fails
+// closed instead of silently verifying against the sandbox API, so a mistyped
+// mode can never mount a verifier for a provider that is disabled.
 func createPayPalWebhookVerifier(cfg config.PayPalConfig) (*paypal.Client, error) {
 	mode := strings.TrimSpace(strings.ToLower(cfg.Mode))
 	var apiBase string
@@ -518,7 +544,7 @@ func createPayPalWebhookVerifier(cfg config.PayPalConfig) (*paypal.Client, error
 	case "live":
 		apiBase = paypal.APIBaseLive
 	default:
-		apiBase = paypal.APIBaseSandBox
+		return nil, fmt.Errorf("failed to create PayPal webhook verifier: unsupported mode %q", cfg.Mode)
 	}
 
 	client, err := paypal.NewClient(cfg.ClientID, cfg.Secret, apiBase)

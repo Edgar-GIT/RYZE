@@ -1078,3 +1078,81 @@ func TestPayPalWebhook_LateApprovalOnFailedPurchaseIsNotCaptured(t *testing.T) {
 		t.Fatalf("a late approval must never capture or complete, got %d attempts", completeCount)
 	}
 }
+
+// --- resolved pairs ---
+
+// TestPayPalWebhook_ApprovedDuplicateEntitlementIsAcknowledged proves an
+// approved order whose pair already resolved another way (a sibling purchase
+// completed first) is acknowledged with 200 and recorded as a resolved
+// conflict, instead of being retried forever for a duplicate sale that can
+// never succeed.
+func TestPayPalWebhook_ApprovedDuplicateEntitlementIsAcknowledged(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p-dup-approved",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "paypal",
+	}
+	records := &recordingOutcomeRecorder{}
+	svc := &stubPurchaseService{purchase: purchase, completeErr: purchases.ErrDuplicateEntitlement}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+	}
+
+	payload := buildPayPalOrderApprovedEvent(t, "p-dup-approved", "1.00", "EUR")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc, webhooks.WithPayPalOutcomeRecorder(records))
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for a resolved pair, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "pair already resolved" {
+		t.Fatalf("expected a resolved-pair acknowledgement, got %q", w.Body.String())
+	}
+	if got := records.outcomes()["WH-TEST-123"]; got != "conflict_pair_resolved" {
+		t.Fatalf("expected a conflict_pair_resolved outcome, got %q", got)
+	}
+}
+
+// TestPayPalWebhook_CaptureCompletedDuplicateEntitlementIsAcknowledged proves
+// the captured-payment completion path treats a resolved pair the same way:
+// the funds settled, but the pair already owns access, so the delivery is
+// final and recorded instead of retried.
+func TestPayPalWebhook_CaptureCompletedDuplicateEntitlementIsAcknowledged(t *testing.T) {
+	purchase := &purchases.Purchase{
+		ID:              "p-dup-capture",
+		PriceMinorUnits: 100,
+		Currency:        "EUR",
+		Status:          "pending",
+		PaymentMethod:   "paypal",
+	}
+	records := &recordingOutcomeRecorder{}
+	svc := &stubPurchaseService{purchase: purchase, completeErr: purchases.ErrDuplicateEntitlement}
+	verifier := &stubPayPalVerifier{
+		response: &paypal.VerifyWebhookResponse{VerificationStatus: "SUCCESS"},
+		order:    buildPayPalOrder("ORDER-CAPTURE-DUP", "p-dup-capture"),
+	}
+
+	payload := buildPayPalCaptureCompletedEvent("ORDER-CAPTURE-DUP", "1.00", "EUR", "COMPLETED")
+	handler := webhooks.NewPayPalWebhookHandler(verifier, "WH-123", svc, webhooks.WithPayPalOutcomeRecorder(records))
+	router := newPayPalTestRouter(handler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/webhooks/paypal", bytes.NewReader(payload))
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for a resolved pair, got %d: %s", w.Code, w.Body.String())
+	}
+	if w.Body.String() != "pair already resolved" {
+		t.Fatalf("expected a resolved-pair acknowledgement, got %q", w.Body.String())
+	}
+	if got := records.outcomes()["WH-CAPTURE-ORDER-CAPTURE-DUP"]; got != "conflict_pair_resolved" {
+		t.Fatalf("expected a conflict_pair_resolved outcome, got %q", got)
+	}
+}

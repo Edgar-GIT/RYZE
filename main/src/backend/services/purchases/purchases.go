@@ -21,8 +21,10 @@ var (
 	// ErrProgramNotPurchasable indicates the program is free and cannot be
 	// purchased through the commercial transaction path.
 	ErrProgramNotPurchasable = errors.New("program is not purchasable")
-	// ErrDuplicateEntitlement indicates an active entitlement already exists
-	// for this (user, program) pair. The user already owns this program.
+	// ErrDuplicateEntitlement indicates the (user, program) pair is already
+	// resolved another way: an active entitlement exists, or a completed
+	// purchase already resolved the pair. The user already owns this program
+	// and a second sale can never be defined.
 	ErrDuplicateEntitlement = errors.New("duplicate entitlement")
 	// ErrDuplicatePurchase indicates an active purchase already exists for this
 	// (user, program) pair. The purchase must be resolved before creating a new
@@ -548,6 +550,19 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 		return nil, fmt.Errorf("failed to load program: %w", err)
 	}
 
+	// The pair may already be owned: a sibling purchase can complete (or be
+	// reconciled from a late settlement) while this pending purchase waits.
+	// Such a purchase can never complete — completion refuses a second sale
+	// for the pair — so opening a provider session here would take money that
+	// can never grant access. The initiation fails closed before any provider
+	// is contacted; the client resolves ownership by checking its access state,
+	// the same recovery as a duplicate completion.
+	if _, err := s.entitlements.FindActiveByUserAndProgram(ctx, purchase.UserID, purchase.ProgramID); err == nil {
+		return nil, ErrDuplicateEntitlement
+	} else if !errors.Is(err, repositories.ErrEntitlementNotFound) {
+		return nil, fmt.Errorf("failed to check entitlement: %w", err)
+	}
+
 	// The recorded method is immutable for the purchase. A re-initiation with a
 	// different method is rejected instead of rebinding the purchase: the
 	// outstanding provider payment belongs to the method recorded at the first
@@ -686,16 +701,30 @@ func (s *service) completeAndCreateEntitlement(ctx context.Context, purchase *mo
 	switch {
 	case err == nil:
 		return nil
-	case !errors.Is(err, repositories.ErrEntitlementNotFound):
-		if errors.Is(err, repositories.ErrPurchaseNotFound) {
-			return ErrPurchaseNotFound
-		}
+	case errors.Is(err, repositories.ErrEntitlementNotFound):
+		// No soft-deleted entitlement exists; fall through to the create path
+		// below.
+	case errors.Is(err, repositories.ErrPurchaseNotFound):
+		return ErrPurchaseNotFound
+	case errors.Is(err, repositories.ErrCompletedPurchaseExists):
+		// A completed sibling purchase already resolved this (user, program)
+		// pair, so this sale can never define a second one.
+		return ErrDuplicateEntitlement
+	default:
 		return fmt.Errorf("failed to restore entitlement and complete purchase: %w", err)
 	}
 
 	if err := s.purchases.CompleteWithEntitlement(ctx, purchase.ID, entitlement); err != nil {
 		if errors.Is(err, repositories.ErrPurchaseNotFound) {
 			return ErrPurchaseNotFound
+		}
+		if errors.Is(err, repositories.ErrCompletedPurchaseExists) {
+			// The conditional update collided with a completed sibling
+			// purchase for the same pair: the pair is already resolved and
+			// this sale can never define a second one. Surfacing the
+			// resolved-pair conflict lets the webhook acknowledge the
+			// duplicate delivery instead of retrying it forever.
+			return ErrDuplicateEntitlement
 		}
 		if errors.Is(err, repositories.ErrEntitlementAlreadyExists) {
 			return ErrEntitlementIntegrity
@@ -950,14 +979,22 @@ func (s *service) CompletePurchaseWithCapture(ctx context.Context, purchaseID, p
 }
 
 // captureAndComplete captures the approved provider payment for the purchase
-// and completes it atomically. The capture provider is resolved from the
-// payment method recorded on the purchase at initiation — it is never derived
-// from client input. A purchase without a recorded method cannot be captured
-// and fails closed as a provider error, keeping the purchase pending so the
-// buyer can re-initiate. An already-completed purchase is a safe idempotent
-// success. Capture failures surface as ErrPaymentProvider and NEVER complete
-// the purchase — the status remains pending so the buyer can retry or
-// re-initiate.
+// and completes it. The capture provider is resolved from the payment method
+// recorded on the purchase at initiation — it is never derived from client
+// input. A purchase without a recorded method cannot be captured and fails
+// closed as a provider error, keeping the purchase pending so the buyer can
+// re-initiate. An already-completed purchase is a safe idempotent success. A
+// purchase whose (user, program) pair resolved another way is never captured:
+// the provider is not contacted because the money could never grant access.
+// Capture failures surface as ErrPaymentProvider and NEVER complete the
+// purchase — the status remains pending so the buyer can retry or re-initiate.
+//
+// A completion that observes the purchase moving on under it (a concurrent
+// verified delivery completed it, or a supersede landed while the payment was
+// being captured) re-reads the durable state: a completed purchase is the
+// idempotent success it is, and a superseded purchase is reported as not
+// pending so the caller re-resolves the buyer's real access instead of
+// surfacing a stale failure.
 func (s *service) captureAndComplete(ctx context.Context, purchase *models.Purchase, providerPaymentID string) (*Purchase, error) {
 	if purchase.Status == models.PurchaseStatusCompleted {
 		existing, entErr := s.entitlements.FindActiveByUserAndProgram(ctx, purchase.UserID, purchase.ProgramID)
@@ -973,6 +1010,19 @@ func (s *service) captureAndComplete(ctx context.Context, purchase *models.Purch
 
 	if purchase.Status != models.PurchaseStatusPending {
 		return nil, ErrPurchaseNotPending
+	}
+
+	// The pair may have resolved while the approval was in flight (a sibling
+	// purchase completed first). A capture now would move money that can never
+	// grant access — the completion path refuses a second sale for the pair —
+	// so the provider is deliberately not contacted and the conflict is
+	// reported as an already-owned pair. The completion path still double
+	// checks under its own atomic guards; this only narrows the window and
+	// keeps the money at the provider.
+	if _, err := s.entitlements.FindActiveByUserAndProgram(ctx, purchase.UserID, purchase.ProgramID); err == nil {
+		return nil, ErrDuplicateEntitlement
+	} else if !errors.Is(err, repositories.ErrEntitlementNotFound) {
+		return nil, fmt.Errorf("failed to check entitlement: %w", err)
 	}
 
 	methodValue := ""
@@ -1003,7 +1053,39 @@ func (s *service) captureAndComplete(ctx context.Context, purchase *models.Purch
 		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
 	}
 
-	return s.CompletePurchase(ctx, purchase.ID)
+	completed, err := s.CompletePurchase(ctx, purchase.ID)
+	if err != nil {
+		// A concurrent verified delivery can complete the purchase between
+		// the capture and this completion: the conditional status update then
+		// has nothing to change. The payment is already captured, so the
+		// durable state decides the outcome — reload it and treat a completed
+		// purchase as the idempotent success it is instead of surfacing a
+		// stale failure.
+		if errors.Is(err, ErrPurchaseNotFound) || errors.Is(err, ErrPurchaseNotCompleted) {
+			reloaded, reloadErr := s.purchases.FindByID(ctx, purchase.ID)
+			if reloadErr != nil {
+				return nil, err
+			}
+			if reloaded.Status == models.PurchaseStatusCompleted {
+				existing, entErr := s.entitlements.FindActiveByUserAndProgram(ctx, reloaded.UserID, reloaded.ProgramID)
+				if entErr != nil && !errors.Is(entErr, repositories.ErrEntitlementNotFound) {
+					return nil, fmt.Errorf("failed to check entitlement: %w", entErr)
+				}
+				if existing != nil {
+					s.fulfill(ctx, reloaded.UserID, reloaded.ProgramID)
+					return newPurchase(reloaded), nil
+				}
+				return nil, ErrEntitlementIntegrity
+			}
+			// The purchase moved on without completing (it was superseded
+			// while the payment was being captured). The current state is
+			// authoritative: report not pending so the caller re-resolves the
+			// buyer's real access instead of retrying blindly.
+			return nil, ErrPurchaseNotPending
+		}
+		return nil, err
+	}
+	return completed, nil
 }
 
 func newPurchase(model *models.Purchase) *Purchase {

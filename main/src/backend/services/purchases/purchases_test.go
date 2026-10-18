@@ -2510,6 +2510,272 @@ func TestCapturePaymentRejectsNonPendingPurchase(t *testing.T) {
 	}
 }
 
+// TestInitiatePaymentRefusesWhenPairAlreadyOwned proves initiation is the
+// first line of defense against a duplicate sale: a pending purchase whose
+// (user, program) pair resolved another way can never complete, so no provider
+// session may be opened for it and no money may be taken.
+func TestInitiatePaymentRefusesWhenPairAlreadyOwned(t *testing.T) {
+	program := &models.Program{
+		ID:              "11111111-1111-1111-1111-111111111111",
+		Type:            models.ProgramTypePremium,
+		Status:          models.ProgramStatusPublished,
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+	}
+	pending := &models.Purchase{
+		ID:              "purchase-owned-pair",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       program.ID,
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	entitlements := &stubEntitlementRepository{
+		existing: &models.Entitlement{UserID: pending.UserID, ProgramID: pending.ProgramID},
+	}
+	provider := &stubPaymentProvider{}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{program: program},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		stubResolver(provider),
+	)
+
+	_, err := svc.InitiatePayment(context.Background(), pending.UserID, pending.ID, "paypal")
+	if !errors.Is(err, purchases.ErrDuplicateEntitlement) {
+		t.Fatalf("an owned pair must refuse initiation with ErrDuplicateEntitlement, got %v", err)
+	}
+	if provider.initiateCalls != 0 {
+		t.Fatalf("no provider session may be opened for a resolved pair, got %d initiation calls", provider.initiateCalls)
+	}
+}
+
+// TestCompletePurchaseMapsCompletedSiblingToDuplicateSale proves the atomic
+// completion paths report a completed sibling purchase for the same pair as
+// ErrDuplicateEntitlement instead of a raw persistence error, so the webhook
+// layer can acknowledge the duplicate delivery instead of retrying it forever.
+func TestCompletePurchaseMapsCompletedSiblingToDuplicateSale(t *testing.T) {
+	cases := []struct {
+		name       string
+		restoreErr error
+		createErr  error
+	}{
+		{
+			name:       "create path collision",
+			restoreErr: repositories.ErrEntitlementNotFound,
+			createErr:  repositories.ErrCompletedPurchaseExists,
+		},
+		{
+			name:       "restore path collision",
+			restoreErr: repositories.ErrCompletedPurchaseExists,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			purchase := &models.Purchase{
+				ID:              "aaaa1111-1111-1111-1111-111111111111",
+				UserID:          "33333333-3333-3333-3333-333333333333",
+				ProgramID:       "11111111-1111-1111-1111-111111111111",
+				PriceMinorUnits: 10000,
+				Currency:        "EUR",
+				Status:          models.PurchaseStatusPending,
+			}
+			purchasesRepo := &completionPurchaseRepo{
+				findByIDPurchase:        purchase,
+				completeWithRestoredErr: tc.restoreErr,
+				completeWithEntErr:      tc.createErr,
+			}
+
+			svc := purchases.NewService(
+				&stubProgramRepository{},
+				purchasesRepo,
+				&completionEntitlementRepo{},
+				&stubCommissionResolver{},
+				nil,
+			)
+
+			_, err := svc.CompletePurchase(context.Background(), purchase.ID)
+			if !errors.Is(err, purchases.ErrDuplicateEntitlement) {
+				t.Fatalf("a completed sibling must surface as ErrDuplicateEntitlement, got %v", err)
+			}
+		})
+	}
+}
+
+// TestCapturePaymentRefusesCaptureWhenPairAlreadyOwned proves a capture whose
+// pair resolved while the approval was in flight never contacts the provider:
+// the money could never grant access, so the order is deliberately left
+// uncaptured and the conflict is reported as an already-owned pair.
+func TestCapturePaymentRefusesCaptureWhenPairAlreadyOwned(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-capture-owned",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("paypal"),
+	}
+	purchasesRepo := &stubPurchaseRepository{findByIDPurchase: pending}
+	entitlements := &stubEntitlementRepository{
+		existing: &models.Entitlement{UserID: pending.UserID, ProgramID: pending.ProgramID},
+	}
+	var captured payments.CaptureRequest
+	provider := &stubCaptureProvider{captureRequest: &captured}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		stubResolver(provider),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "paypal-order-owned")
+	if !errors.Is(err, purchases.ErrDuplicateEntitlement) {
+		t.Fatalf("an owned pair must refuse capture with ErrDuplicateEntitlement, got %v", err)
+	}
+	if captured.PurchaseID != "" {
+		t.Fatalf("an owned pair must never contact the provider, got capture request %+v", captured)
+	}
+}
+
+// raceCompletionPurchaseRepo simulates a concurrent verified completion landing
+// while a capture is in flight: the sibling's commit becomes visible at the
+// moment the local completion update runs, which then has nothing to change.
+type raceCompletionPurchaseRepo struct {
+	purchase     *models.Purchase
+	winnerStatus string
+}
+
+func (r *raceCompletionPurchaseRepo) Create(_ context.Context, _ *models.Purchase) error { return nil }
+func (r *raceCompletionPurchaseRepo) ListActiveByUser(_ context.Context, _ string) ([]models.Purchase, error) {
+	return nil, nil
+}
+func (r *raceCompletionPurchaseRepo) FindActiveByUserAndProgram(_ context.Context, _, _ string) (*models.Purchase, error) {
+	return nil, repositories.ErrPurchaseNotFound
+}
+func (r *raceCompletionPurchaseRepo) FindByID(_ context.Context, _ string) (*models.Purchase, error) {
+	return r.purchase, nil
+}
+func (r *raceCompletionPurchaseRepo) Complete(_ context.Context, _ string) error { return nil }
+func (r *raceCompletionPurchaseRepo) CompleteWithRestoredEntitlement(_ context.Context, _ string, _ *models.Entitlement) error {
+	return repositories.ErrEntitlementNotFound
+}
+func (r *raceCompletionPurchaseRepo) CompleteWithEntitlement(_ context.Context, _ string, _ *models.Entitlement) error {
+	// The sibling commits here: by the time the conditional update runs, the
+	// row has moved on and the update changes nothing.
+	r.purchase.Status = r.winnerStatus
+	return repositories.ErrPurchaseNotFound
+}
+func (r *raceCompletionPurchaseRepo) CompleteTestPurchase(_ context.Context, _ *models.Purchase, _ *models.Entitlement) error {
+	return nil
+}
+func (r *raceCompletionPurchaseRepo) SetPaymentMethod(_ context.Context, _, _ string) error {
+	return nil
+}
+func (r *raceCompletionPurchaseRepo) Fail(_ context.Context, _ string) error { return nil }
+func (r *raceCompletionPurchaseRepo) ReconcileFailedPurchase(_ context.Context, _, _, _ string, _ *models.Entitlement) error {
+	return nil
+}
+
+// sequencedEntitlementRepo makes an entitlement become visible from a fixed
+// lookup index on, modelling the concurrent sibling commit landing between the
+// capture and the completion reload.
+type sequencedEntitlementRepo struct {
+	entitlement *models.Entitlement
+	appearAfter int
+	calls       int
+}
+
+func (r *sequencedEntitlementRepo) Create(_ context.Context, _, _ string, _ *models.Entitlement) error {
+	return nil
+}
+func (r *sequencedEntitlementRepo) FindActiveByUserAndProgram(_ context.Context, _, _ string) (*models.Entitlement, error) {
+	r.calls++
+	if r.entitlement != nil && r.calls > r.appearAfter {
+		return r.entitlement, nil
+	}
+	return nil, repositories.ErrEntitlementNotFound
+}
+func (r *sequencedEntitlementRepo) RestoreByUserAndProgram(_ context.Context, _, _ string) error {
+	return repositories.ErrEntitlementNotFound
+}
+
+// TestCapturePaymentRecoversWhenConcurrentCompletionWon proves the browser
+// capture return leg treats a purchase completed by a concurrent verified
+// delivery as the idempotent success it is, instead of surfacing a stale
+// not-found failure for a buyer who owns the program and paid for it.
+func TestCapturePaymentRecoversWhenConcurrentCompletionWon(t *testing.T) {
+	const winnerEntitlementLookup = 2
+	pending := &models.Purchase{
+		ID:              "purchase-race-winner",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("paypal"),
+	}
+	purchasesRepo := &raceCompletionPurchaseRepo{purchase: pending, winnerStatus: models.PurchaseStatusCompleted}
+	entitlements := &sequencedEntitlementRepo{
+		entitlement: &models.Entitlement{UserID: pending.UserID, ProgramID: pending.ProgramID},
+		appearAfter: winnerEntitlementLookup,
+	}
+	provider := &stubCaptureProvider{result: payments.CaptureResult{PaymentID: "paypal-order-race", Provider: "paypal"}}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		entitlements,
+		&stubCommissionResolver{},
+		stubResolver(provider),
+	)
+
+	result, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "paypal-order-race")
+	if err != nil {
+		t.Fatalf("a concurrently completed purchase must recover as an idempotent success, got %v", err)
+	}
+	if result.Status != models.PurchaseStatusCompleted {
+		t.Fatalf("expected a completed purchase, got %q", result.Status)
+	}
+}
+
+// TestCapturePaymentReportsSupersededPurchaseAsNotPending proves a purchase
+// that moved on without completing (superseded while the payment was being
+// captured) is reported as not pending, so the caller re-resolves the buyer's
+// real access instead of retrying blindly.
+func TestCapturePaymentReportsSupersededPurchaseAsNotPending(t *testing.T) {
+	pending := &models.Purchase{
+		ID:              "purchase-race-superseded",
+		UserID:          "22222222-2222-2222-2222-222222222222",
+		ProgramID:       "11111111-1111-1111-1111-111111111111",
+		PriceMinorUnits: 2500,
+		Currency:        "EUR",
+		Status:          models.PurchaseStatusPending,
+		PaymentMethod:   strPtr("paypal"),
+	}
+	purchasesRepo := &raceCompletionPurchaseRepo{purchase: pending, winnerStatus: models.PurchaseStatusFailed}
+	provider := &stubCaptureProvider{result: payments.CaptureResult{PaymentID: "paypal-order-race", Provider: "paypal"}}
+
+	svc := purchases.NewService(
+		&stubProgramRepository{},
+		purchasesRepo,
+		&stubEntitlementRepository{},
+		&stubCommissionResolver{},
+		stubResolver(provider),
+	)
+
+	_, err := svc.CapturePayment(context.Background(), pending.UserID, pending.ID, "paypal-order-race")
+	if !errors.Is(err, purchases.ErrPurchaseNotPending) {
+		t.Fatalf("a superseded purchase must surface as ErrPurchaseNotPending, got %v", err)
+	}
+}
+
 func TestReconcilePurchaseCompletesFailedPurchase(t *testing.T) {
 	failed := &models.Purchase{
 		ID:              "purchase-reconcile",

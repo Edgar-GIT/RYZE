@@ -149,10 +149,10 @@ func NewPayPalWebhookHandler(verifier PayPalWebhookVerifier, webhookID string, p
 //     - 200: unsupported event type (safely ignored), unknown purchase, already
 //     completed, not pending, late settlements (reconciled or diagnosed),
 //     reference/amount/currency/payment-method mismatch, late approval, Test
-//     Mode purchase carrying a real payment event. The mismatches are
-//     acknowledged (not retried) because a duplicate delivery cannot change the
-//     immutable purchase snapshot: the durable reconciliation event is the
-//     operator-facing diagnosis instead.
+//     Mode purchase carrying a real payment event, pair already resolved by a
+//     sibling purchase. The mismatches are acknowledged (not retried) because a
+//     duplicate delivery cannot change the immutable purchase snapshot: the
+//     durable reconciliation event is the operator-facing diagnosis instead.
 //     - 500: internal errors where provider retry is desirable (completion or
 //     reconciliation failure, transient load failure).
 //
@@ -332,6 +332,16 @@ func (h *PayPalWebhookHandler) handleOrderApproved(c *gin.Context, event paypalW
 			log.Printf("[PAYPAL-WEBHOOK] capture/complete for %s observed the purchase moving on: %v", purchaseID, err)
 			recordOutcome(ctx, h.outcomes, "paypal", purchaseID, event.ID, models.ReconciliationOutcomePurchaseMovedOn)
 			c.String(http.StatusOK, "purchase moved on")
+		case errors.Is(err, purchases.ErrDuplicateEntitlement):
+			// The (user, program) pair already resolved another way — a
+			// sibling purchase completed or was reconciled first — so this
+			// verified payment can never define a second sale. A redelivery
+			// cannot change the durable state, so the delivery is
+			// acknowledged and recorded as a resolved conflict instead of
+			// being retried forever.
+			log.Printf("[PAYPAL-WEBHOOK] capture/complete for %s found the pair already resolved: %v", purchaseID, err)
+			recordOutcome(ctx, h.outcomes, "paypal", purchaseID, event.ID, models.ReconciliationOutcomeConflictPairResolved)
+			c.String(http.StatusOK, "pair already resolved")
 		case errors.Is(err, purchases.ErrEntitlementIntegrity):
 			log.Printf("[PAYPAL-WEBHOOK] capture/complete for %s hit an entitlement integrity violation: %v", purchaseID, err)
 			recordOutcome(ctx, h.outcomes, "paypal", purchaseID, event.ID, models.ReconciliationOutcomeEntitlementIntegrity)
@@ -470,6 +480,15 @@ func (h *PayPalWebhookHandler) handleCaptureCompleted(c *gin.Context, event payp
 				log.Printf("[PAYPAL-WEBHOOK] CompletePurchase for captured purchase %s observed the purchase moving on: %v", purchaseID, err)
 				recordOutcome(ctx, h.outcomes, "paypal", purchaseID, event.ID, models.ReconciliationOutcomePurchaseMovedOn)
 				c.String(http.StatusOK, "purchase moved on")
+			case errors.Is(err, purchases.ErrDuplicateEntitlement):
+				// The (user, program) pair already resolved another way, so
+				// the captured funds can never define a second sale. The
+				// durable state is already correct and a redelivery cannot
+				// change it: acknowledge and record the resolved conflict
+				// instead of retrying forever.
+				log.Printf("[PAYPAL-WEBHOOK] CompletePurchase for captured purchase %s found the pair already resolved: %v", purchaseID, err)
+				recordOutcome(ctx, h.outcomes, "paypal", purchaseID, event.ID, models.ReconciliationOutcomeConflictPairResolved)
+				c.String(http.StatusOK, "pair already resolved")
 			case errors.Is(err, purchases.ErrEntitlementIntegrity):
 				log.Printf("[PAYPAL-WEBHOOK] CompletePurchase for captured purchase %s hit an entitlement integrity violation: %v", purchaseID, err)
 				recordOutcome(ctx, h.outcomes, "paypal", purchaseID, event.ID, models.ReconciliationOutcomeEntitlementIntegrity)

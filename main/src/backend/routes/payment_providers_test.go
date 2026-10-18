@@ -145,6 +145,84 @@ func TestStripeEnabledGatesProviderAndWebhookEndpoint(t *testing.T) {
 	}
 }
 
+// TestPayPalEnabledIsTheSingleReadinessPredicate verifies that the PayPal
+// provider and its webhook endpoint share one readiness rule: client id and
+// secret present and a supported mode. An unsupported mode must disable
+// PayPal instead of silently falling back to sandbox.
+func TestPayPalEnabledIsTheSingleReadinessPredicate(t *testing.T) {
+	cases := []struct {
+		name     string
+		clientID string
+		secret   string
+		mode     string
+		want     bool
+	}{
+		{name: "fully configured sandbox", clientID: "client-id", secret: "secret", mode: "sandbox", want: true},
+		{name: "fully configured live", clientID: "client-id", secret: "secret", mode: "live", want: true},
+		{name: "mode with surrounding whitespace", clientID: "client-id", secret: "secret", mode: " Live ", want: true},
+		{name: "unsupported mode disables PayPal", clientID: "client-id", secret: "secret", mode: "production", want: false},
+		{name: "missing mode disables PayPal", clientID: "client-id", secret: "secret", mode: "", want: false},
+		{name: "missing secret disables PayPal", clientID: "client-id", mode: "sandbox", want: false},
+		{name: "missing client id disables PayPal", secret: "secret", mode: "sandbox", want: false},
+		{name: "nothing configured", want: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := paypalEnabled(config.PayPalConfig{ClientID: tc.clientID, Secret: tc.secret, Mode: tc.mode})
+			if got != tc.want {
+				t.Errorf("expected %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+// TestPayPalEnabledMatchesProviderCreation verifies that every configuration
+// the predicate accepts produces a provider and every configuration it rejects
+// produces none, so the provider and the webhook gate can never disagree.
+func TestPayPalEnabledMatchesProviderCreation(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  config.PayPalConfig
+	}{
+		{name: "sandbox", cfg: config.PayPalConfig{ClientID: "client-id", Secret: "secret", Mode: "sandbox"}},
+		{name: "live", cfg: config.PayPalConfig{ClientID: "client-id", Secret: "secret", Mode: "live"}},
+		{name: "unsupported mode", cfg: config.PayPalConfig{ClientID: "client-id", Secret: "secret", Mode: "production"}},
+		{name: "missing secret", cfg: config.PayPalConfig{ClientID: "client-id", Mode: "sandbox"}},
+		{name: "missing client id", cfg: config.PayPalConfig{Secret: "secret", Mode: "sandbox"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Cleanup(func() { stripe.Key = "" })
+
+			_, paypalProvider := resolvePaymentProviders(config.StripeConfig{}, tc.cfg, config.WebhookConfig{})
+
+			if paypalEnabled(tc.cfg) != (paypalProvider != nil) {
+				t.Fatalf("predicate and provider creation disagree for %+v", tc.cfg)
+			}
+		})
+	}
+}
+
+// TestCreatePayPalWebhookVerifierFailsClosedOnUnsupportedMode verifies the
+// verifier never silently falls back to the sandbox API for a mode PayPal does
+// not support: a mistyped mode must reject the verifier rather than mount an
+// endpoint for a provider the rest of the stack has disabled.
+func TestCreatePayPalWebhookVerifierFailsClosedOnUnsupportedMode(t *testing.T) {
+	if _, err := createPayPalWebhookVerifier(config.PayPalConfig{ClientID: "client-id", Secret: "secret", Mode: "production"}); err == nil {
+		t.Fatal("expected an unsupported mode to reject the webhook verifier")
+	}
+
+	client, err := createPayPalWebhookVerifier(config.PayPalConfig{ClientID: "client-id", Secret: "secret", Mode: "sandbox"})
+	if err != nil {
+		t.Fatalf("expected the sandbox mode to produce a verifier, got %v", err)
+	}
+	if client == nil {
+		t.Fatal("expected a verifier client for the sandbox mode")
+	}
+}
+
 func containsMethod(methods []payments.PaymentMethod, want payments.PaymentMethod) bool {
 	for _, method := range methods {
 		if method == want {
