@@ -62,11 +62,14 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	if err := router.SetTrustedProxies(rateLimitCfg.TrustedProxies); err != nil {
 		_ = router.SetTrustedProxies(nil)
 	}
-	// CORS runs first so every response, including a body-limit rejection,
-	// carries the headers the browser needs to read it. The body limit then
-	// bounds every request body before any handler (or webhook signature
-	// verification) can read it.
+	// CORS runs first so every response, including a body-limit or origin
+	// rejection, carries the headers the browser needs to read it. The origin
+	// guard then rejects browser-originated state-changing requests from hosts
+	// outside the allow list before any handler can act on a SameSite cookie.
+	// The body limit bounds every request body before any handler (or webhook
+	// signature verification) can read it.
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
+	router.Use(middleware.OriginGuard(corsCfg.AllowedOrigins))
 	router.Use(middleware.BodyLimit(serverCfg.MaxBodyBytes))
 
 	userRepository := repositories.NewUserRepository(db)
