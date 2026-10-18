@@ -203,7 +203,14 @@ func (s *service) Enter(ctx context.Context, adminIdentity, persona, returnPath 
 // Exit ends the active session for the given raw token and returns the
 // original admin identity and the recorded return path. The token must still
 // be active; an unknown or already-exited session reports ErrNoActiveSession.
+// Exit is part of the feature, so the global kill switch applies: a disabled
+// service refuses to restore any identity from a stored session. The session
+// age is deliberately not checked, so an administrator can always leave a
+// persona they already entered.
 func (s *service) Exit(ctx context.Context, rawToken string) (ExitResult, error) {
+	if !s.enabled {
+		return ExitResult{}, ErrDisabled
+	}
 	if strings.TrimSpace(rawToken) == "" {
 		return ExitResult{}, ErrNoActiveSession
 	}
@@ -233,9 +240,9 @@ func (s *service) Exit(ctx context.Context, rawToken string) (ExitResult, error)
 // precisely the persona the session was opened for. A session that outlived its
 // configured lifetime or a disabled service reports ErrNoActiveSession /
 // ErrDisabled, so a captured cookie cannot be replayed past its server-side
-// limit. Exit is intentionally not gated by these checks: restoring the admin
-// from an expired session is always allowed so an admin can never be stranded
-// inside a persona.
+// limit. Exit enforces the same enabled flag but ignores the session age:
+// restoring the admin from an expired session is always allowed so an admin
+// can never be stranded inside a persona.
 func (s *service) ActivePersona(ctx context.Context, rawToken string) (*Session, error) {
 	if !s.enabled {
 		return nil, ErrDisabled

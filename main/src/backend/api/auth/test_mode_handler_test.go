@@ -491,6 +491,20 @@ func TestTestModeExitWithUnknownToken(t *testing.T) {
 	}
 }
 
+func TestTestModeExitRejectedWhenDisabled(t *testing.T) {
+	router, _, _, _ := newTestModeTestRouter(t, false)
+
+	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/admin/auth/test-mode/exit", "", map[string]string{
+		auth.TestSessionTokenCookieName: "stale-session-token",
+	})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 when Test Mode is disabled, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"TEST_MODE_DISABLED"`) {
+		t.Fatalf("expected TEST_MODE_DISABLED, got %s", raw)
+	}
+}
+
 func TestTestModePurchaseCompletesWithoutProvider(t *testing.T) {
 	router, userRepo, tx, tokenSvc := newTestModeTestRouter(t, true)
 

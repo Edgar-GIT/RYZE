@@ -395,6 +395,27 @@ func TestActivePersonaRejectsWhenDisabled(t *testing.T) {
 	}
 }
 
+func TestExitRejectsWhenDisabled(t *testing.T) {
+	ctx := context.Background()
+	sessions := newFakeSessions()
+	sum := sha256.Sum256([]byte("raw-token"))
+	if err := sessions.Create(ctx, &models.TestSession{
+		AdminIdentity: "ADMIN_1",
+		Persona:       test_mode.PersonaClient,
+		PersonaUserID: "persona-user",
+		TokenHash:     hex.EncodeToString(sum[:]),
+	}); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	// The kill switch must also stop exit: a stored session must never be able
+	// to mint an admin session once the feature is disabled.
+	svc := test_mode.NewService(false, sessions, newFakeUsers(), newFakeTrainers(), fakeHasher{})
+	if _, err := svc.Exit(ctx, "raw-token"); !errors.Is(err, test_mode.ErrDisabled) {
+		t.Fatalf("expected ErrDisabled for a disabled service, got %v", err)
+	}
+}
+
 func TestExitRestoresAdminEvenAfterExpiry(t *testing.T) {
 	svc, sessions, _, _ := newServiceWithTTL(true, time.Hour)
 	ctx := context.Background()
