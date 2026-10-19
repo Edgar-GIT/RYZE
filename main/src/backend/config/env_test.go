@@ -373,3 +373,84 @@ func TestLoadRateLimitRejectsInvalidTrustedProxy(t *testing.T) {
 		t.Fatal("expected error for an entry that is neither an IP nor a CIDR")
 	}
 }
+
+func TestLoadEvidenceDefaults(t *testing.T) {
+	t.Setenv("TRAINER_EVIDENCE_DIR", "")
+	t.Setenv("TRAINER_EVIDENCE_MAX_BYTES", "")
+
+	cfg, err := config.LoadEvidence()
+	if err != nil {
+		t.Fatalf("LoadEvidence: %v", err)
+	}
+	if cfg.StorageDir != "storage/trainer-evidence" {
+		t.Fatalf("unexpected default storage dir %q", cfg.StorageDir)
+	}
+	if cfg.MaxBytes != 10<<20 {
+		t.Fatalf("unexpected default max bytes %d", cfg.MaxBytes)
+	}
+}
+
+func TestLoadEvidenceCustomValues(t *testing.T) {
+	t.Setenv("TRAINER_EVIDENCE_DIR", "/srv/ryze/evidence")
+	t.Setenv("TRAINER_EVIDENCE_MAX_BYTES", "2097152")
+
+	cfg, err := config.LoadEvidence()
+	if err != nil {
+		t.Fatalf("LoadEvidence: %v", err)
+	}
+	if cfg.StorageDir != "/srv/ryze/evidence" || cfg.MaxBytes != 2097152 {
+		t.Fatalf("unexpected evidence config %+v", cfg)
+	}
+}
+
+func TestLoadEvidenceRejectsInvalidMaxBytes(t *testing.T) {
+	for _, value := range []string{"0", "-1", "abc", "26214401"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("TRAINER_EVIDENCE_MAX_BYTES", value)
+			if _, err := config.LoadEvidence(); err == nil {
+				t.Fatalf("TRAINER_EVIDENCE_MAX_BYTES=%s: expected an error", value)
+			}
+		})
+	}
+}
+
+func TestLoadExerciseMediaDefaultsToDisabled(t *testing.T) {
+	t.Setenv("EXERCISE_MEDIA_ENABLED", "")
+	t.Setenv("EXERCISE_MEDIA_BASE_PATH", "")
+
+	cfg, err := config.LoadExerciseMedia()
+	if err != nil {
+		t.Fatalf("LoadExerciseMedia: %v", err)
+	}
+	if cfg.Enabled {
+		t.Fatal("exercise media must be disabled by default until licensing is confirmed")
+	}
+	if cfg.BasePath != "/media/exercises" {
+		t.Fatalf("unexpected default base path %q", cfg.BasePath)
+	}
+}
+
+func TestLoadExerciseMediaCustomValues(t *testing.T) {
+	t.Setenv("EXERCISE_MEDIA_ENABLED", "true")
+	t.Setenv("EXERCISE_MEDIA_BASE_PATH", "/assets/exercises/")
+
+	cfg, err := config.LoadExerciseMedia()
+	if err != nil {
+		t.Fatalf("LoadExerciseMedia: %v", err)
+	}
+	if !cfg.Enabled || cfg.BasePath != "/assets/exercises" {
+		t.Fatalf("unexpected exercise media config %+v", cfg)
+	}
+}
+
+func TestLoadExerciseMediaRejectsUnsafeBasePath(t *testing.T) {
+	t.Setenv("EXERCISE_MEDIA_ENABLED", "true")
+	for _, value := range []string{"https://cdn.example.com/x", "/a/../b", "relative/path", "//host"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("EXERCISE_MEDIA_BASE_PATH", value)
+			if _, err := config.LoadExerciseMedia(); err == nil {
+				t.Fatalf("EXERCISE_MEDIA_BASE_PATH=%q: expected an error", value)
+			}
+		})
+	}
+}

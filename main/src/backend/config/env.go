@@ -317,7 +317,10 @@ func LoadExerciseMedia() (ExerciseMediaConfig, error) {
 		cfg.BasePath = raw
 	}
 	cfg.BasePath = strings.TrimSuffix(cfg.BasePath, "/")
-	if !strings.HasPrefix(cfg.BasePath, "/") || strings.Contains(cfg.BasePath, "..") || strings.Contains(cfg.BasePath, "://") {
+	// A base path must be a same-origin absolute path: a scheme, a
+	// protocol-relative prefix ("//host") or parent traversal would let the
+	// API hand clients a URL that escapes the RYZE origin.
+	if !strings.HasPrefix(cfg.BasePath, "/") || strings.HasPrefix(cfg.BasePath, "//") || strings.Contains(cfg.BasePath, "..") || strings.Contains(cfg.BasePath, "://") {
 		return ExerciseMediaConfig{}, fmt.Errorf("EXERCISE_MEDIA_BASE_PATH must be a same-origin absolute path without parent traversal, got %q", cfg.BasePath)
 	}
 
