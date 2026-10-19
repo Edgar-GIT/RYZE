@@ -79,8 +79,16 @@ func (r *trainerApplicationDocumentRepository) SoftDelete(ctx context.Context, d
 		return fmt.Errorf("failed to remove trainer application document: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		if _, err := r.FindByID(ctx, documentID); err != nil {
-			return ErrApplicationDocumentNotFound
+		// The guarded delete only matches an active row. Distinguish "already
+		// removed" from "never existed" with an unscoped probe, so the caller
+		// can tell an idempotent repeat from a stale reference without ever
+		// exposing a soft-deleted row through the active-scoped reads.
+		var probe models.TrainerApplicationDocument
+		if err := r.db.WithContext(ctx).Unscoped().First(&probe, "id = ?", documentID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrApplicationDocumentNotFound
+			}
+			return fmt.Errorf("failed to find trainer application document: %w", err)
 		}
 		return ErrApplicationDocumentAlreadyRemoved
 	}

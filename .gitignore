@@ -10,4 +10,5 @@ dist/
 main/src/frontend/dist/
 backups/
 uploads/
+storage/
 *.log

@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"strings"
 	"testing"
 	"time"
@@ -173,7 +175,7 @@ func newE2ERouter(t *testing.T) (*gin.Engine, *gorm.DB, config.AdminConfig) {
 	tx := db.Begin()
 	t.Cleanup(func() { tx.Rollback() })
 
-	return Setup(tx, jwtCfg, corsCfg, adminCfg, config.PricingConfig{MinProgramPriceMinorUnits: 100}, config.CommissionConfig{DefaultPlatformCommissionBPS: 2000}, config.StripeConfig{}, config.PayPalConfig{}, config.WebhookConfig{}, config.TestModeConfig{}, config.ServerConfig{MaxBodyBytes: 1 << 20}, config.RateLimitConfig{}, config.ExerciseMediaConfig{}), tx, adminCfg
+	return Setup(tx, jwtCfg, corsCfg, adminCfg, config.PricingConfig{MinProgramPriceMinorUnits: 100}, config.CommissionConfig{DefaultPlatformCommissionBPS: 2000}, config.StripeConfig{}, config.PayPalConfig{}, config.WebhookConfig{}, config.TestModeConfig{}, config.ServerConfig{MaxBodyBytes: 1 << 20}, config.RateLimitConfig{}, config.ExerciseMediaConfig{}, config.EvidenceConfig{StorageDir: t.TempDir(), MaxBytes: 2 << 20}), tx, adminCfg
 }
 
 // TestTrainerApplicationLifecycleE2E exercises the full trainer-application
@@ -294,5 +296,66 @@ func TestTrainerApplicationLifecycleE2E(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("admin list must work for every role, got %d (body: %s)", rec.Code, raw)
 		}
+	}
+}
+
+// e2eMultipartUpload posts one multipart evidence document to the real router.
+func e2eMultipartUpload(t *testing.T, router http.Handler, cookie, kind, filename, partType string, content []byte) (*httptest.ResponseRecorder, string) {
+	t.Helper()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if err := writer.WriteField("kind", kind); err != nil {
+		t.Fatalf("write kind field: %v", err)
+	}
+	header := textproto.MIMEHeader{}
+	header.Set("Content-Disposition", `form-data; name="file"; filename="`+filename+`"`)
+	header.Set("Content-Type", partType)
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		t.Fatalf("create file part: %v", err)
+	}
+	if _, err := part.Write(content); err != nil {
+		t.Fatalf("write file part: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart body: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/trainer/application/documents", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: auth.AccessTokenCookieName, Value: cookie})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec, rec.Body.String()
+}
+
+// TestTrainerEvidenceUploadBodyLimitE2E proves through the complete router
+// that the evidence upload route can carry a document larger than the global
+// body limit (the middleware exception) while the per-document bound is still
+// enforced by the evidence store.
+func TestTrainerEvidenceUploadBodyLimitE2E(t *testing.T) {
+	router, _, _ := newE2ERouter(t)
+	cookie := e2eRegisterUser(t, router, e2eUniqueEmail())
+
+	rec, raw := e2eRequest(router, auth.AccessTokenCookieName, cookie, http.MethodPost, "/api/v1/trainer/apply", "")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("apply: expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+
+	// 1.5 MiB: above the 1 MiB global body limit, below the 2 MiB document
+	// bound. A 201 here proves the route-specific body-limit exception works.
+	payload := append([]byte("%PDF-1.4\n"), bytes.Repeat([]byte{'x'}, (3<<20)/2)...)
+	rec, raw = e2eMultipartUpload(t, router, cookie, "certification", "large.pdf", "application/pdf", payload)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("large upload: expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+
+	// Above the 2 MiB document bound: the store rejects it with the dedicated
+	// DOCUMENT_TOO_LARGE code, not the generic middleware rejection.
+	oversized := append([]byte("%PDF-1.4\n"), bytes.Repeat([]byte{'x'}, 2<<20)...)
+	rec, raw = e2eMultipartUpload(t, router, cookie, "other", "huge.pdf", "application/pdf", oversized)
+	if rec.Code != http.StatusRequestEntityTooLarge || !strings.Contains(raw, `"code":"DOCUMENT_TOO_LARGE"`) {
+		t.Fatalf("oversized upload: expected 413 DOCUMENT_TOO_LARGE, got %d (body: %s)", rec.Code, raw)
 	}
 }

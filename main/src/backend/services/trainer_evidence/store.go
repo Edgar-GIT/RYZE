@@ -132,11 +132,20 @@ func (s *FileStore) Save(ctx context.Context, prefix string, content io.Reader) 
 		return "", SavedFile{}, ErrUnsupportedContentType
 	}
 
+	// The sniffed bytes were consumed from the reader, so they must be written
+	// to the store first; the remaining bytes stream through the same bounded
+	// copy. The size budget covers the whole document.
 	hasher := sha256.New()
-	written, err := io.Copy(io.MultiWriter(temporary, hasher), io.LimitReader(buffered, s.maxBytes+1))
+	sink := io.MultiWriter(temporary, hasher)
+	if _, err := sink.Write(header[:headerLength]); err != nil {
+		return "", SavedFile{}, fmt.Errorf("failed to store evidence document: %w", err)
+	}
+	written := int64(headerLength)
+	remaining, err := io.Copy(sink, io.LimitReader(buffered, s.maxBytes+1-int64(headerLength)))
 	if err != nil {
 		return "", SavedFile{}, fmt.Errorf("failed to store evidence document: %w", err)
 	}
+	written += remaining
 	if written > s.maxBytes {
 		return "", SavedFile{}, ErrTooLarge
 	}

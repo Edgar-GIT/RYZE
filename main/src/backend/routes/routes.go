@@ -47,13 +47,23 @@ import (
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
 	"ryze/backend/services/trainer_clients"
+	"ryze/backend/services/trainer_evidence"
 	"ryze/backend/services/trainer_profile"
 	"ryze/backend/services/workout_exercises"
 	"ryze/backend/services/workout_history"
 )
 
+// evidenceUploadPath is the exact route allowed to exceed the global body
+// limit. It must stay in sync with the v1 route registration below.
+const evidenceUploadPath = "/api/v1/trainer/application/documents"
+
+// evidenceUploadOverhead is the multipart envelope allowance added on top of
+// the per-document bound: boundaries and part headers are part of the request
+// body but not of the stored file.
+const evidenceUploadOverhead = 64 << 10
+
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig, evidenceCfg config.EvidenceConfig) *gin.Engine {
 	router := gin.Default()
 	// Only the configured proxies may set the client address from forwarded
 	// headers; with the default (no trusted proxies) ClientIP is the socket
@@ -67,10 +77,15 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// guard then rejects browser-originated state-changing requests from hosts
 	// outside the allow list before any handler can act on a SameSite cookie.
 	// The body limit bounds every request body before any handler (or webhook
-	// signature verification) can read it.
+	// signature verification) can read it. The trainer-evidence upload is the
+	// only exception: its multipart envelope must be allowed to carry one
+	// document up to the configured evidence bound.
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 	router.Use(middleware.OriginGuard(corsCfg.AllowedOrigins))
-	router.Use(middleware.BodyLimit(serverCfg.MaxBodyBytes))
+	router.Use(middleware.BodyLimit(serverCfg.MaxBodyBytes, middleware.BodyLimitException{
+		Path:     evidenceUploadPath,
+		MaxBytes: evidenceCfg.MaxBytes + evidenceUploadOverhead,
+	}))
 
 	userRepository := repositories.NewUserRepository(db)
 
@@ -117,7 +132,17 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminTrainersHandler := auth.NewAdminTrainerHandler(adminTrainersService)
 
 	trainerApplicationRepository := repositories.NewTrainerApplicationRepository(db)
-	trainerApplicationService := trainer_applications.NewService(trainerApplicationRepository, userRepository, trainerRepository)
+	trainerApplicationDocumentRepository := repositories.NewTrainerApplicationDocumentRepository(db)
+	trainerApplicationDecisionRepository := repositories.NewTrainerApplicationDecisionRepository(db)
+	evidenceStore := trainer_evidence.NewFileStore(evidenceCfg.StorageDir, evidenceCfg.MaxBytes)
+	trainerApplicationService := trainer_applications.NewService(
+		trainerApplicationRepository,
+		userRepository,
+		trainerRepository,
+		trainerApplicationDocumentRepository,
+		trainerApplicationDecisionRepository,
+		evidenceStore,
+	)
 	adminTrainerApplicationHandler := auth.NewAdminTrainerApplicationHandler(trainerApplicationService)
 	trainerApplicationHandler := auth.NewTrainerApplicationHandler(trainerApplicationService)
 
@@ -282,6 +307,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
 	v1.GET("/trainer/access", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.GetAccessStatus)
+	v1.POST("/trainer/application/documents", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.UploadDocument)
+	v1.GET("/trainer/application/documents", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.ListOwnDocuments)
+	v1.GET("/trainer/application/documents/:documentID/download", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.DownloadOwnDocument)
+	v1.DELETE("/trainer/application/documents/:documentID", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.DeleteOwnDocument)
 
 	// Test Mode: Enter is restricted to the technical administrator through
 	// the standard admin authorization middleware. Exit deliberately has no
@@ -400,6 +429,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminApplicationRead.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsRead))
 	adminApplicationRead.GET("/trainer-applications", adminTrainerApplicationHandler.ListApplications)
 	adminApplicationRead.GET("/trainer-applications/:id", adminTrainerApplicationHandler.GetApplication)
+	adminApplicationRead.GET("/trainer-applications/:id/documents", adminTrainerApplicationHandler.ListDocuments)
+	adminApplicationRead.GET("/trainer-applications/:id/documents/:documentID/download", adminTrainerApplicationHandler.DownloadDocument)
+	adminApplicationRead.GET("/trainer-applications/:id/decisions", adminTrainerApplicationHandler.ListDecisions)
 
 	adminApplicationMutate := admin.Group("")
 	adminApplicationMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsManage))

@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,6 +21,7 @@ import (
 	"ryze/backend/config"
 	"ryze/backend/database"
 	"ryze/backend/middleware"
+	"ryze/backend/middleware/adminauthcontext"
 	"ryze/backend/middleware/adminroles"
 	"ryze/backend/middleware/authcontext"
 	"ryze/backend/models"
@@ -26,13 +30,35 @@ import (
 	"ryze/backend/services/password"
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
+	"ryze/backend/services/trainer_evidence"
 )
 
 const (
 	applyRoute             = "/api/v1/trainer/apply"
 	accessRoute            = "/api/v1/trainer/access"
+	documentsRoute         = "/api/v1/trainer/application/documents"
 	adminApplicationsRoute = "/api/v1/admin/trainer-applications"
+	evidenceTestMaxBytes   = 1 << 20
 )
+
+// Minimal magic-byte-valid payloads for each allow-listed document type.
+var (
+	pdfPayload  = []byte("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n%%EOF\n")
+	jpegPayload = append([]byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F'}, bytes.Repeat([]byte{0x00}, 32)...)
+)
+
+// trainerApplicationEnv is the full trainer-application test environment: the
+// router plus every repository and configuration the evidence tests need.
+type trainerApplicationEnv struct {
+	router          *gin.Engine
+	userRepo        repositories.UserRepository
+	trainerRepo     repositories.TrainerRepository
+	applicationRepo repositories.TrainerApplicationRepository
+	documentRepo    repositories.TrainerApplicationDocumentRepository
+	decisionRepo    repositories.TrainerApplicationDecisionRepository
+	evidenceDir     string
+	tokenSvc        token.Service
+}
 
 // newTrainerApplicationTestRouter wires the trainer-application endpoints
 // behind the real authentication and authorization middleware, plus the login
@@ -42,6 +68,12 @@ const (
 // trainer_applications.read and trainer_applications.manage, both shared by
 // every admin role.
 func newTrainerApplicationTestRouter(t *testing.T, secure bool) (*gin.Engine, repositories.UserRepository, repositories.TrainerRepository, repositories.TrainerApplicationRepository, token.Service) {
+	t.Helper()
+	env := newTrainerApplicationEnv(t, secure)
+	return env.router, env.userRepo, env.trainerRepo, env.applicationRepo, env.tokenSvc
+}
+
+func newTrainerApplicationEnv(t *testing.T, secure bool) trainerApplicationEnv {
 	t.Helper()
 
 	config.LoadEnvFile()
@@ -68,13 +100,22 @@ func newTrainerApplicationTestRouter(t *testing.T, secure bool) (*gin.Engine, re
 	userRepo := repositories.NewUserRepository(tx)
 	trainerRepo := repositories.NewTrainerRepository(tx)
 	applicationRepo := repositories.NewTrainerApplicationRepository(tx)
+	documentRepo := repositories.NewTrainerApplicationDocumentRepository(tx)
+	decisionRepo := repositories.NewTrainerApplicationDecisionRepository(tx)
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
+
+	// The evidence store is a real filesystem store rooted in the test's own
+	// temporary directory, so uploads exercise the same path as production
+	// (magic bytes, atomic rename, private permissions) without touching the
+	// development storage.
+	evidenceDir := t.TempDir()
+	evidenceStore := trainer_evidence.NewFileStore(evidenceDir, evidenceTestMaxBytes)
 
 	loginSvc := login.NewLoginService(userRepo, password.Verifier{})
 	loginHandler := auth.NewLoginHandler(loginSvc, tokenSvc, testTokenTTL, secure)
 	meHandler := auth.NewMeHandler(userRepo)
 
-	service := trainer_applications.NewService(applicationRepo, userRepo, trainerRepo)
+	service := trainer_applications.NewService(applicationRepo, userRepo, trainerRepo, documentRepo, decisionRepo, evidenceStore)
 	adminHandler := auth.NewAdminTrainerApplicationHandler(service)
 	userHandler := auth.NewTrainerApplicationHandler(service)
 
@@ -83,6 +124,10 @@ func newTrainerApplicationTestRouter(t *testing.T, secure bool) (*gin.Engine, re
 	router.GET(meRoute, middleware.Authenticate(tokenSvc, userRepo), meHandler.GetMe)
 	router.POST(applyRoute, middleware.Authenticate(tokenSvc, userRepo), userHandler.Apply)
 	router.GET(accessRoute, middleware.Authenticate(tokenSvc, userRepo), userHandler.GetAccessStatus)
+	router.POST(documentsRoute, middleware.Authenticate(tokenSvc, userRepo), userHandler.UploadDocument)
+	router.GET(documentsRoute, middleware.Authenticate(tokenSvc, userRepo), userHandler.ListOwnDocuments)
+	router.GET(documentsRoute+"/:documentID/download", middleware.Authenticate(tokenSvc, userRepo), userHandler.DownloadOwnDocument)
+	router.DELETE(documentsRoute+"/:documentID", middleware.Authenticate(tokenSvc, userRepo), userHandler.DeleteOwnDocument)
 
 	admin := router.Group("/api/v1/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenSvc))
@@ -91,13 +136,25 @@ func newTrainerApplicationTestRouter(t *testing.T, secure bool) (*gin.Engine, re
 	adminRead.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsRead))
 	adminRead.GET("/trainer-applications", adminHandler.ListApplications)
 	adminRead.GET("/trainer-applications/:id", adminHandler.GetApplication)
+	adminRead.GET("/trainer-applications/:id/documents", adminHandler.ListDocuments)
+	adminRead.GET("/trainer-applications/:id/documents/:documentID/download", adminHandler.DownloadDocument)
+	adminRead.GET("/trainer-applications/:id/decisions", adminHandler.ListDecisions)
 
 	adminMutate := admin.Group("")
 	adminMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsManage))
 	adminMutate.POST("/trainer-applications/:id/approve", adminHandler.ApproveApplication)
 	adminMutate.POST("/trainer-applications/:id/reject", adminHandler.RejectApplication)
 
-	return router, userRepo, trainerRepo, applicationRepo, tokenSvc
+	return trainerApplicationEnv{
+		router:          router,
+		userRepo:        userRepo,
+		trainerRepo:     trainerRepo,
+		applicationRepo: applicationRepo,
+		documentRepo:    documentRepo,
+		decisionRepo:    decisionRepo,
+		evidenceDir:     evidenceDir,
+		tokenSvc:        tokenSvc,
+	}
 }
 
 // seedApplication creates an active user with a PENDING trainer application.
@@ -211,7 +268,7 @@ func TestAccessStatusPendingApplication(t *testing.T) {
 func TestAccessStatusApprovedTrainer(t *testing.T) {
 	router, userRepo, _, applicationRepo, tokenSvc := newTrainerApplicationTestRouter(t, true)
 	user, application := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
-	if _, err := applicationRepo.Approve(context.Background(), application.ID); err != nil {
+	if _, err := applicationRepo.Approve(context.Background(), application.ID, nil); err != nil {
 		t.Fatalf("approve application: %v", err)
 	}
 	cookie := userToken(t, tokenSvc, user.ID, user.SessionVersion)
@@ -231,7 +288,7 @@ func TestAccessStatusApprovedTrainer(t *testing.T) {
 func TestAccessStatusRejectedApplication(t *testing.T) {
 	router, userRepo, _, applicationRepo, tokenSvc := newTrainerApplicationTestRouter(t, true)
 	user, application := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
-	if err := applicationRepo.Reject(context.Background(), application.ID); err != nil {
+	if err := applicationRepo.Reject(context.Background(), application.ID, nil); err != nil {
 		t.Fatalf("reject application: %v", err)
 	}
 	cookie := userToken(t, tokenSvc, user.ID, user.SessionVersion)
@@ -375,7 +432,7 @@ func TestAdminListApplicationsFilterByStatus(t *testing.T) {
 
 	_, pending := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
 	_, approved := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
-	if err := applicationRepo.Reject(context.Background(), approved.ID); err != nil {
+	if err := applicationRepo.Reject(context.Background(), approved.ID, nil); err != nil {
 		t.Fatalf("Reject: %v", err)
 	}
 
@@ -634,7 +691,7 @@ func TestAdminApproveApplicationAlreadyApproved(t *testing.T) {
 	_, application := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
 	cookie := adminToken(t, tokenSvc, config.Admin1ID)
 
-	if _, err := applicationRepo.Approve(context.Background(), application.ID); err != nil {
+	if _, err := applicationRepo.Approve(context.Background(), application.ID, nil); err != nil {
 		t.Fatalf("Approve: %v", err)
 	}
 
@@ -665,7 +722,7 @@ func TestAdminApproveApplicationRejectedApplication(t *testing.T) {
 	_, application := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
 	cookie := adminToken(t, tokenSvc, config.Admin1ID)
 
-	if err := applicationRepo.Reject(context.Background(), application.ID); err != nil {
+	if err := applicationRepo.Reject(context.Background(), application.ID, nil); err != nil {
 		t.Fatalf("Reject: %v", err)
 	}
 
@@ -785,7 +842,7 @@ func TestAdminRejectApplicationAlreadyReviewed(t *testing.T) {
 	_, application := seedApplication(t, userRepo, applicationRepo, uniqueEmail())
 	cookie := adminToken(t, tokenSvc, config.Admin1ID)
 
-	if err := applicationRepo.Reject(context.Background(), application.ID); err != nil {
+	if err := applicationRepo.Reject(context.Background(), application.ID, nil); err != nil {
 		t.Fatalf("Reject: %v", err)
 	}
 
@@ -987,11 +1044,32 @@ func (failingApplicationRepo) FindByID(_ context.Context, _ string) (*models.Tra
 func (failingApplicationRepo) List(_ context.Context, _ int, _ int, _ string) ([]models.TrainerApplication, int64, error) {
 	return nil, 0, errApplicationRepoFailure
 }
-func (failingApplicationRepo) Approve(_ context.Context, _ string) (*models.TrainerApplication, error) {
+func (failingApplicationRepo) Approve(_ context.Context, _ string, _ *models.TrainerApplicationDecision) (*models.TrainerApplication, error) {
 	return nil, errApplicationRepoFailure
 }
-func (failingApplicationRepo) Reject(_ context.Context, _ string) error {
+func (failingApplicationRepo) Reject(_ context.Context, _ string, _ *models.TrainerApplicationDecision) error {
 	return errApplicationRepoFailure
+}
+
+type failingApplicationDocumentRepo struct{}
+
+func (failingApplicationDocumentRepo) Create(_ context.Context, _ *models.TrainerApplicationDocument) error {
+	return errApplicationRepoFailure
+}
+func (failingApplicationDocumentRepo) ListByApplication(_ context.Context, _ string) ([]models.TrainerApplicationDocument, error) {
+	return nil, errApplicationRepoFailure
+}
+func (failingApplicationDocumentRepo) FindByID(_ context.Context, _ string) (*models.TrainerApplicationDocument, error) {
+	return nil, errApplicationRepoFailure
+}
+func (failingApplicationDocumentRepo) SoftDelete(_ context.Context, _ string) error {
+	return errApplicationRepoFailure
+}
+
+type failingApplicationDecisionRepo struct{}
+
+func (failingApplicationDecisionRepo) ListByApplication(_ context.Context, _ string) ([]models.TrainerApplicationDecision, error) {
+	return nil, errApplicationRepoFailure
 }
 
 type failingApplicationUserRepo struct{}
@@ -1007,15 +1085,34 @@ func (failingApplicationTrainerRepo) FindByUserID(_ context.Context, _ string) (
 }
 
 func TestTrainerApplicationsInternalError(t *testing.T) {
-	svc := trainer_applications.NewService(failingApplicationRepo{}, failingApplicationUserRepo{}, failingApplicationTrainerRepo{})
+	svc := trainer_applications.NewService(
+		failingApplicationRepo{},
+		failingApplicationUserRepo{},
+		failingApplicationTrainerRepo{},
+		failingApplicationDocumentRepo{},
+		failingApplicationDecisionRepo{},
+		trainer_evidence.NewFileStore(t.TempDir(), evidenceTestMaxBytes),
+	)
 	adminHandler := auth.NewAdminTrainerApplicationHandler(svc)
 	userHandler := auth.NewTrainerApplicationHandler(svc)
+
+	// The review handlers resolve the reviewer identity from the admin
+	// context, so this router injects a valid identity directly instead of
+	// running the admin middleware.
+	withAdminIdentity := func(handler gin.HandlerFunc) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			c.Set(adminauthcontext.AdminIdentityContextKey, config.Admin1ID)
+			handler(c)
+		}
+	}
 
 	router := gin.New()
 	router.GET("/admin/apps", adminHandler.ListApplications)
 	router.GET("/admin/apps/:id", adminHandler.GetApplication)
-	router.POST("/admin/apps/:id/approve", adminHandler.ApproveApplication)
-	router.POST("/admin/apps/:id/reject", adminHandler.RejectApplication)
+	router.POST("/admin/apps/:id/approve", withAdminIdentity(adminHandler.ApproveApplication))
+	router.POST("/admin/apps/:id/reject", withAdminIdentity(adminHandler.RejectApplication))
+	router.GET("/admin/apps/:id/documents", adminHandler.ListDocuments)
+	router.GET("/admin/apps/:id/decisions", adminHandler.ListDecisions)
 	router.POST("/apply", func(c *gin.Context) {
 		c.Set(authcontext.UserIDContextKey, uuid.NewString())
 		userHandler.Apply(c)
@@ -1035,6 +1132,8 @@ func TestTrainerApplicationsInternalError(t *testing.T) {
 		{method: http.MethodGet, path: "/admin/apps/" + id, cookie: cookie, admin: true},
 		{method: http.MethodPost, path: "/admin/apps/" + id + "/approve", cookie: cookie, admin: true},
 		{method: http.MethodPost, path: "/admin/apps/" + id + "/reject", cookie: cookie, admin: true},
+		{method: http.MethodGet, path: "/admin/apps/" + id + "/documents", cookie: cookie, admin: true},
+		{method: http.MethodGet, path: "/admin/apps/" + id + "/decisions", cookie: cookie, admin: true},
 		{method: http.MethodPost, path: "/apply", admin: false},
 	} {
 		req := httptest.NewRequest(tc.method, tc.path, bytes.NewBufferString(""))
@@ -1054,5 +1153,342 @@ func TestTrainerApplicationsInternalError(t *testing.T) {
 		if strings.Contains(rec.Body.String(), "application repository failure") {
 			t.Fatalf("%s %s: internal error details must never be exposed, got %s", tc.method, tc.path, rec.Body.String())
 		}
+	}
+}
+
+// uploadEvidenceRequest performs a multipart evidence upload. partType lets a
+// test lie about the content type to prove the server validates magic bytes
+// instead of trusting the client.
+func uploadEvidenceRequest(t *testing.T, router http.Handler, cookie, kind, filename, partType string, content []byte) (*httptest.ResponseRecorder, string) {
+	t.Helper()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if kind != "" {
+		if err := writer.WriteField("kind", kind); err != nil {
+			t.Fatalf("write kind field: %v", err)
+		}
+	}
+	if partType == "" {
+		partType = "application/octet-stream"
+	}
+	header := textproto.MIMEHeader{}
+	header.Set("Content-Disposition", `form-data; name="file"; filename="`+filename+`"`)
+	header.Set("Content-Type", partType)
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		t.Fatalf("create file part: %v", err)
+	}
+	if _, err := part.Write(content); err != nil {
+		t.Fatalf("write file part: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart body: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, documentsRoute, body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if cookie != "" {
+		req.AddCookie(&http.Cookie{Name: auth.AccessTokenCookieName, Value: cookie})
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec, rec.Body.String()
+}
+
+type documentPayload struct {
+	ID               string `json:"id"`
+	Kind             string `json:"kind"`
+	OriginalFilename string `json:"original_filename"`
+	ContentType      string `json:"content_type"`
+	ByteSize         int64  `json:"byte_size"`
+}
+
+func parseDocumentPayload(t *testing.T, raw string) documentPayload {
+	t.Helper()
+	var payload struct {
+		Data documentPayload `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("invalid JSON: %v (body: %s)", err, raw)
+	}
+	return payload.Data
+}
+
+// TestTrainerEvidenceLifecycle exercises the full applicant evidence flow:
+// upload (with a hostile filename and a lying part content type), list,
+// download and withdrawal while the application is still PENDING.
+func TestTrainerEvidenceLifecycle(t *testing.T) {
+	env := newTrainerApplicationEnv(t, true)
+	user, _ := seedApplication(t, env.userRepo, env.applicationRepo, uniqueEmail())
+	cookie := userToken(t, env.tokenSvc, user.ID, user.SessionVersion)
+
+	rec, raw := uploadEvidenceRequest(t, env.router, cookie, "certification", "../../etc/passwd.pdf", "application/octet-stream", pdfPayload)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	document := parseDocumentPayload(t, raw)
+	if document.ID == "" {
+		t.Fatalf("expected a document id, got %s", raw)
+	}
+	if document.Kind != "certification" {
+		t.Fatalf("expected kind certification, got %q", document.Kind)
+	}
+	if document.OriginalFilename != "passwd.pdf" {
+		t.Fatalf("expected a sanitized filename, got %q", document.OriginalFilename)
+	}
+	if document.ContentType != "application/pdf" {
+		t.Fatalf("expected the sniffed content type, got %q", document.ContentType)
+	}
+	if document.ByteSize != int64(len(pdfPayload)) {
+		t.Fatalf("expected byte_size %d, got %d", len(pdfPayload), document.ByteSize)
+	}
+	if strings.Contains(raw, "storage_key") || strings.Contains(raw, "sha256") {
+		t.Fatalf("internal storage metadata must never be exposed, got %s", raw)
+	}
+
+	rec, raw = applyRequest(env.router, cookie, http.MethodGet, documentsRoute, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, document.ID) {
+		t.Fatalf("expected the uploaded document in the list, got %s", raw)
+	}
+
+	rec, raw = applyRequest(env.router, cookie, http.MethodGet, documentsRoute+"/"+document.ID+"/download", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("download: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !bytes.Equal(rec.Body.Bytes(), pdfPayload) {
+		t.Fatalf("download: expected the stored bytes, got %d bytes", rec.Body.Len())
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/pdf" {
+		t.Fatalf("download: expected validated content type, got %q", got)
+	}
+	if got := rec.Header().Get("Content-Disposition"); !strings.Contains(got, "attachment") {
+		t.Fatalf("download: expected an attachment disposition, got %q", got)
+	}
+	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("download: expected nosniff, got %q", got)
+	}
+	if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "no-store") {
+		t.Fatalf("download: expected no-store, got %q", got)
+	}
+	body, err := io.ReadAll(rec.Body)
+	if err != nil || !bytes.Equal(body, pdfPayload) {
+		t.Fatalf("download: unexpected streamed body (err=%v, len=%d)", err, len(body))
+	}
+
+	rec, raw = applyRequest(env.router, cookie, http.MethodDelete, documentsRoute+"/"+document.ID, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	rec, raw = applyRequest(env.router, cookie, http.MethodGet, documentsRoute, "")
+	if rec.Code != http.StatusOK || strings.Contains(raw, document.ID) {
+		t.Fatalf("after withdrawal the document must be gone from the list, got %d (body: %s)", rec.Code, raw)
+	}
+	rec, raw = applyRequest(env.router, cookie, http.MethodGet, documentsRoute+"/"+document.ID+"/download", "")
+	if rec.Code != http.StatusNotFound || !strings.Contains(raw, `"code":"DOCUMENT_NOT_FOUND"`) {
+		t.Fatalf("after withdrawal the download must be 404 DOCUMENT_NOT_FOUND, got %d (body: %s)", rec.Code, raw)
+	}
+}
+
+func TestTrainerEvidenceUploadValidation(t *testing.T) {
+	env := newTrainerApplicationEnv(t, true)
+	user, _ := seedApplication(t, env.userRepo, env.applicationRepo, uniqueEmail())
+	cookie := userToken(t, env.tokenSvc, user.ID, user.SessionVersion)
+
+	rec, raw := uploadEvidenceRequest(t, env.router, cookie, "certification", "notes.pdf", "application/pdf", []byte("plain text pretending to be a PDF"))
+	if rec.Code != http.StatusBadRequest || !strings.Contains(raw, `"code":"DOCUMENT_TYPE_NOT_ALLOWED"`) {
+		t.Fatalf("disallowed content: expected 400 DOCUMENT_TYPE_NOT_ALLOWED, got %d (body: %s)", rec.Code, raw)
+	}
+
+	oversized := append(append([]byte{}, pdfPayload...), bytes.Repeat([]byte{'x'}, evidenceTestMaxBytes)...)
+	rec, raw = uploadEvidenceRequest(t, env.router, cookie, "other", "huge.pdf", "application/pdf", oversized)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized: expected 413, got %d (body: %s)", rec.Code, raw)
+	}
+
+	rec, raw = uploadEvidenceRequest(t, env.router, cookie, "passport", "scan.pdf", "application/pdf", pdfPayload)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
+		t.Fatalf("invalid kind: expected 400 VALIDATION_ERROR, got %d (body: %s)", rec.Code, raw)
+	}
+
+	rec, raw = uploadEvidenceRequest(t, env.router, "", "certification", "scan.pdf", "application/pdf", pdfPayload)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated upload: expected 401, got %d (body: %s)", rec.Code, raw)
+	}
+
+	// A user without any application has nothing to attach evidence to.
+	other := seedLoginUser(t, env.userRepo, uniqueEmail(), "Password123!")
+	rec, raw = uploadEvidenceRequest(t, env.router, userToken(t, env.tokenSvc, other.ID, other.SessionVersion), "certification", "scan.pdf", "application/pdf", pdfPayload)
+	if rec.Code != http.StatusNotFound || !strings.Contains(raw, `"code":"APPLICATION_NOT_FOUND"`) {
+		t.Fatalf("no application: expected 404 APPLICATION_NOT_FOUND, got %d (body: %s)", rec.Code, raw)
+	}
+}
+
+// TestTrainerEvidenceLockedAfterApproval verifies the submission lock: once the
+// application is reviewed, evidence can no longer be added or withdrawn.
+func TestTrainerEvidenceLockedAfterApproval(t *testing.T) {
+	env := newTrainerApplicationEnv(t, true)
+	user, application := seedApplication(t, env.userRepo, env.applicationRepo, uniqueEmail())
+	cookie := userToken(t, env.tokenSvc, user.ID, user.SessionVersion)
+	adminCookie := adminToken(t, env.tokenSvc, config.Admin1ID)
+
+	rec, raw := uploadEvidenceRequest(t, env.router, cookie, "identification", "id.pdf", "application/pdf", pdfPayload)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("upload: expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	document := parseDocumentPayload(t, raw)
+
+	rec, raw = adminApplicationRequest(env.router, adminCookie, http.MethodPost, adminApplicationsRoute+"/"+application.ID+"/approve")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("approve: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+
+	rec, raw = uploadEvidenceRequest(t, env.router, cookie, "other", "extra.pdf", "application/pdf", pdfPayload)
+	if rec.Code != http.StatusConflict || !strings.Contains(raw, `"code":"APPLICATION_STATE_CONFLICT"`) {
+		t.Fatalf("upload after approval: expected 409 APPLICATION_STATE_CONFLICT, got %d (body: %s)", rec.Code, raw)
+	}
+	rec, raw = applyRequest(env.router, cookie, http.MethodDelete, documentsRoute+"/"+document.ID, "")
+	if rec.Code != http.StatusConflict || !strings.Contains(raw, `"code":"APPLICATION_STATE_CONFLICT"`) {
+		t.Fatalf("delete after approval: expected 409 APPLICATION_STATE_CONFLICT, got %d (body: %s)", rec.Code, raw)
+	}
+}
+
+// TestTrainerEvidenceIsolation verifies one applicant can never touch another
+// applicant's evidence.
+func TestTrainerEvidenceIsolation(t *testing.T) {
+	env := newTrainerApplicationEnv(t, true)
+	first, _ := seedApplication(t, env.userRepo, env.applicationRepo, uniqueEmail())
+	second, _ := seedApplication(t, env.userRepo, env.applicationRepo, uniqueEmail())
+	firstCookie := userToken(t, env.tokenSvc, first.ID, first.SessionVersion)
+	secondCookie := userToken(t, env.tokenSvc, second.ID, second.SessionVersion)
+
+	rec, raw := uploadEvidenceRequest(t, env.router, firstCookie, "insurance", "policy.pdf", "application/pdf", pdfPayload)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("upload: expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	document := parseDocumentPayload(t, raw)
+
+	rec, raw = applyRequest(env.router, secondCookie, http.MethodGet, documentsRoute+"/"+document.ID+"/download", "")
+	if rec.Code != http.StatusNotFound || !strings.Contains(raw, `"code":"DOCUMENT_NOT_FOUND"`) {
+		t.Fatalf("foreign download: expected 404 DOCUMENT_NOT_FOUND, got %d (body: %s)", rec.Code, raw)
+	}
+	rec, raw = applyRequest(env.router, secondCookie, http.MethodDelete, documentsRoute+"/"+document.ID, "")
+	if rec.Code != http.StatusNotFound || !strings.Contains(raw, `"code":"DOCUMENT_NOT_FOUND"`) {
+		t.Fatalf("foreign delete: expected 404 DOCUMENT_NOT_FOUND, got %d (body: %s)", rec.Code, raw)
+	}
+	rec, _ = applyRequest(env.router, firstCookie, http.MethodGet, documentsRoute, "")
+	if rec.Code != http.StatusOK {
+		t.Fatal("the owner's document must survive a foreign delete attempt")
+	}
+}
+
+// TestAdminEvidenceReviewSurfaces covers the reviewer side: document listing
+// and download scoped to the application, the recorded reject reason, and
+// cross-application isolation.
+func TestAdminEvidenceReviewSurfaces(t *testing.T) {
+	env := newTrainerApplicationEnv(t, true)
+	user, application := seedApplication(t, env.userRepo, env.applicationRepo, uniqueEmail())
+	other, otherApplication := seedApplication(t, env.userRepo, env.applicationRepo, uniqueEmail())
+	userCookie := userToken(t, env.tokenSvc, user.ID, user.SessionVersion)
+	otherCookie := userToken(t, env.tokenSvc, other.ID, other.SessionVersion)
+	adminCookie := adminToken(t, env.tokenSvc, config.Admin2ID)
+
+	rec, raw := uploadEvidenceRequest(t, env.router, userCookie, "certification", "cert.pdf", "application/pdf", pdfPayload)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("upload pdf: expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	pdfDocument := parseDocumentPayload(t, raw)
+
+	rec, raw = uploadEvidenceRequest(t, env.router, userCookie, "identification", "photo.jpg", "text/plain", jpegPayload)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("upload jpeg: expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	jpegDocument := parseDocumentPayload(t, raw)
+	if jpegDocument.ContentType != "image/jpeg" {
+		t.Fatalf("expected the sniffed image/jpeg type, got %q", jpegDocument.ContentType)
+	}
+
+	rec, raw = uploadEvidenceRequest(t, env.router, otherCookie, "other", "foreign.pdf", "application/pdf", pdfPayload)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("upload foreign: expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	foreignDocument := parseDocumentPayload(t, raw)
+
+	rec, raw = adminApplicationRequest(env.router, adminCookie, http.MethodGet, adminApplicationsRoute+"/"+application.ID+"/documents")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin list: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, pdfDocument.ID) || !strings.Contains(raw, jpegDocument.ID) {
+		t.Fatalf("expected both documents in the admin list, got %s", raw)
+	}
+	if strings.Contains(raw, foreignDocument.ID) {
+		t.Fatalf("documents of another application must never be listed, got %s", raw)
+	}
+	if strings.Contains(raw, "storage_key") {
+		t.Fatalf("admin list must not expose storage keys, got %s", raw)
+	}
+
+	rec, raw = adminApplicationRequest(env.router, adminCookie, http.MethodGet, adminApplicationsRoute+"/"+application.ID+"/documents/"+pdfDocument.ID+"/download")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin download: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !bytes.Equal(rec.Body.Bytes(), pdfPayload) {
+		t.Fatal("admin download must stream the stored bytes")
+	}
+	rec, raw = adminApplicationRequest(env.router, adminCookie, http.MethodGet, adminApplicationsRoute+"/"+application.ID+"/documents/"+foreignDocument.ID+"/download")
+	if rec.Code != http.StatusNotFound || !strings.Contains(raw, `"code":"DOCUMENT_NOT_FOUND"`) {
+		t.Fatalf("cross-application download: expected 404 DOCUMENT_NOT_FOUND, got %d (body: %s)", rec.Code, raw)
+	}
+
+	rec, raw = adminApplicationRequest(env.router, adminCookie, http.MethodPost, adminApplicationsRoute+"/"+application.ID+"/reject")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reject: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	_ = otherApplication
+
+	rec, raw = adminApplicationRequest(env.router, adminCookie, http.MethodGet, adminApplicationsRoute+"/"+application.ID+"/decisions")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("decisions: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, config.Admin2ID) || !strings.Contains(raw, `"to_status":"REJECTED"`) || !strings.Contains(raw, `"from_status":"PENDING"`) {
+		t.Fatalf("expected the recorded rejection decision, got %s", raw)
+	}
+}
+
+// TestAdminRejectReasonRecorded verifies the optional reject reason is stored
+// and echoed in the decision history, and that an oversized reason is rejected
+// without changing the application.
+func TestAdminRejectReasonRecorded(t *testing.T) {
+	env := newTrainerApplicationEnv(t, true)
+	_, application := seedApplication(t, env.userRepo, env.applicationRepo, uniqueEmail())
+	adminCookie := adminToken(t, env.tokenSvc, config.Admin1ID)
+
+	rec, raw := adminApplicationJSONRequest(env.router, adminCookie, http.MethodPost, adminApplicationsRoute+"/"+application.ID+"/reject", `{"reason":"Blurred identification document."}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reject: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	rec, raw = adminApplicationRequest(env.router, adminCookie, http.MethodGet, adminApplicationsRoute+"/"+application.ID+"/decisions")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("decisions: expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"reason":"Blurred identification document."`) {
+		t.Fatalf("expected the recorded reason, got %s", raw)
+	}
+
+	_, second := seedApplication(t, env.userRepo, env.applicationRepo, uniqueEmail())
+	oversized := `{"reason":"` + strings.Repeat("x", 501) + `"}`
+	rec, raw = adminApplicationJSONRequest(env.router, adminCookie, http.MethodPost, adminApplicationsRoute+"/"+second.ID+"/reject", oversized)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("oversized reason: expected 400, got %d (body: %s)", rec.Code, raw)
+	}
+	persisted, err := env.applicationRepo.FindByID(context.Background(), second.ID)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	if persisted.Status != models.ApplicationStatusPending {
+		t.Fatalf("a rejected review must leave the application PENDING, got %q", persisted.Status)
 	}
 }

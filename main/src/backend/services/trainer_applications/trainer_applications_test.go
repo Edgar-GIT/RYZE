@@ -3,6 +3,8 @@ package trainer_applications_test
 import (
 	"context"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,6 +12,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/trainer_applications"
+	"ryze/backend/services/trainer_evidence"
 )
 
 const (
@@ -17,6 +20,9 @@ const (
 	unknownUserID      = "22222222-2222-2222-2222-222222222222"
 	activeApplication  = "33333333-3333-3333-3333-333333333333"
 	missingApplication = "44444444-4444-4444-4444-444444444444"
+	activeDocument     = "55555555-5555-5555-5555-555555555555"
+	missingDocument    = "66666666-6666-6666-6666-666666666666"
+	reviewerAdminID    = "ADMIN_2"
 )
 
 var errRepoFailure = errors.New("repository failure")
@@ -24,9 +30,11 @@ var errRepoFailure = errors.New("repository failure")
 // stubApplicationRepo is a stateful in-memory fake of the application
 // data-access surface. It mirrors the repository semantics: only PENDING or
 // APPROVED applications are considered active, a user can hold at most one
-// active application, and Approve/Reject only transition PENDING applications.
+// active application, and Approve/Reject only transition PENDING applications
+// while recording the reviewer decision.
 type stubApplicationRepo struct {
 	apps       []models.TrainerApplication
+	decisions  []models.TrainerApplicationDecision
 	createErr  error
 	findErr    error
 	activeErr  error
@@ -105,7 +113,7 @@ func (s *stubApplicationRepo) List(_ context.Context, _, _ int, status string) (
 	return matched, int64(len(matched)), nil
 }
 
-func (s *stubApplicationRepo) Approve(_ context.Context, id string) (*models.TrainerApplication, error) {
+func (s *stubApplicationRepo) Approve(_ context.Context, id string, decision *models.TrainerApplicationDecision) (*models.TrainerApplication, error) {
 	if s.approveErr != nil {
 		return nil, s.approveErr
 	}
@@ -117,10 +125,11 @@ func (s *stubApplicationRepo) Approve(_ context.Context, id string) (*models.Tra
 		return nil, repositories.ErrApplicationStateConflict
 	}
 	app.Status = models.ApplicationStatusApproved
+	s.recordDecision(app.ID, decision)
 	return app, nil
 }
 
-func (s *stubApplicationRepo) Reject(_ context.Context, id string) error {
+func (s *stubApplicationRepo) Reject(_ context.Context, id string, decision *models.TrainerApplicationDecision) error {
 	if s.rejectErr != nil {
 		return s.rejectErr
 	}
@@ -132,7 +141,20 @@ func (s *stubApplicationRepo) Reject(_ context.Context, id string) error {
 		return repositories.ErrApplicationStateConflict
 	}
 	app.Status = models.ApplicationStatusRejected
+	s.recordDecision(app.ID, decision)
 	return nil
+}
+
+func (s *stubApplicationRepo) recordDecision(applicationID string, decision *models.TrainerApplicationDecision) {
+	if decision == nil {
+		return
+	}
+	recorded := *decision
+	recorded.ApplicationID = applicationID
+	if recorded.ID == "" {
+		recorded.ID = uuid.NewString()
+	}
+	s.decisions = append(s.decisions, recorded)
 }
 
 func isActiveStatus(status string) bool {
@@ -177,8 +199,139 @@ func (s stubTrainerRepo) FindByUserID(_ context.Context, userID string) (*models
 	return nil, repositories.ErrTrainerNotFound
 }
 
+// stubDocumentRepo simulates the document metadata data-access surface,
+// including soft deletion semantics.
+type stubDocumentRepo struct {
+	documents []models.TrainerApplicationDocument
+	createErr error
+	findErr   error
+	listErr   error
+	deleteErr error
+}
+
+func (s *stubDocumentRepo) Create(_ context.Context, document *models.TrainerApplicationDocument) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	if document.ID == "" {
+		document.ID = uuid.NewString()
+	}
+	s.documents = append(s.documents, *document)
+	return nil
+}
+
+func (s *stubDocumentRepo) ListByApplication(_ context.Context, applicationID string) ([]models.TrainerApplicationDocument, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	matched := make([]models.TrainerApplicationDocument, 0)
+	for _, document := range s.documents {
+		if document.ApplicationID == applicationID && !document.DeletedAt.Valid {
+			matched = append(matched, document)
+		}
+	}
+	return matched, nil
+}
+
+func (s *stubDocumentRepo) FindByID(_ context.Context, documentID string) (*models.TrainerApplicationDocument, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	for i := range s.documents {
+		if s.documents[i].ID == documentID && !s.documents[i].DeletedAt.Valid {
+			return &s.documents[i], nil
+		}
+	}
+	return nil, repositories.ErrApplicationDocumentNotFound
+}
+
+func (s *stubDocumentRepo) SoftDelete(_ context.Context, documentID string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	for i := range s.documents {
+		if s.documents[i].ID != documentID {
+			continue
+		}
+		if s.documents[i].DeletedAt.Valid {
+			return repositories.ErrApplicationDocumentAlreadyRemoved
+		}
+		s.documents[i].DeletedAt.Valid = true
+		return nil
+	}
+	return repositories.ErrApplicationDocumentNotFound
+}
+
+// stubDecisionRepo simulates the append-only decision read surface.
+type stubDecisionRepo struct {
+	decisions []models.TrainerApplicationDecision
+	listErr   error
+}
+
+func (s *stubDecisionRepo) ListByApplication(_ context.Context, applicationID string) ([]models.TrainerApplicationDecision, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	matched := make([]models.TrainerApplicationDecision, 0)
+	for _, decision := range s.decisions {
+		if decision.ApplicationID == applicationID {
+			matched = append(matched, decision)
+		}
+	}
+	return matched, nil
+}
+
+// stubEvidenceStore simulates the private evidence store. It records how many
+// times Save was called so tests can assert that a rejected upload never wrote
+// anything, and can be configured to fail with any store-level error.
+type stubEvidenceStore struct {
+	saves    int
+	savedKey string
+	saved    trainer_evidence.SavedFile
+	saveErr  error
+	content  string
+	openErr  error
+}
+
+func (s *stubEvidenceStore) Save(_ context.Context, prefix string, content io.Reader) (string, trainer_evidence.SavedFile, error) {
+	s.saves++
+	if s.saveErr != nil {
+		return "", trainer_evidence.SavedFile{}, s.saveErr
+	}
+	if _, err := io.ReadAll(content); err != nil {
+		return "", trainer_evidence.SavedFile{}, err
+	}
+	key := s.savedKey
+	if key == "" {
+		key = prefix + "/" + activeDocument + ".pdf"
+	}
+	saved := s.saved
+	if saved.ContentType == "" {
+		saved = trainer_evidence.SavedFile{ByteSize: 6, ContentType: "application/pdf", SHA256: strings.Repeat("a", 64)}
+	}
+	return key, saved, nil
+}
+
+func (s *stubEvidenceStore) Open(_ context.Context, _ string) (io.ReadCloser, error) {
+	if s.openErr != nil {
+		return nil, s.openErr
+	}
+	return io.NopCloser(strings.NewReader(s.content)), nil
+}
+
 func newTestService(apps *stubApplicationRepo, users stubUserRepo, trainers stubTrainerRepo) trainer_applications.Service {
-	return trainer_applications.NewService(apps, users, trainers)
+	return trainer_applications.NewService(apps, users, trainers, &stubDocumentRepo{}, &stubDecisionRepo{}, &stubEvidenceStore{})
+}
+
+func newTestServiceWithEvidence(
+	apps *stubApplicationRepo,
+	users stubUserRepo,
+	trainers stubTrainerRepo,
+	documents *stubDocumentRepo,
+	decisions *stubDecisionRepo,
+	evidence *stubEvidenceStore,
+) trainer_applications.Service {
+	return trainer_applications.NewService(apps, users, trainers, documents, decisions, evidence)
 }
 
 func activeUser() models.User {
@@ -314,25 +467,54 @@ func TestGetApplication(t *testing.T) {
 }
 
 func TestApproveApplicationCreatesApproval(t *testing.T) {
-	service := newTestService(
-		&stubApplicationRepo{apps: []models.TrainerApplication{testApp(models.ApplicationStatusPending)}},
-		stubUserRepo{users: []models.User{activeUser()}},
-		stubTrainerRepo{},
-	)
+	apps := &stubApplicationRepo{apps: []models.TrainerApplication{testApp(models.ApplicationStatusPending)}}
+	service := newTestService(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{})
 
-	application, err := service.ApproveApplication(context.Background(), activeApplication)
+	application, err := service.ApproveApplication(context.Background(), activeApplication, reviewerAdminID, "Documents verified.")
 	if err != nil {
 		t.Fatalf("ApproveApplication: %v", err)
 	}
 	if application.Status != models.ApplicationStatusApproved {
 		t.Fatalf("expected APPROVED, got %q", application.Status)
 	}
+	if len(apps.decisions) != 1 {
+		t.Fatalf("expected one recorded decision, got %d", len(apps.decisions))
+	}
+	decision := apps.decisions[0]
+	if decision.ApplicationID != activeApplication || decision.AdminID != reviewerAdminID ||
+		decision.FromStatus != models.ApplicationStatusPending || decision.ToStatus != models.ApplicationStatusApproved ||
+		decision.Reason != "Documents verified." {
+		t.Fatalf("unexpected recorded decision %+v", decision)
+	}
+}
+
+func TestApproveApplicationRejectsInvalidReviewer(t *testing.T) {
+	apps := &stubApplicationRepo{apps: []models.TrainerApplication{testApp(models.ApplicationStatusPending)}}
+	service := newTestService(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{})
+
+	if _, err := service.ApproveApplication(context.Background(), activeApplication, "  ", ""); !errors.Is(err, trainer_applications.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for a blank reviewer, got %v", err)
+	}
+	longReason := strings.Repeat("x", 501)
+	if _, err := service.ApproveApplication(context.Background(), activeApplication, reviewerAdminID, longReason); !errors.Is(err, trainer_applications.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for an oversized reason, got %v", err)
+	}
+	if len(apps.decisions) != 0 {
+		t.Fatalf("invalid reviews must not record a decision, got %d", len(apps.decisions))
+	}
+	application, err := service.GetApplication(context.Background(), activeApplication)
+	if err != nil {
+		t.Fatalf("GetApplication: %v", err)
+	}
+	if application.Status != models.ApplicationStatusPending {
+		t.Fatalf("invalid reviews must not change the status, got %q", application.Status)
+	}
 }
 
 func TestApproveApplicationNotFound(t *testing.T) {
 	service := newTestService(&stubApplicationRepo{}, stubUserRepo{}, stubTrainerRepo{})
 
-	if _, err := service.ApproveApplication(context.Background(), missingApplication); !errors.Is(err, trainer_applications.ErrApplicationNotFound) {
+	if _, err := service.ApproveApplication(context.Background(), missingApplication, reviewerAdminID, ""); !errors.Is(err, trainer_applications.ErrApplicationNotFound) {
 		t.Fatalf("expected ErrApplicationNotFound, got %v", err)
 	}
 }
@@ -345,7 +527,7 @@ func TestApproveApplicationNotPending(t *testing.T) {
 			stubTrainerRepo{},
 		)
 
-		if _, err := service.ApproveApplication(context.Background(), activeApplication); !errors.Is(err, trainer_applications.ErrApplicationStateConflict) {
+		if _, err := service.ApproveApplication(context.Background(), activeApplication, reviewerAdminID, ""); !errors.Is(err, trainer_applications.ErrApplicationStateConflict) {
 			t.Fatalf("status %q: expected ErrApplicationStateConflict, got %v", status, err)
 		}
 	}
@@ -358,7 +540,7 @@ func TestApproveApplicationUserInactive(t *testing.T) {
 		stubTrainerRepo{},
 	)
 
-	if _, err := service.ApproveApplication(context.Background(), activeApplication); !errors.Is(err, trainer_applications.ErrUserNotFound) {
+	if _, err := service.ApproveApplication(context.Background(), activeApplication, reviewerAdminID, ""); !errors.Is(err, trainer_applications.ErrUserNotFound) {
 		t.Fatalf("expected ErrUserNotFound, got %v", err)
 	}
 }
@@ -373,19 +555,16 @@ func TestApproveApplicationAlreadyTrainer(t *testing.T) {
 		stubTrainerRepo{},
 	)
 
-	if _, err := service.ApproveApplication(context.Background(), activeApplication); !errors.Is(err, trainer_applications.ErrAlreadyTrainer) {
+	if _, err := service.ApproveApplication(context.Background(), activeApplication, reviewerAdminID, ""); !errors.Is(err, trainer_applications.ErrAlreadyTrainer) {
 		t.Fatalf("expected ErrAlreadyTrainer, got %v", err)
 	}
 }
 
 func TestRejectApplication(t *testing.T) {
-	service := newTestService(
-		&stubApplicationRepo{apps: []models.TrainerApplication{testApp(models.ApplicationStatusPending)}},
-		stubUserRepo{},
-		stubTrainerRepo{},
-	)
+	apps := &stubApplicationRepo{apps: []models.TrainerApplication{testApp(models.ApplicationStatusPending)}}
+	service := newTestService(apps, stubUserRepo{}, stubTrainerRepo{})
 
-	if err := service.RejectApplication(context.Background(), activeApplication); err != nil {
+	if err := service.RejectApplication(context.Background(), activeApplication, reviewerAdminID, "Blurred identification."); err != nil {
 		t.Fatalf("RejectApplication: %v", err)
 	}
 	application, err := service.GetApplication(context.Background(), activeApplication)
@@ -394,6 +573,15 @@ func TestRejectApplication(t *testing.T) {
 	}
 	if application.Status != models.ApplicationStatusRejected {
 		t.Fatalf("expected REJECTED, got %q", application.Status)
+	}
+	if len(apps.decisions) != 1 {
+		t.Fatalf("expected one recorded decision, got %d", len(apps.decisions))
+	}
+	decision := apps.decisions[0]
+	if decision.ApplicationID != activeApplication || decision.AdminID != reviewerAdminID ||
+		decision.FromStatus != models.ApplicationStatusPending || decision.ToStatus != models.ApplicationStatusRejected ||
+		decision.Reason != "Blurred identification." {
+		t.Fatalf("unexpected recorded decision %+v", decision)
 	}
 }
 
@@ -404,7 +592,7 @@ func TestRejectApplicationNotPending(t *testing.T) {
 		stubTrainerRepo{},
 	)
 
-	if err := service.RejectApplication(context.Background(), activeApplication); !errors.Is(err, trainer_applications.ErrApplicationStateConflict) {
+	if err := service.RejectApplication(context.Background(), activeApplication, reviewerAdminID, ""); !errors.Is(err, trainer_applications.ErrApplicationStateConflict) {
 		t.Fatalf("expected ErrApplicationStateConflict, got %v", err)
 	}
 }
@@ -412,7 +600,7 @@ func TestRejectApplicationNotPending(t *testing.T) {
 func TestRejectApplicationNotFound(t *testing.T) {
 	service := newTestService(&stubApplicationRepo{}, stubUserRepo{}, stubTrainerRepo{})
 
-	if err := service.RejectApplication(context.Background(), missingApplication); !errors.Is(err, trainer_applications.ErrApplicationNotFound) {
+	if err := service.RejectApplication(context.Background(), missingApplication, reviewerAdminID, ""); !errors.Is(err, trainer_applications.ErrApplicationNotFound) {
 		t.Fatalf("expected ErrApplicationNotFound, got %v", err)
 	}
 }
@@ -425,7 +613,7 @@ func TestRejectThenReapply(t *testing.T) {
 	}
 	service := newTestService(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{})
 
-	if err := service.RejectApplication(context.Background(), activeApplication); err != nil {
+	if err := service.RejectApplication(context.Background(), activeApplication, reviewerAdminID, ""); err != nil {
 		t.Fatalf("RejectApplication: %v", err)
 	}
 
@@ -437,8 +625,11 @@ func TestRejectThenReapply(t *testing.T) {
 		t.Fatalf("expected PENDING after re-apply, got %q", reapplied.Status)
 	}
 
-	if _, err := service.ApproveApplication(context.Background(), reapplied.ID); err != nil {
+	if _, err := service.ApproveApplication(context.Background(), reapplied.ID, reviewerAdminID, ""); err != nil {
 		t.Fatalf("ApproveApplication after re-apply: %v", err)
+	}
+	if len(apps.decisions) != 2 {
+		t.Fatalf("expected both decisions to be recorded, got %d", len(apps.decisions))
 	}
 }
 
@@ -506,5 +697,240 @@ func TestGetAccessStatusRepositoryError(t *testing.T) {
 
 	if _, err := service.GetAccessStatus(context.Background(), activeUserID); !errors.Is(err, errRepoFailure) {
 		t.Fatalf("expected wrapped repository failure, got %v", err)
+	}
+}
+
+func pendingEvidenceSet() (*stubApplicationRepo, *stubDocumentRepo, *stubDecisionRepo, *stubEvidenceStore) {
+	apps := &stubApplicationRepo{apps: []models.TrainerApplication{testApp(models.ApplicationStatusPending)}}
+	documents := &stubDocumentRepo{}
+	decisions := &stubDecisionRepo{}
+	evidence := &stubEvidenceStore{}
+	return apps, documents, decisions, evidence
+}
+
+func TestUploadDocumentSuccess(t *testing.T) {
+	apps, documents, decisions, evidence := pendingEvidenceSet()
+	service := newTestServiceWithEvidence(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{}, documents, decisions, evidence)
+
+	document, err := service.UploadDocument(context.Background(), activeUserID, "certification", "../../etc/passwd.jpg", strings.NewReader("ignored-by-stub"))
+	if err != nil {
+		t.Fatalf("UploadDocument: %v", err)
+	}
+	if document.ApplicationID != activeApplication {
+		t.Fatalf("expected the caller's active application %q, got %q", activeApplication, document.ApplicationID)
+	}
+	if document.Kind != "certification" {
+		t.Fatalf("expected kind certification, got %q", document.Kind)
+	}
+	if document.OriginalFilename != "passwd.jpg" {
+		t.Fatalf("expected a sanitized filename, got %q", document.OriginalFilename)
+	}
+	if document.ContentType != "application/pdf" || document.ByteSize != 6 || document.SHA256 == "" {
+		t.Fatalf("expected the store-validated metadata, got %+v", document)
+	}
+	if document.StorageKey == "" || document.ID == "" {
+		t.Fatalf("expected a generated id and storage key, got %+v", document)
+	}
+	if evidence.saves != 1 {
+		t.Fatalf("expected one store write, got %d", evidence.saves)
+	}
+	listed, err := service.ListOwnDocuments(context.Background(), activeUserID)
+	if err != nil {
+		t.Fatalf("ListOwnDocuments: %v", err)
+	}
+	if len(listed) != 1 || listed[0].ID != document.ID {
+		t.Fatalf("expected the uploaded document to be listed, got %+v", listed)
+	}
+}
+
+func TestUploadDocumentValidatesInputBeforeStoring(t *testing.T) {
+	apps, documents, decisions, evidence := pendingEvidenceSet()
+	service := newTestServiceWithEvidence(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{}, documents, decisions, evidence)
+
+	for _, tc := range []struct {
+		name   string
+		userID string
+		kind   string
+		store  error
+		want   error
+	}{
+		{name: "invalid user", userID: "not-a-uuid", kind: "certification", want: trainer_applications.ErrInvalidInput},
+		{name: "invalid kind", userID: activeUserID, kind: "passport", want: trainer_applications.ErrInvalidInput},
+		{name: "unsupported", userID: activeUserID, kind: "other", store: trainer_evidence.ErrUnsupportedContentType, want: trainer_applications.ErrDocumentUnsupportedType},
+		{name: "too large", userID: activeUserID, kind: "other", store: trainer_evidence.ErrTooLarge, want: trainer_applications.ErrDocumentTooLarge},
+		{name: "empty", userID: activeUserID, kind: "other", store: trainer_evidence.ErrEmptyContent, want: trainer_applications.ErrInvalidInput},
+	} {
+		evidence.saveErr = tc.store
+		_, err := service.UploadDocument(context.Background(), tc.userID, tc.kind, "scan.pdf", strings.NewReader("data"))
+		if !errors.Is(err, tc.want) {
+			t.Fatalf("%s: expected %v, got %v", tc.name, tc.want, err)
+		}
+	}
+	if len(documents.documents) != 0 {
+		t.Fatalf("rejected uploads must not record metadata, got %d", len(documents.documents))
+	}
+}
+
+func TestUploadDocumentRequiresPendingApplication(t *testing.T) {
+	// An APPROVED application is still active, so the upload is refused as a
+	// state conflict (evidence cannot change after review).
+	apps := &stubApplicationRepo{apps: []models.TrainerApplication{testApp(models.ApplicationStatusApproved)}}
+	documents, decisions, evidence := &stubDocumentRepo{}, &stubDecisionRepo{}, &stubEvidenceStore{}
+	service := newTestServiceWithEvidence(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{}, documents, decisions, evidence)
+
+	_, err := service.UploadDocument(context.Background(), activeUserID, "certification", "scan.pdf", strings.NewReader("data"))
+	if !errors.Is(err, trainer_applications.ErrApplicationStateConflict) {
+		t.Fatalf("approved application: expected ErrApplicationStateConflict, got %v", err)
+	}
+	if evidence.saves != 0 {
+		t.Fatal("a locked application must never reach the store")
+	}
+
+	// A REJECTED application is no longer active, so there is nothing to
+	// attach evidence to and no active application is reported.
+	rejected := &stubApplicationRepo{apps: []models.TrainerApplication{testApp(models.ApplicationStatusRejected)}}
+	service = newTestServiceWithEvidence(rejected, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{}, &stubDocumentRepo{}, &stubDecisionRepo{}, &stubEvidenceStore{})
+	if _, err := service.UploadDocument(context.Background(), activeUserID, "certification", "scan.pdf", strings.NewReader("data")); !errors.Is(err, trainer_applications.ErrApplicationNotFound) {
+		t.Fatalf("rejected application: expected ErrApplicationNotFound, got %v", err)
+	}
+
+	// No application at all.
+	service = newTestServiceWithEvidence(&stubApplicationRepo{}, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{}, &stubDocumentRepo{}, &stubDecisionRepo{}, &stubEvidenceStore{})
+	if _, err := service.UploadDocument(context.Background(), activeUserID, "certification", "scan.pdf", strings.NewReader("data")); !errors.Is(err, trainer_applications.ErrApplicationNotFound) {
+		t.Fatalf("no active application: expected ErrApplicationNotFound, got %v", err)
+	}
+}
+
+func TestOwnDocumentsAreScopedToTheCaller(t *testing.T) {
+	otherUserID := "77777777-7777-7777-7777-777777777777"
+	otherApplicationID := "88888888-8888-8888-8888-888888888888"
+	apps := &stubApplicationRepo{apps: []models.TrainerApplication{
+		testApp(models.ApplicationStatusPending),
+		{ID: otherApplicationID, UserID: otherUserID, Status: models.ApplicationStatusPending},
+	}}
+	documents := &stubDocumentRepo{documents: []models.TrainerApplicationDocument{
+		{ID: activeDocument, ApplicationID: activeApplication, Kind: "other"},
+		{ID: missingDocument, ApplicationID: otherApplicationID, Kind: "other"},
+	}}
+	service := newTestServiceWithEvidence(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{}, documents, &stubDecisionRepo{}, &stubEvidenceStore{})
+	ctx := context.Background()
+
+	if _, err := service.GetOwnDocument(ctx, activeUserID, activeDocument); err != nil {
+		t.Fatalf("GetOwnDocument(own): %v", err)
+	}
+	if _, err := service.GetOwnDocument(ctx, activeUserID, missingDocument); !errors.Is(err, trainer_applications.ErrDocumentNotFound) {
+		t.Fatalf("GetOwnDocument(other user): expected ErrDocumentNotFound, got %v", err)
+	}
+	if _, _, err := service.OpenOwnDocument(ctx, activeUserID, missingDocument); !errors.Is(err, trainer_applications.ErrDocumentNotFound) {
+		t.Fatalf("OpenOwnDocument(other user): expected ErrDocumentNotFound, got %v", err)
+	}
+	if err := service.DeleteOwnDocument(ctx, activeUserID, missingDocument); !errors.Is(err, trainer_applications.ErrDocumentNotFound) {
+		t.Fatalf("DeleteOwnDocument(other user): expected ErrDocumentNotFound, got %v", err)
+	}
+
+	owned, err := service.ListOwnDocuments(ctx, activeUserID)
+	if err != nil {
+		t.Fatalf("ListOwnDocuments: %v", err)
+	}
+	if len(owned) != 1 || owned[0].ID != activeDocument {
+		t.Fatalf("expected only the caller's document, got %+v", owned)
+	}
+}
+
+func TestOpenOwnDocumentStreamsStoredContent(t *testing.T) {
+	apps, documents, decisions, evidence := pendingEvidenceSet()
+	evidence.content = "stored-bytes"
+	documents.documents = []models.TrainerApplicationDocument{{ID: activeDocument, ApplicationID: activeApplication, Kind: "other", StorageKey: activeApplication + "/" + activeDocument + ".pdf"}}
+	service := newTestServiceWithEvidence(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{}, documents, decisions, evidence)
+
+	document, content, err := service.OpenOwnDocument(context.Background(), activeUserID, activeDocument)
+	if err != nil {
+		t.Fatalf("OpenOwnDocument: %v", err)
+	}
+	defer content.Close()
+	if document.ID != activeDocument {
+		t.Fatalf("expected document %q, got %q", activeDocument, document.ID)
+	}
+	streamed, err := io.ReadAll(content)
+	if err != nil {
+		t.Fatalf("read stream: %v", err)
+	}
+	if string(streamed) != "stored-bytes" {
+		t.Fatalf("expected the stored bytes, got %q", string(streamed))
+	}
+
+	evidence.openErr = trainer_evidence.ErrDocumentNotFound
+	if _, _, err := service.OpenOwnDocument(context.Background(), activeUserID, activeDocument); !errors.Is(err, trainer_applications.ErrDocumentNotFound) {
+		t.Fatalf("missing stored file: expected ErrDocumentNotFound, got %v", err)
+	}
+}
+
+func TestDeleteOwnDocumentLocksAfterReview(t *testing.T) {
+	apps, documents, decisions, evidence := pendingEvidenceSet()
+	documents.documents = []models.TrainerApplicationDocument{{ID: activeDocument, ApplicationID: activeApplication, Kind: "other"}}
+	service := newTestServiceWithEvidence(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{}, documents, decisions, evidence)
+	ctx := context.Background()
+
+	if err := service.DeleteOwnDocument(ctx, activeUserID, activeDocument); err != nil {
+		t.Fatalf("DeleteOwnDocument: %v", err)
+	}
+	if !documents.documents[0].DeletedAt.Valid {
+		t.Fatal("expected a soft-deleted metadata row")
+	}
+	if _, err := service.GetOwnDocument(ctx, activeUserID, activeDocument); !errors.Is(err, trainer_applications.ErrDocumentNotFound) {
+		t.Fatalf("after withdrawal: expected ErrDocumentNotFound, got %v", err)
+	}
+
+	apps.apps[0].Status = models.ApplicationStatusApproved
+	documents.documents[0].DeletedAt.Valid = false
+	if err := service.DeleteOwnDocument(ctx, activeUserID, activeDocument); !errors.Is(err, trainer_applications.ErrApplicationStateConflict) {
+		t.Fatalf("reviewed application: expected ErrApplicationStateConflict, got %v", err)
+	}
+}
+
+func TestReviewDocumentScoping(t *testing.T) {
+	apps, documents, decisions, evidence := pendingEvidenceSet()
+	otherApplicationID := "88888888-8888-8888-8888-888888888888"
+	documents.documents = []models.TrainerApplicationDocument{
+		{ID: activeDocument, ApplicationID: activeApplication, Kind: "other"},
+		{ID: missingDocument, ApplicationID: otherApplicationID, Kind: "other"},
+	}
+	decisions.decisions = []models.TrainerApplicationDecision{{ID: "decision-1", ApplicationID: activeApplication, AdminID: reviewerAdminID}}
+	service := newTestServiceWithEvidence(apps, stubUserRepo{}, stubTrainerRepo{}, documents, decisions, evidence)
+	ctx := context.Background()
+
+	if _, err := service.ListApplicationDocuments(ctx, missingApplication); !errors.Is(err, trainer_applications.ErrApplicationNotFound) {
+		t.Fatalf("ListApplicationDocuments(unknown): expected ErrApplicationNotFound, got %v", err)
+	}
+	listed, err := service.ListApplicationDocuments(ctx, activeApplication)
+	if err != nil {
+		t.Fatalf("ListApplicationDocuments: %v", err)
+	}
+	if len(listed) != 1 || listed[0].ID != activeDocument {
+		t.Fatalf("expected only the application's documents, got %+v", listed)
+	}
+	if _, err := service.GetApplicationDocument(ctx, activeApplication, missingDocument); !errors.Is(err, trainer_applications.ErrDocumentNotFound) {
+		t.Fatalf("cross-application document: expected ErrDocumentNotFound, got %v", err)
+	}
+	if _, _, err := service.OpenApplicationDocument(ctx, activeApplication, activeDocument); err != nil {
+		t.Fatalf("OpenApplicationDocument: %v", err)
+	}
+
+	listedDecisions, err := service.ListDecisions(ctx, activeApplication)
+	if err != nil {
+		t.Fatalf("ListDecisions: %v", err)
+	}
+	if len(listedDecisions) != 1 || listedDecisions[0].ID != "decision-1" {
+		t.Fatalf("expected the recorded decision, got %+v", listedDecisions)
+	}
+	if _, err := service.ListDecisions(ctx, missingApplication); !errors.Is(err, trainer_applications.ErrApplicationNotFound) {
+		t.Fatalf("ListDecisions(unknown): expected ErrApplicationNotFound, got %v", err)
+	}
+}
+
+func TestListOwnDocumentsWithoutApplication(t *testing.T) {
+	service := newTestService(&stubApplicationRepo{}, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{})
+	if _, err := service.ListOwnDocuments(context.Background(), activeUserID); !errors.Is(err, trainer_applications.ErrApplicationNotFound) {
+		t.Fatalf("expected ErrApplicationNotFound, got %v", err)
 	}
 }

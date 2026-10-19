@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
+	"ryze/backend/services/trainer_evidence"
 )
 
 var (
@@ -48,8 +51,8 @@ type ApplicationRepository interface {
 	FindLatestByUserID(ctx context.Context, userID string) (*models.TrainerApplication, error)
 	FindByID(ctx context.Context, id string) (*models.TrainerApplication, error)
 	List(ctx context.Context, page, limit int, status string) ([]models.TrainerApplication, int64, error)
-	Approve(ctx context.Context, applicationID string) (*models.TrainerApplication, error)
-	Reject(ctx context.Context, applicationID string) error
+	Approve(ctx context.Context, applicationID string, decision *models.TrainerApplicationDecision) (*models.TrainerApplication, error)
+	Reject(ctx context.Context, applicationID string, decision *models.TrainerApplicationDecision) error
 }
 
 // UserRepository is the data-access surface required for verifying that the
@@ -91,18 +94,50 @@ type Service interface {
 	ListApplications(ctx context.Context, page, limit int, status string) (ListApplicationsResult, error)
 	GetApplication(ctx context.Context, id string) (*models.TrainerApplication, error)
 	GetAccessStatus(ctx context.Context, userID string) (AccessStatus, error)
-	ApproveApplication(ctx context.Context, id string) (*models.TrainerApplication, error)
-	RejectApplication(ctx context.Context, id string) error
+	// ApproveApplication and RejectApplication always record the reviewer
+	// identity and the optional reason as an audit decision in the same
+	// transaction as the status change.
+	ApproveApplication(ctx context.Context, id, adminID, reason string) (*models.TrainerApplication, error)
+	RejectApplication(ctx context.Context, id, adminID, reason string) error
+
+	// Evidence documents. Applicant operations always scope to the
+	// authenticated user; review operations are open to authorized reviewers.
+	UploadDocument(ctx context.Context, userID, kind, originalFilename string, content io.Reader) (*models.TrainerApplicationDocument, error)
+	ListOwnDocuments(ctx context.Context, userID string) ([]models.TrainerApplicationDocument, error)
+	GetOwnDocument(ctx context.Context, userID, documentID string) (*models.TrainerApplicationDocument, error)
+	OpenOwnDocument(ctx context.Context, userID, documentID string) (*models.TrainerApplicationDocument, io.ReadCloser, error)
+	DeleteOwnDocument(ctx context.Context, userID, documentID string) error
+	ListApplicationDocuments(ctx context.Context, applicationID string) ([]models.TrainerApplicationDocument, error)
+	GetApplicationDocument(ctx context.Context, applicationID, documentID string) (*models.TrainerApplicationDocument, error)
+	OpenApplicationDocument(ctx context.Context, applicationID, documentID string) (*models.TrainerApplicationDocument, io.ReadCloser, error)
+	ListDecisions(ctx context.Context, applicationID string) ([]models.TrainerApplicationDecision, error)
 }
 
 type service struct {
 	applications ApplicationRepository
 	users        UserRepository
 	trainers     TrainerRepository
+	documents    DocumentRepository
+	decisions    DecisionRepository
+	evidence     trainer_evidence.Store
 }
 
-func NewService(applications ApplicationRepository, users UserRepository, trainers TrainerRepository) Service {
-	return &service{applications: applications, users: users, trainers: trainers}
+func NewService(
+	applications ApplicationRepository,
+	users UserRepository,
+	trainers TrainerRepository,
+	documents DocumentRepository,
+	decisions DecisionRepository,
+	evidence trainer_evidence.Store,
+) Service {
+	return &service{
+		applications: applications,
+		users:        users,
+		trainers:     trainers,
+		documents:    documents,
+		decisions:    decisions,
+		evidence:     evidence,
+	}
 }
 
 // Apply creates a PENDING application for the authenticated user. The user ID
@@ -211,11 +246,18 @@ func (s *service) GetAccessStatus(ctx context.Context, userID string) (AccessSta
 
 // ApproveApplication approves a PENDING application and creates the trainer
 // profile for the applicant. The operation is atomic at the repository level:
-// the application becomes APPROVED and the trainer profile is created in the
-// same database transaction, so a failure can never leave a half-completed
-// approval. The applicant must still exist and be active.
-func (s *service) ApproveApplication(ctx context.Context, id string) (*models.TrainerApplication, error) {
+// the application becomes APPROVED, the trainer profile is created and the
+// reviewer decision is recorded in the same database transaction, so a failure
+// can never leave a half-completed approval or an approval without its audit
+// record. The applicant must still exist and be active.
+func (s *service) ApproveApplication(ctx context.Context, id, adminID, reason string) (*models.TrainerApplication, error) {
 	if err := validateApplicationID(id); err != nil {
+		return nil, err
+	}
+	if err := validateAdminID(adminID); err != nil {
+		return nil, err
+	}
+	if err := validateReason(reason); err != nil {
 		return nil, err
 	}
 
@@ -237,7 +279,14 @@ func (s *service) ApproveApplication(ctx context.Context, id string) (*models.Tr
 		return nil, fmt.Errorf("failed to check user: %w", err)
 	}
 
-	approved, err := s.applications.Approve(ctx, id)
+	decision := &models.TrainerApplicationDecision{
+		AdminID:    strings.TrimSpace(adminID),
+		FromStatus: models.ApplicationStatusPending,
+		ToStatus:   models.ApplicationStatusApproved,
+		Reason:     normalizeReason(reason),
+	}
+
+	approved, err := s.applications.Approve(ctx, id, decision)
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrApplicationNotFound):
@@ -258,15 +307,29 @@ func (s *service) ApproveApplication(ctx context.Context, id string) (*models.Tr
 	return reloaded, nil
 }
 
-// RejectApplication rejects a PENDING application. The application stays in
-// history so the user can apply again. Applications that do not exist or are
-// not PENDING are rejected with the corresponding domain error.
-func (s *service) RejectApplication(ctx context.Context, id string) error {
+// RejectApplication rejects a PENDING application and records the reviewer
+// decision in the same transaction. The application stays in history so the
+// user can apply again. Applications that do not exist or are not PENDING are
+// rejected with the corresponding domain error.
+func (s *service) RejectApplication(ctx context.Context, id, adminID, reason string) error {
 	if err := validateApplicationID(id); err != nil {
 		return err
 	}
+	if err := validateAdminID(adminID); err != nil {
+		return err
+	}
+	if err := validateReason(reason); err != nil {
+		return err
+	}
 
-	if err := s.applications.Reject(ctx, id); err != nil {
+	decision := &models.TrainerApplicationDecision{
+		AdminID:    strings.TrimSpace(adminID),
+		FromStatus: models.ApplicationStatusPending,
+		ToStatus:   models.ApplicationStatusRejected,
+		Reason:     normalizeReason(reason),
+	}
+
+	if err := s.applications.Reject(ctx, id, decision); err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrApplicationNotFound):
 			return ErrApplicationNotFound

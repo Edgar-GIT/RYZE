@@ -35,6 +35,9 @@ const (
 	defaultShutdownTimeout                  = 20 * time.Second
 	defaultMaxBodyBytes                     = 1 << 20
 	defaultExerciseMediaBasePath            = "/media/exercises"
+	defaultEvidenceStorageDir               = "storage/trainer-evidence"
+	defaultEvidenceMaxBytes                 = 10 << 20
+	maxEvidenceMaxBytes                     = 25 << 20
 )
 
 // LoadEnvFile loads the repository .env file so environment variables defined
@@ -316,6 +319,40 @@ func LoadExerciseMedia() (ExerciseMediaConfig, error) {
 	cfg.BasePath = strings.TrimSuffix(cfg.BasePath, "/")
 	if !strings.HasPrefix(cfg.BasePath, "/") || strings.Contains(cfg.BasePath, "..") || strings.Contains(cfg.BasePath, "://") {
 		return ExerciseMediaConfig{}, fmt.Errorf("EXERCISE_MEDIA_BASE_PATH must be a same-origin absolute path without parent traversal, got %q", cfg.BasePath)
+	}
+
+	return cfg, nil
+}
+
+// LoadEvidence reads the trainer-application evidence store configuration from
+// environment variables. TRAINER_EVIDENCE_DIR defaults to a private directory
+// outside any web root; a value must be non-empty and free of NUL bytes.
+// TRAINER_EVIDENCE_MAX_BYTES bounds one stored document and is clamped to the
+// interval [1 byte, 25 MiB]: values above the maximum are rejected at startup so
+// a typo can never raise the bound beyond what the upload route and the
+// deployment are prepared to handle.
+func LoadEvidence() (EvidenceConfig, error) {
+	cfg := EvidenceConfig{
+		StorageDir: defaultEvidenceStorageDir,
+		MaxBytes:   defaultEvidenceMaxBytes,
+	}
+
+	if raw := os.Getenv("TRAINER_EVIDENCE_DIR"); strings.TrimSpace(raw) != "" {
+		if strings.ContainsRune(raw, 0) {
+			return EvidenceConfig{}, fmt.Errorf("TRAINER_EVIDENCE_DIR contains an invalid character")
+		}
+		cfg.StorageDir = strings.TrimSpace(raw)
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("TRAINER_EVIDENCE_MAX_BYTES")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed <= 0 {
+			return EvidenceConfig{}, fmt.Errorf("TRAINER_EVIDENCE_MAX_BYTES must be a positive integer, got %q", raw)
+		}
+		if parsed > maxEvidenceMaxBytes {
+			return EvidenceConfig{}, fmt.Errorf("TRAINER_EVIDENCE_MAX_BYTES must not exceed %d bytes, got %q", maxEvidenceMaxBytes, raw)
+		}
+		cfg.MaxBytes = parsed
 	}
 
 	return cfg, nil
