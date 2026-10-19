@@ -51,6 +51,14 @@ const (
 	PermissionStatistics                Permission = "statistics"
 	PermissionPlans                     Permission = "plans"
 	PermissionPlansCommissionManage     Permission = "plans.commission.manage"
+	// PermissionExercises is the coarse exercise-catalogue management
+	// permission umbrella. Curation of the global exercise catalogue is a
+	// business responsibility (training content), so the catalogue surfaces are
+	// granted exclusively to the Management Administrator even though the
+	// catalogue itself is shared by every product.
+	PermissionExercises       Permission = "exercises"
+	PermissionExercisesRead   Permission = "exercises.read"
+	PermissionExercisesManage Permission = "exercises.manage"
 	// PermissionCommerce controls the platform commerce surface: the sales
 	// dashboard, purchase records and income analytics. It is a business
 	// responsibility granted exclusively to the Management Administrator.
@@ -71,12 +79,16 @@ const (
 // (users.manage / trainers.manage: create, update, soft-delete and reactivate,
 // granted only to the Technical Administrator). Trainer-application review is
 // shared by both roles: trainer_applications.read and
-// trainer_applications.manage are both granted to every role. Technical
-// concerns (system, infrastructure, technical configuration, security,
-// development) belong exclusively to the Technical Administrator and business
-// concerns (plans, finance, marketing) exclusively to the Management
-// Administrator. Neither role is a superset of the other: the Technical
-// Administrator does not automatically receive management permissions.
+// trainer_applications.manage are both granted to every role. Exercise-catalogue
+// curation is a business responsibility and is granted exclusively to the
+// Management Administrator, split into a read view (exercises.read) and the
+// lifecycle capability (exercises.manage: create, update, publish, archive).
+// Technical concerns (system, infrastructure, technical configuration,
+// security, development) belong exclusively to the Technical Administrator and
+// business concerns (plans, finance, marketing, exercises) exclusively to the
+// Management Administrator. Neither role is a superset of the other: the
+// Technical Administrator does not automatically receive management
+// permissions.
 var rolePermissions = map[Role][]Permission{
 	RoleTechnicalAdministrator: {
 		PermissionUsers,
@@ -109,6 +121,9 @@ var rolePermissions = map[Role][]Permission{
 		PermissionCommerce,
 		PermissionFinance,
 		PermissionMarketing,
+		PermissionExercises,
+		PermissionExercisesRead,
+		PermissionExercisesManage,
 	},
 }
 

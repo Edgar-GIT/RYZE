@@ -49,7 +49,7 @@ func newExercisesTestRouter(t *testing.T) (*gin.Engine, *gorm.DB) {
 	})
 
 	exerciseRepo := repositories.NewExerciseRepository(tx)
-	service := exercises.NewService(exerciseRepo)
+	service := exercises.NewService(exerciseRepo, config.ExerciseMediaConfig{})
 	handler := auth.NewExercisesHandler(service)
 
 	router := gin.New()
@@ -388,12 +388,103 @@ func TestExercisesHandlerForwarding(t *testing.T) {
 	}
 
 	// List forwards the browse filters exactly as received.
-	w = doExercisesRequest(router, http.MethodGet, "/api/v1/exercises?muscle=Quads&equipment=Barbell&difficulty=Beginner&category=Compound")
+	w = doExercisesRequest(router, http.MethodGet, "/api/v1/exercises?muscle=Quads&equipment=Barbell&difficulty=Beginner&category=Compound&body_part=chest")
 	if w.Code != http.StatusOK {
 		t.Fatalf("list exercise filters: expected 200, got %d", w.Code)
 	}
 	if svc.gotFilter.Muscle != "Quads" || svc.gotFilter.Equipment != "Barbell" ||
-		svc.gotFilter.Difficulty != "Beginner" || svc.gotFilter.Category != "Compound" {
+		svc.gotFilter.Difficulty != "Beginner" || svc.gotFilter.Category != "Compound" ||
+		svc.gotFilter.BodyPart != "chest" {
 		t.Fatalf("list exercise filters: expected filters forwarded, got %+v", svc.gotFilter)
+	}
+}
+
+// TestExercisesHandlerPublicationVisibility proves the public surface only ever
+// serves published entries: because the catalogue is no longer a flat seed
+// table, a draft or archived entry (or one carrying media while media exposure
+// is disabled) must stay invisible to unauthenticated callers.
+func TestExercisesHandlerPublicationVisibility(t *testing.T) {
+	router, tx := newExercisesTestRouter(t)
+
+	bodyPart := "chest"
+	published := &models.Exercise{
+		Name:             "PV-Published",
+		BodyPart:         &bodyPart,
+		InstructionSteps: json.RawMessage(`["Set up.","Press."]`),
+		ImageURL:         "images/0001-abc1234.jpg",
+		AnimationURL:     "videos/0001-abc1234.gif",
+		MediaAttribution: "© Gym visual — https://gymvisual.com/",
+		Status:           models.ExerciseStatusPublished,
+	}
+	draft := &models.Exercise{Name: "PV-Draft", Status: models.ExerciseStatusDraft}
+	archived := &models.Exercise{Name: "PV-Archived", Status: models.ExerciseStatusArchived}
+	for _, exercise := range []*models.Exercise{published, draft, archived} {
+		if err := tx.Create(exercise).Error; err != nil {
+			t.Fatalf("seed %s: %v", exercise.Name, err)
+		}
+	}
+
+	var listBody struct {
+		Data struct {
+			Exercises []struct {
+				ID     string `json:"id"`
+				Name   string `json:"name"`
+				Status string `json:"status"`
+			} `json:"exercises"`
+			Pagination struct {
+				Total int64 `json:"total"`
+			} `json:"pagination"`
+		} `json:"data"`
+	}
+
+	w := doExercisesRequest(router, http.MethodGet, "/api/v1/exercises/search?q=PV-")
+	if w.Code != http.StatusOK {
+		t.Fatalf("search visibility: expected 200, got %d", w.Code)
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &listBody); err != nil {
+		t.Fatalf("search visibility: unmarshal: %v", err)
+	}
+	if listBody.Data.Pagination.Total != 1 || len(listBody.Data.Exercises) != 1 || listBody.Data.Exercises[0].ID != published.ID {
+		t.Fatalf("search visibility: only the published entry may appear, got %+v", listBody.Data)
+	}
+	if strings.Contains(w.Body.String(), "status") {
+		t.Fatal("search visibility: the public response must not expose publication status")
+	}
+
+	// The published detail exposes the structured fields while media stays
+	// gated behind the disabled exposure flag.
+	w = doExercisesRequest(router, http.MethodGet, "/api/v1/exercises/"+published.ID)
+	if w.Code != http.StatusOK {
+		t.Fatalf("published detail: expected 200, got %d", w.Code)
+	}
+	var detailBody struct {
+		Data struct {
+			Exercise struct {
+				BodyPart         string   `json:"body_part"`
+				InstructionSteps []string `json:"instruction_steps"`
+				ImageURL         string   `json:"image_url"`
+				AnimationURL     string   `json:"animation_url"`
+				MediaAvailable   bool     `json:"media_available"`
+				MediaAttribution string   `json:"media_attribution"`
+			} `json:"exercise"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &detailBody); err != nil {
+		t.Fatalf("published detail: unmarshal: %v", err)
+	}
+	exercise := detailBody.Data.Exercise
+	if exercise.BodyPart != "chest" || len(exercise.InstructionSteps) != 2 {
+		t.Fatalf("published detail: expected structured metadata, got %+v", exercise)
+	}
+	if exercise.ImageURL != "" || exercise.AnimationURL != "" || exercise.MediaAvailable || exercise.MediaAttribution != "" {
+		t.Fatalf("published detail: disabled media must stay unavailable, got %+v", exercise)
+	}
+
+	// Draft and archived entries are indistinguishable from missing ones.
+	for _, hidden := range []*models.Exercise{draft, archived} {
+		w = doExercisesRequest(router, http.MethodGet, "/api/v1/exercises/"+hidden.ID)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("%s detail: expected 404, got %d", hidden.Name, w.Code)
+		}
 	}
 }

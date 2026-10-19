@@ -110,6 +110,29 @@ type TestModeConfig struct {
 	Enabled bool
 }
 
+// ExerciseMediaConfig controls whether the exercise catalogue exposes its
+// media references. The bundled exercise dataset media (© Gym visual) may not
+// be served or redistributed in a public or production deployment until the
+// required commercial-use permissions have been confirmed, so media exposure
+// is disabled by default. When disabled the API never returns image or
+// animation paths and the clients render an explicit media-unavailable state.
+// When enabled, BasePath is prefixed to the stored relative media paths and
+// must be a same-origin absolute path (no scheme, no parent traversal).
+type ExerciseMediaConfig struct {
+	Enabled  bool
+	BasePath string
+}
+
+// EvidenceConfig controls the private trainer-application evidence store.
+// StorageDir is the store root; it must never be under a web root because the
+// files are only reachable through the authenticated download endpoints.
+// MaxBytes bounds one stored document; the upload route additionally raises the
+// request body limit for the evidence endpoint by the corresponding amount.
+type EvidenceConfig struct {
+	StorageDir string
+	MaxBytes   int64
+}
+
 // ServerConfig holds the HTTP server safety configuration. The timeouts bound
 // how long a single connection may take to send a request, read the body and
 // write a response, and how long in-flight requests are allowed to drain during

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,9 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"gorm.io/gorm"
+
 	"ryze/backend/config"
 	"ryze/backend/database"
+	"ryze/backend/repositories"
 	"ryze/backend/routes"
+	"ryze/backend/services/exercise_import"
 )
 
 func main() {
@@ -76,6 +81,11 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
+	mediaCfg, err := config.LoadExerciseMedia()
+	if err != nil {
+		fail("configuration error: %v", err)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		runMigrateCommand(cfg, os.Args[2:])
 		return
@@ -93,12 +103,18 @@ func main() {
 
 	fmt.Printf("database connection established successfully (host=%s port=%s db=%s)\n", cfg.Host, cfg.Port, cfg.Name)
 
+	if len(os.Args) > 1 && os.Args[1] == "import-exercises" {
+		runImportExercisesCommand(db, os.Args[2:])
+		_ = sqlDB.Close()
+		return
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg)
+	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg, mediaCfg)
 
 	server := &http.Server{
 		Addr:              ":" + port,
@@ -145,6 +161,61 @@ func serveUntilShutdown(server *http.Server, sqlDB *sql.DB, shutdownTimeout time
 
 	if err := sqlDB.Close(); err != nil {
 		fmt.Fprintf(os.Stderr, "database close error: %v\n", err)
+	}
+}
+
+// runImportExercisesCommand imports an external exercise dataset into the
+// global catalogue. The whole import runs inside one transaction, so a failure
+// never leaves a partially imported catalogue behind. Dry runs execute the
+// same validation and matching work and then roll everything back.
+func runImportExercisesCommand(db *gorm.DB, args []string) {
+	flags := flag.NewFlagSet("import-exercises", flag.ContinueOnError)
+	filePath := flags.String("file", "", "path to the exercises dataset JSON file")
+	dryRun := flags.Bool("dry-run", false, "validate and report without committing")
+	if err := flags.Parse(args); err != nil {
+		fail("invalid import-exercises arguments: %v", err)
+	}
+	if *filePath == "" {
+		fail("usage: go run . import-exercises --file <path> [--dry-run]")
+	}
+
+	file, err := os.Open(*filePath)
+	if err != nil {
+		fail("failed to open dataset: %v", err)
+	}
+	defer file.Close()
+
+	tx := db.Begin()
+	if tx.Error != nil {
+		fail("failed to start import transaction: %v", tx.Error)
+	}
+
+	importer := exercise_import.NewImporter(repositories.NewExerciseRepository(tx))
+	report, importErr := importer.Import(context.Background(), file)
+	if importErr != nil {
+		_ = tx.Rollback()
+		fail("exercise import failed: %v", importErr)
+	}
+
+	if *dryRun {
+		if err := tx.Rollback().Error; err != nil {
+			fail("failed to roll back dry run: %v", err)
+		}
+	} else if err := tx.Commit().Error; err != nil {
+		fail("failed to commit exercise import: %v", err)
+	}
+
+	fmt.Printf("records=%d unique=%d created=%d matched_by_source=%d matched_by_name=%d updated=%d duplicates_skipped=%d conflicts=%d\n",
+		report.Total, report.Unique, report.Created, report.MatchedBySource, report.MatchedByName, report.Updated,
+		len(report.SkippedDuplicates), len(report.Conflicts))
+	if len(report.SkippedDuplicates) > 0 {
+		fmt.Printf("duplicate source ids skipped: %v\n", report.SkippedDuplicates)
+	}
+	if len(report.Conflicts) > 0 {
+		fmt.Printf("conflicting source ids left unchanged: %v\n", report.Conflicts)
+	}
+	if *dryRun {
+		fmt.Println("dry run: no changes were committed")
 	}
 }
 

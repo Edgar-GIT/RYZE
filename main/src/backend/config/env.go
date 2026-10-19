@@ -34,6 +34,7 @@ const (
 	defaultIdleTimeout                      = 120 * time.Second
 	defaultShutdownTimeout                  = 20 * time.Second
 	defaultMaxBodyBytes                     = 1 << 20
+	defaultExerciseMediaBasePath            = "/media/exercises"
 )
 
 // LoadEnvFile loads the repository .env file so environment variables defined
@@ -286,6 +287,38 @@ func LoadTestMode() (TestModeConfig, error) {
 		return TestModeConfig{}, fmt.Errorf("TEST_MODE_ENABLED must be a boolean, got %q", raw)
 	}
 	return TestModeConfig{Enabled: enabled}, nil
+}
+
+// LoadExerciseMedia reads the exercise-media exposure configuration from
+// environment variables. EXERCISE_MEDIA_ENABLED gates the whole surface; it is
+// disabled by default because the bundled dataset media licensing must be
+// confirmed before any public or production delivery (see security.MD). When
+// enabled, EXERCISE_MEDIA_BASE_PATH is the same-origin path the API prefixes to
+// stored relative media paths; a value containing a scheme or parent traversal
+// is rejected at startup.
+func LoadExerciseMedia() (ExerciseMediaConfig, error) {
+	cfg := ExerciseMediaConfig{
+		Enabled:  false,
+		BasePath: defaultExerciseMediaBasePath,
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("EXERCISE_MEDIA_ENABLED")); raw != "" {
+		enabled, err := strconv.ParseBool(raw)
+		if err != nil {
+			return ExerciseMediaConfig{}, fmt.Errorf("EXERCISE_MEDIA_ENABLED must be a boolean, got %q", raw)
+		}
+		cfg.Enabled = enabled
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("EXERCISE_MEDIA_BASE_PATH")); raw != "" {
+		cfg.BasePath = raw
+	}
+	cfg.BasePath = strings.TrimSuffix(cfg.BasePath, "/")
+	if !strings.HasPrefix(cfg.BasePath, "/") || strings.Contains(cfg.BasePath, "..") || strings.Contains(cfg.BasePath, "://") {
+		return ExerciseMediaConfig{}, fmt.Errorf("EXERCISE_MEDIA_BASE_PATH must be a same-origin absolute path without parent traversal, got %q", cfg.BasePath)
+	}
+
+	return cfg, nil
 }
 
 // LoadServer reads the HTTP server safety configuration from environment

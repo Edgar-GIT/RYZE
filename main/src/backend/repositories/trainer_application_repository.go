@@ -35,8 +35,13 @@ type TrainerApplicationRepository interface {
 	FindLatestByUserID(ctx context.Context, userID string) (*models.TrainerApplication, error)
 	FindByID(ctx context.Context, id string) (*models.TrainerApplication, error)
 	List(ctx context.Context, page, limit int, status string) ([]models.TrainerApplication, int64, error)
-	Approve(ctx context.Context, applicationID string) (*models.TrainerApplication, error)
-	Reject(ctx context.Context, applicationID string) error
+	// Approve transitions a PENDING application to APPROVED, creates the
+	// trainer profile and, when a decision is provided, records it in the same
+	// transaction.
+	Approve(ctx context.Context, applicationID string, decision *models.TrainerApplicationDecision) (*models.TrainerApplication, error)
+	// Reject transitions a PENDING application to REJECTED and, when a decision
+	// is provided, records it in the same transaction.
+	Reject(ctx context.Context, applicationID string, decision *models.TrainerApplicationDecision) error
 }
 
 type trainerApplicationRepository struct {
@@ -137,27 +142,34 @@ func (r *trainerApplicationRepository) List(ctx context.Context, page, limit int
 // the trainer profile for its user in the same database transaction: either
 // both changes are committed or neither is, so an approval can never leave an
 // APPROVED application without a trainer profile or a trainer profile without
-// an APPROVED application. Applications that are not PENDING (or do not exist)
-// are reported as a state conflict (or not found).
-func (r *trainerApplicationRepository) Approve(ctx context.Context, applicationID string) (*models.TrainerApplication, error) {
+// an APPROVED application. The status transition is a single guarded UPDATE, so
+// two concurrent approvals cannot both succeed: the loser observes zero
+// affected rows and is reported as a state conflict. Applications that are not
+// PENDING (or do not exist) are reported as a state conflict (or not found).
+// When a decision is provided it is recorded inside the same transaction, so an
+// approval can never exist without its audit record.
+func (r *trainerApplicationRepository) Approve(ctx context.Context, applicationID string, decision *models.TrainerApplicationDecision) (*models.TrainerApplication, error) {
 	var application models.TrainerApplication
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.
+		result := tx.Model(&models.TrainerApplication{}).
 			Where("id = ? AND status = ?", applicationID, models.ApplicationStatusPending).
-			First(&application).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				if _, lookupErr := r.FindByID(ctx, applicationID); lookupErr != nil {
+			Update("status", models.ApplicationStatusApproved)
+		if result.Error != nil {
+			return fmt.Errorf("failed to approve trainer application: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			var probe models.TrainerApplication
+			if err := tx.First(&probe, "id = ?", applicationID).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
 					return ErrApplicationNotFound
 				}
-				return ErrApplicationStateConflict
+				return fmt.Errorf("failed to find trainer application for approval: %w", err)
 			}
-			return fmt.Errorf("failed to find trainer application for approval: %w", err)
+			return ErrApplicationStateConflict
 		}
 
-		if err := tx.Model(&models.TrainerApplication{}).
-			Where("id = ?", applicationID).
-			Update("status", models.ApplicationStatusApproved).Error; err != nil {
-			return fmt.Errorf("failed to approve trainer application: %w", err)
+		if err := tx.First(&application, "id = ?", applicationID).Error; err != nil {
+			return fmt.Errorf("failed to load approved trainer application: %w", err)
 		}
 
 		trainer := &models.Trainer{UserID: application.UserID}
@@ -166,6 +178,13 @@ func (r *trainerApplicationRepository) Approve(ctx context.Context, applicationI
 				return ErrTrainerAlreadyLinked
 			}
 			return fmt.Errorf("failed to create trainer profile: %w", err)
+		}
+
+		if decision != nil {
+			decision.ApplicationID = applicationID
+			if err := tx.Create(decision).Error; err != nil {
+				return fmt.Errorf("failed to record approval decision: %w", err)
+			}
 		}
 		return nil
 	})
@@ -176,26 +195,40 @@ func (r *trainerApplicationRepository) Approve(ctx context.Context, applicationI
 	return &application, nil
 }
 
-// Reject transitions a PENDING application to REJECTED. Rejected applications
-// stay in history so the user can apply again; the user_id link and created_at
-// are preserved. Applications that do not exist or are not PENDING are
+// Reject transitions a PENDING application to REJECTED and records the review
+// decision in the same transaction. Rejected applications stay in history so
+// the user can apply again; the user_id link and created_at are preserved. The
+// status transition is a single guarded UPDATE, so two concurrent reviews
+// cannot both succeed. Applications that do not exist or are not PENDING are
 // reported respectively as not found or as a state conflict.
-func (r *trainerApplicationRepository) Reject(ctx context.Context, applicationID string) error {
-	result := r.db.WithContext(ctx).
-		Model(&models.TrainerApplication{}).
-		Where("id = ? AND status = ?", applicationID, models.ApplicationStatusPending).
-		Updates(map[string]any{
-			"status":     models.ApplicationStatusRejected,
-			"updated_at": time.Now(),
-		})
-	if result.Error != nil {
-		return fmt.Errorf("failed to reject trainer application: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		if _, err := r.FindByID(ctx, applicationID); err != nil {
-			return ErrApplicationNotFound
+func (r *trainerApplicationRepository) Reject(ctx context.Context, applicationID string, decision *models.TrainerApplicationDecision) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&models.TrainerApplication{}).
+			Where("id = ? AND status = ?", applicationID, models.ApplicationStatusPending).
+			Updates(map[string]any{
+				"status":     models.ApplicationStatusRejected,
+				"updated_at": time.Now(),
+			})
+		if result.Error != nil {
+			return fmt.Errorf("failed to reject trainer application: %w", result.Error)
 		}
-		return ErrApplicationStateConflict
-	}
-	return nil
+		if result.RowsAffected == 0 {
+			var probe models.TrainerApplication
+			if err := tx.First(&probe, "id = ?", applicationID).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrApplicationNotFound
+				}
+				return fmt.Errorf("failed to find trainer application for rejection: %w", err)
+			}
+			return ErrApplicationStateConflict
+		}
+
+		if decision != nil {
+			decision.ApplicationID = applicationID
+			if err := tx.Create(decision).Error; err != nil {
+				return fmt.Errorf("failed to record rejection decision: %w", err)
+			}
+		}
+		return nil
+	})
 }

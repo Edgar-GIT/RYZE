@@ -2,12 +2,14 @@ package exercises_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/exercises"
@@ -124,7 +126,7 @@ func validExercise() *models.Exercise {
 }
 
 func newService(repo exercises.ExerciseRepository) exercises.Service {
-	return exercises.NewService(repo)
+	return exercises.NewService(repo, config.ExerciseMediaConfig{})
 }
 
 func TestExerciseServiceList(t *testing.T) {
@@ -259,8 +261,8 @@ func TestExerciseServiceBrowse(t *testing.T) {
 		t.Fatalf("BrowseExercises trimmed: expected %q forwarded, got %q", "squat", repo.libraryGotFilter.Query)
 	}
 
-	// Difficulty and category must use the documented vocabulary.
-	for _, bad := range []repositories.ExerciseSearchFilter{{Difficulty: "Pro"}, {Category: "FullBody"}} {
+	// Difficulty, category and body part must use the documented vocabulary.
+	for _, bad := range []repositories.ExerciseSearchFilter{{Difficulty: "Pro"}, {Category: "FullBody"}, {BodyPart: "head"}} {
 		if _, err := svc.BrowseExercises(context.Background(), bad, 1, 10); !errors.Is(err, exercises.ErrInvalidInput) {
 			t.Fatalf("BrowseExercises %+v: expected ErrInvalidInput, got %v", bad, err)
 		}
@@ -324,6 +326,56 @@ func TestExerciseServiceSearch(t *testing.T) {
 	}
 	if err == nil {
 		t.Fatal("SearchExercises expected an error")
+	}
+}
+
+func TestExerciseServiceMediaGating(t *testing.T) {
+	model := validExercise()
+	bodyPart := "upper legs"
+	model.BodyPart = &bodyPart
+	model.InstructionSteps = json.RawMessage(`["Stand with the bar on your upper back.","Squat down and drive back up."]`)
+	model.ImageURL = "images/0001-a1b2c3d.jpg"
+	model.AnimationURL = "videos/0001-a1b2c3d.gif"
+	model.MediaAttribution = "© Gym visual — https://gymvisual.com/"
+
+	// Media exposure disabled (the default): fields stay empty and the
+	// unavailable state is explicit, while non-media metadata is always served.
+	disabledRepo := &stubExerciseRepo{exercise: model}
+	disabled, err := exercises.NewService(disabledRepo, config.ExerciseMediaConfig{}).GetExercise(context.Background(), exerciseID)
+	if err != nil {
+		t.Fatalf("GetExercise media disabled: %v", err)
+	}
+	if disabled.Exercise.ImageURL != "" || disabled.Exercise.AnimationURL != "" || disabled.Exercise.MediaAttribution != "" || disabled.Exercise.MediaAvailable {
+		t.Fatalf("disabled media must stay empty, got %+v", disabled.Exercise)
+	}
+	if disabled.Exercise.BodyPart != "upper legs" || len(disabled.Exercise.InstructionSteps) != 2 {
+		t.Fatalf("non-media fields must be served regardless of media gating, got %+v", disabled.Exercise)
+	}
+
+	// Media exposure enabled: stored relative paths are prefixed with the
+	// configured base path and availability is reported.
+	enabledRepo := &stubExerciseRepo{exercise: model}
+	enabled, err := exercises.NewService(enabledRepo, config.ExerciseMediaConfig{Enabled: true, BasePath: "/media/exercises"}).GetExercise(context.Background(), exerciseID)
+	if err != nil {
+		t.Fatalf("GetExercise media enabled: %v", err)
+	}
+	if enabled.Exercise.ImageURL != "/media/exercises/images/0001-a1b2c3d.jpg" {
+		t.Fatalf("expected prefixed image path, got %q", enabled.Exercise.ImageURL)
+	}
+	if enabled.Exercise.AnimationURL != "/media/exercises/videos/0001-a1b2c3d.gif" {
+		t.Fatalf("expected prefixed animation path, got %q", enabled.Exercise.AnimationURL)
+	}
+	if !enabled.Exercise.MediaAvailable || enabled.Exercise.MediaAttribution == "" {
+		t.Fatalf("expected media available with attribution, got %+v", enabled.Exercise)
+	}
+
+	// A base path with a trailing slash must never produce a double slash.
+	normalized, err := exercises.NewService(enabledRepo, config.ExerciseMediaConfig{Enabled: true, BasePath: "/media/exercises/"}).GetExercise(context.Background(), exerciseID)
+	if err != nil {
+		t.Fatalf("GetExercise trailing slash: %v", err)
+	}
+	if normalized.Exercise.ImageURL != "/media/exercises/images/0001-a1b2c3d.jpg" {
+		t.Fatalf("expected normalized image path, got %q", normalized.Exercise.ImageURL)
 	}
 }
 

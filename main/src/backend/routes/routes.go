@@ -53,7 +53,7 @@ import (
 )
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig) *gin.Engine {
 	router := gin.Default()
 	// Only the configured proxies may set the client address from forwarded
 	// headers; with the default (no trusted proxies) ClientIP is the socket
@@ -225,8 +225,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	workoutExerciseHandler := auth.NewTrainerWorkoutExerciseHandler(workoutExerciseService)
 
 	exerciseRepository := repositories.NewExerciseRepository(db)
-	exerciseService := exercises.NewService(exerciseRepository)
+	exerciseService := exercises.NewService(exerciseRepository, mediaCfg)
 	exercisesHandler := auth.NewExercisesHandler(exerciseService)
+	adminExerciseService := exercises.NewAdminService(exerciseRepository)
+	adminExercisesHandler := auth.NewAdminExercisesHandler(adminExerciseService)
 
 	workoutHistoryRepository := repositories.NewWorkoutHistoryRepository(db)
 	workoutHistoryService := workout_history.NewService(workoutHistoryRepository)
@@ -403,6 +405,20 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminApplicationMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsManage))
 	adminApplicationMutate.POST("/trainer-applications/:id/approve", adminTrainerApplicationHandler.ApproveApplication)
 	adminApplicationMutate.POST("/trainer-applications/:id/reject", adminTrainerApplicationHandler.RejectApplication)
+
+	// The global exercise catalogue is curated by the Management Administrator.
+	// Reads and lifecycle writes are split so a read-only holder can browse the
+	// catalogue without gaining publication control. The public read routes stay
+	// unauthenticated and only ever see published entries.
+	adminExerciseRead := admin.Group("")
+	adminExerciseRead.Use(middleware.RequireAdminPermission(adminroles.PermissionExercisesRead))
+	adminExerciseRead.GET("/exercises", adminExercisesHandler.ListExercises)
+	adminExerciseRead.GET("/exercises/:exerciseID", adminExercisesHandler.GetExercise)
+
+	adminExerciseMutate := admin.Group("")
+	adminExerciseMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionExercisesManage))
+	adminExerciseMutate.POST("/exercises", adminExercisesHandler.CreateExercise)
+	adminExerciseMutate.PATCH("/exercises/:exerciseID", adminExercisesHandler.UpdateExercise)
 
 	adminPricing := admin.Group("")
 	adminPricing.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))

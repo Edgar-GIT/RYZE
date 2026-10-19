@@ -2,6 +2,7 @@ package exercises
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
@@ -40,6 +42,11 @@ var DifficultyValues = []string{"Beginner", "Intermediate", "Advanced"}
 // validated against them.
 var MovementCategoryValues = []string{"Compound", "Isolation", "Core", "Cardio", "Plyometric", "Mobility", "Stretching"}
 
+// BodyPartValues is the controlled vocabulary of the catalogue's body-part
+// classification. It matches the vocabulary stored on imported catalogue
+// records; entries without a classification never match a body-part filter.
+var BodyPartValues = []string{"back", "cardio", "chest", "lower arms", "lower legs", "neck", "shoulders", "upper arms", "upper legs", "waist"}
+
 // ExerciseRepository is the read-only data-access surface required by the
 // exercises service. Writing the catalog is intentionally not part of it: the
 // catalog is platform-owned and is populated outside this service.
@@ -53,12 +60,16 @@ type ExerciseRepository interface {
 
 // Exercise is the safe representation of one exercise catalog entry. It
 // carries only the public descriptive metadata and never exposes deletion
-// markers or any internal data.
+// markers, source identity or any internal data. Media fields are populated
+// only when media exposure is enabled; otherwise they stay empty and
+// MediaAvailable is false so clients can render an explicit unavailable state.
 type Exercise struct {
 	ID                    string
 	Name                  string
+	BodyPart              string
 	Description           string
 	Instructions          string
+	InstructionSteps      []string
 	TargetMuscles         string
 	PrimaryMuscleGroup    string
 	SecondaryMuscleGroups string
@@ -67,6 +78,9 @@ type Exercise struct {
 	MovementCategory      string
 	VideoURL              string
 	ImageURL              string
+	AnimationURL          string
+	MediaAttribution      string
+	MediaAvailable        bool
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
@@ -107,10 +121,15 @@ type Service interface {
 
 type service struct {
 	exercises ExerciseRepository
+	media     config.ExerciseMediaConfig
 }
 
-func NewService(exercises ExerciseRepository) Service {
-	return &service{exercises: exercises}
+// NewService builds the public catalogue service. media controls whether the
+// catalogue exposes its media references: when disabled (the default) every
+// media field stays empty and clients render an unavailable state, because the
+// bundled dataset media licensing must be confirmed before public delivery.
+func NewService(exercises ExerciseRepository, media config.ExerciseMediaConfig) Service {
+	return &service{exercises: exercises, media: media}
 }
 
 // ListExercises returns one page of the catalog ordered alphabetically by name.
@@ -141,7 +160,7 @@ func (s *service) GetExercise(ctx context.Context, exerciseID string) (*Exercise
 	}
 
 	return &ExerciseDetail{
-		Exercise:     *toSafe(exerciseModel),
+		Exercise:     *s.toSafe(exerciseModel),
 		Alternatives: toSafeAlternativeList(alternativeLinks),
 	}, nil
 }
@@ -175,19 +194,21 @@ func (s *service) BrowseExercises(ctx context.Context, filter repositories.Exerc
 	}
 
 	return ListExercisesResult{
-		Exercises: toSafeList(exerciseModels),
+		Exercises: s.toSafeList(exerciseModels),
 		Total:     total,
 		Page:      page,
 		Limit:     limit,
 	}, nil
 }
 
-func toSafe(model *models.Exercise) *Exercise {
-	return &Exercise{
+func (s *service) toSafe(model *models.Exercise) *Exercise {
+	safe := &Exercise{
 		ID:                    model.ID,
 		Name:                  model.Name,
+		BodyPart:              stringValue(model.BodyPart),
 		Description:           model.Description,
 		Instructions:          model.Instructions,
+		InstructionSteps:      parseInstructionSteps(model.InstructionSteps),
 		TargetMuscles:         model.TargetMuscles,
 		PrimaryMuscleGroup:    model.PrimaryMuscleGroup,
 		SecondaryMuscleGroups: model.SecondaryMuscleGroups,
@@ -195,18 +216,64 @@ func toSafe(model *models.Exercise) *Exercise {
 		Difficulty:            model.Difficulty,
 		MovementCategory:      model.MovementCategory,
 		VideoURL:              model.VideoURL,
-		ImageURL:              model.ImageURL,
 		CreatedAt:             model.CreatedAt,
 		UpdatedAt:             model.UpdatedAt,
 	}
+	s.applyMedia(safe, model)
+	return safe
 }
 
-func toSafeList(models []models.Exercise) []Exercise {
+func (s *service) toSafeList(models []models.Exercise) []Exercise {
 	list := make([]Exercise, 0, len(models))
 	for i := range models {
-		list = append(list, *toSafe(&models[i]))
+		list = append(list, *s.toSafe(&models[i]))
 	}
 	return list
+}
+
+// applyMedia exposes the stored media references only when media exposure is
+// enabled. The stored values are relative paths; the configured base path is
+// prefixed here so clients never have to know the storage layout.
+func (s *service) applyMedia(safe *Exercise, model *models.Exercise) {
+	if !s.media.Enabled {
+		return
+	}
+	if model.ImageURL != "" {
+		safe.ImageURL = joinMediaPath(s.media.BasePath, model.ImageURL)
+	}
+	if model.AnimationURL != "" {
+		safe.AnimationURL = joinMediaPath(s.media.BasePath, model.AnimationURL)
+	}
+	safe.MediaAttribution = model.MediaAttribution
+	safe.MediaAvailable = safe.ImageURL != "" || safe.AnimationURL != ""
+}
+
+// joinMediaPath prefixes a stored relative media path with the configured base
+// path. Both sides are normalized so a path can never produce a double slash.
+func joinMediaPath(basePath, mediaPath string) string {
+	return strings.TrimSuffix(basePath, "/") + "/" + strings.TrimPrefix(mediaPath, "/")
+}
+
+// stringValue dereferences an optional stored string, treating NULL as absent.
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+// parseInstructionSteps decodes the stored JSON array of steps. A value that
+// cannot be decoded is treated as absent so malformed stored data can never
+// break a read response.
+func parseInstructionSteps(raw json.RawMessage) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var steps []string
+	if err := json.Unmarshal(raw, &steps); err != nil {
+		return nil
+	}
+	return steps
 }
 
 // toSafeAlternativeList maps the repository links into safe values. Names are
@@ -263,9 +330,10 @@ func validateSearchQuery(query string) error {
 	return nil
 }
 
-// validateFilter rejects oversized free-text values and any difficulty or
-// movement-category value outside the documented catalog vocabulary. Name
-// queries keep the legacy search cap; the remaining filters use the general one.
+// validateFilter rejects oversized free-text values and any difficulty,
+// movement-category or body-part value outside the documented catalog
+// vocabulary. Name queries keep the legacy search cap; the remaining filters
+// use the general one.
 func validateFilter(filter repositories.ExerciseSearchFilter) error {
 	limits := map[string]int{
 		"query":      MaxSearchLength,
@@ -273,6 +341,7 @@ func validateFilter(filter repositories.ExerciseSearchFilter) error {
 		"equipment":  MaxFilterLength,
 		"difficulty": MaxFilterLength,
 		"category":   MaxFilterLength,
+		"body_part":  MaxFilterLength,
 	}
 	for label, value := range map[string]string{
 		"query":      filter.Query,
@@ -280,6 +349,7 @@ func validateFilter(filter repositories.ExerciseSearchFilter) error {
 		"equipment":  filter.Equipment,
 		"difficulty": filter.Difficulty,
 		"category":   filter.Category,
+		"body_part":  filter.BodyPart,
 	} {
 		if strings.TrimSpace(value) == "" {
 			continue
@@ -293,6 +363,9 @@ func validateFilter(filter repositories.ExerciseSearchFilter) error {
 	}
 	if filter.Category != "" && !contains(MovementCategoryValues, filter.Category) {
 		return fmt.Errorf("%w: invalid movement category filter value", ErrInvalidInput)
+	}
+	if filter.BodyPart != "" && !contains(BodyPartValues, filter.BodyPart) {
+		return fmt.Errorf("%w: invalid body part filter value", ErrInvalidInput)
 	}
 	return nil
 }
@@ -314,5 +387,6 @@ func normalizeFilter(filter repositories.ExerciseSearchFilter) repositories.Exer
 	filter.Equipment = strings.TrimSpace(filter.Equipment)
 	filter.Difficulty = strings.TrimSpace(filter.Difficulty)
 	filter.Category = strings.TrimSpace(filter.Category)
+	filter.BodyPart = strings.TrimSpace(filter.BodyPart)
 	return filter
 }

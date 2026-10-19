@@ -13,13 +13,18 @@ import (
 )
 
 // exerciseResponse only exposes safe exercise catalog metadata: the entry
-// identity, its name and the public descriptive fields. Deletion markers and
-// any internal data are never exposed.
+// identity, its name and the public descriptive fields. Deletion markers,
+// provenance and any internal data are never exposed. Media fields stay empty
+// and MediaAvailable is false whenever media exposure is disabled; the stored
+// media references are relative paths already prefixed with the configured
+// media base path by the service.
 type exerciseResponse struct {
 	ID                    string    `json:"id"`
 	Name                  string    `json:"name"`
+	BodyPart              string    `json:"body_part"`
 	Description           string    `json:"description"`
 	Instructions          string    `json:"instructions"`
+	InstructionSteps      []string  `json:"instruction_steps"`
 	TargetMuscles         string    `json:"target_muscles"`
 	PrimaryMuscleGroup    string    `json:"primary_muscle_group"`
 	SecondaryMuscleGroups string    `json:"secondary_muscle_groups"`
@@ -28,6 +33,9 @@ type exerciseResponse struct {
 	MovementCategory      string    `json:"movement_category"`
 	VideoURL              string    `json:"video_url"`
 	ImageURL              string    `json:"image_url"`
+	AnimationURL          string    `json:"animation_url"`
+	MediaAttribution      string    `json:"media_attribution"`
+	MediaAvailable        bool      `json:"media_available"`
 	CreatedAt             time.Time `json:"created_at"`
 	UpdatedAt             time.Time `json:"updated_at"`
 }
@@ -36,8 +44,10 @@ func newExerciseResponse(exercise *exercises.Exercise) exerciseResponse {
 	return exerciseResponse{
 		ID:                    exercise.ID,
 		Name:                  exercise.Name,
+		BodyPart:              exercise.BodyPart,
 		Description:           exercise.Description,
 		Instructions:          exercise.Instructions,
+		InstructionSteps:      exercise.InstructionSteps,
 		TargetMuscles:         exercise.TargetMuscles,
 		PrimaryMuscleGroup:    exercise.PrimaryMuscleGroup,
 		SecondaryMuscleGroups: exercise.SecondaryMuscleGroups,
@@ -46,6 +56,9 @@ func newExerciseResponse(exercise *exercises.Exercise) exerciseResponse {
 		MovementCategory:      exercise.MovementCategory,
 		VideoURL:              exercise.VideoURL,
 		ImageURL:              exercise.ImageURL,
+		AnimationURL:          exercise.AnimationURL,
+		MediaAttribution:      exercise.MediaAttribution,
+		MediaAvailable:        exercise.MediaAvailable,
 		CreatedAt:             exercise.CreatedAt,
 		UpdatedAt:             exercise.UpdatedAt,
 	}
@@ -164,6 +177,7 @@ func (h *ExercisesHandler) parseListParams(c *gin.Context) (int, int, repositori
 		Equipment:  c.Query("equipment"),
 		Difficulty: c.Query("difficulty"),
 		Category:   c.Query("category"),
+		BodyPart:   c.Query("body_part"),
 	}
 	return page, limit, filter, true
 }
