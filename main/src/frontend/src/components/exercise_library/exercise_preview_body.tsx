@@ -1,4 +1,5 @@
 import { Repeat, ArrowRight } from "lucide-react";
+import { useState } from "react";
 
 import {
   exerciseMediaView,
