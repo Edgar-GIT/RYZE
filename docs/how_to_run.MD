@@ -567,6 +567,45 @@ currency match the purchase snapshot. Unpaid sessions (delayed payment
 methods), refunds and disputes are acknowledged and ignored: RYZE purchases are
 final and there is no refund workflow.
 
+## Exercise Media (Optional)
+
+The bundled exercise dataset media is third-party content (© Gym visual). Media
+exposure is disabled by default and **must not be enabled in production until
+commercial-use permission has been verified** (see `security.MD`).
+
+```env
+# Serve exercise media references (default: false)
+EXERCISE_MEDIA_ENABLED=false
+
+# Same-origin path the media references resolve against
+EXERCISE_MEDIA_BASE_PATH=/media/exercises
+```
+
+While disabled, every API response reports `media_available: false` and empty
+media fields, and the client renders its neutral placeholder. When enabled, the
+base path must be a same-origin absolute path (no scheme, host, `..` or empty
+value); validation rejects anything else at startup. The files themselves are
+served by the deployment (for example nginx), not by the API.
+
+## Trainer Evidence Storage (Optional)
+
+Applicant evidence documents are private; only validated metadata is stored in
+the database and the file bytes live in the configured directory.
+
+```env
+# Private directory for applicant documents (default: storage/trainer-evidence)
+TRAINER_EVIDENCE_DIR=storage/trainer-evidence
+
+# Maximum size of one document in bytes (default: 10485760 = 10 MiB)
+TRAINER_EVIDENCE_MAX_BYTES=10485760
+```
+
+The directory is created with `0700` and files are written with `0600`. It must
+not be inside a publicly served web root, and it must survive deployments and be
+included in backups: the database only keeps opaque storage keys. Values above
+`26214400` (25 MiB) are rejected at startup; keep the reverse proxy body limit
+at least as large as `TRAINER_EVIDENCE_MAX_BYTES`.
+
 ## Verify the Database Connection
 
 From the backend directory, run:
@@ -640,6 +679,26 @@ Current API surface (versioned under `/api/v1`):
 - `POST /api/v1/trainer/apply` — submits a trainer application for the
   authenticated user (requires the `ryze_access_token` cookie); the applicant
   is always resolved from the session.
+- `POST/GET /api/v1/trainer/application/documents` — uploads or lists the
+  applicant's own evidence documents; upload is allowed only while the latest
+  application is PENDING. `GET
+  /api/v1/trainer/application/documents/{documentID}/download` and `DELETE
+  /api/v1/trainer/application/documents/{documentID}` operate on an owned,
+  active document.
+- `GET /api/v1/exercises` — lists published exercises (pagination + filters);
+  `GET /api/v1/exercises/search?q=` searches names; `GET
+  /api/v1/exercises/{exerciseID}` returns one published exercise with its
+  alternatives (public).
+- `GET /api/v1/admin/exercises` — lists catalogue entries for administration
+  (pagination, search, status and body-part filters); `POST
+  /api/v1/admin/exercises` creates a draft; `GET`/`PATCH
+  /api/v1/admin/exercises/{exerciseID}` reads or updates one entry; requires
+  `exercises.read`/`exercises.manage` (Management Administrator only).
+- `GET /api/v1/admin/trainer-applications/{id}/documents` and `GET
+  /api/v1/admin/trainer-applications/{id}/decisions` — reviewer evidence list
+  and append-only decision history (chronological); `GET
+  /api/v1/admin/trainer-applications/{id}/documents/{documentID}/download`
+  streams one document; requires `trainer_applications.read` (both roles).
 - `GET /api/v1/trainer/profile` — returns the authenticated trainer's own
   profile; requires an active trainer session with `trainer.profile`.
 - `GET /api/v1/trainer/clients` — lists the authenticated trainer's active
@@ -658,9 +717,11 @@ Current API surface (versioned under `/api/v1`):
   application; requires `trainer_applications.read` (both roles).
 - `POST /api/v1/admin/trainer-applications/{id}/approve` — approves a PENDING
   application and creates the trainer profile for the same user atomically;
-  requires `trainer_applications.manage` (both roles).
+  accepts an optional `{"reason": "..."}` reviewer note; requires
+  `trainer_applications.manage` (both roles).
 - `POST /api/v1/admin/trainer-applications/{id}/reject` — rejects a PENDING
-  application (kept in history; the user can re-apply); requires
+  application (kept in history; the user can re-apply); accepts an optional
+  `{"reason": "..."}` reviewer note; requires
   `trainer_applications.manage` (both roles).
 
 Authorization model: read endpoints run under `users.read` (both roles); every
@@ -704,6 +765,24 @@ go run . migrate version
 
 The migration commands must be executed from the `main/src/backend`
 directory.
+
+## Importing the Exercise Dataset
+
+The canonical catalogue ships with a seed, but the full exercise dataset is
+imported explicitly. Apply migrations first, then run the idempotent importer
+from the backend directory:
+
+```bash
+cd main/src/backend
+go run . import-exercises \
+  --file ../resources/exercises/exercises-dataset-main/data/exercises.json
+```
+
+Use `--dry-run` to validate the file and report what would change without
+writing. The importer matches records by `source` + `source_id`, then by
+normalized name, and never overwrites an existing value; re-running it is safe.
+It does not serve media — see "Exercise Media (Optional)" for the licensing
+gate.
 
 ## Deployment
 

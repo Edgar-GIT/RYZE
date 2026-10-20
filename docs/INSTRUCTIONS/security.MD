@@ -2079,6 +2079,36 @@ Future file types must be explicitly approved before implementation.
 
 Everything else must be rejected.
 
+## Implemented trainer evidence uploads (v2.94.0)
+
+The only implemented upload surface is trainer-application evidence, and it
+follows the rules above strictly:
+
+- The applicant is resolved exclusively from the authenticated session; the
+  upload and delete paths also require the latest application to be `PENDING`.
+- The multipart body accepts only the fields `kind` and `file`. `kind` is
+  validated against the controlled vocabulary (`certification`,
+  `identification`, `insurance`, `other`).
+- The file is validated by magic bytes; the only accepted types are PDF, JPEG
+  and PNG. The client-provided filename and content type are never trusted or
+  stored as validation evidence.
+- `TRAINER_EVIDENCE_MAX_BYTES` bounds one document (default 10 MiB, rejected at
+  startup above the 25 MiB ceiling) and a dedicated body limit guards the
+  upload route. Oversized files answer `413 DOCUMENT_TOO_LARGE`.
+- Files are written to `TRAINER_EVIDENCE_DIR` (default `storage/trainer-evidence`),
+  a private directory outside every web root, with `0700` directories and
+  `0600` files. Names are opaque server-generated keys, never user filenames;
+  the temp file is written and atomically renamed, so a partial upload never
+  becomes a readable document.
+- The metadata endpoint and both download endpoints never project the storage
+  key or SHA-256 hash.
+- Downloads are authenticated and owner/reviewer scoped, streamed as
+  `attachment` with the validated stored content type, `nosniff` and
+  `Cache-Control: private, no-store`.
+- Removal is a soft delete and is only possible while the application is
+  `PENDING`; after review the submission is locked. Reviewer decisions are
+  append-only and never editable.
+
 ---
 
 # FILE SIZE LIMITS
@@ -2223,6 +2253,27 @@ Storage should remain outside publicly accessible directories whenever possible.
 Access should occur through authenticated API endpoints.
 
 Direct filesystem exposure should be avoided.
+
+## Exercise media exposure (v2.94.0)
+
+The bundled exercise dataset media is third-party content (© Gym visual, see
+the dataset `NOTICE.md`); it is **not** MIT-licensed and must not be served,
+bundled into production assets or redistributed until commercial-use
+permission is verified. This is an explicit deployment blocker, not a code
+default to relax:
+
+- `EXERCISE_MEDIA_ENABLED` defaults to `false`. While it is off the API
+  reports `media_available: false` and empty media fields, and no dataset media
+  is served.
+- Stored media references are relative paths. The API prefixes them with
+  `EXERCISE_MEDIA_BASE_PATH` (default `/media/exercises`), which must be a
+  same-origin absolute path: schemes, protocol-relative `//host` values,
+  parent traversal and empty values are rejected at startup.
+- Attribution is returned with every media-backed entry and must be rendered
+  wherever the media is shown.
+- Media is treated as untrusted input even when enabled: the reference can
+  never escape the configured base path, and the client renders explicit
+  unavailable/error states rather than treating a failed asset as content.
 
 ---
 

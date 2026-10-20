@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/services/admin2_api", async (importOriginal) => {
@@ -65,7 +65,7 @@ describe("Admin2ExercisesPage", () => {
     render(<Admin2ExercisesPage />);
 
     expect(await screen.findByText("Barbell Squat")).toBeTruthy();
-    expect(screen.getByText("Draft")).toBeTruthy();
+    expect(within(screen.getByRole("table")).getByText("Draft")).toBeTruthy();
     expect(mockedFetch).toHaveBeenCalledWith(1, 25, { query: "", status: "", bodyPart: "" });
   });
 

@@ -232,6 +232,38 @@ trainer never leaves an approved application without a profile. No
 authorization logic exists in the handlers or services; every admin route runs
 behind `AdminAuthenticate` + `RequireAdminPermission`.
 
+Trainer-application evidence extends the same layering with two focused
+modules: `trainer_evidence` (in `services/trainer_evidence`) owns the private
+file store (directory creation with restrictive permissions, magic-byte
+validation, size bound, atomic writes, opaque storage keys, read/remove), while
+`trainer_applications` owns the application-state rules and the decision
+history. The two evidence tables are `trainer_application_documents`
+(metadata + opaque storage key, soft-deleted) and
+`trainer_application_decisions` (append-only review audit). The applicant can
+attach or withdraw documents only while the latest application is `PENDING`;
+the reviewer can list/download documents and read the decision history under
+`trainer_applications.read`, and approve/reject with an optional reason under
+`trainer_applications.manage`. Ownership and state are re-checked server-side
+on every call; the storage key and hash never leave the backend. See
+`security.MD` (Trainer Evidence Uploads) for the threat model.
+
+The canonical exercise catalogue is a persisted, platform-owned domain rather
+than seed-only data. `services/exercise_import` performs an idempotent dataset
+import (matched by `source` + `source_id`, then by normalized name) inside one
+transaction, never overwriting existing values. `services/exercises` exposes a
+public read service (`BrowseExercises`, `GetExercise`) and a separate
+`AdminService` (`AdminListExercises`, `AdminGetExercise`,
+`AdminCreateExercise`, `AdminUpdateExercise`) behind the `exercises.read` /
+`exercises.manage` permissions, granted only to the Management Administrator.
+Public reads only ever see published, active entries; the administrative
+surface sees every status and the raw media references. Media exposure is a
+deployment concern, not a database one: the service prefixes stored relative
+paths with the configured same-origin base path and reports
+`media_available=false` whenever `EXERCISE_MEDIA_ENABLED` is off. The
+`three_d_key` column selects one of the client-implemented procedural scenes;
+the viewer is a lazily loaded Three.js chunk with a WebGL fallback, so the
+library never depends on 3D support to work.
+
 The admin program pricing foundation follows the same layering:
 `AdminProgramPricingHandler` (thin, in `api/auth`) → `admin_program_pricing`
 service (in `services/admin_program_pricing`) → `ProgramRepository` (via the
@@ -306,7 +338,8 @@ The trainer frontend reuses the existing application shell and introduces no
 parallel authentication or API layer:
 
 - `services/trainer_api.ts` — one typed client for the trainer endpoints
-  (`GET /trainer/access`, apply, profile, clients list/lookup/add/remove,
+  (`GET /trainer/access`, apply, application evidence documents
+  list/upload/remove/download, profile, clients list/lookup/add/remove,
   programs and the week → workout → exercise structure). It wraps the shared
   `@utils/http_client`, so sessions, cookies and the error envelope behave
   exactly like the rest of the account area.

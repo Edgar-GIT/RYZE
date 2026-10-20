@@ -280,7 +280,7 @@ requested.
 The public navigation bar contains:
 
 - Brand Logo (left)
-- Centered links: Services, Contact, Feedback, Our Vision, Feed
+- Centered links: Services, Exercise Library, Contact, Feedback, Our Vision, Feed
 - Right actions: Log in (outline pill) and Start free (solid cyan pill)
 
 The logo always redirects to the Home page.
@@ -791,6 +791,66 @@ redirected to the client dashboard.
 
 ---
 
+## Exercise Library
+
+The public, canonical catalogue of platform exercises. It is reachable from the
+public navbar and is not part of the purchase flow: every entry is readable
+without an account, and the catalogue is identical for every visitor.
+
+Routes: `/exercises` (list) and `/exercises/:exerciseId` (detail). The navbar
+link sits between Services and Contact.
+
+List page
+
+- Heading "Every movement, one catalogue" with a short explanatory line.
+- Search field (debounced 250 ms) that targets the server search endpoint and
+  a clear control when a query is present.
+- Five server-side filters — Body part, Muscle, Equipment, Difficulty and
+  Category — plus a "Clear N filters" control when any filter or the query is
+  active.
+- A polite result bar (`aria-live`) that reports the visible range and total,
+  or that no exercise matches.
+- Responsive card grid, 24 entries per page, with Previous/Next pagination
+  only when there is more than one page. Cards show the media thumbnail only
+  when the backend reports media as available, the exercise name, the meta line
+  (primary muscle · equipment · difficulty) and the body-part tag.
+- States: loading, error with Retry, and an empty state whose primary action
+  clears the search and filters. States never fabricate catalogue content.
+
+Detail page
+
+- An "Exercise Library" back link and the exercise name as the page heading.
+- Reuses the shared exercise preview body: media area, body-part/muscle/
+  equipment/difficulty metadata, description, ordered instruction steps and
+  alternatives; selecting an alternative navigates to that exercise in place.
+- 404 (`EXERCISE_NOT_FOUND`) renders an honest "does not exist or is no longer
+  available" state with a link back to the library; other failures offer Retry.
+- Opens scrolled to the top.
+
+Media behaviour
+
+- Media is only rendered while `media_available` is true; otherwise the shared
+  media placeholder is shown, never a broken asset or invented demonstration.
+- An animated demonstration (`animation_url`) is preferred over the still
+  image; videos are only rendered when the stored reference is an actual video
+  file. Media is never labelled as video or 3D when it is not.
+- `media_attribution` is displayed wherever media is shown.
+- Lazy loading and an unavailable/error fallback keep the page usable when
+  media delivery is disabled server-side.
+
+3D demonstrations
+
+- Entries carrying a supported `three_d_key` show an "Open 3D view" control
+  inside the detail page. The viewer is a separate, lazily imported Three.js
+  chunk, so the library loads and works without it.
+- The viewer renders a procedural animated demonstration with orbit drag, wheel
+  zoom, play/pause and 0.5× / 1× / 1.5× playback. It never replaces the
+  catalogue entry, instructions or media; 3D is additive.
+- Without WebGL the page falls back to an honest unavailable message instead of
+  a blank canvas.
+
+---
+
 ## Feedback
 
 Acts as the platform's social / complaints area.
@@ -1118,6 +1178,13 @@ Apply page (`/trainer/apply`)
 - The application collects no screening fields today; the backend endpoint
   accepts no body, so the page submits and explains the review step instead of
   inventing personal-data collection.
+- While the application is `PENDING`, the review state includes an optional
+  supporting-documents panel: a document-type select (Certification,
+  Identification, Insurance, Other), a file picker restricted to PDF/JPEG/PNG,
+  an upload action, and the list of attached documents with download and a
+  two-step remove confirmation. The panel is presentational: the backend
+  validates type, size and ownership, and the panel is only offered in the
+  pending state. Server error codes are mapped to plain wording.
 
 Dashboard (`/trainer/dashboard`)
 
@@ -1231,6 +1298,7 @@ Functions include:
 - Manage clients
 - Create packs
 - Edit packs
+- Manage the exercise catalogue
 - Marketplace management
 - Platform statistics
 
@@ -1294,6 +1362,7 @@ ADMIN_1 to `/admin/dashboard` and ADMIN_2 to `/admin2/dashboard`.
 /admin2/plans
 /admin2/plans/create
 /admin2/plans/:programId
+/admin2/exercises
 /admin2/marketplace
 /admin2/trainers
 /admin2/clients
@@ -1318,7 +1387,12 @@ Pages implemented in the current cycle:
   reset, disable/reactivate, pagination.
 - **ADMIN_1 Trainers** — active/deleted tabs, disable/reactivate, pagination.
 - **ADMIN_1 Trainer applications** — status filter (All / Pending / Approved /
-  Rejected), approve/reject actions.
+  Rejected), approve/reject actions, and a per-row Review panel. The panel loads
+  the application's evidence documents and decision history from the reviewer
+  endpoints: documents can be downloaded (never edited), the history shows each
+  transition, reviewer note and timestamp, and the reviewer can approve or
+  reject with an optional decision note. The quick row actions remain
+  reason-less shortcuts.
 - **ADMIN_1 System, Technical configuration, Development, Audit log** —
   placeholder pages ready for future implementation.
 - **ADMIN_1 Test Mode** — the Technical-navigation page for entering/exiting
@@ -1386,6 +1460,20 @@ Pages implemented in the current cycle:
   the Unpublish action is preceded by a warning that unpublishing revokes those
   clients' access (their entitlement is preserved, and access returns when the
   plan is republished).
+- **ADMIN_2 Exercises** — `/admin2/exercises`, the administrative surface of the
+  canonical exercise catalogue (Management Administrator only). A debounced
+  search, status filter (All / Draft / Published / Archived) and body-part
+  filter drive the real admin endpoint; the table shows the exercise with its
+  source provenance, body part + difficulty, equipment, publication status,
+  last update and an Edit action, with pagination and loading/error/empty
+  states. "New exercise" opens the editor modal; entries are created as drafts.
+  The editor groups classification fields (body part, difficulty, movement
+  category, equipment, muscles), content (description, instructions,
+  one-step-per-line instruction steps) and relative media references
+  (image/animation path, source media id, attribution), and exposes the
+  publication status only when editing. Names are immutable after creation.
+  Server errors are mapped to plain wording (duplicate name, validation,
+  missing entry); creating or saving refreshes the list.
 - **ADMIN_2 Marketplace** — published catalog with filter chips grouped by
   product type, price and currency.
 - **ADMIN_2 Trainers (business)** — trainer profiles with a commission manager

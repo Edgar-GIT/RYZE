@@ -3707,25 +3707,38 @@ Downloads the workout program.
 ---
 # EXERCISE ENDPOINTS
 
-Implemented backend foundation for the platform exercise library. An exercise
-is a global, platform-owned catalog entry that exists only once and is reused
-across programs and packs. The catalog is **public and read-only**: the three
-
-endpoints below require no authentication and are identical for every caller.
-There are no write endpoints in this foundation; the catalog is populated
-outside the API (seed data / future admin tooling). Soft-deleted exercises are
-never returned.
+Implemented platform exercise library. An exercise is a global,
+platform-owned catalog entry that exists only once and is reused across
+programs and packs. The catalog is persisted in the database and populated by
+an idempotent dataset import plus an administrative write surface (see
+**Admin Exercise Catalogue** below). The three client endpoints below are
+**public and read-only**: they require no authentication, are identical for
+every caller and only ever return published, active entries. Soft-deleted or
+non-published exercises are never returned.
 
 Every exercise object now carries the structured training description:
 
 - `instructions` — step-by-step movement text;
+- `instruction_steps` — ordered array of individual execution steps (may be
+  empty);
+- `body_part` — the dataset body-part classification (`chest`, `back`,
+  `shoulders`, `upper arms`, `lower arms`, `upper legs`, `lower legs`, `waist`,
+  `neck`, `cardio`) or an empty string when unclassified;
 - `primary_muscle_group` — the target muscle group (controlled vocabulary);
 - `secondary_muscle_groups` — comma-separated secondary groups (optional);
 - `movement_category` — movement classification (`Compound`, `Isolation`,
   `Core`, `Plyometric`, `Cardio`, `Mobility`, `Stretching`);
 - `difficulty` — `Beginner`, `Intermediate` or `Advanced`;
+- media references: `image_url`, `animation_url` (animated demonstration) and
+  `video_url`, plus `media_attribution` for the source credit;
+- `media_available` — `true` only when media exposure is enabled on the server
+  and the entry has a stored media reference. When it is `false`, the media
+  fields are empty and the client must render its unavailable state;
+- `three_d_key` — the 3D demonstration scene implemented by the client viewer
+  (`squat`, `push_up`, `biceps_curl`, `lunge`), or an empty string when the
+  entry has no 3D demonstration;
 - plus the original fields: `name`, `description`, `target_muscles`,
-  `equipment`, `video_url`, `image_url`, `created_at`, `updated_at`.
+  `equipment`, `created_at`, `updated_at`.
 
 ## Exercise Library
 
@@ -3744,11 +3757,13 @@ Optional filters, combinable together and with `q` on search:
 - `difficulty` — `Beginner`, `Intermediate`, `Advanced`; any other value
   returns `400 VALIDATION_ERROR`;
 - `category` — one of the controlled movement categories; any other value
-  returns `400 VALIDATION_ERROR`.
+  returns `400 VALIDATION_ERROR`;
+- `body_part` — one of the controlled body-part values listed above; any other
+  value returns `400 VALIDATION_ERROR`.
 
-Unknown parameter values never error except for `difficulty`/`category`, which
-are validated against the controlled vocabulary so typos cannot silently empty
-the catalog.
+Unknown parameter values never error except for `difficulty`, `category` and
+`body_part`, which are validated against the controlled vocabulary so typos
+cannot silently empty the catalog.
 
 Pagination follows the platform rules: page ≥ 1, limit clamped to a maximum of
 100, `data.pagination` reports `page`, `limit`, `total` and `total_pages`.
@@ -3769,16 +3784,22 @@ Response:
       {
         "id": "…",
         "name": "Barbell Squat",
+        "body_part": "upper legs",
         "description": "…",
         "instructions": "…",
+        "instruction_steps": ["Stand with the bar on your upper back.", "Squat down."],
         "target_muscles": "…",
-        "primary_muscle_group": "Quads",
+        "primary_muscle_group": "upper legs",
         "secondary_muscle_groups": "Glutes, Core, Hamstrings",
         "equipment": "Barbell",
         "difficulty": "Intermediate",
         "movement_category": "Compound",
-        "video_url": "…",
+        "video_url": "",
         "image_url": "…",
+        "animation_url": "…",
+        "three_d_key": "squat",
+        "media_attribution": "© Gym visual — https://gymvisual.com/",
+        "media_available": false,
         "created_at": "…",
         "updated_at": "…"
       }
@@ -3800,14 +3821,12 @@ its linked alternatives.
 Includes:
 
 - Description
-- Instructions
-- Images (`image_url`)
-- Videos (`video_url`)
-- Target muscles
-- Primary / secondary muscle groups
-- Movement category
-- Difficulty
-- Equipment
+- Instructions and ordered `instruction_steps`
+- Body part, target muscles and primary / secondary muscle groups
+- Movement category, difficulty and equipment
+- Images (`image_url`), animated demonstrations (`animation_url`) and videos
+  (`video_url`), with `media_available` and `media_attribution`
+- `three_d_key` when the entry has a client-rendered 3D demonstration
 - Alternatives — `alternatives` is an array of `{ id, exercise_id,
   alternative_exercise_id, alternative_name }`; `alternative_name` is the
   resolved name of the alternative catalog entry. Alternatives belong only to
@@ -3830,16 +3849,22 @@ Response:
     "exercise": {
       "id": "51f8b06a-…-a6f1f4b6e257",
       "name": "Barbell Squat",
+      "body_part": "upper legs",
       "description": "…",
       "instructions": "…",
+      "instruction_steps": ["Stand with the bar on your upper back.", "Squat down."],
       "target_muscles": "…",
-      "primary_muscle_group": "Quads",
+      "primary_muscle_group": "upper legs",
       "secondary_muscle_groups": "Glutes, Core, Hamstrings",
       "equipment": "Barbell",
       "difficulty": "Intermediate",
       "movement_category": "Compound",
-      "video_url": "…",
+      "video_url": "",
       "image_url": "…",
+      "animation_url": "…",
+      "three_d_key": "squat",
+      "media_attribution": "© Gym visual — https://gymvisual.com/",
+      "media_available": false,
       "created_at": "…",
       "updated_at": "…"
     },
@@ -3864,12 +3889,77 @@ GET /api/v1/exercises/search?q={query}&page=1&limit=20
 Searches exercises by name, case-insensitively. The `q` parameter is required;
 an empty or blank query returns `400 VALIDATION_ERROR`. LIKE wildcards in the
 query are treated literally. The same muscle / equipment / difficulty /
-category filters as the library endpoint can be combined with the query. The
-response shape and pagination are identical to `GET /api/v1/exercises`.
+category / body-part filters as the library endpoint can be combined with the
+query. The response shape and pagination are identical to
+`GET /api/v1/exercises`.
 
 ```
 GET /api/v1/exercises/search?q=bench&category=Compound
 ```
+
+## Admin Exercise Catalogue
+
+The administrative catalogue surface is protected by the `exercises`
+permission group, which belongs to the **Management Administrator** (ADMIN_2)
+only. Technical Administrators receive `403 FORBIDDEN`. These endpoints return
+draft, published and archived entries and additionally expose provenance
+(`source`, `source_id`) plus the raw stored media references
+(`image_url`, `animation_url`, `source_media_id`, `media_attribution`).
+
+Statuses form an explicit publication lifecycle:
+
+- `draft` — created but not public;
+- `published` — visible through the public exercise endpoints;
+- `archived` — retained but no longer public.
+
+Names are immutable after creation because program references and public links
+may already point at the entry. New entries are always created as drafts;
+publication is a separate status update.
+
+### `GET /api/v1/admin/exercises`
+
+Returns one page of catalogue entries (default 20, limit clamped to 100),
+optionally filtered by `q`, `status`, `body_part` and `source`. Unlike the
+public endpoint, this list includes non-published entries. Requires
+`exercises.read`.
+
+Response `data`: `exercises` (administrative exercise objects) and
+`pagination` (`page`, `limit`, `total`, `total_pages`).
+
+### `GET /api/v1/admin/exercises/{exerciseID}`
+
+Returns one entry regardless of publication status. Malformed ids return
+`400 VALIDATION_ERROR`; unknown or soft-deleted entries return
+`404 EXERCISE_NOT_FOUND`. Requires `exercises.read`.
+
+### `POST /api/v1/admin/exercises`
+
+Creates a catalogue entry as a **draft**. Requires `exercises.manage`.
+
+Request body:
+
+- `name` — required, unique among active entries (`VARCHAR(255)`);
+- `description`, `instructions`, `instruction_steps`;
+- `body_part`, `target_muscles`, `primary_muscle_group`,
+  `secondary_muscle_groups`, `equipment`, `difficulty`, `movement_category`;
+- `image_url`, `animation_url`, `source_media_id`, `media_attribution`.
+
+`body_part`, `difficulty` and `movement_category` are validated against their
+controlled vocabularies; media references must be relative paths (no scheme,
+no leading slash, no `..`). Returns `201` with `data.exercise`.
+
+Errors: `400 VALIDATION_ERROR`, `409 EXERCISE_NAME_TAKEN`.
+
+### `PATCH /api/v1/admin/exercises/{exerciseID}`
+
+Updates one entry. Requires `exercises.manage`. Every field is optional:
+absent fields stay untouched, while a present empty value clears the field.
+`name` is immutable (it is not part of the update payload);
+`source`/`source_id` are provenance and are not editable. `status` accepts
+`draft`, `published` or `archived`. Returns `200` with `data.exercise`.
+
+Errors: `400 VALIDATION_ERROR`, `404 EXERCISE_NOT_FOUND`,
+`409 EXERCISE_NAME_TAKEN`.
 
 ---
 
@@ -4327,8 +4417,68 @@ Errors:
   soft-deleted user).
 - HTTP 500 `INTERNAL_ERROR` — unexpected failure.
 
-Future application data (curriculum vitae, certificates, personal information)
-extends this endpoint without changing the identity rule.
+Future application data (curriculum vitae, personal information) extends this
+endpoint without changing the identity rule.
+
+## Application Documents (Applicant)
+
+Evidence documents are **optional** and can only be attached while the latest
+application is `PENDING`. After review the submission is locked: uploads and
+deletions answer `409 APPLICATION_STATE_CONFLICT`. The document ownership is
+always resolved from the authenticated session; a document id can never select
+another user's evidence.
+
+Allowed kinds (`kind`): `certification`, `identification`, `insurance`,
+`other`. Allowed file types are PDF, JPEG and PNG, verified server-side by
+magic bytes; the client-provided filename and content type are never trusted.
+The maximum size is bounded by `TRAINER_EVIDENCE_MAX_BYTES` (default 10 MiB,
+ceiling 25 MiB). Files are stored in a private directory outside any web root;
+the storage key, hash and internal path are never exposed.
+
+### `POST /api/v1/trainer/application/documents`
+
+Multipart upload with fields `kind` and `file`. Authentication required (user
+cookie `ryze_access_token`). Returns `201` with the document metadata as
+`data`:
+
+```json
+{
+  "id": "…",
+  "kind": "certification",
+  "original_filename": "certification.pdf",
+  "content_type": "application/pdf",
+  "byte_size": 2048,
+  "created_at": "…"
+}
+```
+
+Errors:
+
+- HTTP 400 `VALIDATION_ERROR` — missing fields, invalid kind or malformed id.
+- HTTP 400 `DOCUMENT_TYPE_NOT_ALLOWED` — content is not PDF, JPEG or PNG.
+- HTTP 413 `DOCUMENT_TOO_LARGE` — file exceeds the configured bound.
+- HTTP 404 `APPLICATION_NOT_FOUND` — no application exists for the caller.
+- HTTP 409 `APPLICATION_STATE_CONFLICT` — the application is no longer
+  `PENDING`.
+
+### `GET /api/v1/trainer/application/documents`
+
+Returns the caller's active documents for their latest application as
+`data.documents`. Same error mapping as above.
+
+### `GET /api/v1/trainer/application/documents/{documentID}/download`
+
+Streams one of the caller's own documents as a private attachment
+(`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`,
+`Cache-Control: private, no-store`). A document that does not belong to the
+caller answers `404 DOCUMENT_NOT_FOUND`.
+
+### `DELETE /api/v1/trainer/application/documents/{documentID}`
+
+Soft-deletes one of the caller's own documents while the application is
+`PENDING` and returns `data: {}`. A missing or already withdrawn document
+answers `404 DOCUMENT_NOT_FOUND`; a reviewed application answers
+`409 APPLICATION_STATE_CONFLICT`.
 
 ---
 
@@ -4401,6 +4551,11 @@ becomes `APPROVED` and the trainer row is inserted atomically. On success
 returns HTTP 200 with the application (`status: APPROVED`) and the same
 `user_id` — the user identity is never replaced.
 
+Request body is optional: `{"reason": "..."}` records an optional reviewer
+reason (at most 500 characters, whitespace/control characters normalized).
+Every decision is appended to the decision history with the reviewing
+administrator identity and the status transition.
+
 Errors:
 
 - HTTP 404 `APPLICATION_NOT_FOUND` — unknown application.
@@ -4421,9 +4576,38 @@ POST /api/v1/admin/trainer-applications/{id}/reject
 
 Rejects a `PENDING` application. The row is kept in history with status
 `REJECTED` and no trainer profile is created; the applicant can apply again.
-Errors mirror the approve endpoint (`APPLICATION_NOT_FOUND`,
-`APPLICATION_STATE_CONFLICT`). Accessible by both roles
-(`trainer_applications.manage`).
+The optional `{"reason": "..."}` body is recorded in the decision history under
+the same rules as approval. Errors mirror the approve endpoint
+(`APPLICATION_NOT_FOUND`, `APPLICATION_STATE_CONFLICT`,
+`VALIDATION_ERROR`). Accessible by both roles (`trainer_applications.manage`).
+
+## Reviewer Evidence and Decision History
+
+Reviewers can inspect the evidence attached to any application and the full,
+append-only decision history. Both surfaces require
+`trainer_applications.read` (shared by both roles).
+
+### `GET /api/v1/admin/trainer-applications/{id}/documents`
+
+Returns the active evidence documents of the application as
+`data.documents`. Each document exposes only `id`, `kind`,
+`original_filename`, `content_type`, `byte_size` and `created_at`; the storage
+key and hash are never projected. Malformed ids return
+`400 VALIDATION_ERROR`; unknown applications return
+`404 APPLICATION_NOT_FOUND`.
+
+### `GET /api/v1/admin/trainer-applications/{id}/documents/{documentID}/download`
+
+Streams one evidence document as a private attachment with the same response
+headers as the applicant download. A document that does not belong to the
+application answers `404 DOCUMENT_NOT_FOUND`.
+
+### `GET /api/v1/admin/trainer-applications/{id}/decisions`
+
+Returns the application's decision history, in chronological order (oldest
+first), as `data.decisions`. Each decision exposes `id`, `application_id`,
+`admin_id`, `from_status`, `to_status`, `reason` and `created_at`. Decisions
+are audit facts: they are never updated or deleted.
 
 ---
 
