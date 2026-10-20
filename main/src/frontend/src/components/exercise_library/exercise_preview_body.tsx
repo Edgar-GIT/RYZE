@@ -32,11 +32,13 @@ export const ExercisePreviewBody = ({
   titleAs: TitleTag = "h3"
 }: ExercisePreviewBodyProps) => {
   const media = exerciseMediaView(exercise);
+  const [failedURL, setFailedURL] = useState("");
+  const mediaFailed = media.url !== "" && media.url === failedURL;
   const steps = (exercise.instruction_steps ?? []).filter((step) => step.trim());
 
   return (
     <div className={styles.body}>
-      {media.kind === "video" ? (
+      {!mediaFailed && media.kind === "video" ? (
         <video
           src={media.url}
           controls
@@ -45,9 +47,16 @@ export const ExercisePreviewBody = ({
           playsInline
           className={styles.media}
           aria-label={`${exercise.name} demonstration`}
+          onError={() => setFailedURL(media.url)}
         />
-      ) : media.kind === "image" ? (
-        <img src={media.url} alt={`${exercise.name} demonstration`} className={styles.media} loading="lazy" />
+      ) : !mediaFailed && media.kind === "image" ? (
+        <img
+          src={media.url}
+          alt={`${exercise.name} demonstration`}
+          className={styles.media}
+          loading="lazy"
+          onError={() => setFailedURL(media.url)}
+        />
       ) : (
         <ExerciseMediaPlaceholder label="Demonstration video" />
       )}
