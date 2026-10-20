@@ -9,6 +9,10 @@ export const PUBLIC_NAVIGATION_ITEMS: NavigationItem[] = [
     to: "/services"
   },
   {
+    label: "Exercise Library",
+    to: "/exercises"
+  },
+  {
     label: "Contact",
     to: "/contact"
   },

@@ -14,6 +14,8 @@ import {
 } from "@/services/trainer_api";
 import { ApiError } from "@utils/http_client";
 
+import { TrainerApplicationDocuments } from "./trainer_application_documents";
+
 import styles from "./trainer_apply_page.module.css";
 
 // The application form intentionally collects nothing beyond the request
@@ -103,6 +105,7 @@ export const TrainerApplyPage = () => {
               administrator to review it. You will be able to open the trainer dashboard once it is
               approved.
             </p>
+            <TrainerApplicationDocuments />
           </section>
         ) : null}
 

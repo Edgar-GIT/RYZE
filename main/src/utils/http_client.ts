@@ -64,6 +64,75 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return handleResponse<T>(response);
 }
 
+// apiUpload posts a multipart body. The browser sets the multipart boundary
+// and content type; the caller only provides the FormData.
+export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      credentials: "include",
+      body
+    });
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "Unable to reach the server.");
+  }
+
+  return handleResponse<T>(response);
+}
+
+const CONTENT_DISPOSITION_FILENAME = /filename\*?=(?:UTF-8''|")?([^";]+)/i;
+
+const filenameFromDisposition = (disposition: string, fallback: string): string => {
+  const match = CONTENT_DISPOSITION_FILENAME.exec(disposition);
+  if (!match) {
+    return fallback;
+  }
+  try {
+    return decodeURIComponent(match[1].trim());
+  } catch {
+    return fallback;
+  }
+};
+
+// downloadFile streams an authenticated binary download to the browser. Error
+// responses are still JSON envelopes, so they are mapped to ApiError exactly
+// like the JSON helpers.
+export async function downloadFile(path: string, fallbackName: string): Promise<void> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "GET",
+      credentials: "include"
+    });
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "Unable to reach the server.");
+  }
+
+  if (!response.ok) {
+    const envelope = (await response.json().catch(() => null)) as ApiEnvelope<unknown> | null;
+    throw new ApiError(
+      response.status,
+      envelope?.error?.code ?? "API_ERROR",
+      envelope?.message ?? "Unable to download the file.",
+      envelope?.error?.details ?? []
+    );
+  }
+
+  const blob = await response.blob();
+  const filename = filenameFromDisposition(response.headers.get("Content-Disposition") ?? "", fallbackName);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   let response: Response;
 

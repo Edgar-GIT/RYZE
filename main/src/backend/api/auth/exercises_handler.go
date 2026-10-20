@@ -34,6 +34,7 @@ type exerciseResponse struct {
 	VideoURL              string    `json:"video_url"`
 	ImageURL              string    `json:"image_url"`
 	AnimationURL          string    `json:"animation_url"`
+	ThreeDKey             string    `json:"three_d_key"`
 	MediaAttribution      string    `json:"media_attribution"`
 	MediaAvailable        bool      `json:"media_available"`
 	CreatedAt             time.Time `json:"created_at"`
@@ -57,6 +58,7 @@ func newExerciseResponse(exercise *exercises.Exercise) exerciseResponse {
 		VideoURL:              exercise.VideoURL,
 		ImageURL:              exercise.ImageURL,
 		AnimationURL:          exercise.AnimationURL,
+		ThreeDKey:             exercise.ThreeDKey,
 		MediaAttribution:      exercise.MediaAttribution,
 		MediaAvailable:        exercise.MediaAvailable,
 		CreatedAt:             exercise.CreatedAt,

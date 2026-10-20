@@ -45,6 +45,7 @@ type Exercise struct {
 	VideoURL              string          `gorm:"column:video_url;type:varchar(500)" json:"video_url"`
 	ImageURL              string          `gorm:"column:image_url;type:varchar(500)" json:"image_url"`
 	AnimationURL          string          `gorm:"column:animation_url;type:varchar(500)" json:"animation_url"`
+	ThreeDKey             *string         `gorm:"column:three_d_key;type:varchar(64)" json:"three_d_key"`
 	SourceMediaID         string          `gorm:"column:source_media_id;type:varchar(40)" json:"source_media_id"`
 	MediaAttribution      string          `gorm:"column:media_attribution;type:varchar(255)" json:"media_attribution"`
 	Status                string          `gorm:"column:status;type:varchar(20);not null;default:published" json:"status"`

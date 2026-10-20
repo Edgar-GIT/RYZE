@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, encodePathSegment } from "@utils/http_client";
+import { apiGet, apiPatch, apiPost, downloadFile, encodePathSegment } from "@utils/http_client";
 
 // AdminIdentity is the authenticated administrator returned by GET
 // /admin/auth/me. The role is always derived server-side from the configured
@@ -59,6 +59,35 @@ export interface AdminTrainerApplicationsList {
   pagination: AdminPagination;
 }
 
+// Evidence documents and the append-only decision history of one trainer
+// application, as exposed to reviewers.
+export interface AdminApplicationDocument {
+  id: string;
+  kind: string;
+  original_filename: string;
+  content_type: string;
+  byte_size: number;
+  created_at: string;
+}
+
+export interface AdminApplicationDecision {
+  id: string;
+  application_id: string;
+  admin_id: string;
+  from_status: string;
+  to_status: string;
+  reason: string;
+  created_at: string;
+}
+
+export interface AdminApplicationDocumentsList {
+  documents: AdminApplicationDocument[];
+}
+
+export interface AdminApplicationDecisionsList {
+  decisions: AdminApplicationDecision[];
+}
+
 export const ApplicationStatus = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
@@ -111,11 +140,38 @@ export const fetchAdminTrainerApplications = (page: number, limit: number, statu
   return apiGet<AdminTrainerApplicationsList>(`/admin/trainer-applications?page=${page}&limit=${limit}${statusQuery}`);
 };
 
-export const approveAdminTrainerApplication = (id: string) =>
-  apiPost<AdminTrainerApplication>(`/admin/trainer-applications/${encodePathSegment(id)}/approve`, {});
+// Review decisions may carry an optional reason; an empty reason is omitted
+// rather than sent as an empty string.
+const decisionReasonBody = (reason?: string): Record<string, string> => {
+  const trimmed = reason?.trim();
+  return trimmed ? { reason: trimmed } : {};
+};
 
-export const rejectAdminTrainerApplication = (id: string) =>
-  apiPost<AdminTrainerApplication>(`/admin/trainer-applications/${encodePathSegment(id)}/reject`, {});
+export const approveAdminTrainerApplication = (id: string, reason?: string) =>
+  apiPost<AdminTrainerApplication>(`/admin/trainer-applications/${encodePathSegment(id)}/approve`, decisionReasonBody(reason));
+
+export const rejectAdminTrainerApplication = (id: string, reason?: string) =>
+  apiPost<AdminTrainerApplication>(`/admin/trainer-applications/${encodePathSegment(id)}/reject`, decisionReasonBody(reason));
+
+export const fetchAdminApplicationDocuments = (applicationId: string) =>
+  apiGet<AdminApplicationDocumentsList>(
+    `/admin/trainer-applications/${encodePathSegment(applicationId)}/documents`
+  );
+
+export const fetchAdminApplicationDecisions = (applicationId: string) =>
+  apiGet<AdminApplicationDecisionsList>(
+    `/admin/trainer-applications/${encodePathSegment(applicationId)}/decisions`
+  );
+
+export const downloadAdminApplicationDocument = (
+  applicationId: string,
+  documentId: string,
+  fallbackName: string
+): Promise<void> =>
+  downloadFile(
+    `/admin/trainer-applications/${encodePathSegment(applicationId)}/documents/${encodePathSegment(documentId)}/download`,
+    fallbackName
+  );
 
 export const adminRoleName = (role: string): string => {
   if (role === TECHNICAL_ADMINISTRATOR) {

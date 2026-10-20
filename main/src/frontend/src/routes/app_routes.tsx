@@ -8,6 +8,8 @@ import { TrainerLayout } from "@/components/trainer/trainer_layout/trainer_layou
 import { TrainerSessionProvider } from "@/components/trainer/trainer_session_context";
 import { AccountPurchaseHistoryPage } from "@/pages/account_purchase_history_page/account_purchase_history_page";
 import { ContactPage } from "@/pages/contact_page/contact_page";
+import { ExerciseDetailPage } from "@/pages/exercise_detail_page/exercise_detail_page";
+import { ExerciseLibraryPage } from "@/pages/exercise_library_page/exercise_library_page";
 import { FeedbackPage } from "@/pages/feedback_page/feedback_page";
 import { GenericPlanMarketplacePage } from "@/pages/generic_plan_marketplace_page/generic_plan_marketplace_page";
 import { GenericProgramDetailPage } from "@/pages/generic_program_detail_page/generic_program_detail_page";
@@ -69,6 +71,8 @@ export const AppRoutes = () => {
         <Route exact path="/services/generic-program/:programId/purchase/cancelled" component={GenericProgramDetailPage} />
         <Route exact path="/services/my-programs" component={MyProgramsPage} />
         <Route exact path="/services/my-programs/:programId" component={ProgramAccessPage} />
+        <Route exact path="/exercises" component={ExerciseLibraryPage} />
+        <Route exact path="/exercises/:exerciseId" component={ExerciseDetailPage} />
         <Route
           path="/services/:serviceSlug"
           render={() => (

@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from "@utils/http_client";
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, downloadFile, encodePathSegment } from "@utils/http_client";
 
 import { AdminPagination } from "./admin_api";
 
@@ -153,6 +153,58 @@ export const fetchTrainerAccess = (): Promise<TrainerAccessStatus> =>
 
 export const submitTrainerApplication = (): Promise<TrainerOwnApplication> =>
   apiPost<TrainerOwnApplication>("/trainer/apply", {});
+
+// Optional evidence documents attached to a PENDING application. Kinds are the
+// backend's controlled vocabulary; the server validates the file itself, the
+// client only carries it.
+export const ApplicationDocumentKind = {
+  CERTIFICATION: "certification",
+  IDENTIFICATION: "identification",
+  INSURANCE: "insurance",
+  OTHER: "other"
+} as const;
+
+export type ApplicationDocumentKindValue =
+  typeof ApplicationDocumentKind[keyof typeof ApplicationDocumentKind];
+
+export const APPLICATION_DOCUMENT_KIND_LABELS: Record<ApplicationDocumentKindValue, string> = {
+  certification: "Certification",
+  identification: "Identification",
+  insurance: "Insurance",
+  other: "Other"
+};
+
+export interface TrainerApplicationDocument {
+  id: string;
+  kind: string;
+  original_filename: string;
+  content_type: string;
+  byte_size: number;
+  created_at: string;
+}
+
+export interface TrainerApplicationDocumentsList {
+  documents: TrainerApplicationDocument[];
+}
+
+export const fetchTrainerApplicationDocuments = (): Promise<TrainerApplicationDocumentsList> =>
+  apiGet<TrainerApplicationDocumentsList>("/trainer/application/documents");
+
+export const uploadTrainerApplicationDocument = (
+  kind: ApplicationDocumentKindValue,
+  file: File
+): Promise<TrainerApplicationDocument> => {
+  const form = new FormData();
+  form.append("kind", kind);
+  form.append("file", file);
+  return apiUpload<TrainerApplicationDocument>("/trainer/application/documents", form);
+};
+
+export const deleteTrainerApplicationDocument = (documentId: string): Promise<never> =>
+  apiDelete<never>(`/trainer/application/documents/${encodePathSegment(documentId)}`);
+
+export const downloadTrainerApplicationDocument = (documentId: string, fallbackName: string): Promise<void> =>
+  downloadFile(`/trainer/application/documents/${encodePathSegment(documentId)}/download`, fallbackName);
 
 export const fetchTrainerProfile = (): Promise<TrainerProfile> =>
   apiGet<TrainerProfile>("/trainer/profile");

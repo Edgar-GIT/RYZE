@@ -1,39 +1,54 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@utils/http_client", () => ({
-  apiGet: vi.fn(),
-  apiPost: vi.fn(),
-  apiPatch: vi.fn(),
-  apiDelete: vi.fn()
-}));
+vi.mock("@utils/http_client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@utils/http_client")>();
+  return {
+    ...actual,
+    apiGet: vi.fn(),
+    apiPost: vi.fn(),
+    apiPatch: vi.fn(),
+    apiDelete: vi.fn(),
+    apiUpload: vi.fn(),
+    downloadFile: vi.fn()
+  };
+});
 
-import { apiDelete, apiGet, apiPatch, apiPost } from "@utils/http_client";
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, downloadFile } from "@utils/http_client";
 
 import {
+  ApplicationDocumentKind,
   addTrainerClient,
   addWorkoutExercise,
   createProgramWeek,
+  deleteTrainerApplicationDocument,
+  downloadTrainerApplicationDocument,
   fetchProgramWeeks,
   fetchTrainerAccess,
+  fetchTrainerApplicationDocuments,
   fetchTrainerClients,
   fetchTrainerPrograms,
   fetchWorkoutExercises,
   lookupTrainerClient,
   reorderProgramWeeks,
   reorderWorkoutExercises,
-  submitTrainerApplication
+  submitTrainerApplication,
+  uploadTrainerApplicationDocument
 } from "./trainer_api";
 
 const mockedGet = vi.mocked(apiGet);
 const mockedPost = vi.mocked(apiPost);
 const mockedPatch = vi.mocked(apiPatch);
 const mockedDelete = vi.mocked(apiDelete);
+const mockedUpload = vi.mocked(apiUpload);
+const mockedDownload = vi.mocked(downloadFile);
 
 beforeEach(() => {
   mockedGet.mockReset();
   mockedPost.mockReset();
   mockedPatch.mockReset();
   mockedDelete.mockReset();
+  mockedUpload.mockReset();
+  mockedDownload.mockReset();
 });
 
 describe("access and application", () => {
@@ -145,6 +160,67 @@ describe("programs and structure", () => {
     expect(mockedPatch).toHaveBeenCalledWith(
       "/trainer/programs/p1/weeks/w1/workouts/wo1/exercises/order",
       { ids: ["we2", "we1"] }
+    );
+  });
+});
+
+describe("application documents", () => {
+  it("lists the documents attached to the pending application", async () => {
+    const documents = [
+      {
+        id: "doc-1",
+        kind: "certification",
+        original_filename: "cert.pdf",
+        content_type: "application/pdf",
+        byte_size: 2048,
+        created_at: "2026-01-01T00:00:00Z"
+      }
+    ];
+    mockedGet.mockResolvedValue({ documents });
+
+    const result = await fetchTrainerApplicationDocuments();
+
+    expect(mockedGet).toHaveBeenCalledWith("/trainer/application/documents");
+    expect(result).toEqual({ documents });
+  });
+
+  it("uploads the chosen file as multipart form data with its kind", async () => {
+    mockedUpload.mockResolvedValue({
+      id: "doc-1",
+      kind: "identification",
+      original_filename: "id.png",
+      content_type: "image/png",
+      byte_size: 3,
+      created_at: "2026-01-01T00:00:00Z"
+    });
+    const file = new File(["abc"], "id.png", { type: "image/png" });
+
+    await uploadTrainerApplicationDocument(ApplicationDocumentKind.IDENTIFICATION, file);
+
+    expect(mockedUpload).toHaveBeenCalledTimes(1);
+    const [path, form] = mockedUpload.mock.calls[0];
+    expect(path).toBe("/trainer/application/documents");
+    expect(form).toBeInstanceOf(FormData);
+    expect(form.get("kind")).toBe("identification");
+    expect(form.get("file")).toBe(file);
+  });
+
+  it("url-encodes the document id when deleting", async () => {
+    mockedDelete.mockResolvedValue(undefined as never);
+
+    await deleteTrainerApplicationDocument("doc/1");
+
+    expect(mockedDelete).toHaveBeenCalledWith("/trainer/application/documents/doc%2F1");
+  });
+
+  it("downloads the document through the download endpoint", async () => {
+    mockedDownload.mockResolvedValue(undefined);
+
+    await downloadTrainerApplicationDocument("doc-1", "certification.pdf");
+
+    expect(mockedDownload).toHaveBeenCalledWith(
+      "/trainer/application/documents/doc-1/download",
+      "certification.pdf"
     );
   });
 });

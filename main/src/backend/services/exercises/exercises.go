@@ -63,6 +63,8 @@ type ExerciseRepository interface {
 // markers, source identity or any internal data. Media fields are populated
 // only when media exposure is enabled; otherwise they stay empty and
 // MediaAvailable is false so clients can render an explicit unavailable state.
+// ThreeDKey names the procedural 3D demonstration the frontend viewer renders;
+// it is empty when the exercise has no 3D demonstration.
 type Exercise struct {
 	ID                    string
 	Name                  string
@@ -79,6 +81,7 @@ type Exercise struct {
 	VideoURL              string
 	ImageURL              string
 	AnimationURL          string
+	ThreeDKey             string
 	MediaAttribution      string
 	MediaAvailable        bool
 	CreatedAt             time.Time
@@ -216,6 +219,7 @@ func (s *service) toSafe(model *models.Exercise) *Exercise {
 		Difficulty:            model.Difficulty,
 		MovementCategory:      model.MovementCategory,
 		VideoURL:              model.VideoURL,
+		ThreeDKey:             stringValue(model.ThreeDKey),
 		CreatedAt:             model.CreatedAt,
 		UpdatedAt:             model.UpdatedAt,
 	}

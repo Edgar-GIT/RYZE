@@ -2,6 +2,7 @@ import {
   ArrowRight,
   Dumbbell,
   Eye,
+  Library,
   Mail,
   Menu,
   MessageSquareText,
@@ -24,6 +25,7 @@ const SCROLL_IDLE_MS = 220;
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   "/services": Dumbbell,
+  "/exercises": Library,
   "/contact": Mail,
   "/feedback": MessageSquareText,
   "/our-vision": Eye,
