@@ -3,8 +3,10 @@ import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
+import { exerciseMediaDevPreview } from "./main/src/frontend/dev/exercise_media_preview";
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), exerciseMediaDevPreview()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./main/src/frontend/src", import.meta.url)),
