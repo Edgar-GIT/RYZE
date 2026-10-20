@@ -638,3 +638,117 @@ export async function fetchAdminFeedback(): Promise<AdminFeedbackListResult> {
     reason: "Feedback is not part of the community scope yet."
   };
 }
+
+// --- Exercise catalogue administration ---
+
+// The persisted catalogue is the single source the public Exercise Library,
+// trainers and administrators all read from. Publication is explicit: new
+// entries start as drafts, and only published entries are publicly visible.
+export const EXERCISE_STATUS = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+  ARCHIVED: "archived"
+} as const;
+
+export type ExerciseStatusValue = typeof EXERCISE_STATUS[keyof typeof EXERCISE_STATUS];
+
+export const EXERCISE_STATUS_LABELS: Record<ExerciseStatusValue, string> = {
+  draft: "Draft",
+  published: "Published",
+  archived: "Archived"
+};
+
+export const isExerciseStatus = (value: string): value is ExerciseStatusValue =>
+  value === EXERCISE_STATUS.DRAFT ||
+  value === EXERCISE_STATUS.PUBLISHED ||
+  value === EXERCISE_STATUS.ARCHIVED;
+
+export interface AdminExercise {
+  id: string;
+  name: string;
+  source: string;
+  source_id: string;
+  body_part: string;
+  description: string;
+  instructions: string;
+  instruction_steps: string[];
+  target_muscles: string;
+  primary_muscle_group: string;
+  secondary_muscle_groups: string;
+  equipment: string;
+  difficulty: string;
+  movement_category: string;
+  video_url: string;
+  image_url: string;
+  animation_url: string;
+  source_media_id: string;
+  media_attribution: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminExercisesList {
+  exercises: AdminExercise[];
+  pagination: AdminPagination;
+}
+
+export interface AdminExerciseFilters {
+  query?: string;
+  status?: ExerciseStatusValue | "";
+  bodyPart?: string;
+}
+
+// Editable catalogue fields. Names are immutable after creation because
+// workout references and public links may already point at the entry.
+export interface AdminExerciseInput {
+  description: string;
+  instructions: string;
+  instruction_steps: string[];
+  target_muscles: string;
+  primary_muscle_group: string;
+  secondary_muscle_groups: string;
+  equipment: string;
+  difficulty: string;
+  movement_category: string;
+  body_part: string;
+  image_url: string;
+  animation_url: string;
+  source_media_id: string;
+  media_attribution: string;
+}
+
+export interface AdminExerciseCreateInput extends AdminExerciseInput {
+  name: string;
+}
+
+export interface AdminExerciseUpdateInput extends AdminExerciseInput {
+  status: ExerciseStatusValue;
+}
+
+export interface AdminExerciseMutationResult {
+  exercise: AdminExercise;
+}
+
+export const fetchAdminExercises = (page: number, limit: number, filters: AdminExerciseFilters = {}) => {
+  const query = new URLSearchParams();
+  query.set("page", String(page));
+  query.set("limit", String(limit));
+  const search = filters.query?.trim() ?? "";
+  if (search) {
+    query.set("q", search);
+  }
+  if (filters.status) {
+    query.set("status", filters.status);
+  }
+  if (filters.bodyPart) {
+    query.set("body_part", filters.bodyPart);
+  }
+  return apiGet<AdminExercisesList>(`/admin/exercises?${query.toString()}`);
+};
+
+export const createAdminExercise = (input: AdminExerciseCreateInput) =>
+  apiPost<AdminExerciseMutationResult>("/admin/exercises", input);
+
+export const updateAdminExercise = (id: string, input: AdminExerciseUpdateInput) =>
+  apiPatch<AdminExerciseMutationResult>(`/admin/exercises/${encodePathSegment(id)}`, input);
