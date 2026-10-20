@@ -45,8 +45,9 @@ const EMPTY_FILTERS: LibraryFilters = {
 // available, and always keeps the Gym visual attribution visible next to it.
 const ExerciseMediaThumb = ({ exercise }: { exercise: ExerciseCatalogEntry }) => {
   const media = exerciseMediaView(exercise);
+  const [failedURL, setFailedURL] = useState("");
 
-  if (media.kind === "none") {
+  if (media.kind === "none" || (media.url !== "" && media.url === failedURL)) {
     return (
       <div className={styles.thumbPlaceholder} aria-hidden="true">
         <span className={styles.thumbPlaceholderText}>Media unavailable</span>
@@ -65,6 +66,7 @@ const ExerciseMediaThumb = ({ exercise }: { exercise: ExerciseCatalogEntry }) =>
           preload="metadata"
           className={styles.thumbMedia}
           aria-label={`${exercise.name} demonstration`}
+          onError={() => setFailedURL(media.url)}
         />
       ) : (
         <img
@@ -72,6 +74,7 @@ const ExerciseMediaThumb = ({ exercise }: { exercise: ExerciseCatalogEntry }) =>
           alt={`${exercise.name} demonstration`}
           className={styles.thumbMedia}
           loading="lazy"
+          onError={() => setFailedURL(media.url)}
         />
       )}
       {media.attribution ? <span className={styles.thumbAttribution}>{media.attribution}</span> : null}
