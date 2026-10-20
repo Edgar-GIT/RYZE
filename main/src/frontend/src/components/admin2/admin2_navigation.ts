@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Package, Users, BarChart3, MessageSquare, Settings } from "lucide-react";
+import { Dumbbell, LayoutDashboard, Package, Users, BarChart3, MessageSquare, Settings } from "lucide-react";
 
 export interface Admin2NavItem {
   label: string;
@@ -17,6 +17,7 @@ export const ADMIN2_PATHS = {
   DASHBOARD: "/admin2/dashboard",
   PLANS: "/admin2/plans",
   PLAN_CREATE: "/admin2/plans/create",
+  EXERCISES: "/admin2/exercises",
   MARKETPLACE: "/admin2/marketplace",
   TRAINERS: "/admin2/trainers",
   CLIENTS: "/admin2/clients",

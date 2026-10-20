@@ -42,6 +42,7 @@ import Admin2ClientsPage from "@/pages/admin2/admin2_clients_page/admin2_clients
 import Admin2SalesPage from "@/pages/admin2/admin2_sales_page/admin2_sales_page";
 import Admin2AnalyticsPage from "@/pages/admin2/admin2_analytics_page/admin2_analytics_page";
 import Admin2FeedbackPage from "@/pages/admin2/admin2_feedback_page/admin2_feedback_page";
+import Admin2ExercisesPage from "@/pages/admin2/admin2_exercises_page/admin2_exercises_page";
 import Admin2SettingsPage from "@/pages/admin2/admin2_settings_page/admin2_settings_page";
 import { TrainerApplyPage } from "@/pages/trainer/trainer_apply_page/trainer_apply_page";
 import { TrainerClientsPage } from "@/pages/trainer/trainer_clients_page/trainer_clients_page";
@@ -146,6 +147,7 @@ export const AppRoutes = () => {
                   <Route exact path="/admin2/plans" component={Admin2PlansPage} />
                   <Route exact path="/admin2/plans/create" component={Admin2PlanCreatePage} />
                   <Route exact path="/admin2/plans/:programId" component={Admin2PlanDetailPage} />
+                  <Route exact path="/admin2/exercises" component={Admin2ExercisesPage} />
                   <Route exact path="/admin2/marketplace" component={Admin2MarketplacePage} />
                   <Route exact path="/admin2/trainers" component={Admin2TrainersPage} />
                   <Route exact path="/admin2/clients" component={Admin2ClientsPage} />
