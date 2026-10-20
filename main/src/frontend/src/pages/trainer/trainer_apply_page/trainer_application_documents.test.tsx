@@ -99,7 +99,8 @@ describe("TrainerApplicationDocuments", () => {
     fireEvent.change(screen.getByLabelText("Choose a document file"), { target: { files: [file] } });
     fireEvent.click(screen.getByRole("button", { name: /Upload document/ }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Only PDF, JPEG and PNG files are accepted.");
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Only PDF, JPEG and PNG files are accepted.");
     expect(screen.queryByText("document_type_not_allowed")).toBeNull();
   });
 

@@ -105,8 +105,10 @@ describe("AdminTrainerApplicationsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Approve Jane Doe" }));
 
     await waitFor(() => {
-      expect(mockedApprove).toHaveBeenCalledWith("app-1");
+      expect(mockedApprove).toHaveBeenCalledTimes(1);
     });
+    expect(mockedApprove.mock.calls[0][0]).toBe("app-1");
+    expect(mockedApprove.mock.calls[0][1]).toBeUndefined();
   });
 
   it("sends the decision note with a reasoned approval", async () => {
