@@ -569,9 +569,11 @@ final and there is no refund workflow.
 
 ## Exercise Media (Optional)
 
-The bundled exercise dataset media is third-party content (© Gym visual). Media
-exposure is disabled by default and **must not be enabled in production until
-commercial-use permission has been verified** (see `security.MD`).
+The exercise **data** is MIT-licensed, but the bundled images and GIFs are
+third-party content (© Gym visual). Media exposure is disabled by default and
+**must not be enabled in production until RYZE's own commercial-use permission
+has been confirmed directly with Gym visual**. The repository's permission, the
+attribution, and this local preview are not a redistribution license.
 
 ```env
 # Serve exercise media references (default: false)
@@ -586,6 +588,74 @@ media fields, and the client renders its neutral placeholder. When enabled, the
 base path must be a same-origin absolute path (no scheme, host, `..` or empty
 value); validation rejects anything else at startup. The files themselves are
 served by the deployment (for example nginx), not by the API.
+
+### Local development preview
+
+The downloaded dataset media can be inspected locally without adding it to the
+application, the build, or a public/static directory. The Vite dev server has a
+development-only middleware that streams `images/` and `videos/` from
+`main/src/resources/exercises/exercises-dataset-main/` at
+`/dev-exercise-media`.
+
+1. In the local `.env` (never in production), set:
+
+   ```env
+   EXERCISE_MEDIA_ENABLED=true
+   EXERCISE_MEDIA_BASE_PATH=/dev-exercise-media
+   ```
+
+2. Restart the backend from `main/src/backend` so it re-reads `.env`, and
+   restart the client so Vite re-reads the flag at startup.
+3. Start the client from the repository root with:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Open `http://localhost:5173/exercises`. Thumbnails, GIFs and the Gym visual
+   attribution should now appear; the 3D viewer is independent of this flag.
+
+The middleware:
+
+- exists only in `vite` serve mode; `vite build` never imports or copies the
+  media, and `vite preview` does not register the middleware;
+- registers the preview endpoint only when `EXERCISE_MEDIA_ENABLED=true` and
+  `EXERCISE_MEDIA_BASE_PATH=/dev-exercise-media`; otherwise the preview path
+  answers `404` even though the direct-file block stays active;
+- accepts only the `images/videos` directories and `.gif/.jpg/.jpeg/.png`
+  files, rejects traversal and unknown paths, and enforces loopback clients —
+  accessing the dev server through a LAN/public address cannot fetch the files;
+- blocks the dataset's ordinary project-relative and `/@fs/` URLs too, so the
+  Vite dev server cannot serve the media directly from the repository and
+  bypass the preview path;
+- sends `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`,
+  `X-Robots-Tag: noindex, nofollow` and `Cross-Origin-Resource-Policy:
+  same-origin`;
+- keeps the backend's normal media gate: the API still exposes references only
+  when `EXERCISE_MEDIA_ENABLED=true`.
+
+To verify the disabled behaviour, unset/disable the flag, restart the backend
+and reload the library: the API returns `media_available: false`, the client
+shows "Media unavailable"/the RYZE placeholder, and a direct request to
+`/dev-exercise-media/...` returns `404` when the middleware is not running.
+
+### Enabling media in production
+
+Production delivery requires all of the following, in this order:
+
+1. Written confirmation from Gym visual that RYZE may use and deliver the media
+   in a commercial product, covering the intended audience and delivery method.
+2. Continuing to respect the media terms: the attribution
+   `© Gym visual — https://gymvisual.com/` stays visible wherever media is
+   shown, the assets stay at 180×180, and no rights beyond the permission are
+   assumed.
+3. A deliberate deployment-level media host (for example an nginx location)
+   that serves the files at `EXERCISE_MEDIA_BASE_PATH`. This repository does
+   not implement or enable production delivery.
+4. Only then set `EXERCISE_MEDIA_ENABLED=true` in the production environment.
+
+The Vite dev-preview middleware is not part of the production build and must
+never be reproduced in the production server configuration.
 
 ## Trainer Evidence Storage (Optional)
 

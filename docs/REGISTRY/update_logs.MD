@@ -30,6 +30,13 @@ UI shows a neutral placeholder. This is a deployment blocker until
 commercial-use permission is verified, and it is documented in `security.MD`
 and `how_to_run.MD`.
 
+The public UI was also corrected before release: the navbar now sizes itself so
+the six centred links and the auth actions never overlap, the library renders
+only static images at their intrinsic size in strict 10-item infinite-scroll
+batches, the detail page owns animated media, and the Home/Our Vision headings
+align to the shared page container instead of drifting toward the centre or the
+viewport edge.
+
 Main changes:
 
 - Database, migrations `000029_extend_exercise_catalog_source_media_publication`,
@@ -53,6 +60,18 @@ Main changes:
 - Media gate: `config` reads `EXERCISE_MEDIA_ENABLED` and
   `EXERCISE_MEDIA_BASE_PATH` (same-origin validation); repository responses
   null the media fields and set `media_available=false` while disabled.
+- Development-only media preview:
+  `main/src/frontend/dev/exercise_media_preview.ts` (+ test) is a Vite
+  serve-only middleware (`vite.config.ts`) that streams the downloaded dataset
+  `images/`/`videos/` at `/dev-exercise-media` to loopback clients only, with
+  fixed directories/extensions, realpath containment, no-store/nosniff/
+  noindex headers and no build or preview counterpart. The preview endpoint is
+  registered only when both local media variables are set; it also answers
+  `404` for the dataset's project-relative and `/@fs/` URLs (in every dev
+  session), so Vite's own file serving cannot bypass it. It requires the
+  backend media flag and base path to be set locally; the library thumbnail and
+  detail preview now also fall back to the placeholder when an available asset
+  fails to load.
 - Backend trainer evidence: `services/trainer_applications/documents.go`
   (magic-byte PDF/JPEG/PNG validation, size ceiling, atomic private storage,
   pending-only upload/delete),
@@ -68,8 +87,18 @@ Main changes:
   `components/exercise_library/*` (preview body, media placeholder, library
   dialog) and `pages/exercise_library_page` /
   `pages/exercise_detail_page`; navbar route `/exercises` with debounced
-  search, server filters, pagination, alternatives and honest loading/error/
-  empty states.
+  search, server filters, alternatives and honest loading/error/empty states.
+  The list loads strict 10-item batches through an intersection sentinel,
+  appends without duplicates, retries a failed batch in place, and renders only
+  the static `image_url` at intrinsic size; animated media is confined to the
+  detail page. Both public pages clear the fixed navbar with page-container
+  top spacing.
+- UI layout corrections: navbar compact link metrics by default and an
+  icon-only breakpoint at `1360px` prevent the centred links from colliding
+  with the auth actions or pushing the Start free pill outside the bar
+  (`navbar.module.css`); Home/Platform and Our Vision layouts keep their page
+  content inside the shared container instead of full-bleed overrides, so the
+  headings and copy align to the same left edge as the rest of the page.
 - Frontend 3D: `components/exercise_library/exercise_3d_demo.tsx` (lazy chunk)
   and `exercise_3d_viewer.tsx` (procedural Three.js scene, orbit/zoom,
   play/pause, speed, WebGL fallback) for `squat`, `push_up`, `biceps_curl` and
@@ -94,16 +123,34 @@ Main changes:
   dataset import, new endpoints) and this log.
 - Tests: backend service/repository/handler/e2e coverage for import, public and
   admin catalogue, evidence upload/download/delete and decisions; frontend
-  tests for the library, detail, 3D viewer, document panel, admin review page,
-  admin exercises page and API clients.
+  tests for the library, detail, media fallbacks, 3D viewer, document panel,
+  admin review page, admin exercises page and API clients. The dev media
+  middleware has its own resolver and HTTP test suite.
 
 Validation:
 
 - Backend: `gofmt -l .` empty, `go vet ./...` clean, `go test ./...` all
   packages pass.
-- Frontend: `npx tsc --noEmit` clean, `npx vitest run` 13 files / 80 tests
-  pass, `npm run build` succeeds (index 733.56 kB / 207.27 kB gzip; lazy 3D
-  chunk 544.45 kB / 136.65 kB gzip; chunk-size warning accepted).
+- Frontend: `npx tsc --noEmit` clean, `npx vitest run` 14 files / 99 tests
+  pass, `npm run build` succeeds (index 746.36 kB / 210.39 kB gzip; lazy 3D
+  chunk 544.45 kB / 136.64 kB gzip; chunk-size warning accepted).
+- Layout: headless Chromium checks at 1920×1080 and 1366×768 confirmed the
+  navbar has a positive gap between the centred links and the auth actions with
+  the Start free pill fully inside the bar, the Home and Our Vision headings
+  share the container's 360px left edge, the library shows `1–10` initially and
+  appends 10 more per scroll, and the library/detail top content clears the
+  fixed navbar.
+- Local preview: the Vite dev server returned the shipped GIF/JPEG at
+  `/dev-exercise-media/...` with `image/gif`/`image/jpeg`, `no-store` and
+  `nosniff`; an encoded traversal request and the dataset's direct
+  project-relative and `/@fs/` URLs returned `404`. The production build
+  contains no GIF and no `dev-exercise-media` reference, and `vite preview`
+  answered the same path with the SPA HTML instead of media. With
+  `EXERCISE_MEDIA_ENABLED=false`, a separate dev server answered both the
+  preview and direct URLs with `404`.
+- Disabled media: a backend started with `EXERCISE_MEDIA_ENABLED=false` returned
+  empty media fields, `media_available: false` and no attribution; the frontend
+  fallback states are covered by tests.
 - Database: development database at migration version `31`, `dirty=false`;
   1,353 active exercises; 4 entries with `three_d_key`.
 - Import: 1,305 dataset records imported, 13 existing rows enriched, 6
@@ -111,10 +158,11 @@ Validation:
 
 Residual and unverified:
 
-- Exercise media is not served or bundled and may not be enabled in production
-  until Gym visual commercial-use permission is verified; the delivery
-  mechanism (e.g. nginx location) is an operator decision and was not
-  implemented.
+- Exercise media is not bundled or delivered in production and may not be
+  enabled there until Gym visual commercial-use permission is verified; the
+  production delivery mechanism (e.g. nginx location) is an operator decision
+  and was not implemented. Local inspection is limited to the loopback-only
+  Vite dev middleware.
 - The 3D viewer was validated by unit tests and a production build, not in a
   live browser/WebGL session; unsupported devices fall back to a message.
 - No disposable database was available, so migrations were applied forward and

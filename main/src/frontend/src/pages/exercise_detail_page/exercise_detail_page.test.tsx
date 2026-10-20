@@ -102,6 +102,26 @@ describe("ExerciseDetailPage", () => {
     expect(await screen.findByText("© Gym visual — https://gymvisual.com/")).toBeTruthy();
   });
 
+  it("falls back to the placeholder when available media cannot load", async () => {
+    mockedFetch.mockResolvedValue(
+      makeDetail({
+        exercise: makeEntry({
+          media_available: true,
+          animation_url: "/dev-exercise-media/videos/0001.gif",
+          media_attribution: "© Gym visual — https://gymvisual.com/"
+        })
+      })
+    );
+
+    renderDetail("e1");
+
+    const image = await screen.findByRole("img", { name: "Barbell Squat demonstration" });
+    fireEvent.error(image);
+
+    expect(screen.getByText(/RYZE media placeholder/)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "Barbell Squat demonstration" })).toBeNull();
+  });
+
   it("shows the unavailable state while the backend keeps media disabled", async () => {
     mockedFetch.mockResolvedValue(makeDetail());
 

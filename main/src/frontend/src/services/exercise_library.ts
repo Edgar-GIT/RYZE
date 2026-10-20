@@ -208,6 +208,28 @@ export interface ExerciseMediaView {
 
 const VIDEO_FILE_PATTERN = /\.(mp4|webm|mov|m4v)(\?.*)?$/i;
 
+// exerciseThumbnailView resolves the static preview used by catalogue cards.
+// GIFs and videos are intentionally excluded here: they only play on the
+// exercise detail page. The still image is rendered at its intrinsic size.
+export const exerciseThumbnailView = (
+  entry: Pick<ExerciseCatalogEntry, "media_available" | "media_attribution" | "image_url">
+): ExerciseMediaView => {
+  if (!entry.media_available) {
+    return { kind: "none", url: "", attribution: "" };
+  }
+
+  const url = entry.image_url?.trim() ?? "";
+  if (!url) {
+    return { kind: "none", url: "", attribution: "" };
+  }
+
+  return {
+    kind: "image",
+    url,
+    attribution: entry.media_attribution?.trim() ?? ""
+  };
+};
+
 // exerciseMediaView resolves the renderable media for a catalogue entry. The
 // backend only serves media references while media exposure is enabled and
 // reports it through media_available; without that flag every entry renders the

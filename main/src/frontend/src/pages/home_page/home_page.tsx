@@ -26,7 +26,6 @@ export const HomePage = () => (
             eyebrow="Catalog"
             title="Available RYZE program categories."
             description="Start free, add automatic nutrition, or move into a coach-reviewed Elite program."
-            align="center"
           />
         </Reveal>
         <div className={styles.serviceGrid}>

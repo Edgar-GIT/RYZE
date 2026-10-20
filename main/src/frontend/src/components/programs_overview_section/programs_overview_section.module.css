@@ -16,8 +16,8 @@
 .header {
   display: grid;
   gap: 0.7rem;
-  justify-items: center;
-  text-align: center;
+  justify-items: start;
+  text-align: left;
 }
 
 .accentRule {

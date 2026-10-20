@@ -6,9 +6,12 @@
 }
 
 .media {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  align-self: flex-start;
+  object-fit: contain;
   border-radius: var(--radius-md);
   border: var(--border-color) 1px solid;
   background: var(--surface);

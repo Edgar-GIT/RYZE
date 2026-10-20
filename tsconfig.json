@@ -22,5 +22,5 @@
       "@utils/*": ["./main/src/utils/*"]
     }
   },
-  "include": ["main/src/frontend/src", "main/src/utils", "vite.config.ts"]
+  "include": ["main/src/frontend/src", "main/src/frontend/dev", "main/src/utils", "vite.config.ts"]
 }

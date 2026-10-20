@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
@@ -12,8 +12,8 @@ import {
   EXERCISE_BODY_PART_OPTIONS,
   EXERCISE_EQUIPMENT_OPTIONS,
   EXERCISE_MUSCLE_GROUPS,
-  exerciseMediaView,
   exerciseMetaLine,
+  exerciseThumbnailView,
   fetchExerciseLibrary,
   MOVEMENT_CATEGORIES,
   type ExerciseCatalogEntry
@@ -22,8 +22,9 @@ import { joinClassNames } from "@utils/class_names";
 
 import styles from "./exercise_library_page.module.css";
 
-const PAGE_LIMIT = 24;
+const PAGE_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 250;
+const LOAD_MORE_ROOT_MARGIN = "120px 0px";
 
 interface LibraryFilters {
   bodyPart: string;
@@ -41,10 +42,12 @@ const EMPTY_FILTERS: LibraryFilters = {
   category: ""
 };
 
-// ExerciseMediaThumb renders the card media only while the backend reports it
-// available, and always keeps the Gym visual attribution visible next to it.
+// ExerciseMediaThumb renders only the static catalogue image. Animated GIFs
+// and videos are reserved for the detail page, so the library never plays
+// media while browsing. The image keeps its intrinsic size instead of being
+// stretched into the card.
 const ExerciseMediaThumb = ({ exercise }: { exercise: ExerciseCatalogEntry }) => {
-  const media = exerciseMediaView(exercise);
+  const media = exerciseThumbnailView(exercise);
   const [failedURL, setFailedURL] = useState("");
 
   if (media.kind === "none" || (media.url !== "" && media.url === failedURL)) {
@@ -57,26 +60,13 @@ const ExerciseMediaThumb = ({ exercise }: { exercise: ExerciseCatalogEntry }) =>
 
   return (
     <div className={styles.thumb}>
-      {media.kind === "video" ? (
-        <video
-          src={media.url}
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          className={styles.thumbMedia}
-          aria-label={`${exercise.name} demonstration`}
-          onError={() => setFailedURL(media.url)}
-        />
-      ) : (
-        <img
-          src={media.url}
-          alt={`${exercise.name} demonstration`}
-          className={styles.thumbMedia}
-          loading="lazy"
-          onError={() => setFailedURL(media.url)}
-        />
-      )}
+      <img
+        src={media.url}
+        alt={`${exercise.name} demonstration`}
+        className={styles.thumbMedia}
+        loading="lazy"
+        onError={() => setFailedURL(media.url)}
+      />
       {media.attribution ? <span className={styles.thumbAttribution}>{media.attribution}</span> : null}
     </div>
   );
@@ -91,9 +81,12 @@ export const ExerciseLibraryPage = () => {
 
   const [exercises, setExercises] = useState<ExerciseCatalogEntry[]>([]);
   const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [loadMoreError, setLoadMoreError] = useState("");
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), SEARCH_DEBOUNCE_MS);
@@ -102,8 +95,16 @@ export const ExerciseLibraryPage = () => {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const firstPage = page === 1;
+
+    if (firstPage) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     setError("");
+    setLoadMoreError("");
+
     fetchExerciseLibrary(
       {
         query: debouncedQuery,
@@ -120,27 +121,71 @@ export const ExerciseLibraryPage = () => {
         if (cancelled) {
           return;
         }
-        setExercises(result.exercises);
-        setTotal(result.pagination?.total ?? result.exercises.length);
-        setTotalPages(Math.max(1, result.pagination?.total_pages ?? 1));
+        setExercises((current) => {
+          if (firstPage) {
+            return result.exercises;
+          }
+          const seen = new Set(current.map((exercise) => exercise.id));
+          return [...current, ...result.exercises.filter((exercise) => !seen.has(exercise.id))];
+        });
+        const totalCount = result.pagination?.total ?? result.exercises.length;
+        const totalPages = Math.max(1, result.pagination?.total_pages ?? 1);
+        setTotal(totalCount);
+        setHasMore(page < totalPages);
       })
       .catch((reason: unknown) => {
-        if (!cancelled) {
+        if (cancelled) {
+          return;
+        }
+        const message = reason instanceof Error ? reason.message : "Could not load the exercise catalogue.";
+        if (firstPage) {
           setExercises([]);
           setTotal(0);
-          setTotalPages(1);
-          setError(reason instanceof Error ? reason.message : "Could not load the exercise catalogue.");
+          setHasMore(false);
+          setError(message);
+        } else {
+          setLoadMoreError(message);
         }
       })
       .finally(() => {
         if (!cancelled) {
           setLoading(false);
+          setLoadingMore(false);
         }
       });
+
     return () => {
       cancelled = true;
     };
   }, [debouncedQuery, filters, page, reloadToken]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (
+      !node ||
+      loading ||
+      loadingMore ||
+      error ||
+      loadMoreError ||
+      !hasMore ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          setPage((current) => current + 1);
+        }
+      },
+      { rootMargin: LOAD_MORE_ROOT_MARGIN }
+    );
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [loading, loadingMore, error, loadMoreError, hasMore, exercises.length]);
 
   const activeFilterCount = countActiveLibraryFilters({ ...filters, query: debouncedQuery });
 
@@ -156,8 +201,8 @@ export const ExerciseLibraryPage = () => {
     setPage(1);
   };
 
-  const firstResult = total === 0 ? 0 : (page - 1) * PAGE_LIMIT + 1;
-  const lastResult = Math.min(page * PAGE_LIMIT, total);
+  const firstResult = exercises.length === 0 ? 0 : 1;
+  const lastResult = exercises.length;
 
   return (
     <PageWrapper className={styles.page}>
@@ -349,31 +394,27 @@ export const ExerciseLibraryPage = () => {
             </ul>
           )}
 
-          {!loading && !error && total > PAGE_LIMIT ? (
-            <nav className={styles.pager} aria-label="Catalogue pagination">
-              <Button
-                variant="secondary"
-                size="small"
-                icon={<ChevronLeft size={15} />}
-                iconPosition="left"
-                disabled={page <= 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                Previous
-              </Button>
-              <span className={styles.pagerStatus}>
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="secondary"
-                size="small"
-                icon={<ChevronRight size={15} />}
-                disabled={page >= totalPages}
-                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              >
-                Next
-              </Button>
-            </nav>
+          {!loading && !error && exercises.length > 0 ? (
+            <div ref={sentinelRef} className={styles.loadMore} aria-live="polite">
+              {loadingMore ? (
+                <span>Loading more exercises…</span>
+              ) : loadMoreError ? (
+                <>
+                  <span>{loadMoreError}</span>
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    onClick={() => setReloadToken((current) => current + 1)}
+                  >
+                    Retry
+                  </Button>
+                </>
+              ) : hasMore ? (
+                <span>Scroll to load more exercises.</span>
+              ) : (
+                <span>You have reached the end of the library.</span>
+              )}
+            </div>
           ) : null}
         </Container>
       </section>

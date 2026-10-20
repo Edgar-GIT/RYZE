@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,11 +21,44 @@ import { ExerciseLibraryPage } from "./exercise_library_page";
 
 const mockedFetch = vi.mocked(fetchExerciseLibrary);
 
-afterEach(cleanup);
+let intersectionCallback: IntersectionObserverCallback | null = null;
+
+class MockIntersectionObserver {
+  root = null;
+  rootMargin = "";
+  thresholds = [];
+
+  constructor(callback: IntersectionObserverCallback) {
+    intersectionCallback = callback;
+  }
+
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 beforeEach(() => {
   mockedFetch.mockReset();
+  intersectionCallback = null;
+  vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
 });
+
+const triggerLoadMore = () => {
+  act(() => {
+    intersectionCallback?.(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver
+    );
+  });
+};
 
 const makeEntry = (id: string, name: string, overrides: Partial<ExerciseCatalogEntry> = {}): ExerciseCatalogEntry => ({
   id,
@@ -55,7 +88,7 @@ const makeResult = (exercises: ExerciseCatalogEntry[], overrides: Partial<Exerci
   exercises,
   pagination: {
     page: 1,
-    limit: 24,
+    limit: 10,
     total: exercises.length,
     total_pages: 1,
     ...overrides
@@ -81,8 +114,32 @@ describe("ExerciseLibraryPage", () => {
     expect(mockedFetch).toHaveBeenCalledWith(
       expect.objectContaining({ query: "", bodyPart: "", muscle: "", equipment: "", difficulty: "", category: "" }),
       1,
-      24
+      10
     );
+  });
+
+  it("renders available media with attribution and falls back when it fails", async () => {
+    mockedFetch.mockResolvedValue(
+      makeResult([
+        makeEntry("e1", "Barbell Squat", {
+          media_available: true,
+          image_url: "/dev-exercise-media/images/0001.jpg",
+          animation_url: "/dev-exercise-media/videos/0001.gif",
+          media_attribution: "© Gym visual — https://gymvisual.com/"
+        })
+      ])
+    );
+
+    renderPage();
+
+    const image = await screen.findByRole("img", { name: "Barbell Squat demonstration" });
+    expect(image.getAttribute("src")).toBe("/dev-exercise-media/images/0001.jpg");
+    expect(screen.getByText("© Gym visual — https://gymvisual.com/")).toBeTruthy();
+
+    fireEvent.error(image);
+
+    expect(screen.getByText("Media unavailable")).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "Barbell Squat demonstration" })).toBeNull();
   });
 
   it("renders the honest empty state when nothing matches", async () => {
@@ -119,7 +176,7 @@ describe("ExerciseLibraryPage", () => {
       expect(mockedFetch).toHaveBeenLastCalledWith(
         expect.objectContaining({ bodyPart: "upper legs" }),
         1,
-        24
+        10
       )
     );
   });
@@ -136,23 +193,36 @@ describe("ExerciseLibraryPage", () => {
       expect(mockedFetch).toHaveBeenLastCalledWith(
         expect.objectContaining({ query: "squat" }),
         1,
-        24
+        10
       )
     );
   });
 
-  it("paginates through the catalogue", async () => {
-    mockedFetch.mockResolvedValueOnce(makeResult([makeEntry("e1", "Barbell Squat")], { total: 50, total_pages: 3 }));
-    mockedFetch.mockResolvedValueOnce(makeResult([makeEntry("e2", "Dumbbell Curl")], { page: 2, total: 50, total_pages: 3 }));
+  it("loads the next batch when the sentinel enters the viewport", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      makeResult([makeEntry("e1", "Barbell Squat")], { total: 50, total_pages: 5 })
+    );
+    mockedFetch.mockResolvedValueOnce(
+      makeResult([makeEntry("e2", "Dumbbell Curl")], { page: 2, total: 50, total_pages: 5 })
+    );
 
     renderPage();
 
     expect(await screen.findByText("Barbell Squat")).toBeTruthy();
-    expect(screen.getByText("Page 1 of 3")).toBeTruthy();
+    expect(screen.getByText("Scroll to load more exercises.")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
+    triggerLoadMore();
 
     expect(await screen.findByText("Dumbbell Curl")).toBeTruthy();
-    expect(mockedFetch).toHaveBeenLastCalledWith(expect.anything(), 2, 24);
+    expect(screen.getByText("Barbell Squat")).toBeTruthy();
+    expect(mockedFetch).toHaveBeenLastCalledWith(expect.anything(), 2, 10);
+  });
+
+  it("shows the end state when the last batch is loaded", async () => {
+    mockedFetch.mockResolvedValue(makeResult([makeEntry("e1", "Barbell Squat")], { total: 1, total_pages: 1 }));
+
+    renderPage();
+
+    expect(await screen.findByText("You have reached the end of the library.")).toBeTruthy();
   });
 });

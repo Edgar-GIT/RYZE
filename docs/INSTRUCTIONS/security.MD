@@ -2274,6 +2274,25 @@ default to relax:
 - Media is treated as untrusted input even when enabled: the reference can
   never escape the configured base path, and the client renders explicit
   unavailable/error states rather than treating a failed asset as content.
+- Local inspection uses a development-only Vite middleware at
+  `/dev-exercise-media`. It exists only in `vite` serve mode (never in the
+  production bundle, the static build output or `vite preview`), accepts only
+  the dataset `images/`/`videos/` directories and image extensions, resolves
+  files under the dataset root (rejecting traversal and symlink escapes), and
+  refuses every non-loopback client even when Vite binds `0.0.0.0`. It also
+  blocks the dataset's project-relative and `/@fs/` URLs so Vite's own file
+  serving cannot bypass the preview path. It sends
+  `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`,
+  `X-Robots-Tag: noindex, nofollow` and a same-origin resource policy.
+  The preview endpoint is registered only when the backend flag and the
+  dedicated base path are both configured; the direct-file block is active in
+  every development session. Enabling it locally still requires
+  `EXERCISE_MEDIA_ENABLED=true` on the backend, and it is not a production
+  delivery mechanism.
+- Production delivery additionally requires written commercial-use permission
+  from Gym visual, continued attribution and the 180×180 media terms, and an
+  operator-managed media host. Until then `EXERCISE_MEDIA_ENABLED` stays
+  `false` in production.
 
 ---
 

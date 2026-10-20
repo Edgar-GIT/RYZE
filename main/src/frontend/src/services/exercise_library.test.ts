@@ -10,6 +10,7 @@ import {
   countActiveLibraryFilters,
   exerciseBodyPartLabel,
   exerciseMediaView,
+  exerciseThumbnailView,
   fetchExerciseDetail,
   fetchExerciseLibrary,
   type ExerciseCatalogEntry
@@ -108,6 +109,33 @@ describe("countActiveLibraryFilters", () => {
 
   it("ignores empty and whitespace-only values", () => {
     expect(countActiveLibraryFilters({ bodyPart: "  ", muscle: "", difficulty: "Beginner" })).toBe(1);
+  });
+});
+
+describe("exerciseThumbnailView", () => {
+  it("uses only the static image, never the animated GIF", () => {
+    const view = exerciseThumbnailView(
+      makeEntry({
+        media_available: true,
+        animation_url: "/media/exercises/videos/0001-demo.gif",
+        image_url: "/media/exercises/images/0001-still.jpg",
+        media_attribution: "© Gym visual — https://gymvisual.com/"
+      })
+    );
+
+    expect(view).toEqual({
+      kind: "image",
+      url: "/media/exercises/images/0001-still.jpg",
+      attribution: "© Gym visual — https://gymvisual.com/"
+    });
+  });
+
+  it("shows no card media when only a GIF is available", () => {
+    expect(
+      exerciseThumbnailView(
+        makeEntry({ media_available: true, animation_url: "/media/exercises/videos/0001-demo.gif" })
+      )
+    ).toEqual({ kind: "none", url: "", attribution: "" });
   });
 });
 

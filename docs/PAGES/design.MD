@@ -202,6 +202,9 @@ Secondary
 - Brand left (with divider), navigation links centered, auth CTAs right
 - Nav links show icon + uppercase label at rest
 - On scroll, nav link labels collapse and only icons remain
+- At 1360px and below the labels collapse to icons at rest as well, so the six
+  links and the auth actions never overlap; the Start free pill always remains
+  inside the bar
 - Active page uses cyan icon/text plus a glowing cyan underline
 - Auth actions: outline “Log in” (with user icon) + gradient cyan “Start free”
   (with arrow)
@@ -810,10 +813,13 @@ List page
   active.
 - A polite result bar (`aria-live`) that reports the visible range and total,
   or that no exercise matches.
-- Responsive card grid, 24 entries per page, with Previous/Next pagination
-  only when there is more than one page. Cards show the media thumbnail only
-  when the backend reports media as available, the exercise name, the meta line
-  (primary muscle · equipment · difficulty) and the body-part tag.
+- Responsive card grid loaded in batches of 10 with infinite scroll: an
+  intersection sentinel requests the next batch as the visitor approaches the
+  end, appends it without duplicates, and reports loading/retry/end states.
+  Cards use only the static `image_url` (never the animated GIF or video), and
+  render it at its intrinsic size without stretching or cropping. Each card
+  also shows the exercise name, the meta line (primary muscle · equipment ·
+  difficulty) and the body-part tag.
 - States: loading, error with Retry, and an empty state whose primary action
   clears the search and filters. States never fabricate catalogue content.
 
@@ -823,6 +829,8 @@ Detail page
 - Reuses the shared exercise preview body: media area, body-part/muscle/
   equipment/difficulty metadata, description, ordered instruction steps and
   alternatives; selecting an alternative navigates to that exercise in place.
+- Only the detail page plays the animated demonstration (`animation_url`),
+  rendered at its intrinsic 180×180 size so it is not upscaled or cropped.
 - 404 (`EXERCISE_NOT_FOUND`) renders an honest "does not exist or is no longer
   available" state with a link back to the library; other failures offer Retry.
 - Opens scrolled to the top.
@@ -831,9 +839,9 @@ Media behaviour
 
 - Media is only rendered while `media_available` is true; otherwise the shared
   media placeholder is shown, never a broken asset or invented demonstration.
-- An animated demonstration (`animation_url`) is preferred over the still
-  image; videos are only rendered when the stored reference is an actual video
-  file. Media is never labelled as video or 3D when it is not.
+- The animated demonstration (`animation_url`) plays only on the detail page;
+  videos are only rendered when the stored reference is an actual video file.
+  Media is never labelled as video or 3D when it is not.
 - `media_attribution` is displayed wherever media is shown.
 - Lazy loading and an unavailable/error fallback keep the page usable when
   media delivery is disabled server-side.

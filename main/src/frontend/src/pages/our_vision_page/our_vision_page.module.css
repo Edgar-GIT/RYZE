@@ -56,7 +56,6 @@
   position: relative;
   z-index: 2;
   display: grid;
-  width: 100%;
   align-items: center;
 }
 
@@ -65,7 +64,6 @@
   gap: 1.25rem;
   justify-items: start;
   max-width: 40rem;
-  margin-left: clamp(1.5rem, 6vw, 5.5rem);
 }
 
 .heroCopy h1,
@@ -951,7 +949,7 @@
   }
 
   .heroCopy {
-    margin-left: 0.5rem;
+    margin-left: 0;
   }
 
   .heroLayout,
