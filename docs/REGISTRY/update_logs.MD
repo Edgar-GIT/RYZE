@@ -1,3 +1,138 @@
+# Version 2.94.0
+
+Title: Persisted Exercise Library with dataset import, 3D demonstrations, trainer-verification evidence review, and administrative catalogue management
+
+Date: 2026-10-20
+
+Summary:
+
+v2.94.0 closes the product-completeness gaps identified in the audit at
+`docs/AUDIT/product_completeness.MD`. The exercise catalogue is no longer a
+static read-only seed: it is a persisted, administratively managed entity with
+source provenance, body-part classification, ordered instruction steps, media
+references and publication status, populated from the bundled dataset through
+an idempotent import command (1,305 records imported and 13 existing rows
+enriched; 1,353 active exercises, 6 duplicate dataset names skipped). The
+public client gains a real Exercise Library (search, five server-side filters,
+pagination, detail page, alternatives) and a genuine Three.js viewer for four
+exercises. Trainer verification gains the review workflow it was missing:
+applicants can attach optional evidence documents while an application is
+pending, reviewers can download them and read an append-only decision history,
+and approve/reject accept an optional reason. Administrators can manage the
+catalogue at `/admin2/exercises` under new `exercises.read` /
+`exercises.manage` permissions. Three migrations were added (000029–000031);
+the development database is at version `31`, `dirty=false`.
+
+Media is a deliberate exception: the dataset media is © Gym visual, not
+MIT-licensed. It is not bundled or served; `EXERCISE_MEDIA_ENABLED` defaults to
+false, the API reports `media_available=false` and empty media fields, and the
+UI shows a neutral placeholder. This is a deployment blocker until
+commercial-use permission is verified, and it is documented in `security.MD`
+and `how_to_run.MD`.
+
+Main changes:
+
+- Database, migrations `000029_extend_exercise_catalog_source_media_publication`,
+  `000030_trainer_application_evidence_and_decisions` and
+  `000031_add_exercise_three_d_demonstrations`: new exercise columns (`source`,
+  `source_id`, `body_part`, `instruction_steps`, `animation_url`,
+  `source_media_id`, `media_attribution`, `status`, `owner_trainer_id`,
+  `three_d_key`, generated `active_source`), constraints/indexes, the evidence
+  and decision tables, and the `three_d_key` constraint. Each migration has a
+  record-preserving down file.
+- Backend catalogue: `models/exercise.go`, `repositories/exercise_repository.go`
+  (filters, search, publication scope), `services/exercises/exercises.go`
+  (validation, status lifecycle, body-part vocabulary) and
+  `services/exercises/admin_exercises.go` (draft-on-create, immutable name,
+  status transitions, media reference validation); public handlers and the new
+  `api/auth/admin_exercises_handler.go`; routes for `/exercises`,
+  `/exercises/search` and `/admin/exercises`.
+- Dataset import: `services/exercise_import/importer.go` and the
+  `import-exercises --file <path> [--dry-run]` command in `main.go`; matching by
+  `source`+`source_id` then normalized name, never overwriting existing values.
+- Media gate: `config` reads `EXERCISE_MEDIA_ENABLED` and
+  `EXERCISE_MEDIA_BASE_PATH` (same-origin validation); repository responses
+  null the media fields and set `media_available=false` while disabled.
+- Backend trainer evidence: `services/trainer_applications/documents.go`
+  (magic-byte PDF/JPEG/PNG validation, size ceiling, atomic private storage,
+  pending-only upload/delete),
+  `repositories/trainer_application_document_repository.go`,
+  `repositories/trainer_application_decision_repository.go` (append-only,
+  chronological), and handler/routes for applicant documents and reviewer
+  documents/decisions/download. Approve and reject record a decision row in the
+  same transaction, with an optional normalized reason. Config reads
+  `TRAINER_EVIDENCE_DIR` and `TRAINER_EVIDENCE_MAX_BYTES` (default 10 MiB,
+  ceiling 25 MiB); `middleware/body_limit.go` exempts only the document upload
+  path.
+- Frontend public library: `services/exercise_library.ts`,
+  `components/exercise_library/*` (preview body, media placeholder, library
+  dialog) and `pages/exercise_library_page` /
+  `pages/exercise_detail_page`; navbar route `/exercises` with debounced
+  search, server filters, pagination, alternatives and honest loading/error/
+  empty states.
+- Frontend 3D: `components/exercise_library/exercise_3d_demo.tsx` (lazy chunk)
+  and `exercise_3d_viewer.tsx` (procedural Three.js scene, orbit/zoom,
+  play/pause, speed, WebGL fallback) for `squat`, `push_up`, `biceps_curl` and
+  `lunge`.
+- Frontend verification UIs: `trainer_application_documents.tsx` (+ CSS) in the
+  pending state of `trainer_apply_page.tsx`; the review panel in
+  `admin_trainer_applications_page.tsx` (+ CSS) with document list/download,
+  decision history and optional decision note.
+- Frontend catalogue administration: `services/admin2_api.ts` exercise section,
+  `pages/admin2/admin2_exercises_page` (+ CSS), the `/admin2/exercises` route
+  and the Programs navigation entry; create/edit modal with classification,
+  content, instruction steps and relative media fields.
+- Shared `main/src/utils/format_bytes.ts` (extracted from the trainer document
+  panel and reused by the admin review panel).
+- Docs updated in the same cycle: `api.MD` (exercise fields/filters, admin
+  catalogue, applicant documents, reviewer evidence/decisions, optional
+  decision reason), `arquitecture.MD` (canonical catalogue and evidence
+  layering), `security.MD` (evidence uploads, exercise media exposure),
+  `database.MD` (exercise schema plus evidence and decision tables),
+  `design.MD` (Exercise Library pages/nav, Apply evidence panel, admin review
+  panel, `/admin2/exercises`), `how_to_run.MD` (media/evidence configuration,
+  dataset import, new endpoints) and this log.
+- Tests: backend service/repository/handler/e2e coverage for import, public and
+  admin catalogue, evidence upload/download/delete and decisions; frontend
+  tests for the library, detail, 3D viewer, document panel, admin review page,
+  admin exercises page and API clients.
+
+Validation:
+
+- Backend: `gofmt -l .` empty, `go vet ./...` clean, `go test ./...` all
+  packages pass.
+- Frontend: `npx tsc --noEmit` clean, `npx vitest run` 13 files / 80 tests
+  pass, `npm run build` succeeds (index 733.56 kB / 207.27 kB gzip; lazy 3D
+  chunk 544.45 kB / 136.65 kB gzip; chunk-size warning accepted).
+- Database: development database at migration version `31`, `dirty=false`;
+  1,353 active exercises; 4 entries with `three_d_key`.
+- Import: 1,305 dataset records imported, 13 existing rows enriched, 6
+  duplicate names skipped.
+
+Residual and unverified:
+
+- Exercise media is not served or bundled and may not be enabled in production
+  until Gym visual commercial-use permission is verified; the delivery
+  mechanism (e.g. nginx location) is an operator decision and was not
+  implemented.
+- The 3D viewer was validated by unit tests and a production build, not in a
+  live browser/WebGL session; unsupported devices fall back to a message.
+- No disposable database was available, so migrations were applied forward and
+  verified on the development database only; the down files were not exercised
+  (never run `migrate down` on dev, because migration `000018.down` has a
+  pre-existing FK order flaw).
+- Only four exercises have 3D demonstrations; the viewer is procedural and does
+  not use dataset video or motion capture.
+- The import command is explicit and is not run automatically on deploy.
+- The administrative catalogue API does not support rename or permanent
+  deletion; archived entries stay in the database.
+- Evidence withdrawal is a soft delete and there is no restore endpoint; the
+  evidence directory must be backed up with the database.
+- Documentation header version strings were intentionally left unchanged; this
+  log remains the version registry.
+
+---
+
 # Version 2.93.0
 
 Title: Security audit and hardening — credential-leak remediation, CSRF origin guard, required JWT claims, rate-limiter and backup hardening

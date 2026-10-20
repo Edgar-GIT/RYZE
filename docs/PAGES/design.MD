@@ -1328,6 +1328,7 @@ Available to Technical Administrators (ADMIN_1):
 Available to Management Administrators (ADMIN_2):
 
 - Plans / Packs
+- Exercise catalogue
 - Finance
 - Marketing
 - Sales / Commerce
