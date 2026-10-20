@@ -36,6 +36,7 @@ export const admin2NavGroups: Admin2NavGroup[] = [
     label: "Programs",
     items: [
       { label: "Plans", path: ADMIN2_PATHS.PLANS, icon: Package },
+      { label: "Exercises", path: ADMIN2_PATHS.EXERCISES, icon: Dumbbell },
       { label: "Marketplace", path: ADMIN2_PATHS.MARKETPLACE, icon: Package }
     ]
   },
