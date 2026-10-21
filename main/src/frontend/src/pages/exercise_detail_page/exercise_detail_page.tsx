@@ -96,6 +96,7 @@ export const ExerciseDetailPage = () => {
                 alternatives={detail.alternatives}
                 onSelectAlternative={(alternativeId) => history.push(`/exercises/${alternativeId}`)}
                 titleAs="h1"
+                layout="split"
               />
               <Exercise3DDemo
                 key={detail.exercise.id}

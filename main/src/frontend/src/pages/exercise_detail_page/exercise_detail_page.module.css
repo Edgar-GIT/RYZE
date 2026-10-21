@@ -10,6 +10,8 @@
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
+  max-width: 66rem;
+  margin-inline: auto;
 }
 
 .backLink {

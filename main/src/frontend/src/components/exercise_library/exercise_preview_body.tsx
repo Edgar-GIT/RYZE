@@ -19,6 +19,7 @@ interface ExercisePreviewBodyProps {
   onSelectAlternative?: (exerciseId: string) => void;
   alternativeActionLabel?: string;
   titleAs?: "h1" | "h3";
+  layout?: "stacked" | "split";
 }
 
 // ExercisePreviewBody is the read-only catalogue panel reused by the library
@@ -29,15 +30,16 @@ export const ExercisePreviewBody = ({
   alternatives = [],
   onSelectAlternative,
   alternativeActionLabel = "View",
-  titleAs: TitleTag = "h3"
+  titleAs: TitleTag = "h3",
+  layout = "stacked"
 }: ExercisePreviewBodyProps) => {
   const media = exerciseMediaView(exercise);
   const [failedURL, setFailedURL] = useState("");
   const mediaFailed = media.url !== "" && media.url === failedURL;
   const steps = (exercise.instruction_steps ?? []).filter((step) => step.trim());
 
-  return (
-    <div className={styles.body}>
+  const mediaContent = (
+    <>
       {!mediaFailed && media.kind === "video" ? (
         <video
           src={media.url}
@@ -61,7 +63,11 @@ export const ExercisePreviewBody = ({
         <ExerciseMediaPlaceholder label="Demonstration video" />
       )}
       {media.attribution ? <p className={styles.attribution}>{media.attribution}</p> : null}
+    </>
+  );
 
+  const details = (
+    <>
       <div className={styles.header}>
         <TitleTag className={styles.name}>{exercise.name}</TitleTag>
         <p className={styles.meta}>{exerciseMetaLine(exercise)}</p>
@@ -118,6 +124,24 @@ export const ExercisePreviewBody = ({
           </ul>
         </div>
       ) : null}
+    </>
+  );
+
+  if (layout === "split") {
+    return (
+      <div className={styles.split}>
+        <div className={styles.content}>{details}</div>
+        <aside className={styles.mediaColumn} aria-label="Exercise demonstration">
+          {mediaContent}
+        </aside>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.body}>
+      {mediaContent}
+      {details}
     </div>
   );
 };
