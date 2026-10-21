@@ -148,7 +148,8 @@ Validation:
   and 83px at 1366, the library fills each card and shows two columns at
   390px, the detail split renders content left/media right at desktop and
   stacks media-first below 860px, both pages clear the fixed navbar, and the
-  library shows `1–10` initially and appends 10 more per scroll.
+  library shows `1–10` initially; batch append/dedup stays covered by the
+  library tests.
 - Local preview: the Vite dev server returned the shipped GIF/JPEG at
   `/dev-exercise-media/...` with `image/gif`/`image/jpeg`, `no-store` and
   `nosniff`; an encoded traversal request and the dataset's direct

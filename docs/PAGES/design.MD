@@ -199,12 +199,13 @@ Secondary
 
 - Floating rounded rectangle (`border-radius: ~1.15rem`), soft cyan border glow
 - Soft glass fill that becomes more opaque on scroll
-- Brand left (with divider), navigation links centered, auth CTAs right
+- Brand left (with divider), navigation links evenly distributed across the
+  flexible middle column, auth CTAs right
 - Nav links show icon + uppercase label at rest
 - On scroll, nav link labels collapse and only icons remain
-- At 1360px and below the labels collapse to icons at rest as well, so the six
-  links and the auth actions never overlap; the Start free pill always remains
-  inside the bar
+- At 1360px and below the labels collapse to icons at rest as well; the
+  icon-only group remains centred, so the six links and the auth actions never
+  overlap and the Start free pill always remains inside the bar
 - Active page uses cyan icon/text plus a glowing cyan underline
 - Auth actions: outline “Log in” (with user icon) + gradient cyan “Start free”
   (with arrow)
