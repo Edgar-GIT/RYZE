@@ -647,8 +647,8 @@ Production delivery requires all of the following, in this order:
    in a commercial product, covering the intended audience and delivery method.
 2. Continuing to respect the media terms: the attribution
    `© Gym visual — https://gymvisual.com/` stays visible wherever media is
-   shown, the assets stay at 180×180, and no rights beyond the permission are
-   assumed.
+   shown, the source files remain 180×180, and no rights beyond the permission
+   are assumed. The UI may scale them for layout without re-encoding them.
 3. A deliberate deployment-level media host (for example an nginx location)
    that serves the files at `EXERCISE_MEDIA_BASE_PATH`. This repository does
    not implement or enable production delivery.

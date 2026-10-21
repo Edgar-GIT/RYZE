@@ -2290,9 +2290,10 @@ default to relax:
   `EXERCISE_MEDIA_ENABLED=true` on the backend, and it is not a production
   delivery mechanism.
 - Production delivery additionally requires written commercial-use permission
-  from Gym visual, continued attribution and the 180×180 media terms, and an
+  from Gym visual, continued attribution and the 180×180 source terms, and an
   operator-managed media host. Until then `EXERCISE_MEDIA_ENABLED` stays
-  `false` in production.
+  `false` in production. The client may scale the source for layout without
+  re-encoding or redistributing it.
 
 ---
 
