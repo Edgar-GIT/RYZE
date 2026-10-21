@@ -31,11 +31,11 @@ commercial-use permission is verified, and it is documented in `security.MD`
 and `how_to_run.MD`.
 
 The public UI was also corrected before release: the navbar now sizes itself so
-the six centred links and the auth actions never overlap, the library renders
-only static images at their intrinsic size in strict 10-item infinite-scroll
-batches, the detail page owns animated media, and the Home/Our Vision headings
-align to the shared page container instead of drifting toward the centre or the
-viewport edge.
+the six links are distributed evenly between the brand and the auth actions
+without overlap, the library renders only static images and fills each square
+card, the detail page owns the animated media in a proportional split preview,
+and the Home/Our Vision headings align to the shared page container instead of
+drifting toward the centre or the viewport edge.
 
 Main changes:
 
@@ -90,15 +90,21 @@ Main changes:
   search, server filters, alternatives and honest loading/error/empty states.
   The list loads strict 10-item batches through an intersection sentinel,
   appends without duplicates, retries a failed batch in place, and renders only
-  the static `image_url` at intrinsic size; animated media is confined to the
-  detail page. Both public pages clear the fixed navbar with page-container
-  top spacing.
-- UI layout corrections: navbar compact link metrics by default and an
-  icon-only breakpoint at `1360px` prevent the centred links from colliding
-  with the auth actions or pushing the Start free pill outside the bar
-  (`navbar.module.css`); Home/Platform and Our Vision layouts keep their page
-  content inside the shared container instead of full-bleed overrides, so the
-  headings and copy align to the same left edge as the rest of the page.
+  the static `image_url`, filling each square card with `object-fit: cover`
+  and a wrapping attribution overlay; the grid uses two columns on small
+  phones. Animated media is confined to the detail page, which uses the shared
+  preview body in a split layout (content left, media right, `66rem` card cap,
+  `18rem` media cap, media first when stacked below `860px`). Both public pages
+  clear the fixed navbar with page-container top spacing.
+- UI layout corrections: the navbar uses an `auto minmax(0,1fr) auto` grid and
+  distributes the six links with `space-evenly` across the middle column, so
+  they sit evenly between the brand and the auth actions instead of leaving a
+  gap before Services; compact link metrics and an icon-only breakpoint at
+  `1360px` keep the group clear of the auth actions and the Start free pill
+  inside the bar (`navbar.module.css`). Home/Platform and Our Vision layouts
+  keep their page content inside the shared container instead of full-bleed
+  overrides, so the headings and copy align to the same left edge as the rest
+  of the page.
 - Frontend 3D: `components/exercise_library/exercise_3d_demo.tsx` (lazy chunk)
   and `exercise_3d_viewer.tsx` (procedural Three.js scene, orbit/zoom,
   play/pause, speed, WebGL fallback) for `squat`, `push_up`, `biceps_curl` and
@@ -132,14 +138,17 @@ Validation:
 - Backend: `gofmt -l .` empty, `go vet ./...` clean, `go test ./...` all
   packages pass.
 - Frontend: `npx tsc --noEmit` clean, `npx vitest run` 14 files / 99 tests
-  pass, `npm run build` succeeds (index 746.36 kB / 210.39 kB gzip; lazy 3D
-  chunk 544.45 kB / 136.64 kB gzip; chunk-size warning accepted).
-- Layout: headless Chromium checks at 1920×1080 and 1366×768 confirmed the
-  navbar has a positive gap between the centred links and the auth actions with
-  the Start free pill fully inside the bar, the Home and Our Vision headings
-  share the container's 360px left edge, the library shows `1–10` initially and
-  appends 10 more per scroll, and the library/detail top content clears the
-  fixed navbar.
+  pass, `npm run build` succeeds (index 746.77 kB / 210.47 kB gzip; CSS
+  222.08 kB / 39.29 kB gzip; lazy 3D chunk 544.45 kB / 136.65 kB gzip;
+  chunk-size warning accepted).
+- Layout: headless Chromium checks at 1920×1080, 1366×768, 768×900 and 390×844
+  confirmed the navbar links are evenly distributed with the Start free pill
+  inside the bar (the first link starts 34px after the brand at 1366px), the
+  Home and Our Vision headings share the container's 360px left edge at 1920
+  and 83px at 1366, the library fills each card and shows two columns at
+  390px, the detail split renders content left/media right at desktop and
+  stacks media-first below 860px, both pages clear the fixed navbar, and the
+  library shows `1–10` initially and appends 10 more per scroll.
 - Local preview: the Vite dev server returned the shipped GIF/JPEG at
   `/dev-exercise-media/...` with `image/gif`/`image/jpeg`, `no-store` and
   `nosniff`; an encoded traversal request and the dataset's direct
@@ -171,6 +180,9 @@ Residual and unverified:
   pre-existing FK order flaw).
 - Only four exercises have 3D demonstrations; the viewer is procedural and does
   not use dataset video or motion capture.
+- Dataset media is 180×180. Filling wider library cards and the `18rem` detail
+  column necessarily upscales it; sharper rendering requires higher-resolution
+  source assets.
 - The import command is explicit and is not run automatically on deploy.
 - The administrative catalogue API does not support rename or permanent
   deletion; archived entries stay in the database.

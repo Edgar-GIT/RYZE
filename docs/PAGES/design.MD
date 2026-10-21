@@ -283,8 +283,14 @@ requested.
 The public navigation bar contains:
 
 - Brand Logo (left)
-- Centered links: Services, Exercise Library, Contact, Feedback, Our Vision, Feed
+- Distributed links: Services, Exercise Library, Contact, Feedback, Our Vision,
+  Feed
 - Right actions: Log in (outline pill) and Start free (solid cyan pill)
+
+The six links occupy the flexible middle column and are spread evenly between
+the brand and the auth actions, so the group stays balanced instead of leaving
+a gap before the first link. At `1360px` and below the labels collapse and the
+icon-only links remain centred; the auth actions stay right-aligned.
 
 The logo always redirects to the Home page.
 Log in routes to `/login`. Start free routes to `/register`.
@@ -816,21 +822,27 @@ List page
 - Responsive card grid loaded in batches of 10 with infinite scroll: an
   intersection sentinel requests the next batch as the visitor approaches the
   end, appends it without duplicates, and reports loading/retry/end states.
-  Cards use only the static `image_url` (never the animated GIF or video), and
-  render it at its intrinsic size without stretching or cropping. Each card
-  also shows the exercise name, the meta line (primary muscle · equipment ·
-  difficulty) and the body-part tag.
+  Cards use only the static `image_url` (never the animated GIF or video) and
+  fill their square media area with `object-fit: cover`, so the image never
+  leaves empty space inside the card; the 180×180 source is therefore upscaled
+  on wider cards. The attribution caption sits over the bottom of the image,
+  and the grid drops to two columns on small phones. Each card also shows the
+  exercise name, the meta line (primary muscle · equipment · difficulty) and
+  the body-part tag.
 - States: loading, error with Retry, and an empty state whose primary action
   clears the search and filters. States never fabricate catalogue content.
 
 Detail page
 
 - An "Exercise Library" back link and the exercise name as the page heading.
-- Reuses the shared exercise preview body: media area, body-part/muscle/
-  equipment/difficulty metadata, description, ordered instruction steps and
-  alternatives; selecting an alternative navigates to that exercise in place.
-- Only the detail page plays the animated demonstration (`animation_url`),
-  rendered at its intrinsic 180×180 size so it is not upscaled or cropped.
+- Reuses the shared exercise preview body in a split layout: the description,
+  metadata and instructions stay on the left, while the media sits in a
+  dedicated right-hand column. The card is capped at `66rem` so the two columns
+  stay proportional. Below `860px` the preview stacks with the media first.
+- Only the detail page plays the animated demonstration (`animation_url`), in
+  that right-hand column with a maximum width of `18rem`; the 180×180 source is
+  upscaled to that width rather than cropped. The same preview body keeps its
+  stacked layout in the library dialog and the administrative editor.
 - 404 (`EXERCISE_NOT_FOUND`) renders an honest "does not exist or is no longer
   available" state with a link back to the library; other failures offer Retry.
 - Opens scrolled to the top.
