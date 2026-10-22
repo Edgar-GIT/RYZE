@@ -13,6 +13,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
+	"ryze/backend/services/training_prescription"
 )
 
 var (
@@ -52,9 +53,9 @@ const (
 	MaxExercisesPerWorkout = 50
 	// MaxSetsPerExercise caps the number of prescription sets per workout
 	// exercise.
-	MaxSetsPerExercise = 50
+	MaxSetsPerExercise = training_prescription.MaxSetsPerExercise
 	// MaxTempoLength caps the tempo notation length.
-	MaxTempoLength = 20
+	MaxTempoLength = training_prescription.MaxTempoLength
 )
 
 // LevelValues is the controlled audience vocabulary of generic programs.
@@ -69,7 +70,7 @@ var TrainingTypeValues = []string{"Hypertrophy", "Strength", "HYROX", "CrossFit"
 
 // SetTypeValues is the controlled set-type vocabulary, matching the database
 // CHECK constraint and the builder's prescription editor.
-var SetTypeValues = []string{"warmup", "working", "drop", "backoff", "failure"}
+var SetTypeValues = training_prescription.SetTypeValues
 
 // GenericProgramRepository is the data-access surface required by the generic
 // program service. It is the platform-owned counterpart of the trainer program
@@ -95,16 +96,9 @@ var SupportedProductTypes = []string{
 	models.ProgramProductTypePremiumLevel1,
 }
 
-// SetInput carries one prescription set of a workout exercise.
-type SetInput struct {
-	SetType     string
-	Reps        *int
-	WeightKg    *float64
-	RIR         *int
-	RPE         *float64
-	RestSeconds *int
-	Tempo       string
-}
+// SetInput carries one prescription set of a workout exercise. The shared
+// prescription package is the single source of truth for its validation.
+type SetInput = training_prescription.SetInput
 
 // ExerciseInput carries one exercise usage inside a workout, together with its
 // per-assignment instructions, notes and prescription sets.
@@ -530,7 +524,7 @@ func (s *service) validateProgramInput(input ProgramInput) error {
 					return fmt.Errorf("%w: an exercise is capped at %d sets", ErrInvalidInput, MaxSetsPerExercise)
 				}
 				for l := range exercise.Prescription {
-					if err := validateSetInput(&exercise.Prescription[l], l+1); err != nil {
+					if err := validateSetInput(&exercise.Prescription[l]); err != nil {
 						return err
 					}
 				}
@@ -893,36 +887,9 @@ func validateExerciseID(id string) error {
 	return nil
 }
 
-func validateSetInput(set *SetInput, expectedNumber int) error {
-	if set.SetType != "" {
-		valid := false
-		for _, candidate := range SetTypeValues {
-			if set.SetType == candidate {
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			return fmt.Errorf("%w: invalid set type", ErrInvalidInput)
-		}
-	}
-	if set.Reps != nil && *set.Reps < 1 {
-		return fmt.Errorf("%w: reps must be at least 1", ErrInvalidInput)
-	}
-	if set.WeightKg != nil && *set.WeightKg < 0 {
-		return fmt.Errorf("%w: weight cannot be negative", ErrInvalidInput)
-	}
-	if set.RIR != nil && *set.RIR < 0 {
-		return fmt.Errorf("%w: rir cannot be negative", ErrInvalidInput)
-	}
-	if set.RPE != nil && (*set.RPE < 1.0 || *set.RPE > 10.0) {
-		return fmt.Errorf("%w: rpe must be between 1 and 10", ErrInvalidInput)
-	}
-	if set.RestSeconds != nil && *set.RestSeconds < 0 {
-		return fmt.Errorf("%w: rest cannot be negative", ErrInvalidInput)
-	}
-	if len([]rune(set.Tempo)) > MaxTempoLength {
-		return fmt.Errorf("%w: tempo exceeds the maximum length", ErrInvalidInput)
+func validateSetInput(set *SetInput) error {
+	if err := training_prescription.ValidateSet(set); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 	return nil
 }

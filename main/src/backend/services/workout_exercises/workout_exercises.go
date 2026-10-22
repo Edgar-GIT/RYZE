@@ -10,6 +10,7 @@ import (
 
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	"ryze/backend/services/training_prescription"
 )
 
 var (
@@ -40,6 +41,7 @@ type WorkoutExerciseRepository interface {
 	ListByWorkout(ctx context.Context, trainerID, programID, weekID, workoutID string) ([]models.WorkoutExercise, error)
 	FindByIDAndWorkout(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string) (*models.WorkoutExercise, error)
 	Reorder(ctx context.Context, trainerID, programID, weekID, workoutID string, orderedIDs []string) error
+	UpdatePrescription(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string, instructions, notes string, sets []models.WorkoutExerciseSet) (*models.WorkoutExercise, error)
 	SoftDelete(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string) error
 }
 
@@ -57,15 +59,34 @@ type Exercise struct {
 	ImageURL      string
 }
 
+// SetInput carries one desired prescription set. Set numbers are derived from
+// the array order and never accepted from the client.
+type SetInput = training_prescription.SetInput
+
+// Set is the safe representation of one prescription set.
+type Set struct {
+	SetNumber   int
+	SetType     string
+	Reps        *int
+	WeightKg    *float64
+	RIR         *int
+	RPE         *float64
+	RestSeconds *int
+	Tempo       string
+}
+
 // WorkoutExercise is the safe representation of one exercise usage inside a
-// program workout. It carries only the public structural metadata and the safe
-// catalog data of the assigned exercise. Deletion markers and any internal
-// data are never exposed.
+// program workout. It carries the public structural metadata, the per-assignment
+// instructions and notes, the set prescription and the safe catalog data of the
+// assigned exercise. Deletion markers and any internal data are never exposed.
 type WorkoutExercise struct {
 	ID               string
 	ProgramWorkoutID string
 	Position         int
+	Instructions     string
+	Notes            string
 	Exercise         Exercise
+	Sets             []Set
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -79,6 +100,7 @@ type Service interface {
 	AddExercise(ctx context.Context, trainerID, programID, weekID, workoutID, exerciseID string) (*WorkoutExercise, error)
 	ListExercises(ctx context.Context, trainerID, programID, weekID, workoutID string) ([]WorkoutExercise, error)
 	GetExercise(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string) (*WorkoutExercise, error)
+	UpdatePrescription(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string, instructions, notes string, sets []SetInput) (*WorkoutExercise, error)
 	ReorderExercises(ctx context.Context, trainerID, programID, weekID, workoutID string, orderedIDs []string) error
 	RemoveExercise(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string) error
 }
@@ -192,6 +214,57 @@ func (s *service) GetExercise(ctx context.Context, trainerID, programID, weekID,
 	return newWorkoutExercise(workoutExercise), nil
 }
 
+// UpdatePrescription replaces the per-assignment instructions, notes and full
+// set prescription of one of the authenticated trainer's own workout exercises.
+// The assignment and its complete owning chain are verified by the repository
+// before any write, so a foreign or soft-deleted entry is indistinguishable
+// from a missing one. Set numbers are derived from the array order.
+func (s *service) UpdatePrescription(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID, instructions, notes string, sets []SetInput) (*WorkoutExercise, error) {
+	if err := validateTrainerID(trainerID); err != nil {
+		return nil, err
+	}
+	if err := validateProgramID(programID); err != nil {
+		return nil, err
+	}
+	if err := validateWeekID(weekID); err != nil {
+		return nil, err
+	}
+	if err := validateWorkoutID(workoutID); err != nil {
+		return nil, err
+	}
+	if err := validateWorkoutExerciseID(workoutExerciseID); err != nil {
+		return nil, err
+	}
+	if err := validatePrescription(sets); err != nil {
+		return nil, err
+	}
+
+	setModels := make([]models.WorkoutExerciseSet, 0, len(sets))
+	for i := range sets {
+		setModels = append(setModels, models.WorkoutExerciseSet{
+			SetNumber:   i + 1,
+			SetType:     sets[i].SetType,
+			Reps:        sets[i].Reps,
+			WeightKg:    sets[i].WeightKg,
+			RIR:         sets[i].RIR,
+			RPE:         sets[i].RPE,
+			RestSeconds: sets[i].RestSeconds,
+			Tempo:       sets[i].Tempo,
+		})
+	}
+
+	updated, err := s.exercises.UpdatePrescription(ctx, trainerID, programID, weekID, workoutID, workoutExerciseID, instructions, notes, setModels)
+	if err != nil {
+		switch {
+		case errors.Is(err, repositories.ErrWorkoutExerciseNotFound):
+			return nil, ErrWorkoutExerciseNotFound
+		default:
+			return nil, fmt.Errorf("failed to update workout exercise prescription: %w", err)
+		}
+	}
+	return newWorkoutExercise(updated), nil
+}
+
 // ReorderExercises replaces the position of every active workout exercise of
 // one of the authenticated trainer's own program workouts with the index of
 // its id inside orderedIDs. The list must be non-empty, contain only valid
@@ -260,20 +333,33 @@ func (s *service) RemoveExercise(ctx context.Context, trainerID, programID, week
 }
 
 func newWorkoutExercise(model *models.WorkoutExercise) *WorkoutExercise {
-	if model.Exercise == nil {
-		return &WorkoutExercise{
-			ID:               model.ID,
-			ProgramWorkoutID: model.ProgramWorkoutID,
-			Position:         model.Position,
-			CreatedAt:        model.CreatedAt,
-			UpdatedAt:        model.UpdatedAt,
-		}
+	sets := make([]Set, 0, len(model.Sets))
+	for i := range model.Sets {
+		set := &model.Sets[i]
+		sets = append(sets, Set{
+			SetNumber:   set.SetNumber,
+			SetType:     set.SetType,
+			Reps:        set.Reps,
+			WeightKg:    set.WeightKg,
+			RIR:         set.RIR,
+			RPE:         set.RPE,
+			RestSeconds: set.RestSeconds,
+			Tempo:       set.Tempo,
+		})
 	}
-	return &WorkoutExercise{
+
+	result := &WorkoutExercise{
 		ID:               model.ID,
 		ProgramWorkoutID: model.ProgramWorkoutID,
 		Position:         model.Position,
-		Exercise: Exercise{
+		Instructions:     model.Instructions,
+		Notes:            model.Notes,
+		Sets:             sets,
+		CreatedAt:        model.CreatedAt,
+		UpdatedAt:        model.UpdatedAt,
+	}
+	if model.Exercise != nil {
+		result.Exercise = Exercise{
 			ID:            model.Exercise.ID,
 			Name:          model.Exercise.Name,
 			Description:   model.Exercise.Description,
@@ -282,10 +368,21 @@ func newWorkoutExercise(model *models.WorkoutExercise) *WorkoutExercise {
 			Difficulty:    model.Exercise.Difficulty,
 			VideoURL:      model.Exercise.VideoURL,
 			ImageURL:      model.Exercise.ImageURL,
-		},
-		CreatedAt: model.CreatedAt,
-		UpdatedAt: model.UpdatedAt,
+		}
 	}
+	return result
+}
+
+func validatePrescription(sets []SetInput) error {
+	if len(sets) > training_prescription.MaxSetsPerExercise {
+		return fmt.Errorf("%w: an exercise is capped at %d sets", ErrInvalidInput, training_prescription.MaxSetsPerExercise)
+	}
+	for i := range sets {
+		if err := training_prescription.ValidateSet(&sets[i]); err != nil {
+			return fmt.Errorf("%w: %v", ErrInvalidInput, err)
+		}
+	}
+	return nil
 }
 
 // validateOrderList rejects empty reorder lists and lists carrying invalid or
