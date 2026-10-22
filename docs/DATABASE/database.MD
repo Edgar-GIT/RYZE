@@ -1337,6 +1337,10 @@ Lifecycle and ordering rules:
   workout row, so concurrent additions are serialized. The referenced exercise
   must exist and be active in the global catalog: a missing or soft-deleted
   exercise can never be added.
+- Updating a workout exercise prescription locks the assignment row, writes
+  `instructions` and `notes`, updates the existing active sets in place by
+  array position and soft-deletes any removed tail set. Set numbers are always
+  the contiguous sequence `1..n`; historical removed sets are preserved.
 - Reordering replaces the `week_number`/`position` of every active row with the
   index of its id inside the submitted order. The reassignment runs in two
   phases inside one transaction: every active slot is first released to a value
@@ -1368,8 +1372,10 @@ The repositories provide the queries used by the program structure foundation:
   `FindByIDAndWeek`, `Reorder`, `SoftDelete`.
 - `WorkoutExerciseRepository` — `AddExercise` (append, verifies the owning
   chain and an active catalog exercise), `ListByWorkout` (in position order,
-  with the safe exercise data preloaded), `FindByIDAndWorkout`, `Reorder`,
-  `SoftDelete`.
+  with the safe exercise data and ordered sets preloaded),
+  `FindByIDAndWorkout` (same preloads), `UpdatePrescription` (locks the
+  assignment and replaces `instructions`, `notes` and the active set list while
+  soft-deleting the removed tail), `Reorder`, `SoftDelete`.
 
 The implemented `workout_exercise_sets` table stores the set prescription of
 every workout exercise assignment:
@@ -1388,10 +1394,11 @@ every workout exercise assignment:
 - `rest_seconds` — rest between this set and the next (`SMALLINT`, ≥ 0),
   nullable.
 - `tempo` — eccentric–pause–concentric–pause string (e.g. `2010`)
-  (`VARCHAR(4)`), nullable.
+  (`VARCHAR(20)`), nullable.
 - `set_type` — controlled type `warmup | working | drop | backoff | failure`
-  (`VARCHAR(20)`), nullable. The build workflow always writes `working` for a
-  freshly created set.
+  (`VARCHAR(20)`), nullable at the database level for historical rows. The
+  trainer and generic builder APIs require a non-empty controlled value, so
+  newly written sets always carry a valid type.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
 - `active_set` — MariaDB generated column `IF(deleted_at IS NULL,

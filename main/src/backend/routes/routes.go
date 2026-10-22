@@ -359,6 +359,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.POST("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.AddExercise)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.ListExercises)
 	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.ReorderExercises)
+	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.UpdatePrescription)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.GetExercise)
 	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.DeleteExercise)
 

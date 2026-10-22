@@ -33,6 +33,7 @@ type WorkoutExerciseRepository interface {
 	ListByWorkout(ctx context.Context, trainerID, programID, weekID, workoutID string) ([]models.WorkoutExercise, error)
 	FindByIDAndWorkout(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string) (*models.WorkoutExercise, error)
 	Reorder(ctx context.Context, trainerID, programID, weekID, workoutID string, orderedIDs []string) error
+	UpdatePrescription(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string, instructions, notes string, sets []models.WorkoutExerciseSet) (*models.WorkoutExercise, error)
 	SoftDelete(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string) error
 }
 
@@ -101,6 +102,7 @@ func (r *workoutExerciseRepository) ListByWorkout(ctx context.Context, trainerID
 		Where("program_workout_id = ? AND program_workout_id IN (?)", workoutID,
 			trainerScopedWorkoutID(r.db, trainerID, programID, weekID, workoutID)).
 		Preload("Exercise").
+		Preload("Sets", orderedSets).
 		Order("position ASC, id ASC").
 		Find(&exercises).Error; err != nil {
 		return nil, fmt.Errorf("failed to list workout exercises: %w", err)
@@ -119,6 +121,7 @@ func (r *workoutExerciseRepository) FindByIDAndWorkout(ctx context.Context, trai
 		Where("id = ? AND program_workout_id = ? AND program_workout_id IN (?)", workoutExerciseID, workoutID,
 			trainerScopedWorkoutID(r.db, trainerID, programID, weekID, workoutID)).
 		Preload("Exercise").
+		Preload("Sets", orderedSets).
 		First(&workoutExercise).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrWorkoutExerciseNotFound
@@ -126,6 +129,58 @@ func (r *workoutExerciseRepository) FindByIDAndWorkout(ctx context.Context, trai
 		return nil, fmt.Errorf("failed to find workout exercise: %w", err)
 	}
 	return &workoutExercise, nil
+}
+
+// UpdatePrescription replaces the instructions, notes and active set list of a
+// workout exercise the trainer owns. The workout exercise row is locked so two
+// concurrent replacements are serialized; applySets updates the existing active
+// rows in place, creates the new tail and soft-deletes the removed tail, which
+// preserves historical sets while keeping set numbers contiguous.
+func (r *workoutExerciseRepository) UpdatePrescription(ctx context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID, instructions, notes string, sets []models.WorkoutExerciseSet) (*models.WorkoutExercise, error) {
+	var result models.WorkoutExercise
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var workoutExercise models.WorkoutExercise
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND program_workout_id = ? AND program_workout_id IN (?)", workoutExerciseID, workoutID,
+				trainerScopedWorkoutID(tx, trainerID, programID, weekID, workoutID)).
+			First(&workoutExercise).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrWorkoutExerciseNotFound
+			}
+			return fmt.Errorf("failed to verify workout exercise ownership: %w", err)
+		}
+
+		if err := tx.Model(&models.WorkoutExercise{}).
+			Where("id = ?", workoutExercise.ID).
+			Updates(map[string]any{
+				"instructions": instructions,
+				"notes":        notes,
+			}).Error; err != nil {
+			return fmt.Errorf("failed to update workout exercise prescription: %w", err)
+		}
+
+		var existing []models.WorkoutExerciseSet
+		if err := tx.Where("workout_exercise_id = ?", workoutExercise.ID).
+			Order("set_number ASC, id ASC").
+			Find(&existing).Error; err != nil {
+			return fmt.Errorf("failed to load workout exercise sets: %w", err)
+		}
+		if err := applySets(tx, workoutExercise.ID, existing, sets); err != nil {
+			return err
+		}
+
+		if err := tx.Preload("Exercise").
+			Preload("Sets", orderedSets).
+			Where("id = ?", workoutExercise.ID).
+			First(&result).Error; err != nil {
+			return fmt.Errorf("failed to reload workout exercise prescription: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 // Reorder replaces the position of every active workout exercise of the workout
@@ -211,6 +266,11 @@ func validateWorkoutExerciseOrder(orderedIDs []string, exercises []models.Workou
 		}
 	}
 	return nil
+}
+
+// orderedSets keeps the set prescription deterministic on every read.
+func orderedSets(db *gorm.DB) *gorm.DB {
+	return db.Order("set_number ASC, id ASC")
 }
 
 // trainerScopedWorkoutID builds a subquery selecting the id of the active

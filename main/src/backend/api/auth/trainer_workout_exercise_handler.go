@@ -10,17 +10,32 @@ import (
 	"ryze/backend/services/workout_exercises"
 )
 
-// trainerWorkoutExerciseResponse only exposes safe workout exercise structure:
-// the assignment identity, its owning workout id, its position and the safe
-// catalog data of the assigned exercise. Deletion markers and any internal data
-// are never exposed.
+// trainerWorkoutExerciseResponse exposes safe workout exercise structure: the
+// assignment identity, its owning workout id, its position, the trainer-owned
+// instructions and notes, the set prescription and the safe catalog data of the
+// assigned exercise. Deletion markers and any internal data are never exposed.
 type trainerWorkoutExerciseResponse struct {
 	ID               string                 `json:"id"`
 	ProgramWorkoutID string                 `json:"program_workout_id"`
 	Position         int                    `json:"position"`
+	Instructions     string                 `json:"instructions"`
+	Notes            string                 `json:"notes"`
 	Exercise         trainerExerciseSummary `json:"exercise"`
+	Sets             []workoutSetResponse   `json:"sets"`
 	CreatedAt        time.Time              `json:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at"`
+}
+
+// workoutSetResponse exposes one prescription set of a workout exercise.
+type workoutSetResponse struct {
+	SetNumber   int      `json:"set_number"`
+	SetType     string   `json:"set_type"`
+	Reps        *int     `json:"reps"`
+	WeightKg    *float64 `json:"weight_kg"`
+	RIR         *int     `json:"rir"`
+	RPE         *float64 `json:"rpe"`
+	RestSeconds *int     `json:"rest_seconds"`
+	Tempo       string   `json:"tempo"`
 }
 
 // trainerExerciseSummary is the safe public view of the global catalog
@@ -38,10 +53,27 @@ type trainerExerciseSummary struct {
 }
 
 func newTrainerWorkoutExerciseResponse(workoutExercise *workout_exercises.WorkoutExercise) trainerWorkoutExerciseResponse {
+	sets := make([]workoutSetResponse, 0, len(workoutExercise.Sets))
+	for i := range workoutExercise.Sets {
+		set := &workoutExercise.Sets[i]
+		sets = append(sets, workoutSetResponse{
+			SetNumber:   set.SetNumber,
+			SetType:     set.SetType,
+			Reps:        set.Reps,
+			WeightKg:    set.WeightKg,
+			RIR:         set.RIR,
+			RPE:         set.RPE,
+			RestSeconds: set.RestSeconds,
+			Tempo:       set.Tempo,
+		})
+	}
 	return trainerWorkoutExerciseResponse{
 		ID:               workoutExercise.ID,
 		ProgramWorkoutID: workoutExercise.ProgramWorkoutID,
 		Position:         workoutExercise.Position,
+		Instructions:     workoutExercise.Instructions,
+		Notes:            workoutExercise.Notes,
+		Sets:             sets,
 		Exercise: trainerExerciseSummary{
 			ID:            workoutExercise.Exercise.ID,
 			Name:          workoutExercise.Exercise.Name,
@@ -63,6 +95,27 @@ func newTrainerWorkoutExerciseResponse(workoutExercise *workout_exercises.Workou
 // trainer ownership never come from the body.
 type addWorkoutExerciseRequest struct {
 	ExerciseID string `json:"exercise_id"`
+}
+
+// trainerSetRequest is one desired prescription set. Set numbers are derived
+// from the array order; identity, ownership and set numbers never come from the
+// body.
+type trainerSetRequest struct {
+	SetType     string   `json:"set_type"`
+	Reps        *int     `json:"reps"`
+	WeightKg    *float64 `json:"weight_kg"`
+	RIR         *int     `json:"rir"`
+	RPE         *float64 `json:"rpe"`
+	RestSeconds *int     `json:"rest_seconds"`
+	Tempo       string   `json:"tempo"`
+}
+
+// updateWorkoutExercisePrescriptionRequest replaces the per-assignment
+// instructions, notes and complete set list of one workout exercise.
+type updateWorkoutExercisePrescriptionRequest struct {
+	Instructions string              `json:"instructions"`
+	Notes        string              `json:"notes"`
+	Sets         []trainerSetRequest `json:"sets"`
 }
 
 // TrainerWorkoutExerciseHandler exposes the authenticated trainer's workout
@@ -158,6 +211,49 @@ func (h *TrainerWorkoutExerciseHandler) GetExercise(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Workout exercise retrieved successfully.",
+		"data":    newTrainerWorkoutExerciseResponse(workoutExercise),
+	})
+}
+
+// UpdatePrescription replaces the instructions, notes and complete set list of
+// one active workout exercise of one of the authenticated trainer's own program
+// workouts. The assignment identity comes exclusively from the path.
+func (h *TrainerWorkoutExerciseHandler) UpdatePrescription(c *gin.Context) {
+	trainerID, ok := requireTrainerContext(c)
+	if !ok {
+		return
+	}
+
+	var req updateWorkoutExercisePrescriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request body.", nil)
+		return
+	}
+
+	sets := make([]workout_exercises.SetInput, 0, len(req.Sets))
+	for i := range req.Sets {
+		sets = append(sets, workout_exercises.SetInput{
+			SetType:     req.Sets[i].SetType,
+			Reps:        req.Sets[i].Reps,
+			WeightKg:    req.Sets[i].WeightKg,
+			RIR:         req.Sets[i].RIR,
+			RPE:         req.Sets[i].RPE,
+			RestSeconds: req.Sets[i].RestSeconds,
+			Tempo:       req.Sets[i].Tempo,
+		})
+	}
+
+	workoutExercise, err := h.service.UpdatePrescription(c.Request.Context(), trainerID,
+		c.Param("programID"), c.Param("weekID"), c.Param("workoutID"), c.Param("workoutExerciseID"),
+		req.Instructions, req.Notes, sets)
+	if err != nil {
+		h.respondWorkoutExerciseError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Workout exercise prescription updated successfully.",
 		"data":    newTrainerWorkoutExerciseResponse(workoutExercise),
 	})
 }

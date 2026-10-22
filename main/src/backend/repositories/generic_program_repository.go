@@ -430,23 +430,15 @@ func applyExercises(tx *gorm.DB, workoutID string, existing []models.WorkoutExer
 
 func applySets(tx *gorm.DB, exerciseID string, existing []models.WorkoutExerciseSet, desired []models.WorkoutExerciseSet) error {
 	for i := range desired {
-		var set *models.WorkoutExerciseSet
-		reuse := true
-		if i < len(existing) {
-			set = &existing[i]
-		} else {
-			set = &desired[i]
-			set.SetNumber = i + 1
-			reuse = false
-		}
+		set := &desired[i]
 		set.WorkoutExerciseID = exerciseID
 		set.SetNumber = i + 1
 
-		if reuse {
+		if i < len(existing) {
 			if err := tx.Model(&models.WorkoutExerciseSet{}).
-				Where("id = ?", set.ID).
+				Where("id = ?", existing[i].ID).
 				Updates(map[string]any{
-					"set_number":   i + 1,
+					"set_number":   set.SetNumber,
 					"set_type":     set.SetType,
 					"reps":         set.Reps,
 					"weight_kg":    set.WeightKg,
@@ -455,18 +447,18 @@ func applySets(tx *gorm.DB, exerciseID string, existing []models.WorkoutExercise
 					"rest_seconds": set.RestSeconds,
 					"tempo":        set.Tempo,
 				}).Error; err != nil {
-				return fmt.Errorf("failed to update generic workout exercise set: %w", err)
+				return fmt.Errorf("failed to update workout exercise set: %w", err)
 			}
 		} else {
 			if err := tx.Create(set).Error; err != nil {
-				return fmt.Errorf("failed to create generic workout exercise set: %w", err)
+				return fmt.Errorf("failed to create workout exercise set: %w", err)
 			}
 		}
 	}
 
 	for i := len(desired); i < len(existing); i++ {
 		if err := tx.Delete(&models.WorkoutExerciseSet{}, "id = ?", existing[i].ID).Error; err != nil {
-			return fmt.Errorf("failed to remove generic workout exercise set: %w", err)
+			return fmt.Errorf("failed to remove workout exercise set: %w", err)
 		}
 	}
 	return nil

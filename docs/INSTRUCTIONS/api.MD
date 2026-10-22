@@ -353,9 +353,11 @@ exercises, exercises or assignments.
 
 The owning `trainer_id` and every parent identifier (`program_id`,
 `program_week_id`, `program_workout_id`) are never exposed. Weeks, workouts,
-workout exercises and exercises are returned in display order
-(`week_number` / `position` ascending). Soft-deleted programs, weeks, workouts,
-workout exercises, exercises and assignments are excluded. The program `status`
+workout exercises, exercises and prescribed sets are returned in display order
+(`week_number` / `position` / `set_number` ascending). Each workout exercise
+carries the trainer-owned `instructions`, `notes` and complete set
+prescription. Soft-deleted programs, weeks, workouts, workout exercises,
+exercises and assignments are excluded. The program `status`
 carries no access semantics: a draft program is as readable as a published one.
 A user holding several active assignments (one per trainer) reads the most
 recently created one.
@@ -365,8 +367,8 @@ recently created one.
 #### `GET /api/v1/me/program`
 
 Returns the program of the authenticated user's most recent active assignment
-with its full active structure (weeks, workouts, workout exercises and their
-catalog exercises).
+with its full active structure (weeks, workouts, workout exercises, their
+catalog exercises and prescribed sets).
 
 Response `data`:
 
@@ -378,6 +380,10 @@ Response `data`:
     - `id` / `position` / `created_at` / `updated_at`.
     - `exercises` — array of workout exercise objects, each with:
       - `id` / `position` / `created_at` / `updated_at`.
+      - `instructions` / `notes` — trainer-owned per-assignment text.
+      - `sets` — ordered set prescription; each set has `set_number`,
+        `set_type`, `reps`, `weight_kg`, `rir`, `rpe`, `rest_seconds` and
+        `tempo`.
       - `exercise` — safe catalog summary: `id`, `name`, `description`,
         `target_muscles`, `equipment`, `difficulty`, `video_url`, `image_url`.
 
@@ -1783,8 +1789,9 @@ Requires `trainer.programs`.
 #### `POST /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises`
 
 Appends one active global catalog exercise to the end of one of the
-authenticated trainer's own program workouts. The exercise is selected only by
-its catalog id; no other per-assignment data exists in this foundation.
+authenticated trainer's own program workouts. The exercise is selected by its
+catalog id; the new assignment starts with empty instructions/notes and no
+sets, which the trainer then fills through the prescription `PATCH` below.
 
 Request body:
 
@@ -1794,9 +1801,9 @@ Request body:
 Responses:
 
 - `201 Created` — response `data`: `id`, `program_workout_id`, `position`,
-  `exercise` (safe catalog data: `id`, `name`, `description`,
-  `target_muscles`, `equipment`, `difficulty`, `video_url`, `image_url`),
-  `created_at`, `updated_at`.
+  `instructions`, `notes`, `sets` (empty), `exercise` (safe catalog data:
+  `id`, `name`, `description`, `target_muscles`, `equipment`, `difficulty`,
+  `video_url`, `image_url`), `created_at`, `updated_at`.
 - `400 VALIDATION_ERROR` — malformed identifiers, missing or invalid body.
 - `404 WORKOUT_NOT_FOUND` — missing, soft-deleted or foreign workout.
 - `404 EXERCISE_NOT_FOUND` — missing or soft-deleted catalog exercise.
@@ -1806,11 +1813,14 @@ Requires `trainer.programs`.
 #### `GET /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises`
 
 Returns every active workout exercise of one of the authenticated trainer's own
-program workouts, in position order, each with its safe exercise data.
+program workouts, in position order, each with its instructions, notes, ordered
+set prescription and safe exercise data.
 
 Response `data`:
 
-- `exercises` — array of workout exercise objects.
+- `exercises` — array of workout exercise objects. Each object has `id`,
+  `program_workout_id`, `position`, `instructions`, `notes`, `sets` (ordered by
+  `set_number`), `exercise` and timestamps.
 
 Responses:
 
@@ -1839,6 +1849,41 @@ Responses:
 
 Requires `trainer.programs`.
 
+#### `PATCH /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID`
+
+Replaces the per-assignment `instructions`, `notes` and complete active set
+prescription of one of the authenticated trainer's own workout exercises. The
+assignment, workout and complete owning chain are verified before any write; a
+foreign, soft-deleted or mismatched assignment is indistinguishable from a
+non-existent one. `set_number` is always derived from the array order and is
+never accepted from the client. Removed tail sets are soft-deleted, not
+destroyed.
+
+Request body:
+
+- `instructions` — per-assignment instructions (string, may be empty).
+- `notes` — per-assignment notes (string, may be empty).
+- `sets` — array of at most 50 ordered set objects:
+  - `set_type` — required controlled value: `warmup`, `working`, `drop`,
+    `backoff` or `failure`.
+  - `reps` — optional integer, ≥ 1.
+  - `weight_kg` — optional number, ≥ 0.
+  - `rir` — optional integer, ≥ 0.
+  - `rpe` — optional number between 1 and 10.
+  - `rest_seconds` — optional integer, ≥ 0.
+  - `tempo` — optional string, ≤ 20 characters.
+
+Responses:
+
+- `200 OK` — the updated workout exercise object with its ordered sets.
+- `400 VALIDATION_ERROR` — malformed identifiers, body, set type, values or
+  more than 50 sets.
+- `404 WORKOUT_EXERCISE_NOT_FOUND` — missing, soft-deleted or foreign workout
+  exercise (a workout exercise of another workout, another program or another
+  trainer is indistinguishable from a non-existent one).
+
+Requires `trainer.programs`.
+
 #### `GET /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID`
 
 Returns one active workout exercise of one of the authenticated trainer's own
@@ -1846,7 +1891,8 @@ program workouts, with its safe exercise data.
 
 Responses:
 
-- `200 OK` — workout exercise object.
+- `200 OK` — workout exercise object, including `instructions`, `notes` and
+  its ordered `sets`.
 - `400 VALIDATION_ERROR`.
 - `404 WORKOUT_EXERCISE_NOT_FOUND` — missing, soft-deleted or foreign workout
   exercise (a workout exercise of another workout, another program or another
@@ -4773,9 +4819,9 @@ Request body:
     - `name`, `description`, `exercises`:
       - `exercise_id` — catalog exercise id.
       - `instructions`, `notes` (optional per-assignment copy).
-      - `sets` — array of: `set_type` (`warmup`|`working`|`drop`|`backoff`|
-        `failure`), `reps`, `weight_kg`, `rir`, `rpe` (1–10), `rest_seconds`,
-        `tempo` (≤ 20).
+      - `sets` — array of at most 50 sets: `set_type` (required:
+        `warmup`|`working`|`drop`|`backoff`|`failure`), `reps`, `weight_kg`,
+        `rir`, `rpe` (1–10), `rest_seconds`, `tempo` (≤ 20).
 
 Responses:
 

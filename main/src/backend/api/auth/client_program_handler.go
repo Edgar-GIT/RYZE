@@ -48,13 +48,17 @@ type clientWorkoutResponse struct {
 }
 
 // clientWorkoutExerciseResponse is the safe view of one exercise usage inside
-// an assigned workout, reusing the safe public exercise summary.
+// an assigned workout, including the trainer-owned instructions, notes and set
+// prescription, and reusing the safe public exercise summary.
 type clientWorkoutExerciseResponse struct {
-	ID        string                 `json:"id"`
-	Position  int                    `json:"position"`
-	CreatedAt time.Time              `json:"created_at"`
-	UpdatedAt time.Time              `json:"updated_at"`
-	Exercise  trainerExerciseSummary `json:"exercise"`
+	ID           string                 `json:"id"`
+	Position     int                    `json:"position"`
+	Instructions string                 `json:"instructions"`
+	Notes        string                 `json:"notes"`
+	Exercise     trainerExerciseSummary `json:"exercise"`
+	Sets         []workoutSetResponse   `json:"sets"`
+	CreatedAt    time.Time              `json:"created_at"`
+	UpdatedAt    time.Time              `json:"updated_at"`
 }
 
 func newClientProgramResponse(program *client_programs.Program) clientProgramResponse {
@@ -105,11 +109,28 @@ func newClientWorkoutResponse(workout *client_programs.Workout) clientWorkoutRes
 }
 
 func newClientWorkoutExerciseResponse(workoutExercise *client_programs.WorkoutExercise) clientWorkoutExerciseResponse {
+	sets := make([]workoutSetResponse, 0, len(workoutExercise.Sets))
+	for i := range workoutExercise.Sets {
+		set := &workoutExercise.Sets[i]
+		sets = append(sets, workoutSetResponse{
+			SetNumber:   set.SetNumber,
+			SetType:     set.SetType,
+			Reps:        set.Reps,
+			WeightKg:    set.WeightKg,
+			RIR:         set.RIR,
+			RPE:         set.RPE,
+			RestSeconds: set.RestSeconds,
+			Tempo:       set.Tempo,
+		})
+	}
 	return clientWorkoutExerciseResponse{
-		ID:        workoutExercise.ID,
-		Position:  workoutExercise.Position,
-		CreatedAt: workoutExercise.CreatedAt,
-		UpdatedAt: workoutExercise.UpdatedAt,
+		ID:           workoutExercise.ID,
+		Position:     workoutExercise.Position,
+		Instructions: workoutExercise.Instructions,
+		Notes:        workoutExercise.Notes,
+		Sets:         sets,
+		CreatedAt:    workoutExercise.CreatedAt,
+		UpdatedAt:    workoutExercise.UpdatedAt,
 		Exercise: trainerExerciseSummary{
 			ID:            workoutExercise.Exercise.ID,
 			Name:          workoutExercise.Exercise.Name,

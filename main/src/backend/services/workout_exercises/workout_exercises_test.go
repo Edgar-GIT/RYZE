@@ -35,6 +35,7 @@ type stubRepo struct {
 	list         func(trainerID, programID, weekID, workoutID string) ([]models.WorkoutExercise, error)
 	find         func(trainerID, programID, weekID, workoutID, workoutExerciseID string) (*models.WorkoutExercise, error)
 	reorder      func(trainerID, programID, weekID, workoutID string, orderedIDs []string) error
+	update       func(trainerID, programID, weekID, workoutID, workoutExerciseID, instructions, notes string, sets []models.WorkoutExerciseSet) (*models.WorkoutExercise, error)
 	softDelete   func(trainerID, programID, weekID, workoutID, workoutExerciseID string) error
 	gotTrainerID string
 	gotProgramID string
@@ -43,6 +44,7 @@ type stubRepo struct {
 	gotEntryID   string
 	gotExercise  string
 	gotOrder     []string
+	gotSets      []models.WorkoutExerciseSet
 	createdEntry *models.WorkoutExercise
 }
 
@@ -97,6 +99,23 @@ func (s *stubRepo) Reorder(_ context.Context, trainerID, programID, weekID, work
 		return s.reorder(trainerID, programID, weekID, workoutID, orderedIDs)
 	}
 	return nil
+}
+
+func (s *stubRepo) UpdatePrescription(_ context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID, instructions, notes string, sets []models.WorkoutExerciseSet) (*models.WorkoutExercise, error) {
+	s.gotTrainerID = trainerID
+	s.gotProgramID = programID
+	s.gotWeekID = weekID
+	s.gotWorkoutID = workoutID
+	s.gotEntryID = workoutExerciseID
+	s.gotSets = sets
+	if s.update != nil {
+		return s.update(trainerID, programID, weekID, workoutID, workoutExerciseID, instructions, notes, sets)
+	}
+	model := validModel()
+	model.Instructions = instructions
+	model.Notes = notes
+	model.Sets = sets
+	return model, nil
 }
 
 func (s *stubRepo) SoftDelete(_ context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID string) error {
@@ -440,5 +459,112 @@ func TestWorkoutExercisesNeverExposeSensitiveData(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestUpdatePrescriptionSuccess(t *testing.T) {
+	reps := 10
+	weight := 80.0
+	rir := 2
+	rpe := 8.0
+	rest := 90
+	sets := []workout_exercises.SetInput{
+		{SetType: "warmup", Reps: &reps},
+		{SetType: "working", Reps: &reps, WeightKg: &weight, RIR: &rir, RPE: &rpe, RestSeconds: &rest, Tempo: "2010"},
+	}
+	repo := &stubRepo{}
+	svc := newService(repo)
+
+	entry, err := svc.UpdatePrescription(context.Background(), trainerID, programID, weekID, workoutID, workoutExerciseID, " Brace the core ", " Keep the bar path vertical. ", sets)
+	if err != nil {
+		t.Fatalf("UpdatePrescription: %v", err)
+	}
+	if repo.gotTrainerID != trainerID || repo.gotProgramID != programID || repo.gotWeekID != weekID || repo.gotWorkoutID != workoutID || repo.gotEntryID != workoutExerciseID {
+		t.Fatalf("expected scope %q/%q/%q/%q/%q, got %q/%q/%q/%q/%q", trainerID, programID, weekID, workoutID, workoutExerciseID, repo.gotTrainerID, repo.gotProgramID, repo.gotWeekID, repo.gotWorkoutID, repo.gotEntryID)
+	}
+	if len(repo.gotSets) != 2 || repo.gotSets[0].SetNumber != 1 || repo.gotSets[1].SetNumber != 2 {
+		t.Fatalf("expected server-derived set numbers, got %+v", repo.gotSets)
+	}
+	if entry.Instructions != " Brace the core " || entry.Notes != " Keep the bar path vertical. " {
+		t.Fatalf("unexpected instructions/notes %+v", entry)
+	}
+	if len(entry.Sets) != 2 || entry.Sets[0].SetType != "warmup" || entry.Sets[1].Tempo != "2010" {
+		t.Fatalf("unexpected prescription %+v", entry.Sets)
+	}
+}
+
+func TestUpdatePrescriptionInvalidInput(t *testing.T) {
+	reps := 0
+	negative := -1
+	lowRPE := 0.5
+	highRPE := 10.5
+	longTempo := strings.Repeat("2", 21)
+	sets := []workout_exercises.SetInput{{SetType: "working"}}
+
+	for name, tc := range map[string]struct {
+		ids  [5]string
+		sets []workout_exercises.SetInput
+	}{
+		"empty trainer": {ids: [5]string{"", programID, weekID, workoutID, workoutExerciseID}, sets: sets},
+		"bad program":   {ids: [5]string{trainerID, "not-a-uuid", weekID, workoutID, workoutExerciseID}, sets: sets},
+		"empty entry":   {ids: [5]string{trainerID, programID, weekID, workoutID, ""}, sets: sets},
+		"missing type":  {ids: [5]string{trainerID, programID, weekID, workoutID, workoutExerciseID}, sets: []workout_exercises.SetInput{{}}},
+		"unknown type":  {ids: [5]string{trainerID, programID, weekID, workoutID, workoutExerciseID}, sets: []workout_exercises.SetInput{{SetType: "cardio"}}},
+		"zero reps":     {ids: [5]string{trainerID, programID, weekID, workoutID, workoutExerciseID}, sets: []workout_exercises.SetInput{{SetType: "working", Reps: &reps}}},
+		"negative load": {ids: [5]string{trainerID, programID, weekID, workoutID, workoutExerciseID}, sets: []workout_exercises.SetInput{{SetType: "working", WeightKg: func() *float64 { v := -0.1; return &v }()}}},
+		"negative rir":  {ids: [5]string{trainerID, programID, weekID, workoutID, workoutExerciseID}, sets: []workout_exercises.SetInput{{SetType: "working", RIR: &negative}}},
+		"low rpe":       {ids: [5]string{trainerID, programID, weekID, workoutID, workoutExerciseID}, sets: []workout_exercises.SetInput{{SetType: "working", RPE: &lowRPE}}},
+		"high rpe":      {ids: [5]string{trainerID, programID, weekID, workoutID, workoutExerciseID}, sets: []workout_exercises.SetInput{{SetType: "working", RPE: &highRPE}}},
+		"negative rest": {ids: [5]string{trainerID, programID, weekID, workoutID, workoutExerciseID}, sets: []workout_exercises.SetInput{{SetType: "working", RestSeconds: &negative}}},
+		"long tempo":    {ids: [5]string{trainerID, programID, weekID, workoutID, workoutExerciseID}, sets: []workout_exercises.SetInput{{SetType: "working", Tempo: longTempo}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			svc := newService(&stubRepo{})
+			if _, err := svc.UpdatePrescription(context.Background(), tc.ids[0], tc.ids[1], tc.ids[2], tc.ids[3], tc.ids[4], "", "", tc.sets); !errors.Is(err, workout_exercises.ErrInvalidInput) {
+				t.Fatalf("expected ErrInvalidInput, got %v", err)
+			}
+		})
+	}
+}
+
+func TestUpdatePrescriptionRejectsTooManySets(t *testing.T) {
+	sets := make([]workout_exercises.SetInput, 51)
+	for i := range sets {
+		sets[i] = workout_exercises.SetInput{SetType: "working"}
+	}
+	svc := newService(&stubRepo{})
+
+	if _, err := svc.UpdatePrescription(context.Background(), trainerID, programID, weekID, workoutID, workoutExerciseID, "", "", sets); !errors.Is(err, workout_exercises.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestUpdatePrescriptionNotFound(t *testing.T) {
+	repo := &stubRepo{
+		update: func(_, _, _, _, _, _, _ string, _ []models.WorkoutExerciseSet) (*models.WorkoutExercise, error) {
+			return nil, repositories.ErrWorkoutExerciseNotFound
+		},
+	}
+	svc := newService(repo)
+
+	if _, err := svc.UpdatePrescription(context.Background(), trainerID, programID, weekID, workoutID, workoutExerciseID, "", "", nil); !errors.Is(err, workout_exercises.ErrWorkoutExerciseNotFound) {
+		t.Fatalf("expected ErrWorkoutExerciseNotFound, got %v", err)
+	}
+}
+
+func TestUpdatePrescriptionRepositoryFailure(t *testing.T) {
+	repo := &stubRepo{
+		update: func(_, _, _, _, _, _, _ string, _ []models.WorkoutExerciseSet) (*models.WorkoutExercise, error) {
+			return nil, errRepoFailure
+		},
+	}
+	svc := newService(repo)
+
+	_, err := svc.UpdatePrescription(context.Background(), trainerID, programID, weekID, workoutID, workoutExerciseID, "", "", nil)
+	if errors.Is(err, workout_exercises.ErrWorkoutExerciseNotFound) || errors.Is(err, workout_exercises.ErrInvalidInput) {
+		t.Fatalf("repository failure must not map to a domain error, got %v", err)
+	}
+	if err == nil {
+		t.Fatal("expected an error")
 	}
 }

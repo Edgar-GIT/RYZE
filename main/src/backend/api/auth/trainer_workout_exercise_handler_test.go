@@ -79,6 +79,7 @@ func newTrainerWorkoutExerciseTestRouter(t *testing.T, permissions ...trainerrol
 	trainer.POST("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", middleware.RequireTrainerPermission(permissions...), handler.AddExercise)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", middleware.RequireTrainerPermission(permissions...), handler.ListExercises)
 	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/order", middleware.RequireTrainerPermission(permissions...), handler.ReorderExercises)
+	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(permissions...), handler.UpdatePrescription)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(permissions...), handler.GetExercise)
 	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(permissions...), handler.DeleteExercise)
 
@@ -102,6 +103,7 @@ func newTrainerWorkoutExerciseHandlerRouter(svc workout_exercises.Service, ident
 	trainer.POST("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", handler.AddExercise)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", handler.ListExercises)
 	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/order", handler.ReorderExercises)
+	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", handler.UpdatePrescription)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", handler.GetExercise)
 	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", handler.DeleteExercise)
 	return router
@@ -120,6 +122,9 @@ type stubWorkoutExerciseService struct {
 	gotEntryID    string
 	gotExerciseID string
 	gotOrder      []string
+	gotInstr      string
+	gotNotes      string
+	gotSets       []workout_exercises.SetInput
 }
 
 func (s *stubWorkoutExerciseService) AddExercise(_ context.Context, trainerID, programID, weekID, workoutID, exerciseID string) (*workout_exercises.WorkoutExercise, error) {
@@ -145,6 +150,18 @@ func (s *stubWorkoutExerciseService) GetExercise(_ context.Context, trainerID, p
 	s.gotWeekID = weekID
 	s.gotWorkoutID = workoutID
 	s.gotEntryID = workoutExerciseID
+	return s.entry, s.err
+}
+
+func (s *stubWorkoutExerciseService) UpdatePrescription(_ context.Context, trainerID, programID, weekID, workoutID, workoutExerciseID, instructions, notes string, sets []workout_exercises.SetInput) (*workout_exercises.WorkoutExercise, error) {
+	s.gotTrainerID = trainerID
+	s.gotProgramID = programID
+	s.gotWeekID = weekID
+	s.gotWorkoutID = workoutID
+	s.gotEntryID = workoutExerciseID
+	s.gotInstr = instructions
+	s.gotNotes = notes
+	s.gotSets = sets
 	return s.entry, s.err
 }
 
@@ -409,6 +426,153 @@ func TestTrainerWorkoutExerciseGetDeleted(t *testing.T) {
 	}
 	if !strings.Contains(raw, `"code":"WORKOUT_EXERCISE_NOT_FOUND"`) {
 		t.Fatalf("expected WORKOUT_EXERCISE_NOT_FOUND, got %s", raw)
+	}
+}
+
+func TestTrainerWorkoutExerciseUpdatePrescriptionSuccess(t *testing.T) {
+	router, db, userRepo, trainerRepo, programRepo, weekRepo, workoutRepo, workoutExerciseRepo, tokenSvc := newTrainerWorkoutExerciseTestRouter(t, trainerroles.PermissionPrograms)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	program, week, workout := seedWorkoutExerciseProgram(t, programRepo, weekRepo, workoutRepo, trainer.ID)
+	squat := seedWorkoutExerciseCatalog(t, db, "Barbell Squat")
+	entry := &models.WorkoutExercise{ExerciseID: squat.ID}
+	if err := workoutExerciseRepo.AddExercise(context.Background(), trainer.ID, program.ID, week.ID, workout.ID, entry); err != nil {
+		t.Fatalf("seed workout exercise: %v", err)
+	}
+
+	body := `{"instructions":"Brace before every rep.","notes":"Keep the bar over mid-foot.","sets":[{"set_number":99,"set_type":"warmup","reps":12},{"set_number":98,"set_type":"working","reps":8,"weight_kg":80,"rir":1,"rpe":8,"rest_seconds":90,"tempo":"3110"}]}`
+	rec, data, raw := trainerClientsRequest(router, jwtValue, http.MethodPatch, workoutExercisePath(program.ID, week.ID, workout.ID, entry.ID), body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
+	}
+	if instructions, _ := data["instructions"].(string); instructions != "Brace before every rep." {
+		t.Fatalf("expected instructions, got %q", instructions)
+	}
+	if notes, _ := data["notes"].(string); notes != "Keep the bar over mid-foot." {
+		t.Fatalf("expected notes, got %q", notes)
+	}
+	sets, _ := data["sets"].([]any)
+	if len(sets) != 2 {
+		t.Fatalf("expected 2 sets, got %d", len(sets))
+	}
+	firstSet, _ := sets[0].(map[string]any)
+	secondSet, _ := sets[1].(map[string]any)
+	if setNumber, _ := firstSet["set_number"].(float64); setNumber != 1 {
+		t.Fatalf("client-provided set_number must be ignored, got %v", firstSet["set_number"])
+	}
+	if setType, _ := firstSet["set_type"].(string); setType != "warmup" {
+		t.Fatalf("expected warmup, got %q", setType)
+	}
+	if setNumber, _ := secondSet["set_number"].(float64); setNumber != 2 {
+		t.Fatalf("expected second set_number 2, got %v", secondSet["set_number"])
+	}
+	if tempo, _ := secondSet["tempo"].(string); tempo != "3110" {
+		t.Fatalf("expected tempo 3110, got %q", tempo)
+	}
+
+	rec, data, raw = trainerClientsRequest(router, jwtValue, http.MethodGet, workoutExercisePath(program.ID, week.ID, workout.ID, entry.ID), "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on read, got %d (body: %s)", rec.Code, raw)
+	}
+	if instructions, _ := data["instructions"].(string); instructions != "Brace before every rep." {
+		t.Fatalf("prescription was not persisted, got instructions %q", instructions)
+	}
+	if sets, _ := data["sets"].([]any); len(sets) != 2 {
+		t.Fatalf("prescription sets were not persisted, got %d", len(sets))
+	}
+
+	var active []models.WorkoutExerciseSet
+	if err := db.Where("workout_exercise_id = ?", entry.ID).Order("set_number ASC").Find(&active).Error; err != nil {
+		t.Fatalf("load active sets: %v", err)
+	}
+	if len(active) != 2 || active[0].SetNumber != 1 || active[1].SetNumber != 2 {
+		t.Fatalf("unexpected active sets %+v", active)
+	}
+
+	rec, _, raw = trainerClientsRequest(router, jwtValue, http.MethodPatch, workoutExercisePath(program.ID, week.ID, workout.ID, entry.ID),
+		`{"instructions":"Brace before every rep.","notes":"Keep the bar over mid-foot.","sets":[{"set_type":"failure","reps":6}]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on replacement, got %d (body: %s)", rec.Code, raw)
+	}
+
+	active = nil
+	if err := db.Where("workout_exercise_id = ?", entry.ID).Order("set_number ASC").Find(&active).Error; err != nil {
+		t.Fatalf("reload active sets: %v", err)
+	}
+	if len(active) != 1 || active[0].SetType != "failure" || active[0].SetNumber != 1 {
+		t.Fatalf("expected one replacement set, got %+v", active)
+	}
+	var total int64
+	if err := db.Unscoped().Model(&models.WorkoutExerciseSet{}).Where("workout_exercise_id = ?", entry.ID).Count(&total).Error; err != nil {
+		t.Fatalf("count historical sets: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected the removed tail set to be preserved, got %d total rows", total)
+	}
+	var removed int64
+	if err := db.Unscoped().Model(&models.WorkoutExerciseSet{}).
+		Where("workout_exercise_id = ? AND deleted_at IS NOT NULL", entry.ID).
+		Count(&removed).Error; err != nil {
+		t.Fatalf("count removed sets: %v", err)
+	}
+	if removed != 1 {
+		t.Fatalf("expected the removed tail to be soft-deleted, got %d", removed)
+	}
+}
+
+func TestTrainerWorkoutExerciseUpdatePrescriptionIDOR(t *testing.T) {
+	router, db, userRepo, trainerRepo, programRepo, weekRepo, workoutRepo, workoutExerciseRepo, tokenSvc := newTrainerWorkoutExerciseTestRouter(t, trainerroles.PermissionPrograms)
+	_, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	otherTrainer := seedTrainerForUser(t, trainerRepo, seedLoginUser(t, userRepo, uniqueEmail(), "Password123!"))
+	foreignProgram, foreignWeek, foreignWorkout := seedWorkoutExerciseProgram(t, programRepo, weekRepo, workoutRepo, otherTrainer.ID)
+	squat := seedWorkoutExerciseCatalog(t, db, "Barbell Squat")
+	foreignEntry := &models.WorkoutExercise{ExerciseID: squat.ID}
+	if err := workoutExerciseRepo.AddExercise(context.Background(), otherTrainer.ID, foreignProgram.ID, foreignWeek.ID, foreignWorkout.ID, foreignEntry); err != nil {
+		t.Fatalf("seed foreign workout exercise: %v", err)
+	}
+
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPatch, workoutExercisePath(foreignProgram.ID, foreignWeek.ID, foreignWorkout.ID, foreignEntry.ID),
+		`{"instructions":"Hijacked","notes":"Hijacked","sets":[{"set_type":"working","reps":10}]}`)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for foreign workout exercise, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"WORKOUT_EXERCISE_NOT_FOUND"`) {
+		t.Fatalf("expected WORKOUT_EXERCISE_NOT_FOUND, got %s", raw)
+	}
+
+	var stored models.WorkoutExercise
+	if err := db.Unscoped().Where("id = ?", foreignEntry.ID).First(&stored).Error; err != nil {
+		t.Fatalf("load foreign entry: %v", err)
+	}
+	if stored.Instructions != "" || stored.Notes != "" {
+		t.Fatalf("foreign prescription must remain untouched, got %+v", stored)
+	}
+}
+
+func TestTrainerWorkoutExerciseUpdatePrescriptionInvalidSet(t *testing.T) {
+	router, db, userRepo, trainerRepo, programRepo, weekRepo, workoutRepo, workoutExerciseRepo, tokenSvc := newTrainerWorkoutExerciseTestRouter(t, trainerroles.PermissionPrograms)
+	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
+	program, week, workout := seedWorkoutExerciseProgram(t, programRepo, weekRepo, workoutRepo, trainer.ID)
+	squat := seedWorkoutExerciseCatalog(t, db, "Barbell Squat")
+	entry := &models.WorkoutExercise{ExerciseID: squat.ID}
+	if err := workoutExerciseRepo.AddExercise(context.Background(), trainer.ID, program.ID, week.ID, workout.ID, entry); err != nil {
+		t.Fatalf("seed workout exercise: %v", err)
+	}
+
+	for name, body := range map[string]string{
+		"missing set type": `{"instructions":"","notes":"","sets":[{"reps":10}]}`,
+		"unknown set type": `{"instructions":"","notes":"","sets":[{"set_type":"cardio","reps":10}]}`,
+		"zero reps":        `{"instructions":"","notes":"","sets":[{"set_type":"working","reps":0}]}`,
+		"invalid rpe":      `{"instructions":"","notes":"","sets":[{"set_type":"working","rpe":11}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPatch, workoutExercisePath(program.ID, week.ID, workout.ID, entry.ID), body)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d (body: %s)", rec.Code, raw)
+			}
+			if !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
+				t.Fatalf("expected VALIDATION_ERROR, got %s", raw)
+			}
+		})
 	}
 }
 

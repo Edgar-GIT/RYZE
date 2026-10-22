@@ -379,6 +379,9 @@ func TestCreateProgramRejectsInvalidInput(t *testing.T) {
 		}},
 		{name: "empty exercise id", mutate: func(i *generic_programs.ProgramInput) { i.Weeks[0].Workouts[0].Exercises[0].ExerciseID = "" }},
 		{name: "invalid exercise id", mutate: func(i *generic_programs.ProgramInput) { i.Weeks[0].Workouts[0].Exercises[0].ExerciseID = "not-a-uuid" }},
+		{name: "missing set type", mutate: func(i *generic_programs.ProgramInput) {
+			i.Weeks[0].Workouts[0].Exercises[0].Prescription[0].SetType = ""
+		}},
 		{name: "invalid set type", mutate: func(i *generic_programs.ProgramInput) {
 			i.Weeks[0].Workouts[0].Exercises[0].Prescription[0].SetType = "max"
 		}},

@@ -41,15 +41,32 @@ type Exercise struct {
 	ImageURL      string
 }
 
+// Set is the safe representation of one prescribed set of an assigned workout
+// exercise, in set order.
+type Set struct {
+	SetNumber   int
+	SetType     string
+	Reps        *int
+	WeightKg    *float64
+	RIR         *int
+	RPE         *float64
+	RestSeconds *int
+	Tempo       string
+}
+
 // WorkoutExercise is the safe representation of one exercise usage inside an
-// assigned workout. It carries only the position, the lifecycle timestamps and
-// the safe exercise data; parent and internal identifiers are never exposed.
+// assigned workout. It carries the position, the trainer-owned instructions and
+// notes, the set prescription, the lifecycle timestamps and the safe exercise
+// data; parent and internal identifiers are never exposed.
 type WorkoutExercise struct {
-	ID        string
-	Position  int
-	Exercise  Exercise
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID           string
+	Position     int
+	Instructions string
+	Notes        string
+	Exercise     Exercise
+	Sets         []Set
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // Workout is the safe representation of one workout slot inside an assigned
@@ -175,12 +192,29 @@ func newWorkout(model *models.ProgramWorkout) Workout {
 }
 
 func newWorkoutExercise(model *models.WorkoutExercise) WorkoutExercise {
+	sets := make([]Set, 0, len(model.Sets))
+	for i := range model.Sets {
+		set := &model.Sets[i]
+		sets = append(sets, Set{
+			SetNumber:   set.SetNumber,
+			SetType:     set.SetType,
+			Reps:        set.Reps,
+			WeightKg:    set.WeightKg,
+			RIR:         set.RIR,
+			RPE:         set.RPE,
+			RestSeconds: set.RestSeconds,
+			Tempo:       set.Tempo,
+		})
+	}
 	return WorkoutExercise{
-		ID:        model.ID,
-		Position:  model.Position,
-		Exercise:  newExercise(model.Exercise),
-		CreatedAt: model.CreatedAt,
-		UpdatedAt: model.UpdatedAt,
+		ID:           model.ID,
+		Position:     model.Position,
+		Instructions: model.Instructions,
+		Notes:        model.Notes,
+		Exercise:     newExercise(model.Exercise),
+		Sets:         sets,
+		CreatedAt:    model.CreatedAt,
+		UpdatedAt:    model.UpdatedAt,
 	}
 }
 

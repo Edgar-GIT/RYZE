@@ -218,6 +218,8 @@ func TestGenericProgramRepository(t *testing.T) {
 		weekModel(2, workoutModel(1, exerciseModel(exerciseB.ID, 1, 2))),
 		weekModel(3, workoutModel(1, exerciseModel(exerciseA.ID, 1, 1))),
 	})
+	updated.Weeks[0].Workouts[0].Exercises[0].Sets[0].SetType = "warmup"
+	updated.Weeks[0].Workouts[0].Exercises[0].Sets[0].Tempo = "3030"
 	if err := programRepo.UpdateFull(ctx, models.ProgramProductTypeGeneric, program.ID, updated); err != nil {
 		t.Fatalf("UpdateFull: %v", err)
 	}
@@ -243,6 +245,9 @@ func TestGenericProgramRepository(t *testing.T) {
 	}
 	if len(after.Weeks[0].Workouts[0].Exercises[0].Sets) != 3 {
 		t.Fatalf("expected 3 sets after update, got %d", len(after.Weeks[0].Workouts[0].Exercises[0].Sets))
+	}
+	if firstSet := after.Weeks[0].Workouts[0].Exercises[0].Sets[0]; firstSet.SetType != "warmup" || firstSet.Tempo != "3030" {
+		t.Fatalf("reused set must carry the updated prescription, got %+v", firstSet)
 	}
 
 	// 7. UpdateFull shrinks the structure: removing weeks soft-deletes the tail.

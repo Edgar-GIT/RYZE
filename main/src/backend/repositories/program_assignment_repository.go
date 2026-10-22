@@ -162,7 +162,8 @@ func (r *programAssignmentRepository) FindAssignedProgram(ctx context.Context, u
 				Preload("Weeks", func(db *gorm.DB) *gorm.DB { return db.Order("week_number ASC, id ASC") }).
 				Preload("Weeks.Workouts", func(db *gorm.DB) *gorm.DB { return db.Order("position ASC, id ASC") }).
 				Preload("Weeks.Workouts.Exercises", func(db *gorm.DB) *gorm.DB { return db.Order("position ASC, id ASC") }).
-				Preload("Weeks.Workouts.Exercises.Exercise")
+				Preload("Weeks.Workouts.Exercises.Exercise").
+				Preload("Weeks.Workouts.Exercises.Sets", orderedSets)
 		}).
 		Order("created_at DESC, id DESC").
 		First(&assignment).Error; err != nil {

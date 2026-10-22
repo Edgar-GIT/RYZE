@@ -143,8 +143,19 @@ func seedClientAssignedProgram(t *testing.T, tx *gorm.DB, trainerID, clientUserI
 		t.Fatalf("seed workout: %v", err)
 	}
 
-	if err := workoutExerciseRepo.AddExercise(ctx, trainerID, program.ID, week.ID, workout.ID, &models.WorkoutExercise{ExerciseID: exercise.ID}); err != nil {
+	entry := &models.WorkoutExercise{ExerciseID: exercise.ID}
+	if err := workoutExerciseRepo.AddExercise(ctx, trainerID, program.ID, week.ID, workout.ID, entry); err != nil {
 		t.Fatalf("seed workout exercise: %v", err)
+	}
+	reps := 10
+	weight := 60.0
+	if _, err := workoutExerciseRepo.UpdatePrescription(ctx, trainerID, program.ID, week.ID, workout.ID, entry.ID,
+		"Press with control.", "Keep the shoulders packed.",
+		[]models.WorkoutExerciseSet{
+			{SetType: "warmup", Reps: &reps},
+			{SetType: "working", Reps: &reps, WeightKg: &weight, Tempo: "2010"},
+		}); err != nil {
+		t.Fatalf("seed prescription: %v", err)
 	}
 
 	if err := assignmentRepo.Create(ctx, trainerID, clientUserID, program.ID, &models.ProgramAssignment{}); err != nil {
@@ -209,6 +220,27 @@ func TestClientProgramReadSuccess(t *testing.T) {
 	}
 	if exerciseID, _ := nested["id"].(string); exerciseID != exercise.ID {
 		t.Fatalf("expected exercise id %q, got %q", exercise.ID, exerciseID)
+	}
+	if instructions, _ := firstWorkoutExercise["instructions"].(string); instructions != "Press with control." {
+		t.Fatalf("expected instructions on the assigned program, got %q", instructions)
+	}
+	if notes, _ := firstWorkoutExercise["notes"].(string); notes != "Keep the shoulders packed." {
+		t.Fatalf("expected notes on the assigned program, got %q", notes)
+	}
+	sets, _ := firstWorkoutExercise["sets"].([]any)
+	if len(sets) != 2 {
+		t.Fatalf("expected 2 prescribed sets, got %d", len(sets))
+	}
+	firstSet, _ := sets[0].(map[string]any)
+	secondSet, _ := sets[1].(map[string]any)
+	if setNumber, _ := firstSet["set_number"].(float64); setNumber != 1 {
+		t.Fatalf("expected first set_number 1, got %v", firstSet["set_number"])
+	}
+	if setType, _ := firstSet["set_type"].(string); setType != "warmup" {
+		t.Fatalf("expected warmup first set, got %q", setType)
+	}
+	if tempo, _ := secondSet["tempo"].(string); tempo != "2010" {
+		t.Fatalf("expected tempo on the second set, got %q", tempo)
 	}
 
 	// The owning trainer and every parent identifier are never exposed to the
