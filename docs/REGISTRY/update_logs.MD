@@ -1,3 +1,77 @@
+# Version 2.95.0
+
+Title: Canonical trainer workout-exercise prescriptions and client prescription reads
+
+Date: 2026-10-22
+
+Summary:
+
+v2.95.0 completes the backend gap between the trainer program structure and the
+persisted exercise prescription. Trainers can now replace the instructions,
+notes and ordered set list of an exercise in their own program workout, and both
+trainer reads and the authenticated client's assigned-program read expose the
+prescription. The same validation vocabulary and numeric bounds are now shared
+by trainer-owned and platform-owned programs, and the generic program update
+path was corrected to apply the submitted set values instead of reusing the
+previous row values.
+
+No schema migration was required. The `workout_exercise_sets` table and the
+`instructions`/`notes` columns already existed; this release wires them through
+the trainer API and the client assignment read, adds the missing set preloads,
+and documents the contract. Removed tail sets are soft-deleted and historical
+rows remain preserved. Client-visible responses continue to omit the owning
+trainer and all parent identifiers.
+
+Main changes:
+
+- New `services/training_prescription` package: shared `SetInput`, controlled
+  set-type vocabulary, 50-set cap, 20-character tempo cap and validation for
+  reps, weight, RIR, RPE, rest and mandatory set type.
+- `services/generic_programs` delegates set validation to the shared package;
+  `repositories/generic_program_repository.go` now writes the desired set values
+  when reusing an existing row (regression covered by
+  `generic_program_repository_test.go`).
+- `services/workout_exercises`, `repositories/workout_exercise_repository.go`
+  and `api/auth/trainer_workout_exercise_handler.go`: prescription update with
+  ownership-chain verification and row locking, ordered set reads, safe
+  `instructions`/`notes`/`sets` responses, and `PATCH
+  /api/v1/trainer/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID`.
+- `repositories/program_assignment_repository.go`,
+  `services/client_programs/client_programs.go` and
+  `api/auth/client_program_handler.go`: `/api/v1/me/program` now preloads and
+  returns the assigned program's instructions, notes and ordered sets.
+- `routes/routes.go`: trainer PATCH route registered under
+  `trainer.programs`, alongside the existing add/list/order/read/delete routes.
+- Tests: service validation/forwarding, handler success/IDOR/validation,
+  client assignment response, and the generic set-update regression.
+- Docs updated: `api.MD` (client and trainer prescription contracts),
+  `database.MD` (repository methods, update lifecycle and tempo width), and the
+  new canonical `docs/ROADMAP/product_roadmap.MD`.
+
+Reason:
+
+The persisted prescription schema and the client Program Access contract already
+expected per-assignment sets, but the trainer API had no write/read path and the
+assigned-program endpoint omitted them. Closing the gap makes trainer-authored
+programs usable by clients without inventing a second prescription model or a
+new schema.
+
+Validation:
+
+- `gofmt` applied to changed Go files.
+- `go vet ./...` clean.
+- `go test ./...` all packages pass, including real-database integration tests
+  for trainer prescription success, replacement/history, IDOR, invalid sets and
+  the client assigned-program response.
+
+Residual and unverified:
+
+- No trainer-facing prescription editor was added; the existing frontend is
+  unchanged and browser-level editing remains a roadmap item.
+- No migration was added and no destructive database operation was performed.
+
+---
+
 # Version 2.94.0
 
 Title: Persisted Exercise Library with dataset import, 3D demonstrations, trainer-verification evidence review, and administrative catalogue management

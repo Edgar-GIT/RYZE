@@ -74,8 +74,13 @@ func validModel() *models.Program {
 								ProgramWorkoutID: workoutID,
 								ExerciseID:       exerciseID,
 								Position:         1,
-								CreatedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-								UpdatedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+								Instructions:     "Press with control.",
+								Notes:            "Keep the shoulders packed.",
+								Sets: []models.WorkoutExerciseSet{
+									{SetNumber: 1, SetType: "working", Tempo: "2010"},
+								},
+								CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+								UpdatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 								Exercise: &models.Exercise{
 									ID:            exerciseID,
 									Name:          "Bench Press",
@@ -120,9 +125,30 @@ func TestGetProgramSuccess(t *testing.T) {
 	if len(program.Weeks[0].Workouts[0].Exercises) != 1 || program.Weeks[0].Workouts[0].Exercises[0].ID != workoutExerciseID {
 		t.Fatalf("unexpected workout exercises %+v", program.Weeks[0].Workouts[0].Exercises)
 	}
-	exercise := program.Weeks[0].Workouts[0].Exercises[0].Exercise
+	workoutExercise := program.Weeks[0].Workouts[0].Exercises[0]
+	if workoutExercise.Instructions != "Press with control." || workoutExercise.Notes != "Keep the shoulders packed." {
+		t.Fatalf("unexpected prescription text %+v", workoutExercise)
+	}
+	if len(workoutExercise.Sets) != 1 || workoutExercise.Sets[0].SetNumber != 1 || workoutExercise.Sets[0].Tempo != "2010" {
+		t.Fatalf("unexpected sets %+v", workoutExercise.Sets)
+	}
+	exercise := workoutExercise.Exercise
 	if exercise.ID != exerciseID || exercise.Name != "Bench Press" {
 		t.Fatalf("unexpected exercise %+v", exercise)
+	}
+}
+
+func TestGetProgramMissingCatalogExerciseDoesNotPanic(t *testing.T) {
+	model := validModel()
+	model.Weeks[0].Workouts[0].Exercises[0].Exercise = nil
+	svc := newService(&stubRepo{program: model})
+
+	program, err := svc.GetProgram(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("GetProgram: %v", err)
+	}
+	if exercise := program.Weeks[0].Workouts[0].Exercises[0].Exercise; exercise.ID != "" {
+		t.Fatalf("expected an empty safe exercise, got %+v", exercise)
 	}
 }
 

@@ -219,6 +219,9 @@ func newWorkoutExercise(model *models.WorkoutExercise) WorkoutExercise {
 }
 
 func newExercise(model *models.Exercise) Exercise {
+	if model == nil {
+		return Exercise{}
+	}
 	return Exercise{
 		ID:            model.ID,
 		Name:          model.Name,
