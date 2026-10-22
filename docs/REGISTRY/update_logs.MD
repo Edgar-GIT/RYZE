@@ -43,7 +43,8 @@ Main changes:
 - `routes/routes.go`: trainer PATCH route registered under
   `trainer.programs`, alongside the existing add/list/order/read/delete routes.
 - Tests: service validation/forwarding, handler success/IDOR/validation,
-  client assignment response, and the generic set-update regression.
+  client assignment response, production-router client E2E, and the generic
+  set-update regression.
 - Docs updated: `api.MD` (client and trainer prescription contracts),
   `database.MD` (repository methods, update lifecycle and tempo width), and the
   new canonical `docs/ROADMAP/product_roadmap.MD`.

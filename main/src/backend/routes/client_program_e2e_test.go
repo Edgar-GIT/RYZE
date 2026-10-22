@@ -88,8 +88,15 @@ func TestClientProgramReadE2E(t *testing.T) {
 	if err := workoutRepo.Create(ctx, trainer.ID, program.ID, week.ID, workout); err != nil {
 		t.Fatalf("create program workout: %v", err)
 	}
-	if err := workoutExerciseRepo.AddExercise(ctx, trainer.ID, program.ID, week.ID, workout.ID, &models.WorkoutExercise{ExerciseID: exercise.ID}); err != nil {
+	entry := &models.WorkoutExercise{ExerciseID: exercise.ID}
+	if err := workoutExerciseRepo.AddExercise(ctx, trainer.ID, program.ID, week.ID, workout.ID, entry); err != nil {
 		t.Fatalf("add workout exercise: %v", err)
+	}
+	reps := 8
+	if _, err := workoutExerciseRepo.UpdatePrescription(ctx, trainer.ID, program.ID, week.ID, workout.ID, entry.ID,
+		"Brace before every rep.", "Keep the shoulders packed.",
+		[]models.WorkoutExerciseSet{{SetType: "working", Reps: &reps, Tempo: "2010"}}); err != nil {
+		t.Fatalf("prescribe workout exercise: %v", err)
 	}
 
 	if err := assignmentRepo.Create(ctx, trainer.ID, clientUserID, program.ID, &models.ProgramAssignment{}); err != nil {
@@ -108,6 +115,11 @@ func TestClientProgramReadE2E(t *testing.T) {
 		`"weeks":[`,
 		`"workouts":[`,
 		`"exercises":[`,
+		`"instructions":"Brace before every rep."`,
+		`"notes":"Keep the shoulders packed."`,
+		`"sets":[`,
+		`"set_type":"working"`,
+		`"tempo":"2010"`,
 	} {
 		if !strings.Contains(raw, want) {
 			t.Fatalf("expected %q in the response, got %s", want, raw)
