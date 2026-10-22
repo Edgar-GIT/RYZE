@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/client_programs"
@@ -41,7 +42,7 @@ func (s *stubRepo) FindAssignedProgram(_ context.Context, userID string) (*model
 }
 
 func newService(repo *stubRepo) client_programs.Service {
-	return client_programs.NewService(repo)
+	return client_programs.NewService(repo, config.ExerciseMediaConfig{})
 }
 
 func validModel() *models.Program {
@@ -211,5 +212,35 @@ func TestGetProgramRepoFailureNotExposed(t *testing.T) {
 	}
 	if !errors.Is(err, errRepoFailure) {
 		t.Fatalf("expected the repository failure to stay wrapped for logs, got %v", err)
+	}
+}
+
+func TestGetProgramGatesMedia(t *testing.T) {
+	model := validModel()
+	exercise := model.Weeks[0].Workouts[0].Exercises[0].Exercise
+	exercise.VideoURL = "videos/squat.mp4"
+	exercise.ImageURL = "images/squat.jpg"
+	exercise.MediaAttribution = "© Gym visual"
+	repo := &stubRepo{program: model}
+
+	disabled, err := client_programs.NewService(repo, config.ExerciseMediaConfig{}).GetProgram(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("GetProgram disabled: %v", err)
+	}
+	disabledExercise := disabled.Weeks[0].Workouts[0].Exercises[0].Exercise
+	if disabledExercise.VideoURL != "" || disabledExercise.ImageURL != "" || disabledExercise.MediaAttribution != "" || disabledExercise.MediaAvailable {
+		t.Fatalf("disabled media must stay empty, got %+v", disabledExercise)
+	}
+
+	enabled, err := client_programs.NewService(repo, config.ExerciseMediaConfig{Enabled: true, BasePath: "/media/exercises"}).GetProgram(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("GetProgram enabled: %v", err)
+	}
+	enabledExercise := enabled.Weeks[0].Workouts[0].Exercises[0].Exercise
+	if enabledExercise.VideoURL != "/media/exercises/videos/squat.mp4" || enabledExercise.ImageURL != "/media/exercises/images/squat.jpg" {
+		t.Fatalf("enabled media paths were not resolved, got %+v", enabledExercise)
+	}
+	if !enabledExercise.MediaAvailable || enabledExercise.MediaAttribution != "© Gym visual" {
+		t.Fatalf("enabled media metadata missing, got %+v", enabledExercise)
 	}
 }

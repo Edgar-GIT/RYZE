@@ -14,6 +14,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
+	"ryze/backend/services/exercise_media"
 )
 
 var (
@@ -124,7 +125,7 @@ type Service interface {
 
 type service struct {
 	exercises ExerciseRepository
-	media     config.ExerciseMediaConfig
+	media     exercise_media.Resolver
 }
 
 // NewService builds the public catalogue service. media controls whether the
@@ -132,7 +133,7 @@ type service struct {
 // media field stays empty and clients render an unavailable state, because the
 // bundled dataset media licensing must be confirmed before public delivery.
 func NewService(exercises ExerciseRepository, media config.ExerciseMediaConfig) Service {
-	return &service{exercises: exercises, media: media}
+	return &service{exercises: exercises, media: exercise_media.New(media)}
 }
 
 // ListExercises returns one page of the catalog ordered alphabetically by name.
@@ -218,7 +219,6 @@ func (s *service) toSafe(model *models.Exercise) *Exercise {
 		Equipment:             model.Equipment,
 		Difficulty:            model.Difficulty,
 		MovementCategory:      model.MovementCategory,
-		VideoURL:              model.VideoURL,
 		ThreeDKey:             stringValue(model.ThreeDKey),
 		CreatedAt:             model.CreatedAt,
 		UpdatedAt:             model.UpdatedAt,
@@ -239,23 +239,12 @@ func (s *service) toSafeList(models []models.Exercise) []Exercise {
 // enabled. The stored values are relative paths; the configured base path is
 // prefixed here so clients never have to know the storage layout.
 func (s *service) applyMedia(safe *Exercise, model *models.Exercise) {
-	if !s.media.Enabled {
-		return
-	}
-	if model.ImageURL != "" {
-		safe.ImageURL = joinMediaPath(s.media.BasePath, model.ImageURL)
-	}
-	if model.AnimationURL != "" {
-		safe.AnimationURL = joinMediaPath(s.media.BasePath, model.AnimationURL)
-	}
-	safe.MediaAttribution = model.MediaAttribution
-	safe.MediaAvailable = safe.ImageURL != "" || safe.AnimationURL != ""
-}
-
-// joinMediaPath prefixes a stored relative media path with the configured base
-// path. Both sides are normalized so a path can never produce a double slash.
-func joinMediaPath(basePath, mediaPath string) string {
-	return strings.TrimSuffix(basePath, "/") + "/" + strings.TrimPrefix(mediaPath, "/")
+	media := s.media.Resolve(model.VideoURL, model.ImageURL, model.AnimationURL, model.MediaAttribution)
+	safe.VideoURL = media.VideoURL
+	safe.ImageURL = media.ImageURL
+	safe.AnimationURL = media.AnimationURL
+	safe.MediaAttribution = media.Attribution
+	safe.MediaAvailable = media.Available
 }
 
 // stringValue dereferences an optional stored string, treating NULL as absent.

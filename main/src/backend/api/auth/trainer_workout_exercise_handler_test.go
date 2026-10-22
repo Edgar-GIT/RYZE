@@ -69,7 +69,7 @@ func newTrainerWorkoutExerciseTestRouter(t *testing.T, permissions ...trainerrol
 	workoutExerciseRepo := repositories.NewWorkoutExerciseRepository(tx)
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
 
-	service := workout_exercises.NewService(workoutExerciseRepo)
+	service := workout_exercises.NewService(workoutExerciseRepo, config.ExerciseMediaConfig{})
 	handler := auth.NewTrainerWorkoutExerciseHandler(service)
 
 	router := gin.New()

@@ -8,8 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	"ryze/backend/services/exercise_media"
 	"ryze/backend/services/training_prescription"
 )
 
@@ -49,14 +51,16 @@ type WorkoutExerciseRepository interface {
 // to a workout. It carries only the public descriptive metadata of the catalog
 // and never exposes deletion markers or any internal data.
 type Exercise struct {
-	ID            string
-	Name          string
-	Description   string
-	TargetMuscles string
-	Equipment     string
-	Difficulty    string
-	VideoURL      string
-	ImageURL      string
+	ID               string
+	Name             string
+	Description      string
+	TargetMuscles    string
+	Equipment        string
+	Difficulty       string
+	VideoURL         string
+	ImageURL         string
+	MediaAttribution string
+	MediaAvailable   bool
 }
 
 // SetInput carries one desired prescription set. Set numbers are derived from
@@ -107,10 +111,11 @@ type Service interface {
 
 type service struct {
 	exercises WorkoutExerciseRepository
+	media     exercise_media.Resolver
 }
 
-func NewService(exercises WorkoutExerciseRepository) Service {
-	return &service{exercises: exercises}
+func NewService(exercises WorkoutExerciseRepository, media config.ExerciseMediaConfig) Service {
+	return &service{exercises: exercises, media: exercise_media.New(media)}
 }
 
 // AddExercise assigns one active catalog exercise to the end of one of the
@@ -146,7 +151,7 @@ func (s *service) AddExercise(ctx context.Context, trainerID, programID, weekID,
 			return nil, fmt.Errorf("failed to add workout exercise: %w", err)
 		}
 	}
-	return newWorkoutExercise(workoutExercise), nil
+	return s.newWorkoutExercise(workoutExercise), nil
 }
 
 // ListExercises returns every active workout exercise of one of the
@@ -174,7 +179,7 @@ func (s *service) ListExercises(ctx context.Context, trainerID, programID, weekI
 
 	exercises := make([]WorkoutExercise, 0, len(models))
 	for i := range models {
-		exercises = append(exercises, *newWorkoutExercise(&models[i]))
+		exercises = append(exercises, *s.newWorkoutExercise(&models[i]))
 	}
 	return exercises, nil
 }
@@ -211,7 +216,7 @@ func (s *service) GetExercise(ctx context.Context, trainerID, programID, weekID,
 			return nil, fmt.Errorf("failed to load workout exercise: %w", err)
 		}
 	}
-	return newWorkoutExercise(workoutExercise), nil
+	return s.newWorkoutExercise(workoutExercise), nil
 }
 
 // UpdatePrescription replaces the per-assignment instructions, notes and full
@@ -262,7 +267,7 @@ func (s *service) UpdatePrescription(ctx context.Context, trainerID, programID, 
 			return nil, fmt.Errorf("failed to update workout exercise prescription: %w", err)
 		}
 	}
-	return newWorkoutExercise(updated), nil
+	return s.newWorkoutExercise(updated), nil
 }
 
 // ReorderExercises replaces the position of every active workout exercise of
@@ -332,7 +337,7 @@ func (s *service) RemoveExercise(ctx context.Context, trainerID, programID, week
 	return nil
 }
 
-func newWorkoutExercise(model *models.WorkoutExercise) *WorkoutExercise {
+func (s *service) newWorkoutExercise(model *models.WorkoutExercise) *WorkoutExercise {
 	sets := make([]Set, 0, len(model.Sets))
 	for i := range model.Sets {
 		set := &model.Sets[i]
@@ -359,15 +364,18 @@ func newWorkoutExercise(model *models.WorkoutExercise) *WorkoutExercise {
 		UpdatedAt:        model.UpdatedAt,
 	}
 	if model.Exercise != nil {
+		media := s.media.Resolve(model.Exercise.VideoURL, model.Exercise.ImageURL, model.Exercise.AnimationURL, model.Exercise.MediaAttribution)
 		result.Exercise = Exercise{
-			ID:            model.Exercise.ID,
-			Name:          model.Exercise.Name,
-			Description:   model.Exercise.Description,
-			TargetMuscles: model.Exercise.TargetMuscles,
-			Equipment:     model.Exercise.Equipment,
-			Difficulty:    model.Exercise.Difficulty,
-			VideoURL:      model.Exercise.VideoURL,
-			ImageURL:      model.Exercise.ImageURL,
+			ID:               model.Exercise.ID,
+			Name:             model.Exercise.Name,
+			Description:      model.Exercise.Description,
+			TargetMuscles:    model.Exercise.TargetMuscles,
+			Equipment:        model.Exercise.Equipment,
+			Difficulty:       model.Exercise.Difficulty,
+			VideoURL:         media.VideoURL,
+			ImageURL:         media.ImageURL,
+			MediaAttribution: media.Attribution,
+			MediaAvailable:   media.Available,
 		}
 	}
 	return result

@@ -8,8 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	"ryze/backend/services/exercise_media"
 )
 
 var (
@@ -31,14 +33,16 @@ type ProgramRepository interface {
 // Exercise is the safe catalog summary exposed to the client. It carries only
 // the descriptive metadata of the public exercise catalog.
 type Exercise struct {
-	ID            string
-	Name          string
-	Description   string
-	TargetMuscles string
-	Equipment     string
-	Difficulty    string
-	VideoURL      string
-	ImageURL      string
+	ID               string
+	Name             string
+	Description      string
+	TargetMuscles    string
+	Equipment        string
+	Difficulty       string
+	VideoURL         string
+	ImageURL         string
+	MediaAttribution string
+	MediaAvailable   bool
 }
 
 // Set is the safe representation of one prescribed set of an assigned workout
@@ -116,10 +120,11 @@ type Service interface {
 
 type service struct {
 	programs ProgramRepository
+	media    exercise_media.Resolver
 }
 
-func NewService(programs ProgramRepository) Service {
-	return &service{programs: programs}
+func NewService(programs ProgramRepository, media config.ExerciseMediaConfig) Service {
+	return &service{programs: programs, media: exercise_media.New(media)}
 }
 
 // GetProgram returns the full active structure of the most recent program
@@ -141,10 +146,10 @@ func (s *service) GetProgram(ctx context.Context, userID string) (*Program, erro
 			return nil, fmt.Errorf("failed to get the assigned program: %w", err)
 		}
 	}
-	return newProgram(program), nil
+	return s.newProgram(program), nil
 }
 
-func newProgram(model *models.Program) *Program {
+func (s *service) newProgram(model *models.Program) *Program {
 	program := &Program{
 		ID:              model.ID,
 		Name:            model.Name,
@@ -158,12 +163,12 @@ func newProgram(model *models.Program) *Program {
 		Weeks:           make([]Week, 0, len(model.Weeks)),
 	}
 	for i := range model.Weeks {
-		program.Weeks = append(program.Weeks, newWeek(&model.Weeks[i]))
+		program.Weeks = append(program.Weeks, s.newWeek(&model.Weeks[i]))
 	}
 	return program
 }
 
-func newWeek(model *models.ProgramWeek) Week {
+func (s *service) newWeek(model *models.ProgramWeek) Week {
 	week := Week{
 		ID:         model.ID,
 		WeekNumber: model.WeekNumber,
@@ -172,12 +177,12 @@ func newWeek(model *models.ProgramWeek) Week {
 		UpdatedAt:  model.UpdatedAt,
 	}
 	for i := range model.Workouts {
-		week.Workouts = append(week.Workouts, newWorkout(&model.Workouts[i]))
+		week.Workouts = append(week.Workouts, s.newWorkout(&model.Workouts[i]))
 	}
 	return week
 }
 
-func newWorkout(model *models.ProgramWorkout) Workout {
+func (s *service) newWorkout(model *models.ProgramWorkout) Workout {
 	workout := Workout{
 		ID:        model.ID,
 		Position:  model.Position,
@@ -186,12 +191,12 @@ func newWorkout(model *models.ProgramWorkout) Workout {
 		UpdatedAt: model.UpdatedAt,
 	}
 	for i := range model.Exercises {
-		workout.Exercises = append(workout.Exercises, newWorkoutExercise(&model.Exercises[i]))
+		workout.Exercises = append(workout.Exercises, s.newWorkoutExercise(&model.Exercises[i]))
 	}
 	return workout
 }
 
-func newWorkoutExercise(model *models.WorkoutExercise) WorkoutExercise {
+func (s *service) newWorkoutExercise(model *models.WorkoutExercise) WorkoutExercise {
 	sets := make([]Set, 0, len(model.Sets))
 	for i := range model.Sets {
 		set := &model.Sets[i]
@@ -211,26 +216,29 @@ func newWorkoutExercise(model *models.WorkoutExercise) WorkoutExercise {
 		Position:     model.Position,
 		Instructions: model.Instructions,
 		Notes:        model.Notes,
-		Exercise:     newExercise(model.Exercise),
+		Exercise:     s.newExercise(model.Exercise),
 		Sets:         sets,
 		CreatedAt:    model.CreatedAt,
 		UpdatedAt:    model.UpdatedAt,
 	}
 }
 
-func newExercise(model *models.Exercise) Exercise {
+func (s *service) newExercise(model *models.Exercise) Exercise {
 	if model == nil {
 		return Exercise{}
 	}
+	media := s.media.Resolve(model.VideoURL, model.ImageURL, model.AnimationURL, model.MediaAttribution)
 	return Exercise{
-		ID:            model.ID,
-		Name:          model.Name,
-		Description:   model.Description,
-		TargetMuscles: model.TargetMuscles,
-		Equipment:     model.Equipment,
-		Difficulty:    model.Difficulty,
-		VideoURL:      model.VideoURL,
-		ImageURL:      model.ImageURL,
+		ID:               model.ID,
+		Name:             model.Name,
+		Description:      model.Description,
+		TargetMuscles:    model.TargetMuscles,
+		Equipment:        model.Equipment,
+		Difficulty:       model.Difficulty,
+		VideoURL:         media.VideoURL,
+		ImageURL:         media.ImageURL,
+		MediaAttribution: media.Attribution,
+		MediaAvailable:   media.Available,
 	}
 }
 

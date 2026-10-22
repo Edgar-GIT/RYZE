@@ -52,7 +52,7 @@ func newPublicProgramsTestRouter(t *testing.T) (*gin.Engine, *gorm.DB) {
 	})
 
 	programRepo := repositories.NewProgramRepository(tx)
-	service := public_programs.NewService(programRepo)
+	service := public_programs.NewService(programRepo, config.ExerciseMediaConfig{})
 	handler := auth.NewPublicProgramsHandler(service)
 
 	router := gin.New()

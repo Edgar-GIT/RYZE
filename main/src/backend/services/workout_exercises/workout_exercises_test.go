@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/workout_exercises"
@@ -131,7 +132,7 @@ func (s *stubRepo) SoftDelete(_ context.Context, trainerID, programID, weekID, w
 }
 
 func newService(repo *stubRepo) workout_exercises.Service {
-	return workout_exercises.NewService(repo)
+	return workout_exercises.NewService(repo, config.ExerciseMediaConfig{})
 }
 
 func validModel() *models.WorkoutExercise {
@@ -566,5 +567,36 @@ func TestUpdatePrescriptionRepositoryFailure(t *testing.T) {
 	}
 	if err == nil {
 		t.Fatal("expected an error")
+	}
+}
+
+func TestGetExerciseGatesMedia(t *testing.T) {
+	model := validModel()
+	model.Exercise.VideoURL = "videos/squat.mp4"
+	model.Exercise.ImageURL = "images/squat.jpg"
+	model.Exercise.MediaAttribution = "© Gym visual"
+	repo := &stubRepo{
+		find: func(_, _, _, _, _ string) (*models.WorkoutExercise, error) {
+			return model, nil
+		},
+	}
+
+	disabled, err := workout_exercises.NewService(repo, config.ExerciseMediaConfig{}).GetExercise(context.Background(), trainerID, programID, weekID, workoutID, workoutExerciseID)
+	if err != nil {
+		t.Fatalf("GetExercise disabled: %v", err)
+	}
+	if disabled.Exercise.VideoURL != "" || disabled.Exercise.ImageURL != "" || disabled.Exercise.MediaAttribution != "" || disabled.Exercise.MediaAvailable {
+		t.Fatalf("disabled media must stay empty, got %+v", disabled.Exercise)
+	}
+
+	enabled, err := workout_exercises.NewService(repo, config.ExerciseMediaConfig{Enabled: true, BasePath: "/media/exercises"}).GetExercise(context.Background(), trainerID, programID, weekID, workoutID, workoutExerciseID)
+	if err != nil {
+		t.Fatalf("GetExercise enabled: %v", err)
+	}
+	if enabled.Exercise.VideoURL != "/media/exercises/videos/squat.mp4" || enabled.Exercise.ImageURL != "/media/exercises/images/squat.jpg" {
+		t.Fatalf("enabled media paths were not resolved, got %+v", enabled.Exercise)
+	}
+	if !enabled.Exercise.MediaAvailable || enabled.Exercise.MediaAttribution != "© Gym visual" {
+		t.Fatalf("enabled media metadata missing, got %+v", enabled.Exercise)
 	}
 }

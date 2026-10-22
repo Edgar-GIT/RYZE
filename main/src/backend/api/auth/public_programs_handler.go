@@ -69,17 +69,19 @@ type publicSetResponse struct {
 // publicExerciseResponse exposes one public exercise usage with its catalog
 // summary and prescription sets. Internal identifiers are never exposed.
 type publicExerciseResponse struct {
-	Name          string              `json:"name"`
-	Description   string              `json:"description"`
-	Instructions  string              `json:"instructions"`
-	TargetMuscles string              `json:"target_muscles"`
-	Equipment     string              `json:"equipment"`
-	Difficulty    string              `json:"difficulty"`
-	VideoURL      string              `json:"video_url"`
-	ImageURL      string              `json:"image_url"`
-	Position      int                 `json:"position"`
-	Notes         string              `json:"notes"`
-	Sets          []publicSetResponse `json:"sets"`
+	Name             string              `json:"name"`
+	Description      string              `json:"description"`
+	Instructions     string              `json:"instructions"`
+	TargetMuscles    string              `json:"target_muscles"`
+	Equipment        string              `json:"equipment"`
+	Difficulty       string              `json:"difficulty"`
+	VideoURL         string              `json:"video_url"`
+	ImageURL         string              `json:"image_url"`
+	MediaAttribution string              `json:"media_attribution"`
+	MediaAvailable   bool                `json:"media_available"`
+	Position         int                 `json:"position"`
+	Notes            string              `json:"notes"`
+	Sets             []publicSetResponse `json:"sets"`
 }
 
 type publicWorkoutResponse struct {
@@ -114,17 +116,19 @@ func newPublicWeekResponse(week public_programs.Week) publicWeekResponse {
 				})
 			}
 			exercises = append(exercises, publicExerciseResponse{
-				Name:          exercise.Name,
-				Description:   exercise.Description,
-				Instructions:  exercise.Instructions,
-				TargetMuscles: exercise.TargetMuscles,
-				Equipment:     exercise.Equipment,
-				Difficulty:    exercise.Difficulty,
-				VideoURL:      exercise.VideoURL,
-				ImageURL:      exercise.ImageURL,
-				Position:      exercise.Position,
-				Notes:         exercise.Notes,
-				Sets:          sets,
+				Name:             exercise.Name,
+				Description:      exercise.Description,
+				Instructions:     exercise.Instructions,
+				TargetMuscles:    exercise.TargetMuscles,
+				Equipment:        exercise.Equipment,
+				Difficulty:       exercise.Difficulty,
+				VideoURL:         exercise.VideoURL,
+				ImageURL:         exercise.ImageURL,
+				MediaAttribution: exercise.MediaAttribution,
+				MediaAvailable:   exercise.MediaAvailable,
+				Position:         exercise.Position,
+				Notes:            exercise.Notes,
+				Sets:             sets,
 			})
 		}
 		workouts = append(workouts, publicWorkoutResponse{Position: workout.Position, Exercises: exercises})

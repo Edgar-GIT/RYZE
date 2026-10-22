@@ -56,7 +56,7 @@ func newProgramAccessTestRouter(t *testing.T) (*gin.Engine, repositories.UserRep
 	entitlementRepo := repositories.NewEntitlementRepository(tx)
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
 
-	publicService := public_programs.NewService(trainerProgramRepo)
+	publicService := public_programs.NewService(trainerProgramRepo, config.ExerciseMediaConfig{})
 	accessService := program_access.NewService(entitlementRepo, publicService)
 	handler := auth.NewProgramAccessHandler(accessService)
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/public_programs"
@@ -86,7 +87,7 @@ func validProgram() *models.Program {
 }
 
 func newService(repo *stubProgramRepo) public_programs.Service {
-	return public_programs.NewService(repo)
+	return public_programs.NewService(repo, config.ExerciseMediaConfig{})
 }
 
 func TestListPublishedProgramsSuccess(t *testing.T) {
@@ -453,5 +454,47 @@ func TestSearchPublishedProgramsMapsSafeDTO(t *testing.T) {
 	prog := result.Programs[0]
 	if prog.ID != p.ID || prog.Name != "Search Result" || prog.TrainerID != p.TrainerID {
 		t.Fatalf("unexpected program %+v", prog)
+	}
+}
+
+func TestGetPublishedProgramGatesMedia(t *testing.T) {
+	model := validProgram()
+	model.Weeks = []models.ProgramWeek{{
+		WeekNumber: 1,
+		Workouts: []models.ProgramWorkout{{
+			Position: 1,
+			Exercises: []models.WorkoutExercise{{
+				Position: 1,
+				Exercise: &models.Exercise{
+					ID:               "33333333-3333-3333-3333-333333333333",
+					Name:             "Squat",
+					VideoURL:         "videos/squat.mp4",
+					ImageURL:         "images/squat.jpg",
+					MediaAttribution: "© Gym visual",
+				},
+			}},
+		}},
+	}}
+	repo := &stubProgramRepo{program: model}
+
+	disabled, err := public_programs.NewService(repo, config.ExerciseMediaConfig{}).GetPublishedProgram(context.Background(), programID)
+	if err != nil {
+		t.Fatalf("GetPublishedProgram disabled: %v", err)
+	}
+	disabledExercise := disabled.Weeks[0].Workouts[0].Exercises[0]
+	if disabledExercise.VideoURL != "" || disabledExercise.ImageURL != "" || disabledExercise.MediaAttribution != "" || disabledExercise.MediaAvailable {
+		t.Fatalf("disabled media must stay empty, got %+v", disabledExercise)
+	}
+
+	enabled, err := public_programs.NewService(repo, config.ExerciseMediaConfig{Enabled: true, BasePath: "/media/exercises"}).GetPublishedProgram(context.Background(), programID)
+	if err != nil {
+		t.Fatalf("GetPublishedProgram enabled: %v", err)
+	}
+	enabledExercise := enabled.Weeks[0].Workouts[0].Exercises[0]
+	if enabledExercise.VideoURL != "/media/exercises/videos/squat.mp4" || enabledExercise.ImageURL != "/media/exercises/images/squat.jpg" {
+		t.Fatalf("enabled media paths were not resolved, got %+v", enabledExercise)
+	}
+	if !enabledExercise.MediaAvailable || enabledExercise.MediaAttribution != "© Gym visual" {
+		t.Fatalf("enabled media metadata missing, got %+v", enabledExercise)
 	}
 }

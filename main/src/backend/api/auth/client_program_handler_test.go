@@ -54,7 +54,7 @@ func newClientProgramTestRouter(t *testing.T) (*gin.Engine, repositories.UserRep
 	programAssignmentRepo := repositories.NewProgramAssignmentRepository(tx)
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
 
-	service := client_programs.NewService(programAssignmentRepo)
+	service := client_programs.NewService(programAssignmentRepo, config.ExerciseMediaConfig{})
 	handler := auth.NewClientProgramHandler(service)
 
 	router := gin.New()

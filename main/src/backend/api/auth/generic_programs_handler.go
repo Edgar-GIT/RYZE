@@ -90,6 +90,8 @@ type genericExerciseResponse struct {
 	Difficulty          string               `json:"difficulty"`
 	VideoURL            string               `json:"video_url"`
 	ImageURL            string               `json:"image_url"`
+	MediaAttribution    string               `json:"media_attribution"`
+	MediaAvailable      bool                 `json:"media_available"`
 	Position            int                  `json:"position"`
 	Instructions        string               `json:"instructions"`
 	Notes               string               `json:"notes"`
@@ -111,6 +113,8 @@ func newGenericExerciseResponse(exercise generic_programs.WorkoutExercise) gener
 		Difficulty:          exercise.Exercise.Difficulty,
 		VideoURL:            exercise.Exercise.VideoURL,
 		ImageURL:            exercise.Exercise.ImageURL,
+		MediaAttribution:    exercise.Exercise.MediaAttribution,
+		MediaAvailable:      exercise.Exercise.MediaAvailable,
 		Position:            exercise.Position,
 		Instructions:        exercise.Instructions,
 		Notes:               exercise.Notes,

@@ -157,7 +157,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	programAssignmentService := program_assignments.NewService(programAssignmentRepository)
 	programAssignmentHandler := auth.NewTrainerClientProgramHandler(programAssignmentService)
 
-	clientProgramService := client_programs.NewService(programAssignmentRepository)
+	clientProgramService := client_programs.NewService(programAssignmentRepository, mediaCfg)
 	clientProgramHandler := auth.NewClientProgramHandler(clientProgramService)
 
 	entitlementRepository := repositories.NewEntitlementRepository(db)
@@ -168,7 +168,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerProgramService := programs.NewService(trainerProgramRepository, pricingCfg)
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
 
-	publicProgramService := public_programs.NewService(trainerProgramRepository)
+	publicProgramService := public_programs.NewService(trainerProgramRepository, mediaCfg)
 	publicProgramHandler := auth.NewPublicProgramsHandler(publicProgramService)
 
 	programAccessService := program_access.NewService(entitlementRepository, publicProgramService)
@@ -178,7 +178,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminProgramPricingHandler := auth.NewAdminProgramPricingHandler(adminProgramPricingService)
 
 	genericProgramRepository := repositories.NewGenericProgramRepository(db)
-	genericProgramService := generic_programs.NewService(genericProgramRepository, pricingCfg)
+	genericProgramService := generic_programs.NewService(genericProgramRepository, pricingCfg, mediaCfg)
 	// One handler instance per product family: the handler stamps the route's
 	// family onto every request and the client can never choose it. The generic
 	// and the premium_level_1 families are administered through separate route
@@ -246,7 +246,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	programStructureHandler := auth.NewTrainerProgramStructureHandler(programStructureService)
 
 	workoutExerciseRepository := repositories.NewWorkoutExerciseRepository(db)
-	workoutExerciseService := workout_exercises.NewService(workoutExerciseRepository)
+	workoutExerciseService := workout_exercises.NewService(workoutExerciseRepository, mediaCfg)
 	workoutExerciseHandler := auth.NewTrainerWorkoutExerciseHandler(workoutExerciseService)
 
 	exerciseRepository := repositories.NewExerciseRepository(db)

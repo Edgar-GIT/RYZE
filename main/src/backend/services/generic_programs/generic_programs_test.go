@@ -275,7 +275,7 @@ func validProgramModel() *models.Program {
 }
 
 func newService(repo *stubGenericRepo) generic_programs.Service {
-	return generic_programs.NewService(repo, config.PricingConfig{MinProgramPriceMinorUnits: 100})
+	return generic_programs.NewService(repo, config.PricingConfig{MinProgramPriceMinorUnits: 100}, config.ExerciseMediaConfig{})
 }
 
 func TestCreateProgramSuccess(t *testing.T) {
@@ -1068,5 +1068,38 @@ func TestFamilyForwardedToRepository(t *testing.T) {
 	}
 	if repo.deleteProductType != models.ProgramProductTypePremiumLevel1 {
 		t.Fatalf("delete family = %q, want %q", repo.deleteProductType, models.ProgramProductTypePremiumLevel1)
+	}
+}
+
+func TestGetProgramGatesMedia(t *testing.T) {
+	model := validProgramModel()
+	model.Weeks[0].Workouts[0].Exercises[0].Exercise = &models.Exercise{
+		ID:               exerciseID1,
+		Name:             "Squat",
+		VideoURL:         "videos/squat.mp4",
+		ImageURL:         "images/squat.jpg",
+		MediaAttribution: "© Gym visual",
+	}
+	repo := &stubGenericRepo{program: model}
+
+	disabled, err := generic_programs.NewService(repo, config.PricingConfig{MinProgramPriceMinorUnits: 100}, config.ExerciseMediaConfig{}).GetProgram(context.Background(), models.ProgramProductTypeGeneric, programID)
+	if err != nil {
+		t.Fatalf("GetProgram disabled: %v", err)
+	}
+	disabledExercise := disabled.Weeks[0].Workouts[0].Exercises[0].Exercise
+	if disabledExercise.VideoURL != "" || disabledExercise.ImageURL != "" || disabledExercise.MediaAttribution != "" || disabledExercise.MediaAvailable {
+		t.Fatalf("disabled media must stay empty, got %+v", disabledExercise)
+	}
+
+	enabled, err := generic_programs.NewService(repo, config.PricingConfig{MinProgramPriceMinorUnits: 100}, config.ExerciseMediaConfig{Enabled: true, BasePath: "/media/exercises"}).GetProgram(context.Background(), models.ProgramProductTypeGeneric, programID)
+	if err != nil {
+		t.Fatalf("GetProgram enabled: %v", err)
+	}
+	enabledExercise := enabled.Weeks[0].Workouts[0].Exercises[0].Exercise
+	if enabledExercise.VideoURL != "/media/exercises/videos/squat.mp4" || enabledExercise.ImageURL != "/media/exercises/images/squat.jpg" {
+		t.Fatalf("enabled media paths were not resolved, got %+v", enabledExercise)
+	}
+	if !enabledExercise.MediaAvailable || enabledExercise.MediaAttribution != "© Gym visual" {
+		t.Fatalf("enabled media metadata missing, got %+v", enabledExercise)
 	}
 }

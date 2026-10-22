@@ -42,14 +42,16 @@ type workoutSetResponse struct {
 // exercise assigned to a workout. It carries only the descriptive metadata
 // exposed by the public catalog and never exposes internal data.
 type trainerExerciseSummary struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Description   string `json:"description"`
-	TargetMuscles string `json:"target_muscles"`
-	Equipment     string `json:"equipment"`
-	Difficulty    string `json:"difficulty"`
-	VideoURL      string `json:"video_url"`
-	ImageURL      string `json:"image_url"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
+	TargetMuscles    string `json:"target_muscles"`
+	Equipment        string `json:"equipment"`
+	Difficulty       string `json:"difficulty"`
+	VideoURL         string `json:"video_url"`
+	ImageURL         string `json:"image_url"`
+	MediaAttribution string `json:"media_attribution"`
+	MediaAvailable   bool   `json:"media_available"`
 }
 
 func newTrainerWorkoutExerciseResponse(workoutExercise *workout_exercises.WorkoutExercise) trainerWorkoutExerciseResponse {
@@ -75,14 +77,16 @@ func newTrainerWorkoutExerciseResponse(workoutExercise *workout_exercises.Workou
 		Notes:            workoutExercise.Notes,
 		Sets:             sets,
 		Exercise: trainerExerciseSummary{
-			ID:            workoutExercise.Exercise.ID,
-			Name:          workoutExercise.Exercise.Name,
-			Description:   workoutExercise.Exercise.Description,
-			TargetMuscles: workoutExercise.Exercise.TargetMuscles,
-			Equipment:     workoutExercise.Exercise.Equipment,
-			Difficulty:    workoutExercise.Exercise.Difficulty,
-			VideoURL:      workoutExercise.Exercise.VideoURL,
-			ImageURL:      workoutExercise.Exercise.ImageURL,
+			ID:               workoutExercise.Exercise.ID,
+			Name:             workoutExercise.Exercise.Name,
+			Description:      workoutExercise.Exercise.Description,
+			TargetMuscles:    workoutExercise.Exercise.TargetMuscles,
+			Equipment:        workoutExercise.Exercise.Equipment,
+			Difficulty:       workoutExercise.Exercise.Difficulty,
+			VideoURL:         workoutExercise.Exercise.VideoURL,
+			ImageURL:         workoutExercise.Exercise.ImageURL,
+			MediaAttribution: workoutExercise.Exercise.MediaAttribution,
+			MediaAvailable:   workoutExercise.Exercise.MediaAvailable,
 		},
 		CreatedAt: workoutExercise.CreatedAt,
 		UpdatedAt: workoutExercise.UpdatedAt,

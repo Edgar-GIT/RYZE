@@ -9,9 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
+	"ryze/backend/services/exercise_media"
 )
 
 var (
@@ -128,18 +130,20 @@ type Set struct {
 // Exercise is the safe catalog summary of the exercise assigned to a public
 // workout. Internal fields are never exposed.
 type Exercise struct {
-	ID            string
-	Name          string
-	Description   string
-	Instructions  string
-	TargetMuscles string
-	Equipment     string
-	Difficulty    string
-	VideoURL      string
-	ImageURL      string
-	Position      int
-	Notes         string
-	Sets          []Set
+	ID               string
+	Name             string
+	Description      string
+	Instructions     string
+	TargetMuscles    string
+	Equipment        string
+	Difficulty       string
+	VideoURL         string
+	ImageURL         string
+	MediaAttribution string
+	MediaAvailable   bool
+	Position         int
+	Notes            string
+	Sets             []Set
 }
 
 // Workout is the safe representation of one public workout slot.
@@ -186,10 +190,11 @@ type Service interface {
 
 type service struct {
 	programs ProgramRepository
+	media    exercise_media.Resolver
 }
 
-func NewService(programs ProgramRepository) Service {
-	return &service{programs: programs}
+func NewService(programs ProgramRepository, media config.ExerciseMediaConfig) Service {
+	return &service{programs: programs, media: exercise_media.New(media)}
 }
 
 // ListPublishedPrograms returns one page of published programs ordered by
@@ -230,7 +235,7 @@ func (s *service) GetPublishedProgram(ctx context.Context, programID string) (*P
 		}
 	}
 
-	return toProgramDetail(model), nil
+	return s.toProgramDetail(model), nil
 }
 
 // SearchPublishedPrograms returns published programs matching the optional
@@ -321,7 +326,7 @@ func toSafe(model *models.Program) *Program {
 	}
 }
 
-func toProgramDetail(model *models.Program) *ProgramDetail {
+func (s *service) toProgramDetail(model *models.Program) *ProgramDetail {
 	detail := &ProgramDetail{
 		Program: *toSafe(model),
 		Weeks:   make([]Week, 0, len(model.Weeks)),
@@ -350,8 +355,11 @@ func toProgramDetail(model *models.Program) *ProgramDetail {
 					exercise.TargetMuscles = usage.Exercise.TargetMuscles
 					exercise.Equipment = usage.Exercise.Equipment
 					exercise.Difficulty = usage.Exercise.Difficulty
-					exercise.VideoURL = usage.Exercise.VideoURL
-					exercise.ImageURL = usage.Exercise.ImageURL
+					media := s.media.Resolve(usage.Exercise.VideoURL, usage.Exercise.ImageURL, usage.Exercise.AnimationURL, usage.Exercise.MediaAttribution)
+					exercise.VideoURL = media.VideoURL
+					exercise.ImageURL = media.ImageURL
+					exercise.MediaAttribution = media.Attribution
+					exercise.MediaAvailable = media.Available
 				}
 				for l := range usage.Sets {
 					set := &usage.Sets[l]
