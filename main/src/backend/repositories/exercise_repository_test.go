@@ -256,3 +256,50 @@ func TestExerciseRepository(t *testing.T) {
 		t.Fatalf("reused name after soft delete must be allowed: %v", err)
 	}
 }
+
+func TestExerciseRepositoryReportsDuplicateSourceLinkage(t *testing.T) {
+	config.LoadEnvFile()
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	db, err := database.Connect(cfg)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("retrieve database handle: %v", err)
+	}
+	tx := db.Begin()
+	t.Cleanup(func() {
+		_ = tx.Rollback()
+		_ = sqlDB.Close()
+	})
+
+	repo := repositories.NewExerciseRepository(tx)
+	ctx := context.Background()
+	source := "RYZE-source-test"
+	sourceID := "9901"
+	first := &models.Exercise{
+		Name:     "RYZE-Source-Test One",
+		Source:   source,
+		SourceID: &sourceID,
+	}
+	if err := repo.Create(ctx, first); err != nil {
+		t.Fatalf("create first source-linked exercise: %v", err)
+	}
+
+	second := &models.Exercise{
+		Name:     "RYZE-Source-Test Two",
+		Source:   source,
+		SourceID: &sourceID,
+	}
+	err = repo.Create(ctx, second)
+	if !errors.Is(err, repositories.ErrExerciseSourceTaken) {
+		t.Fatalf("expected ErrExerciseSourceTaken, got %v", err)
+	}
+	if errors.Is(err, repositories.ErrExerciseNameTaken) {
+		t.Fatal("a duplicate source linkage must never be reported as a name conflict")
+	}
+}

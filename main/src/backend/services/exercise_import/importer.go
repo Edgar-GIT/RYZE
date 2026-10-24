@@ -93,9 +93,14 @@ type Report struct {
 	// Updated counts entries that received at least one previously missing
 	// field.
 	Updated int
-	// SkippedDuplicates lists dataset ids skipped because another record with
-	// the same normalized name was already imported.
-	SkippedDuplicates []string
+	// SkippedDuplicateSourceIDs lists dataset ids skipped because an earlier
+	// record in the same file already used the source id. Source identity is
+	// stricter than a display name, so it is reported separately and checked
+	// first.
+	SkippedDuplicateSourceIDs []string
+	// SkippedDuplicateNames lists dataset ids skipped because another record
+	// with the same normalized name was already accepted.
+	SkippedDuplicateNames []string
 	// Conflicts lists dataset ids that could not be created because another
 	// active catalogue entry already uses the same name outside the import
 	// linkage. They are left untouched.
@@ -140,9 +145,13 @@ func (i *Importer) Import(ctx context.Context, reader io.Reader) (Report, error)
 		}
 	}
 
-	unique, skipped := mergeDuplicateNames(records)
+	unique, skippedSourceIDs, skippedNames, err := mergeDuplicateRecords(records)
+	if err != nil {
+		return Report{}, err
+	}
 	report.Unique = len(unique)
-	report.SkippedDuplicates = skipped
+	report.SkippedDuplicateSourceIDs = skippedSourceIDs
+	report.SkippedDuplicateNames = skippedNames
 
 	existing, err := i.exercises.ListActive(ctx)
 	if err != nil {
@@ -298,6 +307,9 @@ func (i *Importer) create(ctx context.Context, record *DatasetRecord) (bool, err
 		Status:                models.ExerciseStatusPublished,
 	}
 	if err := i.exercises.Create(ctx, exercise); err != nil {
+		if errors.Is(err, repositories.ErrExerciseSourceTaken) {
+			return false, fmt.Errorf("source id %q is already linked to another exercise", record.ID)
+		}
 		if errors.Is(err, repositories.ErrExerciseNameTaken) {
 			return false, nil
 		}
@@ -338,27 +350,53 @@ func decodeRecords(reader io.Reader) ([]DatasetRecord, error) {
 	if delimiter, ok := token.(json.Delim); !ok || delimiter != ']' {
 		return nil, errors.New("dataset must be a well-formed JSON array of exercise records")
 	}
+
+	// A second JSON value after the array (or trailing garbage that is not
+	// whitespace) means the file is not exactly one dataset. Trailing
+	// whitespace is accepted because the decoder reaches io.EOF.
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return nil, errors.New("dataset must contain exactly one JSON array")
+		}
+		return nil, fmt.Errorf("dataset has trailing data: %w", err)
+	}
 	return records, nil
 }
 
-// mergeDuplicateNames folds records that share a normalized name into one,
-// keeping the lowest source id. The skipped ids are reported so an operator can
-// see exactly which source records were folded.
-func mergeDuplicateNames(records []DatasetRecord) ([]DatasetRecord, []string) {
+// mergeDuplicateRecords folds repeated source ids and normalized names into one
+// deterministic record stream. Source ids are checked first because they are
+// the stable dataset identity; a repeated id with a different name is an
+// unresolvable dataset conflict and aborts the import rather than silently
+// discarding content. Name duplicates keep the first accepted record.
+func mergeDuplicateRecords(records []DatasetRecord) ([]DatasetRecord, []string, []string, error) {
 	unique := make([]DatasetRecord, 0, len(records))
-	skipped := []string{}
-	seen := make(map[string]struct{}, len(records))
+	skippedSourceIDs := []string{}
+	skippedNames := []string{}
+	seenSourceIDs := make(map[string]string, len(records))
+	seenNames := make(map[string]struct{}, len(records))
 
 	for index := range records {
-		key := normalizeName(records[index].Name)
-		if _, found := seen[key]; found {
-			skipped = append(skipped, records[index].ID)
+		record := &records[index]
+		key := normalizeName(record.Name)
+
+		if previousName, found := seenSourceIDs[record.ID]; found {
+			if previousName != key {
+				return nil, nil, nil, fmt.Errorf("duplicate source id %q refers to conflicting exercises", record.ID)
+			}
+			skippedSourceIDs = append(skippedSourceIDs, record.ID)
 			continue
 		}
-		seen[key] = struct{}{}
-		unique = append(unique, records[index])
+		seenSourceIDs[record.ID] = key
+
+		if _, found := seenNames[key]; found {
+			skippedNames = append(skippedNames, record.ID)
+			continue
+		}
+		seenNames[key] = struct{}{}
+		unique = append(unique, *record)
 	}
-	return unique, skipped
+	return unique, skippedSourceIDs, skippedNames, nil
 }
 
 // validateRecord enforces the dataset contract before anything is written.

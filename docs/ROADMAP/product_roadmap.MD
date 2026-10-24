@@ -10,7 +10,7 @@ project instructions: no Premium Level 2, no RYZE Feed without a separate
 product decision, no additional payment methods and no trainer-authored
 nutrition.
 
-## Phase A — Training Content Backend (v2.95.0)
+## Phase A — Training Content Backend (v2.95.x)
 
 Goal: make the persisted exercise catalogue and trainer program structure
 usable by the backend without losing authorization or historical data.
@@ -20,6 +20,7 @@ Scope:
 - Canonical trainer workout-exercise prescription persistence and reads.
 - Client read of the assigned program, including instructions, notes and sets.
 - Shared prescription validation for trainer and platform-owned programs.
+- Server-side exercise-media gating across every program and catalogue response.
 - Input, ownership, soft-delete and historical-tail guarantees.
 - Documentation and release records for the above.
 
@@ -49,6 +50,8 @@ Scope:
 - Premium Level 1 lists every returned program, not only the first.
 - Contact page submission backend.
 - Import reporting improvements for rejected/unchanged records, with tests.
+- Test Mode persona-email reservation and fail-closed ownership checks, with
+  regression tests.
 - Documentation alignment for completed surfaces.
 
 Acceptance criteria:
@@ -58,6 +61,12 @@ Acceptance criteria:
 - Premium Level 1 renders the complete returned catalogue.
 - Trainer prescription editing is covered by browser-level tests.
 - Import failures are observable without partially applying a transaction.
+
+Status: v2.96.0 completed the backend Test Mode persona-email reservation and
+fail-closed ownership checks, plus the importer reporting improvements. The
+trainer prescription editor, API-driven Home/Services content, complete Premium
+Level 1 catalogue rendering, contact submission backend and browser-level
+coverage remain open.
 
 ## Phase C — Commerce and Operations
 

@@ -113,8 +113,14 @@ func TestImporterCreatesAndIsIdempotent(t *testing.T) {
 	if report.Total != 4 || report.Unique != 3 || report.Created != 3 {
 		t.Fatalf("first import report: got %+v", report)
 	}
-	if len(report.SkippedDuplicates) != 1 || report.SkippedDuplicates[0] != "9902" {
-		t.Fatalf("first import duplicates: got %v", report.SkippedDuplicates)
+	if len(report.SkippedDuplicateNames) != 1 || report.SkippedDuplicateNames[0] != "9902" {
+		t.Fatalf("first import duplicate names: got %v", report.SkippedDuplicateNames)
+	}
+	if len(report.SkippedDuplicateSourceIDs) != 0 {
+		t.Fatalf("first import duplicate source ids: got %v", report.SkippedDuplicateSourceIDs)
+	}
+	if report.Total != report.Unique+len(report.SkippedDuplicateSourceIDs)+len(report.SkippedDuplicateNames) {
+		t.Fatalf("report totals must account for every record: %+v", report)
 	}
 
 	alpha, err := repo.FindBySource(ctx, exercise_import.SourceGymVisualDataset, "9901")
@@ -207,6 +213,87 @@ func TestImporterLinksAndEnrichesExistingEntries(t *testing.T) {
 	}
 	if reloaded.Description != description {
 		t.Fatalf("edited description must survive re-import, got %q", reloaded.Description)
+	}
+}
+
+func TestImporterSeparatesDuplicateSourceIDsFromDuplicateNames(t *testing.T) {
+	ctx, repo := newImportTestContext(t)
+
+	records := []datasetRecord{
+		fixtureRecord("9901", "RYZE-Import-Test Source Identity"),
+		fixtureRecord("9901", "RYZE-Import-Test Source Identity"),
+		fixtureRecord("9902", "RYZE-Import-Test Duplicate Name"),
+		fixtureRecord("9903", "RYZE-Import-Test Duplicate Name"),
+	}
+	report, err := exercise_import.NewImporter(repo).Import(ctx, strings.NewReader(encodeFixture(t, records)))
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	if report.Total != 4 || report.Unique != 2 || report.Created != 2 {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+	if len(report.SkippedDuplicateSourceIDs) != 1 || report.SkippedDuplicateSourceIDs[0] != "9901" {
+		t.Fatalf("duplicate source ids: got %v", report.SkippedDuplicateSourceIDs)
+	}
+	if len(report.SkippedDuplicateNames) != 1 || report.SkippedDuplicateNames[0] != "9903" {
+		t.Fatalf("duplicate names: got %v", report.SkippedDuplicateNames)
+	}
+	if len(report.Conflicts) != 0 {
+		t.Fatalf("a duplicate inside the dataset must not be reported as a name conflict: %v", report.Conflicts)
+	}
+	if report.Total != report.Unique+len(report.SkippedDuplicateSourceIDs)+len(report.SkippedDuplicateNames) {
+		t.Fatalf("report totals must account for every record: %+v", report)
+	}
+}
+
+func TestImporterRejectsConflictingDuplicateSourceIDs(t *testing.T) {
+	ctx, repo := newImportTestContext(t)
+
+	_, baseline, err := repo.List(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("baseline: %v", err)
+	}
+
+	records := []datasetRecord{
+		fixtureRecord("9901", "RYZE-Import-Test Source One"),
+		fixtureRecord("9901", "RYZE-Import-Test Source Two"),
+	}
+	if _, err := exercise_import.NewImporter(repo).Import(ctx, strings.NewReader(encodeFixture(t, records))); err == nil {
+		t.Fatal("a duplicate source id with a different name must be rejected")
+	}
+
+	_, after, err := repo.List(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("after rejected import: %v", err)
+	}
+	if after != baseline {
+		t.Fatalf("a rejected duplicate source id must not write rows: baseline %d, after %d", baseline, after)
+	}
+}
+
+func TestImporterRequiresExactlyOneJSONArray(t *testing.T) {
+	ctx, repo := newImportTestContext(t)
+	importer := exercise_import.NewImporter(repo)
+
+	trailing := []string{
+		encodeFixture(t, []datasetRecord{fixtureRecord("9901", "RYZE-Import-Test Trailing")}) + `{"extra":true}`,
+		encodeFixture(t, []datasetRecord{fixtureRecord("9901", "RYZE-Import-Test Trailing")}) + `[]`,
+		encodeFixture(t, []datasetRecord{fixtureRecord("9901", "RYZE-Import-Test Trailing")}) + `garbage`,
+	}
+	for _, fixture := range trailing {
+		if _, err := importer.Import(ctx, strings.NewReader(fixture)); err == nil {
+			t.Fatalf("expected trailing data to be rejected: %.80q", fixture)
+		}
+	}
+
+	empty := " \n\t[] \r\n"
+	report, err := importer.Import(ctx, strings.NewReader(empty))
+	if err != nil {
+		t.Fatalf("empty array with surrounding whitespace must be accepted: %v", err)
+	}
+	if report.Total != 0 || report.Unique != 0 {
+		t.Fatalf("empty array report: %+v", report)
 	}
 }
 

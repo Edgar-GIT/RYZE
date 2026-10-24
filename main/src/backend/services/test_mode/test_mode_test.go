@@ -61,6 +61,15 @@ func newFakeUsers() *fakeUsers {
 	return &fakeUsers{users: map[string]*models.User{}}
 }
 
+func (f *fakeUsers) FindByID(_ context.Context, id string) (*models.User, error) {
+	for _, user := range f.users {
+		if user.ID == id {
+			return user, nil
+		}
+	}
+	return nil, repositories.ErrUserNotFound
+}
+
 func (f *fakeUsers) FindByEmail(_ context.Context, email string) (*models.User, error) {
 	user, ok := f.users[email]
 	if !ok {
@@ -119,6 +128,39 @@ func newServiceWithTTL(enabled bool, ttl time.Duration) (test_mode.Service, *fak
 	users := newFakeUsers()
 	trainers := newFakeTrainers()
 	return test_mode.NewService(enabled, sessions, users, trainers, fakeHasher{}, test_mode.WithSessionTTL(ttl)), sessions, users, trainers
+}
+
+type failingSessionCreator struct {
+	*fakeSessions
+	fail bool
+}
+
+func (f *failingSessionCreator) Create(ctx context.Context, session *models.TestSession) error {
+	if f.fail {
+		f.fail = false
+		return errors.New("session persistence failed")
+	}
+	return f.fakeSessions.Create(ctx, session)
+}
+
+// racingUsers simulates a concurrent writer that creates an unowned account
+// with the persona address between the initial lookup and the insert.
+type racingUsers struct {
+	*fakeUsers
+	findCalls int
+}
+
+func (f *racingUsers) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	f.findCalls++
+	if f.findCalls == 1 {
+		return nil, repositories.ErrUserNotFound
+	}
+	return f.fakeUsers.FindByEmail(ctx, email)
+}
+
+func (f *racingUsers) Create(_ context.Context, user *models.User) error {
+	f.users[user.Email] = &models.User{ID: "squatter-user", Email: user.Email}
+	return repositories.ErrDuplicateEmail
 }
 
 // --- tests ---
@@ -249,6 +291,133 @@ func TestEnterReusesPersonaAccount(t *testing.T) {
 	}
 	if users.calls != 1 {
 		t.Fatalf("expected the persona account to be created once, got %d creations", users.calls)
+	}
+}
+
+func TestEnterOwnsNewPersonaAccount(t *testing.T) {
+	svc, _, users, _ := newService(true)
+
+	if _, err := svc.Enter(context.Background(), "ADMIN_1", test_mode.PersonaClient, ""); err != nil {
+		t.Fatalf("Enter: %v", err)
+	}
+
+	user := users.users[test_mode.PersonaClientEmail]
+	if user.TestPersona == nil || *user.TestPersona != test_mode.PersonaClient {
+		t.Fatal("a new persona account must carry the platform ownership marker")
+	}
+}
+
+func TestEnterRefusesUnmarkedReservedAccount(t *testing.T) {
+	sessions := newFakeSessions()
+	users := newFakeUsers()
+	users.users[test_mode.PersonaClientEmail] = &models.User{
+		ID:    "squatter-user",
+		Email: test_mode.PersonaClientEmail,
+	}
+	svc := test_mode.NewService(true, sessions, users, newFakeTrainers(), fakeHasher{})
+
+	_, err := svc.Enter(context.Background(), "ADMIN_1", test_mode.PersonaClient, "")
+	if !errors.Is(err, test_mode.ErrPersonaConflict) {
+		t.Fatalf("expected ErrPersonaConflict for an unowned reserved account, got %v", err)
+	}
+	if users.users[test_mode.PersonaClientEmail].ID != "squatter-user" {
+		t.Fatal("an unowned account must never be adopted or replaced")
+	}
+	if len(sessions.byHash) != 0 {
+		t.Fatal("a refused persona must never produce a session")
+	}
+}
+
+func TestEnterRefusesPersonaOwnedByAnotherPersona(t *testing.T) {
+	other := test_mode.PersonaTrainer
+	users := newFakeUsers()
+	users.users[test_mode.PersonaClientEmail] = &models.User{
+		ID:          "wrong-persona",
+		Email:       test_mode.PersonaClientEmail,
+		TestPersona: &other,
+	}
+	svc := test_mode.NewService(true, newFakeSessions(), users, newFakeTrainers(), fakeHasher{})
+
+	_, err := svc.Enter(context.Background(), "ADMIN_1", test_mode.PersonaClient, "")
+	if !errors.Is(err, test_mode.ErrPersonaConflict) {
+		t.Fatalf("expected ErrPersonaConflict for a mismatched marker, got %v", err)
+	}
+}
+
+func TestEnterRefusesConcurrentUnmarkedAccount(t *testing.T) {
+	base := newFakeUsers()
+	users := &racingUsers{fakeUsers: base}
+	sessions := newFakeSessions()
+	svc := test_mode.NewService(true, sessions, users, newFakeTrainers(), fakeHasher{})
+
+	_, err := svc.Enter(context.Background(), "ADMIN_1", test_mode.PersonaClient, "")
+	if !errors.Is(err, test_mode.ErrPersonaConflict) {
+		t.Fatalf("expected ErrPersonaConflict when a concurrent writer owns the address, got %v", err)
+	}
+	if len(sessions.byHash) != 0 {
+		t.Fatal("a concurrent ownership conflict must never produce a session")
+	}
+}
+
+func TestEnterRetryAfterSessionFailure(t *testing.T) {
+	sessions := &failingSessionCreator{fakeSessions: newFakeSessions(), fail: true}
+	users := newFakeUsers()
+	svc := test_mode.NewService(true, sessions, users, newFakeTrainers(), fakeHasher{})
+
+	if _, err := svc.Enter(context.Background(), "ADMIN_1", test_mode.PersonaClient, ""); err == nil {
+		t.Fatal("expected the session persistence failure to be reported")
+	}
+	if user := users.users[test_mode.PersonaClientEmail]; user == nil || user.TestPersona == nil {
+		t.Fatal("the owned persona must remain provisioned after a session failure")
+	}
+	if len(sessions.byHash) != 0 {
+		t.Fatal("a failed enter must not leave an active session")
+	}
+
+	if _, err := svc.Enter(context.Background(), "ADMIN_1", test_mode.PersonaClient, ""); err != nil {
+		t.Fatalf("retry after a session failure must succeed: %v", err)
+	}
+}
+
+func TestActivePersonaRejectsSessionWithoutOwnershipMarker(t *testing.T) {
+	ctx := context.Background()
+	sessions := newFakeSessions()
+	users := newFakeUsers()
+	users.users["unowned@ryze.local"] = &models.User{ID: "unowned-user", Email: "unowned@ryze.local"}
+	sum := sha256.Sum256([]byte("raw-token"))
+	if err := sessions.Create(ctx, &models.TestSession{
+		AdminIdentity: "ADMIN_1",
+		Persona:       test_mode.PersonaClient,
+		PersonaUserID: "unowned-user",
+		TokenHash:     hex.EncodeToString(sum[:]),
+	}); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	svc := test_mode.NewService(true, sessions, users, newFakeTrainers(), fakeHasher{})
+	if _, err := svc.ActivePersona(ctx, "raw-token"); !errors.Is(err, test_mode.ErrNoActiveSession) {
+		t.Fatalf("expected a session without ownership to be inactive, got %v", err)
+	}
+}
+
+func TestIsReservedEmail(t *testing.T) {
+	reserved := []string{
+		test_mode.PersonaClientEmail,
+		test_mode.PersonaTrainerEmail,
+		"  " + test_mode.PersonaClientEmail + "  ",
+		"TEST.CLIENT.PERSONA@RYZE.LOCAL",
+	}
+	for _, email := range reserved {
+		if !test_mode.IsReservedEmail(email) {
+			t.Fatalf("expected %q to be reserved", email)
+		}
+	}
+
+	notReserved := []string{"", "client@ryze.local", "test.client@ryze.local", "persona@ryze.local.example"}
+	for _, email := range notReserved {
+		if test_mode.IsReservedEmail(email) {
+			t.Fatalf("expected %q not to be reserved", email)
+		}
 	}
 }
 

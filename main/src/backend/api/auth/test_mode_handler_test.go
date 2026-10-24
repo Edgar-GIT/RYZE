@@ -673,6 +673,72 @@ func TestTestModePurchaseRequiresAuthentication(t *testing.T) {
 	}
 }
 
+func TestTestModeEnterRejectsPreExistingUnmarkedPersona(t *testing.T) {
+	router, userRepo, _, tokenSvc := newTestModeTestRouter(t, true)
+
+	squatter := &models.User{
+		Email:        test_mode.PersonaClientEmail,
+		PasswordHash: "not-a-real-hash",
+		FirstName:    "Squatter",
+		LastName:     "Account",
+	}
+	if err := userRepo.Create(context.Background(), squatter); err != nil {
+		t.Fatalf("seed unmarked account: %v", err)
+	}
+
+	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/admin/auth/test-mode", `{"persona":"client","return_path":""}`, map[string]string{
+		auth.AdminAccessTokenCookieName: testModeAdminToken(t, tokenSvc),
+	})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409 for an unowned persona address, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"TEST_MODE_PERSONA_CONFLICT"`) {
+		t.Fatalf("expected TEST_MODE_PERSONA_CONFLICT, got %s", raw)
+	}
+	if strings.Contains(raw, squatter.ID) {
+		t.Fatal("a refused persona conflict must not expose the account identifier")
+	}
+}
+
+func TestTestModePurchaseRejectsSessionWithoutOwnershipMarker(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newTestModeTestRouter(t, true)
+
+	program, _ := seedPurchasableProgram(t, tx, models.ProgramTypePremium, models.ProgramStatusPublished)
+	regularUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	personaToken, err := tokenSvc.GenerateAccessToken(regularUser.ID, regularUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	// Simulate a legacy or tampered session bound to a user that is not an
+	// owned Test Mode persona. Even with a valid access token for that same
+	// user, the purchase must fail closed and create nothing.
+	rawSessionToken := "forged-test-session-token"
+	if err := repositories.NewTestSessionRepository(tx).Create(context.Background(), &models.TestSession{
+		AdminIdentity: "ADMIN_1",
+		Persona:       test_mode.PersonaClient,
+		PersonaUserID: regularUser.ID,
+		TokenHash:     tokenHash(rawSessionToken),
+	}); err != nil {
+		t.Fatalf("seed forged session: %v", err)
+	}
+
+	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", "", map[string]string{
+		auth.AccessTokenCookieName:      personaToken,
+		auth.TestSessionTokenCookieName: rawSessionToken,
+	})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for a session without ownership, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"TEST_MODE_INACTIVE"`) {
+		t.Fatalf("expected TEST_MODE_INACTIVE, got %s", raw)
+	}
+
+	if _, err := repositories.NewEntitlementRepository(tx).FindActiveByUserAndProgram(context.Background(), regularUser.ID, program.ID); err == nil {
+		t.Fatal("a forged persona session must never create an entitlement")
+	}
+}
+
 // TestTestModePurchaseIgnoresConfiguredCardProvider proves Test Mode stays
 // independent of payment provider configuration: a fully configured card
 // provider is neither initiated nor captured, no payment method is recorded,

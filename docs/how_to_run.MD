@@ -851,8 +851,11 @@ go run . import-exercises \
 Use `--dry-run` to validate the file and report what would change without
 writing. The importer matches records by `source` + `source_id`, then by
 normalized name, and never overwrites an existing value; re-running it is safe.
-It does not serve media — see "Exercise Media (Optional)" for the licensing
-gate.
+The report separates `duplicate_source_ids_skipped`, `duplicate_names_skipped`
+and `name_conflicts`; a source ID that maps to conflicting names aborts the
+whole import. The file must contain exactly one JSON array (trailing data is
+rejected). It does not serve media — see "Exercise Media (Optional)" for the
+licensing gate.
 
 ## Deployment
 

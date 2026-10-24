@@ -49,6 +49,10 @@ var (
 	// ErrNoActiveSession indicates there is no active Test Mode session for
 	// the supplied token.
 	ErrNoActiveSession = errors.New("no active test mode session")
+	// ErrPersonaConflict indicates a fixed persona address is already owned by
+	// an account that was not provisioned as that persona. The service fails
+	// closed instead of adopting a pre-existing identity.
+	ErrPersonaConflict = errors.New("test persona ownership conflict")
 )
 
 // PasswordHasher is the hashing surface used to give each persona a random,
@@ -99,6 +103,7 @@ type Service interface {
 // and create the dedicated persona accounts.
 type UserRepository interface {
 	Create(ctx context.Context, user *models.User) error
+	FindByID(ctx context.Context, id string) (*models.User, error)
 	FindByEmail(ctx context.Context, email string) (*models.User, error)
 }
 
@@ -260,6 +265,21 @@ func (s *service) ActivePersona(ctx context.Context, rawToken string) (*Session,
 	if s.expired(session) {
 		return nil, ErrNoActiveSession
 	}
+
+	// A session is only meaningful while its bound account still carries the
+	// matching platform ownership marker. This rejects legacy, forged or
+	// otherwise tampered sessions instead of trusting the stored user id alone.
+	personaUser, err := s.users.FindByID(ctx, session.PersonaUserID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrUserNotFound) {
+			return nil, ErrNoActiveSession
+		}
+		return nil, fmt.Errorf("failed to load test persona: %w", err)
+	}
+	if !isOwnedPersona(personaUser, session.Persona) {
+		return nil, ErrNoActiveSession
+	}
+
 	return &Session{
 		AdminIdentity: session.AdminIdentity,
 		Persona:       session.Persona,
@@ -277,6 +297,22 @@ func (s *service) expired(session *models.TestSession) bool {
 // IsValidPersona reports whether persona is one of the predefined identities.
 func IsValidPersona(persona string) bool {
 	return persona == PersonaClient || persona == PersonaTrainer
+}
+
+// IsReservedEmail reports whether an email belongs to a predefined Test Mode
+// persona. Reserved addresses are platform identities: public registration and
+// administrator creation must never claim them, including variants that differ
+// only by case or surrounding whitespace.
+func IsReservedEmail(email string) bool {
+	email = strings.TrimSpace(email)
+	return strings.EqualFold(email, PersonaClientEmail) || strings.EqualFold(email, PersonaTrainerEmail)
+}
+
+// isOwnedPersona reports whether a user account carries the platform marker for
+// the requested persona. A nil marker is never accepted, so accounts created
+// before the ownership migration can never be adopted implicitly.
+func isOwnedPersona(user *models.User, persona string) bool {
+	return user.TestPersona != nil && *user.TestPersona == persona
 }
 
 // personaEmail maps a persona to its dedicated account identifier.
@@ -310,6 +346,9 @@ func (s *service) ensurePersona(ctx context.Context, persona string) (*models.Us
 	if err != nil {
 		return nil, err
 	}
+	if !isOwnedPersona(user, persona) {
+		return nil, ErrPersonaConflict
+	}
 
 	if persona == PersonaTrainer {
 		if _, err := s.trainers.FindByUserID(ctx, user.ID); errors.Is(err, repositories.ErrTrainerNotFound) {
@@ -339,14 +378,22 @@ func (s *service) createPersonaUser(ctx context.Context, persona, email string) 
 		PasswordHash: hash,
 		FirstName:    "Test",
 		LastName:     personaName(persona),
+		TestPersona:  &persona,
 	}
 	if err := s.users.Create(ctx, user); err != nil {
-		// The user account already exists (concurrent ensure): treat it as a
-		// successful resolution instead of failing the enter flow.
+		// A concurrent ensure may have created the account first. Re-read it and
+		// accept it only when its durable ownership marker matches; an account
+		// that merely owns the address is never adopted.
 		if errors.Is(err, repositories.ErrDuplicateEmail) {
 			existing, findErr := s.users.FindByEmail(ctx, email)
 			if findErr != nil {
+				if errors.Is(findErr, repositories.ErrUserNotFound) {
+					return nil, ErrPersonaConflict
+				}
 				return nil, findErr
+			}
+			if !isOwnedPersona(existing, persona) {
+				return nil, ErrPersonaConflict
 			}
 			return existing, nil
 		}

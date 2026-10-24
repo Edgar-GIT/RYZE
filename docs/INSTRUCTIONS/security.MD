@@ -1510,14 +1510,26 @@ system:
   the backend-minted `ryze_test_session` cookie; React state, query parameters,
   localStorage and client-supplied user/trainer ids are never accepted and can
   never select, fabricate or escalate a Test Mode identity. A normal
-  authenticated user hitting a Test Mode action receives `403 FORBIDDEN`
+  authenticated user hitting a Test Mode action receives `403 TEST_MODE_INACTIVE`
   (not an admin, not a persona).
-- **Personas are predefined and idempotent.** The personas map to two fixed
-  emails owned by the platform (a test Client and a test Trainer with a linked
-  trainer profile). They are regular users managed through the existing
+- **Persona ownership is durable and re-verified.** The session cookie is not
+  sufficient on its own: every status and purchase lookup reloads the bound
+  user and requires its `test_persona` marker to match the session persona.
+  A legacy, forged or tampered session whose account is not provably owned by
+  that persona is treated as having no active session. The marker is unique
+  among active accounts, so one persona cannot be bound to two identities.
+- **Personas are predefined, reserved and idempotent.** The personas map to two
+  fixed emails owned by the platform (a test Client and a test Trainer with a
+  linked trainer profile). Public registration refuses those addresses with the
+  standard `409 EMAIL_ALREADY_REGISTERED`, including case/whitespace variants
+  and the soft-deleted-account reactivation path, so a public user can never
+  squat a persona address. They are regular users managed through the existing
   repositories — no privileged user is involved, so a jeopardized persona can
   only reach endpoints any registered client can reach. Creating/restoring a
-  persona never overwrites existing state.
+  persona never overwrites existing state, and a pre-existing account without
+  the ownership marker is never adopted: entering that persona fails closed
+  with `409 TEST_MODE_PERSONA_CONFLICT` until an operator resolves it. Existing
+  accounts are deliberately not backfilled as personas.
 - **Test purchases are zero-cost and provider-free.** `CompleteTestPurchase`
   completes a `0`-value purchase with no payment provider, redirect or capture
   involved; the provider code path is unreachable by design. Buying free
@@ -2264,7 +2276,9 @@ default to relax:
 
 - `EXERCISE_MEDIA_ENABLED` defaults to `false`. While it is off the API
   reports `media_available: false` and empty media fields, and no dataset media
-  is served.
+  is served. The gate applies to every endpoint that embeds an exercise
+  summary (exercise catalogue, public/trainer/generic programs and client
+  program access), not only the catalogue endpoints.
 - Stored media references are relative paths. The API prefixes them with
   `EXERCISE_MEDIA_BASE_PATH` (default `/media/exercises`), which must be a
   same-origin absolute path: schemes, protocol-relative `//host` values,

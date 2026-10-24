@@ -385,7 +385,8 @@ Response `data`:
         `set_type`, `reps`, `weight_kg`, `rir`, `rpe`, `rest_seconds` and
         `tempo`.
       - `exercise` — safe catalog summary: `id`, `name`, `description`,
-        `target_muscles`, `equipment`, `difficulty`, `video_url`, `image_url`.
+        `target_muscles`, `equipment`, `difficulty`, `video_url`, `image_url`,
+        `media_available`, `media_attribution`.
 
 Responses:
 
@@ -518,7 +519,8 @@ public marketplace detail:
 - `weeks` — array of weeks, each with `week_number` and `workouts`; each
   workout has `position` and `exercises`; each exercise has `name`,
   `description`, `instructions`, `target_muscles`, `equipment`, `difficulty`,
-  `video_url`, `image_url`, `position`, `notes` and `sets`; each set has
+  `video_url`, `image_url`, `media_available`, `media_attribution`,
+  `position`, `notes` and `sets`; each set has
   `set_number`, `set_type`, `reps`, `weight_kg`, `rir`, `rpe`,
   `rest_seconds`, `tempo`.
 
@@ -968,10 +970,11 @@ Responses:
 Test Mode lets the Technical Administrator exercise the customer commerce
 flows without real payments. A predefined persona (Test Client or Test Trainer)
 is fixed by the backend; the client never chooses or provides a user identity.
-Inside Test Mode every purchasable Generic Program renders as Free and the
-test purchase completes server-side with no payment provider. Test Mode is
-globally disabled via the `TEST_MODE_ENABLED` environment variable; when
-disabled every Test Mode action returns `403 TEST_MODE_DISABLED`.
+Inside Test Mode every purchasable program (Generic or Premium Level 1)
+renders as Free and the test purchase completes server-side with no payment
+provider. Checkout prerequisites still apply. Test Mode is globally disabled
+via the `TEST_MODE_ENABLED` environment variable; when disabled every Test Mode
+action returns `403 TEST_MODE_DISABLED`.
 
 ### `POST /api/v1/admin/auth/test-mode`
 
@@ -1002,6 +1005,10 @@ Responses:
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid admin session.
 - `403 FORBIDDEN` — authenticated but not the Technical Administrator.
 - `403 TEST_MODE_DISABLED` — Test Mode not enabled on the server.
+- `409 TEST_MODE_PERSONA_CONFLICT` — the fixed persona address is held by an
+  account that Test Mode does not durably own (including an account created
+  before persona ownership markers existed). The account is never adopted; an
+  operator must review or remove it before Test Mode can use that persona.
 
 ### `POST /api/v1/admin/auth/test-mode/exit`
 
@@ -1028,7 +1035,7 @@ the Test Mode banner. Always returns `200`.
 Response `data`:
 
 - `active` — boolean; true when a Test Mode session is active.
-- `persona` — `"client"` / `"trainer"` when active, otherwise `null`.
+- `persona` — `"client"` / `"trainer"` when active; omitted when inactive.
 
 ### `POST /api/v1/auth/test-mode/programs/:programID/purchase`
 
@@ -1040,22 +1047,27 @@ never reached. A free program is rejected (free grants have nothing to obtain).
 
 Request path:
 
-- `programID` (required) — the target Generic Program UUID. Its type must be
-  `premium` (purchasable); free programs are not purchasable.
+- `programID` (required) — the target published program UUID (Generic or
+  Premium Level 1). Its type must be `premium` (purchasable); free programs are
+  not purchasable.
 
 Responses:
 
-- `200 OK` — `data`: the completed purchase snapshot (same shape as the normal
-  capture response), `status` set to `"completed"`, `price_minor_units` `0`.
+- `201 Created` — `data`: the completed purchase snapshot (same shape as the
+  normal capture response), `status` set to `"completed"`,
+  `price_minor_units` `0`.
 - `400 VALIDATION_ERROR` — malformed program id.
-- `401 AUTHENTICATION_REQUIRED` — no active persona session.
-- `403 FORBIDDEN` — the authenticated identity is not an active Test Mode
-  persona (a normal user cannot complete Test Mode purchases).
+- `401 AUTHENTICATION_REQUIRED` — no authenticated session.
+- `403 TEST_MODE_INACTIVE` — the authenticated identity is not the active Test
+  Mode persona, or the persona session lacks durable ownership (a normal user
+  cannot complete Test Mode purchases).
 - `403 TEST_MODE_DISABLED` — Test Mode not enabled on the server.
 - `404 PROGRAM_NOT_FOUND` — program does not exist, is soft-deleted,
-  unpublished, or not a purchasable premium Generic Program.
+  unpublished, or not a purchasable premium program.
 - `409 PROGRAM_NOT_PURCHASABLE` — the program is a free program (nothing to
   purchase).
+- `409 PURCHASE_PREREQUISITE_NOT_MET` — the product requires a submitted
+  prerequisite, such as the Premium Level 1 questionnaire.
 - `409 DUPLICATE_ENTITLEMENT` — the persona already holds an active entitlement
   for the program (idempotent signal; the client resolves ownership).
 
@@ -1803,7 +1815,8 @@ Responses:
 - `201 Created` — response `data`: `id`, `program_workout_id`, `position`,
   `instructions`, `notes`, `sets` (empty), `exercise` (safe catalog data:
   `id`, `name`, `description`, `target_muscles`, `equipment`, `difficulty`,
-  `video_url`, `image_url`), `created_at`, `updated_at`.
+  `video_url`, `image_url`, `media_available`, `media_attribution`),
+  `created_at`, `updated_at`.
 - `400 VALIDATION_ERROR` — malformed identifiers, missing or invalid body.
 - `404 WORKOUT_NOT_FOUND` — missing, soft-deleted or foreign workout.
 - `404 EXERCISE_NOT_FOUND` — missing or soft-deleted catalog exercise.
@@ -2421,6 +2434,12 @@ HTTP 201 and the same response structure in both cases. Registering an email
 that belongs to an active account returns HTTP 409
 `EMAIL_ALREADY_REGISTERED`.
 
+The reserved Test Mode persona addresses are never available to public
+registration. They answer HTTP 409 `EMAIL_ALREADY_REGISTERED` exactly like an
+active account, including case and surrounding-whitespace variants that
+normalise to the reserved address, so the reservation cannot be used to
+enumerate platform accounts.
+
 The endpoint is rate limited per IP and per normalised email; an exhausted limit
 returns HTTP 429 `RATE_LIMITED` with a `Retry-After` header.
 
@@ -2779,9 +2798,14 @@ Response `data`:
 - `weeks` — array of `{ week_number, workouts }`; each workout is
   `{ position, exercises }`; each exercise carries the safe catalog summary
   (`name`, `description`, `instructions`, `target_muscles`, `equipment`,
-  `difficulty`, `video_url`, `image_url`, `position`, `notes`) plus its
-  `sets` (`set_number`, `set_type`, `reps`, `weight_kg`, `rir`, `rpe`,
-  `rest_seconds`, `tempo`).
+  `difficulty`, `video_url`, `image_url`, `media_available`,
+  `media_attribution`, `position`, `notes`) plus its `sets` (`set_number`,
+  `set_type`, `reps`, `weight_kg`, `rir`, `rpe`, `rest_seconds`, `tempo`).
+
+All exercise summaries follow the server-wide exercise-media gate. While
+`EXERCISE_MEDIA_ENABLED=false`, `video_url`, `image_url` and
+`media_attribution` are empty and `media_available` is `false`. When enabled,
+the API prefixes stored relative paths with `EXERCISE_MEDIA_BASE_PATH`.
 
 ---
 
@@ -4842,8 +4866,9 @@ Response `data`:
   `training_type`, `duration_weeks`, `frequency_per_week`, `price_minor_units`,
   `currency`, `created_at`, `updated_at`) plus `weeks` (each with ordered
   `workouts`); each exercise exposes `catalog_instructions`, `target_muscles`,
-  `equipment`, `difficulty`, `video_url`, `image_url`, per-assignment
-  `instructions` and `notes`, and its `sets`. Only `draft`/`published` programs
+  `equipment`, `difficulty`, `video_url`, `image_url`, `media_available`,
+  `media_attribution`, per-assignment `instructions` and `notes`, and its
+  `sets`. Only `draft`/`published` programs
   are returned; the `trainer_id` field is never exposed.
 
 Responses:

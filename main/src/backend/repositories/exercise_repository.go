@@ -22,6 +22,10 @@ var ErrExerciseNotFound = errors.New("exercise not found")
 // that differ only in case collide too.
 var ErrExerciseNameTaken = errors.New("exercise name already taken")
 
+// ErrExerciseSourceTaken indicates another active catalogue entry is already
+// linked to the requested (source, source_id) pair.
+var ErrExerciseSourceTaken = errors.New("exercise source already linked")
+
 // isDuplicateEntryError reports whether an error is a MySQL duplicate-key
 // violation, which for the exercise catalogue can only be the active name or
 // the active source linkage.
@@ -307,10 +311,14 @@ func (r *exerciseRepository) FindByName(ctx context.Context, name string) (*mode
 }
 
 // Create inserts one catalogue entry. A name that is already used by another
-// active entry is reported as ErrExerciseNameTaken.
+// active entry is reported as ErrExerciseNameTaken, while a duplicate source
+// linkage is reported as ErrExerciseSourceTaken.
 func (r *exerciseRepository) Create(ctx context.Context, exercise *models.Exercise) error {
 	if err := r.db.WithContext(ctx).Create(exercise).Error; err != nil {
 		if isDuplicateEntryError(err) {
+			if strings.Contains(err.Error(), "uq_exercises_active_source") {
+				return ErrExerciseSourceTaken
+			}
 			return ErrExerciseNameTaken
 		}
 		return fmt.Errorf("failed to create exercise: %w", err)

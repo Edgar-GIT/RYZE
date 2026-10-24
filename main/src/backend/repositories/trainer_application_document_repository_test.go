@@ -50,7 +50,10 @@ func TestTrainerApplicationDocumentRepository(t *testing.T) {
 		t.Fatalf("create application: %v", err)
 	}
 
-	// 1. Create two documents and list them in creation order.
+	// 1. Create two documents and list them in creation order. Explicit
+	// distinct timestamps keep the assertion deterministic when both inserts
+	// land inside the same database timestamp tick.
+	createdAt := time.Now().UTC().Add(-time.Second)
 	first := &models.TrainerApplicationDocument{
 		ApplicationID:    application.ID,
 		Kind:             models.DocumentKindCertification,
@@ -59,6 +62,8 @@ func TestTrainerApplicationDocumentRepository(t *testing.T) {
 		ContentType:      "application/pdf",
 		ByteSize:         128,
 		SHA256:           fmt.Sprintf("%064d", 0),
+		CreatedAt:        createdAt,
+		UpdatedAt:        createdAt,
 	}
 	if err := documentRepo.Create(ctx, first); err != nil {
 		t.Fatalf("create first document: %v", err)
@@ -74,6 +79,8 @@ func TestTrainerApplicationDocumentRepository(t *testing.T) {
 		ContentType:      "image/jpeg",
 		ByteSize:         256,
 		SHA256:           fmt.Sprintf("%064d", 1),
+		CreatedAt:        createdAt.Add(time.Second),
+		UpdatedAt:        createdAt.Add(time.Second),
 	}
 	if err := documentRepo.Create(ctx, second); err != nil {
 		t.Fatalf("create second document: %v", err)

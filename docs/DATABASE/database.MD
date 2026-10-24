@@ -317,6 +317,7 @@ Security fields:
 
 - password_hash
 - session_version
+- test_persona
 
 `session_version` is incremented whenever the account password changes (by the
 account holder or by an administrator) or the account is soft-deleted (by the
@@ -324,6 +325,16 @@ account holder or by an administrator). Access tokens embed the session version
 they were issued for, so such operations revoke every previously issued token
 (see security.MD, Session Revocation). Reactivation (administrative or public
 re-registration) preserves the increment, so pre-deletion tokens stay invalid.
+
+`test_persona` is the nullable durable ownership marker for the two Test Mode
+persona accounts (`client` / `trainer`), restricted by
+`chk_users_test_persona`. It is written only by Test Mode provisioning; public
+registration refuses the reserved persona addresses and never sets it.
+`active_test_persona` is the generated column
+`IF(deleted_at IS NULL, test_persona, NULL)` with a unique key, so at most one
+active account can own a persona while a soft-deleted persona identity can be
+replaced. Existing rows were deliberately left `NULL` by migration `000032`;
+an account is never retroactively trusted as a persona.
 
 Soft delete is the only deletion mechanism: rows, UUIDs and `created_at` are
 preserved and `deleted_at` is populated. There is no permanent-deletion
@@ -679,7 +690,10 @@ The implemented `test_sessions` table contains:
   values (`client`, `trainer`).
 - `persona_user_id` — the persona user account (`users.id`), foreign key. The
   persona users follow the normal `users` conventions and live in the shared
-  tables — no privileged user is simulated.
+  tables — no privileged user is simulated. The row alone is not proof of
+  ownership: resolving a session re-loads this user and requires the matching
+  active `users.test_persona` marker, so a legacy or tampered session fails
+  closed.
 - `token_hash` — the SHA-256 hash of the session bearer token (`CHAR(64)`),
   unique. Only the hash is stored, so a database leak never exposes the session
   cookie value.
@@ -825,8 +839,9 @@ Additional indexes cover the administrative access patterns:
 `idx_exercises_body_part`, `idx_exercises_status`,
 `idx_exercises_source (source, source_id)` and `idx_exercises_owner_trainer_id`.
 Migrations `000029` (catalogue provenance, body part, steps, animation,
-attribution, publication lifecycle), `000030` (trainer-application evidence)
-and `000031` (`three_d_key`) are the current schema additions.
+attribution, publication lifecycle), `000030` (trainer-application evidence),
+`000031` (`three_d_key`) and `000032` (Test Mode persona ownership) are the
+current schema additions.
 
 Muscle reliability: filtering and previews rely on the controlled muscle-group
 values stored in `primary_muscle_group` / `secondary_muscle_groups`; the legacy

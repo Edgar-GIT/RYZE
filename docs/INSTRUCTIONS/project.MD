@@ -430,9 +430,11 @@ sales tool.
 
 - **Entry is exclusive to the Technical Administrator** (ADMIN_1), enforced
   server-side.
-- Inside Test Mode every purchasable Generic Program renders as Free, and
-  buying completes a real zero-cost purchase + entitlement server-side — no
-  payment provider, redirect or capture is involved.
+- Inside Test Mode every purchasable program (Generic or Premium Level 1)
+  renders as Free, and buying completes a real zero-cost purchase + entitlement
+  server-side — no payment provider, redirect or capture is involved. The same
+  checkout prerequisites, including the Premium Level 1 questionnaire, still
+  apply.
 - Identity is entirely server-side: the backend mints the persona session
   cookie and restores the administrator identity on exit.
 - The feature is globally controlled by `TEST_MODE_ENABLED` (default false) — a

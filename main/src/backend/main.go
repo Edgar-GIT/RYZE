@@ -210,14 +210,17 @@ func runImportExercisesCommand(db *gorm.DB, args []string) {
 		fail("failed to commit exercise import: %v", err)
 	}
 
-	fmt.Printf("records=%d unique=%d created=%d matched_by_source=%d matched_by_name=%d updated=%d duplicates_skipped=%d conflicts=%d\n",
+	fmt.Printf("records=%d unique=%d created=%d matched_by_source=%d matched_by_name=%d updated=%d duplicate_source_ids_skipped=%d duplicate_names_skipped=%d name_conflicts=%d\n",
 		report.Total, report.Unique, report.Created, report.MatchedBySource, report.MatchedByName, report.Updated,
-		len(report.SkippedDuplicates), len(report.Conflicts))
-	if len(report.SkippedDuplicates) > 0 {
-		fmt.Printf("duplicate source ids skipped: %v\n", report.SkippedDuplicates)
+		len(report.SkippedDuplicateSourceIDs), len(report.SkippedDuplicateNames), len(report.Conflicts))
+	if len(report.SkippedDuplicateSourceIDs) > 0 {
+		fmt.Printf("duplicate source ids skipped: %v\n", report.SkippedDuplicateSourceIDs)
+	}
+	if len(report.SkippedDuplicateNames) > 0 {
+		fmt.Printf("duplicate names skipped: %v\n", report.SkippedDuplicateNames)
 	}
 	if len(report.Conflicts) > 0 {
-		fmt.Printf("conflicting source ids left unchanged: %v\n", report.Conflicts)
+		fmt.Printf("name conflicts left unchanged: %v\n", report.Conflicts)
 	}
 	if *dryRun {
 		fmt.Println("dry run: no changes were committed")

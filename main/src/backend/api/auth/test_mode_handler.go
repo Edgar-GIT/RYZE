@@ -194,6 +194,8 @@ func (h *TestModeHandler) respondTestModeError(c *gin.Context, err error) {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 	case errors.Is(err, test_mode.ErrNoActiveSession):
 		RespondError(c, http.StatusForbidden, "TEST_MODE_INACTIVE", "No active Test Mode session.", nil)
+	case errors.Is(err, test_mode.ErrPersonaConflict):
+		RespondError(c, http.StatusConflict, "TEST_MODE_PERSONA_CONFLICT", "Test Mode persona is not available.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}

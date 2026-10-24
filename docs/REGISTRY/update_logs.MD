@@ -1,3 +1,166 @@
+# Version 2.96.0
+
+Title: Test Mode persona ownership, importer reporting and marketplace consistency audit
+
+Date: 2026-10-24
+
+Summary:
+
+v2.96.0 closes the Test Mode persona trust boundary and corrects the exercise
+importer's duplicate/validation reporting. Test Mode previously relied on two
+fixed email addresses as the only link between a persona and its account, so a
+public registration could squat a persona address and the enter flow could adopt
+any pre-existing account. Persona ownership is now a durable database marker,
+reserved addresses are refused by public registration, and every active-session
+lookup re-verifies the marker instead of trusting the session row alone.
+
+The exercise importer now distinguishes duplicate source IDs from duplicate
+normalized names, rejects a source ID that maps to conflicting exercises, and
+requires exactly one JSON array. The CLI report exposes the separated counters.
+A full marketplace/publication/entitlement audit found no additional code defect;
+the existing family scoping, publication gate and entitlement checks were
+confirmed and remain covered by their regression tests.
+
+Main changes:
+
+- Migration `000032_add_test_mode_persona_ownership`: nullable
+  `users.test_persona` (`client`/`trainer`, check constrained), generated
+  `active_test_persona` (`IF(deleted_at IS NULL, test_persona, NULL)`) with a
+  unique key. Existing rows are deliberately not backfilled; an unmarked
+  account is never retroactively trusted.
+- `models.User` carries the `test_persona` marker and never serialises it.
+- `services/test_mode`: reserved-email helper, marker ownership checks,
+  `ErrPersonaConflict`, marker writes during provisioning, duplicate-race
+  revalidation, and `ActivePersona` re-loading the bound user on every status
+  and purchase call. A legacy or forged session without the matching marker
+  fails closed as `ErrNoActiveSession`.
+- `services/registration`: the two fixed persona addresses, including
+  case/whitespace variants, return `ErrDuplicateEmail` before lookup or
+  creation, blocking public claims and soft-deleted-account reactivation.
+- `api/auth/test_mode_handler.go`: maps persona conflicts to
+  `409 TEST_MODE_PERSONA_CONFLICT` without exposing the conflicting account id.
+- `services/exercise_import`: report fields split into
+  `SkippedDuplicateSourceIDs` and `SkippedDuplicateNames`; same source ID with a
+  different normalized name aborts the import; trailing JSON is rejected;
+  source-linkage uniqueness failures are surfaced as integrity errors.
+- `repositories/exercise_repository.go`: `ErrExerciseSourceTaken` distinguishes
+  the active source-id unique key from the active-name unique key.
+- `main.go`: importer report labels now print duplicate source ids, duplicate
+  names and name conflicts separately.
+- Tests: Test Mode ownership, conflict, forged-session, retry and reserved-email
+  regressions; registration reserved-email coverage; importer duplicate
+  separation, conflicting-source-id and trailing-data regressions; repository
+  source-linkage coverage.
+- Test reliability: the trainer-application document repository test now sets
+  explicit distinct timestamps, removing a same-tick ordering flake.
+- Docs updated: `api.MD` (reserved registration, Test Mode conflict/status,
+  corrected purchase status and inactive-session errors, Premium Level 1 Test
+  Mode scope), `security.MD` (durable persona ownership and reservation),
+  `arquitecture.MD` (ownership model and importer classification),
+  `database.MD` (users marker, Test Sessions ownership revalidation, migration
+  032), `project.MD` (Test Mode Premium Level 1 prerequisites), `how_to_run.MD`
+  (importer report/validation), and the product roadmap.
+
+Reason:
+
+A fixed email is not an ownership proof: without a durable marker, a public
+registration or a legacy account could become a Test Mode identity. The
+importer also conflated duplicate source IDs with duplicate names, making
+integrity failures and intentional folds indistinguishable to operators.
+
+Validation:
+
+- `go run . migrate version`: version `32`, `dirty=false`.
+- Real dataset dry run: `records=1324 unique=1318 created=0
+  matched_by_source=1318 matched_by_name=0 updated=0
+  duplicate_source_ids_skipped=0 duplicate_names_skipped=6 name_conflicts=0`;
+  the transaction was rolled back and no catalogue row changed.
+- `gofmt -l .` clean; `go vet ./...` clean; `go test ./...` all packages pass.
+- Targeted race run passes: `go test -race ./services/test_mode
+  ./services/registration ./services/exercise_import ./repositories
+  ./api/auth`.
+- Live backend rebuilt and restarted on the development database:
+  `/api/v1/health` and `/api/v1/version` return 200, reserved-email registration
+  returns `409 EMAIL_ALREADY_REGISTERED`, `/api/v1/auth/test-mode` reports
+  `active:false`, and no persona account or persona marker exists.
+- Marketplace audit: public catalogue scope, generic/Premium Level 1 admin
+  family isolation, purchase prerequisite enforcement, published-program access
+  gate and entitlement history were traced end to end; no new defect found.
+
+Residual and unverified:
+
+- No isolated/disposable database, provider sandbox credentials, browser E2E
+  run, restore drill or trainer prescription editor was available.
+- Gym visual media remains disabled pending commercial-use confirmation.
+- Existing reserved accounts are not migrated to personas; an operator must
+  review any conflict before that persona can be entered.
+
+---
+
+# Version 2.95.1
+
+Title: Server-wide exercise-media gating for every embedded exercise summary
+
+Date: 2026-10-23
+
+Summary:
+
+v2.95.1 closes a media-policy gap found during the v2.95.0 security audit. The
+exercise catalogue already honoured `EXERCISE_MEDIA_ENABLED`, but public,
+trainer, generic and client-program responses copied raw stored media fields.
+With media disabled those endpoints still returned dataset-relative media paths,
+contrary to the documented production gate; with media enabled they omitted the
+configured base path and attribution.
+
+All exercise summaries now use one shared media resolver. Disabled exposure
+returns empty URLs and attribution with `media_available: false`; enabled
+exposure prefixes the configured same-origin base path and returns attribution.
+The catalogue's own previously ungated `video_url` is fixed by the same path.
+
+Main changes:
+
+- New `services/exercise_media`: shared `Resolver` for video, image, animation
+  and attribution gating plus base-path normalization.
+- `services/exercises`: catalogue media projection now routes every field,
+  including `video_url`, through the resolver.
+- `services/public_programs`, `services/client_programs`,
+  `services/workout_exercises` and `services/generic_programs`: constructors
+  accept `config.ExerciseMediaConfig`; every embedded exercise summary resolves
+  media through the shared gate and exposes `media_available` and
+  `media_attribution`.
+- `api/auth/public_programs_handler.go`,
+  `api/auth/client_program_handler.go` (through the shared trainer summary) and
+  `api/auth/generic_programs_handler.go` expose the gated fields.
+- `routes/routes.go`: passes `mediaCfg` to all affected services.
+- Tests: resolver disabled/enabled/empty behaviour, catalogue video gating, and
+  disabled/enabled media assertions for public, trainer, generic and client
+  program services.
+- Docs updated: `api.MD` (program exercise media fields and gate behaviour),
+  `security.MD` (gate applies to every embedded exercise summary) and
+  `product_roadmap.MD` (Phase A media coverage and Test Mode hardening item).
+
+Reason:
+
+The production media kill switch must not depend on which endpoint embeds an
+exercise. Serving stored dataset paths while licensing is unresolved violates
+the documented deployment gate and gives clients unusable URLs.
+
+Validation:
+
+- `gofmt` applied to changed Go files.
+- `go vet ./...` clean.
+- `go test ./...` all packages pass, including the new media-gating tests.
+
+Residual and unverified:
+
+- Production media remains disabled pending Gym visual commercial-use
+  permission; no media is served by this change.
+- Test Mode persona-email reservation was confirmed as a separate conditional
+  hardening item and is tracked in Phase B; Test Mode remains disabled by
+  default.
+
+---
+
 # Version 2.95.0
 
 Title: Canonical trainer workout-exercise prescriptions and client prescription reads

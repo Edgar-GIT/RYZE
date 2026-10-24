@@ -250,7 +250,12 @@ on every call; the storage key and hash never leave the backend. See
 The canonical exercise catalogue is a persisted, platform-owned domain rather
 than seed-only data. `services/exercise_import` performs an idempotent dataset
 import (matched by `source` + `source_id`, then by normalized name) inside one
-transaction, never overwriting existing values. `services/exercises` exposes a
+transaction, never overwriting existing values. Its report distinguishes
+duplicate source IDs, duplicate normalized names and name conflicts left
+unchanged; a source ID that resolves to conflicting normalized names aborts the
+whole import instead of silently choosing a record. The decoder requires exactly
+one JSON array and rejects trailing data, and a dry run executes the same
+validation and matching before rolling the transaction back. `services/exercises` exposes a
 public read service (`BrowseExercises`, `GetExercise`) and a separate
 `AdminService` (`AdminListExercises`, `AdminGetExercise`,
 `AdminCreateExercise`, `AdminUpdateExercise`) behind the `exercises.read` /
@@ -1227,6 +1232,13 @@ cookies for the persona session (`ryze_test_session`):
 - The persona session authorizes the persona user, who is created idempotently
   on first use via the shared user/trainer repositories (`services/test_mode`
   defines narrow, deliberate interfaces for exactly this purpose).
+- Ownership is durable, not email-based: provisioning writes the persona key
+  into `users.test_persona` and the database enforces one active owner per
+  persona. The two fixed persona addresses are reserved from public
+  registration. `ActivePersona` re-loads the bound user on every status and
+  purchase call and rejects a session whose account does not carry the matching
+  marker. Pre-existing unmarked accounts are never adopted; entering such a
+  persona fails closed with `TEST_MODE_PERSONA_CONFLICT`.
 - The persona user inherits the normal client authentication requirements
   issued by the shared JWT middleware, so the surrounding client endpoints
   work unchanged — no parallel authentication system.

@@ -102,6 +102,37 @@ func TestRegisterDuplicateEmail(t *testing.T) {
 	}
 }
 
+func TestRegisterRejectsReservedTestModePersonas(t *testing.T) {
+	repo, close := newTestRepository(t)
+	defer close()
+
+	svc := registration.NewRegistrationService(repo, password.Hasher{})
+	ctx := context.Background()
+
+	reserved := []string{
+		"test.client.persona@ryze.local",
+		"test.trainer.persona@ryze.local",
+		"TEST.CLIENT.PERSONA@RYZE.LOCAL",
+		"  test.client.persona@ryze.local  ",
+	}
+	for _, email := range reserved {
+		_, err := svc.Register(ctx, registration.RegisterInput{
+			Email:     email,
+			Password:  "Password123!",
+			FirstName: "First",
+			LastName:  "Last",
+		})
+		if !errors.Is(err, repositories.ErrDuplicateEmail) {
+			t.Fatalf("reserved email %q: expected ErrDuplicateEmail, got %v", email, err)
+		}
+
+		_, err = repo.FindByEmailIncludingDeleted(ctx, strings.TrimSpace(email))
+		if !errors.Is(err, repositories.ErrUserNotFound) {
+			t.Fatalf("reserved email %q must never be persisted: %v", email, err)
+		}
+	}
+}
+
 func TestRegisterEmptyPassword(t *testing.T) {
 	repo, close := newTestRepository(t)
 	defer close()

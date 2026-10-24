@@ -9,6 +9,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/password"
+	"ryze/backend/services/test_mode"
 )
 
 var ErrInvalidInput = errors.New("invalid registration input")
@@ -44,6 +45,13 @@ func NewRegistrationService(repo repositories.UserRepository, hasher PasswordHas
 func (s *registrationService) Register(ctx context.Context, input RegisterInput) (*models.User, error) {
 	if err := validateInput(input); err != nil {
 		return nil, err
+	}
+
+	// The fixed Test Mode personas are platform identities. Report the address
+	// as already registered so a public caller cannot claim it, reactivate it,
+	// or learn whether a persona account currently exists.
+	if test_mode.IsReservedEmail(input.Email) {
+		return nil, repositories.ErrDuplicateEmail
 	}
 
 	email := strings.TrimSpace(input.Email)

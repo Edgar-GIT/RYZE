@@ -334,6 +334,7 @@ func TestExerciseServiceMediaGating(t *testing.T) {
 	bodyPart := "upper legs"
 	model.BodyPart = &bodyPart
 	model.InstructionSteps = json.RawMessage(`["Stand with the bar on your upper back.","Squat down and drive back up."]`)
+	model.VideoURL = "videos/0001-a1b2c3d.mp4"
 	model.ImageURL = "images/0001-a1b2c3d.jpg"
 	model.AnimationURL = "videos/0001-a1b2c3d.gif"
 	model.MediaAttribution = "© Gym visual — https://gymvisual.com/"
@@ -345,7 +346,7 @@ func TestExerciseServiceMediaGating(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetExercise media disabled: %v", err)
 	}
-	if disabled.Exercise.ImageURL != "" || disabled.Exercise.AnimationURL != "" || disabled.Exercise.MediaAttribution != "" || disabled.Exercise.MediaAvailable {
+	if disabled.Exercise.VideoURL != "" || disabled.Exercise.ImageURL != "" || disabled.Exercise.AnimationURL != "" || disabled.Exercise.MediaAttribution != "" || disabled.Exercise.MediaAvailable {
 		t.Fatalf("disabled media must stay empty, got %+v", disabled.Exercise)
 	}
 	if disabled.Exercise.BodyPart != "upper legs" || len(disabled.Exercise.InstructionSteps) != 2 {
@@ -358,6 +359,9 @@ func TestExerciseServiceMediaGating(t *testing.T) {
 	enabled, err := exercises.NewService(enabledRepo, config.ExerciseMediaConfig{Enabled: true, BasePath: "/media/exercises"}).GetExercise(context.Background(), exerciseID)
 	if err != nil {
 		t.Fatalf("GetExercise media enabled: %v", err)
+	}
+	if enabled.Exercise.VideoURL != "/media/exercises/videos/0001-a1b2c3d.mp4" {
+		t.Fatalf("expected prefixed video path, got %q", enabled.Exercise.VideoURL)
 	}
 	if enabled.Exercise.ImageURL != "/media/exercises/images/0001-a1b2c3d.jpg" {
 		t.Fatalf("expected prefixed image path, got %q", enabled.Exercise.ImageURL)

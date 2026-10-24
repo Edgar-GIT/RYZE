@@ -183,6 +183,32 @@ func TestRegisterDuplicateEmail(t *testing.T) {
 	}
 }
 
+func TestRegisterRejectsReservedTestModeEmails(t *testing.T) {
+	router, repo := newTestRouter(t)
+
+	for _, email := range []string{
+		"test.client.persona@ryze.local",
+		"test.trainer.persona@ryze.local",
+		"TEST.CLIENT.PERSONA@RYZE.LOCAL",
+	} {
+		rec, _, raw := register(router, fmt.Sprintf(`{
+			"email": %q,
+			"password": "Str0ng!Passw0rd",
+			"first_name": "John",
+			"last_name": "Doe"
+		}`, email))
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("reserved email %q: expected 409, got %d (body: %s)", email, rec.Code, raw)
+		}
+		if !strings.Contains(raw, `"code":"EMAIL_ALREADY_REGISTERED"`) {
+			t.Fatalf("reserved email %q: expected EMAIL_ALREADY_REGISTERED, got %s", email, raw)
+		}
+		if _, err := repo.FindByEmailIncludingDeleted(context.Background(), strings.ToLower(email)); err == nil {
+			t.Fatalf("reserved email %q must never be registered", email)
+		}
+	}
+}
+
 func TestRegisterInvalidJSON(t *testing.T) {
 	router, _ := newTestRouter(t)
 
