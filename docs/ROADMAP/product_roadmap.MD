@@ -33,8 +33,9 @@ Exit criteria:
 - `go test ./...` and `go vet ./...` pass.
 - No schema migration is required for this phase.
 
-Status: backend implemented. The trainer-facing prescription editor remains a
-Phase B deliverable; no browser-level claim is made for editing yet.
+Status: backend implemented. The trainer-facing prescription editor and its
+browser-level coverage were completed in v2.97.0; the editor consumes the Phase A
+contract without backend changes.
 
 ## Phase B — Product Consistency and Content Operations
 
@@ -63,10 +64,11 @@ Acceptance criteria:
 - Import failures are observable without partially applying a transaction.
 
 Status: v2.96.0 completed the backend Test Mode persona-email reservation and
-fail-closed ownership checks, plus the importer reporting improvements. The
-trainer prescription editor, API-driven Home/Services content, complete Premium
-Level 1 catalogue rendering, contact submission backend and browser-level
-coverage remain open.
+fail-closed ownership checks, plus the importer reporting improvements. v2.97.0
+completed the trainer prescription editor, API-driven Home/Services content, the
+complete Premium Level 1 catalogue and browser-level coverage for catalogue
+browsing and trainer prescription editing. Marketplace server-side
+filtering/sorting/pagination and the contact submission backend remain open.
 
 ## Phase C — Commerce and Operations
 
@@ -111,6 +113,11 @@ Acceptance criteria:
 - Media delivery is either explicitly licensed and enabled, or remains disabled
   with a documented placeholder experience.
 - Backup, restore and incident contacts are exercised.
+
+Status: browser coverage has started with deterministic mocked API tests for
+public catalogue browsing and trainer prescription editing. Program access,
+checkout, evidence review, accessibility/responsive regression and a
+production-like live run remain open.
 
 ## Phase E — Public Launch
 

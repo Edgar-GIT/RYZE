@@ -1,7 +1,7 @@
 # RYZE Product Completeness Audit
 
-Version: v2.94.0
-Date: 2026-10-19
+Version: v2.97.0
+Date: 2026-10-29
 Status: living document — update whenever a backlog item is closed.
 
 This document records the product-completeness audit of the RYZE platform
@@ -23,9 +23,11 @@ Statuses are conservative:
 - **Blocked** — implementation is blocked on an external condition (licence,
   credential, third party).
 
-No live payment provider, no production deployment and no browser-level
-end-to-end suite are available in this environment, so anything that depends on
-them is never marked Complete/Verified here.
+No live payment provider or production deployment is available in this
+environment. Deterministic browser E2E coverage now exists for the public
+catalogue and trainer prescription editing, but a production-like live browser
+run is still unavailable, so anything that depends on it is not marked
+Complete/Verified here.
 
 ## Matrix
 
@@ -57,15 +59,15 @@ them is never marked Complete/Verified here.
 
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
-| Home page | Partial | static `SERVICE_PROGRAMS` with hardcoded prices; links to a Premium Level 2 placeholder that must not exist |
-| Services page | Partial | static `evolutionItems`/`SERVICE_PROGRAMS`, hardcoded prices |
-| Programs overview section | Partial | hardcoded BUILD MUSCLE / LOSE FAT / TRAIN FREE; LOSE FAT links to the Premium Level 2 placeholder |
+| Home page | Complete/Verified | API-backed program highlights and category preview; no static prices or Premium Level 2 link; browser E2E |
+| Services page | Complete/Verified | API-backed category cards; no static `SERVICE_PROGRAMS` or Premium Level 2; browser E2E |
+| Programs overview section | Complete/Verified | API-backed published programs; no hardcoded BUILD MUSCLE / LOSE FAT / TRAIN FREE; browser E2E |
 | Our Vision | Complete/Verified | static content page |
 | Feedback | Complete/Verified | form + ADMIN_2 feedback page |
 | Contact | Partial | UI-only section; no submission backend |
 | Generic marketplace | Partial | catalog from API, but filtering/sorting/pagination run client-side; server filter params unused |
 | Generic program detail + checkout | Complete/Verified | API-driven detail, `useProgramCheckout`, entitlement states |
-| Premium Level 1 page | Partial | questionnaire, checkout and delivery complete; only the first returned program is rendered |
+| Premium Level 1 page | Complete/Verified | complete returned catalogue, query-based selection, questionnaire/checkout/delivery unchanged; mocked browser E2E; live purchase still unverified |
 | Purchase history (`/account/purchases`) | Complete/Verified | API-driven |
 | My Programs / Program Access (training + nutrition) | Complete/Verified | prior milestone e2e tests |
 | RYZE Feed | Missing | route exists as an explicit `UnderDevelopmentPage` placeholder (deferred by product decision) |
@@ -142,8 +144,10 @@ them is never marked Complete/Verified here.
 
 7. Home/Services content from the API; remove hardcoded prices and the
    Premium Level 2 placeholder link (Premium Level 2 must not exist).
+   **Closed in v2.97.0.**
 8. Marketplace: use server-side filtering/sorting/pagination.
 9. Premium Level 1: render all returned programs, not only the first.
+   **Closed in v2.97.0.**
 
 ### P2 — product capability gaps
 

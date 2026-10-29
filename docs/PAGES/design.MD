@@ -221,8 +221,9 @@ Secondary
 
 ## Service cards
 
-- Rectangular image-backed cards using `rcc1.png`, `rcc2.png`, `rcc3.png` as
-  full-bleed backgrounds, covered by a readable dark gradient overlay
+- Rectangular image-backed cards using `rcc1.png` (generic marketplace) and
+  `rcc2.png` (Premium Level 1) as full-bleed backgrounds, covered by a readable
+  dark gradient overlay
 - Content is minimal: compact right-aligned price above a full-width CTA
 - Featured program (`Premium Level 1`) is taller (different aspect ratio),
   keeps the stronger cyan glow, and shows a floating "Most Popular" mini
@@ -329,13 +330,16 @@ The homepage should feel like a guided product tour, not a marketing brochure.
 Sections
 
 1. Hero
-2. Platform ecosystem
-3. Training Tracking
-4. Nutrition Intelligence
-5. Progress Analytics
-6. Choose Your Program
-7. Contact preview
-8. Footer
+2. Find your next program (API-backed highlights)
+3. Platform ecosystem
+4. Available RYZE program categories (API-backed preview)
+5. Contact preview
+6. Footer
+
+The current Home route mounts `Hero`, `ProgramsOverviewSection`,
+`PlatformSection`, the API-backed category preview and `ContactPreview`. The
+Training, Nutrition and Progress showcase components remain available as design
+building blocks but are not mounted on Home in this version.
 
 ### Hero
 
@@ -411,9 +415,15 @@ Do not use generic admin-dashboard placeholder layouts for Platform.
 
 ### Programs
 
-Three product cards for Free, Premium and Elite using the shared modern
-`ServiceCard` (logo mark, badge, features, right-aligned price, CTA). Premium
-Level 1 is featured.
+The program highlights are read from the published catalogue through
+`useServiceCatalog`; no price, offer or program title is hardcoded. The section
+shows at most three cards: one Premium Level 1 package first, then published
+generic programs, then additional Premium packages when needed. Each card uses
+the API name and description, links to its own package, and has explicit
+loading, error and empty states.
+
+The category preview below the Platform section is also API-backed. It is hidden
+until the catalogue is ready and at least one category card exists.
 
 ### Contact preview
 
@@ -443,20 +453,25 @@ Catalog landing
 - Four evolution items in a glass panel with vertical dividers: Train Smarter
   (Dumbbell), Reach your Goals (Heart), Progress Faster (Zap), Get Stronger
   (Trophy), each with a short descriptive phrase
-- Three image-backed program cards (shared `ServiceCard`) using `rcc1.png`,
-  `rcc2.png`, `rcc3.png` as backgrounds in order, each animating in with a
-  staggered fade-up on page load
+- One image-backed category card per available product family, using
+  `rcc1.png` for the generic training-plan marketplace and `rcc2.png` for
+  Premium Level 1, each animating in with a staggered fade-up on page load
+- Explicit loading, error and empty states; no card is rendered until the
+  published catalogue is known
 
 Each card contains:
 
-- Full-bleed program background image (`rcc1`–`rcc3`) with a dark gradient
-  overlay for readability
-- Compact right-aligned price above the CTA
-- Call To Action (primary on featured Premium Level 1, outline on others)
+- Full-bleed category background image with a dark gradient overlay for
+  readability
+- Compact right-aligned price derived from the published catalogue (`Free`,
+  exact price, `From <cheapest>`, or `Free and paid`)
+- Call To Action (primary on featured Premium Level 1, outline on generic)
 - Featured Premium Level 1 card is taller, glows stronger and carries a
   floating "Most Popular" tag above its top edge
 
-Each product redirects to its own page.
+The generic card opens the training-plan marketplace. The Premium Level 1 card
+opens the Premium package catalogue. No product price or offer copy is
+hardcoded, and there is no Premium Level 2 card.
 
 The same `ServiceCard` language is used on the homepage programs preview,
 which now sits on a plain dark background; only the Services page keeps the
@@ -780,24 +795,11 @@ palette, motion and typography and reuses the shared account navigation bar.
 
 ---
 
-### Premium
+### Premium Level 1
 
-Displays training packs together with automatically assigned nutrition programs.
-
-Includes:
-
-- Search
-- Filters
-- Four-column responsive grid
-
----
-
-### Elite
-
-Displays the personalization questionnaire.
-
-After submission, the user receives a preparation status page before being
-redirected to the client dashboard.
+The public Premium Level 1 page is documented under "Premium Level 1 Page" below.
+It lists every published Premium Level 1 package and has no Premium Level 2 or
+Elite counterpart.
 
 ---
 
@@ -1774,9 +1776,24 @@ Reference for:
 Route: `/services/premium-level-1`. It must be declared before the dynamic
 `/services/:serviceSlug` route, or the slug route will swallow it.
 
-The page is a single scrolling detail page, not a wizard with its own navigation.
-The flow is product → questionnaire → checkout → access, and the user always sees
-where they are.
+The selected package is a single scrolling detail page, not a wizard with its
+own navigation. The flow is product → questionnaire → checkout → access, and the
+user always sees where they are. Without a selected package the same route is a
+catalogue of every returned Premium Level 1 package.
+
+## Package catalogue
+
+Without a `program` query parameter, the page lists every returned published
+Premium Level 1 package. Each card shows the API name and description, the
+Test Mode-aware price, available duration/frequency/level metadata and a "View
+package" action. Selecting a package navigates to
+`/services/premium-level-1?program=<id>`.
+
+The selected package page offers "All packages" when more than one package is
+available. A provider return that omits the query parameter selects the first
+package only long enough to resolve the purchase, then replaces the URL with the
+purchased `program_id`. An unavailable requested package renders the catalogue
+with an inline error instead of silently opening another product.
 
 ## Product presentation
 

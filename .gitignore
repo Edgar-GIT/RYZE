@@ -12,3 +12,5 @@ backups/
 uploads/
 storage/
 *.log
+test-results/
+playwright-report/

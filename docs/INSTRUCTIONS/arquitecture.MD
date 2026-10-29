@@ -362,6 +362,10 @@ parallel authentication or API layer:
 - The apply route (`/trainer/apply`) is declared before the trainer shell route
   and is reachable by any authenticated user; every other `/trainer/*` route
   sits behind the layout's trainer check.
+- `pages/trainer/trainer_program_detail_page` edits workout-exercise
+  instructions, notes and ordered sets through the shared
+  `components/trainer/prescription_editor`; `services/trainer_api.ts` owns the
+  PATCH contract.
 
 Program building reuses the incremental structure endpoints (weeks, workouts,
 workout exercises) rather than the administrator nested-input program API, and
@@ -369,8 +373,11 @@ the exercise picker reuses `components/exercise_library` — no parallel upload,
 media or catalog system is introduced.
 
 Frontend tests run with Vitest in the jsdom environment (`npm test`), sharing
-the application's path aliases through `vite.config.ts`. The trainer API client
-and the trainer session provider are the first covered modules.
+the application's path aliases through `vite.config.ts`. Coverage includes the
+trainer API/session, the prescription editor, the service catalogue derivation
+and Premium Level 1 flows. Playwright browser tests (`npm run test:e2e`) cover
+the mocked public catalogue and trainer prescription editing; they are not yet
+wired into CI.
 
 ### Trainer Clients
 
@@ -1458,6 +1465,13 @@ Important public UI building blocks currently include:
 - layout / navbar / footer / loading screen
 - hero / showcase sections / product demos
 - service cards / CTA band / contact experience
+- API-backed Home/Services catalogue: `hooks/use_service_catalog.ts` loads the
+  published generic and Premium Level 1 families, and
+  `services/service_catalog.ts` derives category cards, price labels and Home
+  highlights. No product price or offer copy is hardcoded.
+- Premium Level 1 catalogue: `/services/premium-level-1` lists every returned
+  package and selects one through `?program=<id>`; the selected package keeps
+  the existing product → questionnaire → checkout → access flow.
 - glass panels and shared primitives
 - generic training plans marketplace: search bar (displays filter-aware result
   count + live search dropdown resolving through `services/program_search.ts`),
@@ -1495,6 +1509,8 @@ package.json
 package-lock.json
 tsconfig.json
 vite.config.ts
+playwright.config.ts
+e2e/
 ```
 
 The frontend uses React, TypeScript, Vite, React Router, CSS Modules,

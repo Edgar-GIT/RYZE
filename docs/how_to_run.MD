@@ -115,9 +115,38 @@ npm test
 The frontend unit tests run with Vitest (`vitest run`) in the jsdom
 environment. Configuration lives in `vite.config.ts` (`test` block) and the
 same path aliases used by the application are available inside tests. Test
-files follow the `*.test.ts` / `*.test.tsx` suffix. Current coverage targets
-the shared HTTP client consumers and the trainer session logic; the command is
-part of the normal validation loop together with `npm run typecheck`.
+files follow the `*.test.ts` / `*.test.tsx` suffix. Current coverage includes
+the shared HTTP client consumers, trainer session/API/prescription editor,
+service-catalogue derivation and Premium Level 1 flows; the command is part of
+the normal validation loop together with `npm run typecheck`.
+
+---
+
+# Browser End-to-End Tests
+
+Run:
+
+```bash
+npm run test:e2e
+```
+
+Playwright starts a dedicated Vite server on port `5174` with
+`VITE_API_BASE_URL=/api/v1`. The specs install a request-level API mock, so they
+do not require the backend, a database or payment credentials. The current
+coverage is the public Services/Home catalogue, the complete Premium Level 1
+package catalogue and selection, and trainer workout-exercise prescription
+editing through the real UI and PATCH client.
+
+The config uses an installed system Chromium (`/usr/bin/chromium`,
+`/usr/bin/chromium-browser` or `/usr/bin/google-chrome`) when present. If none is
+available, install Playwright's browser first:
+
+```bash
+npx playwright install chromium
+```
+
+Failure traces are written under `test-results/`. Browser E2E is not yet wired
+into CI; run it manually after frontend changes that affect these journeys.
 
 ---
 

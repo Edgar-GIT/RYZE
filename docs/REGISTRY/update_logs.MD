@@ -1,3 +1,99 @@
+# Version 2.97.0
+
+Title: API-driven catalogue, complete Premium package listing and trainer prescription editor
+
+Date: 2026-10-29
+
+Summary:
+
+v2.97.0 closes the remaining frontend product-consistency gaps in Phase B. The
+trainer program detail page now edits workout-exercise instructions, notes and
+ordered sets through the Phase A prescription API. Home and Services read the
+published generic and Premium Level 1 catalogue instead of hardcoded products,
+and Premium Level 1 lists every returned package instead of only the first.
+Deterministic Playwright browser tests now cover the public catalogue, Premium
+package selection and trainer prescription editing against a mocked API.
+
+No backend, database, payment-provider, nutrition-generation or media behaviour
+changed in this release.
+
+Main changes:
+
+- `services/trainer_api.ts`: added the workout set vocabulary, prescription
+  input/response types and `updateWorkoutExercisePrescription` for the
+  trainer-scoped exercise PATCH.
+- `components/trainer/prescription_editor`: inline editor for instructions,
+  notes and ordered sets; supports add/remove/reorder, all five set types,
+  numeric fields, tempo, max 50 sets and client-side validation mirroring the
+  server contract.
+- `pages/trainer/trainer_program_detail_page`: opens the editor from each
+  exercise, saves through the API, refreshes the exercise row and renders a
+  concise prescription summary.
+- `hooks/use_service_catalog.ts` and `services/service_catalog.ts`: load both
+  published families and derive category cards, price labels and Home
+  highlights. Prices are derived from the catalogue; no product price or offer
+  copy is hardcoded.
+- `constants/services.ts`: replaced static `SERVICE_PROGRAMS` with
+  `SERVICE_CATEGORY_PRESENTATION`; removed the Premium Level 2 placeholder and
+  its `rcc3.png` asset reference.
+- `components/programs_overview_section`, `pages/home_page` and
+  `pages/services_page`: API-backed highlights, category preview and explicit
+  loading/error/empty states. Home Premium highlights deep-link to the selected
+  package.
+- `pages/premium_level1_page`: lists every returned Premium Level 1 package,
+  selects one through `?program=<id>`, offers "All packages" and resolves a
+  provider return to the purchased package without changing the existing
+  questionnaire, checkout, access or nutrition flow.
+- Playwright: added `@playwright/test`, `playwright.config.ts`, a reusable API
+  mock, public catalogue specs and a trainer prescription spec. The config uses
+  system Chromium when available and runs a dedicated Vite server on port 5174.
+- `.gitignore`: ignores Playwright `test-results/` and `playwright-report/`.
+- Docs updated: `design.MD` (API-backed Home/Services, two category cards,
+  Premium package catalogue, no Elite/Premium Level 2 page),
+  `arquitecture.MD` (frontend catalogue and browser-test modules),
+  `how_to_run.MD` (browser E2E command and mocked-API scope), the product
+  roadmap, the completeness audit and this registry.
+
+Reason:
+
+The frontend still duplicated product data and pricing that the backend already
+owns, exposed a Premium Level 2 placeholder that must not exist, rendered only
+one Premium Level 1 package, and lacked browser-level coverage for the trainer
+prescription editor. Closing these gaps makes the published catalogue the single
+source of product truth and gives deterministic regression coverage for the
+critical UI paths that unit tests cannot exercise.
+
+Validation:
+
+- `npm run typecheck` passed.
+- `npm test` passed: 16 files, 111 tests.
+- `npm run build` passed; Vite emitted only the existing native-config and
+  large-chunk warnings.
+- `npm run test:e2e` passed: 4 tests (Services catalogue, Home highlights,
+  Premium package catalogue/selection, trainer prescription editing).
+- The browser suite installs a request-level API mock and does not contact the
+  backend, database or a payment provider; it is browser evidence, not a live
+  integration run.
+- No Go tests were rerun because no backend code changed in this release.
+
+Residual and unverified:
+
+- The backend at `http://localhost:8080/api/v1` was not responding at the last
+  check, so no live browser/API/database validation was performed in this cycle.
+- No isolated database, live payment credentials, production deployment or
+  confirmed Gym media licence; provider purchase, restore drills and production
+  media remain unverified.
+- Marketplace server-side filtering/sorting/pagination and the contact
+  submission backend remain open Phase B items.
+- Playwright is not wired into CI, and a production-like live browser run,
+  accessibility/responsive regression and checkout/access/evidence journeys
+  remain open.
+- Premium purchase-return handling and checkout-state switching were not
+  exercised against a real provider return in this cycle.
+- No Git operations were performed.
+
+---
+
 # Version 2.96.0
 
 Title: Test Mode persona ownership, importer reporting and marketplace consistency audit

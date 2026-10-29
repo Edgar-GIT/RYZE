@@ -82,7 +82,7 @@ describe("buildProgramHighlights", () => {
     );
 
     expect(highlights.map((entry) => entry.title)).toEqual(["Premium one", "Generic one"]);
-    expect(highlights[0].to).toBe("/services/premium-level-1");
+    expect(highlights[0].to).toBe("/services/premium-level-1?program=p1");
     expect(highlights[1].to).toBe("/services/generic-program/g1");
   });
 

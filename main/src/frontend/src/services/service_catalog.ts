@@ -62,7 +62,7 @@ const premiumHighlight = (program: MarketplaceProgram): ProgramHighlight => ({
   title: program.name,
   description: program.description,
   ctaLabel: "View package",
-  to: "/services/premium-level-1"
+  to: `/services/premium-level-1?program=${program.id}`
 });
 
 const genericHighlight = (program: MarketplaceProgram): ProgramHighlight => ({
