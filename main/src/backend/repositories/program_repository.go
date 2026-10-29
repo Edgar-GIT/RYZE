@@ -63,22 +63,32 @@ type ProgramRepository interface {
 	FindAllByIDsUnscoped(ctx context.Context, ids []string) ([]models.Program, error)
 }
 
+// DurationRange is one inclusive duration filter in weeks. Multiple ranges are
+// combined with OR, so the marketplace can offer disjoint options such as
+// "1-2 weeks" and "5-8 weeks" without client-side filtering.
+type DurationRange struct {
+	MinWeeks int
+	MaxWeeks int
+}
+
 // PublicCatalogFilter narrows the public program catalog. Every value is
-// optional; empty values (and zero integers) are ignored. ScopeGeneric
+// optional; empty values (and zero integers) are ignored. The slice filters
+// are OR within one dimension and AND across dimensions. ScopeGeneric
 // restricts the catalog to platform-owned generic programs (trainer_id IS NULL
 // AND product_type = 'generic'), which is the foundation of the generic
 // training plans marketplace.
 type PublicCatalogFilter struct {
-	Query            string
-	ProgramType      string
-	TrainingType     string
-	Level            string
-	FrequencyPerWeek int
-	DurationMin      int
-	DurationMax      int
-	SortBy           string
-	Order            string
-	ScopeGeneric     bool
+	Query          string
+	ProgramType    string
+	TrainingTypes  []string
+	Levels         []string
+	Frequencies    []int
+	DurationMin    int
+	DurationMax    int
+	DurationRanges []DurationRange
+	SortBy         string
+	Order          string
+	ScopeGeneric   bool
 	// ScopePremiumLevel1 restricts the catalog to the Premium Level 1 product
 	// family. It is a separate flag from ScopeGeneric so the two marketplaces can
 	// never be served by the same filter.
@@ -311,16 +321,26 @@ func (r *programRepository) SearchPublished(ctx context.Context, filter PublicCa
 		db = db.Where("type = ?", filter.ProgramType)
 	}
 
-	if filter.TrainingType != "" {
-		db = db.Where("training_type = ?", filter.TrainingType)
+	if len(filter.TrainingTypes) > 0 {
+		db = db.Where("training_type IN ?", filter.TrainingTypes)
 	}
 
-	if filter.Level != "" {
-		db = db.Where("level = ?", filter.Level)
+	if len(filter.Levels) > 0 {
+		db = db.Where("level IN ?", filter.Levels)
 	}
 
-	if filter.FrequencyPerWeek > 0 {
-		db = db.Where("frequency_per_week = ?", filter.FrequencyPerWeek)
+	if len(filter.Frequencies) > 0 {
+		db = db.Where("frequency_per_week IN ?", filter.Frequencies)
+	}
+
+	if len(filter.DurationRanges) > 0 {
+		clauses := make([]string, 0, len(filter.DurationRanges))
+		args := make([]any, 0, len(filter.DurationRanges)*2)
+		for _, durationRange := range filter.DurationRanges {
+			clauses = append(clauses, "(duration_weeks >= ? AND duration_weeks <= ?)")
+			args = append(args, durationRange.MinWeeks, durationRange.MaxWeeks)
+		}
+		db = db.Where("("+strings.Join(clauses, " OR ")+")", args...)
 	}
 
 	if filter.DurationMin > 0 || filter.DurationMax > 0 {
@@ -349,16 +369,18 @@ func (r *programRepository) SearchPublished(ctx context.Context, filter PublicCa
 		return nil, 0, fmt.Errorf("failed to count published programs: %w", err)
 	}
 
-	orderClause := "created_at DESC, id ASC"
+	direction := "DESC"
+	if filter.Order == "asc" {
+		direction = "ASC"
+	}
+	sortColumn := "created_at"
 	switch filter.SortBy {
 	case "name":
-		orderClause = "name ASC, id ASC"
+		sortColumn = "name"
+	case "updated_at":
+		sortColumn = "updated_at"
 	}
-	if filter.Order == "asc" && filter.SortBy == "name" {
-		orderClause = "name ASC, id ASC"
-	} else if filter.Order == "asc" && filter.SortBy == "created_at" {
-		orderClause = "created_at ASC, id ASC"
-	}
+	orderClause := sortColumn + " " + direction + ", id ASC"
 
 	if err := db.Order(orderClause).
 		Limit(limit).

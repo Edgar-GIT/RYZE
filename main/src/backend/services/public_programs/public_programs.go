@@ -31,11 +31,19 @@ const (
 	// MaxSearchQueryLength caps the maximum number of characters in a search
 	// query to prevent excessive LIKE pattern matching.
 	MaxSearchQueryLength = 200
+	// MaxFilterValues bounds every repeated filter dimension so one request
+	// cannot build an arbitrarily large SQL IN clause.
+	MaxFilterValues = 20
 )
+
+// DurationRange is one inclusive duration filter in weeks. Multiple ranges are
+// combined with OR.
+type DurationRange = repositories.DurationRange
 
 var (
 	allowedSortFields = map[string]bool{
 		"created_at": true,
+		"updated_at": true,
 		"name":       true,
 	}
 	allowedSortOrders = map[string]bool{
@@ -73,18 +81,20 @@ type ProgramRepository interface {
 }
 
 // ProgramFilter narrows the public program catalog. Every value is optional;
-// empty values are ignored. ScopeGeneric restricts the catalog to
-// platform-owned (trainer_id IS NULL) programs, which is the foundation of the
-// generic training plans marketplace. sortBy is whitelisted to "created_at"
-// and "name"; order is whitelisted to "asc" and "desc".
+// empty values are ignored. Slice values are OR within one dimension and AND
+// across dimensions. ScopeGeneric restricts the catalog to platform-owned
+// (trainer_id IS NULL) programs, which is the foundation of the generic
+// training plans marketplace. sortBy is whitelisted to "created_at",
+// "updated_at" and "name"; order is whitelisted to "asc" and "desc".
 type ProgramFilter struct {
 	Query              string
 	ProgramType        string
-	TrainingType       string
-	Level              string
-	FrequencyPerWeek   int
+	TrainingTypes      []string
+	Levels             []string
+	Frequencies        []int
 	DurationMin        int
 	DurationMax        int
+	DurationRanges     []DurationRange
 	SortBy             string
 	Order              string
 	ScopeGeneric       bool
@@ -258,38 +268,47 @@ func (s *service) SearchPublishedPrograms(ctx context.Context, filter ProgramFil
 		return ListProgramsResult{}, fmt.Errorf("%w: invalid program type", ErrInvalidInput)
 	}
 
-	filter.TrainingType = strings.TrimSpace(filter.TrainingType)
-	if filter.TrainingType != "" && !allowedTrainingTypes[filter.TrainingType] {
+	trainingTypes, err := normalizeAllowedValues(filter.TrainingTypes, allowedTrainingTypes)
+	if err != nil {
 		return ListProgramsResult{}, fmt.Errorf("%w: invalid training type", ErrInvalidInput)
 	}
 
-	filter.Level = strings.TrimSpace(filter.Level)
-	if filter.Level != "" && !allowedLevels[filter.Level] {
+	levels, err := normalizeAllowedValues(filter.Levels, allowedLevels)
+	if err != nil {
 		return ListProgramsResult{}, fmt.Errorf("%w: invalid audience level", ErrInvalidInput)
 	}
 
-	if filter.FrequencyPerWeek < 0 {
-		return ListProgramsResult{}, fmt.Errorf("%w: frequency cannot be negative", ErrInvalidInput)
+	frequencies, err := normalizeFrequencies(filter.Frequencies)
+	if err != nil {
+		return ListProgramsResult{}, err
 	}
+
 	if filter.DurationMin < 0 || filter.DurationMax < 0 {
 		return ListProgramsResult{}, fmt.Errorf("%w: duration cannot be negative", ErrInvalidInput)
 	}
+	durationRanges, err := normalizeDurationRanges(filter.DurationRanges)
+	if err != nil {
+		return ListProgramsResult{}, err
+	}
 
+	filter.SortBy = strings.ToLower(strings.TrimSpace(filter.SortBy))
 	if filter.SortBy != "" && !allowedSortFields[filter.SortBy] {
 		filter.SortBy = ""
 	}
-	if filter.Order != "" && !allowedSortOrders[strings.ToLower(filter.Order)] {
+	filter.Order = strings.ToLower(strings.TrimSpace(filter.Order))
+	if filter.Order != "" && !allowedSortOrders[filter.Order] {
 		filter.Order = ""
 	}
 
 	models, total, err := s.programs.SearchPublished(ctx, repositories.PublicCatalogFilter{
 		Query:              filter.Query,
 		ProgramType:        filter.ProgramType,
-		TrainingType:       filter.TrainingType,
-		Level:              filter.Level,
-		FrequencyPerWeek:   filter.FrequencyPerWeek,
+		TrainingTypes:      trainingTypes,
+		Levels:             levels,
+		Frequencies:        frequencies,
 		DurationMin:        filter.DurationMin,
 		DurationMax:        filter.DurationMax,
+		DurationRanges:     durationRanges,
 		SortBy:             filter.SortBy,
 		Order:              filter.Order,
 		ScopeGeneric:       filter.ScopeGeneric,
