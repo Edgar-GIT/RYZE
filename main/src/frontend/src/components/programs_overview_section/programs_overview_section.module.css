@@ -52,9 +52,26 @@
 
 .cardGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
   gap: 1.5rem;
   align-items: stretch;
+}
+
+.state {
+  display: grid;
+  justify-items: start;
+  gap: 0.9rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(24, 216, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(7, 11, 18, 0.6);
+}
+
+.stateText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
 /* --- Card --- */

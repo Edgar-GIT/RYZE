@@ -353,3 +353,58 @@
     padding: 1.2rem;
   }
 }
+.catalogue {
+  display: grid;
+  gap: 1.6rem;
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1.1rem;
+}
+
+.productCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.2rem;
+  padding: 1.4rem;
+  border: 1px solid rgba(24, 216, 255, 0.16);
+  border-radius: var(--radius-md, 14px);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.productBody {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.productName {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.productDescription {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.inlineError {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(255, 159, 67, 0.35);
+  border-radius: var(--radius-sm);
+  color: #ffbe76;
+  background: rgba(255, 159, 67, 0.08);
+  font-size: 0.88rem;
+}
+
+.back {
+  gap: 0.5rem;
+}

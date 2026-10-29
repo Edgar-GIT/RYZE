@@ -1,6 +1,5 @@
 import rccImageOne from "@resources/img/program_cards/rcc1.png";
 import rccImageTwo from "@resources/img/program_cards/rcc2.png";
-import rccImageThree from "@resources/img/program_cards/rcc3.png";
 
 export interface ServiceProgram {
   title: string;
@@ -11,27 +10,18 @@ export interface ServiceProgram {
   featured?: boolean;
 }
 
-export const SERVICE_PROGRAMS: ServiceProgram[] = [
-  {
-    title: "Generic Program",
-    price: "FREE",
-    ctaLabel: "Start now for FREE",
+export const SERVICE_CATEGORY_PRESENTATION = {
+  generic: {
+    title: "Training plans",
+    ctaLabel: "Browse training plans",
     to: "/services/generic-program",
     imageSrc: rccImageOne
   },
-  {
+  premium: {
     title: "Premium Level 1",
-    price: "14,49€",
-    ctaLabel: "Get my program",
+    ctaLabel: "View Premium Level 1",
     to: "/services/premium-level-1",
     imageSrc: rccImageTwo,
     featured: true
-  },
-  {
-    title: "Premium Level 2",
-    price: "19,49€",
-    ctaLabel: "Start now with a Coach",
-    to: "/services/premium-level-2",
-    imageSrc: rccImageThree
   }
-];
+} as const;

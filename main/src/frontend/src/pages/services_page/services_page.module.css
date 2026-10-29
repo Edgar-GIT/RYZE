@@ -152,9 +152,28 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 24rem));
+  justify-content: center;
   gap: 1.15rem;
   align-items: end;
+}
+
+.state {
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  padding: 2rem 1rem;
+  border: 1px solid rgba(24, 216, 255, 0.14);
+  border-radius: 1rem;
+  background: rgba(6, 10, 18, 0.72);
+  text-align: center;
+}
+
+.stateText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
 .grid > * {

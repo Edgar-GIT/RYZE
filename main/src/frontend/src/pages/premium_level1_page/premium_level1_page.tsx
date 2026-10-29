@@ -1,6 +1,6 @@
 import { ArrowLeft, CheckCircle2, FlaskConical, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
@@ -59,8 +59,10 @@ const PACKAGE_INCLUDES = [
 
 export const PremiumLevel1Page = () => {
   const history = useHistory();
+  const location = useLocation();
   const { isActive: testModeActive } = useTestMode();
 
+  const [products, setProducts] = useState<MarketplaceProgram[]>([]);
   const [product, setProduct] = useState<MarketplaceProgram | null>(null);
   const [detail, setDetail] = useState<MarketplaceProgramDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,31 +92,79 @@ export const PremiumLevel1Page = () => {
     enabled: programId !== "" && !loading
   });
 
+  const requestedProgramId = new URLSearchParams(location.search).get("program") ?? "";
+  const returningFromPayment = new URLSearchParams(location.search).has("purchase_id");
+
   // The product metadata comes from the backend: nothing about price, duration
-  // or contents is hardcoded here.
+  // or contents is hardcoded here. Without a selected program the page is a
+  // catalogue of every published Premium Level 1 package.
   const load = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
+    setDetail(null);
     try {
-      const { programs } = await fetchPremiumLevel1Programs();
+      const { programs } = await fetchPremiumLevel1Programs(100);
+      setProducts(programs);
       if (programs.length === 0) {
         setProduct(null);
         setErrorMessage("Premium Level 1 is not available right now. Please check back soon.");
         return;
       }
-      setProduct(programs[0]);
-      setDetail(await fetchMarketplaceProgram(programs[0].id));
+      const requested = requestedProgramId
+        ? programs.find((program) => program.id === requestedProgramId)
+        : undefined;
+      if (requestedProgramId && !requested) {
+        setProduct(null);
+        setErrorMessage("That Premium Level 1 package is not available.");
+        return;
+      }
+      const selected = requested ?? (returningFromPayment ? programs[0] : undefined);
+      if (!selected) {
+        setProduct(null);
+        return;
+      }
+      setProduct(selected);
+      setDetail(await fetchMarketplaceProgram(selected.id));
     } catch {
+      setProducts([]);
       setProduct(null);
       setErrorMessage("We could not load Premium Level 1. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [requestedProgramId, returningFromPayment]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // A different package is a different purchase, intake and nutrition
+  // assignment. Reset the client-side step so stale state can never be shown
+  // against the newly selected product.
+  useEffect(() => {
+    setStep("product");
+    setQuestions([]);
+    setAnswers({});
+    setRequirement(null);
+    setQuestionnaireError("");
+    setFieldErrors({});
+    setNutrition(nutritionUnavailable);
+    setNutritionLoaded(false);
+    setNutritionError("");
+  }, [programId]);
+
+  // A provider return can omit the program query parameter. Once the capture
+  // resolves, select the package that was actually bought instead of leaving
+  // the buyer on the first package in the catalogue.
+  useEffect(() => {
+    if (checkout.state.status !== "success" || products.length === 0) {
+      return;
+    }
+    const purchasedId = checkout.state.purchase.program_id;
+    if (purchasedId && purchasedId !== programId && products.some((entry) => entry.id === purchasedId)) {
+      history.replace(`/services/premium-level-1?program=${purchasedId}`);
+    }
+  }, [checkout.state, history, programId, products]);
 
   const loadQuestionnaire = useCallback(async () => {
     if (programId === "") return;
@@ -363,13 +413,91 @@ export const PremiumLevel1Page = () => {
             <Button to="/services" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
               Back to Services
             </Button>
+            {products.length > 1 && product ? (
+              <Button to="/services/premium-level-1" variant="ghost" size="small">
+                All packages
+              </Button>
+            ) : null}
           </div>
 
           {loading ? (
             <div className={styles.state}>
               <p>Loading Premium Level 1…</p>
             </div>
-          ) : errorMessage || !product ? (
+          ) : !product ? (
+            products.length > 0 ? (
+              <section className={styles.catalogue} aria-label="Premium Level 1 packages">
+                <header className={styles.heading}>
+                  <p className={styles.eyebrow}>
+                    <Sparkles size={14} aria-hidden="true" />
+                    Premium Level 1
+                  </p>
+                  <h1 className={styles.title}>Choose your package</h1>
+                  <p className={styles.subtitle}>
+                    Every published Premium Level 1 package is shown below. Choose the one that
+                    matches your training and nutrition goals.
+                  </p>
+                </header>
+
+                {errorMessage ? (
+                  <p className={styles.inlineError} role="alert">{errorMessage}</p>
+                ) : null}
+
+                <div className={styles.productGrid}>
+                  {products.map((entry) => (
+                    <article key={entry.id} className={styles.productCard}>
+                      <div className={styles.productBody}>
+                        <h2 className={styles.productName}>{entry.name}</h2>
+                        {entry.description ? (
+                          <p className={styles.productDescription}>{entry.description}</p>
+                        ) : null}
+                        <div className={styles.chips}>
+                          <span className={styles.chipPrice}>
+                            {testModeActive
+                              ? formatMarketplacePrice(0, entry.currency, entry.type)
+                              : formatMarketplacePrice(entry.price_minor_units, entry.currency, entry.type)}
+                          </span>
+                          {testModeActive ? (
+                            <span className={styles.chipTestMode}>
+                              <FlaskConical size={12} aria-hidden="true" />
+                              Test Mode
+                            </span>
+                          ) : null}
+                          {entry.duration_weeks !== null ? (
+                            <span className={styles.chip}>
+                              {entry.duration_weeks} week{entry.duration_weeks === 1 ? "" : "s"}
+                            </span>
+                          ) : null}
+                          {entry.frequency_per_week !== null ? (
+                            <span className={styles.chip}>
+                              {entry.frequency_per_week} day{entry.frequency_per_week === 1 ? "" : "s"}/week
+                            </span>
+                          ) : null}
+                          {entry.level ? <span className={styles.chip}>{entry.level}</span> : null}
+                        </div>
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="small"
+                        to={`/services/premium-level-1?program=${entry.id}`}
+                      >
+                        View package
+                      </Button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : (
+              <div className={styles.state}>
+                <p>{errorMessage}</p>
+                <div className={styles.actions}>
+                  <Button variant="secondary" size="small" onClick={() => void load()}>
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            )
+          ) : errorMessage ? (
             <div className={styles.state}>
               <p>{errorMessage}</p>
               <div className={styles.actions}>
