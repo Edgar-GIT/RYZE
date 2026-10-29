@@ -139,13 +139,53 @@ export interface TrainerExerciseSummary {
   image_url: string;
 }
 
+export const WorkoutSetType = {
+  WARMUP: "warmup",
+  WORKING: "working",
+  DROP: "drop",
+  BACKOFF: "backoff",
+  FAILURE: "failure"
+} as const;
+
+export type WorkoutSetTypeValue = typeof WorkoutSetType[keyof typeof WorkoutSetType];
+
+export interface TrainerWorkoutSet {
+  set_number: number;
+  set_type: WorkoutSetTypeValue;
+  reps: number | null;
+  weight_kg: number | null;
+  rir: number | null;
+  rpe: number | null;
+  rest_seconds: number | null;
+  tempo: string;
+}
+
 export interface TrainerWorkoutExercise {
   id: string;
   program_workout_id: string;
   position: number;
+  instructions: string;
+  notes: string;
   exercise: TrainerExerciseSummary;
+  sets: TrainerWorkoutSet[];
   created_at: string;
   updated_at: string;
+}
+
+export interface TrainerWorkoutSetInput {
+  set_type: WorkoutSetTypeValue;
+  reps: number | null;
+  weight_kg: number | null;
+  rir: number | null;
+  rpe: number | null;
+  rest_seconds: number | null;
+  tempo: string;
+}
+
+export interface TrainerPrescriptionInput {
+  instructions: string;
+  notes: string;
+  sets: TrainerWorkoutSetInput[];
 }
 
 export const fetchTrainerAccess = (): Promise<TrainerAccessStatus> =>
@@ -296,6 +336,18 @@ export const addWorkoutExercise = (
   apiPost<TrainerWorkoutExercise>(
     `${structurePath(programId)}/weeks/${encodeURIComponent(weekId)}/workouts/${encodeURIComponent(workoutId)}/exercises`,
     { exercise_id: exerciseId }
+  );
+
+export const updateWorkoutExercisePrescription = (
+  programId: string,
+  weekId: string,
+  workoutId: string,
+  workoutExerciseId: string,
+  input: TrainerPrescriptionInput
+): Promise<TrainerWorkoutExercise> =>
+  apiPatch<TrainerWorkoutExercise>(
+    `${structurePath(programId)}/weeks/${encodeURIComponent(weekId)}/workouts/${encodeURIComponent(workoutId)}/exercises/${encodeURIComponent(workoutExerciseId)}`,
+    input
   );
 
 export const removeWorkoutExercise = (

@@ -32,6 +32,7 @@ import {
   reorderProgramWeeks,
   reorderWorkoutExercises,
   submitTrainerApplication,
+  updateWorkoutExercisePrescription,
   uploadTrainerApplicationDocument
 } from "./trainer_api";
 
@@ -160,6 +161,32 @@ describe("programs and structure", () => {
     expect(mockedPatch).toHaveBeenCalledWith(
       "/trainer/programs/p1/weeks/w1/workouts/wo1/exercises/order",
       { ids: ["we2", "we1"] }
+    );
+  });
+
+  it("replaces one workout exercise prescription with the complete set list", async () => {
+    mockedPatch.mockResolvedValue({ id: "we1" });
+    const input = {
+      instructions: "Drive through midfoot.",
+      notes: "",
+      sets: [
+        {
+          set_type: "working" as const,
+          reps: 8,
+          weight_kg: 60,
+          rir: 2,
+          rpe: null,
+          rest_seconds: 90,
+          tempo: ""
+        }
+      ]
+    };
+
+    await updateWorkoutExercisePrescription("p1", "w1", "wo1", "we1", input);
+
+    expect(mockedPatch).toHaveBeenCalledWith(
+      "/trainer/programs/p1/weeks/w1/workouts/wo1/exercises/we1",
+      input
     );
   });
 });

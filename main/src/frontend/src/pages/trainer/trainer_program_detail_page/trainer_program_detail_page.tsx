@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { Fragment, useCallback, useEffect, useState } from "react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useHistory, useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { ExerciseLibraryDialog } from "@/components/exercise_library/exercise_library_dialog";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { PrescriptionEditor } from "@/components/trainer/prescription_editor";
 import {
   addWorkoutExercise,
   createProgramWeek,
@@ -21,14 +22,17 @@ import {
   reorderProgramWorkouts,
   reorderWorkoutExercises,
   updateTrainerProgram,
+  updateWorkoutExercisePrescription,
   TrainerProgramStatus,
   TrainerProgramType,
+  type TrainerPrescriptionInput,
   type TrainerProgram,
   type TrainerProgramStatusValue,
   type TrainerProgramTypeValue,
   type TrainerWeek,
   type TrainerWorkout,
-  type TrainerWorkoutExercise
+  type TrainerWorkoutExercise,
+  type TrainerWorkoutSet
 } from "@/services/trainer_api";
 import { ApiError } from "@utils/http_client";
 
@@ -55,6 +59,31 @@ const moveItem = <T,>(items: T[], from: number, to: number): T[] => {
   return next;
 };
 
+const describeSet = (set: TrainerWorkoutSet): string =>
+  [
+    set.reps !== null ? `${set.reps} reps` : "",
+    set.weight_kg !== null ? `${set.weight_kg} kg` : "",
+    set.rir !== null ? `RIR ${set.rir}` : "",
+    set.rpe !== null ? `RPE ${set.rpe}` : "",
+    set.rest_seconds !== null ? `${set.rest_seconds}s rest` : "",
+    set.tempo ? `tempo ${set.tempo}` : ""
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+const describePrescription = (sets: TrainerWorkoutSet[]): string => {
+  if (sets.length === 0) {
+    return "No sets prescribed";
+  }
+  if (sets.length === 1) {
+    const detail = describeSet(sets[0]);
+    return detail ? `1 set · ${detail}` : "1 set";
+  }
+  const first = describeSet(sets[0]);
+  const same = first !== "" && sets.every((set) => describeSet(set) === first);
+  return same ? `${sets.length} sets · ${first}` : `${sets.length} sets · varied`;
+};
+
 export const TrainerProgramDetailPage = () => {
   const { programId } = useParams<{ programId: string }>();
   const history = useHistory();
@@ -72,6 +101,7 @@ export const TrainerProgramDetailPage = () => {
   const [weeksLoaded, setWeeksLoaded] = useState(false);
   const [exercises, setExercises] = useState<ExerciseCache>({});
   const [expandedWorkoutId, setExpandedWorkoutId] = useState("");
+  const [editingExerciseId, setEditingExerciseId] = useState("");
   const [dialogTarget, setDialogTarget] = useState<{ weekId: string; workoutId: string } | null>(null);
 
   const [busy, setBusy] = useState("");
@@ -240,9 +270,11 @@ export const TrainerProgramDetailPage = () => {
   const toggleWorkout = async (workout: TrainerWorkout) => {
     if (expandedWorkoutId === workout.id) {
       setExpandedWorkoutId("");
+      setEditingExerciseId("");
       return;
     }
     setExpandedWorkoutId(workout.id);
+    setEditingExerciseId("");
     if (!exercises[workout.id]) {
       setExercises((current) => ({ ...current, [workout.id]: "loading" }));
       try {
@@ -278,9 +310,38 @@ export const TrainerProgramDetailPage = () => {
     }
   };
 
+  const savePrescription = (
+    week: TrainerWeek,
+    workoutId: string,
+    entry: TrainerWorkoutExercise,
+    input: TrainerPrescriptionInput
+  ) =>
+    run(`prescription-${entry.id}`, async () => {
+      const updated = await updateWorkoutExercisePrescription(
+        programId,
+        week.id,
+        workoutId,
+        entry.id,
+        input
+      );
+      setExercises((current) => {
+        const cached = current[workoutId];
+        const list = Array.isArray(cached) ? cached : [];
+        return {
+          ...current,
+          [workoutId]: list.map((item) => (item.id === updated.id ? updated : item))
+        };
+      });
+      setEditingExerciseId("");
+      setFeedback({ kind: "success", text: "Prescription saved." });
+    }, "Unable to save this prescription right now.");
+
   const removeExercise = (week: TrainerWeek, workoutId: string, entry: TrainerWorkoutExercise) =>
     run(`delete-exercise-${entry.id}`, async () => {
       await removeWorkoutExercise(programId, week.id, workoutId, entry.id);
+      if (editingExerciseId === entry.id) {
+        setEditingExerciseId("");
+      }
       try {
         const list = await fetchWorkoutExercises(programId, week.id, workoutId);
         setExercises((current) => ({ ...current, [workoutId]: list }));
@@ -551,46 +612,70 @@ export const TrainerProgramDetailPage = () => {
                                   <p className={styles.hint}>No exercises in this workout yet.</p>
                                 ) : null}
                                 {list.map((entry, exerciseIndex) => (
-                                  <div key={entry.id} className={builder.exerciseRow}>
-                                    <div className={styles.rowMain}>
-                                      <span className={builder.exerciseName}>{entry.exercise.name}</span>
-                                      <span className={styles.rowMeta}>
-                                        {[entry.exercise.target_muscles, entry.exercise.equipment]
-                                          .map((value) => value?.trim())
-                                          .filter(Boolean)
-                                          .join(" · ")}
-                                      </span>
+                                  <Fragment key={entry.id}>
+                                    <div className={builder.exerciseRow}>
+                                      <div className={styles.rowMain}>
+                                        <span className={builder.exerciseName}>{entry.exercise.name}</span>
+                                        <span className={builder.prescriptionSummary}>
+                                          {describePrescription(entry.sets)}
+                                        </span>
+                                        <span className={styles.rowMeta}>
+                                          {[entry.exercise.target_muscles, entry.exercise.equipment]
+                                            .map((value) => value?.trim())
+                                            .filter(Boolean)
+                                            .join(" · ")}
+                                        </span>
+                                      </div>
+                                      <div className={builder.iconRow}>
+                                        <button
+                                          type="button"
+                                          className={builder.iconButton}
+                                          aria-label={`Edit prescription for ${entry.exercise.name}`}
+                                          aria-expanded={editingExerciseId === entry.id}
+                                          onClick={() =>
+                                            setEditingExerciseId((current) => (current === entry.id ? "" : entry.id))
+                                          }
+                                        >
+                                          <Pencil size={15} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={builder.iconButton}
+                                          aria-label={`Move ${entry.exercise.name} up`}
+                                          disabled={exerciseIndex === 0 || busy.startsWith("exercise-order")}
+                                          onClick={() => void shiftExercise(week, workout.id, exerciseIndex, -1, list)}
+                                        >
+                                          <ArrowUp size={15} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={builder.iconButton}
+                                          aria-label={`Move ${entry.exercise.name} down`}
+                                          disabled={exerciseIndex === list.length - 1 || busy.startsWith("exercise-order")}
+                                          onClick={() => void shiftExercise(week, workout.id, exerciseIndex, 1, list)}
+                                        >
+                                          <ArrowDown size={15} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={builder.iconButton}
+                                          aria-label={`Remove ${entry.exercise.name}`}
+                                          disabled={busy === `delete-exercise-${entry.id}`}
+                                          onClick={() => void removeExercise(week, workout.id, entry)}
+                                        >
+                                          <X size={15} />
+                                        </button>
+                                      </div>
                                     </div>
-                                    <div className={builder.iconRow}>
-                                      <button
-                                        type="button"
-                                        className={builder.iconButton}
-                                        aria-label={`Move ${entry.exercise.name} up`}
-                                        disabled={exerciseIndex === 0 || busy.startsWith("exercise-order")}
-                                        onClick={() => void shiftExercise(week, workout.id, exerciseIndex, -1, list)}
-                                      >
-                                        <ArrowUp size={15} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={builder.iconButton}
-                                        aria-label={`Move ${entry.exercise.name} down`}
-                                        disabled={exerciseIndex === list.length - 1 || busy.startsWith("exercise-order")}
-                                        onClick={() => void shiftExercise(week, workout.id, exerciseIndex, 1, list)}
-                                      >
-                                        <ArrowDown size={15} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={builder.iconButton}
-                                        aria-label={`Remove ${entry.exercise.name}`}
-                                        disabled={busy === `delete-exercise-${entry.id}`}
-                                        onClick={() => void removeExercise(week, workout.id, entry)}
-                                      >
-                                        <X size={15} />
-                                      </button>
-                                    </div>
-                                  </div>
+                                    {editingExerciseId === entry.id ? (
+                                      <PrescriptionEditor
+                                        entry={entry}
+                                        busy={busy === `prescription-${entry.id}`}
+                                        onSave={(input) => void savePrescription(week, workout.id, entry, input)}
+                                        onCancel={() => setEditingExerciseId("")}
+                                      />
+                                    ) : null}
+                                  </Fragment>
                                 ))}
                                 <div className={styles.actions}>
                                   <Button
