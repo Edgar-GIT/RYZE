@@ -8,8 +8,7 @@ export interface MarketplaceRow {
   id: string;
   title: string;
   description?: string;
-  // Discovery rows have no real popularity metrics yet. Each source maps to a
-  // deterministic, honest fallback ordering of the published catalog:
+  // Discovery rows describe deterministic catalog ordering, never popularity:
   //   catalog → the order the API returns (newest published first)
   //   recent  → most recently updated programs
   //   newest  → newest published programs
@@ -52,21 +51,21 @@ export const MARKETPLACE_FILTER_GROUPS: FilterGroup[] = [
 
 export const MARKETPLACE_ROWS: MarketplaceRow[] = [
   {
-    id: "most-popular",
-    title: "Most Popular",
-    description: "The programs most people are running right now.",
+    id: "all-programs",
+    title: "All Training Plans",
+    description: "Explore every published plan in the catalogue.",
     source: "catalog"
   },
   {
-    id: "trending",
-    title: "Trending This Week",
-    description: "Programs gaining the most momentum right now.",
+    id: "recently-updated",
+    title: "Recently Updated",
+    description: "Plans with the latest updates.",
     source: "recent"
   },
   {
     id: "new-noteworthy",
     title: "New & Noteworthy",
-    description: "Recently published programs worth checking out.",
+    description: "Recently published plans.",
     source: "newest"
   },
   {

@@ -26,6 +26,7 @@ import (
 	"ryze/backend/services/change_password"
 	"ryze/backend/services/client_programs"
 	"ryze/backend/services/commission_rules"
+	"ryze/backend/services/contact"
 	"ryze/backend/services/delete_account"
 	"ryze/backend/services/entitlements"
 	"ryze/backend/services/exercises"
@@ -62,8 +63,15 @@ const evidenceUploadPath = "/api/v1/trainer/application/documents"
 // body but not of the stored file.
 const evidenceUploadOverhead = 64 << 10
 
+// contactUploadPath is the public contact form. It accepts one optional
+// attachment, so its multipart envelope gets a bounded exception over the
+// global body limit.
+const contactUploadPath = "/api/v1/contact"
+
+const contactUploadOverhead = 64 << 10
+
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig, evidenceCfg config.EvidenceConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig, evidenceCfg config.EvidenceConfig, contactCfg config.ContactConfig) *gin.Engine {
 	router := gin.Default()
 	// Only the configured proxies may set the client address from forwarded
 	// headers; with the default (no trusted proxies) ClientIP is the socket
@@ -77,15 +85,22 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// guard then rejects browser-originated state-changing requests from hosts
 	// outside the allow list before any handler can act on a SameSite cookie.
 	// The body limit bounds every request body before any handler (or webhook
-	// signature verification) can read it. The trainer-evidence upload is the
-	// only exception: its multipart envelope must be allowed to carry one
-	// document up to the configured evidence bound.
+	// signature verification) can read it. Two multipart routes raise the limit
+	// by a fixed overhead: trainer evidence carries one document up to the
+	// configured evidence bound, and contact carries one optional 1 MiB
+	// attachment plus multipart overhead.
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 	router.Use(middleware.OriginGuard(corsCfg.AllowedOrigins))
-	router.Use(middleware.BodyLimit(serverCfg.MaxBodyBytes, middleware.BodyLimitException{
-		Path:     evidenceUploadPath,
-		MaxBytes: evidenceCfg.MaxBytes + evidenceUploadOverhead,
-	}))
+	router.Use(middleware.BodyLimit(serverCfg.MaxBodyBytes,
+		middleware.BodyLimitException{
+			Path:     evidenceUploadPath,
+			MaxBytes: evidenceCfg.MaxBytes + evidenceUploadOverhead,
+		},
+		middleware.BodyLimitException{
+			Path:     contactUploadPath,
+			MaxBytes: contact.MaxAttachmentBytes + contactUploadOverhead,
+		},
+	))
 
 	userRepository := repositories.NewUserRepository(db)
 
@@ -170,6 +185,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	publicProgramService := public_programs.NewService(trainerProgramRepository, mediaCfg)
 	publicProgramHandler := auth.NewPublicProgramsHandler(publicProgramService)
+
+	contactService := contact.NewService(contact.NewSMTPNotifier(contactCfg))
+	contactHandler := auth.NewContactHandler(contactService)
 
 	programAccessService := program_access.NewService(entitlementRepository, publicProgramService)
 	programAccessHandler := auth.NewProgramAccessHandler(programAccessService)
@@ -286,6 +304,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/exercises/:exerciseID", exercisesHandler.GetExercise)
 	v1.GET("/programs", publicProgramHandler.ListPublishedPrograms)
 	v1.GET("/programs/:programID", publicProgramHandler.GetPublishedProgram)
+	v1.POST("/contact", append(limits.chain(scopeContact), contactHandler.Submit)...)
 	v1.GET("/payments/methods", paymentMethodsHandler.List)
 	v1.POST("/auth/change-password", append(limits.chain(scopeAuthChangePassword), middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)...)
 	v1.POST("/auth/delete-account", append(limits.chain(scopeAuthDeleteAccount), middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)...)

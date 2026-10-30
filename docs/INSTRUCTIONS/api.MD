@@ -488,7 +488,7 @@ Response `data`:
   - `program_id` — the entitlement program reference.
   - `program` — safe Program object: `id`, `name`, `description`, `type`,
     `status`, `level`, `training_type`, `duration_weeks`,
-    `frequency_per_week`, `price_minor_units`, `currency`,
+    `frequency_per_week`, `price_minor_units`, `currency`, `product_type`,
     `created_at`, `updated_at`. The four calendar metadata fields can be
     `null` when the program does not define them.
   - `created_at`, `updated_at` — entitlement lifecycle timestamps.
@@ -515,7 +515,8 @@ public marketplace detail:
 
 - `id`, `trainer_id` (NULL for platform-owned programs), `name`, `description`,
   `type`, `status`, `level`, `duration_weeks`, `frequency_per_week`,
-  `training_type`, `price_minor_units`, `currency`, `created_at`, `updated_at`.
+  `training_type`, `price_minor_units`, `currency`, `product_type`,
+  `created_at`, `updated_at`.
 - `weeks` — array of weeks, each with `week_number` and `workouts`; each
   workout has `position` and `exercises`; each exercise has `name`,
   `description`, `instructions`, `target_muscles`, `equipment`, `difficulty`,
@@ -2020,6 +2021,8 @@ Examples:
 
 ?sort=created_at
 
+?sort=updated_at
+
 ?sort=price
 ```
 
@@ -2137,15 +2140,16 @@ Less restrictive.
 
 Authenticated users may receive higher limits than anonymous visitors.
 
-## Authentication rate limiting (v2.90.0)
+## Authentication and contact rate limiting (v2.90.0, contact v2.98.0)
 
-Rate limiting is currently applied to the credential and account endpoints:
-`POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
+Rate limiting is applied to the credential and account endpoints
+(`POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
 `POST /api/v1/admin/auth/login`, `POST /api/v1/admin/auth/verify`,
-`POST /api/v1/auth/change-password` and `POST /api/v1/auth/delete-account`.
-Each endpoint is limited independently, by client IP and — where the body
-carries an account identifier — by the normalised (trimmed, lowercased) `email`
-(user endpoints) or `username` (admin login).
+`POST /api/v1/auth/change-password`, `POST /api/v1/auth/delete-account`) and
+to `POST /api/v1/contact`. Each endpoint is limited independently by client IP;
+credential endpoints with an account identifier additionally limit the
+normalised (trimmed, lowercased) `email` (user endpoints) or `username` (admin
+login). The contact form is limited to 10 requests per hour per client IP.
 
 An exhausted limit returns:
 
@@ -2167,8 +2171,8 @@ Retry-After: <seconds>
 
 `Retry-After` is a whole number of seconds and is never below 1. Counters are
 in memory and per instance, bounded by least-recently-used eviction; no body is
-altered and no identifier is stored in clear. Webhooks and non-authentication
-endpoints are never rate limited.
+altered and no identifier is stored in clear. Webhooks are never rate limited.
+Contact is the only non-authentication endpoint with its own rate-limit scope.
 
 ---
 
@@ -2756,29 +2760,39 @@ Query parameters:
 - `scope` — `generic` restricts the catalog to platform-owned programs
   (`trainer_id` is null) whose `product_type` is `generic`.
   `premium_level_1` restricts the catalog to the Premium Level 1 product family,
-  regardless of owner. Any other value is ignored.
+  regardless of owner. Any other value is rejected with
+  `400 VALIDATION_ERROR`.
 - `q` — name query (LIKE, wildcards escaped), optional.
 - `type` — program type filter (`free`, `premium`, `personalized`), optional.
-- `training_type` — exact training type filter (`Hypertrophy`, `Strength`,
-  `HYROX`, `CrossFit`, `Fat Loss`, `At Home`), optional.
-- `level` — exact audience level filter (`Beginner`, `Intermediate`,
-  `Advanced`), optional.
-- `frequency` — exact days-per-week filter (1–7), optional.
+- `training_type` — comma-separated exact training types (`Hypertrophy`,
+  `Strength`, `HYROX`, `CrossFit`, `Fat Loss`, `At Home`), optional. Values
+  within the parameter are ORed; at most 20 values are accepted.
+- `level` — comma-separated exact audience levels (`Beginner`, `Intermediate`,
+  `Advanced`), optional. Values are ORed; at most 20 values are accepted.
+- `frequency` — comma-separated days-per-week values (1–7), optional. Values
+  are ORed; at most 20 values are accepted.
+- `duration_ranges` — comma-separated inclusive week ranges in
+  `min-max` form (for example `1-2,5-8`), optional. Ranges are ORed with each
+  other and ANDed with `duration_min`/`duration_max`; at most 20 ranges are
+  accepted. Each range must satisfy `1 <= min <= max`.
 - `duration_min`, `duration_max` — inclusive duration range in weeks, optional.
-- `sort` — `created_at` or `name` (any other value falls back to `created_at`),
-  optional.
-- `order` — `asc` or `desc` (default `desc`), optional.
+- `sort` — `created_at`, `updated_at` or `name` (any other value falls back to
+  `created_at`), optional.
+- `order` — `asc` or `desc` (default `desc`), optional. Ties are broken by
+  `id ASC`, so pagination is deterministic.
 
 When none of the search/filter/scope/sort parameters are present the endpoint
 returns the default catalog (newest first); otherwise it delegates to the
-search path.
+search path. Filters in different dimensions are ANDed; repeated values inside
+one dimension are ORed. Invalid controlled values or malformed ranges answer
+`400 VALIDATION_ERROR`.
 
 Response `data`:
 
 - `programs` — array of program objects: `id`, `trainer_id` (null for generic
   programs), `name`, `description`, `type`, `status`, `level`,
   `duration_weeks`, `frequency_per_week`, `training_type`,
-  `price_minor_units`, `currency`, `created_at`, `updated_at`.
+  `price_minor_units`, `currency`, `product_type`, `created_at`, `updated_at`.
 - `pagination` — `page`, `limit`, `total`, `total_pages`.
 
 ### `GET /api/v1/programs/:programID`
@@ -2793,8 +2807,8 @@ Response `data`:
 
 - `id`, `trainer_id` (null for generic programs), `name`, `description`,
   `type`, `status`, `level`, `duration_weeks`, `frequency_per_week`,
-  `training_type`, `price_minor_units`, `currency`, `created_at`,
-  `updated_at`.
+  `training_type`, `price_minor_units`, `currency`, `product_type`,
+  `created_at`, `updated_at`.
 - `weeks` — array of `{ week_number, workouts }`; each workout is
   `{ position, exercises }`; each exercise carries the safe catalog summary
   (`name`, `description`, `instructions`, `target_muscles`, `equipment`,
@@ -2806,6 +2820,52 @@ All exercise summaries follow the server-wide exercise-media gate. While
 `EXERCISE_MEDIA_ENABLED=false`, `video_url`, `image_url` and
 `media_attribution` are empty and `media_available` is `false`. When enabled,
 the API prefixes stored relative paths with `EXERCISE_MEDIA_BASE_PATH`.
+
+---
+
+### `POST /api/v1/contact`
+
+Delivers one public contact-form message to the server-owned recipient by
+email. Public endpoint. No authentication required. The message is not stored
+in the database.
+
+Content type: `multipart/form-data`.
+
+Fields:
+
+- `name` — required, trimmed, 1–100 characters.
+- `email` — required, valid address, at most 254 characters.
+- `subject` — required, trimmed, 1–200 characters.
+- `message` — required, trimmed, 1–5000 characters.
+- `attachment` — optional single file, at most 1 MiB. Accepted binary types are
+  PNG, JPEG, WebP and PDF, determined by content sniffing rather than the
+  client-provided filename or content type. The filename is sanitised and is
+  never used as a storage path.
+- `website` — optional honeypot. A non-empty value is treated as spam and
+  rejected with the normal validation error.
+
+The route accepts a request body up to `1 MiB + 64 KiB` (the shared 1 MiB body
+limit plus multipart overhead); a larger body is rejected by the shared body
+limit with `413 REQUEST_ENTITY_TOO_LARGE` before the handler reads it. It is
+limited to 10 requests per hour per client IP.
+
+Responses:
+
+- `200 OK` — `{"status":"sent"}`. Returned only after the SMTP server accepts
+  the message.
+- `400 VALIDATION_ERROR` — missing/invalid field, unsupported or oversized
+  attachment, or a non-empty honeypot.
+- `413 REQUEST_ENTITY_TOO_LARGE` — the multipart body exceeds the route limit.
+- `503 CONTACT_UNAVAILABLE` — SMTP is not configured or delivery failed. The
+  response never claims the message was sent.
+- `500 INTERNAL_ERROR` — unexpected server failure.
+
+Configuration is server-owned: `CONTACT_SMTP_HOST`, `CONTACT_SMTP_PORT`,
+`CONTACT_SMTP_USERNAME`, `CONTACT_SMTP_PASSWORD`, `CONTACT_FROM` and
+`CONTACT_RECIPIENT`. When credentials are configured, authentication happens
+only after a successful STARTTLS upgrade; a relay that does not advertise
+STARTTLS is refused. With no complete configuration the endpoint stays mounted
+and answers `503 CONTACT_UNAVAILABLE`.
 
 ---
 
@@ -3721,7 +3781,8 @@ The public catalog accepts a `scope` query parameter:
 
 The two scopes are independent predicates. A platform-owned Premium Level 1
 program never appears in the generic marketplace, where the questionnaire
-prerequisite would not be enforced.
+prerequisite would not be enforced. Any other `scope` value answers
+`400 VALIDATION_ERROR`; it is never silently ignored.
 
 
 # WORKOUT ENDPOINTS

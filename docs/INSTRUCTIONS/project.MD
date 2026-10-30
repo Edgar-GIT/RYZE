@@ -49,7 +49,10 @@ Programs end to end (create, list, search, open, edit and soft delete) against
 the generic program API.
 
 The Generic Programs Marketplace displays real published Generic Program data
-and its current sale price. Paid Generic Programs are fully purchasable end to
+and its current sale price. Search, filtering, sorting and pagination are
+server-side. The public contact form delivers through a configured SMTP relay;
+when delivery is not configured it reports that honestly instead of accepting
+the message. Paid Generic Programs are fully purchasable end to
 end: the checkout UX lets an authenticated user create a purchase, pick one of
 the payment methods the backend currently supports (advertised by
 `GET /api/v1/payments/methods`, never hard-coded in the frontend), pay through
@@ -253,8 +256,8 @@ The commission structure may evolve as the platform grows.
 
 The first marketplace surface is the Generic Training Plans Marketplace: a
 public catalog of published, platform-owned Generic Programs
-(`scope=generic`) with live search, client-side filtering and a per-program
-detail page. Paid Generic Programs are purchasable end to end from that detail
+(`scope=generic`) with live search, server-side filtering/sorting/pagination and
+a per-program detail page. Paid Generic Programs are purchasable end to end from that detail
 page (see Current Status); pricing display, purchases, payments and
 entitlements are implemented and backend-authoritative.
 

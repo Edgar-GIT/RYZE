@@ -498,3 +498,76 @@ func TestGetPublishedProgramGatesMedia(t *testing.T) {
 		t.Fatalf("enabled media metadata missing, got %+v", enabledExercise)
 	}
 }
+
+func TestSearchPublishedProgramsForwardsAndNormalizesListFilters(t *testing.T) {
+	var got repositories.PublicCatalogFilter
+	repo := &stubProgramRepo{
+		search: func(filter repositories.PublicCatalogFilter, _, _ int) ([]models.Program, int64, error) {
+			got = filter
+			return nil, 0, nil
+		},
+	}
+	svc := newService(repo)
+
+	_, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{
+		TrainingTypes:  []string{" Strength ", "Hypertrophy", "Strength"},
+		Levels:         []string{"Beginner", "Advanced", "Beginner"},
+		Frequencies:    []int{3, 4, 3},
+		DurationRanges: []public_programs.DurationRange{{MinWeeks: 1, MaxWeeks: 2}, {MinWeeks: 5, MaxWeeks: 8}, {MinWeeks: 1, MaxWeeks: 2}},
+	}, 1, 10)
+	if err != nil {
+		t.Fatalf("SearchPublishedPrograms: %v", err)
+	}
+	if !reflect.DeepEqual(got.TrainingTypes, []string{"Strength", "Hypertrophy"}) {
+		t.Fatalf("unexpected training types: %#v", got.TrainingTypes)
+	}
+	if !reflect.DeepEqual(got.Levels, []string{"Beginner", "Advanced"}) {
+		t.Fatalf("unexpected levels: %#v", got.Levels)
+	}
+	if !reflect.DeepEqual(got.Frequencies, []int{3, 4}) {
+		t.Fatalf("unexpected frequencies: %#v", got.Frequencies)
+	}
+	if !reflect.DeepEqual(got.DurationRanges, []repositories.DurationRange{{MinWeeks: 1, MaxWeeks: 2}, {MinWeeks: 5, MaxWeeks: 8}}) {
+		t.Fatalf("unexpected duration ranges: %#v", got.DurationRanges)
+	}
+}
+
+func TestSearchPublishedProgramsNormalizesSort(t *testing.T) {
+	var gotSort, gotOrder string
+	repo := &stubProgramRepo{
+		search: func(filter repositories.PublicCatalogFilter, _, _ int) ([]models.Program, int64, error) {
+			gotSort = filter.SortBy
+			gotOrder = filter.Order
+			return nil, 0, nil
+		},
+	}
+	svc := newService(repo)
+
+	if _, err := svc.SearchPublishedPrograms(context.Background(), public_programs.ProgramFilter{SortBy: "UPDATED_AT", Order: "DESC"}, 1, 10); err != nil {
+		t.Fatalf("SearchPublishedPrograms: %v", err)
+	}
+	if gotSort != "updated_at" || gotOrder != "desc" {
+		t.Fatalf("expected normalized updated_at desc, got %q/%q", gotSort, gotOrder)
+	}
+}
+
+func TestSearchPublishedProgramsRejectsInvalidListFilters(t *testing.T) {
+	svc := newService(&stubProgramRepo{})
+
+	cases := map[string]public_programs.ProgramFilter{
+		"training type":   {TrainingTypes: []string{"NotAType"}},
+		"level":           {Levels: []string{"Expert"}},
+		"frequency zero":  {Frequencies: []int{0}},
+		"frequency high":  {Frequencies: []int{8}},
+		"duration order":  {DurationRanges: []public_programs.DurationRange{{MinWeeks: 5, MaxWeeks: 4}}},
+		"duration zero":   {DurationRanges: []public_programs.DurationRange{{MinWeeks: 0, MaxWeeks: 4}}},
+		"too many levels": {Levels: make([]string, public_programs.MaxFilterValues+1)},
+	}
+	for name, filter := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := svc.SearchPublishedPrograms(context.Background(), filter, 1, 10); !errors.Is(err, public_programs.ErrInvalidInput) {
+				t.Fatalf("expected ErrInvalidInput, got %v", err)
+			}
+		})
+	}
+}

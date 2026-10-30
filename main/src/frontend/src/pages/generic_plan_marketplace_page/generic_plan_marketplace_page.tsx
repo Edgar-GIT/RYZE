@@ -1,5 +1,5 @@
 import { Check, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
@@ -65,6 +65,7 @@ export const GenericPlanMarketplacePage = () => {
   const [ownedProgramIds, setOwnedProgramIds] = useState<ReadonlySet<string>>(
     () => new Set()
   );
+  const requestId = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +87,7 @@ export const GenericPlanMarketplacePage = () => {
   const filters = useMemo(() => filtersFromSelection(selected), [selected]);
 
   const load = useCallback(async () => {
+    const currentRequest = ++requestId.current;
     setLoading(true);
     setErrorMessage("");
     try {
@@ -115,6 +117,9 @@ export const GenericPlanMarketplacePage = () => {
         })
       );
 
+      if (currentRequest !== requestId.current) {
+        return;
+      }
       const nextRows: Record<string, MarketplaceProgram[]> = {};
       for (const result of results) {
         nextRows[result.row.id] = result.programs;
@@ -124,11 +129,16 @@ export const GenericPlanMarketplacePage = () => {
       // number of programs matching every active filter.
       setTotalPrograms(results[0]?.total ?? 0);
     } catch {
+      if (currentRequest !== requestId.current) {
+        return;
+      }
       setRows({});
       setTotalPrograms(0);
       setErrorMessage("Unable to load the training plan catalogue. Please try again.");
     } finally {
-      setLoading(false);
+      if (currentRequest === requestId.current) {
+        setLoading(false);
+      }
     }
   }, [filters]);
 

@@ -645,11 +645,14 @@ but exposes only read-only methods through a separate read-only interface:
     (`created_at DESC, id ASC`), used when no search, filter, sort or `scope`
     parameter is present.
   - Search path (`SearchPublishedQuery`): applied when any of `scope`, `q`,
-    `type`, `training_type`, `level`, `frequency`, `duration_min/max`, `sort`
-    or `order` is provided. All filter values are exact matches; `q` is a LIKE
-    on the program name with wildcards escaped; `sort` is restricted to
-    `created_at`/`name` and always falls back to the default ordering for any
-    other value.
+    `type`, `training_type`, `level`, `frequency`, `duration_ranges`,
+    `duration_min/max`, `sort` or `order` is provided. Repeated values inside
+    one filter dimension are ORed and different dimensions are ANDed. `q` is a
+    LIKE on the program name with wildcards escaped; `sort` is restricted to
+    `created_at`/`updated_at`/`name` and always falls back to the default
+    ordering for any other value; ties are broken by `id ASC` so pagination is
+    deterministic. The service caps each multi-value dimension at 20 values and
+    rejects malformed controlled values with `400 VALIDATION_ERROR`.
 - Detail: `FindPublishedByIDWithStructure(id)` — returns one published program
   with its client-safe nested `weeks` tree (week_number → workouts → exercises
   with sets). It must not leak `trainer_id` of the owner.
@@ -664,15 +667,36 @@ No authentication, authorization or ownership checks are performed: the catalog
 is global and every published program is visible to every caller. Draft,
 soft-deleted and unknown programs all return the same generic 404 to prevent
 information leakage. The service layer validates program ids, pagination
-parameters and the controlled filter vocabulary; the repository layer applies
-`WHERE status = 'published'` and GORM's default soft-delete scope. No write
-operation is exposed.
+parameters, `scope` and the controlled filter vocabulary; an unknown `scope` is
+a validation error rather than a silently ignored value. The repository layer
+applies `WHERE status = 'published'` and GORM's default soft-delete scope. No
+write operation is exposed.
 
 The `scope=generic` parameter restricts the catalog to platform-owned programs
 (`trainer_id IS NULL`), which is the marketplace foundation consumed by the
-frontend marketplace and program detail pages. Route precedence is pinned by
-Gin: the static `/programs/generic` admin routes always win over the public
-`:programID` wildcard.
+frontend marketplace and program detail pages. The generic marketplace sends
+its filters, sort and a 12-program limit to this endpoint per row, so filtering,
+sorting and pagination stay server-side. Route precedence is pinned by Gin: the
+static `/programs/generic` admin routes always win over the public `:programID`
+wildcard.
+
+### Public Contact
+
+- `ContactHandler` (thin, in `api/auth`) → `contact` service (in
+  `services/contact`) → SMTP notifier.
+- The handler accepts only multipart form data, enforces the honeypot, and maps
+  validation to `400`, missing/failed delivery to `503 CONTACT_UNAVAILABLE`, and
+  unexpected failures to `500`. Success is returned only after the notifier
+  accepts the message.
+- The service owns all validation and normalization. The attachment is kept in
+  memory, capped at 1 MiB, and its type is detected from content bytes; only
+  PNG, JPEG, WebP and PDF are accepted. Nothing is persisted.
+- The recipient and sender come only from `ContactConfig`, never from the
+  request. A partial configuration fails startup. When credentials are present,
+  the notifier requires STARTTLS before authenticating.
+- The route raises the request body limit by 64 KiB of multipart overhead and
+  has its own IP rate-limit scope (10 requests/hour), independent from the
+  authentication scopes.
 
 ### Program Pricing
 
@@ -1481,7 +1505,11 @@ Important public UI building blocks currently include:
   a static page-based 3-card carousel per row with direction-aware slide
   animation (old cards slide out, new slide in; arrows vertically centered
   against the card column; no horizontal scrollable track; cards swapped via
-  array slice on a page index; back arrow allows returning to previous pages)
+  array slice on a page index; back arrow allows returning to previous pages).
+  Every row requests its first 12 programs from the public catalog with the
+  active filters and row sort; the client never filters or sorts the complete
+  catalog in memory. Row titles describe deterministic catalog order, not
+  invented sales or popularity metrics.
 - admin2 plan builder (`/admin2/plans/{id}/edit` + `/admin2/plans/create`):
   the builder saves and publishes platform-owned generic programs through the
   generic program API (see `services/admin2_api.ts`), converting the local

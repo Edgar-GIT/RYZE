@@ -9,10 +9,10 @@ const genericProgram = {
   description: "A complete free starter plan.",
   type: "free",
   status: "published",
-  level: "beginner",
+  level: "Beginner",
   duration_weeks: 6,
   frequency_per_week: 3,
-  training_type: "full body",
+  training_type: "Strength",
   price_minor_units: 0,
   currency: "EUR",
   product_type: "generic",
@@ -23,10 +23,12 @@ const genericProgram = {
 const paidGenericProgram = {
   ...genericProgram,
   id: "generic-2",
-  name: "Strength Builder",
-  description: "A progressive strength plan.",
+  name: "Hypertrophy Builder",
+  description: "A progressive hypertrophy plan.",
   type: "premium",
-  price_minor_units: 999
+  price_minor_units: 999,
+  training_type: "Hypertrophy",
+  level: "Advanced"
 };
 
 const premiumPrograms = [
@@ -71,11 +73,46 @@ const catalogHandler = (request: MockRequest): MockResponse | undefined => {
   }
   if (path === "/programs") {
     const scope = url.searchParams.get("scope");
-    const programs = scope === "premium_level_1" ? premiumPrograms : [genericProgram, paidGenericProgram];
+    let programs = scope === "premium_level_1" ? [...premiumPrograms] : [genericProgram, paidGenericProgram];
+
+    const listFilter = (key: string, value: string | null): string[] =>
+      (value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
+    const trainingTypes = listFilter("training_type", url.searchParams.get("training_type"));
+    const levels = listFilter("level", url.searchParams.get("level"));
+    const frequencies = listFilter("frequency", url.searchParams.get("frequency")).map(Number);
+    const ranges = listFilter("duration_ranges", url.searchParams.get("duration_ranges")).map(
+      (entry) => entry.split("-").map(Number) as [number, number]
+    );
+
+    if (trainingTypes.length > 0) {
+      programs = programs.filter((program) => trainingTypes.includes(program.training_type));
+    }
+    if (levels.length > 0) {
+      programs = programs.filter((program) => levels.includes(program.level));
+    }
+    if (frequencies.length > 0) {
+      programs = programs.filter((program) => frequencies.includes(program.frequency_per_week));
+    }
+    if (ranges.length > 0) {
+      programs = programs.filter((program) =>
+        ranges.some(([min, max]) => program.duration_weeks >= min && program.duration_weeks <= max)
+      );
+    }
+
+    const sort = url.searchParams.get("sort") ?? "created_at";
+    const direction = url.searchParams.get("order") === "asc" ? 1 : -1;
+    programs.sort((left, right) => {
+      const key = sort === "name" ? "name" : sort === "updated_at" ? "updated_at" : "created_at";
+      return left[key].localeCompare(right[key]) * direction;
+    });
+
+    const page = Number(url.searchParams.get("page") ?? "1");
+    const limit = Number(url.searchParams.get("limit") ?? "20");
+    const start = (page - 1) * limit;
     return {
       data: {
-        programs,
-        pagination: { page: 1, limit: 100, total: programs.length }
+        programs: programs.slice(start, start + limit),
+        pagination: { page, limit, total: programs.length, total_pages: Math.ceil(programs.length / limit) }
       }
     };
   }
@@ -97,6 +134,8 @@ test("Services renders only API-backed product categories and no Premium Level 2
   await expect(page.getByRole("link", { name: /View Premium Level 1/ })).toBeVisible();
   await expect(page.getByText("Free and paid")).toBeVisible();
   await expect(page.getByText("From €14.49")).toBeVisible();
+  await expect(page.getByText("Featured", { exact: true })).toBeVisible();
+  await expect(page.getByText("Most Popular", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Premium Level 2")).toHaveCount(0);
   await expect(page.locator('a[href*="premium-level-2"]')).toHaveCount(0);
 });
@@ -105,8 +144,8 @@ test("Home highlights published programs instead of hardcoded offers", async ({ 
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Hypertrophy Foundations" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Free Full Body" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Strength Builder" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Free Full Body" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hypertrophy Builder" })).toBeVisible();
   await expect(page.getByRole("link", { name: "View package" })).toHaveAttribute(
     "href",
     "/services/premium-level-1?program=premium-1"
@@ -130,4 +169,20 @@ test("Premium Level 1 lists every returned package and opens the chosen one", as
   await expect(page.getByRole("heading", { name: "Hypertrophy Advanced" })).toBeVisible();
   await expect(page.getByRole("link", { name: "All packages" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start my questionnaire" })).toBeVisible();
+});
+
+test("Generic marketplace applies filters on the server and renders honest discovery rows", async ({ page }) => {
+  await page.goto("/services/generic-program");
+
+  await expect(page.getByRole("heading", { name: "All Training Plans" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recently Updated" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "New & Noteworthy" })).toBeVisible();
+  await expect(page.getByText("Most Popular")).toHaveCount(0);
+  await expect(page.getByText("Trending This Week")).toHaveCount(0);
+
+  await page.getByRole("checkbox", { name: "Strength" }).check();
+
+  await expect(page.getByText("1 result for your filters")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Free Full Body" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hypertrophy Builder" })).toHaveCount(0);
 });

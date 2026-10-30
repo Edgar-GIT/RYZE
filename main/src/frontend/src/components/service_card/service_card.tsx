@@ -20,7 +20,7 @@ export const ServiceCard = ({ service }: ServiceCardProps) => (
     />
     <span className={styles.overlay} aria-hidden="true" />
 
-    {service.featured && <span className={styles.mostPopular}>Most Popular</span>}
+    {service.featured && <span className={styles.featuredBadge}>Featured</span>}
 
     <div className={styles.footer}>
       <p className={styles.price}>{service.price}</p>

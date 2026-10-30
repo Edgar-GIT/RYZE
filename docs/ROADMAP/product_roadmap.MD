@@ -47,9 +47,9 @@ Scope:
 - Trainer program detail prescription editor consuming the Phase A API.
 - Home/Services content from the API; remove hardcoded prices and any Premium
   Level 2 placeholder.
-- Marketplace server-side filtering, sorting and pagination.
+- Marketplace server-side filtering, sorting and pagination. **Closed in v2.98.0.**
 - Premium Level 1 lists every returned program, not only the first.
-- Contact page submission backend.
+- Contact page submission backend. **Closed in v2.98.0** (live SMTP delivery still unverified).
 - Import reporting improvements for rejected/unchanged records, with tests.
 - Test Mode persona-email reservation and fail-closed ownership checks, with
   regression tests.
@@ -67,8 +67,10 @@ Status: v2.96.0 completed the backend Test Mode persona-email reservation and
 fail-closed ownership checks, plus the importer reporting improvements. v2.97.0
 completed the trainer prescription editor, API-driven Home/Services content, the
 complete Premium Level 1 catalogue and browser-level coverage for catalogue
-browsing and trainer prescription editing. Marketplace server-side
-filtering/sorting/pagination and the contact submission backend remain open.
+browsing and trainer prescription editing. v2.98.0 completed marketplace
+server-side filtering/sorting/pagination and the contact submission backend;
+contact delivery still requires a real SMTP configuration before a live send can
+be verified.
 
 ## Phase C — Commerce and Operations
 

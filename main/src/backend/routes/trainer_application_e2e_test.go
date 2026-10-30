@@ -175,7 +175,7 @@ func newE2ERouter(t *testing.T) (*gin.Engine, *gorm.DB, config.AdminConfig) {
 	tx := db.Begin()
 	t.Cleanup(func() { tx.Rollback() })
 
-	return Setup(tx, jwtCfg, corsCfg, adminCfg, config.PricingConfig{MinProgramPriceMinorUnits: 100}, config.CommissionConfig{DefaultPlatformCommissionBPS: 2000}, config.StripeConfig{}, config.PayPalConfig{}, config.WebhookConfig{}, config.TestModeConfig{}, config.ServerConfig{MaxBodyBytes: 1 << 20}, config.RateLimitConfig{}, config.ExerciseMediaConfig{}, config.EvidenceConfig{StorageDir: t.TempDir(), MaxBytes: 2 << 20}), tx, adminCfg
+	return Setup(tx, jwtCfg, corsCfg, adminCfg, config.PricingConfig{MinProgramPriceMinorUnits: 100}, config.CommissionConfig{DefaultPlatformCommissionBPS: 2000}, config.StripeConfig{}, config.PayPalConfig{}, config.WebhookConfig{}, config.TestModeConfig{}, config.ServerConfig{MaxBodyBytes: 1 << 20}, config.RateLimitConfig{}, config.ExerciseMediaConfig{}, config.EvidenceConfig{StorageDir: t.TempDir(), MaxBytes: 2 << 20}, config.ContactConfig{}), tx, adminCfg
 }
 
 // TestTrainerApplicationLifecycleE2E exercises the full trainer-application

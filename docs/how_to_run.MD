@@ -134,19 +134,21 @@ Playwright starts a dedicated Vite server on port `5174` with
 `VITE_API_BASE_URL=/api/v1`. The specs install a request-level API mock, so they
 do not require the backend, a database or payment credentials. The current
 coverage is the public Services/Home catalogue, the complete Premium Level 1
-package catalogue and selection, and trainer workout-exercise prescription
-editing through the real UI and PATCH client.
+package catalogue and selection, server-side marketplace filtering and honest
+row copy, both contact submission outcomes, and trainer workout-exercise
+prescription editing through the real UI and PATCH client.
 
-The config uses an installed system Chromium (`/usr/bin/chromium`,
-`/usr/bin/chromium-browser` or `/usr/bin/google-chrome`) when present. If none is
-available, install Playwright's browser first:
+Locally the config prefers an installed system Chromium (`/usr/bin/chromium`,
+`/usr/bin/chromium-browser` or `/usr/bin/google-chrome`) when present; set
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to override it. CI ignores system browsers
+and installs the Playwright-managed Chromium:
 
 ```bash
-npx playwright install chromium
+npx playwright install --with-deps chromium
 ```
 
-Failure traces are written under `test-results/`. Browser E2E is not yet wired
-into CI; run it manually after frontend changes that affect these journeys.
+Failure traces are written under `test-results/`. The `e2e` job in
+`.github/workflows/ci.yml` runs this suite and uploads the report on failure.
 
 ---
 
@@ -371,7 +373,9 @@ a typo can never silently disable a timeout or the body limit.
   are allowed to finish after a termination signal.
 - `SERVER_MAX_BODY_BYTES` (optional, default `1048576`, i.e. 1 MiB) — maximum
   request body size. A larger body is rejected with
-  `413 REQUEST_ENTITY_TOO_LARGE` before any handler reads it.
+  `413 REQUEST_ENTITY_TOO_LARGE` before any handler reads it. Trainer evidence
+  adds its configured document bound and the contact form adds 64 KiB of
+  multipart overhead; the handler still enforces the smaller per-file cap.
 
 A deploy or restart that delivers `SIGINT` or `SIGTERM` stops accepting new
 connections, lets in-flight requests finish within the shutdown timeout, and
@@ -381,7 +385,8 @@ then closes the database handle, so a restart never drops an in-flight request.
 
 The credential and account endpoints (register, login, admin login/verify,
 change-password, delete-account) are rate limited in memory, per client IP and
-per account identifier. Every value is optional.
+per account identifier. The public contact form is rate limited per client IP
+(10 requests/hour) in the same subsystem. Every value is optional.
 
 - `RATE_LIMIT_ENABLED` (optional, default `true`) — set to `false` to disable
   the limits entirely. The middleware is then not mounted at all.
@@ -396,7 +401,29 @@ per account identifier. Every value is optional.
 
 An exhausted limit returns `429 RATE_LIMITED` with a `Retry-After` header.
 Counting is per instance, so multi-instance deployments should complement it
-with infrastructure-level limiting. Webhooks are never rate limited.
+with infrastructure-level limiting. Webhooks are never rate limited; contact is
+the only non-authentication endpoint with its own scope.
+
+## Contact Delivery Configuration
+
+The public contact form delivers mail through SMTP. Delivery is disabled unless
+the host, sender and recipient are all configured. A partial configuration, an
+invalid port, or a username without a password fails backend startup instead of
+accepting messages that can never be delivered.
+
+- `CONTACT_SMTP_HOST` — SMTP relay hostname.
+- `CONTACT_SMTP_PORT` — SMTP port, default `587`.
+- `CONTACT_SMTP_USERNAME` / `CONTACT_SMTP_PASSWORD` — optional credentials; both
+  must be set together. When set, the relay must advertise STARTTLS and
+  authentication happens only after the TLS upgrade.
+- `CONTACT_FROM` — envelope/header sender, server-owned.
+- `CONTACT_RECIPIENT` — destination address, server-owned; the request can
+  never override it.
+
+With no complete configuration the endpoint stays mounted and answers
+`503 CONTACT_UNAVAILABLE`. It never reports a message as sent unless SMTP
+accepted it. Contact attachments are capped at 1 MiB, validated by content
+bytes (PNG/JPEG/WebP/PDF), and are never stored.
 
 ## Admin Authentication Configuration
 
@@ -743,6 +770,8 @@ Current API surface (versioned under `/api/v1`):
   (public).
 - `GET /api/v1/version` — reports the running API version the binary was built
   with (public).
+- `POST /api/v1/contact` — delivers a public contact-form message to the
+  server-owned recipient (public; multipart; rate limited).
 - `POST /api/v1/auth/register` — creates a new user account (public).
 - `POST /api/v1/auth/login` — authenticates with email/password and sets the
   `ryze_access_token` HttpOnly cookie (public).

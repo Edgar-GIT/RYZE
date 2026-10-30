@@ -91,6 +91,11 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
+	contactCfg, err := config.LoadContact()
+	if err != nil {
+		fail("configuration error: %v", err)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		runMigrateCommand(cfg, os.Args[2:])
 		return
@@ -119,7 +124,7 @@ func main() {
 		port = "8080"
 	}
 
-	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg, mediaCfg, evidenceCfg)
+	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg, mediaCfg, evidenceCfg, contactCfg)
 
 	server := &http.Server{
 		Addr:              ":" + port,

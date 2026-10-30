@@ -1583,7 +1583,11 @@ The HTTP server enforces the following before any route handler runs:
   closes the database handle.
 
 The body limit never alters the bytes a handler observes: the payment webhooks
-still verify signatures against the exact raw request body.
+still verify signatures against the exact raw request body. Two routes raise the
+limit by a fixed, server-owned amount: trainer evidence adds its configured
+maximum document size, and the public contact form adds 64 KiB of multipart
+overhead to its 1 MiB attachment cap. The handler still enforces the smaller
+attachment bound itself.
 
 ---
 
@@ -1926,11 +1930,11 @@ Rate limits may differ depending on endpoint sensitivity.
 
 Administrative endpoints should use stricter limits.
 
-## Implemented rate limiting (v2.90.0)
+## Implemented rate limiting (v2.90.0, contact v2.98.0)
 
-Authentication rate limiting is implemented in the reusable middleware
-(`middleware.Limiter` and `middleware.RateLimit`) and applied to the credential
-and account endpoints only:
+Rate limiting is implemented in the reusable middleware (`middleware.Limiter`
+and `middleware.RateLimit`) and applied to the credential/account endpoints and
+the public contact form:
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
@@ -1938,6 +1942,7 @@ and account endpoints only:
 - `POST /api/v1/admin/auth/verify`
 - `POST /api/v1/auth/change-password`
 - `POST /api/v1/auth/delete-account`
+- `POST /api/v1/contact` (10 requests/hour per client IP)
 
 Design rules:
 
@@ -1972,8 +1977,9 @@ Design rules:
   key through `X-Forwarded-For`. A `/0` range (for example `0.0.0.0/0` or
   `::/0`) would trust every address and is rejected at startup like any other
   invalid entry.
-- Webhooks and every non-authentication endpoint are never rate limited, so a
-  provider retry or a normal user action is never rejected by this layer.
+- Webhooks are never rate limited. Contact is the only non-authentication
+  endpoint with its own independent IP scope, so a normal user action is not
+  rejected by an authentication counter.
 - Rate limiting can be disabled with `RATE_LIMIT_ENABLED=false`; the middleware
   is then not mounted at all, so toggling it never changes route behaviour
   beyond the limits.
@@ -2093,7 +2099,7 @@ Everything else must be rejected.
 
 ## Implemented trainer evidence uploads (v2.94.0)
 
-The only implemented upload surface is trainer-application evidence, and it
+Trainer-application evidence is one of two implemented upload surfaces. It
 follows the rules above strictly:
 
 - The applicant is resolved exclusively from the authenticated session; the
@@ -2120,6 +2126,31 @@ follows the rules above strictly:
 - Removal is a soft delete and is only possible while the application is
   `PENDING`; after review the submission is locked. Reviewer decisions are
   append-only and never editable.
+
+## Implemented contact attachments (v2.98.0)
+
+The public contact form accepts one optional attachment and treats it as
+untrusted input:
+
+- The only fields are `name`, `email`, `subject`, `message`, `attachment` and
+  the `website` honeypot. A non-empty honeypot is rejected.
+- The attachment is capped at 1 MiB by the handler and the route body limit adds
+  only 64 KiB of multipart overhead. Oversized bodies are rejected before the
+  handler allocates them.
+- The type is detected from the file bytes with `http.DetectContentType`; the
+  client-provided filename and content type are never trusted. Only PNG, JPEG,
+  WebP and PDF are accepted.
+- The filename is reduced to its base name for the email header, with control
+  characters rejected. It is never used as a storage path.
+- The attachment exists in memory only for the delivery attempt. It is never
+  written to disk, the database or logs.
+- The recipient and sender are server-owned (`CONTACT_RECIPIENT`,
+  `CONTACT_FROM`); the request cannot override them. The message is delivered
+  through SMTP. When credentials are configured, authentication happens only
+  after STARTTLS, and a relay without STARTTLS is refused.
+- No complete SMTP configuration means the endpoint answers
+  `503 CONTACT_UNAVAILABLE`; it never reports a message as sent.
+- Contact submissions are rate limited to 10 requests/hour per client IP.
 
 ---
 

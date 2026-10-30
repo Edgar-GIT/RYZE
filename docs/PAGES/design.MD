@@ -226,7 +226,7 @@ Secondary
   dark gradient overlay
 - Content is minimal: compact right-aligned price above a full-width CTA
 - Featured program (`Premium Level 1`) is taller (different aspect ratio),
-  keeps the stronger cyan glow, and shows a floating "Most Popular" mini
+  keeps the stronger cyan glow, and shows a floating "Featured" mini
   rectangle above the top edge
 - Hover: lift + cyan border glow
 - Same card language on homepage preview and `/services`
@@ -467,7 +467,7 @@ Each card contains:
   exact price, `From <cheapest>`, or `Free and paid`)
 - Call To Action (primary on featured Premium Level 1, outline on generic)
 - Featured Premium Level 1 card is taller, glows stronger and carries a
-  floating "Most Popular" tag above its top edge
+  floating "Featured" tag above its top edge
 
 The generic card opens the training-plan marketplace. The Premium Level 1 card
 opens the Premium package catalogue. No product price or offer copy is
@@ -500,18 +500,17 @@ FILTER RESULTS COUNT (when filters active)
 [FILTERS]  TRAINING PLANS
  (left)     Find a program built around your goals, schedule and experience.
 
-            Most Popular
+            All Training Plans
             ← [ CARD ][ CARD ][ CARD ] →
                (click arrow → smooth fade-in, next group of 3)
 
             ← [ CARD ][ CARD ][ CARD ] →
                (click arrow → next group of 3)
 
-            Trending This Week
+            Recently Updated
             ← [ CARD ][ CARD ][ CARD ] →
             ...
-            End of list
-            ───── You have seen all 128 training programs ─────
+            ── Showing up to 12 programs per section · N match ──
 ```
 
 - **Search bar** — sticky pill under the navbar. Stronger at the top of the
@@ -556,9 +555,10 @@ FILTER RESULTS COUNT (when filters active)
   collapsed by default; on mobile it is replaced by the drawer.
 - **Program area** — vertical list of `ProgramRow` sections flowing naturally
   beneath the page heading and filter-results indicator. Each row is
-  independently stateful. After the last row, an end-of-catalog footer displays
-  a divider and a small centered line ("You have seen all N training programs")
-  so users know the full catalog has been reached.
+  independently stateful. After the last row, a footer displays a divider and a
+  small centered line stating that each section shows up to 12 programs and how
+  many programs match the active filters. The marketplace never claims the
+  whole catalog was exhausted when a row is intentionally bounded.
 - **Program rows** — static page-based carousels. Each row shows EXACTLY three
   large cards side by side with a circular arrow centered vertically on each
   side (← back, forward →). Cards are NOT scrollable: no horizontal track, no
@@ -574,13 +574,15 @@ FILTER RESULTS COUNT (when filters active)
   (`slideInForward`, `slideOutForward`, `slideInBack`, `slideOutBack`) at 400ms
   eased, giving a literal swipe effect. Both arrows are disabled at the
   boundaries (back at page 0, forward at the last page). Each row is
-  independent: advancing "Most Popular" never moves any other row. Rows are
-  backed by the real published catalog: Most Popular → default catalog order,
-  Trending This Week → recently updated, New & Noteworthy → newest first, then
-  category rows: Build Strength → `Strength`, Build Muscle → `Hypertrophy`,
-  Fat Loss → `Fat Loss`, Train at Home → `At Home`, Performance & Conditioning →
-  `HYROX` + `CrossFit`. Every row is deterministic: discovery rows fall back to
-  the same catalog order when the catalog is empty. Row title is large and
+  independent: advancing "All Training Plans" never moves any other row. Rows
+  are backed by the real published catalog: All Training Plans → default
+  catalog order, Recently Updated → `updated_at` descending, New & Noteworthy →
+  `created_at` descending, then category rows: Build Strength → `Strength`,
+  Build Muscle → `Hypertrophy`, Fat Loss → `Fat Loss`, Train at Home → `At Home`,
+  Performance & Conditioning → `HYROX` + `CrossFit`. Every row is deterministic:
+  discovery rows fall back to the same catalog order when the catalog is empty.
+  No row title or description implies sales, popularity or trend data that RYZE
+  does not collect. Row title is large and
   confident, with an optional small muted supporting line for discovery rows.
 - **Program cards** — large portrait covers (4:5 image area) that visually
   dominate the page: dark placeholder with a subtle centered RYZE logo and
@@ -630,8 +632,13 @@ Components: `SearchBar`, `FilterSidebar`, `ProgramRow`, `ProgramCard`,
 `services/program_search.ts`, the API client in `services/marketplace_api.ts`,
 row/filter data in `constants/marketplace.ts`.
 The marketplace uses the shared `Container` in its `wide` sizing.
-The page fetches the full published generic catalog once on mount (paged,
-`scope=generic`) and applies all filter/row partitioning client-side.
+The page sends the active filters, sort and a 12-program limit to the public
+catalog for every row (`scope=generic`). Filtering, sorting and pagination are
+server-side; the client only intersects a category row's training types with the
+selected types. The total comes from the unrestricted first row, so the result
+count is never derived from the bounded cards on screen. Home, Services and the
+Premium catalogue page through the same API until every page is loaded, because
+their aggregate price/highlight logic needs the complete returned set.
 
 ### Generic Program Detail
 
@@ -913,8 +920,12 @@ Right column:
 
 There is no modal, popup or background blur overlay for contact.
 
-At the current frontend stage the form remains visual only and does not send
-data. File validation and delivery remain backend responsibilities.
+The form submits multipart data to `POST /api/v1/contact`. The backend owns
+validation and delivery; the client only pre-checks required fields and the
+1 MiB attachment limit. Success is shown only when the API confirms the SMTP
+server accepted the message. A missing SMTP configuration or delivery failure
+shows the server's unavailable message instead of a false success. The
+attachment is never stored by RYZE.
 
 The Home page must not duplicate the full Contact page. It uses a compact
 `Get in touch` preview with short copy, three compact channel buttons and two

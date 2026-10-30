@@ -54,9 +54,9 @@ export default function Admin2MarketplacePage() {
       <div className={styles.notice}>
         <Info size={15} className={styles.noticeIcon} aria-hidden="true" />
         <span>
-          <strong>Curated rows pending sales data.</strong> Sections like “Most Popular” and
-          “Trending” are defined in the storefront constants but only populate once purchase
-          analytics are available. The published catalog below is live data.
+          <strong>Deterministic discovery rows.</strong> “All Training Plans”, “Recently
+          Updated” and “New &amp; Noteworthy” are backed by the published catalog; no sales or
+          popularity metric is invented. The published catalog below is live data.
         </span>
       </div>
 

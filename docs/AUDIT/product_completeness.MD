@@ -1,7 +1,7 @@
 # RYZE Product Completeness Audit
 
-Version: v2.97.0
-Date: 2026-10-29
+Version: v2.98.0
+Date: 2026-10-30
 Status: living document — update whenever a backlog item is closed.
 
 This document records the product-completeness audit of the RYZE platform
@@ -38,7 +38,7 @@ Complete/Verified here.
 | Backend API (Go/Gin/GORM/MariaDB) | Complete/Verified | `go test ./...` green (40 packages) |
 | Database migrations | Complete/Verified | schema version 28, `dirty=false` |
 | Frontend SPA (React 19/Vite/TS/CSS Modules) | Complete/Verified | `tsc --noEmit` clean, vitest green |
-| CI (race detector + frontend tests) | Complete/Verified | `.github/workflows/ci.yml` |
+| CI (race detector + frontend tests + Playwright) | Implemented (hosted run unverified) | `.github/workflows/ci.yml`; E2E job added in v2.98.0 |
 | Docker compose stack | Implemented (unverified) | no production deployment in this environment |
 | systemd unit (`deploy/ryze-backend.service`) | Implemented (unverified) | deployment-only path |
 | Database backup script | Implemented (unverified) | `umask 077` hardening; no live restore drill |
@@ -53,7 +53,7 @@ Complete/Verified here.
 | Account deletion (soft delete) | Complete/Verified | delete_account service |
 | Profile management | Complete/Verified | profile page + API |
 | Self-service password recovery | Missing | no forgot/reset flow; only admin-triggered `POST /admin/users/:id/password` |
-| Email delivery (verification, receipts, notifications) | Missing | `main/src/backend/email/` is empty; no mail integration |
+| Email delivery (verification, receipts, notifications) | Partial | contact SMTP delivery implemented in `services/contact`; verification, receipts and notifications still missing |
 
 ### Public marketing and commerce pages
 
@@ -64,8 +64,8 @@ Complete/Verified here.
 | Programs overview section | Complete/Verified | API-backed published programs; no hardcoded BUILD MUSCLE / LOSE FAT / TRAIN FREE; browser E2E |
 | Our Vision | Complete/Verified | static content page |
 | Feedback | Complete/Verified | form + ADMIN_2 feedback page |
-| Contact | Partial | UI-only section; no submission backend |
-| Generic marketplace | Partial | catalog from API, but filtering/sorting/pagination run client-side; server filter params unused |
+| Contact | Implemented, delivery unverified | Multipart API, SMTP delivery, validation, rate limit and browser states; positive delivery needs configured SMTP |
+| Generic marketplace | Complete/Verified (mocked) | server-side filters, sort and pagination; deterministic rows; browser E2E with mocked API; live positive path unverified because the DB has no published programs |
 | Generic program detail + checkout | Complete/Verified | API-driven detail, `useProgramCheckout`, entitlement states |
 | Premium Level 1 page | Complete/Verified | complete returned catalogue, query-based selection, questionnaire/checkout/delivery unchanged; mocked browser E2E; live purchase still unverified |
 | Purchase history (`/account/purchases`) | Complete/Verified | API-driven |
@@ -145,14 +145,14 @@ Complete/Verified here.
 7. Home/Services content from the API; remove hardcoded prices and the
    Premium Level 2 placeholder link (Premium Level 2 must not exist).
    **Closed in v2.97.0.**
-8. Marketplace: use server-side filtering/sorting/pagination.
+8. Marketplace: use server-side filtering/sorting/pagination. **Closed in v2.98.0.**
 9. Premium Level 1: render all returned programs, not only the first.
    **Closed in v2.97.0.**
 
 ### P2 — product capability gaps
 
 10. Self-service password recovery and email delivery.
-11. Contact page submission backend.
+11. Contact page submission backend. **Closed in v2.98.0** (live SMTP delivery still unverified).
 12. RYZE Feed (deferred by design; requires a product decision first).
 
 ### P3 — verification and operations

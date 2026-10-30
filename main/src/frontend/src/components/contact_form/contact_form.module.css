@@ -181,6 +181,37 @@
   text-align: center;
 }
 
+.feedback {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.feedbackSuccess {
+  border-color: rgba(63, 220, 150, 0.35);
+  color: #9df3c8;
+  background: rgba(63, 220, 150, 0.08);
+}
+
+.feedbackError {
+  border-color: rgba(255, 107, 107, 0.35);
+  color: #ffb3b3;
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .form {
     padding: 1.25rem 1.1rem 1.2rem;

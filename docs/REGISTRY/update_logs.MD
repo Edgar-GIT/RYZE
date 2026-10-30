@@ -1,3 +1,109 @@
+# Version 2.98.0
+
+Title: Server-side marketplace and real contact delivery
+
+Date: 2026-10-30
+
+Summary:
+
+v2.98.0 completes the two remaining Phase B product gaps. The public catalogue
+now owns marketplace filtering, sorting and pagination, including multi-value
+filters, duration ranges and deterministic `updated_at` ordering. The generic
+marketplace requests each row from that contract instead of downloading and
+filtering the whole catalogue, and its discovery rows no longer imply invented
+popularity. The contact form now submits multipart data to a real SMTP-backed
+endpoint with validation, attachment limits, a honeypot, rate limiting and an
+honest unavailable state. Playwright coverage now includes marketplace filtering
+and both contact outcomes, and the E2E job is wired into CI.
+
+No database schema, payment-provider, nutrition-generation, Premium Level 2 or
+media-licensing behaviour changed in this release.
+
+Main changes:
+
+- `repositories/program_repository.go`: slice-based filter conditions, ORed
+  values within a dimension, `duration_ranges`, `updated_at` sorting and an
+  `id ASC` deterministic tie-breaker.
+- `services/public_programs/public_programs.go`: multi-value validation with a
+  20-value cap, frequency/range normalization and the expanded sort allowlist.
+- `api/auth/public_programs_handler.go`: comma-separated parsing,
+  `duration_ranges` parsing and `400 VALIDATION_ERROR` for an unknown scope.
+- `services/contact`: validation/normalization service and SMTP STARTTLS
+  notifier with server-owned sender/recipient and in-memory attachments.
+- `api/auth/contact_handler.go`, `routes/routes.go`, `routes/ratelimit.go`:
+  `POST /api/v1/contact`, honeypot handling, 1 MiB attachment cap, a 64 KiB
+  multipart body-limit exception and a 10/hour per-IP scope.
+- `config/config.go`, `config/env.go`: `ContactConfig` and fail-fast
+  `CONTACT_*` loading.
+- `services/marketplace_api.ts`, `generic_plan_marketplace_page.tsx`: server-side
+  filter/sort/pagination per row, bounded 12-program sections, stale-request
+  guard and honest result/empty copy.
+- `hooks/use_service_catalog.ts`, `premium_level1_page.tsx`: page through the
+  complete Premium Level 1 response set.
+- `services/contact_api.ts`, `components/contact_form`: multipart submission,
+  submit states, client-side size/type pre-checks, honeypot and `aria-live`
+  feedback.
+- `constants/marketplace.ts`, `components/service_card`, `admin2_marketplace_page`:
+  replaced invented popularity labels with deterministic catalogue labels and
+  "Featured".
+- Tests: contact service/handler/config, public-program multi-value filters and
+  sorting, marketplace/contact API clients, checkout cancellation/duplicate
+  return/entitlement refresh, marketplace browser filtering and contact browser
+  success/unavailable states.
+- `playwright.config.ts` and `.github/workflows/ci.yml`: CI uses the
+  Playwright-managed Chromium and runs the E2E suite with report artifacts.
+- `.env.example`: documented `CONTACT_SMTP_*`, `CONTACT_FROM` and
+  `CONTACT_RECIPIENT`.
+- Docs updated: `api.MD`, `security.MD`, `arquitecture.MD`, `project.MD`,
+  `design.MD`, `how_to_run.MD`, the product roadmap, the completeness audit and
+  this registry.
+
+Reason:
+
+The catalogue contract still accepted only one value per filter and the generic
+marketplace downloaded the whole catalogue before filtering it client-side. The
+contact form was visual only, so the product advertised a channel that could not
+deliver a message. Closing both gaps makes the API the single source of
+filtering truth and makes the contact experience truthful about delivery.
+
+Validation:
+
+- `gofmt -l .` produced no files.
+- `go vet ./...` passed.
+- `go test ./...` passed across every backend package.
+- `go test -race ./config/... ./middleware/... ./version/... ./services/token/... ./services/contact/... ./services/public_programs/...` passed; the CI job now runs the new database-independent contact and public-program tests.
+- `npm run typecheck` passed.
+- `npm test` passed: 18 files, 122 tests.
+- `npm run build` passed; Vite emitted only the existing native-config and
+  large-chunk warnings.
+- `npm run test:e2e` passed: 7 tests (Services, Home, Premium catalogue,
+  marketplace filtering, trainer prescription and both contact outcomes).
+- Live API at `http://localhost:8080/api/v1`: health `200`; unknown scope `400`;
+  invalid training type `400`; multi-value filter query `200`; contact
+  submission `503 CONTACT_UNAVAILABLE` because SMTP is not configured.
+- Live browser at `http://localhost:5173`: marketplace empty state rendered from
+  the API, no "Most Popular"/"Trending This Week" copy, no horizontal overflow
+  at 1440px or 390px, contact displayed the honest unavailable message and no
+  page errors were observed.
+- No Git operations were performed.
+
+Residual and unverified:
+
+- Contact positive delivery is unverified: no SMTP relay/credentials were
+  available, so the endpoint correctly returns `503 CONTACT_UNAVAILABLE`.
+- The live positive marketplace path is unverified: the database currently has
+  zero published generic and Premium Level 1 programs. Server filters and
+  sorting are covered by repository/service/handler tests and mocked browser
+  tests.
+- Stripe/PayPal/MB WAY sandbox purchase, return and entitlement flows remain
+  unverified without provider credentials.
+- The CI E2E job was added but has not run on a hosted runner in this cycle.
+- Exercise-media licensing remains unresolved; production media stays disabled.
+- No isolated disposable database, production deployment or real refund flow was
+  exercised.
+
+---
+
 # Version 2.97.0
 
 Title: API-driven catalogue, complete Premium package listing and trainer prescription editor

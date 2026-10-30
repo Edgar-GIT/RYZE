@@ -793,3 +793,70 @@ func TestProgramRepositoryPremiumScopeIsProductFamily(t *testing.T) {
 		}
 	}
 }
+
+func TestProgramRepositorySearchPublishedMultiValueFiltersAndSorting(t *testing.T) {
+	config.LoadEnvFile()
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	db, err := database.Connect(cfg)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+
+	tx := db.Begin()
+	defer tx.Rollback()
+
+	repo := repositories.NewProgramRepository(tx)
+	ctx := context.Background()
+
+	seed := func(name, trainingType, level string, frequency, duration int, createdAt, updatedAt time.Time) {
+		t.Helper()
+		if err := tx.Exec(
+			`INSERT INTO programs
+			 (id, trainer_id, name, type, status, product_type, training_type, level, frequency_per_week, duration_weeks, created_at, updated_at)
+			 VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			uuid.NewString(), name, models.ProgramTypeFree, models.ProgramStatusPublished,
+			models.ProgramProductTypeGeneric, trainingType, level, frequency, duration, createdAt, updatedAt,
+		).Error; err != nil {
+			t.Fatalf("seed %q: %v", name, err)
+		}
+	}
+
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	seed("Alpha Strength", "Strength", "Beginner", 3, 2, base, base.Add(3*time.Hour))
+	seed("Beta Hypertrophy", "Hypertrophy", "Beginner", 4, 6, base.Add(time.Hour), base.Add(2*time.Hour))
+	seed("Gamma Fat Loss", "Fat Loss", "Advanced", 5, 10, base.Add(2*time.Hour), base.Add(time.Hour))
+
+	filter := repositories.PublicCatalogFilter{
+		TrainingTypes:  []string{"Strength", "Hypertrophy"},
+		Levels:         []string{"Beginner"},
+		Frequencies:    []int{3, 4},
+		DurationRanges: []repositories.DurationRange{{MinWeeks: 1, MaxWeeks: 2}, {MinWeeks: 5, MaxWeeks: 8}},
+		SortBy:         "name",
+		Order:          "desc",
+	}
+	results, total, err := repo.SearchPublished(ctx, filter, 1, 10)
+	if err != nil {
+		t.Fatalf("search published: %v", err)
+	}
+	if total != 2 || len(results) != 2 {
+		t.Fatalf("expected two matches, got total=%d len=%d", total, len(results))
+	}
+	if results[0].Name != "Beta Hypertrophy" || results[1].Name != "Alpha Strength" {
+		t.Fatalf("expected name descending, got %q then %q", results[0].Name, results[1].Name)
+	}
+
+	filter.SortBy = "updated_at"
+	filter.Order = "asc"
+	results, _, err = repo.SearchPublished(ctx, filter, 1, 10)
+	if err != nil {
+		t.Fatalf("search published updated_at: %v", err)
+	}
+	if results[0].Name != "Beta Hypertrophy" || results[1].Name != "Alpha Strength" {
+		t.Fatalf("expected updated_at ascending, got %q then %q", results[0].Name, results[1].Name)
+	}
+}

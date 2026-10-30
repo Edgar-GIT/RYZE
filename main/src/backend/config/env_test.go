@@ -454,3 +454,94 @@ func TestLoadExerciseMediaRejectsUnsafeBasePath(t *testing.T) {
 		})
 	}
 }
+
+func clearContactEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"CONTACT_SMTP_HOST",
+		"CONTACT_SMTP_PORT",
+		"CONTACT_SMTP_USERNAME",
+		"CONTACT_SMTP_PASSWORD",
+		"CONTACT_FROM",
+		"CONTACT_RECIPIENT",
+	} {
+		t.Setenv(key, "")
+	}
+}
+
+func TestLoadContactDefaultsToDisabled(t *testing.T) {
+	clearContactEnv(t)
+
+	cfg, err := config.LoadContact()
+	if err != nil {
+		t.Fatalf("LoadContact: %v", err)
+	}
+	if cfg.Enabled() {
+		t.Fatal("contact delivery must be disabled when no SMTP configuration is present")
+	}
+	if cfg.SMTPPort != "587" {
+		t.Fatalf("unexpected default SMTP port %q", cfg.SMTPPort)
+	}
+}
+
+func TestLoadContactValidConfiguration(t *testing.T) {
+	clearContactEnv(t)
+	t.Setenv("CONTACT_SMTP_HOST", "smtp.example.com")
+	t.Setenv("CONTACT_SMTP_PORT", "2525")
+	t.Setenv("CONTACT_SMTP_USERNAME", "mailer")
+	t.Setenv("CONTACT_SMTP_PASSWORD", "secret")
+	t.Setenv("CONTACT_FROM", "RYZE <contact@example.com>")
+	t.Setenv("CONTACT_RECIPIENT", "Support <support@example.com>")
+
+	cfg, err := config.LoadContact()
+	if err != nil {
+		t.Fatalf("LoadContact: %v", err)
+	}
+	if !cfg.Enabled() || cfg.SMTPPort != "2525" || cfg.Recipient != "Support <support@example.com>" {
+		t.Fatalf("unexpected contact config %+v", cfg)
+	}
+}
+
+func TestLoadContactRejectsPartialConfiguration(t *testing.T) {
+	for _, key := range []string{"CONTACT_SMTP_HOST", "CONTACT_FROM", "CONTACT_RECIPIENT"} {
+		t.Run(key, func(t *testing.T) {
+			clearContactEnv(t)
+			t.Setenv("CONTACT_SMTP_HOST", "smtp.example.com")
+			t.Setenv("CONTACT_FROM", "contact@example.com")
+			t.Setenv("CONTACT_RECIPIENT", "support@example.com")
+			t.Setenv(key, "")
+
+			if _, err := config.LoadContact(); err == nil {
+				t.Fatalf("expected an error when %s is missing", key)
+			}
+		})
+	}
+}
+
+func TestLoadContactRejectsIncompleteCredentials(t *testing.T) {
+	clearContactEnv(t)
+	t.Setenv("CONTACT_SMTP_HOST", "smtp.example.com")
+	t.Setenv("CONTACT_FROM", "contact@example.com")
+	t.Setenv("CONTACT_RECIPIENT", "support@example.com")
+	t.Setenv("CONTACT_SMTP_USERNAME", "mailer")
+
+	if _, err := config.LoadContact(); err == nil {
+		t.Fatal("expected an error when only the SMTP username is set")
+	}
+}
+
+func TestLoadContactRejectsInvalidPort(t *testing.T) {
+	for _, value := range []string{"0", "65536", "abc"} {
+		t.Run(value, func(t *testing.T) {
+			clearContactEnv(t)
+			t.Setenv("CONTACT_SMTP_HOST", "smtp.example.com")
+			t.Setenv("CONTACT_FROM", "contact@example.com")
+			t.Setenv("CONTACT_RECIPIENT", "support@example.com")
+			t.Setenv("CONTACT_SMTP_PORT", value)
+
+			if _, err := config.LoadContact(); err == nil {
+				t.Fatalf("CONTACT_SMTP_PORT=%s: expected an error", value)
+			}
+		})
+	}
+}

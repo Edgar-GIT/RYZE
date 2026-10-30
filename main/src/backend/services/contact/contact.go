@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"mime"
 	"net/http"
 	"net/mail"
 	"path/filepath"
@@ -89,7 +88,7 @@ func (s *service) Submit(ctx context.Context, message Message) error {
 		return ErrUnavailable
 	}
 	if err := s.notifier.Send(ctx, normalized); err != nil {
-		return fmt.Errorf("%w: delivery failed", ErrUnavailable)
+		return fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
 	return nil
 }
@@ -150,14 +149,4 @@ func normalize(message Message) (Message, error) {
 
 func hasHeaderControl(value string) bool {
 	return strings.ContainsAny(value, "\r\n\x00")
-}
-
-// ParseContentType is kept narrow so callers cannot accidentally accept a
-// client-supplied MIME type instead of the detected one.
-func ParseContentType(value string) string {
-	mediaType, _, err := mime.ParseMediaType(value)
-	if err != nil {
-		return ""
-	}
-	return mediaType
 }
