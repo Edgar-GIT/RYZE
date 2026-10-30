@@ -98,19 +98,28 @@ export interface MarketplaceListResult {
   limit: number;
 }
 
-export interface MarketplaceProgramParams {
+export type MarketplaceSort = "created_at" | "updated_at" | "name";
+
+/** MarketplaceFilters is the server-side filter contract. Values inside one
+ *  dimension are ORed; dimensions are ANDed by the backend. */
+export interface MarketplaceFilters {
+  trainingTypes?: string[];
+  levels?: string[];
+  frequencies?: number[];
+  durationRanges?: Array<[number, number]>;
+}
+
+export interface MarketplaceProgramParams extends MarketplaceFilters {
   q?: string;
   type?: string;
-  training_type?: string;
-  level?: string;
-  frequency?: number;
-  duration_min?: number;
-  duration_max?: number;
-  sort?: string;
-  order?: string;
+  sort?: MarketplaceSort;
+  order?: "asc" | "desc";
   page: number;
   limit: number;
 }
+
+const commaList = (values: readonly (string | number)[] | undefined): string =>
+  (values ?? []).filter((value) => value !== "").join(",");
 
 export const fetchMarketplacePrograms = async (
   params: MarketplaceProgramParams
@@ -120,26 +129,32 @@ export const fetchMarketplacePrograms = async (
     page: String(params.page),
     limit: String(params.limit)
   });
-  for (const [key, value] of [
-    ["q", params.q],
-    ["type", params.type],
-    ["training_type", params.training_type],
-    ["level", params.level],
-    ["sort", params.sort],
-    ["order", params.order]
-  ] as const) {
-    if (value) {
-      query.set(key, value);
-    }
+  if (params.q) {
+    query.set("q", params.q);
   }
-  for (const [key, value] of [
-    ["frequency", params.frequency],
-    ["duration_min", params.duration_min],
-    ["duration_max", params.duration_max]
-  ] as const) {
-    if (value && value > 0) {
-      query.set(key, String(value));
-    }
+  if (params.type) {
+    query.set("type", params.type);
+  }
+  if (params.trainingTypes?.length) {
+    query.set("training_type", commaList(params.trainingTypes));
+  }
+  if (params.levels?.length) {
+    query.set("level", commaList(params.levels));
+  }
+  if (params.frequencies?.length) {
+    query.set("frequency", commaList(params.frequencies));
+  }
+  if (params.durationRanges?.length) {
+    query.set(
+      "duration_ranges",
+      params.durationRanges.map(([min, max]) => `${min}-${max}`).join(",")
+    );
+  }
+  if (params.sort) {
+    query.set("sort", params.sort);
+  }
+  if (params.order) {
+    query.set("order", params.order);
   }
 
   const data = await apiGet<{
@@ -155,9 +170,11 @@ export const fetchMarketplacePrograms = async (
   };
 };
 
-// The marketplace is an infinite-scroll page with no numbered pagination, so
-// the full generic catalog is collected through bounded page fetches.
+// The service pages need every published programme to compute the category
+// price range, so they collect the full filtered catalog through bounded,
+// server-paginated requests.
 export const fetchAllMarketplacePrograms = async (
+  filters: MarketplaceFilters = {},
   pageSize = 100
 ): Promise<{ programs: MarketplaceProgram[]; total: number }> => {
   const collected: MarketplaceProgram[] = [];
@@ -165,7 +182,7 @@ export const fetchAllMarketplacePrograms = async (
   let total = 0;
 
   for (let guard = 0; guard < 100; guard += 1) {
-    const result = await fetchMarketplacePrograms({ page, limit: pageSize });
+    const result = await fetchMarketplacePrograms({ ...filters, page, limit: pageSize });
     collected.push(...result.programs);
     total = result.total;
     if (collected.length >= total || result.programs.length === 0) {
@@ -200,4 +217,34 @@ export const fetchPremiumLevel1Programs = async (
   }>(`/programs?${query.toString()}`);
 
   return { programs: data.programs, total: data.pagination.total };
+};
+
+// fetchAllPremiumLevel1Programs walks every page so the catalogue never hides
+// packages behind an arbitrary first-page limit.
+export const fetchAllPremiumLevel1Programs = async (
+  pageSize = 100
+): Promise<{ programs: MarketplaceProgram[]; total: number }> => {
+  const collected: MarketplaceProgram[] = [];
+  let page = 1;
+  let total = 0;
+
+  for (let guard = 0; guard < 100; guard += 1) {
+    const query = new URLSearchParams({
+      scope: PREMIUM_SCOPE,
+      page: String(page),
+      limit: String(pageSize)
+    });
+    const data = await apiGet<{
+      programs: MarketplaceProgram[];
+      pagination: { page: number; limit: number; total: number };
+    }>(`/programs?${query.toString()}`);
+    collected.push(...data.programs);
+    total = data.pagination.total;
+    if (collected.length >= total || data.programs.length === 0) {
+      break;
+    }
+    page += 1;
+  }
+
+  return { programs: collected, total };
 };

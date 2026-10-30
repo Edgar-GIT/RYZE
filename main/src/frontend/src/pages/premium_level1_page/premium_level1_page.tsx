@@ -10,7 +10,7 @@ import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { useProgramCheckout, type PurchaseState } from "@/hooks/use_program_checkout";
 import {
   fetchMarketplaceProgram,
-  fetchPremiumLevel1Programs,
+  fetchAllPremiumLevel1Programs,
   formatMarketplacePrice,
   type MarketplaceProgram,
   type MarketplaceProgramDetail
@@ -103,7 +103,7 @@ export const PremiumLevel1Page = () => {
     setErrorMessage("");
     setDetail(null);
     try {
-      const { programs } = await fetchPremiumLevel1Programs(100);
+      const { programs } = await fetchAllPremiumLevel1Programs();
       setProducts(programs);
       if (programs.length === 0) {
         setProduct(null);

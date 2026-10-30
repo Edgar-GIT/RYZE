@@ -123,6 +123,25 @@ type ExerciseMediaConfig struct {
 	BasePath string
 }
 
+// ContactConfig controls the public contact form delivery. The recipient is
+// always server-owned: the client never supplies or overrides it. SMTP is used
+// with STARTTLS; credentials are optional for a local relay but, when present,
+// TLS is required before authentication. An incomplete configuration fails at
+// startup instead of silently accepting messages that can never be delivered.
+type ContactConfig struct {
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUsername string
+	SMTPPassword string
+	From         string
+	Recipient    string
+}
+
+// Enabled reports whether contact delivery is fully configured.
+func (c ContactConfig) Enabled() bool {
+	return c.SMTPHost != "" && c.From != "" && c.Recipient != ""
+}
+
 // EvidenceConfig controls the private trainer-application evidence store.
 // StorageDir is the store root; it must never be under a web root because the
 // files are only reachable through the authenticated download endpoints.

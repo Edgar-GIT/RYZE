@@ -1,5 +1,5 @@
 import { Check, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
@@ -14,7 +14,8 @@ import {
   MARKETPLACE_ROWS
 } from "@/constants/marketplace";
 import {
-  fetchAllMarketplacePrograms,
+  fetchMarketplacePrograms,
+  type MarketplaceFilters,
   type MarketplaceProgram
 } from "@/services/marketplace_api";
 import { fetchEntitlements } from "@/services/purchases_api";
@@ -26,45 +27,28 @@ type SelectedFilters = Record<string, string[]>;
 
 const EMPTY_SELECTION: SelectedFilters = {};
 
-const byCreatedDesc = (a: MarketplaceProgram, b: MarketplaceProgram) =>
-  b.created_at.localeCompare(a.created_at);
-const byUpdatedDesc = (a: MarketplaceProgram, b: MarketplaceProgram) =>
-  b.updated_at.localeCompare(a.updated_at);
+// Each section shows a bounded page instead of loading the whole catalogue.
+// The backend applies the filters and ordering, so the client never has to
+// fetch every program to discover a match.
+const ROW_LIMIT = 12;
 
-const matchesFilters = (program: MarketplaceProgram, selected: SelectedFilters): boolean => {
-  const trainingTypes = selected["training-type"] ?? [];
-  if (trainingTypes.length > 0 && !trainingTypes.includes(program.training_type ?? "")) {
-    return false;
-  }
-
-  const frequencies = selected["frequency"] ?? [];
-  if (frequencies.length > 0) {
-    const matching = frequencies.some((option) => parseInt(option, 10) === program.frequency_per_week);
-    if (!matching) {
-      return false;
+const filtersFromSelection = (selected: SelectedFilters): MarketplaceFilters => {
+  const frequencies = (selected["frequency"] ?? [])
+    .map((option) => parseInt(option, 10))
+    .filter((value) => Number.isFinite(value));
+  const durationRanges: Array<[number, number]> = [];
+  for (const option of selected["duration"] ?? []) {
+    const range = DURATION_RANGES[option];
+    if (range) {
+      durationRanges.push(range);
     }
   }
-
-  const levels = selected["level"] ?? [];
-  if (levels.length > 0 && !levels.includes(program.level ?? "")) {
-    return false;
-  }
-
-  const durations = selected["duration"] ?? [];
-  if (durations.length > 0) {
-    if (program.duration_weeks === null) {
-      return false;
-    }
-    const matching = durations.some((option) => {
-      const range = DURATION_RANGES[option];
-      return range && program.duration_weeks !== null && program.duration_weeks >= range[0] && program.duration_weeks <= range[1];
-    });
-    if (!matching) {
-      return false;
-    }
-  }
-
-  return true;
+  return {
+    trainingTypes: selected["training-type"] ?? [],
+    levels: selected["level"] ?? [],
+    frequencies,
+    durationRanges
+  };
 };
 
 export const GenericPlanMarketplacePage = () => {
@@ -74,7 +58,7 @@ export const GenericPlanMarketplacePage = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => window.matchMedia("(max-width: 1100px)").matches
   );
-  const [programs, setPrograms] = useState<MarketplaceProgram[]>([]);
+  const [rows, setRows] = useState<Record<string, MarketplaceProgram[]>>({});
   const [totalPrograms, setTotalPrograms] = useState(0);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -99,21 +83,54 @@ export const GenericPlanMarketplacePage = () => {
     };
   }, []);
 
+  const filters = useMemo(() => filtersFromSelection(selected), [selected]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
     try {
-      const result = await fetchAllMarketplacePrograms();
-      setPrograms(result.programs);
-      setTotalPrograms(result.total);
+      const results = await Promise.all(
+        MARKETPLACE_ROWS.map(async (row) => {
+          const selectedTypes = filters.trainingTypes ?? [];
+          let trainingTypes = filters.trainingTypes;
+          if (row.trainingTypes) {
+            const intersection = selectedTypes.length
+              ? row.trainingTypes.filter((type) => selectedTypes.includes(type))
+              : row.trainingTypes;
+            if (intersection.length === 0) {
+              return { row, programs: [], total: null };
+            }
+            trainingTypes = intersection;
+          }
+
+          const result = await fetchMarketplacePrograms({
+            ...filters,
+            trainingTypes,
+            sort: row.source === "recent" ? "updated_at" : "created_at",
+            order: "desc",
+            page: 1,
+            limit: ROW_LIMIT
+          });
+          return { row, programs: result.programs, total: result.total };
+        })
+      );
+
+      const nextRows: Record<string, MarketplaceProgram[]> = {};
+      for (const result of results) {
+        nextRows[result.row.id] = result.programs;
+      }
+      setRows(nextRows);
+      // The first row has no training-type restriction, so its total is the
+      // number of programs matching every active filter.
+      setTotalPrograms(results[0]?.total ?? 0);
     } catch {
-      setPrograms([]);
+      setRows({});
       setTotalPrograms(0);
       setErrorMessage("Unable to load the training plan catalogue. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     void load();
@@ -124,26 +141,7 @@ export const GenericPlanMarketplacePage = () => {
     0
   );
 
-  const filtered = programs.filter((program) => matchesFilters(program, selected));
-  const resultCount = activeFilterCount > 0 ? filtered.length : totalPrograms;
-
-  const rowPrograms = (row: (typeof MARKETPLACE_ROWS)[number]): MarketplaceProgram[] => {
-    let candidates: MarketplaceProgram[];
-    if (row.source === "recent") {
-      candidates = [...filtered].sort(byUpdatedDesc);
-    } else if (row.source === "newest") {
-      candidates = [...filtered].sort(byCreatedDesc);
-    } else {
-      candidates = filtered;
-    }
-    const trainingTypes = row.trainingTypes;
-    if (trainingTypes) {
-      candidates = candidates.filter((program) =>
-        trainingTypes.includes(program.training_type ?? "")
-      );
-    }
-    return candidates;
-  };
+  const resultCount = totalPrograms;
 
   const toggleFilter = (groupId: string, option: string) => {
     setSelected((prev) => {
@@ -245,13 +243,17 @@ export const GenericPlanMarketplacePage = () => {
                 </div>
               ) : totalPrograms === 0 ? (
                 <div className={styles.pageState}>
-                  <p>No training plans have been published yet.</p>
+                  <p>
+                    {activeFilterCount > 0
+                      ? "No training plans match your filters."
+                      : "No training plans have been published yet."}
+                  </p>
                 </div>
               ) : (
                 <>
                   <div className={styles.rows}>
                     {MARKETPLACE_ROWS.map((row) => {
-                      const programsInRow = rowPrograms(row);
+                      const programsInRow = rows[row.id] ?? [];
                       if (programsInRow.length === 0) {
                         return null;
                       }
@@ -271,7 +273,9 @@ export const GenericPlanMarketplacePage = () => {
                   <div className={styles.endOfCatalog}>
                     <div className={styles.endDivider} />
                     <p className={styles.endText}>
-                      You have seen all {resultCount} training programs
+                      Showing up to {ROW_LIMIT} programs per section · {resultCount} program
+                      {resultCount !== 1 ? "s" : ""} match
+                      {activeFilterCount > 0 ? " your filters" : ""}
                     </p>
                   </div>
                 </>

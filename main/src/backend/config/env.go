@@ -37,6 +37,7 @@ const (
 	defaultExerciseMediaBasePath            = "/media/exercises"
 	defaultEvidenceStorageDir               = "storage/trainer-evidence"
 	defaultEvidenceMaxBytes                 = 10 << 20
+	defaultContactSMTPPort                  = "587"
 	maxEvidenceMaxBytes                     = 25 << 20
 )
 
@@ -290,6 +291,34 @@ func LoadTestMode() (TestModeConfig, error) {
 		return TestModeConfig{}, fmt.Errorf("TEST_MODE_ENABLED must be a boolean, got %q", raw)
 	}
 	return TestModeConfig{Enabled: enabled}, nil
+}
+
+// LoadContact reads the public contact form delivery configuration. Delivery
+// is disabled unless CONTACT_SMTP_HOST, CONTACT_FROM and CONTACT_RECIPIENT are
+// all present. A partial configuration, an invalid port, or a username without
+// a password fails at startup so a message is never accepted into a path that
+// cannot deliver it.
+func LoadContact() (ContactConfig, error) {
+	cfg := ContactConfig{
+		SMTPHost:     strings.TrimSpace(os.Getenv("CONTACT_SMTP_HOST")),
+		SMTPPort:     valueOr("CONTACT_SMTP_PORT", defaultContactSMTPPort),
+		SMTPUsername: strings.TrimSpace(os.Getenv("CONTACT_SMTP_USERNAME")),
+		SMTPPassword: os.Getenv("CONTACT_SMTP_PASSWORD"),
+		From:         strings.TrimSpace(os.Getenv("CONTACT_FROM")),
+		Recipient:    strings.TrimSpace(os.Getenv("CONTACT_RECIPIENT")),
+	}
+
+	if port, err := strconv.Atoi(cfg.SMTPPort); err != nil || port < 1 || port > 65535 {
+		return ContactConfig{}, fmt.Errorf("CONTACT_SMTP_PORT must be a valid port number, got %q", cfg.SMTPPort)
+	}
+	if (cfg.SMTPUsername == "") != (cfg.SMTPPassword == "") {
+		return ContactConfig{}, fmt.Errorf("CONTACT_SMTP_USERNAME and CONTACT_SMTP_PASSWORD must be set together")
+	}
+	configured := cfg.SMTPHost != "" || cfg.From != "" || cfg.Recipient != ""
+	if configured && !cfg.Enabled() {
+		return ContactConfig{}, fmt.Errorf("CONTACT_SMTP_HOST, CONTACT_FROM and CONTACT_RECIPIENT must be set together")
+	}
+	return cfg, nil
 }
 
 // LoadExerciseMedia reads the exercise-media exposure configuration from

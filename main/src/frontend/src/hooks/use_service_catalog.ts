@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   fetchAllMarketplacePrograms,
-  fetchPremiumLevel1Programs,
+  fetchAllPremiumLevel1Programs,
   type MarketplaceProgram
 } from "@/services/marketplace_api";
 
@@ -28,7 +28,7 @@ export const useServiceCatalog = (): ServiceCatalogState => {
       setStatus("loading");
       const [genericResult, premiumResult] = await Promise.allSettled([
         fetchAllMarketplacePrograms(),
-        fetchPremiumLevel1Programs(100)
+        fetchAllPremiumLevel1Programs()
       ]);
       if (cancelled) {
         return;

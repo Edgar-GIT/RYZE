@@ -416,6 +416,70 @@ func normalizePagination(page, limit int) (int, int, error) {
 	return page, limit, nil
 }
 
+// normalizeAllowedValues trims, deduplicates and whitelists one filter
+// dimension while preserving the caller's order.
+func normalizeAllowedValues(values []string, allowed map[string]bool) ([]string, error) {
+	if len(values) > MaxFilterValues {
+		return nil, fmt.Errorf("%w: too many filter values", ErrInvalidInput)
+	}
+	normalized := make([]string, 0, len(values))
+	seen := make(map[string]bool, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		if !allowed[value] {
+			return nil, fmt.Errorf("%w: unsupported filter value", ErrInvalidInput)
+		}
+		seen[value] = true
+		normalized = append(normalized, value)
+	}
+	return normalized, nil
+}
+
+// normalizeFrequencies validates the days-per-week dimension. The public
+// catalogue contract allows exactly 1 to 7 days per week.
+func normalizeFrequencies(values []int) ([]int, error) {
+	if len(values) > MaxFilterValues {
+		return nil, fmt.Errorf("%w: too many frequency values", ErrInvalidInput)
+	}
+	normalized := make([]int, 0, len(values))
+	seen := make(map[int]bool, len(values))
+	for _, value := range values {
+		if value < 1 || value > 7 {
+			return nil, fmt.Errorf("%w: frequency must be between 1 and 7", ErrInvalidInput)
+		}
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		normalized = append(normalized, value)
+	}
+	return normalized, nil
+}
+
+// normalizeDurationRanges validates inclusive duration ranges. Ranges are ORed
+// so the marketplace can express disjoint options.
+func normalizeDurationRanges(ranges []DurationRange) ([]DurationRange, error) {
+	if len(ranges) > MaxFilterValues {
+		return nil, fmt.Errorf("%w: too many duration ranges", ErrInvalidInput)
+	}
+	normalized := make([]DurationRange, 0, len(ranges))
+	seen := make(map[DurationRange]bool, len(ranges))
+	for _, durationRange := range ranges {
+		if durationRange.MinWeeks < 1 || durationRange.MaxWeeks < durationRange.MinWeeks {
+			return nil, fmt.Errorf("%w: duration range must be positive and ordered", ErrInvalidInput)
+		}
+		if seen[durationRange] {
+			continue
+		}
+		seen[durationRange] = true
+		normalized = append(normalized, durationRange)
+	}
+	return normalized, nil
+}
+
 // validateProgramID rejects empty and malformed identifiers before any database
 // access.
 func validateProgramID(id string) error {

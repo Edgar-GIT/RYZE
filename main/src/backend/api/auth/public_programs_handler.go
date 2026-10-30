@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -190,7 +191,7 @@ func (h *PublicProgramsHandler) ListPublishedPrograms(c *gin.Context) {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		return
 	}
-	frequency, err := queryInt(c, "frequency", 0)
+	frequencies, err := queryIntList(c, "frequency")
 	if err != nil {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		return
@@ -205,25 +206,35 @@ func (h *PublicProgramsHandler) ListPublishedPrograms(c *gin.Context) {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		return
 	}
+	durationRanges, err := queryDurationRanges(c, "duration_ranges")
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
 
 	scope := strings.TrimSpace(c.Query("scope"))
+	if scope != "" && scope != "generic" && scope != models.ProgramProductTypePremiumLevel1 {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
 	filter := public_programs.ProgramFilter{
 		Query:              strings.TrimSpace(c.Query("q")),
 		ProgramType:        strings.TrimSpace(c.Query("type")),
-		TrainingType:       strings.TrimSpace(c.Query("training_type")),
-		Level:              strings.TrimSpace(c.Query("level")),
-		FrequencyPerWeek:   frequency,
+		TrainingTypes:      queryCSV(c, "training_type"),
+		Levels:             queryCSV(c, "level"),
+		Frequencies:        frequencies,
 		DurationMin:        durationMin,
 		DurationMax:        durationMax,
+		DurationRanges:     durationRanges,
 		SortBy:             strings.TrimSpace(c.Query("sort")),
 		Order:              strings.TrimSpace(c.Query("order")),
 		ScopeGeneric:       scope == "generic",
 		ScopePremiumLevel1: scope == models.ProgramProductTypePremiumLevel1,
 	}
 
-	hasSearchParams := filter.Query != "" || filter.ProgramType != "" || filter.TrainingType != "" ||
-		filter.Level != "" || filter.FrequencyPerWeek > 0 || filter.DurationMin > 0 || filter.DurationMax > 0 ||
-		filter.SortBy != "" || filter.Order != "" || filter.ScopeGeneric || filter.ScopePremiumLevel1
+	hasSearchParams := filter.Query != "" || filter.ProgramType != "" || len(filter.TrainingTypes) > 0 ||
+		len(filter.Levels) > 0 || len(filter.Frequencies) > 0 || filter.DurationMin > 0 || filter.DurationMax > 0 ||
+		len(filter.DurationRanges) > 0 || filter.SortBy != "" || filter.Order != "" || filter.ScopeGeneric || filter.ScopePremiumLevel1
 
 	var result public_programs.ListProgramsResult
 	if hasSearchParams {
@@ -271,6 +282,60 @@ func (h *PublicProgramsHandler) GetPublishedProgram(c *gin.Context) {
 		"message": "Program retrieved successfully.",
 		"data":    newPublicProgramDetailResponse(program),
 	})
+}
+
+// queryCSV parses a comma-separated query parameter into trimmed, non-empty
+// values. Empty entries are ignored; validation of each value belongs to the
+// service.
+func queryCSV(c *gin.Context, key string) []string {
+	raw := c.Query(key)
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if value := strings.TrimSpace(part); value != "" {
+			values = append(values, value)
+		}
+	}
+	return values
+}
+
+// queryIntList parses a comma-separated integer query parameter.
+func queryIntList(c *gin.Context, key string) ([]int, error) {
+	values := queryCSV(c, key)
+	parsed := make([]int, 0, len(values))
+	for _, value := range values {
+		number, err := strconv.Atoi(value)
+		if err != nil {
+			return nil, err
+		}
+		parsed = append(parsed, number)
+	}
+	return parsed, nil
+}
+
+// queryDurationRanges parses "min-max,min-max" inclusive duration ranges.
+func queryDurationRanges(c *gin.Context, key string) ([]public_programs.DurationRange, error) {
+	values := queryCSV(c, key)
+	ranges := make([]public_programs.DurationRange, 0, len(values))
+	for _, value := range values {
+		parts := strings.Split(value, "-")
+		if len(parts) != 2 {
+			return nil, errors.New("invalid duration range")
+		}
+		minWeeks, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil {
+			return nil, err
+		}
+		maxWeeks, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+		if err != nil {
+			return nil, err
+		}
+		ranges = append(ranges, public_programs.DurationRange{MinWeeks: minWeeks, MaxWeeks: maxWeeks})
+	}
+	return ranges, nil
 }
 
 // respondPublicProgramsError maps public programs service errors to API
