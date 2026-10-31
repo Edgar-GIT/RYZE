@@ -2,21 +2,27 @@ package database
 
 import (
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
 	migrate_mysql "github.com/golang-migrate/migrate/v4/database/mysql"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 
 	"ryze/backend/config"
 )
 
-const migrationsSource = "file://database/migrations"
+// Migrations are embedded so deployment artefacts need only the binary. A
+// container image or systemd install that ships the binary without the source
+// tree can still apply the full schema reproducibly.
+//
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 // newMigrator creates a golang-migrate instance bound to the configured
-// database and the project migrations directory. The returned close function
-// must be called when the migrator is no longer needed.
+// database and the embedded migrations. The returned close function must be
+// called when the migrator is no longer needed.
 func newMigrator(cfg config.DatabaseConfig) (*migrate.Migrate, func(), error) {
 	sqlDB, err := sql.Open("mysql", DSN(cfg))
 	if err != nil {
@@ -31,8 +37,15 @@ func newMigrator(cfg config.DatabaseConfig) (*migrate.Migrate, func(), error) {
 		return nil, nil, fmt.Errorf("failed to create migration driver: %w", err)
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(migrationsSource, "mysql", driver)
+	source, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
+		close()
+		return nil, nil, fmt.Errorf("failed to create migration source: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", source, "mysql", driver)
+	if err != nil {
+		_ = source.Close()
 		close()
 		return nil, nil, fmt.Errorf("failed to create migrator: %w", err)
 	}

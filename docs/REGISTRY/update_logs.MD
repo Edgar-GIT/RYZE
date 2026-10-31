@@ -73,7 +73,7 @@ Validation:
 - `go test ./...` passed across every backend package.
 - `go test -race ./config/... ./middleware/... ./version/... ./services/token/... ./services/contact/... ./services/public_programs/...` passed; the CI job now runs the new database-independent contact and public-program tests.
 - `npm run typecheck` passed.
-- `npm test` passed: 18 files, 122 tests.
+- `npm test` passed: 18 files, 123 tests.
 - `npm run build` passed; Vite emitted only the existing native-config and
   large-chunk warnings.
 - `npm run test:e2e` passed: 7 tests (Services, Home, Premium catalogue,

@@ -57,7 +57,8 @@ export const ContactForm = () => {
           name: String(data.get("name") ?? ""),
           email: String(data.get("email") ?? ""),
           subject: String(data.get("subject") ?? ""),
-          message: String(data.get("message") ?? "")
+          message: String(data.get("message") ?? ""),
+          website: String(data.get("website") ?? "")
         },
         attachment instanceof File ? attachment : null
       );

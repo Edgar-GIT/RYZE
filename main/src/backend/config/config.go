@@ -124,10 +124,10 @@ type ExerciseMediaConfig struct {
 }
 
 // ContactConfig controls the public contact form delivery. The recipient is
-// always server-owned: the client never supplies or overrides it. SMTP is used
-// with STARTTLS; credentials are optional for a local relay but, when present,
-// TLS is required before authentication. An incomplete configuration fails at
-// startup instead of silently accepting messages that can never be delivered.
+// always server-owned: the client never supplies or overrides it. Every
+// delivery requires STARTTLS; credentials are optional but are sent only after
+// the TLS upgrade. An incomplete configuration fails at startup instead of
+// silently accepting messages that can never be delivered.
 type ContactConfig struct {
 	SMTPHost     string
 	SMTPPort     string

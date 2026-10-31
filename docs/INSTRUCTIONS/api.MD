@@ -2862,10 +2862,10 @@ Responses:
 
 Configuration is server-owned: `CONTACT_SMTP_HOST`, `CONTACT_SMTP_PORT`,
 `CONTACT_SMTP_USERNAME`, `CONTACT_SMTP_PASSWORD`, `CONTACT_FROM` and
-`CONTACT_RECIPIENT`. When credentials are configured, authentication happens
-only after a successful STARTTLS upgrade; a relay that does not advertise
-STARTTLS is refused. With no complete configuration the endpoint stays mounted
-and answers `503 CONTACT_UNAVAILABLE`.
+`CONTACT_RECIPIENT`. Every delivery requires a successful STARTTLS upgrade; a
+relay that does not advertise STARTTLS is refused. Credentials, when configured,
+are sent only after the TLS upgrade. With no complete configuration the endpoint
+stays mounted and answers `503 CONTACT_UNAVAILABLE`.
 
 ---
 

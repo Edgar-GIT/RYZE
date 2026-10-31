@@ -413,9 +413,10 @@ accepting messages that can never be delivered.
 
 - `CONTACT_SMTP_HOST` — SMTP relay hostname.
 - `CONTACT_SMTP_PORT` — SMTP port, default `587`.
+- Every delivery requires STARTTLS. A relay that does not advertise STARTTLS is
+  refused; no envelope data or message content is sent in plaintext.
 - `CONTACT_SMTP_USERNAME` / `CONTACT_SMTP_PASSWORD` — optional credentials; both
-  must be set together. When set, the relay must advertise STARTTLS and
-  authentication happens only after the TLS upgrade.
+  must be set together and are sent only after the TLS upgrade.
 - `CONTACT_FROM` — envelope/header sender, server-owned.
 - `CONTACT_RECIPIENT` — destination address, server-owned; the request can
   never override it.

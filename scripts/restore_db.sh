@@ -38,12 +38,9 @@ fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [[ -f "${ROOT_DIR}/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  . "${ROOT_DIR}/.env"
-  set +a
-fi
+# shellcheck source=env_loader.sh
+. "${ROOT_DIR}/scripts/env_loader.sh"
+load_project_env "${ROOT_DIR}" DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD
 
 : "${DB_HOST:=127.0.0.1}"
 : "${DB_PORT:=3306}"

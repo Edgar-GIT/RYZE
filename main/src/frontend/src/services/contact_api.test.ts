@@ -37,7 +37,23 @@ describe("submitContact", () => {
     expect(form.get("email")).toBe("ada@example.com");
     expect(form.get("subject")).toBe("Hello");
     expect(form.get("message")).toBe("A message");
+    expect(form.get("website")).toBe("");
     expect(form.get("attachment")).toBe(attachment);
+  });
+
+  it("forwards the honeypot value so the backend can reject a bot", async () => {
+    mockedUpload.mockResolvedValue({ status: "sent" });
+
+    await submitContact({
+      name: "Ada",
+      email: "ada@example.com",
+      subject: "Hello",
+      message: "A message",
+      website: "https://spam.example"
+    });
+
+    const form = mockedUpload.mock.calls[0][1] as FormData;
+    expect(form.get("website")).toBe("https://spam.example");
   });
 
   it("omits an empty attachment", async () => {

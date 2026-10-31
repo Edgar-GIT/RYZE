@@ -692,8 +692,8 @@ wildcard.
   memory, capped at 1 MiB, and its type is detected from content bytes; only
   PNG, JPEG, WebP and PDF are accepted. Nothing is persisted.
 - The recipient and sender come only from `ContactConfig`, never from the
-  request. A partial configuration fails startup. When credentials are present,
-  the notifier requires STARTTLS before authenticating.
+  request. A partial configuration fails startup. Every delivery requires
+  STARTTLS; credentials, when present, are sent only after the TLS upgrade.
 - The route raises the request body limit by 64 KiB of multipart overhead and
   has its own IP rate-limit scope (10 requests/hour), independent from the
   authentication scopes.

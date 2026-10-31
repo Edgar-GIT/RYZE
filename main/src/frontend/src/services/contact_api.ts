@@ -5,6 +5,7 @@ export interface ContactInput {
   email: string;
   subject: string;
   message: string;
+  website?: string;
 }
 
 export interface ContactAttachment {
@@ -32,6 +33,7 @@ export const submitContact = async (
   form.set("email", input.email);
   form.set("subject", input.subject);
   form.set("message", input.message);
+  form.set("website", input.website ?? "");
   if (attachment && attachment.size > 0) {
     form.set("attachment", attachment);
   }

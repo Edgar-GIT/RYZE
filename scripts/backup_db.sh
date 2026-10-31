@@ -22,12 +22,11 @@ umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [[ -f "${ROOT_DIR}/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  . "${ROOT_DIR}/.env"
-  set +a
-fi
+# shellcheck source=env_loader.sh
+. "${ROOT_DIR}/scripts/env_loader.sh"
+load_project_env "${ROOT_DIR}" \
+  DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
+  BACKUP_DIR BACKUP_GPG_RECIPIENT BACKUP_RETENTION_DAYS
 
 : "${DB_HOST:=127.0.0.1}"
 : "${DB_PORT:=3306}"
@@ -45,7 +44,13 @@ if [[ -z "${dump_bin}" ]]; then
   exit 1
 fi
 
+if [[ -n "${GPG_RECIPIENT}" ]] && ! command -v gpg >/dev/null 2>&1; then
+  echo "error: BACKUP_GPG_RECIPIENT is set but gpg is not installed" >&2
+  exit 1
+fi
+
 mkdir -p "${BACKUP_DIR}"
+chmod 700 "${BACKUP_DIR}"
 
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 target="${BACKUP_DIR}/${DB_NAME}-${timestamp}.sql.gz"
@@ -68,11 +73,11 @@ export MYSQL_PWD="${DB_PASSWORD}"
 unset MYSQL_PWD
 
 if [[ -n "${GPG_RECIPIENT}" ]]; then
-  if ! command -v gpg >/dev/null 2>&1; then
-    echo "error: BACKUP_GPG_RECIPIENT is set but gpg is not installed" >&2
+  if ! gpg --yes --encrypt --recipient "${GPG_RECIPIENT}" "${target}"; then
+    rm -f "${target}" "${target}.gpg"
+    echo "error: backup encryption failed; no local artefact was kept" >&2
     exit 1
   fi
-  gpg --yes --encrypt --recipient "${GPG_RECIPIENT}" "${target}"
   rm -f "${target}"
   target="${target}.gpg"
 else
@@ -86,4 +91,4 @@ if [[ "${RETENTION_DAYS}" -gt 0 ]]; then
 fi
 
 echo "backup written: ${target}"
-echo "reminder: copy this file off-host and encrypt it if BACKUP_GPG_RECIPIENT is unset."
+echo "reminder: copy this file off-host and store it securely."

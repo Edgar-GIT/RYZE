@@ -30,8 +30,9 @@ func NewSMTPNotifier(cfg config.ContactConfig) *SMTPNotifier {
 	return &SMTPNotifier{config: cfg}
 }
 
-// Send opens one SMTP connection per message, upgrades to STARTTLS when
-// advertised, and refuses to send credentials over an unencrypted connection.
+// Send opens one SMTP connection per message and requires STARTTLS before any
+// message content, credentials or envelope data is sent. A relay that does not
+// advertise STARTTLS is refused rather than downgraded to plaintext.
 func (n *SMTPNotifier) Send(ctx context.Context, message Message) error {
 	if !n.config.Enabled() {
 		return ErrUnavailable
@@ -75,12 +76,11 @@ func (n *SMTPNotifier) Send(ctx context.Context, message Message) error {
 		return fmt.Errorf("smtp hello: %w", err)
 	}
 
-	if ok, _ := client.Extension("STARTTLS"); ok {
-		if err := client.StartTLS(&tls.Config{ServerName: n.config.SMTPHost, MinVersion: tls.VersionTLS12}); err != nil {
-			return fmt.Errorf("smtp starttls: %w", err)
-		}
-	} else if n.config.SMTPUsername != "" {
+	if ok, _ := client.Extension("STARTTLS"); !ok {
 		return fmt.Errorf("smtp server does not offer starttls")
+	}
+	if err := client.StartTLS(&tls.Config{ServerName: n.config.SMTPHost, MinVersion: tls.VersionTLS12}); err != nil {
+		return fmt.Errorf("smtp starttls: %w", err)
 	}
 
 	if n.config.SMTPUsername != "" {

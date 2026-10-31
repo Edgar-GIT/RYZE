@@ -2146,8 +2146,8 @@ untrusted input:
   written to disk, the database or logs.
 - The recipient and sender are server-owned (`CONTACT_RECIPIENT`,
   `CONTACT_FROM`); the request cannot override them. The message is delivered
-  through SMTP. When credentials are configured, authentication happens only
-  after STARTTLS, and a relay without STARTTLS is refused.
+  through SMTP with STARTTLS required for every delivery; a relay without
+  STARTTLS is refused, and credentials are sent only after the TLS upgrade.
 - No complete SMTP configuration means the endpoint answers
   `503 CONTACT_UNAVAILABLE`; it never reports a message as sent.
 - Contact submissions are rate limited to 10 requests/hour per client IP.
