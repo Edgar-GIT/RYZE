@@ -995,16 +995,22 @@ docker build --build-arg VERSION=2.99.0 -t ryze-api ./main/src/backend
 `scripts/backup_db.sh` writes a consistent, compressed snapshot to `backups/`
 (override with `BACKUP_DIR`) using the connection settings from `.env`. It
 supports optional GPG encryption via `BACKUP_GPG_RECIPIENT` and local retention
-via `BACKUP_RETENTION_DAYS`.
+via `BACKUP_RETENTION_DAYS`. Explicitly exported connection or GPG variables
+take precedence over `.env`, so a recovery run can target a disposable database
+without editing the project file. The backup directory is `0700` and dump files
+are `0600`; an encryption failure removes the plaintext and partial ciphertext
+instead of leaving an unprotected artefact.
 
 Because the compose database is not published to the host, dump it through the
-container instead:
+container instead. The container already holds its MariaDB credentials:
 
 ```bash
-docker compose exec -T db mariadb-dump \
-  --user="${DB_USER}" --password="${DB_PASSWORD}" \
-  --single-transaction --routines --triggers --events "${DB_NAME}" \
-  | gzip -9 > "backups/${DB_NAME}-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+mkdir -p backups
+docker compose exec -T db sh -c '
+  MYSQL_PWD="$MARIADB_PASSWORD" exec mariadb-dump \
+    --user="$MARIADB_USER" \
+    --single-transaction --routines --triggers --events "$MARIADB_DATABASE"
+' | gzip -9 > "backups/ryze-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
 ```
 
 Restore (destructive, refuses to run without `--yes`):
@@ -1013,9 +1019,17 @@ Restore (destructive, refuses to run without `--yes`):
 scripts/restore_db.sh backups/ryze-20260101T000000Z.sql.gz --yes
 ```
 
+For the compose database, restore through the container only after stopping the
+backend, because the target database is not reachable from the host. The script
+path above applies to a published/disposable database; the restore must still
+be tested against a throwaway target before any production use.
+
 `security.MD` requires backups to be encrypted before storage, kept off the
-production host, and validated by periodic restoration tests. Validate a backup
-by restoring it into a throwaway database first.
+production host, and validated by periodic restoration tests. A v2.99.0 drill
+restored both a plain and a GPG-encrypted snapshot into disposable databases:
+all 33 tables, migration version 32, and every table row count matched the
+source. That drill is local evidence, not a substitute for encrypted off-host
+storage.
 
 ---
 
