@@ -933,8 +933,11 @@ first-party).
    cp .env.example .env
    ```
 
-   Set `COOKIE_SECURE=false` for a local HTTP stack; production behind HTTPS must
-   keep it `true`.
+   Set `COOKIE_SECURE=false` only for a local HTTP stack; production behind
+   HTTPS must keep it `true`. Leave `EXERCISE_MEDIA_ENABLED=false` until the
+   Gym visual licence is confirmed. `RYZE_DOCKER_SUBNET` defines the compose
+   network; the backend trusts exactly that range so rate limiting sees real
+   client addresses through nginx.
 
 2. Build and start:
 
@@ -942,31 +945,49 @@ first-party).
    docker compose up -d --build
    ```
 
-3. Apply migrations against the compose database (migrations never run on boot):
+3. Apply migrations against the compose database. Migration files are embedded
+   in the API binary; they never run on boot:
 
    ```bash
    docker compose run --rm backend migrate up
    ```
 
-The API listens on `http://localhost:8080` and the client on `http://localhost`.
+Only the client is published, on `http://localhost`. The API is not reachable
+directly from the host; it is served at the same origin under `/api/v1`.
 `VITE_API_BASE_URL` is a build-time value (default `/api/v1`); changing it
 requires rebuilding the `frontend` image.
+
+The compose backend uses a 30s stop grace period so Docker does not kill the
+process before its 20s in-flight drain finishes. Trainer evidence is stored in
+the `backend_data` volume at `/var/lib/ryze/trainer-evidence`; deleting or
+replacing the backend container does not delete it.
+
+Terminate TLS in an HTTPS proxy in front of the `frontend` service. The bundled
+`main/src/frontend/nginx.conf` emits HSTS, CSP, `X-Content-Type-Options`,
+`X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`, disables the
+server token, and allows a 26 MiB request body so the maximum 25 MiB evidence
+document plus multipart overhead fits. Do not expose the backend port or serve
+the API over plaintext in production.
 
 For a non-containerised host, `deploy/ryze-backend.service` is a hardened
 systemd unit template. Install the binary at `/opt/ryze/ryze-api`, the
 environment file at `/etc/ryze/ryze.env` and create the `ryze` user. The unit
-sends `SIGTERM` and allows 30s for in-flight requests to drain
-(`SERVER_SHUTDOWN_TIMEOUT` defaults to 20s).
+creates `/var/lib/ryze` through `StateDirectory`, sets
+`TRAINER_EVIDENCE_DIR=/var/lib/ryze/trainer-evidence`, sends `SIGTERM` and
+allows 30s for in-flight requests to drain (`SERVER_SHUTDOWN_TIMEOUT` defaults
+to 20s). Migrations are embedded in the binary, so no source tree is needed at
+runtime.
 
 ### Health and version
 
 Monitor `GET /api/v1/health`: `200` with `{"status":"ok"}` when the database is
-reachable, `503 SERVICE_UNAVAILABLE` otherwise. `GET /api/v1/version` reports the
-version the image was built with; inject it at build time so it matches the
-release notes:
+reachable, `503 SERVICE_UNAVAILABLE` otherwise. With the compose stack, use the
+same-origin client URL (`http://localhost/api/v1/health`); the backend port is
+not published. `GET /api/v1/version` reports the version the image was built
+with; inject it at build time so it matches the release notes:
 
 ```bash
-docker build --build-arg VERSION=2.89.0 -t ryze-api ./main/src/backend
+docker build --build-arg VERSION=2.99.0 -t ryze-api ./main/src/backend
 ```
 
 ### Backups
