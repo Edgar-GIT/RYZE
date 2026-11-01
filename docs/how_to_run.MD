@@ -892,8 +892,10 @@ Check the current migration status:
 go run . migrate version
 ```
 
-The migration commands must be executed from the `main/src/backend`
-directory.
+`go run .` must be executed from the `main/src/backend` directory. The released
+API binary embeds the migration files, so `ryze-api migrate up` (and
+`migrate version`) can run from any working directory, including the distroless
+container. No source tree or `migrations/` directory is required at runtime.
 
 ## Importing the Exercise Dataset
 
