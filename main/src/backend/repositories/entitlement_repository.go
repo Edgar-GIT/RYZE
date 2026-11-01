@@ -64,7 +64,7 @@ func (r *entitlementRepository) Create(ctx context.Context, userID, programID st
 func (r *entitlementRepository) ListByUser(ctx context.Context, userID string) ([]models.Entitlement, error) {
 	var entitlements []models.Entitlement
 	if err := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
+		Where("user_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID).
 		Preload("Program").
 		Order("created_at ASC, id ASC").
 		Find(&entitlements).Error; err != nil {
@@ -79,7 +79,7 @@ func (r *entitlementRepository) ListByUser(ctx context.Context, userID string) (
 func (r *entitlementRepository) FindByIDAndUser(ctx context.Context, userID, entitlementID string) (*models.Entitlement, error) {
 	var entitlement models.Entitlement
 	if err := r.db.WithContext(ctx).
-		Where("id = ? AND user_id = ?", entitlementID, userID).
+		Where("id = ? AND user_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", entitlementID, userID).
 		Preload("Program").
 		First(&entitlement).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -95,7 +95,7 @@ func (r *entitlementRepository) FindByIDAndUser(ctx context.Context, userID, ent
 func (r *entitlementRepository) FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Entitlement, error) {
 	var entitlement models.Entitlement
 	if err := r.db.WithContext(ctx).
-		Where("user_id = ? AND program_id = ?", userID, programID).
+		Where("user_id = ? AND program_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID, programID).
 		First(&entitlement).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrEntitlementNotFound
@@ -105,18 +105,20 @@ func (r *entitlementRepository) FindActiveByUserAndProgram(ctx context.Context, 
 	return &entitlement, nil
 }
 
-// RestoreByUserAndProgram clears deleted_at on a soft-deleted entitlement for
-// the given (user, program) pair, effectively reactivating it. If no
-// soft-deleted entitlement exists, ErrEntitlementNotFound is returned. If an
-// active entitlement already exists, ErrEntitlementAlreadyExists is returned.
-// This method is intended for the purchase completion flow where a previously
-// revoked entitlement may need to be restored when the user repurchases.
+// RestoreByUserAndProgram reclaims a soft-deleted or expired entitlement for
+// the given (user, program) pair, effectively reactivating it. If none exists,
+// ErrEntitlementNotFound is returned. The generated one-active constraint keeps
+// at most one live row, so the restore path must be used instead of inserting a
+// second entitlement.
 func (r *entitlementRepository) RestoreByUserAndProgram(ctx context.Context, userID, programID string) error {
 	result := r.db.WithContext(ctx).
 		Unscoped().
-		Where("user_id = ? AND program_id = ? AND deleted_at IS NOT NULL", userID, programID).
+		Where("user_id = ? AND program_id = ? AND (deleted_at IS NOT NULL OR expires_at <= UTC_TIMESTAMP(6))", userID, programID).
 		Model(&models.Entitlement{}).
-		Update("deleted_at", nil)
+		Updates(map[string]any{
+			"deleted_at": nil,
+			"expires_at": nil,
+		})
 	if result.Error != nil {
 		return fmt.Errorf("failed to restore entitlement: %w", result.Error)
 	}

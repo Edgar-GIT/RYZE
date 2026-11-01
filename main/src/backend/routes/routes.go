@@ -30,6 +30,7 @@ import (
 	"ryze/backend/services/delete_account"
 	"ryze/backend/services/entitlements"
 	"ryze/backend/services/exercises"
+	"ryze/backend/services/free_programs"
 	"ryze/backend/services/generic_programs"
 	"ryze/backend/services/login"
 	"ryze/backend/services/nutrition_assignment"
@@ -52,6 +53,7 @@ import (
 	"ryze/backend/services/trainer_profile"
 	"ryze/backend/services/workout_exercises"
 	"ryze/backend/services/workout_history"
+	"ryze/backend/services/workout_sessions"
 )
 
 // evidenceUploadPath is the exact route allowed to exceed the global body
@@ -189,8 +191,22 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	contactService := contact.NewService(contact.NewSMTPNotifier(contactCfg))
 	contactHandler := auth.NewContactHandler(contactService)
 
-	programAccessService := program_access.NewService(entitlementRepository, publicProgramService)
+	freeActivationRepository := repositories.NewFreeProgramActivationRepository(db)
+	freeProgramService := free_programs.NewService(trainerProgramRepository, freeActivationRepository)
+	freeProgramHandler := auth.NewFreeProgramsHandler(freeProgramService)
+
+	programAccessService := program_access.NewService(
+		entitlementRepository,
+		programAssignmentRepository,
+		freeActivationRepository,
+		trainerProgramRepository,
+		mediaCfg,
+	)
 	programAccessHandler := auth.NewProgramAccessHandler(programAccessService)
+
+	workoutSessionRepository := repositories.NewWorkoutSessionRepository(db)
+	workoutSessionService := workout_sessions.NewService(programAccessService, workoutSessionRepository)
+	workoutSessionHandler := auth.NewWorkoutSessionsHandler(workoutSessionService)
 
 	adminProgramPricingService := admin_program_pricing.NewService(trainerProgramService)
 	adminProgramPricingHandler := auth.NewAdminProgramPricingHandler(adminProgramPricingService)
@@ -312,6 +328,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
 	v1.GET("/me/entitlements", middleware.Authenticate(tokenService, userRepository), entitlementHandler.ListEntitlements)
 	v1.GET("/me/programs/:programID", middleware.Authenticate(tokenService, userRepository), programAccessHandler.GetProgramAccess)
+	v1.POST("/me/programs/:programID/free-activation", middleware.Authenticate(tokenService, userRepository), freeProgramHandler.Activate)
+	v1.GET("/me/free-programs", middleware.Authenticate(tokenService, userRepository), freeProgramHandler.ListActive)
 	v1.GET("/me/questionnaire/questions", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.GetQuestions)
 	v1.GET("/me/programs/:programID/questionnaire", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.GetRequirement)
 	v1.POST("/me/programs/:programID/questionnaire", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.Submit)
@@ -321,6 +339,15 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/me/programs/:programID/purchase", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CreatePurchase)
 	v1.POST("/me/purchases/:purchaseID/payment", middleware.Authenticate(tokenService, userRepository), purchaseHandler.InitiatePayment)
 	v1.POST("/me/purchases/:purchaseID/capture", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CapturePayment)
+	v1.POST("/me/programs/:programID/workouts/:workoutID/sessions", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Start)
+	v1.GET("/me/workout-sessions/active", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Active)
+	v1.GET("/me/workout-sessions", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.History)
+	v1.GET("/me/workout-sessions/:sessionID", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Get)
+	v1.PATCH("/me/workout-sessions/:sessionID/sets/:setID", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.UpdateSet)
+	v1.POST("/me/workout-sessions/:sessionID/pause", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Pause)
+	v1.POST("/me/workout-sessions/:sessionID/resume", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Resume)
+	v1.POST("/me/workout-sessions/:sessionID/complete", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Complete)
+	v1.POST("/me/workout-sessions/:sessionID/abandon", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Abandon)
 	v1.POST("/me/workouts/:workoutID/complete", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.CompleteWorkout)
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)

@@ -9,6 +9,7 @@ import (
 
 	"ryze/backend/middleware/authcontext"
 	"ryze/backend/services/client_programs"
+	"ryze/backend/services/program_content"
 )
 
 // clientProgramResponse only exposes safe assigned-program information: the
@@ -61,7 +62,7 @@ type clientWorkoutExerciseResponse struct {
 	UpdatedAt    time.Time              `json:"updated_at"`
 }
 
-func newClientProgramResponse(program *client_programs.Program) clientProgramResponse {
+func newClientProgramResponse(program *program_content.Program) clientProgramResponse {
 	response := clientProgramResponse{
 		ID:              program.ID,
 		Name:            program.Name,
@@ -80,7 +81,7 @@ func newClientProgramResponse(program *client_programs.Program) clientProgramRes
 	return response
 }
 
-func newClientWeekResponse(week *client_programs.Week) clientWeekResponse {
+func newClientWeekResponse(week *program_content.Week) clientWeekResponse {
 	response := clientWeekResponse{
 		ID:         week.ID,
 		WeekNumber: week.WeekNumber,
@@ -94,7 +95,7 @@ func newClientWeekResponse(week *client_programs.Week) clientWeekResponse {
 	return response
 }
 
-func newClientWorkoutResponse(workout *client_programs.Workout) clientWorkoutResponse {
+func newClientWorkoutResponse(workout *program_content.Workout) clientWorkoutResponse {
 	response := clientWorkoutResponse{
 		ID:        workout.ID,
 		Position:  workout.Position,
@@ -108,7 +109,7 @@ func newClientWorkoutResponse(workout *client_programs.Workout) clientWorkoutRes
 	return response
 }
 
-func newClientWorkoutExerciseResponse(workoutExercise *client_programs.WorkoutExercise) clientWorkoutExerciseResponse {
+func newClientWorkoutExerciseResponse(workoutExercise *program_content.WorkoutExercise) clientWorkoutExerciseResponse {
 	sets := make([]workoutSetResponse, 0, len(workoutExercise.Sets))
 	for i := range workoutExercise.Sets {
 		set := &workoutExercise.Sets[i]

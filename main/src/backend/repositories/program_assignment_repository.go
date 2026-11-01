@@ -34,6 +34,7 @@ type ProgramAssignmentRepository interface {
 	ListByClient(ctx context.Context, trainerID, userID string) ([]models.ProgramAssignment, error)
 	FindByIDAndClient(ctx context.Context, trainerID, userID, assignmentID string) (*models.ProgramAssignment, error)
 	FindAssignedProgram(ctx context.Context, userID string) (*models.Program, error)
+	ExistsByUserAndProgram(ctx context.Context, userID, programID string) (bool, error)
 	SoftDelete(ctx context.Context, trainerID, userID, assignmentID string) error
 }
 
@@ -177,6 +178,21 @@ func (r *programAssignmentRepository) FindAssignedProgram(ctx context.Context, u
 		return nil, ErrProgramNotFound
 	}
 	return &assignment.Program, nil
+}
+
+// ExistsByUserAndProgram reports whether the user holds an active assignment
+// for the program. It is a boolean read: the access gate does not need the
+// assignment row or its trainer ownership. Soft-deleted assignments are
+// excluded through GORM's default scope.
+func (r *programAssignmentRepository) ExistsByUserAndProgram(ctx context.Context, userID, programID string) (bool, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).
+		Model(&models.ProgramAssignment{}).
+		Where("user_id = ? AND program_id = ?", userID, programID).
+		Count(&count).Error; err != nil {
+		return false, fmt.Errorf("failed to check program assignment: %w", err)
+	}
+	return count > 0, nil
 }
 
 // SoftDelete soft-deletes one of the trainer's own client assignments. Only the

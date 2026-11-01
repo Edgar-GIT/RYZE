@@ -14,9 +14,13 @@ import (
 // entitlement per (user, program) pair. Soft-deleted entitlements are excluded
 // from regular queries through GORM's DeletedAt handling.
 type Entitlement struct {
-	ID        string         `gorm:"type:char(36);primaryKey" json:"id"`
-	UserID    string         `gorm:"column:user_id;type:varchar(36);not null" json:"user_id"`
-	ProgramID string         `gorm:"column:program_id;type:varchar(36);not null" json:"program_id"`
+	ID        string `gorm:"type:char(36);primaryKey" json:"id"`
+	UserID    string `gorm:"column:user_id;type:varchar(36);not null" json:"user_id"`
+	ProgramID string `gorm:"column:program_id;type:varchar(36);not null" json:"program_id"`
+	// ExpiresAt is the optional end of the purchased access window. A nil value
+	// keeps the entitlement valid indefinitely, preserving the original
+	// purchase behaviour for every product that does not define an expiry.
+	ExpiresAt *time.Time     `gorm:"column:expires_at;type:datetime(6)" json:"expires_at"`
 	User      User           `gorm:"foreignKey:UserID;references:ID" json:"-"`
 	Program   Program        `gorm:"foreignKey:ProgramID;references:ID" json:"-"`
 	CreatedAt time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
