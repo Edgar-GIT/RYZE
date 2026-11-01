@@ -68,9 +68,10 @@ fail-closed ownership checks, plus the importer reporting improvements. v2.97.0
 completed the trainer prescription editor, API-driven Home/Services content, the
 complete Premium Level 1 catalogue and browser-level coverage for catalogue
 browsing and trainer prescription editing. v2.98.0 completed marketplace
-server-side filtering/sorting/pagination and the contact submission backend;
-contact delivery still requires a real SMTP configuration before a live send can
-be verified.
+server-side filtering/sorting/pagination and the contact submission backend.
+v2.99.0 makes STARTTLS mandatory for every contact delivery and verifies the
+success and failure paths against controlled local SMTP sinks; a real relay
+configuration is still required before a live send can be verified.
 
 ## Phase C — Commerce and Operations
 
@@ -93,6 +94,12 @@ Acceptance criteria:
 - A restore drill recovers the development data into a disposable environment.
 - Failed background work is visible to operators without exposing client data.
 - No production secret is read from the repository or printed in logs.
+
+Status: v2.99.0 completed a local plain and GPG-encrypted restore drill (all 33
+tables, version 32 and row counts matched) and hardened the production proxy,
+headers, CSP, shutdown drain, migration packaging and evidence storage. Encrypted
+off-host storage, live provider settlement, observability, self-service password
+recovery and credential rotation remain open.
 
 ## Phase D — Private Beta
 

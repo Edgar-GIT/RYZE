@@ -1,7 +1,7 @@
 # RYZE Product Completeness Audit
 
-Version: v2.98.0
-Date: 2026-10-30
+Version: v2.99.0
+Date: 2026-11-01
 Status: living document — update whenever a backlog item is closed.
 
 This document records the product-completeness audit of the RYZE platform
@@ -23,11 +23,12 @@ Statuses are conservative:
 - **Blocked** — implementation is blocked on an external condition (licence,
   credential, third party).
 
-No live payment provider or production deployment is available in this
-environment. Deterministic browser E2E coverage now exists for the public
-catalogue and trainer prescription editing, but a production-like live browser
-run is still unavailable, so anything that depends on it is not marked
-Complete/Verified here.
+No live payment provider, public SMTP relay or container runtime is available in
+this environment. Deterministic browser E2E coverage exists for the public
+catalogue, contact outcomes and trainer prescription editing. v2.99.0 also
+served the production bundle with the documented CSP and exercised public routes
+and a contact submission. The Docker image was not built and nginx did not load
+its configuration locally, so deployment-only paths remain marked unverified.
 
 ## Matrix
 
@@ -36,13 +37,13 @@ Complete/Verified here.
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
 | Backend API (Go/Gin/GORM/MariaDB) | Complete/Verified | `go test ./...` green (40 packages) |
-| Database migrations | Complete/Verified | schema version 28, `dirty=false` |
+| Database migrations | Complete/Verified | schema version 32, `dirty=false`; migrations embedded in the release binary |
 | Frontend SPA (React 19/Vite/TS/CSS Modules) | Complete/Verified | `tsc --noEmit` clean, vitest green |
-| CI (race detector + frontend tests + Playwright) | Implemented (hosted run unverified) | `.github/workflows/ci.yml`; E2E job added in v2.98.0 |
-| Docker compose stack | Implemented (unverified) | no production deployment in this environment |
-| systemd unit (`deploy/ryze-backend.service`) | Implemented (unverified) | deployment-only path |
-| Database backup script | Implemented (unverified) | `umask 077` hardening; no live restore drill |
-| Security baseline (v2.93.0) | Complete/Verified (unit level) | CSRF OriginGuard, JWT claims/TTL cap, rate-limiter body bound, parameterized SQL logs; residual: git-history rotation is an operator action, no browser-level E2E |
+| CI (race detector + frontend tests + Playwright) | Implemented (hosted run unverified) | `.github/workflows/ci.yml`; local CI-equivalent checks passed in v2.99.0 |
+| Docker compose stack | Implemented (unverified) | `docker compose config` parsed in v2.99.0; image/build/runtime blocked by unavailable daemon |
+| systemd unit (`deploy/ryze-backend.service`) | Implemented (unverified) | `systemd-analyze verify` accepted the unit apart from the absent deployed binary |
+| Database backup script | Complete/Verified (local drill) | plain and GPG restores matched 33 tables, version 32 and row counts; off-host storage still operator-owned |
+| Security baseline (v2.93.0) | Complete/Verified (unit level) | CSRF OriginGuard, JWT claims/TTL cap, rate-limiter body bound, parameterized SQL logs; v2.99.0 adds mandatory SMTP STARTTLS and a CSP browser sweep; git-history rotation remains an operator action |
 
 ### Authentication and accounts
 
@@ -64,7 +65,7 @@ Complete/Verified here.
 | Programs overview section | Complete/Verified | API-backed published programs; no hardcoded BUILD MUSCLE / LOSE FAT / TRAIN FREE; browser E2E |
 | Our Vision | Complete/Verified | static content page |
 | Feedback | Complete/Verified | form + ADMIN_2 feedback page |
-| Contact | Implemented, delivery unverified | Multipart API, SMTP delivery, validation, rate limit and browser states; positive delivery needs configured SMTP |
+| Contact | Implemented, real relay unverified | Multipart API, mandatory STARTTLS, validation, rate limit and browser states; positive and failure paths verified against controlled local SMTP sinks |
 | Generic marketplace | Complete/Verified (mocked) | server-side filters, sort and pagination; deterministic rows; browser E2E with mocked API; live positive path unverified because the DB has no published programs |
 | Generic program detail + checkout | Complete/Verified | API-driven detail, `useProgramCheckout`, entitlement states |
 | Premium Level 1 page | Complete/Verified | complete returned catalogue, query-based selection, questionnaire/checkout/delivery unchanged; mocked browser E2E; live purchase still unverified |
@@ -86,7 +87,7 @@ Complete/Verified here.
 | Programs: generic admin CRUD | Complete/Verified | generic_programs service + handler tests |
 | Programs: trainer CRUD + structure (weeks/workouts/sets) | Complete/Verified | program_structure/workout_exercises services + tests |
 | Entitlements and purchase gating | Complete/Verified | entitlement repository + e2e tests |
-| Payments (Stripe/PayPal providers) | Implemented (unverified) | providers implemented; no live credentials exercised |
+| Payments (Stripe/PayPal providers) | Implemented (unverified) | providers implemented; no live credentials exercised. v2.99.0 verified the provider-absent state fails closed (no method advertised, pending purchase, generic 502, no entitlement) |
 | Commission rules / pricing admin | Complete/Verified | admin_program_pricing + commission_rules tests |
 
 ### Trainer experience
@@ -161,6 +162,8 @@ Complete/Verified here.
     account.
 14. Browser-level E2E coverage for the highest-value streams.
 15. Live backup/restore drill; production deployment verification.
+    **Local plain and encrypted restore drill closed in v2.99.0; container
+    build/runtime and production deployment still unverified.**
 
 ## Deployment blockers
 
@@ -173,3 +176,7 @@ Complete/Verified here.
 - **Git history rotation (operator):** credentials that ever reached the
   repository history remain compromised until rotated by the operator
   (carried over from v2.93.0).
+- **Container runtime (environment):** the Docker daemon is not accessible and
+  nginx is not installed locally, so the image, compose stack and nginx config
+  were not executed in v2.99.0. `docker compose config` and the CSP policy were
+  validated separately.

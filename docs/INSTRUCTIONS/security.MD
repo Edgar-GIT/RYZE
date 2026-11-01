@@ -1856,6 +1856,16 @@ Recommended headers include:
 
 Header configuration should evolve according to browser standards.
 
+Implemented in v2.99.0: the production nginx configuration
+(`main/src/frontend/nginx.conf`) emits HSTS, `X-Content-Type-Options`,
+`X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, a restrictive
+CSP and `server_tokens off`, and limits request bodies to 26 MiB so the largest
+permitted evidence document fits with multipart overhead. The headers are
+applied to API responses and static files. A browser sweep of the production
+bundle found no `securitypolicyviolation` on Home, Services, Generic
+Marketplace, Premium Level 1, Exercise Library or Contact, including a real
+contact submission through the same-origin proxy.
+
 ---
 
 # CONTENT SECURITY POLICY (CSP)
@@ -1871,6 +1881,13 @@ unsafe-eval
 Scripts should originate only from trusted sources.
 
 Future third-party integrations should be explicitly allowlisted.
+
+Implemented in v2.99.0: `default-src`, `script-src`, `connect-src`, `frame-ancestors`
+and `object-src` are restricted to the same origin or `'none'`. `style-src`
+retains `'unsafe-inline'` because the React client uses style attributes for
+dynamic CSS variables and progress widths; there is no `unsafe-eval`, no inline
+script and no third-party script origin. Moving inline styles to classes or a
+nonce-based policy remains a future hardening step.
 
 ---
 
@@ -2113,11 +2130,12 @@ follows the rules above strictly:
 - `TRAINER_EVIDENCE_MAX_BYTES` bounds one document (default 10 MiB, rejected at
   startup above the 25 MiB ceiling) and a dedicated body limit guards the
   upload route. Oversized files answer `413 DOCUMENT_TOO_LARGE`.
-- Files are written to `TRAINER_EVIDENCE_DIR` (default `storage/trainer-evidence`),
-  a private directory outside every web root, with `0700` directories and
-  `0600` files. Names are opaque server-generated keys, never user filenames;
-  the temp file is written and atomically renamed, so a partial upload never
-  becomes a readable document.
+- Files are written to `TRAINER_EVIDENCE_DIR` (default `storage/trainer-evidence`;
+  the container image defaults to `/var/lib/ryze/trainer-evidence` backed by a
+  named volume, and the systemd unit uses the same path), a private directory
+  outside every web root, with `0700` directories and `0600` files. Names are
+  opaque server-generated keys, never user filenames; the temp file is written
+  and atomically renamed, so a partial upload never becomes a readable document.
 - The metadata endpoint and both download endpoints never project the storage
   key or SHA-256 hash.
 - Downloads are authenticated and owner/reviewer scoped, streamed as
@@ -2645,12 +2663,21 @@ Periodic restoration tests should be performed to verify backup integrity.
 
 `scripts/backup_db.sh` follows these rules operationally: it runs with
 `umask 077` so the backup directory (700) and dump files (600) are owner-only
-from the first write, and it refuses to continue only when GPG encryption was
-configured but unavailable. When `BACKUP_GPG_RECIPIENT` is unset the dump is
-unencrypted, so the script prints a warning and the operator is responsible for
-encrypting and moving the artefact off-host. Backup output directories
-(`backups/`) and upload directories (`uploads/`) are excluded from Git, from
-the Docker build context and from the repository ignore rules.
+from the first write, checks `gpg` before starting a dump when encryption is
+configured, and deletes both the plaintext and any partial ciphertext if
+encryption fails. When `BACKUP_GPG_RECIPIENT` is unset the dump is unencrypted,
+so the script prints a warning and the operator is responsible for encrypting
+and moving the artefact off-host. Backup output directories (`backups/`) and
+upload directories (`uploads/`) are excluded from Git, from the Docker build
+context and from the repository ignore rules.
+
+`scripts/env_loader.sh` lets a recovery run override the project `.env` with
+explicitly exported variables, so a restore drill can target a disposable
+database without editing production configuration. `scripts/restore_db.sh`
+refuses to run without `--yes`, supports plain, gzip and GPG files, and was
+exercised in v2.99.0 against disposable plain and encrypted restores. The
+drill matched all 33 tables, migration version 32 and every source row count;
+it does not replace periodic encrypted off-host verification.
 
 ---
 

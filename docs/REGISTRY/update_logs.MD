@@ -1,3 +1,108 @@
+# Version 2.99.0
+
+Title: Mandatory SMTP TLS and production deployment hardening
+
+Date: 2026-11-01
+
+Summary:
+
+v2.99.0 closes security and deployment gaps found during the production audit.
+The contact notifier now requires STARTTLS for every delivery and refuses a
+relay that does not advertise it; the previous opportunistic upgrade could send
+envelope and message content in plaintext. The release binary embeds the
+migration files, so the distroless image can migrate without a source tree. The
+backup and restore scripts now preserve explicitly exported recovery settings,
+fail closed on encryption errors and remove plaintext artefacts; the production
+nginx, Compose and systemd configuration now sets security headers and a CSP,
+trusts only the compose network for forwarded client addresses, allows the
+shutdown drain to finish, and gives private trainer evidence a persistent
+writable location.
+
+No database schema, payment-provider, nutrition-generation, Premium Level 2,
+product-scope or media-licensing behaviour changed in this release.
+
+Main changes:
+
+- `services/contact/smtp_notifier.go`: STARTTLS is mandatory before `MAIL FROM`;
+  authentication still happens only after the TLS upgrade.
+- `services/contact/smtp_notifier_test.go`: regression coverage proving a relay
+  without STARTTLS receives no envelope and no message.
+- `database/migrate.go`: migrations embedded with `//go:embed` and exposed
+  through `source/iofs`; `migrate up` and `migrate version` work outside the
+  source tree.
+- `scripts/env_loader.sh`: loads the project `.env` without overwriting values
+  already exported by a recovery command.
+- `scripts/backup_db.sh`, `scripts/restore_db.sh`: GPG preflight, `0700`/`0600`
+  permissions, plaintext and partial-ciphertext cleanup on encryption failure,
+  and explicit restoration of caller-supplied connection settings.
+- `main/src/frontend/nginx.conf`: HSTS, CSP, clickjacking/MIME/referrer/
+  permissions headers, `server_tokens off`, and a 26 MiB body limit.
+- `docker-compose.yml`: private trusted-proxy subnet, 30s stop grace period,
+  `TRAINER_EVIDENCE_DIR`, and a persistent `backend_data` volume.
+- `main/src/backend/Dockerfile`: non-root evidence directory and the matching
+  runtime default; migrations now embedded in the shipped binary.
+- `deploy/ryze-backend.service`: `StateDirectory`, evidence path, `UMask` and
+  embedded-migration runtime notes.
+- `.env.example`: v2.99.0 version, compose subnet and container evidence-path
+  guidance.
+- Docs updated: `how_to_run.MD`, `security.MD`, the product roadmap, the
+  completeness audit and this registry.
+
+Reason:
+
+The audit found a security-relevant fallback in contact delivery and several
+production-only failures that the development setup did not expose: the image
+had no migration files, Docker could SIGKILL the API before its drain finished,
+nginx did not emit the documented security headers, forwarded client addresses
+were not trusted behind the proxy, and trainer evidence defaulted to a
+non-writable path. Fixing them closes verified gaps without changing product
+behaviour.
+
+Validation:
+
+- `gofmt -l .` produced no files; `go build ./...` and `go vet ./...` passed.
+- The exact backend CI subset (`config`, `middleware`, `version`, `services/token`,
+  `services/contact`, `services/public_programs`) passed with the race detector.
+- Full database-backed `go test ./...` passed against a disposable MariaDB. A
+  first run hit a transient MariaDB deadlock in
+  `services/delete_account`; that package passed alone and the full suite passed
+  on rerun.
+- `npm run typecheck` passed; `npm test` passed 18 files/123 tests; `npm run
+  build` passed.
+- `npm run test:e2e` passed 7/7 tests.
+- Contact delivery matrix passed: STARTTLS success, authenticated STARTTLS,
+  no-STARTTLS refusal, recipient rejection, auth failure, connection refusal and
+  untrusted TLS certificate. Validation, attachment type/size, honeypot, CRLF,
+  body limit and 10/hour rate limiting behaved as documented.
+- Production bundle with the documented CSP produced no
+  `securitypolicyviolation` on Home, Services, Generic Marketplace, Premium
+  Level 1, Exercise Library or Contact; a real contact submission succeeded
+  through the same-origin proxy.
+- Plain and GPG-encrypted backups restored into disposable databases with 33
+  tables, migration version 32, matching row counts; an encryption failure left
+  no artefact. Refusal without `--yes` exited 2.
+- The embedded-migration binary ran from `/tmp` against a fresh database and
+  reported version 32, `dirty=false`.
+- `docker compose config` parsed successfully; `systemd-analyze verify` accepted
+  the unit apart from the intentionally absent deployed executable.
+- No Git operations were performed.
+
+Residual and unverified:
+
+- The Docker daemon is inaccessible and nginx is not installed locally, so the
+  image was not built, the compose stack was not started and nginx did not load
+  the configuration in this environment. Compose syntax and the CSP policy were
+  verified separately.
+- No real SMTP relay, Stripe/PayPal sandbox, hosted CI run or production
+  infrastructure was available. Live delivery, provider settlement and hosted
+  CI remain unverified.
+- The Gym visual media licence remains unresolved; production media must stay
+  disabled.
+- Credentials that appeared in historical repository state still require
+  operator rotation.
+- The transient full-suite database deadlock is recorded as a local test
+  reliability caveat, not a reproduced product failure.
+
 # Version 2.98.0
 
 Title: Server-side marketplace and real contact delivery
