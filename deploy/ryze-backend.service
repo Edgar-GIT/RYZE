@@ -12,7 +12,13 @@ Group=ryze
 # Secrets and configuration live outside the unit file so they are never
 # committed. See config/env.go for the full list of variables.
 EnvironmentFile=/etc/ryze/ryze.env
+Environment=TRAINER_EVIDENCE_DIR=/var/lib/ryze/trainer-evidence
 WorkingDirectory=/opt/ryze
+
+# systemd creates /var/lib/ryze owned by User/Group. Migrations are embedded in
+# the binary, so no source tree is required at runtime.
+StateDirectory=ryze
+UMask=0077
 
 ExecStart=/opt/ryze/ryze-api
 

@@ -36,6 +36,9 @@ services:
       args:
         VERSION: ${RYZE_VERSION:-dev}
     restart: unless-stopped
+    # The API drains in-flight requests for up to SERVER_SHUTDOWN_TIMEOUT
+    # (default 20s); Docker must not SIGKILL it before that finishes.
+    stop_grace_period: 30s
     depends_on:
       db:
         condition: service_healthy
@@ -46,6 +49,12 @@ services:
       DB_HOST: db
       DB_PORT: "3306"
       PORT: "8080"
+      # nginx forwards the real client address; the backend must trust only the
+      # compose network or every rate limiter would see the proxy's IP.
+      RATE_LIMIT_TRUSTED_PROXIES: ${RYZE_DOCKER_SUBNET:-172.30.0.0/24}
+      TRAINER_EVIDENCE_DIR: /var/lib/ryze/trainer-evidence
+    volumes:
+      - backend_data:/var/lib/ryze
     expose:
       - "8080"
 
@@ -61,5 +70,12 @@ services:
     ports:
       - "80:80"
 
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${RYZE_DOCKER_SUBNET:-172.30.0.0/24}
+
 volumes:
   db_data:
+  backend_data:

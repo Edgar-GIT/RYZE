@@ -23,14 +23,19 @@ ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
       -ldflags "-s -w -X ryze/backend/version.Version=${VERSION}" \
-      -o /out/ryze-api .
+      -o /out/ryze-api . && \
+    mkdir -p /out/data/trainer-evidence
 
 # The runtime image is distroless: no shell, no package manager and a non-root
 # user by default. It ships the CA certificates the API needs to call Stripe and
-# PayPal over HTTPS.
+# PayPal over HTTPS. Migrations are embedded in the binary.
 FROM gcr.io/distroless/static-debian12:nonroot
 
 COPY --from=build /out/ryze-api /ryze-api
+# Private trainer evidence must survive container replacement and be writable
+# by the non-root runtime user. The compose stack mounts a named volume here.
+COPY --from=build --chown=nonroot:nonroot /out/data /var/lib/ryze
+ENV TRAINER_EVIDENCE_DIR=/var/lib/ryze/trainer-evidence
 
 EXPOSE 8080
 
