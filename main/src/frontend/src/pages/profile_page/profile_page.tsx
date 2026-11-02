@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarDays, Dumbbell, Eye, EyeOff, KeyRound, LayoutGrid, Lock, LogOut, Mail, ReceiptText, ShoppingBag, Trash2, UserRound } from "lucide-react";
+import { BarChart3, CalendarDays, Dumbbell, Eye, EyeOff, KeyRound, LayoutGrid, Lock, LogOut, Mail, ReceiptText, ShoppingBag, Trash2, UserRound } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
@@ -377,6 +377,13 @@ export const ProfilePage = () => {
                 <span className={styles.hubLabel}>
                   <span className={styles.hubTitle}>My Programs</span>
                   <span className={styles.hubHint}>Open your training plans</span>
+                </span>
+              </Link>
+              <Link className={styles.hubLink} to="/services/progress">
+                <BarChart3 className={styles.hubIcon} aria-hidden="true" />
+                <span className={styles.hubLabel}>
+                  <span className={styles.hubTitle}>Progress</span>
+                  <span className={styles.hubHint}>Review your training statistics</span>
                 </span>
               </Link>
               <Link className={styles.hubLink} to="/account/purchases">

@@ -28,6 +28,9 @@ export const AccountNav = ({ userName }: AccountNavProps) => {
         <Link className={styles.navLink} to="/services/my-programs">
           My Programs
         </Link>
+        <Link className={styles.navLink} to="/services/progress">
+          Progress
+        </Link>
         <Link className={styles.navLink} to="/account/purchases">
           Purchase History
         </Link>

@@ -230,3 +230,80 @@ func TestEntitlementRepositoryListByUserEmpty(t *testing.T) {
 		t.Fatalf("expected empty list, got %d", len(entitlements))
 	}
 }
+
+// TestEntitlementRepositoryExpiry verifies that an expired entitlement grants
+// no access, and that a completed purchase for the same pair can reclaim it
+// through RestoreByUserAndProgram exactly once.
+func TestEntitlementRepositoryExpiry(t *testing.T) {
+	config.LoadEnvFile()
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	db, err := database.Connect(cfg)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+	tx := db.Begin()
+	defer tx.Rollback()
+
+	ctx := context.Background()
+	userRepo := repositories.NewUserRepository(tx)
+	trainerRepo := repositories.NewTrainerRepository(tx)
+	programRepo := repositories.NewProgramRepository(tx)
+	entitlementRepo := repositories.NewEntitlementRepository(tx)
+
+	user := &models.User{Email: fmt.Sprintf("expiry-%d@ryze.local", time.Now().UnixNano()), PasswordHash: "hash"}
+	if err := userRepo.Create(ctx, user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	trainerUser := &models.User{Email: fmt.Sprintf("expiry-trainer-%d@ryze.local", time.Now().UnixNano()), PasswordHash: "hash"}
+	if err := userRepo.Create(ctx, trainerUser); err != nil {
+		t.Fatalf("create trainer user: %v", err)
+	}
+	trainer := &models.Trainer{UserID: trainerUser.ID}
+	if err := trainerRepo.Create(ctx, trainer); err != nil {
+		t.Fatalf("create trainer: %v", err)
+	}
+	program := &models.Program{TrainerID: trainer.ID, Name: "Expiring Plan", Type: models.ProgramTypePremium, Status: models.ProgramStatusPublished}
+	if err := programRepo.Create(ctx, program); err != nil {
+		t.Fatalf("create program: %v", err)
+	}
+
+	entitlement := &models.Entitlement{}
+	if err := entitlementRepo.Create(ctx, user.ID, program.ID, entitlement); err != nil {
+		t.Fatalf("create entitlement: %v", err)
+	}
+	past := time.Now().UTC().Add(-time.Hour)
+	if err := tx.Model(&models.Entitlement{}).Where("id = ?", entitlement.ID).Update("expires_at", past).Error; err != nil {
+		t.Fatalf("expire entitlement: %v", err)
+	}
+
+	if _, err := entitlementRepo.FindActiveByUserAndProgram(ctx, user.ID, program.ID); !errors.Is(err, repositories.ErrEntitlementNotFound) {
+		t.Fatalf("expired entitlement must not grant access, got %v", err)
+	}
+	list, err := entitlementRepo.ListByUser(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expired entitlement must not be listed, got %d", len(list))
+	}
+
+	if err := entitlementRepo.RestoreByUserAndProgram(ctx, user.ID, program.ID); err != nil {
+		t.Fatalf("restore expired entitlement: %v", err)
+	}
+	active, err := entitlementRepo.FindActiveByUserAndProgram(ctx, user.ID, program.ID)
+	if err != nil {
+		t.Fatalf("restored entitlement must grant access: %v", err)
+	}
+	if active.ExpiresAt != nil {
+		t.Fatalf("restore must clear the expired marker, got %v", active.ExpiresAt)
+	}
+	if active.ID != entitlement.ID {
+		t.Fatalf("restore must reuse the same entitlement row, got %q want %q", active.ID, entitlement.ID)
+	}
+	if err := entitlementRepo.RestoreByUserAndProgram(ctx, user.ID, program.ID); !errors.Is(err, repositories.ErrEntitlementNotFound) {
+		t.Fatalf("nothing left to restore must be not found, got %v", err)
+	}
+}

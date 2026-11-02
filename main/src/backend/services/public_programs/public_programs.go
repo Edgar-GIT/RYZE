@@ -9,11 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
-	"ryze/backend/services/exercise_media"
 )
 
 var (
@@ -76,7 +74,6 @@ var (
 type ProgramRepository interface {
 	ListPublished(ctx context.Context, page, limit int) ([]models.Program, int64, error)
 	FindPublishedByID(ctx context.Context, programID string) (*models.Program, error)
-	FindPublishedByIDWithStructure(ctx context.Context, programID string) (*models.Program, error)
 	SearchPublished(ctx context.Context, filter repositories.PublicCatalogFilter, page, limit int) ([]models.Program, int64, error)
 }
 
@@ -125,56 +122,6 @@ type Program struct {
 	UpdatedAt   time.Time
 }
 
-// Set is the safe representation of one public prescription set.
-type Set struct {
-	SetNumber   int
-	SetType     string
-	Reps        *int
-	WeightKg    *float64
-	RIR         *int
-	RPE         *float64
-	RestSeconds *int
-	Tempo       string
-}
-
-// Exercise is the safe catalog summary of the exercise assigned to a public
-// workout. Internal fields are never exposed.
-type Exercise struct {
-	ID               string
-	Name             string
-	Description      string
-	Instructions     string
-	TargetMuscles    string
-	Equipment        string
-	Difficulty       string
-	VideoURL         string
-	ImageURL         string
-	MediaAttribution string
-	MediaAvailable   bool
-	Position         int
-	Notes            string
-	Sets             []Set
-}
-
-// Workout is the safe representation of one public workout slot.
-type Workout struct {
-	Position  int
-	Exercises []Exercise
-}
-
-// Week is the safe representation of one public program week.
-type Week struct {
-	WeekNumber int
-	Workouts   []Workout
-}
-
-// ProgramDetail is the safe representation of one published program with its
-// complete client-safe structure.
-type ProgramDetail struct {
-	Program
-	Weeks []Week
-}
-
 // ListProgramsResult carries one page of published programs plus the
 // pagination metadata needed to render the list.
 type ListProgramsResult struct {
@@ -189,7 +136,7 @@ type ListProgramsResult struct {
 // ownership scoping, and no write operation is exposed.
 type Service interface {
 	ListPublishedPrograms(ctx context.Context, page, limit int) (ListProgramsResult, error)
-	GetPublishedProgram(ctx context.Context, programID string) (*ProgramDetail, error)
+	GetPublishedProgram(ctx context.Context, programID string) (*Program, error)
 	// SearchPublishedPrograms returns published programs matching the optional
 	// filters. An empty filter returns all published programs (equivalent to
 	// ListPublishedPrograms). ScopeGeneric restricts the catalog to
@@ -200,11 +147,10 @@ type Service interface {
 
 type service struct {
 	programs ProgramRepository
-	media    exercise_media.Resolver
 }
 
-func NewService(programs ProgramRepository, media config.ExerciseMediaConfig) Service {
-	return &service{programs: programs, media: exercise_media.New(media)}
+func NewService(programs ProgramRepository) Service {
+	return &service{programs: programs}
 }
 
 // ListPublishedPrograms returns one page of published programs ordered by
@@ -227,15 +173,17 @@ func (s *service) ListPublishedPrograms(ctx context.Context, page, limit int) (L
 	return ListProgramsResult{Programs: programs, Total: total, Page: page, Limit: limit}, nil
 }
 
-// GetPublishedProgram returns one published, non-deleted program with its full
-// client-safe structure. A missing, draft or soft-deleted program maps to
-// ErrProgramNotFound; there is no way to distinguish between the two.
-func (s *service) GetPublishedProgram(ctx context.Context, programID string) (*ProgramDetail, error) {
+// GetPublishedProgram returns the public metadata of one published,
+// non-deleted program. Programme structure is deliberately not part of the
+// public response: week, workout, exercise and set content is only available
+// through the authenticated access grant. A missing, draft or soft-deleted
+// program maps to ErrProgramNotFound; there is no way to distinguish the two.
+func (s *service) GetPublishedProgram(ctx context.Context, programID string) (*Program, error) {
 	if err := validateProgramID(programID); err != nil {
 		return nil, err
 	}
 
-	model, err := s.programs.FindPublishedByIDWithStructure(ctx, programID)
+	model, err := s.programs.FindPublishedByID(ctx, programID)
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrProgramNotFound):
@@ -245,7 +193,7 @@ func (s *service) GetPublishedProgram(ctx context.Context, programID string) (*P
 		}
 	}
 
-	return s.toProgramDetail(model), nil
+	return toSafe(model), nil
 }
 
 // SearchPublishedPrograms returns published programs matching the optional
@@ -343,62 +291,6 @@ func toSafe(model *models.Program) *Program {
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
 	}
-}
-
-func (s *service) toProgramDetail(model *models.Program) *ProgramDetail {
-	detail := &ProgramDetail{
-		Program: *toSafe(model),
-		Weeks:   make([]Week, 0, len(model.Weeks)),
-	}
-	for i := range model.Weeks {
-		week := &model.Weeks[i]
-		detail.Weeks = append(detail.Weeks, Week{
-			WeekNumber: week.WeekNumber,
-			Workouts:   make([]Workout, 0, len(week.Workouts)),
-		})
-		for k := range week.Workouts {
-			workout := &week.Workouts[k]
-			safeWorkout := Workout{Position: workout.Position, Exercises: make([]Exercise, 0, len(workout.Exercises))}
-			for j := range workout.Exercises {
-				usage := &workout.Exercises[j]
-				exercise := Exercise{
-					Position: usage.Position,
-					Notes:    usage.Notes,
-					Sets:     make([]Set, 0, len(usage.Sets)),
-				}
-				if usage.Exercise != nil {
-					exercise.ID = usage.Exercise.ID
-					exercise.Name = usage.Exercise.Name
-					exercise.Description = usage.Exercise.Description
-					exercise.Instructions = usage.Exercise.Instructions
-					exercise.TargetMuscles = usage.Exercise.TargetMuscles
-					exercise.Equipment = usage.Exercise.Equipment
-					exercise.Difficulty = usage.Exercise.Difficulty
-					media := s.media.Resolve(usage.Exercise.VideoURL, usage.Exercise.ImageURL, usage.Exercise.AnimationURL, usage.Exercise.MediaAttribution)
-					exercise.VideoURL = media.VideoURL
-					exercise.ImageURL = media.ImageURL
-					exercise.MediaAttribution = media.Attribution
-					exercise.MediaAvailable = media.Available
-				}
-				for l := range usage.Sets {
-					set := &usage.Sets[l]
-					exercise.Sets = append(exercise.Sets, Set{
-						SetNumber:   set.SetNumber,
-						SetType:     set.SetType,
-						Reps:        set.Reps,
-						WeightKg:    set.WeightKg,
-						RIR:         set.RIR,
-						RPE:         set.RPE,
-						RestSeconds: set.RestSeconds,
-						Tempo:       set.Tempo,
-					})
-				}
-				safeWorkout.Exercises = append(safeWorkout.Exercises, exercise)
-			}
-			detail.Weeks[len(detail.Weeks)-1].Workouts = append(detail.Weeks[len(detail.Weeks)-1].Workouts, safeWorkout)
-		}
-	}
-	return detail
 }
 
 // normalizePagination validates the pagination parameters and clamps oversized

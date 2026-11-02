@@ -9,7 +9,6 @@ import {
 
 const program = (overrides: Partial<MarketplaceProgram>): MarketplaceProgram => ({
   id: "p1",
-  trainer_id: null,
   name: "Program",
   description: "Description",
   type: "premium",

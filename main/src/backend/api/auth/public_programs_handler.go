@@ -14,12 +14,12 @@ import (
 )
 
 // publicProgramResponse only exposes safe published program metadata: the
-// program identity, its owner trainer id, the public product fields, the
-// generic audience metadata and the lifecycle timestamps. Deletion markers,
-// draft programs and any internal data are never exposed.
+// program identity, its public product fields, the generic audience metadata
+// and the lifecycle timestamps. The owning trainer id and the programme
+// structure are never exposed publicly; structure is only available through an
+// authenticated access grant.
 type publicProgramResponse struct {
 	ID               string    `json:"id"`
-	TrainerID        string    `json:"trainer_id"`
 	Name             string    `json:"name"`
 	Description      string    `json:"description"`
 	Type             string    `json:"type"`
@@ -38,7 +38,6 @@ type publicProgramResponse struct {
 func newPublicProgramResponse(program *public_programs.Program) publicProgramResponse {
 	return publicProgramResponse{
 		ID:               program.ID,
-		TrainerID:        program.TrainerID,
 		Name:             program.Name,
 		Description:      program.Description,
 		Type:             program.Type,
@@ -52,113 +51,6 @@ func newPublicProgramResponse(program *public_programs.Program) publicProgramRes
 		ProductType:      program.ProductType,
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.UpdatedAt,
-	}
-}
-
-// publicSetResponse exposes one public prescription set.
-type publicSetResponse struct {
-	SetNumber   int      `json:"set_number"`
-	SetType     string   `json:"set_type"`
-	Reps        *int     `json:"reps"`
-	WeightKg    *float64 `json:"weight_kg"`
-	RIR         *int     `json:"rir"`
-	RPE         *float64 `json:"rpe"`
-	RestSeconds *int     `json:"rest_seconds"`
-	Tempo       string   `json:"tempo"`
-}
-
-// publicExerciseResponse exposes one public exercise usage with its catalog
-// summary and prescription sets. Internal identifiers are never exposed.
-type publicExerciseResponse struct {
-	Name             string              `json:"name"`
-	Description      string              `json:"description"`
-	Instructions     string              `json:"instructions"`
-	TargetMuscles    string              `json:"target_muscles"`
-	Equipment        string              `json:"equipment"`
-	Difficulty       string              `json:"difficulty"`
-	VideoURL         string              `json:"video_url"`
-	ImageURL         string              `json:"image_url"`
-	MediaAttribution string              `json:"media_attribution"`
-	MediaAvailable   bool                `json:"media_available"`
-	Position         int                 `json:"position"`
-	Notes            string              `json:"notes"`
-	Sets             []publicSetResponse `json:"sets"`
-}
-
-type publicWorkoutResponse struct {
-	Position  int                      `json:"position"`
-	Exercises []publicExerciseResponse `json:"exercises"`
-}
-
-type publicWeekResponse struct {
-	WeekNumber int                     `json:"week_number"`
-	Workouts   []publicWorkoutResponse `json:"workouts"`
-}
-
-func newPublicWeekResponse(week public_programs.Week) publicWeekResponse {
-	workouts := make([]publicWorkoutResponse, 0, len(week.Workouts))
-	for i := range week.Workouts {
-		workout := week.Workouts[i]
-		exercises := make([]publicExerciseResponse, 0, len(workout.Exercises))
-		for k := range workout.Exercises {
-			exercise := workout.Exercises[k]
-			sets := make([]publicSetResponse, 0, len(exercise.Sets))
-			for j := range exercise.Sets {
-				set := exercise.Sets[j]
-				sets = append(sets, publicSetResponse{
-					SetNumber:   set.SetNumber,
-					SetType:     set.SetType,
-					Reps:        set.Reps,
-					WeightKg:    set.WeightKg,
-					RIR:         set.RIR,
-					RPE:         set.RPE,
-					RestSeconds: set.RestSeconds,
-					Tempo:       set.Tempo,
-				})
-			}
-			exercises = append(exercises, publicExerciseResponse{
-				Name:             exercise.Name,
-				Description:      exercise.Description,
-				Instructions:     exercise.Instructions,
-				TargetMuscles:    exercise.TargetMuscles,
-				Equipment:        exercise.Equipment,
-				Difficulty:       exercise.Difficulty,
-				VideoURL:         exercise.VideoURL,
-				ImageURL:         exercise.ImageURL,
-				MediaAttribution: exercise.MediaAttribution,
-				MediaAvailable:   exercise.MediaAvailable,
-				Position:         exercise.Position,
-				Notes:            exercise.Notes,
-				Sets:             sets,
-			})
-		}
-		workouts = append(workouts, publicWorkoutResponse{Position: workout.Position, Exercises: exercises})
-	}
-	return publicWeekResponse{WeekNumber: week.WeekNumber, Workouts: workouts}
-}
-
-func newPublicProgramDetailResponse(detail *public_programs.ProgramDetail) gin.H {
-	weeks := make([]publicWeekResponse, 0, len(detail.Weeks))
-	for i := range detail.Weeks {
-		weeks = append(weeks, newPublicWeekResponse(detail.Weeks[i]))
-	}
-	return gin.H{
-		"id":                 detail.ID,
-		"trainer_id":         detail.TrainerID,
-		"name":               detail.Name,
-		"description":        detail.Description,
-		"type":               detail.Type,
-		"status":             detail.Status,
-		"level":              detail.Level,
-		"duration_weeks":     detail.DurationWeeks,
-		"frequency_per_week": detail.FrequencyPerWeek,
-		"training_type":      detail.TrainingType,
-		"price_minor_units":  detail.PriceMinorUnits,
-		"currency":           detail.Currency,
-		"product_type":       detail.ProductType,
-		"created_at":         detail.CreatedAt,
-		"updated_at":         detail.UpdatedAt,
-		"weeks":              weeks,
 	}
 }
 
@@ -280,7 +172,7 @@ func (h *PublicProgramsHandler) GetPublishedProgram(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Program retrieved successfully.",
-		"data":    newPublicProgramDetailResponse(program),
+		"data":    newPublicProgramResponse(program),
 	})
 }
 

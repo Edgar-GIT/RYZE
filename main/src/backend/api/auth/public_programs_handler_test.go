@@ -52,7 +52,7 @@ func newPublicProgramsTestRouter(t *testing.T) (*gin.Engine, *gorm.DB) {
 	})
 
 	programRepo := repositories.NewProgramRepository(tx)
-	service := public_programs.NewService(programRepo, config.ExerciseMediaConfig{})
+	service := public_programs.NewService(programRepo)
 	handler := auth.NewPublicProgramsHandler(service)
 
 	router := gin.New()
@@ -93,12 +93,12 @@ func (s *stubPublicProgramsService) ListPublishedPrograms(_ context.Context, pag
 	return s.listResult, s.err
 }
 
-func (s *stubPublicProgramsService) GetPublishedProgram(_ context.Context, programID string) (*public_programs.ProgramDetail, error) {
+func (s *stubPublicProgramsService) GetPublishedProgram(_ context.Context, programID string) (*public_programs.Program, error) {
 	s.gotID = programID
 	if s.program == nil {
 		return nil, s.err
 	}
-	return &public_programs.ProgramDetail{Program: *s.program}, s.err
+	return s.program, s.err
 }
 
 func (s *stubPublicProgramsService) SearchPublishedPrograms(_ context.Context, filter public_programs.ProgramFilter, page, limit int) (public_programs.ListProgramsResult, error) {

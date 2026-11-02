@@ -1,8 +1,11 @@
-// Shared client-safe rendering of a program structure for entitled programs
-// and the public marketplace. Both sources serve the identical backend shape
-// (weeks -> workouts -> exercises -> prescription sets), so a single component
-// keeps the visual contract consistent. Value fields are optional by nature:
-// a set may lack reps, rest or weight depending on its type.
+// Client-safe rendering of an entitled program structure. Only the access API
+// exposes structure; the public marketplace is metadata-only. Value fields are
+// optional by nature: a set may lack reps, rest or weight depending on its
+// type.
+import { Play } from "lucide-react";
+
+import { Button } from "@/components/button/button";
+
 import styles from "./program_structure.module.css";
 
 interface ProgramStructureSet {
@@ -17,25 +20,31 @@ interface ProgramStructureSet {
 }
 
 interface ProgramStructureExercise {
-  name: string;
+  id: string;
+  position: number;
   instructions?: string | null;
   notes?: string | null;
-  position: number;
+  exercise: { name: string };
   sets: ProgramStructureSet[];
 }
 
 interface ProgramStructureWorkout {
+  id: string;
   position: number;
   exercises: ProgramStructureExercise[];
 }
 
 interface ProgramStructureWeek {
+  id: string;
   week_number: number;
   workouts: ProgramStructureWorkout[];
 }
 
 interface ProgramStructureProps {
   weeks: ProgramStructureWeek[];
+  onStartWorkout?: (workoutId: string) => void;
+  activeWorkoutId?: string | null;
+  startingWorkoutId?: string | null;
 }
 
 const optionalValue = (value: number | null | undefined): string => (value == null ? "—" : String(value));
@@ -75,7 +84,7 @@ const SetTable = ({ sets }: { sets: ProgramStructureSet[] }) => (
   </div>
 );
 
-export const ProgramStructure = ({ weeks }: ProgramStructureProps) => {
+export const ProgramStructure = ({ weeks, onStartWorkout, activeWorkoutId, startingWorkoutId }: ProgramStructureProps) => {
   if (weeks.length === 0) {
     return (
       <div className={styles.state}>
@@ -87,24 +96,42 @@ export const ProgramStructure = ({ weeks }: ProgramStructureProps) => {
   return (
     <div className={styles.structure}>
       {weeks.map((week) => (
-        <section key={week.week_number} className={styles.weekCard}>
+        <section key={week.id} className={styles.weekCard}>
           <h2 className={styles.weekTitle}>Week {week.week_number}</h2>
 
           {week.workouts.length === 0 ? (
             <p className={styles.emptyNote}>No training days in this week.</p>
           ) : (
             week.workouts.map((workout) => (
-              <div key={workout.position} className={styles.dayCard}>
-                <p className={styles.dayTitle}>Day {workout.position}</p>
+              <div key={workout.id} className={styles.dayCard}>
+                <div className={styles.dayHead}>
+                  <p className={styles.dayTitle}>Day {workout.position}</p>
+                  {onStartWorkout ? (
+                    <Button
+                      variant={activeWorkoutId === workout.id ? "primary" : "secondary"}
+                      size="small"
+                      disabled={Boolean(startingWorkoutId) || workout.exercises.length === 0}
+                      onClick={() => onStartWorkout(workout.id)}
+                      icon={<Play size={14} />}
+                      iconPosition="left"
+                    >
+                      {startingWorkoutId === workout.id
+                        ? "Starting…"
+                        : activeWorkoutId === workout.id
+                          ? "Resume"
+                          : "Start"}
+                    </Button>
+                  ) : null}
+                </div>
 
                 {workout.exercises.length === 0 ? (
                   <p className={styles.emptyNote}>No exercises assigned.</p>
                 ) : (
                   workout.exercises.map((exercise) => (
-                    <article key={exercise.position} className={styles.exercise}>
+                    <article key={exercise.id} className={styles.exercise}>
                       <header className={styles.exerciseHead}>
                         <span className={styles.exercisePos}>{exercise.position}</span>
-                        <span className={styles.exerciseName}>{exercise.name}</span>
+                        <span className={styles.exerciseName}>{exercise.exercise.name}</span>
                         <span className={styles.exerciseMeta}>
                           {exercise.sets.length} set{exercise.sets.length === 1 ? "" : "s"}
                         </span>

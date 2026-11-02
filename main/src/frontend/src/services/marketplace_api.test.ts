@@ -21,7 +21,6 @@ const mockedGet = vi.mocked(apiGet);
 
 const program = (id: string): MarketplaceProgram => ({
   id,
-  trainer_id: null,
   name: `Program ${id}`,
   description: "",
   type: "free",

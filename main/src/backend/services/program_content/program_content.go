@@ -71,16 +71,21 @@ type Week struct {
 // Program is the safe representation of a program with its full active
 // structure.
 type Program struct {
-	ID              string
-	Name            string
-	Description     string
-	Type            string
-	Status          string
-	PriceMinorUnits int64
-	Currency        string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Weeks           []Week
+	ID               string
+	Name             string
+	Description      string
+	Type             string
+	Status           string
+	Level            *string
+	DurationWeeks    *int
+	FrequencyPerWeek *int
+	TrainingType     *string
+	PriceMinorUnits  int64
+	Currency         string
+	ProductType      string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Weeks            []Week
 }
 
 // Builder maps loaded program aggregates using the configured media resolver.
@@ -100,16 +105,21 @@ func (b *Builder) Build(model *models.Program) *Program {
 	}
 
 	program := &Program{
-		ID:              model.ID,
-		Name:            model.Name,
-		Description:     model.Description,
-		Type:            model.Type,
-		Status:          model.Status,
-		PriceMinorUnits: model.PriceMinorUnits,
-		Currency:        model.Currency,
-		CreatedAt:       model.CreatedAt,
-		UpdatedAt:       model.UpdatedAt,
-		Weeks:           make([]Week, 0, len(model.Weeks)),
+		ID:               model.ID,
+		Name:             model.Name,
+		Description:      model.Description,
+		Type:             model.Type,
+		Status:           model.Status,
+		Level:            model.Level,
+		DurationWeeks:    model.DurationWeeks,
+		FrequencyPerWeek: model.FrequencyPerWeek,
+		TrainingType:     model.TrainingType,
+		PriceMinorUnits:  model.PriceMinorUnits,
+		Currency:         model.Currency,
+		ProductType:      model.ProductType,
+		CreatedAt:        model.CreatedAt,
+		UpdatedAt:        model.UpdatedAt,
+		Weeks:            make([]Week, 0, len(model.Weeks)),
 	}
 	for i := range model.Weeks {
 		program.Weeks = append(program.Weeks, b.newWeek(&model.Weeks[i]))

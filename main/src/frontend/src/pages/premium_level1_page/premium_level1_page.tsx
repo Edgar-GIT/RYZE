@@ -5,15 +5,12 @@ import { useHistory, useLocation } from "react-router-dom";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
-import { ProgramStructure } from "@/components/program_structure/program_structure";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { useProgramCheckout, type PurchaseState } from "@/hooks/use_program_checkout";
 import {
-  fetchMarketplaceProgram,
   fetchAllPremiumLevel1Programs,
   formatMarketplacePrice,
-  type MarketplaceProgram,
-  type MarketplaceProgramDetail
+  type MarketplaceProgram
 } from "@/services/marketplace_api";
 import {
   fetchNutritionAssignment,
@@ -64,7 +61,6 @@ export const PremiumLevel1Page = () => {
 
   const [products, setProducts] = useState<MarketplaceProgram[]>([]);
   const [product, setProduct] = useState<MarketplaceProgram | null>(null);
-  const [detail, setDetail] = useState<MarketplaceProgramDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -101,7 +97,6 @@ export const PremiumLevel1Page = () => {
   const load = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
-    setDetail(null);
     try {
       const { programs } = await fetchAllPremiumLevel1Programs();
       setProducts(programs);
@@ -124,7 +119,6 @@ export const PremiumLevel1Page = () => {
         return;
       }
       setProduct(selected);
-      setDetail(await fetchMarketplaceProgram(selected.id));
     } catch {
       setProducts([]);
       setProduct(null);
@@ -590,11 +584,16 @@ export const PremiumLevel1Page = () => {
 
                   {step === "checkout" ? renderCheckout() : null}
 
-                  {step === "access" && detail ? (
+                  {step === "access" ? (
                     <>
                       <section className={styles.panel} aria-label="Your training plan">
                         <h2 className={styles.sectionTitle}>Your training plan</h2>
-                        <ProgramStructure weeks={detail.weeks} />
+                        <p className={styles.sectionText}>
+                          Your full training structure, workout player, history and progress live in Program Access.
+                        </p>
+                        <Button variant="primary" size="small" to={`/services/my-programs/${programId}`}>
+                          Open Program Access
+                        </Button>
                       </section>
 
                       {nutritionLoaded ? (

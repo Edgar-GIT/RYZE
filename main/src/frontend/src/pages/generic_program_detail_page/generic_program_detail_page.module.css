@@ -135,6 +135,13 @@
   font-weight: 750;
 }
 
+.purchaseErrorText {
+  margin: 0;
+  color: #ffb86b;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
 .purchaseText {
   margin: 0;
   color: var(--text-secondary);
@@ -221,8 +228,65 @@
   color: #ffe27a;
 }
 
+.locked {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.lockedIcon {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--accent);
+  background: rgba(24, 216, 255, 0.1);
+}
+
+.lockedTitle {
+  margin: 0 0 0.35rem;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.lockedText {
+  max-width: 44rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.lockedList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.2rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.lockedList li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 @media (max-width: 640px) {
   .detail {
     padding-top: 1.6rem;
+  }
+
+  .locked {
+    flex-direction: column;
   }
 }

@@ -17,16 +17,21 @@ import (
 // structure. The owning trainer, parent identifiers, deletion markers and any
 // internal data are never exposed.
 type clientProgramResponse struct {
-	ID              string               `json:"id"`
-	Name            string               `json:"name"`
-	Description     string               `json:"description"`
-	Type            string               `json:"type"`
-	Status          string               `json:"status"`
-	PriceMinorUnits int64                `json:"price_minor_units"`
-	Currency        string               `json:"currency"`
-	CreatedAt       time.Time            `json:"created_at"`
-	UpdatedAt       time.Time            `json:"updated_at"`
-	Weeks           []clientWeekResponse `json:"weeks"`
+	ID               string               `json:"id"`
+	Name             string               `json:"name"`
+	Description      string               `json:"description"`
+	Type             string               `json:"type"`
+	Status           string               `json:"status"`
+	Level            *string              `json:"level"`
+	DurationWeeks    *int                 `json:"duration_weeks"`
+	FrequencyPerWeek *int                 `json:"frequency_per_week"`
+	TrainingType     *string              `json:"training_type"`
+	PriceMinorUnits  int64                `json:"price_minor_units"`
+	Currency         string               `json:"currency"`
+	ProductType      string               `json:"product_type"`
+	CreatedAt        time.Time            `json:"created_at"`
+	UpdatedAt        time.Time            `json:"updated_at"`
+	Weeks            []clientWeekResponse `json:"weeks"`
 }
 
 // clientWeekResponse is the safe view of one week of the assigned program.
@@ -64,16 +69,21 @@ type clientWorkoutExerciseResponse struct {
 
 func newClientProgramResponse(program *program_content.Program) clientProgramResponse {
 	response := clientProgramResponse{
-		ID:              program.ID,
-		Name:            program.Name,
-		Description:     program.Description,
-		Type:            program.Type,
-		Status:          program.Status,
-		PriceMinorUnits: program.PriceMinorUnits,
-		Currency:        program.Currency,
-		CreatedAt:       program.CreatedAt,
-		UpdatedAt:       program.UpdatedAt,
-		Weeks:           make([]clientWeekResponse, 0, len(program.Weeks)),
+		ID:               program.ID,
+		Name:             program.Name,
+		Description:      program.Description,
+		Type:             program.Type,
+		Status:           program.Status,
+		Level:            program.Level,
+		DurationWeeks:    program.DurationWeeks,
+		FrequencyPerWeek: program.FrequencyPerWeek,
+		TrainingType:     program.TrainingType,
+		PriceMinorUnits:  program.PriceMinorUnits,
+		Currency:         program.Currency,
+		ProductType:      program.ProductType,
+		CreatedAt:        program.CreatedAt,
+		UpdatedAt:        program.UpdatedAt,
+		Weeks:            make([]clientWeekResponse, 0, len(program.Weeks)),
 	}
 	for i := range program.Weeks {
 		response.Weeks = append(response.Weeks, newClientWeekResponse(&program.Weeks[i]))

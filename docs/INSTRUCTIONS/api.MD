@@ -343,7 +343,11 @@ Examples:
 ### Client Program Read
 
 `GET /api/v1/me/program` returns the full active structure of the program
-currently assigned to the authenticated user, read-only.
+currently assigned to the authenticated user, read-only. This legacy assignment
+read remains the only endpoint that resolves the "current assignment" model.
+The separate access read `GET /api/v1/me/programs/:programID` resolves the
+complete access grant instead: an active entitlement, an active trainer
+assignment or an active Free activation.
 
 Identity comes exclusively from the authentication context. A client-supplied
 `user_id`, `client_id` or `trainer_id` (query, body or header) is always ignored
@@ -471,15 +475,197 @@ Responses:
 
 ---
 
+### Client Workout Sessions
+
+A workout session is one execution of one workout the authenticated client may
+access. Starting a session snapshots the prescribed exercises and sets into the
+session, so later trainer edits never rewrite an in-progress or finished
+session. Only one session may be `in_progress` or `paused` per user, enforced by
+a database unique constraint.
+
+The acting user always comes from the authentication context. A client-supplied
+`user_id`, `client_id` or `trainer_id` is always ignored. Any missing access
+grant, missing published program, foreign workout and unknown workout are
+indistinguishable and answer `404 WORKOUT_NOT_FOUND`.
+
+#### `POST /api/v1/me/programs/{programID}/workouts/{workoutID}/sessions`
+
+Starts or resumes the session for the requested workout. Starting the same
+workout while its session is already active is idempotent and returns that
+session. Starting a different workout while another session is active answers
+`409 WORKOUT_SESSION_ACTIVE`. A completed or abandoned session may be repeated:
+a new execution is created.
+
+Response `data` — the full session:
+
+- `id`, `program_id`, `program_workout_id`, `program_name`, `week_number`,
+  `workout_position`.
+- `status` — `in_progress`, `paused`, `completed` or `abandoned`.
+- `started_at`, `paused_at`, `completed_at`, `abandoned_at`,
+  `elapsed_seconds`.
+- `total_sets`, `completed_sets`, `skipped_sets`.
+- `exercises` — snapshot exercises with `id`, `exercise_id`, `position`,
+  `name`, `instructions`, `notes` and `sets`.
+- every set carries `id`, `set_number`, `set_type`, the prescribed snapshot
+  (`prescribed_reps`, `prescribed_weight_kg`, `prescribed_rir`,
+  `prescribed_rpe`, `prescribed_rest_seconds`, `prescribed_tempo`), the actual
+  values (`actual_reps`, `actual_weight_kg`, `actual_rir`, `actual_rpe`),
+  `status` (`pending`, `completed`, `skipped`), `completed_at` and
+  `rest_ends_at`.
+
+`rest_ends_at` is an absolute server timestamp computed from the set's rest
+prescription. The client displays the remaining time from it; it is `null` when
+the set does not start a rest period. Pausing excludes paused time from
+`elapsed_seconds`; completed and abandoned durations are frozen.
+
+Responses:
+
+- `200 OK` — the started or already-active session.
+- `400 VALIDATION_ERROR` — malformed identifier.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
+- `404 WORKOUT_NOT_FOUND` — no access grant, unpublished program, foreign or
+  unknown workout.
+- `409 WORKOUT_SESSION_ACTIVE` — another workout session is already active.
+
+#### `GET /api/v1/me/workout-sessions/active`
+
+Returns the authenticated user's single active session or `null`.
+
+#### `GET /api/v1/me/workout-sessions/{sessionID}`
+
+Returns one session owned by the authenticated user with its full exercise and
+set snapshot. A foreign or unknown session answers
+`404 WORKOUT_SESSION_NOT_FOUND`.
+
+#### `PATCH /api/v1/me/workout-sessions/{sessionID}/sets/{setID}`
+
+Records actual performance for one snapshot set. The body may contain
+`actual_reps`, `actual_weight_kg`, `actual_rir`, `actual_rpe` and `status`
+(`pending`, `completed` or `skipped`). Values are validated server-side and the
+set must belong to the owned session. The response is the full updated session.
+
+Errors: `400 VALIDATION_ERROR`, `401 AUTHENTICATION_REQUIRED`,
+`404 WORKOUT_SESSION_NOT_FOUND`, `404 WORKOUT_SET_NOT_FOUND`,
+`409 WORKOUT_SESSION_NOT_ACTIVE`.
+
+#### `POST /api/v1/me/workout-sessions/{sessionID}/pause`
+
+Pauses an `in_progress` session. Pausing an already paused session is
+idempotent. Pausing a finished session answers `409 WORKOUT_SESSION_NOT_ACTIVE`.
+
+#### `POST /api/v1/me/workout-sessions/{sessionID}/resume`
+
+Resumes a `paused` session. Resuming an in-progress session is idempotent.
+Resuming a finished session answers `409 WORKOUT_SESSION_NOT_ACTIVE`.
+
+#### `POST /api/v1/me/workout-sessions/{sessionID}/complete`
+
+Completes an `in_progress` or `paused` session, freezes its duration and makes
+the active-session slot available again. Completion is required before the
+session contributes to completed-session statistics; pending sets remain pending
+and are not silently marked complete.
+
+#### `POST /api/v1/me/workout-sessions/{sessionID}/abandon`
+
+Abandons an `in_progress` or `paused` session, freezes its duration and makes the
+active-session slot available again.
+
+Every transition returns the full updated session. `401` applies to all
+endpoints; foreign or unknown sessions answer `404 WORKOUT_SESSION_NOT_FOUND`.
+
+#### `GET /api/v1/me/workout-sessions?limit=20`
+
+Returns the authenticated user's sessions, newest first, as an array (not a
+paginated object). `limit` defaults to `20` and is capped at `100`. `401`
+applies.
+
+---
+
+### Client Statistics
+
+#### `GET /api/v1/me/statistics`
+
+Returns workout aggregates for the authenticated client. The user id comes only
+from the authentication context. The current programme is the newest active
+assignment, otherwise the newest active entitlement, otherwise the newest active
+Free activation; the response never reveals which grant was used.
+
+Response `data`:
+
+- `has_active_assignment` — whether the current programme came from an assignment.
+- `has_active_program` — whether any access grant resolves a current programme.
+- `current_program_name` — empty when there is no current programme.
+- `total_executions` — completed legacy workout-history entries plus completed
+  workout sessions.
+- `unique_workouts_completed` — distinct active workouts of the current
+  programme completed at least once.
+- `total_workouts_in_program` — active workouts in the current programme.
+- `completion_percentage` — `unique_workouts_completed / total_workouts_in_program`
+  clamped to `0–100`, or `0` when the programme has no workouts.
+- `last_workout_date` — most recent completion date, or `null`.
+- `completed_sessions`, `abandoned_sessions`, `completed_sets`, `skipped_sets`,
+  `total_active_seconds` — all-time counters across the user's sessions.
+
+Soft-deleted workouts are excluded from the current-programme denominator and
+unique numerator; historical totals remain preserved.
+
+Responses: `200 OK`, `401 AUTHENTICATION_REQUIRED`.
+
+---
+
+### Client Free Program Activation
+
+Free generic programmes do not use checkout. The authenticated client activates
+one through this dedicated grant. An activation is not a purchase, entitlement
+or assignment: it creates no payment record, never makes the programme
+trainer-owned, and never unlocks Premium nutrition/personalization.
+
+There is at most one active Free activation per user, enforced by the database.
+Activating the same programme again is idempotent. Activating a different
+programme replaces the previous activation. `expires_at` is nullable because the
+product does not define a Free access duration yet; when set, the read paths
+ignore the expired activation and a new activation may replace it.
+
+The acting user always comes from the authentication context; a client-supplied
+`user_id` is ignored. A missing, unpublished, soft-deleted or non-Free/non-generic
+programme answers `404 PROGRAM_NOT_FOUND` indistinguishably.
+
+#### `POST /api/v1/me/programs/{programID}/free-activation`
+
+Activates one published generic Free programme. Idempotent for the same
+programme and replaces a different active Free activation.
+
+Response `data`:
+
+- `id` — activation UUID.
+- `activated_at` — server timestamp.
+- `expires_at` — nullable server timestamp.
+- `program` — safe summary: `id`, `name`, `description`, `type`, `level`,
+  `duration_weeks`, `frequency_per_week`, `training_type`,
+  `price_minor_units`, `currency`.
+
+Responses: `200 OK`, `400 VALIDATION_ERROR`, `401 AUTHENTICATION_REQUIRED`,
+`404 PROGRAM_NOT_FOUND`.
+
+#### `GET /api/v1/me/free-programs`
+
+Returns the authenticated client's active Free activations as an array of the
+same objects. At most one entry exists under the current rule. `401` applies.
+
+---
+
 ### Client Entitlements
 
 #### `GET /api/v1/me/entitlements`
 
 Returns the safe entitlement metadata for every active entitlement held by the
 authenticated user. Each entitlement carries only its own id, the associated
-program id and a safe nested Program object. Entitlements grant access to the
-entitlement-protected program read `GET /api/v1/me/programs/:programID`; they do
-NOT grant access to `GET /me/program`, which remains assignment-based.
+program id and a safe nested Program object. An active entitlement is one of the
+three grants accepted by `GET /api/v1/me/programs/:programID` and by workout
+session start; assignment and Free activation are the other two. Entitlements do
+NOT grant access to the legacy `GET /me/program` assignment read. An entitlement
+may carry a nullable server-side `expires_at`; expired rows are ignored by every
+access query and never returned in this list.
 
 Response `data`:
 
@@ -501,37 +687,41 @@ Responses:
 
 #### `GET /api/v1/me/programs/:programID`
 
-Returns the client-safe structure of one program the authenticated user is
-entitled to access. Access is granted only when BOTH conditions hold: the
-authenticated user holds an active entitlement for the program AND the program
-itself is still published (matching the marketplace contract). A missing
-entitlement, a missing program, a soft-deleted program and an unpublished
-program are all indistinguishable and return the same generic `404`. The user
-identity comes exclusively from the authentication context; the path parameter
-only identifies the requested resource.
+Returns the client-safe structure of one published program the authenticated
+user may access. Access is granted by exactly one of: an active entitlement, an
+active trainer assignment, or an active Free activation. The program must still
+be published. A missing grant, a missing program, a soft-deleted program and an
+unpublished program are all indistinguishable and return the same generic
+`404`. The user identity comes exclusively from the authentication context; the
+path parameter only identifies the requested resource.
 
-Response `data` — the safe published program detail, identical in shape to the
-public marketplace detail:
+Response `data`:
 
-- `id`, `trainer_id` (NULL for platform-owned programs), `name`, `description`,
-  `type`, `status`, `level`, `duration_weeks`, `frequency_per_week`,
-  `training_type`, `price_minor_units`, `currency`, `product_type`,
-  `created_at`, `updated_at`.
-- `weeks` — array of weeks, each with `week_number` and `workouts`; each
-  workout has `position` and `exercises`; each exercise has `name`,
-  `description`, `instructions`, `target_muscles`, `equipment`, `difficulty`,
-  `video_url`, `image_url`, `media_available`, `media_attribution`,
-  `position`, `notes` and `sets`; each set has
-  `set_number`, `set_type`, `reps`, `weight_kg`, `rir`, `rpe`,
-  `rest_seconds`, `tempo`.
+- `id`, `name`, `description`, `type`, `status`, `level`, `duration_weeks`,
+  `frequency_per_week`, `training_type`, `price_minor_units`, `currency`,
+  `product_type`, `created_at`, `updated_at`. The owning `trainer_id` and all
+  parent identifiers are never exposed.
+- `weeks` — array of weeks, each with `id`, `week_number`, `created_at`,
+  `updated_at` and `workouts`; each workout has `id`, `position`, timestamps
+  and `exercises`; each exercise has `id`, `position`, `instructions`, `notes`,
+  a nested safe catalog `exercise` summary (`id`, `name`, `description`,
+  `target_muscles`, `equipment`, `difficulty`, `video_url`, `image_url`,
+  `media_available`, `media_attribution`) and `sets`; each prescribed set has
+  `set_number`, `set_type`, `reps`, `weight_kg`, `rir`, `rpe`, `rest_seconds`
+  and `tempo`. Prescribed sets deliberately carry no public id: the execution
+  session snapshots them with its own set ids.
+
+All exercise summaries follow the server-wide exercise-media gate. While
+`EXERCISE_MEDIA_ENABLED=false`, `video_url`, `image_url` and
+`media_attribution` are empty and `media_available` is `false`.
 
 Responses:
 
-- `200 OK` — the entitled, published program with its full structure.
+- `200 OK` — the accessible, published program with its full structure.
 - `400 VALIDATION_ERROR` — malformed program id.
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
-- `404 PROGRAM_NOT_FOUND` — no active entitlement, program unpublished,
-  soft-deleted, or nonexistent. The cases are indistinguishable by design.
+- `404 PROGRAM_NOT_FOUND` — no active grant, program unpublished, soft-deleted,
+  or nonexistent. The cases are indistinguishable by design.
 
 ---
 
@@ -2789,37 +2979,29 @@ one dimension are ORed. Invalid controlled values or malformed ranges answer
 
 Response `data`:
 
-- `programs` — array of program objects: `id`, `trainer_id` (null for generic
-  programs), `name`, `description`, `type`, `status`, `level`,
-  `duration_weeks`, `frequency_per_week`, `training_type`,
+- `programs` — array of program objects: `id`, `name`, `description`, `type`,
+  `status`, `level`, `duration_weeks`, `frequency_per_week`, `training_type`,
   `price_minor_units`, `currency`, `product_type`, `created_at`, `updated_at`.
+  The owning `trainer_id` is never public.
 - `pagination` — `page`, `limit`, `total`, `total_pages`.
 
 ### `GET /api/v1/programs/:programID`
 
-Returns one published program with its complete client-safe structure. Draft,
-soft-deleted and unknown programs all return the same generic 404 to prevent
-information leakage.
+Returns one published program's public product metadata. The response is
+deliberately metadata-only: the programme structure is not public and is only
+available through the authenticated access read. Draft, soft-deleted and
+unknown programs all return the same generic 404 to prevent information leakage.
 
 Public endpoint. No authentication required.
 
 Response `data`:
 
-- `id`, `trainer_id` (null for generic programs), `name`, `description`,
-  `type`, `status`, `level`, `duration_weeks`, `frequency_per_week`,
-  `training_type`, `price_minor_units`, `currency`, `product_type`,
-  `created_at`, `updated_at`.
-- `weeks` — array of `{ week_number, workouts }`; each workout is
-  `{ position, exercises }`; each exercise carries the safe catalog summary
-  (`name`, `description`, `instructions`, `target_muscles`, `equipment`,
-  `difficulty`, `video_url`, `image_url`, `media_available`,
-  `media_attribution`, `position`, `notes`) plus its `sets` (`set_number`,
-  `set_type`, `reps`, `weight_kg`, `rir`, `rpe`, `rest_seconds`, `tempo`).
-
-All exercise summaries follow the server-wide exercise-media gate. While
-`EXERCISE_MEDIA_ENABLED=false`, `video_url`, `image_url` and
-`media_attribution` are empty and `media_available` is `false`. When enabled,
-the API prefixes stored relative paths with `EXERCISE_MEDIA_BASE_PATH`.
+- `id`, `name`, `description`, `type`, `status`, `level`, `duration_weeks`,
+  `frequency_per_week`, `training_type`, `price_minor_units`, `currency`,
+  `product_type`, `created_at`, `updated_at`.
+- No `trainer_id` and no `weeks`, `workouts`, `exercises` or `sets`. Structure
+  is served exclusively by `GET /api/v1/me/programs/:programID`, which enforces
+  an active access grant and the exercise-media gate.
 
 ---
 

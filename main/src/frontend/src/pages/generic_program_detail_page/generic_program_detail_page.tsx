@@ -1,11 +1,10 @@
-import { ArrowLeft, CreditCard, FlaskConical, LogIn, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, BarChart3, CreditCard, Dumbbell, FlaskConical, Lock, LogIn, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useHistory, useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
-import { ProgramStructure } from "@/components/program_structure/program_structure";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { useProgramCheckout, type PurchaseState } from "@/hooks/use_program_checkout";
 import {
@@ -15,6 +14,11 @@ import {
   type MarketplaceProgramDetail
 } from "@/services/marketplace_api";
 import type { PaymentMethodInfo } from "@/services/purchases_api";
+import {
+  activateFreeProgram,
+  fetchFreeActivations,
+  type FreeProgramActivation
+} from "@/services/free_programs_api";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./generic_program_detail_page.module.css";
@@ -34,11 +38,7 @@ interface PurchasePanelProps {
 }
 
 const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, paymentMethods, selectedMethod, onSelectMethod, onBuy, onRetryPurchase, testMode = false }: PurchasePanelProps) => {
-  if (isFree || state.status === "owned") {
-    // Free programs have no Program Access page: their panel only links back
-    // to the marketplace. Owned (paid/test) programs get an "Open program"
-    // action into the account area.
-    const isOwned = state.status === "owned" && !isFree;
+  if (state.status === "owned") {
     return (
       <aside className={styles.purchase}>
         <div className={styles.purchaseCard}>
@@ -46,21 +46,15 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
             <CheckCircle2 size={16} aria-hidden="true" />
             You have access
           </p>
-          <p className={styles.purchaseText}>
-            {isFree
-              ? "This training plan is available at no cost."
-              : "You already own this training plan."}
-          </p>
+          <p className={styles.purchaseText}>You already own this training plan.</p>
           <div className={styles.purchaseActions}>
-            {isOwned ? (
-              <Button
-                to={`/services/my-programs/${programId}`}
-                variant="primary"
-                size="small"
-              >
-                Open program
-              </Button>
-            ) : null}
+            <Button
+              to={`/services/my-programs/${programId}`}
+              variant="primary"
+              size="small"
+            >
+              Open program
+            </Button>
             <Button to="/services/generic-program" variant="secondary" size="small">
               Back to Training plans
             </Button>
@@ -308,6 +302,85 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
   }
 };
 
+interface FreeAccessPanelProps {
+  programId: string;
+  programName: string;
+}
+
+// Free plans still require an explicit activation. Until that happens the
+// public catalog only supplies metadata, never the programme structure.
+const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
+  const history = useHistory();
+  const [activation, setActivation] = useState<FreeProgramActivation | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [activating, setActivating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchFreeActivations()
+      .then((activations) => {
+        if (!cancelled) {
+          setActivation(activations.find((entry) => entry.program.id === programId) ?? null);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [programId]);
+
+  const handleActivate = async () => {
+    setActivating(true);
+    setErrorMessage("");
+    try {
+      await activateFreeProgram(programId);
+      history.push(`/services/my-programs/${programId}`);
+    } catch {
+      setErrorMessage("We could not activate this plan. Please try again.");
+      setActivating(false);
+    }
+  };
+
+  return (
+    <aside className={styles.purchase}>
+      <div className={styles.purchaseCard}>
+        <p className={styles.purchaseTitle}>
+          <CheckCircle2 size={16} aria-hidden="true" />
+          Free plan
+        </p>
+        <p className={styles.purchaseText}>
+          {activation
+            ? `You have activated ${programName}.`
+            : `Activate ${programName} to unlock the full training structure and workout player.`}
+        </p>
+        {errorMessage ? (
+          <p className={styles.purchaseErrorText} role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
+        <div className={styles.purchaseActions}>
+          {activation ? (
+            <Button to={`/services/my-programs/${programId}`} variant="primary" size="small">
+              Open program
+            </Button>
+          ) : (
+            <Button variant="primary" size="small" disabled={checking || activating} onClick={() => void handleActivate()}>
+              {activating ? "Activating…" : "Activate free plan"}
+            </Button>
+          )}
+          <Button to="/services/generic-program" variant="secondary" size="small">
+            Back to Training plans
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
+};
+
 export const GenericProgramDetailPage = () => {
   const { programId } = useParams<{ programId: string }>();
   const { isActive: testModeActive } = useTestMode();
@@ -416,22 +489,47 @@ export const GenericProgramDetailPage = () => {
                   ) : null}
                 </div>
 
-                <PurchasePanel
-                  isFree={isFreeProgram}
-                  minorUnits={detail.price_minor_units}
-                  currency={detail.currency}
-                  programId={programId}
-                  state={checkout.state}
-                  paymentMethods={checkout.paymentMethods}
-                  selectedMethod={checkout.selectedMethod}
-                  onSelectMethod={checkout.selectMethod}
-                  onBuy={() => void checkout.buy()}
-                  onRetryPurchase={(purchaseId) => void checkout.retryPurchase(purchaseId)}
-                  testMode={isTestModePurchase}
-                />
+                {isFreeProgram ? (
+                  <FreeAccessPanel programId={programId} programName={detail.name} />
+                ) : (
+                  <PurchasePanel
+                    isFree={false}
+                    minorUnits={detail.price_minor_units}
+                    currency={detail.currency}
+                    programId={programId}
+                    state={checkout.state}
+                    paymentMethods={checkout.paymentMethods}
+                    selectedMethod={checkout.selectedMethod}
+                    onSelectMethod={checkout.selectMethod}
+                    onBuy={() => void checkout.buy()}
+                    onRetryPurchase={(purchaseId) => void checkout.retryPurchase(purchaseId)}
+                    testMode={isTestModePurchase}
+                  />
+                )}
               </header>
 
-              <ProgramStructure weeks={detail.weeks} />
+              <section className={styles.locked} aria-labelledby="plan-contents">
+                <div className={styles.lockedIcon}>
+                  <Lock size={20} aria-hidden="true" />
+                </div>
+                <div>
+                  <h2 id="plan-contents" className={styles.lockedTitle}>
+                    Full training structure
+                  </h2>
+                  <p className={styles.lockedText}>
+                    Weeks, training days, exercises and prescriptions unlock after activation or purchase.
+                    You will then be able to log every set, follow rest timers and track progress.
+                  </p>
+                  <ul className={styles.lockedList}>
+                    <li>
+                      <Dumbbell size={15} aria-hidden="true" /> Guided workout sessions
+                    </li>
+                    <li>
+                      <BarChart3 size={15} aria-hidden="true" /> Real progress statistics
+                    </li>
+                  </ul>
+                </div>
+              </section>
             </>
           )}
         </Container>

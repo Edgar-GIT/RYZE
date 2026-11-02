@@ -185,7 +185,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerProgramService := programs.NewService(trainerProgramRepository, pricingCfg)
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
 
-	publicProgramService := public_programs.NewService(trainerProgramRepository, mediaCfg)
+	publicProgramService := public_programs.NewService(trainerProgramRepository)
 	publicProgramHandler := auth.NewPublicProgramsHandler(publicProgramService)
 
 	contactService := contact.NewService(contact.NewSMTPNotifier(contactCfg))

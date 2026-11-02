@@ -24,12 +24,18 @@ type StatisticsRepository interface {
 // exposed.
 type ClientStatisticsResponse struct {
 	HasActiveAssignment     bool    `json:"has_active_assignment"`
+	HasActiveProgram        bool    `json:"has_active_program"`
 	CurrentProgramName      string  `json:"current_program_name"`
 	TotalExecutions         int64   `json:"total_executions"`
 	UniqueWorkoutsCompleted int64   `json:"unique_workouts_completed"`
 	TotalWorkoutsInProgram  int64   `json:"total_workouts_in_program"`
 	CompletionPercentage    float64 `json:"completion_percentage"`
 	LastWorkoutDate         *string `json:"last_workout_date"`
+	CompletedSessions       int64   `json:"completed_sessions"`
+	AbandonedSessions       int64   `json:"abandoned_sessions"`
+	CompletedSets           int64   `json:"completed_sets"`
+	SkippedSets             int64   `json:"skipped_sets"`
+	TotalActiveSeconds      int64   `json:"total_active_seconds"`
 }
 
 // Service implements the client-facing statistics flow. The requesting user
@@ -69,15 +75,27 @@ func toResponse(raw repositories.ClientStatistics) *ClientStatisticsResponse {
 	if raw.TotalWorkoutsInProgram > 0 {
 		pct = float64(raw.UniqueWorkoutsCompleted) / float64(raw.TotalWorkoutsInProgram) * 100
 	}
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 100 {
+		pct = 100
+	}
 
 	return &ClientStatisticsResponse{
 		HasActiveAssignment:     raw.HasActiveAssignment,
+		HasActiveProgram:        raw.HasActiveProgram,
 		CurrentProgramName:      raw.CurrentProgramName,
 		TotalExecutions:         raw.TotalExecutions,
 		UniqueWorkoutsCompleted: raw.UniqueWorkoutsCompleted,
 		TotalWorkoutsInProgram:  raw.TotalWorkoutsInProgram,
 		CompletionPercentage:    pct,
 		LastWorkoutDate:         raw.LastWorkoutDate,
+		CompletedSessions:       raw.CompletedSessions,
+		AbandonedSessions:       raw.AbandonedSessions,
+		CompletedSets:           raw.CompletedSets,
+		SkippedSets:             raw.SkippedSets,
+		TotalActiveSeconds:      raw.TotalActiveSeconds,
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/public_programs"
@@ -87,7 +86,7 @@ func validProgram() *models.Program {
 }
 
 func newService(repo *stubProgramRepo) public_programs.Service {
-	return public_programs.NewService(repo, config.ExerciseMediaConfig{})
+	return public_programs.NewService(repo)
 }
 
 func TestListPublishedProgramsSuccess(t *testing.T) {
@@ -457,45 +456,22 @@ func TestSearchPublishedProgramsMapsSafeDTO(t *testing.T) {
 	}
 }
 
-func TestGetPublishedProgramGatesMedia(t *testing.T) {
+func TestGetPublishedProgramExposesMetadataOnly(t *testing.T) {
 	model := validProgram()
-	model.Weeks = []models.ProgramWeek{{
-		WeekNumber: 1,
-		Workouts: []models.ProgramWorkout{{
-			Position: 1,
-			Exercises: []models.WorkoutExercise{{
-				Position: 1,
-				Exercise: &models.Exercise{
-					ID:               "33333333-3333-3333-3333-333333333333",
-					Name:             "Squat",
-					VideoURL:         "videos/squat.mp4",
-					ImageURL:         "images/squat.jpg",
-					MediaAttribution: "© Gym visual",
-				},
-			}},
-		}},
-	}}
+	// The model may carry a full structure, but the public read surface must
+	// never project it.
+	model.Weeks = []models.ProgramWeek{{WeekNumber: 1}}
 	repo := &stubProgramRepo{program: model}
 
-	disabled, err := public_programs.NewService(repo, config.ExerciseMediaConfig{}).GetPublishedProgram(context.Background(), programID)
+	program, err := newService(repo).GetPublishedProgram(context.Background(), programID)
 	if err != nil {
-		t.Fatalf("GetPublishedProgram disabled: %v", err)
+		t.Fatalf("GetPublishedProgram: %v", err)
 	}
-	disabledExercise := disabled.Weeks[0].Workouts[0].Exercises[0]
-	if disabledExercise.VideoURL != "" || disabledExercise.ImageURL != "" || disabledExercise.MediaAttribution != "" || disabledExercise.MediaAvailable {
-		t.Fatalf("disabled media must stay empty, got %+v", disabledExercise)
+	if program.ID != programID || program.Name != "Strength Builder" {
+		t.Fatalf("unexpected metadata %+v", program)
 	}
-
-	enabled, err := public_programs.NewService(repo, config.ExerciseMediaConfig{Enabled: true, BasePath: "/media/exercises"}).GetPublishedProgram(context.Background(), programID)
-	if err != nil {
-		t.Fatalf("GetPublishedProgram enabled: %v", err)
-	}
-	enabledExercise := enabled.Weeks[0].Workouts[0].Exercises[0]
-	if enabledExercise.VideoURL != "/media/exercises/videos/squat.mp4" || enabledExercise.ImageURL != "/media/exercises/images/squat.jpg" {
-		t.Fatalf("enabled media paths were not resolved, got %+v", enabledExercise)
-	}
-	if !enabledExercise.MediaAvailable || enabledExercise.MediaAttribution != "© Gym visual" {
-		t.Fatalf("enabled media metadata missing, got %+v", enabledExercise)
+	if reflect.TypeOf(*program).NumField() == 0 {
+		t.Fatal("expected programme metadata")
 	}
 }
 

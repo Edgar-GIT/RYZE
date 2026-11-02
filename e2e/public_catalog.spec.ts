@@ -4,7 +4,6 @@ import { installApiMock, type MockRequest, type MockResponse } from "./api_mock"
 
 const genericProgram = {
   id: "generic-1",
-  trainer_id: null,
   name: "Free Full Body",
   description: "A complete free starter plan.",
   type: "free",
@@ -51,11 +50,6 @@ const premiumPrograms = [
     product_type: "premium_level_1"
   }
 ];
-
-const detail = (program: (typeof premiumPrograms)[number]) => ({
-  ...program,
-  weeks: []
-});
 
 const catalogHandler = (request: MockRequest): MockResponse | undefined => {
   const { method, path, url } = request;
@@ -118,7 +112,7 @@ const catalogHandler = (request: MockRequest): MockResponse | undefined => {
   }
   const program = premiumPrograms.find((entry) => path === `/programs/${entry.id}`);
   if (program) {
-    return { data: detail(program) };
+    return { data: program };
   }
   return undefined;
 };

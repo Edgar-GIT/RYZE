@@ -3,6 +3,11 @@ import { AnimatedBackground } from "@/components/animated_background/animated_ba
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { ProgramStructure } from "@/components/program_structure/program_structure";
+import {
+  fetchActiveWorkoutSession,
+  startWorkoutSession,
+  type WorkoutSession
+} from "@/services/workout_sessions_api";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { ApiError } from "@utils/http_client";
 import { fetchProgramAccess, type ProgramAccessDetail } from "@/services/purchases_api";
@@ -13,7 +18,7 @@ import {
   type NutritionAssignmentStatus
 } from "@/services/premium_level1_api";
 import { PremiumNutritionPlan } from "@/pages/premium_level1_page/premium_nutrition_plan";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, BarChart3, History, Play, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 
@@ -49,6 +54,10 @@ export const ProgramAccessPage = () => {
   const [nutritionError, setNutritionError] = useState("");
   const [generating, setGenerating] = useState(false);
 
+  const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
+  const [startingWorkoutId, setStartingWorkoutId] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState("");
+
   const load = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
@@ -65,6 +74,33 @@ export const ProgramAccessPage = () => {
       setLoading(false);
     }
   }, [programId, history]);
+
+  const loadActiveSession = useCallback(async () => {
+    try {
+      setActiveSession(await fetchActiveWorkoutSession());
+    } catch {
+      // The banner is an enhancement, never the reason the plan fails to render.
+      setActiveSession(null);
+    }
+  }, []);
+
+  const handleStartWorkout = useCallback(
+    async (workoutId: string) => {
+      setStartingWorkoutId(workoutId);
+      setSessionError("");
+      try {
+        const session = await startWorkoutSession(programId, workoutId);
+        history.push(`/services/workout-sessions/${session.id}`);
+      } catch {
+        setSessionError(
+          "You already have another workout in progress. Finish or abandon it before starting a new one."
+        );
+        await loadActiveSession();
+        setStartingWorkoutId(null);
+      }
+    },
+    [programId, history, loadActiveSession]
+  );
 
   const loadNutrition = useCallback(async () => {
     try {
@@ -100,6 +136,12 @@ export const ProgramAccessPage = () => {
   useEffect(() => {
     void load();
   }, [load, retryCount]);
+
+  useEffect(() => {
+    if (detail) {
+      void loadActiveSession();
+    }
+  }, [detail, loadActiveSession]);
 
   // Nutrition is fetched only for a Premium Level 1 entitlement, and only after
   // the entitled program itself resolved. A generic plan never issues the
@@ -147,6 +189,27 @@ export const ProgramAccessPage = () => {
               </Button>
             </div>
 
+            {activeSession ? (
+              <aside className={styles.activeBanner}>
+                <div>
+                  <p className={styles.activeEyebrow}>Workout in progress</p>
+                  <p className={styles.activeTitle}>
+                    {activeSession.program_name} · Week {activeSession.week_number} · Day{" "}
+                    {activeSession.workout_position}
+                  </p>
+                </div>
+                <Button
+                  to={`/services/workout-sessions/${activeSession.id}`}
+                  variant="primary"
+                  size="small"
+                  icon={<Play size={14} />}
+                  iconPosition="left"
+                >
+                  {activeSession.status === "paused" ? "Resume workout" : "Continue workout"}
+                </Button>
+              </aside>
+            ) : null}
+
             <header className={styles.heading}>
               <h1 className={styles.title}>{detail.name}</h1>
               {detail.description ? <p className={styles.subtitle}>{detail.description}</p> : null}
@@ -169,7 +232,31 @@ export const ProgramAccessPage = () => {
               </div>
             </header>
 
-            <ProgramStructure weeks={detail.weeks} />
+            {sessionError ? (
+              <p className={styles.sessionError} role="alert">
+                {sessionError}
+              </p>
+            ) : null}
+
+            <div className={styles.actions}>
+              <Button to="/services/workout-history" variant="secondary" size="small" icon={<History size={15} />} iconPosition="left">
+                Workout history
+              </Button>
+              <Button to="/services/progress" variant="secondary" size="small" icon={<BarChart3 size={15} />} iconPosition="left">
+                View progress
+              </Button>
+            </div>
+
+            <ProgramStructure
+              weeks={detail.weeks}
+              onStartWorkout={(workoutId) => void handleStartWorkout(workoutId)}
+              activeWorkoutId={
+                activeSession?.program_id === programId
+                  ? activeSession.program_workout_id
+                  : null
+              }
+              startingWorkoutId={startingWorkoutId}
+            />
 
             {premium && nutritionLoaded ? (
               <PremiumNutritionPlan

@@ -120,7 +120,6 @@ export interface Entitlement {
  */
 export interface ProgramAccessDetail {
   id: string;
-  trainer_id?: string | null;
   /** Product family: "generic" or "premium_level_1". Product metadata, not
    *  client data. */
   product_type: string;
@@ -140,27 +139,35 @@ export interface ProgramAccessDetail {
 }
 
 export interface ProgramAccessWeek {
+  id: string;
   week_number: number;
   workouts: ProgramAccessWorkout[];
 }
 
 export interface ProgramAccessWorkout {
+  id: string;
   position: number;
   exercises: ProgramAccessExercise[];
 }
 
 export interface ProgramAccessExercise {
+  id: string;
+  position: number;
+  instructions: string;
+  notes: string;
+  exercise: ProgramAccessExerciseSummary;
+  sets: ProgramAccessSet[];
+}
+
+export interface ProgramAccessExerciseSummary {
+  id: string;
   name: string;
   description: string;
-  instructions: string;
   target_muscles: string;
   equipment: string;
   difficulty: string;
   video_url: string;
   image_url: string;
-  position: number;
-  notes: string;
-  sets: ProgramAccessSet[];
 }
 
 export interface ProgramAccessSet {

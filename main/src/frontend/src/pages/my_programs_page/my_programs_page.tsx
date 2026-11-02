@@ -4,7 +4,8 @@ import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { ApiError } from "@utils/http_client";
-import { fetchEntitlements, type Entitlement } from "@/services/purchases_api";
+import { fetchEntitlements } from "@/services/purchases_api";
+import { fetchFreeActivations } from "@/services/free_programs_api";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
@@ -16,11 +17,24 @@ import styles from "./my_programs_page.module.css";
 // family comes from the backend, never from a hardcoded program id.
 const isPremiumPackage = (productType: string): boolean => productType === "premium_level_1";
 
+interface ProgramCard {
+  key: string;
+  programId: string;
+  name: string;
+  description: string;
+  productType: string;
+  trainingType: string | null;
+  level: string | null;
+  durationWeeks: number | null;
+  frequencyPerWeek: number | null;
+  free: boolean;
+}
+
 type State =
   | { status: "loading" }
   | { status: "error" }
   | { status: "empty" }
-  | { status: "ready"; entitlements: Entitlement[] };
+  | { status: "ready"; programs: ProgramCard[] };
 
 export const MyProgramsPage = () => {
   const history = useHistory();
@@ -30,12 +44,37 @@ export const MyProgramsPage = () => {
   const load = useCallback(async () => {
     setState({ status: "loading" });
     try {
-      const entitlements = await fetchEntitlements();
-      setState(
-        entitlements.length === 0
-          ? { status: "empty" }
-          : { status: "ready", entitlements }
-      );
+      const [entitlements, activations] = await Promise.all([
+        fetchEntitlements(),
+        fetchFreeActivations()
+      ]);
+      const programs: ProgramCard[] = [
+        ...entitlements.map((entitlement) => ({
+          key: entitlement.id,
+          programId: entitlement.program_id,
+          name: entitlement.program.name,
+          description: entitlement.program.description,
+          productType: entitlement.program.product_type,
+          trainingType: entitlement.program.training_type ?? null,
+          level: entitlement.program.level ?? null,
+          durationWeeks: entitlement.program.duration_weeks ?? null,
+          frequencyPerWeek: entitlement.program.frequency_per_week ?? null,
+          free: entitlement.program.type === "free"
+        })),
+        ...activations.map((activation) => ({
+          key: activation.id,
+          programId: activation.program.id,
+          name: activation.program.name,
+          description: activation.program.description,
+          productType: "generic",
+          trainingType: activation.program.training_type,
+          level: activation.program.level,
+          durationWeeks: activation.program.duration_weeks,
+          frequencyPerWeek: activation.program.frequency_per_week,
+          free: true
+        }))
+      ];
+      setState(programs.length === 0 ? { status: "empty" } : { status: "ready", programs });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         history.replace("/login");
@@ -97,19 +136,18 @@ export const MyProgramsPage = () => {
             <header className={styles.heading}>
               <h1 className={styles.title}>My Programs</h1>
               <p className={styles.subtitle}>
-                The training plans and packages you have purchased.
+                The training plans and packages you have purchased or activated.
               </p>
             </header>
 
             <div className={styles.grid}>
-              {state.entitlements.map((entitlement) => {
-                const program = entitlement.program;
-                const premium = isPremiumPackage(program.product_type);
+              {state.programs.map((program) => {
+                const premium = isPremiumPackage(program.productType);
                 return (
                   <Link
-                    key={entitlement.id}
+                    key={program.key}
                     className={styles.card}
-                    to={`/services/my-programs/${entitlement.program_id}`}
+                    to={`/services/my-programs/${program.programId}`}
                   >
                     <span className={styles.cardTitle}>{program.name}</span>
                     {program.description ? (
@@ -117,22 +155,23 @@ export const MyProgramsPage = () => {
                     ) : null}
 
                     <span className={styles.chips}>
+                      {program.free ? <span className={styles.chipFree}>Free</span> : null}
                       {premium ? (
                         <span className={styles.chipPremium}>Premium Level 1</span>
                       ) : null}
                       {premium ? (
                         <span className={styles.chip}>Training + nutrition</span>
                       ) : null}
-                      {program.training_type ? <span className={styles.chip}>{program.training_type}</span> : null}
+                      {program.trainingType ? <span className={styles.chip}>{program.trainingType}</span> : null}
                       {program.level ? <span className={styles.chip}>{program.level}</span> : null}
-                      {program.duration_weeks ? (
+                      {program.durationWeeks ? (
                         <span className={styles.chip}>
-                          {program.duration_weeks} week{program.duration_weeks === 1 ? "" : "s"}
+                          {program.durationWeeks} week{program.durationWeeks === 1 ? "" : "s"}
                         </span>
                       ) : null}
-                      {program.frequency_per_week ? (
+                      {program.frequencyPerWeek ? (
                         <span className={styles.chip}>
-                          {program.frequency_per_week} day{program.frequency_per_week === 1 ? "" : "s"}/week
+                          {program.frequencyPerWeek} day{program.frequencyPerWeek === 1 ? "" : "s"}/week
                         </span>
                       ) : null}
                     </span>

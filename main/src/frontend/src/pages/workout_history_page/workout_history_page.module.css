@@ -1,0 +1,153 @@
+.page {
+  position: relative;
+  min-height: 100svh;
+}
+
+.main {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-height: calc(100svh - 4.5rem);
+  place-items: start center;
+  padding: 2.5rem 1.5rem 4.5rem;
+}
+
+.content {
+  display: grid;
+  gap: 1.6rem;
+  width: 100%;
+  max-width: 52rem;
+}
+
+.back {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--accent);
+  background: rgba(24, 216, 255, 0.1);
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.cardMain {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.cardEyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cardTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.badge {
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.badgeDone {
+  color: var(--success, #2ed573);
+  background: rgba(46, 213, 115, 0.12);
+}
+
+.badgeAbandoned {
+  color: #ffb86b;
+  background: rgba(255, 159, 67, 0.12);
+}
+
+.badgeOpen {
+  color: var(--accent);
+  background: rgba(24, 216, 255, 0.12);
+}
+
+.stateCard {
+  display: grid;
+  justify-items: center;
+  gap: 1.2rem;
+  padding: 2.5rem 2rem;
+  border: 1px solid rgba(42, 140, 255, 0.2);
+  border-radius: 18px;
+  background: linear-gradient(165deg, rgba(10, 16, 26, 0.82), rgba(5, 8, 14, 0.82));
+  text-align: center;
+}
+
+.stateCard p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 560px) {
+  .main {
+    padding-top: 1.5rem;
+  }
+
+  .card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

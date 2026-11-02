@@ -37,7 +37,6 @@ export interface MarketplaceProgramProduct {
 
 export interface MarketplaceProgram extends MarketplaceProgramProduct {
   id: string;
-  trainer_id: string | null;
   name: string;
   description: string;
   type: string;
@@ -52,44 +51,9 @@ export interface MarketplaceProgram extends MarketplaceProgramProduct {
   updated_at: string;
 }
 
-export interface MarketplaceSet {
-  set_number: number;
-  set_type: string;
-  reps: number | null;
-  weight_kg: number | null;
-  rir: number | null;
-  rpe: number | null;
-  rest_seconds: number | null;
-  tempo: string;
-}
-
-export interface MarketplaceExercise {
-  name: string;
-  description: string;
-  instructions: string;
-  target_muscles: string;
-  equipment: string;
-  difficulty: string;
-  video_url: string;
-  image_url: string;
-  position: number;
-  notes: string;
-  sets: MarketplaceSet[];
-}
-
-export interface MarketplaceWorkout {
-  position: number;
-  exercises: MarketplaceExercise[];
-}
-
-export interface MarketplaceWeek {
-  week_number: number;
-  workouts: MarketplaceWorkout[];
-}
-
-export interface MarketplaceProgramDetail extends MarketplaceProgram {
-  weeks: MarketplaceWeek[];
-}
+/** Public catalog detail is metadata-only. The programme structure is only
+ *  available through an authenticated access grant. */
+export type MarketplaceProgramDetail = MarketplaceProgram;
 
 export interface MarketplaceListResult {
   programs: MarketplaceProgram[];

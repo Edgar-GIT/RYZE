@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
+	"ryze/backend/config"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/program_access"
-	"ryze/backend/services/public_programs"
 )
 
 const (
@@ -19,9 +19,6 @@ const (
 
 var errRepoFailure = errors.New("repository failure")
 
-// stubrEntitlements fakes the entitlement gate. It records the forwarded user
-// and program ids so tests can prove the service scopes the check to the
-// authentication-context identity and to the requested program.
 type stubEntitlements struct {
 	found      bool
 	err        error
@@ -41,97 +38,147 @@ func (s *stubEntitlements) FindActiveByUserAndProgram(_ context.Context, userID,
 	return &models.Entitlement{ID: entID, UserID: userID, ProgramID: programID}, nil
 }
 
-// stubPrograms fakes the published program reader.
+type stubAssignments struct {
+	exists  bool
+	err     error
+	queried bool
+}
+
+func (s *stubAssignments) ExistsByUserAndProgram(_ context.Context, _, _ string) (bool, error) {
+	s.queried = true
+	return s.exists, s.err
+}
+
+type stubActivations struct {
+	found   bool
+	err     error
+	queried bool
+}
+
+func (s *stubActivations) FindActiveByUserAndProgram(_ context.Context, _, _ string) (*models.FreeProgramActivation, error) {
+	s.queried = true
+	if s.err != nil {
+		return nil, s.err
+	}
+	if !s.found {
+		return nil, repositories.ErrFreeActivationNotFound
+	}
+	return &models.FreeProgramActivation{ID: "activation", UserID: userID, ProgramID: programID}, nil
+}
+
 type stubPrograms struct {
-	detail     *public_programs.ProgramDetail
+	program    *models.Program
 	err        error
 	gotProgram string
 }
 
-func (s *stubPrograms) GetPublishedProgram(_ context.Context, programID string) (*public_programs.ProgramDetail, error) {
+func (s *stubPrograms) FindPublishedByIDWithStructure(_ context.Context, programID string) (*models.Program, error) {
 	s.gotProgram = programID
 	if s.err != nil {
 		return nil, s.err
 	}
-	if s.detail == nil {
-		return nil, public_programs.ErrProgramNotFound
+	if s.program == nil {
+		return nil, repositories.ErrProgramNotFound
 	}
-	return s.detail, nil
+	return s.program, nil
 }
 
-func newService(ents *stubEntitlements, programs *stubPrograms) program_access.Service {
-	return program_access.NewService(ents, programs)
+func newService(ents *stubEntitlements, assignments *stubAssignments, activations *stubActivations, programs *stubPrograms) program_access.Service {
+	return program_access.NewService(ents, assignments, activations, programs, config.ExerciseMediaConfig{})
 }
 
-func validDetail() *public_programs.ProgramDetail {
-	return &public_programs.ProgramDetail{
-		Program: public_programs.Program{
-			ID:       programID,
-			Name:     "Strength Builder",
-			Type:     models.ProgramTypePremium,
-			Status:   models.ProgramStatusPublished,
-			Currency: "EUR",
-		},
-		Weeks: []public_programs.Week{},
+func validProgram() *models.Program {
+	return &models.Program{
+		ID:       programID,
+		Name:     "Strength Builder",
+		Type:     models.ProgramTypePremium,
+		Status:   models.ProgramStatusPublished,
+		Currency: "EUR",
 	}
 }
 
-func TestGetProgramAccessSuccess(t *testing.T) {
+func TestGetProgramAccessFromEntitlement(t *testing.T) {
 	ents := &stubEntitlements{found: true}
-	programs := &stubPrograms{detail: validDetail()}
-	svc := newService(ents, programs)
+	assignments := &stubAssignments{}
+	activations := &stubActivations{}
+	programs := &stubPrograms{program: validProgram()}
+	svc := newService(ents, assignments, activations, programs)
 
 	detail, err := svc.GetProgramAccess(context.Background(), userID, programID)
 	if err != nil {
 		t.Fatalf("GetProgramAccess: %v", err)
 	}
-	if detail == nil || detail.ID != programID || detail.Name != "Strength Builder" {
+	if detail == nil || detail.ID != programID {
 		t.Fatalf("unexpected detail %+v", detail)
 	}
-	if ents.gotUser != userID {
-		t.Fatalf("expected scope %q, got %q", userID, ents.gotUser)
-	}
-	if ents.gotProgram != programID {
-		t.Fatalf("expected program %q, got %q", programID, ents.gotProgram)
+	if ents.gotUser != userID || ents.gotProgram != programID {
+		t.Fatalf("unexpected entitlement scope %q/%q", ents.gotUser, ents.gotProgram)
 	}
 	if programs.gotProgram != programID {
-		t.Fatalf("expected program read %q, got %q", programID, programs.gotProgram)
+		t.Fatalf("expected program %q, got %q", programID, programs.gotProgram)
+	}
+	if assignments.queried || activations.queried {
+		t.Fatal("a granted entitlement must short-circuit the other grant sources")
 	}
 }
 
-func TestGetProgramAccessNoEntitlement(t *testing.T) {
-	ents := &stubEntitlements{found: false}
-	programs := &stubPrograms{detail: validDetail()}
-	svc := newService(ents, programs)
+func TestGetProgramAccessFromAssignment(t *testing.T) {
+	svc := newService(&stubEntitlements{}, &stubAssignments{exists: true}, &stubActivations{}, &stubPrograms{program: validProgram()})
 
-	_, err := svc.GetProgramAccess(context.Background(), userID, programID)
-	if !errors.Is(err, program_access.ErrProgramNotAccessible) {
+	detail, err := svc.GetProgramAccess(context.Background(), userID, programID)
+	if err != nil {
+		t.Fatalf("GetProgramAccess: %v", err)
+	}
+	if detail == nil || detail.ID != programID {
+		t.Fatalf("unexpected detail %+v", detail)
+	}
+}
+
+func TestGetProgramAccessFromFreeActivation(t *testing.T) {
+	free := validProgram()
+	free.Type = models.ProgramTypeFree
+	free.ProductType = models.ProgramProductTypeGeneric
+	svc := newService(&stubEntitlements{}, &stubAssignments{}, &stubActivations{found: true}, &stubPrograms{program: free})
+
+	detail, err := svc.GetProgramAccess(context.Background(), userID, programID)
+	if err != nil {
+		t.Fatalf("GetProgramAccess: %v", err)
+	}
+	if detail == nil || detail.ID != programID {
+		t.Fatalf("unexpected detail %+v", detail)
+	}
+}
+
+func TestFreeActivationCannotOpenPaidProgram(t *testing.T) {
+	svc := newService(&stubEntitlements{}, &stubAssignments{}, &stubActivations{found: true}, &stubPrograms{program: validProgram()})
+
+	if _, err := svc.GetProgramAccess(context.Background(), userID, programID); !errors.Is(err, program_access.ErrProgramNotAccessible) {
 		t.Fatalf("expected ErrProgramNotAccessible, got %v", err)
 	}
-	// The program must never be loaded without an entitlement.
+}
+
+func TestGetProgramAccessNoGrantDoesNotLoadProgram(t *testing.T) {
+	programs := &stubPrograms{program: validProgram()}
+	svc := newService(&stubEntitlements{}, &stubAssignments{}, &stubActivations{}, programs)
+
+	if _, err := svc.GetProgramAccess(context.Background(), userID, programID); !errors.Is(err, program_access.ErrProgramNotAccessible) {
+		t.Fatalf("expected ErrProgramNotAccessible, got %v", err)
+	}
 	if programs.gotProgram != "" {
-		t.Fatalf("program must not be loaded without an entitlement, got read for %q", programs.gotProgram)
+		t.Fatalf("program must not be loaded without a grant, got read for %q", programs.gotProgram)
 	}
 }
 
 func TestGetProgramAccessProgramUnavailable(t *testing.T) {
-	ents := &stubEntitlements{found: true}
+	svc := newService(&stubEntitlements{found: true}, &stubAssignments{}, &stubActivations{}, &stubPrograms{err: repositories.ErrProgramNotFound})
 
-	for name, programs := range map[string]*stubPrograms{
-		"not found": {err: public_programs.ErrProgramNotFound},
-	} {
-		t.Run(name, func(t *testing.T) {
-			svc := newService(ents, programs)
-			_, err := svc.GetProgramAccess(context.Background(), userID, programID)
-			if !errors.Is(err, program_access.ErrProgramNotAccessible) {
-				t.Fatalf("expected ErrProgramNotAccessible, got %v", err)
-			}
-		})
+	if _, err := svc.GetProgramAccess(context.Background(), userID, programID); !errors.Is(err, program_access.ErrProgramNotAccessible) {
+		t.Fatalf("expected ErrProgramNotAccessible, got %v", err)
 	}
 }
 
 func TestGetProgramAccessInvalidInput(t *testing.T) {
-	svc := newService(&stubEntitlements{found: true}, &stubPrograms{detail: validDetail()})
+	svc := newService(&stubEntitlements{found: true}, &stubAssignments{}, &stubActivations{}, &stubPrograms{program: validProgram()})
 
 	cases := map[string][2]string{
 		"empty user":    {"", programID},
@@ -149,8 +196,8 @@ func TestGetProgramAccessInvalidInput(t *testing.T) {
 	}
 }
 
-func TestGetProgramAccessEntitlementFailure(t *testing.T) {
-	svc := newService(&stubEntitlements{err: errRepoFailure}, &stubPrograms{detail: validDetail()})
+func TestGetProgramAccessGrantFailure(t *testing.T) {
+	svc := newService(&stubEntitlements{err: errRepoFailure}, &stubAssignments{}, &stubActivations{}, &stubPrograms{program: validProgram()})
 
 	_, err := svc.GetProgramAccess(context.Background(), userID, programID)
 	if err == nil || errors.Is(err, program_access.ErrInvalidInput) || errors.Is(err, program_access.ErrProgramNotAccessible) {
@@ -161,14 +208,14 @@ func TestGetProgramAccessEntitlementFailure(t *testing.T) {
 	}
 }
 
-func TestGetProgramAccessProgramFailure(t *testing.T) {
-	svc := newService(&stubEntitlements{found: true}, &stubPrograms{err: errRepoFailure})
+func TestResolveGrantReportsSource(t *testing.T) {
+	svc := newService(&stubEntitlements{found: true}, &stubAssignments{}, &stubActivations{}, &stubPrograms{program: validProgram()})
 
-	_, err := svc.GetProgramAccess(context.Background(), userID, programID)
-	if err == nil || errors.Is(err, program_access.ErrInvalidInput) || errors.Is(err, program_access.ErrProgramNotAccessible) {
-		t.Fatalf("expected internal failure to be hidden, got %v", err)
+	source, err := svc.ResolveGrant(context.Background(), userID, programID)
+	if err != nil {
+		t.Fatalf("ResolveGrant: %v", err)
 	}
-	if !errors.Is(err, errRepoFailure) {
-		t.Fatalf("expected the repository failure to stay wrapped, got %v", err)
+	if source != program_access.GrantSourceEntitlement {
+		t.Fatalf("expected entitlement source, got %q", source)
 	}
 }

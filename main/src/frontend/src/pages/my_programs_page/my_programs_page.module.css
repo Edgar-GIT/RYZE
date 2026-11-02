@@ -108,6 +108,17 @@
 
 /* Marks a Premium Level 1 package, which carries training and nutrition rather
    than a training plan alone. */
+.chipFree {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 .chipPremium {
   padding: 0.3rem 0.6rem;
   border: 1px solid rgba(46, 213, 115, 0.4);

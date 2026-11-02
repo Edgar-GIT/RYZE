@@ -18,7 +18,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/program_access"
-	"ryze/backend/services/public_programs"
+	"ryze/backend/services/program_content"
 	"ryze/backend/services/token"
 )
 
@@ -56,8 +56,9 @@ func newProgramAccessTestRouter(t *testing.T) (*gin.Engine, repositories.UserRep
 	entitlementRepo := repositories.NewEntitlementRepository(tx)
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)
 
-	publicService := public_programs.NewService(trainerProgramRepo, config.ExerciseMediaConfig{})
-	accessService := program_access.NewService(entitlementRepo, publicService)
+	assignmentRepo := repositories.NewProgramAssignmentRepository(tx)
+	activationRepo := repositories.NewFreeProgramActivationRepository(tx)
+	accessService := program_access.NewService(entitlementRepo, assignmentRepo, activationRepo, trainerProgramRepo, config.ExerciseMediaConfig{})
 	handler := auth.NewProgramAccessHandler(accessService)
 
 	router := gin.New()
@@ -89,16 +90,20 @@ func newProgramAccessHandlerRouter(svc program_access.Service, identity any) *gi
 // stubProgramAccessService is a scripted fake used to exercise the handler's
 // error mapping and identity forwarding without touching the database.
 type stubProgramAccessService struct {
-	detail     *public_programs.ProgramDetail
+	detail     *program_content.Program
 	err        error
 	gotUser    string
 	gotProgram string
 }
 
-func (s *stubProgramAccessService) GetProgramAccess(_ context.Context, userID, programID string) (*public_programs.ProgramDetail, error) {
+func (s *stubProgramAccessService) GetProgramAccess(_ context.Context, userID, programID string) (*program_content.Program, error) {
 	s.gotUser = userID
 	s.gotProgram = programID
 	return s.detail, s.err
+}
+
+func (s *stubProgramAccessService) ResolveGrant(_ context.Context, _, _ string) (program_access.GrantSource, error) {
+	return program_access.GrantSourceEntitlement, s.err
 }
 
 // seedAccessProgram builds a trainer-owned program (published by default) with
@@ -196,7 +201,8 @@ func TestProgramAccessReadSuccess(t *testing.T) {
 		t.Fatalf("expected 1 workout exercise, got %d", len(workoutExercises))
 	}
 	firstExercise, _ := workoutExercises[0].(map[string]any)
-	if exerciseName, _ := firstExercise["name"].(string); exerciseName != "Bench Press" {
+	exercise, _ := firstExercise["exercise"].(map[string]any)
+	if exerciseName, _ := exercise["name"].(string); exerciseName != "Bench Press" {
 		t.Fatalf("expected exercise name, got %q", exerciseName)
 	}
 }
@@ -335,8 +341,8 @@ func TestProgramAccessReadSoftDeletedProgram(t *testing.T) {
 func TestProgramAccessHandlerForwardsContextIdentity(t *testing.T) {
 	identity := uuid.NewString()
 	svc := &stubProgramAccessService{
-		detail: &public_programs.ProgramDetail{
-			Program: public_programs.Program{ID: uuid.NewString(), Name: "Strength Builder", Status: models.ProgramStatusPublished},
+		detail: &program_content.Program{
+			ID: uuid.NewString(), Name: "Strength Builder", Status: models.ProgramStatusPublished,
 		},
 	}
 	router := newProgramAccessHandlerRouter(svc, identity)

@@ -205,8 +205,9 @@ func TestStatisticsRepository(t *testing.T) {
 		t.Fatalf("after second workout: expected UniqueWorkoutsCompleted=2, got %d", stats.UniqueWorkoutsCompleted)
 	}
 
-	// 6. Soft-deleting a workout reduces the program count but preserves
-	// completed workout history (the unique count stays the same).
+	// 6. Soft-deleting a workout reduces both the active program count and the
+	// unique completion count, because completion is scoped to the active
+	// current-program structure. Execution totals still preserve history.
 	if err := workoutRepo.SoftDelete(ctx, trainer.ID, program.ID, week2.ID, workout2.ID); err != nil {
 		t.Fatalf("soft delete workout: %v", err)
 	}
@@ -217,9 +218,8 @@ func TestStatisticsRepository(t *testing.T) {
 	if stats.TotalWorkoutsInProgram != 1 {
 		t.Fatalf("after workout deletion: expected TotalWorkoutsInProgram=1, got %d", stats.TotalWorkoutsInProgram)
 	}
-	// Unique completed stays 2 — history references are preserved.
-	if stats.UniqueWorkoutsCompleted != 2 {
-		t.Fatalf("after workout deletion: expected UniqueWorkoutsCompleted=2, got %d", stats.UniqueWorkoutsCompleted)
+	if stats.UniqueWorkoutsCompleted != 1 {
+		t.Fatalf("after workout deletion: expected UniqueWorkoutsCompleted=1, got %d", stats.UniqueWorkoutsCompleted)
 	}
 
 	// 7. Other client's stats are isolated.

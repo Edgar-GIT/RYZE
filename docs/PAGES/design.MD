@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.82.0
+Version: 2.83.0
 
 ---
 
@@ -721,19 +721,23 @@ related-program recommendations.
 
 ### My Programs
 
-The authenticated client-facing listing of purchased/entitled programs. It
-follows the palette, motion and typography of the other authenticated pages.
+The authenticated client-facing listing of every program the client can enter:
+entitled programs, trainer assignments and activated Free programs. It follows
+the palette, motion and typography of the other authenticated pages.
 
 - **Route** — `/services/my-programs`, chrome-free: it renders without the
   public chrome (same pattern as `/profile`). It shares the single account
   navigation bar (`components/account_nav`: Brand left, Profile / My Programs /
-  Purchase History pills in the reserved center area, optional user chip right)
+  Progress / Purchase History pills in the reserved center area, optional user
+  chip right)
   used by every authenticated account page. The global navigation is never
   swapped for an authenticated state outside of it.
-- **Data** — `GET /api/v1/me/entitlements`, 401 → redirect to `/login`.
+- **Data** — `GET /api/v1/me/entitlements` plus `GET /api/v1/me/free-programs`,
+  401 → redirect to `/login`. A Free activation is merged into the same list and
+  marked with a distinct "Free" chip; the card never claims purchase metadata.
 - **States** — loading (spinner), generic error with a Retry button, and an
   empty state ("You have no programs yet") linking to the marketplace.
-- **Cards** — one card per entitled program: name, description and the generic
+- **Cards** — one card per accessible program: name, description and the generic
   calendar chips (`training_type`, `level`, `duration_weeks`,
   `frequency_per_week`), plus an "Open program" affordance navigating to
   `/services/my-programs/:programId`. No price and no entitlement metadata are
@@ -745,9 +749,9 @@ follows the palette, motion and typography of the other authenticated pages.
 
 ### Program Access
 
-The entitlement-protected program detail ("client program detail"). It is the
-same safe structure surface as the marketplace detail page, but exclusively for
-entitled programs and only reachable from My Programs.
+The access-protected program detail ("client program detail"). It renders the
+safe structure for any program the client may enter through an entitlement,
+trainer assignment or Free activation. It is only reachable from My Programs.
 
 - **Route** — `/services/my-programs/:programId`, chrome-free with the shared
   account navigation bar (`components/account_nav`), identical to the other
@@ -757,12 +761,57 @@ entitled programs and only reachable from My Programs.
 - **States** — loading (spinner), generic error with a Retry button, and a
   generic "no longer available" state for the indistinguishable 404.
 - **Layout** — a "My Programs" back Button, the program heading with name,
-  description and the calendar chips, then the shared training structure
-  (weeks → days → exercises → prescription set table, identical to the
-  marketplace plan structure). There is no purchase surface here.
-- **Shared structure** — the structure markup and set table are the shared
-  `ProgramStructure` component reused by the marketplace plan detail page, so
-  both surfaces stay visually identical.
+  description and the calendar chips, then the training structure (weeks → days
+  → exercises → prescription set table). There is no purchase surface here.
+- **Actions** — an active session banner offers Resume. Every workout row has a
+  Start action (or Resume when that workout owns the active session); starting a
+  different workout while one is live surfaces the server conflict instead of
+  discarding the live session. History and Progress links are available from
+  this page.
+- **Shared structure** — `ProgramStructure` is access-only and is not reused by
+  the public marketplace detail, which is metadata-only.
+
+---
+
+### Workout Session
+
+The interactive execution surface for one prescribed workout.
+
+- **Route** — `/services/workout-sessions/:sessionId`, chrome-free with the
+  shared account navigation bar.
+- **Data** — `GET /api/v1/me/workout-sessions/:sessionId`; 401 → redirect to
+  `/login`.
+- **Layout** — programme name, week/day position, elapsed time, completed-set
+  progress, then one block per exercise. Each set row pairs the immutable
+  prescription (reps, weight, RIR/RPE, tempo) with editable actual reps,
+  weight, RIR/RPE and a complete/skip control. Completed and skipped states are
+  visually distinct; disabled states are never implied by colour alone.
+- **Rest timer** — when a completed set returns `rest_ends_at`, the UI computes
+  the remaining duration from that absolute server timestamp. It never
+  decrements a local countdown, so backgrounding the tab cannot drift.
+- **Controls** — pause/resume, complete and abandon. Complete is the primary
+  action; abandon is destructive and asks for confirmation. A finished session
+  shows a read-only summary and the duration is frozen.
+- **Errors** — a foreign/unknown session shows the generic not-found state; a
+  transition conflict instructs the client to refresh rather than retry blindly.
+
+---
+
+### Workout History and Progress
+
+- **Routes** — `/services/workout-history` and `/services/progress`,
+  chrome-free with the shared account navigation bar. AccountNav and the profile
+  hub both link to Progress.
+- **History data** — `GET /api/v1/me/workout-sessions?limit=50`; 401 →
+  redirect to `/login`. Cards show programme, week/day, date, a correct status
+  badge (`In progress`, `Paused`, `Completed`, `Abandoned`), set progress,
+  duration and skipped sets. Details opens the session page.
+- **Progress data** — `GET /api/v1/me/statistics`; 401 → redirect to `/login`.
+  Shows whether a current programme exists, its completion percentage, unique
+  workouts completed versus total, last workout date and all-time completed
+  sessions, abandoned sessions, completed/skipped sets and active time.
+- **States** — loading, generic retryable error and an empty state that links
+  back to My Programs.
 
 ---
 
@@ -1090,8 +1139,8 @@ chrome (`/profile` is chrome-free alongside `/account/*` and
 `/services/my-programs`).
 
 - Left: RYZE logo/icon linking home.
-- Center: Profile / My Programs / Purchase History pills (the authenticated
-  account navigation, identical across every account page).
+- Center: Profile / My Programs / Progress / Purchase History pills (the
+  authenticated account navigation, identical across every account page).
 - Right: the authenticated user's first name followed by a circular profile
   avatar. No avatar upload exists yet, so a default person/user icon is shown.
 

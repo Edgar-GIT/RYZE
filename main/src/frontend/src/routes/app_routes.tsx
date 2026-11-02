@@ -19,7 +19,10 @@ import { MyProgramsPage } from "@/pages/my_programs_page/my_programs_page";
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
 import { PremiumLevel1Page } from "@/pages/premium_level1_page/premium_level1_page";
 import { ProfilePage } from "@/pages/profile_page/profile_page";
+import { ProgressPage } from "@/pages/progress_page/progress_page";
 import { ProgramAccessPage } from "@/pages/program_access_page/program_access_page";
+import { WorkoutHistoryPage } from "@/pages/workout_history_page/workout_history_page";
+import { WorkoutSessionPage } from "@/pages/workout_session_page/workout_session_page";
 import { ServicesPage } from "@/pages/services_page/services_page";
 import { UnderDevelopmentPage } from "@/pages/under_development_page/under_development_page";
 import { AdminAuditPage } from "@/pages/admin/admin_audit_page/admin_audit_page";
@@ -72,6 +75,9 @@ export const AppRoutes = () => {
         <Route exact path="/services/generic-program/:programId/purchase/cancelled" component={GenericProgramDetailPage} />
         <Route exact path="/services/my-programs" component={MyProgramsPage} />
         <Route exact path="/services/my-programs/:programId" component={ProgramAccessPage} />
+        <Route exact path="/services/workout-sessions/:sessionId" component={WorkoutSessionPage} />
+        <Route exact path="/services/workout-history" component={WorkoutHistoryPage} />
+        <Route exact path="/services/progress" component={ProgressPage} />
         <Route exact path="/exercises" component={ExerciseLibraryPage} />
         <Route exact path="/exercises/:exerciseId" component={ExerciseDetailPage} />
         <Route
