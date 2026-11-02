@@ -644,9 +644,11 @@ their aggregate price/highlight logic needs the complete returned set.
 
 Reached from any marketplace card or search result
 (`/services/generic-program/:programId`). A focused, content-first page showing
-one published generic program. Free programs are fully accessible; paid programs
-expose a single in-page purchase panel with no separate checkout page. The page
-always remains viewable — it never requires authentication to read the program.
+one published generic program. The public page is metadata-only: the programme
+structure is never rendered here. Free programmes use an activation panel; paid
+programmes expose a single in-page purchase panel with no separate checkout
+page. The public metadata always remains viewable, but activation and payment
+require authentication.
 
 - **Top bar** — a back Button (arrow in a dark pill) that returns to the
   marketplace (`/services/generic-program`).
@@ -664,10 +666,8 @@ always remains viewable — it never requires authentication to read the program
     button linking to `/login`. Buyable-elsewhere styling, deliberately not
     locked: the program content remains readable.
   - `owned` — "You have access" success treatment ("You already own this
-    training plan") with a primary "Open program" button (into the account
-    area) and a back Button to the marketplace. Free programs stay unchanged:
-    their owned panel only links back to the marketplace (no Program Access
-    page exists for free programs).
+    training plan") with a primary "Open program" button into Program Access
+    and a back Button to the marketplace.
   - `ready` — the price and a primary "Buy now" CTA. When the backend advertises
     more than one payment method (`GET /api/v1/payments/methods`), a small
     radio list ("Payment method") sits between the note and the CTA with the
@@ -699,11 +699,19 @@ always remains viewable — it never requires authentication to read the program
     "Get plan in Test Mode" CTA at price "Free" with a note that the purchase
     completes instantly with no payment. A `409 DUPLICATE_ENTITLEMENT` resolves
     to the `owned` state (the persona already owns the program).
+- **Free activation panel** (free programmes only) — resolves the client's Free
+  activations. A guest sees "Sign in to activate" with a Sign in button; a
+  signed-in unactivated client sees "Activate free plan"; an activated client
+  sees "Open program". Activation navigates to Program Access on success. A
+  `401` during activation redirects to `/login`. The panel never renders
+  structure.
+- **Locked structure** — one explanatory section states that weeks, days,
+  exercises, prescriptions, set logging, rest timers and progress unlock after
+  activation or purchase. It contains no public workout data.
 - **States** — loading (muted centered state), generic error with a Retry
   button, and "Program not found" for unknown, draft or removed programs (the
   backend returns one indistinguishable 404 for all of them).
-- **Responsive** — the header and week cards scale down gracefully; the set
-  table scrolls horizontally inside its container on narrow screens;
+- **Responsive** — the header and panels scale down gracefully;
   `prefers-reduced-motion` is respected.
 
 The panel resolves ownership by fetching the user's entitlements (401 → guest

@@ -241,7 +241,7 @@ func TestStatisticsRepository(t *testing.T) {
 	if stats.TotalExecutions != 3 {
 		t.Fatalf("isolation: expected TotalExecutions=3, got %d", stats.TotalExecutions)
 	}
-	if stats.UniqueWorkoutsCompleted != 2 {
-		t.Fatalf("isolation: expected UniqueWorkoutsCompleted=2, got %d", stats.UniqueWorkoutsCompleted)
+	if stats.UniqueWorkoutsCompleted != 1 {
+		t.Fatalf("isolation: expected UniqueWorkoutsCompleted=1, got %d", stats.UniqueWorkoutsCompleted)
 	}
 }

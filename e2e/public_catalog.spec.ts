@@ -59,7 +59,7 @@ const catalogHandler = (request: MockRequest): MockResponse | undefined => {
   if (path === "/auth/test-mode") {
     return { data: { active: false } };
   }
-  if (path === "/me/entitlements") {
+  if (path === "/me/entitlements" || path === "/me/free-programs") {
     return { status: 401, error: { code: "UNAUTHORIZED" } };
   }
   if (path === "/payments/methods") {
@@ -110,7 +110,9 @@ const catalogHandler = (request: MockRequest): MockResponse | undefined => {
       }
     };
   }
-  const program = premiumPrograms.find((entry) => path === `/programs/${entry.id}`);
+  const program = [genericProgram, paidGenericProgram, ...premiumPrograms].find(
+    (entry) => path === `/programs/${entry.id}`
+  );
   if (program) {
     return { data: program };
   }
@@ -179,4 +181,16 @@ test("Generic marketplace applies filters on the server and renders honest disco
   await expect(page.getByText("1 result for your filters")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Free Full Body" }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Hypertrophy Builder" })).toHaveCount(0);
+});
+
+test("Generic detail stays metadata-only and asks guests to sign in for a free plan", async ({ page }) => {
+  await page.goto("/services/generic-program/generic-1");
+
+  await expect(page.getByRole("heading", { name: "Free Full Body" })).toBeVisible();
+  await expect(page.getByText("Free plan", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
+  await expect(page.getByRole("heading", { name: "Full training structure" })).toBeVisible();
+  await expect(page.getByText("Guided workout sessions")).toBeVisible();
+  await expect(page.getByText("Week 1")).toHaveCount(0);
+  await expect(page.getByText("Back squat")).toHaveCount(0);
 });

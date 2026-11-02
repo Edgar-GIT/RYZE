@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # SECURITY.MD
 
-Version: 2.85.0
+Version: 2.100.0
 
 ---
 
@@ -1450,17 +1450,20 @@ same security model as other authenticated-user read endpoints:
 - A missing or soft-deleted entitlement is indistinguishable from a non-existent
   one and never revealed. Cross-user lookups return the same not-found response.
 - Entitlements provide only safe metadata (entitlement id, program_id, nested
-  safe Program including the generic calendar fields). They do NOT grant access
-  to `GET /me/program` — assignment remains the access mechanism for assigned
-  programs. The ownership-trainer id and parent identifiers are never exposed.
-- The `purchases` table now has a creation API (`POST
-  /api/v1/me/programs/:programID/purchase`) that creates pending purchase
-  records. The `entitlements` table has no creation API yet; entitlements will
-  be created when a payment provider transitions a purchase to "completed".
+  safe Program including the generic calendar fields). They are one of the three
+  access grants accepted by the protected program read and workout session
+  start, alongside assignments and Free activations. They do NOT grant access to
+  the legacy `GET /me/program` assignment read. The ownership-trainer id and
+  parent identifiers are never exposed.
+- Entitlement expiry is server-owned. An `expires_at` at or before the current
+  database time grants no access and is filtered from the list. A repurchase
+  may reclaim the row only by clearing both `deleted_at` and `expires_at` inside
+  the purchase transaction; the active-row unique constraint prevents a second
+  grant.
 
 ### Client Program Access Security
 
-The entitlement-protected program read
+The access-protected program read
 (`GET /api/v1/me/programs/:programID`) is the "My Programs" detail surface and
 enforces access strictly on the backend:
 
@@ -1469,24 +1472,71 @@ enforces access strictly on the backend:
   body or header) is never accepted and can never change which program is
   returned. Query parameters or request bodies carry no identity and are
   ignored.
-- Access is granted only when BOTH conditions hold: the authenticated user holds
-  an active entitlement for the program AND the program is still published.
-  A missing entitlement, a nonexistent program, a soft-deleted program and an
-  unpublished program are indistinguishable and always return the same generic
+- Access is granted only when the program is still published AND exactly one
+  grant exists for the authenticated user: an active unexpired entitlement, an
+  active trainer assignment, or an active unexpired Free activation. A missing
+  grant, a nonexistent program, a soft-deleted program and an unpublished
+  program are indistinguishable and always return the same generic
   `404 PROGRAM_NOT_FOUND`. The response never reveals which condition failed.
-- Cross-user isolation is enforced: a user with no entitlement for the requested
+- Cross-user isolation is enforced: a user with no grant for the requested
   program receives the same `404` as a user asking for a random id. There is no
-  way to probe, enumerate or read another user's entitled programs.
-- The response is the safe published program detail (identical shape to the
-  marketplace detail). It never contains the owning user id, the entitlement
-  identity, purchase/commercial internals, password hashes, session versions,
-  JWT data, deletion markers or any internal fields.
+  way to probe, enumerate or read another user's accessible programs.
+- The response contains only the safe access structure: public programme
+  metadata, weeks, workouts, workout exercises, prescribed sets and the safe
+  catalog exercise summary. It never contains the owning trainer id, parent
+  identifiers, the grant identity, purchase/commercial internals, password
+  hashes, session versions, JWT data, deletion markers or any internal fields.
+  Prescribed sets carry no public id; the execution session snapshots them with
+  its own set ids.
 - Internal repository/service failures are never surfaced to the client; they
   are mapped to a generic `500 INTERNAL_ERROR` with no details leaked.
-- The program content is loaded through the existing `public_programs` service
-  (`FindPublishedByIDWithStructure`), which independently re-enforces the
-  `published` + not-soft-deleted filter server-side. Frontend permission checks
-  are never trusted for access decisions.
+- The content is loaded through the shared `program_content` mapper, which
+  re-enforces the published + not-soft-deleted filters. Frontend permission
+  checks are never trusted for access decisions.
+
+### Free Program Activation Security
+
+Free activation (`POST /api/v1/me/programs/:programID/free-activation`,
+`GET /api/v1/me/free-programs`) is a client-owned grant:
+
+- The acting user always comes from the authentication context; a body, query
+  or header identity is ignored. The client can only activate for themselves.
+- Only a published, non-soft-deleted, platform-owned (`trainer_id IS NULL`),
+  generic, Free programme can be activated. A paid, Premium Level 1, trainer-owned
+  or missing programme answers the same `404 PROGRAM_NOT_FOUND`; activation
+  never reveals which rule failed.
+- The database enforces at most one active Free activation per user. Activating
+  the same programme is idempotent; activating a different one replaces the
+  previous activation inside a transaction, so two grants can never coexist.
+- An expired activation grants nothing and is filtered from all access queries.
+  `expires_at` is server-owned; clients cannot set it.
+- The list is strictly the authenticated user's own and never exposes another
+  user's activation, programme ownership or internal identifiers.
+
+### Workout Session Security
+
+Workout sessions (`/api/v1/me/workout-sessions...`) execute an existing access
+grant and follow the same model:
+
+- The user id comes exclusively from the authentication context. Every session,
+  set and transition query is scoped by `user_id`; cross-user access returns the
+  same `404 WORKOUT_SESSION_NOT_FOUND` as an unknown id.
+- Starting a session requires all of: a resolvable access grant (entitlement,
+  assignment or Free activation), a still-published programme, and a workout
+  that belongs to that programme's active structure. A missing/failed grant,
+  foreign workout and unknown workout all return the same `404 WORKOUT_NOT_FOUND`.
+- The prescription is snapshotted at start. A client can write only actual
+  reps/weight/RIR/RPE and the set status; it can never change prescribed values,
+  the exercise, the programme, week, position, timestamps, duration or the
+  owning user.
+- The database enforces one live (`in_progress` or `paused`) session per user.
+  A conflicting start answers `409 WORKOUT_SESSION_ACTIVE` and never silently
+  destroys the live session.
+- Pause/resume/complete/abandon are row-locked server transitions. Client clocks
+  are never accepted; `elapsed_seconds` and `rest_ends_at` are computed from
+  server timestamps so a manipulated client clock cannot rewrite history.
+- Completed and abandoned sessions are immutable. A repeat execution creates a
+  new session; the client cannot edit or delete a finished one.
 
 ### Test Mode Security
 

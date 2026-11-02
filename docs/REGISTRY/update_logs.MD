@@ -1,3 +1,80 @@
+# Version 2.100.0
+
+Title: Secure programme access, Free activation and interactive workout sessions
+
+Date: 2026-11-02
+
+Summary:
+
+v2.100.0 completes the programme access and workout execution milestone. A
+client can now enter a published programme through an active entitlement, an
+active trainer assignment or an activated Free programme, and execute its
+prescribed workouts as server-owned sessions. The public catalogue is now
+metadata-only: programme structure is never exposed without an access grant.
+
+Workout sessions snapshot the prescription, enforce one live session per user at
+the database level, log actual performance server-side, provide absolute
+server-derived rest timers, and feed real history/progress statistics. Free
+programmes gain a dedicated activation grant instead of abusing checkout,
+entitlements gain an optional expiry, and the legacy assignment read and workout
+history remain available.
+
+Main changes:
+
+- Migration `000033_secure_program_access_and_workout_sessions` adds
+  `free_program_activations`, `entitlements.expires_at`, `workout_sessions`,
+  `workout_session_exercises` and `workout_session_sets`, including generated
+  one-active constraints, foreign keys, indexes and CHECK constraints.
+- Free activation repository/service/handlers and client Free programme list;
+  one active activation per user, idempotent same-programme activation and
+  transactional replacement.
+- Unified `program_access` service resolving entitlement, assignment or Free
+  activation, loading structure through the shared `program_content` mapper.
+- `program_content` now carries product metadata (`product_type`, `level`,
+  `duration_weeks`, `frequency_per_week`, `training_type`) without exposing
+  trainer or parent identifiers.
+- Interactive session repository/service/handlers: start/idempotent resume,
+  active session, owned read, set updates, pause, resume, complete, abandon and
+  history. Prescription snapshots are immutable; server timestamps drive elapsed
+  time and `rest_ends_at`.
+- Statistics now resolve the current programme from assignment, entitlement or
+  Free activation, scope unique completions to active workouts, clamp completion
+  percentage and add all-time session/set counters.
+- Public programme detail is metadata-only; `trainer_id` and all structure were
+  removed from public responses.
+- Frontend: access-only `ProgramStructure`, Free activation on the generic
+  detail, Premium access-step handoff, merged My Programs, active-session banner,
+  workout player, workout history, progress page, routes, AccountNav and profile
+  link.
+- Tests: repository entitlement-expiry coverage, rewritten public/access service
+  and handler tests, corrected statistics expectations, and a full backend
+  Free-activation-to-session end-to-end test.
+- Docs updated: API, database, architecture, security, page design and this
+  registry.
+
+Reason:
+
+Clients could purchase or activate a programme but could not securely read its
+structure, execute workouts, log sets or see meaningful progress. The previous
+public detail also leaked the full programme structure without an access check.
+This release closes that access gap, gives every grant a single authorization
+path, and delivers the interactive training experience without changing the
+legacy assignment/history endpoints.
+
+Validation:
+
+- Isolated MariaDB on `127.0.0.1:33107`, database `ryze_test_workout`;
+  `migrate up` reported `migrations applied successfully`.
+- `DB_HOST=127.0.0.1 DB_PORT=33107 DB_NAME=ryze_test_workout DB_USER=root DB_PASSWORD= go -C main/src/backend test ./...` passed every package.
+- `DB_HOST=... go -C main/src/backend test ./routes -run TestFreeActivationWorkoutSessionE2E -v` passed.
+- `DB_HOST=... go -C main/src/backend test ./repositories -run 'TestEntitlementRepositoryExpiry|TestStatisticsRepository' -v` passed.
+- `go -C main/src/backend build ./...` and `go -C main/src/backend vet ./...` passed; `gofmt` reported no files.
+- `npm run typecheck` and `npm run build` passed.
+- `npm test` passed 18 files / 123 tests.
+- `npm run test:e2e` passed 7/7 Playwright tests.
+
+---
+
 # Version 2.99.0
 
 Title: Mandatory SMTP TLS and production deployment hardening

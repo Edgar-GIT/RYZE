@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # ARCHITECTURE.MD
 
-Version: 2.82.0
+Version: 2.100.0
 
 ---
 
@@ -674,7 +674,9 @@ write operation is exposed.
 
 The `scope=generic` parameter restricts the catalog to platform-owned programs
 (`trainer_id IS NULL`), which is the marketplace foundation consumed by the
-frontend marketplace and program detail pages. The generic marketplace sends
+frontend marketplace and public program detail pages. The public detail is
+metadata-only: structure is served exclusively by the authenticated access
+module, so the catalogue never leaks workouts or exercises. The generic marketplace sends
 its filters, sort and a 12-program limit to this endpoint per row, so filtering,
 sorting and pagination stay server-side. Route precedence is pinned by Gin: the
 static `/programs/generic` admin routes always win over the public `:programID`
@@ -765,10 +767,12 @@ read, providing the listing of programs a client is entitled to access:
   body or header) can never influence which entitlements are returned.
 - Entitlements expose safe metadata (entitlement id, program_id, nested safe
   Program including the generic calendar fields `level`, `training_type`,
-  `duration_weeks`, `frequency_per_week`). They do NOT grant access to
-  `GET /me/program` — the assignment mechanism remains the access path for
-  assigned programs. Entitled program content is read through the dedicated
-  `program_access` module instead (`GET /api/v1/me/programs/:programID`).
+  `duration_weeks`, `frequency_per_week`). They are one of three grants accepted
+  by the dedicated `program_access` module (`GET
+  /api/v1/me/programs/:programID`), alongside assignments and Free activations.
+  They do NOT grant access to the legacy `GET /me/program` assignment read.
+- Entitlements carry a nullable server-owned `expires_at`; active queries filter
+  expired rows, and the purchase restore path clears both deletion and expiry.
 - The `EntitlementRepository` is a dedicated repository for the `entitlements`
   table, separate from `ProgramAssignmentRepository`. No entitlement methods are
   added to the assignment repository.
@@ -787,34 +791,73 @@ The module follows the standard request flow:
 
 ### Client Program Access
 
-The client program access module is the entitlement-protected program reader
+The client program access module is the unified grant-protected program reader
 (the "My Programs" detail surface). It reuses existing systems instead of
 introducing a parallel access path:
 
 - The client identity always comes exclusively from the authenticated user
   context. The path parameter only identifies the requested program.
-- Access is granted only when BOTH conditions hold: the authenticated user
-  holds an active entitlement for the program AND the program itself is still
-  published. A missing entitlement, a missing program, a soft-deleted program
-  and an unpublished program are all indistinguishable (generic `404`), so
-  access is never revealed.
-- The program content is loaded by reusing the `public_programs` service
-  (`GetPublishedProgram`), which already enforces the `published` + not
-  soft-deleted filter (`FindPublishedByIDWithStructure`), and the response DTO
-  reuses `newPublicProgramDetailResponse` so the shape is identical to the
-  marketplace detail. No new repository method and no new program DTO were
-  introduced.
-- The entitlement gate is the existing `EntitlementRepository`
-  (`FindActiveByUserAndProgram`); no dedicated entitlement query was added.
-- Internal repository failures are never mapped to a user-facing error and
-  never leak details; they surface as a generic `500`.
+- Access resolves exactly one of: an active unexpired entitlement, an active
+  trainer assignment, or an active unexpired Free activation. The program must
+  still be published. A missing grant, a missing program, a soft-deleted program
+  and an unpublished program are indistinguishable (generic `404`), so access
+  is never revealed.
+- The grant lookup is performed by the participating repositories
+  (`EntitlementRepository.FindActiveByUserAndProgram`,
+  `ProgramAssignmentRepository` and
+  `FreeProgramActivationRepository`); a lookup failure fails closed.
+- The program content is loaded through the shared `program_content` mapper,
+  which enforces the published + not-soft-deleted filters and produces one safe
+  structure DTO used by every access grant. The owning trainer and parent
+  identifiers are never part of it.
+- Internal repository failures never leak details; they surface as a generic
+  `500`.
 
 The module follows the standard request flow:
 `ProgramAccessHandler` (in `api/auth`) → `program_access` service (in
-`services/program_access`) → `EntitlementRepository` over the `entitlements`
-table for the access gate + `public_programs` service over the `programs` table
-for the entitled structure. It is wired in `routes/routes.go` as
+`services/program_access`) → grant repositories + `program_content` over the
+program hierarchy. It is wired in `routes/routes.go` as
 `GET /api/v1/me/programs/:programID` behind `middleware.Authenticate`.
+
+### Client Free Program Activation
+
+Free programs do not use checkout; the module adds a client-owned grant:
+
+- `FreeProgramsHandler` (in `api/auth`) → `free_programs` service (in
+  `services/free_programs`) → `FreeProgramActivationRepository`.
+- Only a published, active, platform-owned generic Free program is eligible.
+  The service verifies that rule; a missing/paid/trainer-owned program maps to
+  the same generic `404`, so the catalogue cannot be probed.
+- The database enforces one active Free activation per user. Same-program
+  activation is idempotent; a different program replaces the previous grant in
+  a transaction.
+- `expires_at` is nullable and server-owned. Active reads filter expired rows;
+  there is no client-facing expiry setter.
+- The grant is not a purchase, entitlement or assignment and never unlocks
+  Premium nutrition or trainer ownership.
+
+### Interactive Workout Sessions
+
+The session module adds executable training on top of any access grant:
+
+- `WorkoutSessionsHandler` (in `api/auth`) → `workout_sessions` service (in
+  `services/workout_sessions`) → `WorkoutSessionRepository`.
+- Start first resolves the access grant through the same program access
+  dependency, then snapshots the prescribed exercises and sets into
+  `workout_session_exercises` / `workout_session_sets`. Later trainer edits do
+  not rewrite an existing session.
+- Transitions (`pause`, `resume`, `complete`, `abandon`) and set updates are
+  row-locked and scoped by the authenticated user. One live session per user is
+  guaranteed by the generated `active_session_user` unique column.
+- Set input is limited to actual performance and status. Prescribed values,
+  timestamps, duration and ownership are server-owned.
+- `rest_ends_at` is derived from the server completion timestamp and the
+  prescribed rest; the frontend counts down to that absolute instant.
+- Statistics extend the existing `statistics` module and repository:
+  current-program unique completions and the denominator use the active programme,
+  while all-time session/set totals include every completed or abandoned
+  execution. The legacy `workout_history` stays readable and contributes to the
+  execution total.
 
 ### Client Purchase Transaction
 

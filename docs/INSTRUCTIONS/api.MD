@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # API.MD
 
-Version: 2.85.0
+Version: 2.100.0
 
 ---
 

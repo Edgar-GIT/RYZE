@@ -37,7 +37,7 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
 | Backend API (Go/Gin/GORM/MariaDB) | Complete/Verified | `go test ./...` green (40 packages) |
-| Database migrations | Complete/Verified | schema version 32, `dirty=false`; migrations embedded in the release binary |
+| Database migrations | Complete/Verified | schema version 33, `dirty=false`; migrations embedded in the release binary |
 | Frontend SPA (React 19/Vite/TS/CSS Modules) | Complete/Verified | `tsc --noEmit` clean, vitest green |
 | CI (race detector + frontend tests + Playwright) | Implemented (hosted run unverified) | `.github/workflows/ci.yml`; local CI-equivalent checks passed in v2.99.0 |
 | Docker compose stack | Implemented (unverified) | `docker compose config` parsed in v2.99.0; image/build/runtime blocked by unavailable daemon |
@@ -70,7 +70,7 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Generic program detail + checkout | Complete/Verified | API-driven detail, `useProgramCheckout`, entitlement states |
 | Premium Level 1 page | Complete/Verified | complete returned catalogue, query-based selection, questionnaire/checkout/delivery unchanged; mocked browser E2E; live purchase still unverified |
 | Purchase history (`/account/purchases`) | Complete/Verified | API-driven |
-| My Programs / Program Access (training + nutrition) | Complete/Verified | prior milestone e2e tests |
+| My Programs / Program Access (training + nutrition) | Complete/Verified | unified entitlement/assignment/Free access, metadata-only public detail, backend e2e and handler/service tests |
 | RYZE Feed | Missing | route exists as an explicit `UnderDevelopmentPage` placeholder (deferred by product decision) |
 
 ### Exercise library and training content
@@ -83,11 +83,13 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | 3D exercise demonstrations | Missing | milestone scope (in progress) |
 | Trainer program builder — exercise selection | Implemented (unverified) | trainer workout-exercise routes + program detail builder; picker quality limited by catalogue content |
 | ADMIN_2 plan builder — exercise selection | Implemented (unverified) | `plan_exercise_editor.tsx`; same limitation |
-| Workout history (client side) | Complete/Verified | workout_history service + tests |
+| Workout history (client side) | Complete/Verified | legacy `workout_history` plus session history; service, repository and e2e tests |
 | Programs: generic admin CRUD | Complete/Verified | generic_programs service + handler tests |
 | Programs: trainer CRUD + structure (weeks/workouts/sets) | Complete/Verified | program_structure/workout_exercises services + tests |
-| Entitlements and purchase gating | Complete/Verified | entitlement repository + e2e tests |
+| Entitlements and purchase gating | Complete/Verified | entitlement repository + expiry/restore + access e2e tests |
 | Payments (Stripe/PayPal providers) | Implemented (unverified) | providers implemented; no live credentials exercised. v2.99.0 verified the provider-absent state fails closed (no method advertised, pending purchase, generic 502, no entitlement) |
+| Free programme activation | Complete/Verified | one-active-per-user DB constraint, idempotent activation, replacement, repository/access/e2e tests |
+| Interactive workout sessions | Complete/Verified | snapshot sessions, one live session per user, set logging, pause/resume/complete/abandon, rest timer, backend e2e |
 | Commission rules / pricing admin | Complete/Verified | admin_program_pricing + commission_rules tests |
 
 ### Trainer experience
@@ -116,7 +118,7 @@ its configuration locally, so deployment-only paths remain marked unverified.
 
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
-| Statistics / analytics | Complete/Verified | statistics repository + handler tests |
+| Statistics / analytics | Complete/Verified | programme-aware repository, all-time session/set counters + handler tests |
 | File uploads / media pipeline | Missing | no upload surface exists (v2.93.0 audit); needed for verification evidence |
 | Internationalisation | Missing | English-only UI; dataset provides 10 languages for future use |
 | Notifications (in-app/email/push) | Missing | not part of current product scope |

@@ -20,6 +20,7 @@ import {
   type FreeProgramActivation
 } from "@/services/free_programs_api";
 import { joinClassNames } from "@utils/class_names";
+import { ApiError } from "@utils/http_client";
 
 import styles from "./generic_program_detail_page.module.css";
 
@@ -314,6 +315,7 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
   const [activation, setActivation] = useState<FreeProgramActivation | null>(null);
   const [checking, setChecking] = useState(true);
   const [activating, setActivating] = useState(false);
+  const [guest, setGuest] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -324,7 +326,11 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
           setActivation(activations.find((entry) => entry.program.id === programId) ?? null);
         }
       })
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        if (!cancelled && error instanceof ApiError && error.status === 401) {
+          setGuest(true);
+        }
+      })
       .finally(() => {
         if (!cancelled) setChecking(false);
       });
@@ -339,7 +345,11 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
     try {
       await activateFreeProgram(programId);
       history.push(`/services/my-programs/${programId}`);
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        history.push("/login");
+        return;
+      }
       setErrorMessage("We could not activate this plan. Please try again.");
       setActivating(false);
     }
@@ -353,9 +363,11 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
           Free plan
         </p>
         <p className={styles.purchaseText}>
-          {activation
-            ? `You have activated ${programName}.`
-            : `Activate ${programName} to unlock the full training structure and workout player.`}
+          {guest
+            ? `Sign in to activate ${programName} and unlock the full training structure.`
+            : activation
+              ? `You have activated ${programName}.`
+              : `Activate ${programName} to unlock the full training structure and workout player.`}
         </p>
         {errorMessage ? (
           <p className={styles.purchaseErrorText} role="alert">
@@ -363,7 +375,11 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
           </p>
         ) : null}
         <div className={styles.purchaseActions}>
-          {activation ? (
+          {guest ? (
+            <Button to="/login" variant="primary" size="small" icon={<LogIn size={15} />} iconPosition="left">
+              Sign in
+            </Button>
+          ) : activation ? (
             <Button to={`/services/my-programs/${programId}`} variant="primary" size="small">
               Open program
             </Button>
