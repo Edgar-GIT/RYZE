@@ -65,7 +65,7 @@ Validation:
 
 - Isolated MariaDB on `127.0.0.1:33107`, database `ryze_test_workout`;
   `migrate up` reported `migrations applied successfully`.
-- `DB_HOST=127.0.0.1 DB_PORT=33107 DB_NAME=ryze_test_workout DB_USER=root DB_PASSWORD= go -C main/src/backend test ./...` passed every package.
+- `DB_HOST=127.0.0.1 DB_PORT=33107 DB_NAME=ryze_test_workout DB_USER=root DB_PASSWORD= go -C main/src/backend test -count=1 ./...` passed every package uncached.
 - `DB_HOST=... go -C main/src/backend test ./routes -run TestFreeActivationWorkoutSessionE2E -v` passed.
 - `DB_HOST=... go -C main/src/backend test ./repositories -run 'TestEntitlementRepositoryExpiry|TestStatisticsRepository' -v` passed.
 - `go -C main/src/backend build ./...` and `go -C main/src/backend vet ./...` passed; `gofmt` reported no files.
