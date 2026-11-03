@@ -71,7 +71,8 @@ Validation:
 - `go -C main/src/backend build ./...` and `go -C main/src/backend vet ./...` passed; `gofmt` reported no files.
 - `npm run typecheck` and `npm run build` passed.
 - `npm test` passed 18 files / 123 tests.
-- `npm run test:e2e` passed 7/7 Playwright tests.
+- `npm run test:e2e` passed 8/8 Playwright tests, including the metadata-only
+  public detail and guest Free activation prompt.
 
 ---
 
