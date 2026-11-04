@@ -18,13 +18,37 @@ const (
 // It is orthogonal to ProgramType: the latter is the commercial/pricing category
 // (free, premium, personalized) and is left untouched for compatibility, while
 // the product type decides which parts of the purchase lifecycle the program
-// participates in. A premium_level_1 program requires a submitted nutrition
-// questionnaire before checkout and receives a server-owned nutrition assignment
-// once the purchase is verified. generic is the default, so every program that
-// was not explicitly classified keeps its current behaviour.
+// participates in. generic is the default, so every program that was not
+// explicitly classified keeps its current behaviour.
 const (
 	ProgramProductTypeGeneric       = "generic"
 	ProgramProductTypePremiumLevel1 = "premium_level_1"
+)
+
+// ProgramObjective values are the closed objective vocabulary of curated
+// Premium Level 1 packages. The objective is server-owned catalogue metadata:
+// it classifies what the package is for and can never be chosen by a buyer.
+const (
+	ProgramObjectiveGainMuscle           = "gain_muscle"
+	ProgramObjectiveLoseFat              = "lose_fat"
+	ProgramObjectiveStrengthConditioning = "strength_conditioning"
+)
+
+// ProgramObjectives is the closed list accepted for Premium Level 1 packages.
+var ProgramObjectives = []string{
+	ProgramObjectiveGainMuscle,
+	ProgramObjectiveLoseFat,
+	ProgramObjectiveStrengthConditioning,
+}
+
+// ProgramNutritionMode values persist the two Premium Level 1 delivery models.
+// `curated` packages ship a predefined nutrition plan authored with the package.
+// `questionnaire_generated` is the legacy model that requires an intake before
+// checkout and generates a per-client plan after purchase. Generic programs
+// carry NULL because nutrition is not part of their product.
+const (
+	ProgramNutritionModeCurated                = "curated"
+	ProgramNutritionModeQuestionnaireGenerated = "questionnaire_generated"
 )
 
 // ProgramStatus values describe the business state of a program. Publishing is
@@ -49,23 +73,27 @@ const (
 // a regular User; no assignment or access relationship exists yet. Soft-deleted
 // programs are excluded from regular queries through GORM's DeletedAt handling.
 type Program struct {
-	ID               string         `gorm:"type:varchar(36);primaryKey" json:"id"`
-	TrainerID        string         `gorm:"column:trainer_id;type:varchar(36)" json:"trainer_id"`
-	Name             string         `gorm:"column:name;type:varchar(255);not null" json:"name"`
-	Description      string         `gorm:"column:description;type:text" json:"description"`
-	Type             string         `gorm:"column:type;type:varchar(20);not null" json:"type"`
-	ProductType      string         `gorm:"column:product_type;type:varchar(32);not null;default:generic" json:"product_type"`
-	Status           string         `gorm:"column:status;type:varchar(20);not null" json:"status"`
-	Level            *string        `gorm:"column:level;type:varchar(20)" json:"level"`
-	DurationWeeks    *int           `gorm:"column:duration_weeks" json:"duration_weeks"`
-	FrequencyPerWeek *int           `gorm:"column:frequency_per_week" json:"frequency_per_week"`
-	TrainingType     *string        `gorm:"column:training_type;type:varchar(40)" json:"training_type"`
-	PriceMinorUnits  int64          `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
-	Currency         string         `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
-	Weeks            []ProgramWeek  `gorm:"foreignKey:ProgramID" json:"-"`
-	CreatedAt        time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
-	UpdatedAt        time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
-	DeletedAt        gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"deleted_at"`
+	ID               string                `gorm:"type:varchar(36);primaryKey" json:"id"`
+	TrainerID        string                `gorm:"column:trainer_id;type:varchar(36)" json:"trainer_id"`
+	Name             string                `gorm:"column:name;type:varchar(255);not null" json:"name"`
+	Description      string                `gorm:"column:description;type:text" json:"description"`
+	Type             string                `gorm:"column:type;type:varchar(20);not null" json:"type"`
+	ProductType      string                `gorm:"column:product_type;type:varchar(32);not null;default:generic" json:"product_type"`
+	Objective        *string               `gorm:"column:objective;type:varchar(32)" json:"objective"`
+	NutritionMode    *string               `gorm:"column:nutrition_mode;type:varchar(24)" json:"nutrition_mode"`
+	ContentVersion   int                   `gorm:"column:content_version;not null;default:1" json:"content_version"`
+	Status           string                `gorm:"column:status;type:varchar(20);not null" json:"status"`
+	Level            *string               `gorm:"column:level;type:varchar(20)" json:"level"`
+	DurationWeeks    *int                  `gorm:"column:duration_weeks" json:"duration_weeks"`
+	FrequencyPerWeek *int                  `gorm:"column:frequency_per_week" json:"frequency_per_week"`
+	TrainingType     *string               `gorm:"column:training_type;type:varchar(40)" json:"training_type"`
+	PriceMinorUnits  int64                 `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
+	Currency         string                `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
+	Weeks            []ProgramWeek         `gorm:"foreignKey:ProgramID" json:"-"`
+	CuratedNutrition *CuratedNutritionPlan `gorm:"foreignKey:ProgramID" json:"-"`
+	CreatedAt        time.Time             `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
+	UpdatedAt        time.Time             `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
+	DeletedAt        gorm.DeletedAt        `gorm:"column:deleted_at;type:datetime(6)" json:"deleted_at"`
 }
 
 func (p *Program) BeforeCreate(_ *gorm.DB) error {
@@ -78,6 +106,9 @@ func (p *Program) BeforeCreate(_ *gorm.DB) error {
 	// read back with an empty product type.
 	if p.ProductType == "" {
 		p.ProductType = ProgramProductTypeGeneric
+	}
+	if p.ContentVersion <= 0 {
+		p.ContentVersion = 1
 	}
 	return nil
 }

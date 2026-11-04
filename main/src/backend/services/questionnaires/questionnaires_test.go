@@ -290,7 +290,7 @@ func TestSatisfiedBlocksCheckoutUntilIntakeExists(t *testing.T) {
 	repo := &stubQuestionnaireRepository{}
 	svc := newService(premiumProgram(), repo)
 
-	err := svc.Satisfied(context.Background(), premiumUser, premiumProg, models.ProgramProductTypePremiumLevel1)
+	err := svc.Satisfied(context.Background(), premiumUser, premiumProg, models.ProgramProductTypePremiumLevel1, "")
 	if !errors.Is(err, questionnaires.ErrIntakeRequired) {
 		t.Fatalf("expected ErrIntakeRequired, got %v", err)
 	}
@@ -301,8 +301,17 @@ func TestSatisfiedAllowsCheckoutAfterIntakeExists(t *testing.T) {
 	repo := &stubQuestionnaireRepository{row: &storedQuestionnaire{id: storedID, version: 1, answers: intake}}
 	svc := newService(premiumProgram(), repo)
 
-	if err := svc.Satisfied(context.Background(), premiumUser, premiumProg, models.ProgramProductTypePremiumLevel1); err != nil {
+	if err := svc.Satisfied(context.Background(), premiumUser, premiumProg, models.ProgramProductTypePremiumLevel1, ""); err != nil {
 		t.Fatalf("expected the precondition to be satisfied, got %v", err)
+	}
+}
+
+func TestSatisfiedIsTransparentForCuratedPremiumPackages(t *testing.T) {
+	repo := &stubQuestionnaireRepository{}
+	svc := newService(premiumProgram(), repo)
+
+	if err := svc.Satisfied(context.Background(), premiumUser, premiumProg, models.ProgramProductTypePremiumLevel1, models.ProgramNutritionModeCurated); err != nil {
+		t.Fatalf("expected no intake requirement for a curated package, got %v", err)
 	}
 }
 
@@ -312,7 +321,7 @@ func TestSatisfiedIsTransparentForOtherProductTypes(t *testing.T) {
 	repo := &stubQuestionnaireRepository{}
 	svc := newService(genericProgram(), repo)
 
-	if err := svc.Satisfied(context.Background(), premiumUser, genericProg, models.ProgramProductTypeGeneric); err != nil {
+	if err := svc.Satisfied(context.Background(), premiumUser, genericProg, models.ProgramProductTypeGeneric, ""); err != nil {
 		t.Fatalf("expected no precondition for a generic product, got %v", err)
 	}
 }

@@ -17,6 +17,7 @@ const program = (overrides: Partial<MarketplaceProgram>): MarketplaceProgram => 
   duration_weeks: 8,
   frequency_per_week: 3,
   training_type: null,
+  objective: null,
   price_minor_units: 1449,
   currency: "EUR",
   product_type: "generic",

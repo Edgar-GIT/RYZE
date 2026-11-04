@@ -27,8 +27,11 @@ import {
   createGenericProgram,
   fetchGenericProgram,
   isProgramProductType,
+  PROGRAM_OBJECTIVE,
+  PROGRAM_OBJECTIVES,
   PROGRAM_PRODUCT_TYPE,
   programFamilyLabel,
+  programObjectiveLabel,
   ProgramStatusEnum,
   ProgramType,
   updateGenericProgram,
@@ -44,6 +47,7 @@ import {
   type ExerciseCatalogEntry,
   type ExerciseDetail
 } from "@/services/exercise_library";
+import { CuratedNutritionEditor } from "./curated_nutrition_editor";
 import { PlanPreview } from "./plan_preview";
 import { PlanExerciseEditorModal } from "./plan_exercise_editor";
 import {
@@ -107,7 +111,7 @@ const FAMILY_OPTIONS: Array<{ id: ProgramProductTypeValue; label: string; descri
   {
     id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1,
     label: programFamilyLabel(PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1),
-    description: "Catalogue plans that deliver training plus server-generated nutrition."
+    description: "Catalogue plans that deliver training plus a curated nutrition plan."
   }
 ];
 
@@ -124,6 +128,8 @@ const describeSaveError = (error: unknown): string => {
       return "The plan no longer exists.";
     case "PROGRAM_ALREADY_PUBLISHED":
       return "This plan is already published.";
+    case "PROGRAM_CONTENT_LOCKED":
+      return "This package has already been purchased. Its content can no longer be changed.";
     case "VALIDATION_ERROR":
       return "The plan could not be saved. Review the validation issues and try again.";
     default:
@@ -607,6 +613,37 @@ export default function Admin2PlanCreatePage() {
                 }
               />
             </div>
+            {draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? (
+              <div className={styles.formRow}>
+                <label className={styles.formLabel} htmlFor="plan-objective">
+                  Objective
+                </label>
+                <select
+                  id="plan-objective"
+                  className={styles.formInput}
+                  value={draft.objective}
+                  disabled={editing}
+                  onChange={(event) =>
+                    update((current) => ({
+                      ...current,
+                      objective:
+                        (event.target.value as typeof PROGRAM_OBJECTIVE[keyof typeof PROGRAM_OBJECTIVE]) ||
+                        ""
+                    }))
+                  }
+                >
+                  <option value="">Choose an objective</option>
+                  {PROGRAM_OBJECTIVES.map((objective) => (
+                    <option key={objective} value={objective}>
+                      {programObjectiveLabel(objective)}
+                    </option>
+                  ))}
+                </select>
+                <p className={styles.formHint}>
+                  The objective is fixed when the package is created and cannot be changed later.
+                </p>
+              </div>
+            ) : null}
           </div>
         </Admin2Section>
       );
@@ -614,6 +651,7 @@ export default function Admin2PlanCreatePage() {
 
     if (step === 1) {
       return (
+        <>
         <Admin2Section
           title="Program structure"
           subtitle="Weeks, training days and the exercises assigned to them"
@@ -672,6 +710,22 @@ export default function Admin2PlanCreatePage() {
             )}
           </div>
         </Admin2Section>
+        {draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 &&
+        draft.nutrition_mode === "curated" &&
+        draft.curated_nutrition ? (
+          <Admin2Section
+            title="Curated nutrition"
+            subtitle="The predefined plan bundled with this package"
+          >
+            <CuratedNutritionEditor
+              nutrition={draft.curated_nutrition}
+              onChange={(nutrition) =>
+                update((current) => ({ ...current, curated_nutrition: nutrition }))
+              }
+            />
+          </Admin2Section>
+        ) : null}
+        </>
       );
     }
 
@@ -714,7 +768,22 @@ export default function Admin2PlanCreatePage() {
                     )}
                     onClick={() => {
                       setFamily(option.id);
-                      update((current) => ({ ...current, product_type: option.id }));
+                      update((current) => {
+                        const base = createPlanDraft(option.id);
+                        return {
+                          ...current,
+                          product_type: option.id,
+                          objective: option.id === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? current.objective : "",
+                          nutrition_mode:
+                            option.id === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1
+                              ? current.nutrition_mode || base.nutrition_mode
+                              : "",
+                          curated_nutrition:
+                            option.id === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1
+                              ? current.curated_nutrition ?? base.curated_nutrition
+                              : null
+                        };
+                      });
                     }}
                     aria-pressed={family === option.id}
                   >

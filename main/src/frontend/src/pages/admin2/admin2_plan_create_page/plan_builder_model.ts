@@ -6,9 +6,13 @@ import {
   type GenericProgramInput,
   type GenericProgramLevel,
   type GenericTrainingType,
+  type ProgramObjectiveValue,
+  type ProgramNutritionModeValue,
   type ProgramProductTypeValue,
   type ProgramStatusValue,
-  type ProgramTypeValue
+  type ProgramTypeValue,
+  type GenericCuratedNutritionItemInput,
+  type GenericCuratedNutritionMealInput
 } from "@/services/admin2_api";
 import type { SetType } from "@/services/exercise_library";
 
@@ -45,11 +49,46 @@ export interface PlanDraftWeek {
   workouts: PlanDraftWorkout[];
 }
 
+export interface PlanDraftCuratedItem {
+  id: string;
+  food_name: string;
+  category: string;
+  quantity: string;
+  unit: string;
+  calories: string;
+  protein_grams: string;
+  carbohydrate_grams: string;
+  fat_grams: string;
+  fiber_grams: string;
+  substitution_note: string;
+}
+
+export interface PlanDraftCuratedMeal {
+  id: string;
+  label: string;
+  kind: "meal" | "snack";
+  notes: string;
+  items: PlanDraftCuratedItem[];
+}
+
+export interface PlanDraftCuratedNutrition {
+  dietary_pattern: string;
+  summary: string;
+  prep_guidance: string;
+  hydration_litres: string;
+  hydration_note: string;
+  cautions: string;
+  meals: PlanDraftCuratedMeal[];
+}
+
 export interface PlanDraft {
   name: string;
   description: string;
   type: ProgramTypeValue;
   product_type: ProgramProductTypeValue;
+  objective: ProgramObjectiveValue | "";
+  nutrition_mode: ProgramNutritionModeValue | "";
+  curated_nutrition: PlanDraftCuratedNutrition | null;
   status: ProgramStatusValue;
   price: string;
   currency: string;
@@ -71,6 +110,20 @@ export const uid = (): string => {
   }
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 };
+
+const createCuratedItem = (): PlanDraftCuratedItem => ({
+  id: uid(),
+  food_name: "",
+  category: "",
+  quantity: "",
+  unit: "g",
+  calories: "",
+  protein_grams: "",
+  carbohydrate_grams: "",
+  fat_grams: "",
+  fiber_grams: "",
+  substitution_note: ""
+});
 
 const createSet = (setNumber: number): PlanDraftSet => ({
   id: uid(),
@@ -127,6 +180,29 @@ export const createPlanDraft = (
   description: "",
   type: ProgramType.FREE,
   product_type: productType,
+  objective: "",
+  nutrition_mode:
+    productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? "curated" : "",
+  curated_nutrition:
+    productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1
+      ? {
+          dietary_pattern: "balanced",
+          summary: "",
+          prep_guidance: "",
+          hydration_litres: "2.5",
+          hydration_note: "",
+          cautions: "",
+          meals: [
+            {
+              id: uid(),
+              label: "Breakfast",
+              kind: "meal",
+              notes: "",
+              items: [createCuratedItem()]
+            }
+          ]
+        }
+      : null,
   status: ProgramStatusEnum.DRAFT,
   price: "0.00",
   currency: "EUR",
@@ -377,7 +453,70 @@ export const validatePlan = (draft: PlanDraft): PlanValidation => {
     messages.push("The frequency must be between 1 and 7 training days per week.");
   }
 
+  if (draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) {
+    if (!draft.objective) {
+      messages.push("Choose the package objective.");
+    }
+    if (draft.nutrition_mode === "curated") {
+      validateCuratedNutrition(draft.curated_nutrition, messages);
+    }
+  }
+
   return { valid: messages.length === 0, messages };
+};
+
+const validateCuratedNutrition = (
+  nutrition: PlanDraftCuratedNutrition | null,
+  messages: string[]
+): void => {
+  if (!nutrition) {
+    messages.push("A curated package needs a nutrition plan.");
+    return;
+  }
+  if (!nutrition.summary.trim()) {
+    messages.push("The nutrition plan needs a summary.");
+  }
+  if (!nutrition.prep_guidance.trim()) {
+    messages.push("The nutrition plan needs preparation guidance.");
+  }
+  if (!nutrition.hydration_note.trim()) {
+    messages.push("The nutrition plan needs a hydration note.");
+  }
+  const hydration = optionalNumber(nutrition.hydration_litres);
+  if (hydration === null || hydration <= 0 || hydration > 20) {
+    messages.push("Hydration must be between 0.1 and 20 litres.");
+  }
+  if (nutrition.meals.length === 0) {
+    messages.push("The nutrition plan needs at least one meal.");
+  }
+  nutrition.meals.forEach((meal, index) => {
+    if (!meal.label.trim()) {
+      messages.push(`Meal ${index + 1} needs a label.`);
+    }
+    if (meal.items.length === 0) {
+      messages.push(`Meal ${index + 1} needs at least one food.`);
+    }
+    meal.items.forEach((item, itemIndex) => {
+      if (!item.food_name.trim() || !item.category.trim() || !item.unit.trim()) {
+        messages.push(`Meal ${index + 1}, food ${itemIndex + 1} needs a name, category and unit.`);
+      }
+      if ((optionalNumber(item.quantity) ?? 0) <= 0) {
+        messages.push(`Meal ${index + 1}, food ${itemIndex + 1} needs a positive quantity.`);
+      }
+      for (const value of [
+        item.calories,
+        item.protein_grams,
+        item.carbohydrate_grams,
+        item.fat_grams,
+        item.fiber_grams
+      ]) {
+        if (optionalNumber(value) === null) {
+          messages.push(`Meal ${index + 1}, food ${itemIndex + 1} has an invalid nutrition value.`);
+          break;
+        }
+      }
+    });
+  });
 };
 
 const optionalNumber = (value: string): number | null => {
@@ -399,6 +538,15 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
   description: draft.description.trim(),
   type: draft.type,
   status: draft.status,
+  objective: draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? draft.objective : "",
+  nutrition_mode:
+    draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? draft.nutrition_mode : "",
+  curated_nutrition:
+    draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 &&
+    draft.nutrition_mode === "curated" &&
+    draft.curated_nutrition
+      ? toCuratedNutritionInput(draft.curated_nutrition)
+      : null,
   level: draft.level,
   training_type: draft.training_type,
   duration_weeks: optionalNumber(draft.duration_weeks) ?? 0,
@@ -425,6 +573,35 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
   }))
 });
 
+const toCuratedNutritionInput = (nutrition: PlanDraftCuratedNutrition) => ({
+  dietary_pattern: nutrition.dietary_pattern.trim() || "balanced",
+  summary: nutrition.summary.trim(),
+  prep_guidance: nutrition.prep_guidance.trim(),
+  hydration_litres: optionalNumber(nutrition.hydration_litres) ?? 0,
+  hydration_note: nutrition.hydration_note.trim(),
+  cautions: nutrition.cautions
+    .split("\n")
+    .map((caution) => caution.trim())
+    .filter(Boolean),
+  meals: nutrition.meals.map<GenericCuratedNutritionMealInput>((meal) => ({
+    label: meal.label.trim(),
+    kind: meal.kind,
+    notes: meal.notes.trim(),
+    items: meal.items.map<GenericCuratedNutritionItemInput>((item) => ({
+      food_name: item.food_name.trim(),
+      category: item.category.trim(),
+      quantity: optionalNumber(item.quantity) ?? 0,
+      unit: item.unit.trim(),
+      calories: optionalNumber(item.calories) ?? 0,
+      protein_grams: optionalNumber(item.protein_grams) ?? 0,
+      carbohydrate_grams: optionalNumber(item.carbohydrate_grams) ?? 0,
+      fat_grams: optionalNumber(item.fat_grams) ?? 0,
+      fiber_grams: optionalNumber(item.fiber_grams) ?? 0,
+      substitution_note: item.substitution_note.trim()
+    }))
+  }))
+});
+
 // detailToPlanDraft maps an existing generic program (full structure response)
 // back into an editable PlanDraft. Children receive fresh local ids because the
 // update payload never carries ids: the server matches children by ordering and
@@ -435,6 +612,37 @@ export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
   description: detail.description,
   type: detail.type,
   product_type: detail.product_type,
+  objective: detail.objective ?? "",
+  nutrition_mode: detail.nutrition_mode ?? "",
+  curated_nutrition: detail.curated_nutrition
+    ? {
+        dietary_pattern: detail.curated_nutrition.dietary_pattern,
+        summary: detail.curated_nutrition.summary,
+        prep_guidance: detail.curated_nutrition.prep_guidance,
+        hydration_litres: String(detail.curated_nutrition.hydration_litres),
+        hydration_note: detail.curated_nutrition.hydration_note,
+        cautions: detail.curated_nutrition.cautions.join("\n"),
+        meals: detail.curated_nutrition.meals.map((meal) => ({
+          id: uid(),
+          label: meal.label,
+          kind: meal.kind,
+          notes: meal.notes ?? "",
+          items: meal.items.map((item) => ({
+            id: uid(),
+            food_name: item.food_name,
+            category: item.category,
+            quantity: String(item.quantity),
+            unit: item.unit,
+            calories: String(item.calories),
+            protein_grams: String(item.protein_grams),
+            carbohydrate_grams: String(item.carbohydrate_grams),
+            fat_grams: String(item.fat_grams),
+            fiber_grams: String(item.fiber_grams),
+            substitution_note: item.substitution_note ?? ""
+          }))
+        }))
+      }
+    : null,
   status: detail.status,
   price: (detail.price_minor_units / 100).toFixed(2),
   currency: detail.currency,

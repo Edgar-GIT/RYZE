@@ -31,6 +31,7 @@ type publicProgramResponse struct {
 	PriceMinorUnits  int64     `json:"price_minor_units"`
 	Currency         string    `json:"currency"`
 	ProductType      string    `json:"product_type"`
+	Objective        *string   `json:"objective"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
@@ -49,6 +50,7 @@ func newPublicProgramResponse(program *public_programs.Program) publicProgramRes
 		PriceMinorUnits:  program.PriceMinorUnits,
 		Currency:         program.Currency,
 		ProductType:      program.ProductType,
+		Objective:        program.Objective,
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.UpdatedAt,
 	}

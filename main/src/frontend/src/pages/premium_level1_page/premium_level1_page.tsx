@@ -12,6 +12,7 @@ import {
   formatMarketplacePrice,
   type MarketplaceProgram
 } from "@/services/marketplace_api";
+import { programObjectiveLabel } from "@/services/admin2_api";
 import {
   fetchNutritionAssignment,
   fetchQuestionnaireCatalog,
@@ -46,13 +47,24 @@ const nutritionUnavailable: NutritionAssignmentStatus = {
 // what the client receives, stated plainly. This deliberately promises an
 // automated personalised package and nothing more: there is no ongoing human
 // coaching and no trainer-authored personalisation.
-const PACKAGE_INCLUDES = [
+const CURATED_PACKAGE_INCLUDES = [
+  "A structured training plan you follow week by week",
+  "A complete nutrition plan curated for this package objective",
+  "A daily meal structure with portions and nutrition values",
+  "Hydration guidance and practical preparation notes",
+  "The same fixed expert-defined plan for every buyer"
+];
+
+const QUESTIONNAIRE_PACKAGE_INCLUDES = [
   "A structured training plan you follow week by week",
   "A nutrition programme personalised from your own questionnaire",
   "Daily calorie and macro targets matched to your goal",
   "A meal structure and hydration target you can follow directly",
   "Dietary rules built around the restrictions you reported"
 ];
+
+const isCuratedPackage = (program: MarketplaceProgram | null): boolean =>
+  program !== null && program.objective !== null;
 
 export const PremiumLevel1Page = () => {
   const history = useHistory();
@@ -201,9 +213,13 @@ export const PremiumLevel1Page = () => {
   }, [programId]);
 
   const handleStart = useCallback(async () => {
+    if (isCuratedPackage(product)) {
+      setStep("checkout");
+      return;
+    }
     setStep("questionnaire");
     await loadQuestionnaire();
-  }, [loadQuestionnaire]);
+  }, [loadQuestionnaire, product]);
 
   const handleAnswer = useCallback((field: string, value: string | number | string[]) => {
     setAnswers((previous) => ({ ...previous, [field]: value }));
@@ -289,8 +305,9 @@ export const PremiumLevel1Page = () => {
     <section className={styles.checkout} aria-label="Checkout">
       <h2 className={styles.sectionTitle}>Complete your purchase</h2>
       <p className={styles.sectionText}>
-        Your questionnaire is saved. Complete the purchase to unlock your training plan and your personalised
-        nutrition programme.
+        {isCuratedPackage(product)
+          ? "Complete the purchase to unlock your training plan and the nutrition plan bundled with this package."
+          : "Your questionnaire is saved. Complete the purchase to unlock your training plan and your personalised nutrition programme."}
       </p>
 
       {checkout.state.status === "success" ? (
@@ -300,7 +317,9 @@ export const PremiumLevel1Page = () => {
             Purchase confirmed
           </p>
           <p className={styles.stateText}>
-            Your package is active. We are preparing your nutrition programme now.
+            {isCuratedPackage(product)
+              ? "Your package is active. Your training and nutrition plans are ready."
+              : "Your package is active. We are preparing your nutrition programme now."}
           </p>
           <div className={styles.actions}>
             <Button
@@ -328,7 +347,9 @@ export const PremiumLevel1Page = () => {
         <div className={styles.stateCard}>
           <p className={styles.stateTitle}>Payment cancelled</p>
           <p className={styles.stateText}>
-            No money was taken. Your questionnaire is still saved, so you can resume whenever you are ready.
+            {isCuratedPackage(product)
+              ? "No money was taken. You can resume whenever you are ready."
+              : "No money was taken. Your questionnaire is still saved, so you can resume whenever you are ready."}
           </p>
           <div className={styles.actions}>
             <Button variant="primary" size="small" onClick={() => void checkout.retryPurchase(cancelled.purchaseId)}>
@@ -467,6 +488,9 @@ export const PremiumLevel1Page = () => {
                               {entry.frequency_per_week} day{entry.frequency_per_week === 1 ? "" : "s"}/week
                             </span>
                           ) : null}
+                          {entry.objective ? (
+                            <span className={styles.chip}>{programObjectiveLabel(entry.objective)}</span>
+                          ) : null}
                           {entry.level ? <span className={styles.chip}>{entry.level}</span> : null}
                         </div>
                       </div>
@@ -522,7 +546,11 @@ export const PremiumLevel1Page = () => {
                       Test Mode
                     </span>
                   ) : null}
-                  <span className={styles.chip}>Training + nutrition</span>
+                  <span className={styles.chip}>
+                    {isCuratedPackage(product) && product.objective
+                      ? programObjectiveLabel(product.objective)
+                      : "Training + nutrition"}
+                  </span>
                   {product.duration_weeks !== null ? (
                     <span className={styles.chip}>
                       {product.duration_weeks} week{product.duration_weeks === 1 ? "" : "s"}
@@ -542,12 +570,12 @@ export const PremiumLevel1Page = () => {
                   <section className={styles.panel} aria-label="What you receive">
                     <h2 className={styles.sectionTitle}>One complete package</h2>
                     <p className={styles.sectionText}>
-                      Premium Level 1 combines your training plan and your nutrition programme in a single
-                      purchase. The nutrition side is personalised automatically from the questionnaire you fill
-                      in before checkout, so both halves of the package are built around the same answers.
+                      {isCuratedPackage(product)
+                        ? "Premium Level 1 combines your training plan and a complete nutrition plan in a single purchase. The nutrition side is a fixed plan curated for this package, so every buyer receives the same expert-defined content."
+                        : "Premium Level 1 combines your training plan and your nutrition programme in a single purchase. The nutrition side is personalised automatically from the questionnaire you fill in before checkout, so both halves of the package are built around the same answers."}
                     </p>
                     <ul className={styles.includes}>
-                      {PACKAGE_INCLUDES.map((item) => (
+                      {(isCuratedPackage(product) ? CURATED_PACKAGE_INCLUDES : QUESTIONNAIRE_PACKAGE_INCLUDES).map((item) => (
                         <li key={item} className={styles.includeItem}>
                           <CheckCircle2 size={15} aria-hidden="true" />
                           <span>{item}</span>
@@ -555,9 +583,9 @@ export const PremiumLevel1Page = () => {
                       ))}
                     </ul>
                     <p className={styles.disclaimer}>
-                      This is an automated programme, not personal coaching. No trainer reviews your answers and
-                      the plan is not a medical or clinical assessment. Speak to a professional before starting
-                      if you have a medical condition.
+                      {isCuratedPackage(product)
+                        ? "This is a predefined training and nutrition package, not personal coaching. It is not a medical or clinical assessment. Speak to a professional before starting if you have a medical condition."
+                        : "This is an automated programme, not personal coaching. No trainer reviews your answers and the plan is not a medical or clinical assessment. Speak to a professional before starting if you have a medical condition."}
                     </p>
                   </section>
 
@@ -618,12 +646,14 @@ export const PremiumLevel1Page = () => {
                         : formatMarketplacePrice(product.price_minor_units, product.currency, product.type)}
                     </p>
                     <p className={styles.asideText}>
-                      A complete training and nutrition package, personalised from your questionnaire.
+                      {isCuratedPackage(product)
+                        ? "A complete training and nutrition package with a curated plan for this objective."
+                        : "A complete training and nutrition package, personalised from your questionnaire."}
                     </p>
                     <div className={styles.actions}>
                       {step === "product" ? (
                         <Button variant="primary" size="small" onClick={() => void handleStart()}>
-                          Start my questionnaire
+                          {isCuratedPackage(product) ? "Continue to checkout" : "Start my questionnaire"}
                         </Button>
                       ) : step === "questionnaire" && requirement?.locked ? (
                         <Button variant="primary" size="small" onClick={() => setStep("checkout")}>

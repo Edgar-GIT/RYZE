@@ -49,9 +49,12 @@ type FreeActivationReader interface {
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.FreeProgramActivation, error)
 }
 
-// ProgramReader loads the published program with its complete structure.
+// ProgramReader loads a program with its complete structure. Published reads
+// serve assignment and Free grants; entitlement reads use the status-agnostic
+// lookup so a purchase stays accessible after the catalogue entry is unpublished.
 type ProgramReader interface {
 	FindPublishedByIDWithStructure(ctx context.Context, programID string) (*models.Program, error)
+	FindByIDWithStructure(ctx context.Context, programID string) (*models.Program, error)
 }
 
 // Service exposes the authenticated client's programme access read and the
@@ -130,7 +133,12 @@ func (s *service) GetProgramAccess(ctx context.Context, userID, programID string
 		return nil, err
 	}
 
-	program, err := s.programs.FindPublishedByIDWithStructure(ctx, programID)
+	var program *models.Program
+	if source == GrantSourceEntitlement {
+		program, err = s.programs.FindByIDWithStructure(ctx, programID)
+	} else {
+		program, err = s.programs.FindPublishedByIDWithStructure(ctx, programID)
+	}
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrProgramNotFound):

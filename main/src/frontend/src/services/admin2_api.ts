@@ -454,6 +454,43 @@ export const fetchCommissionResolution = (trainerId: string) =>
 
 export type GenericProgramLevel = "Beginner" | "Intermediate" | "Advanced";
 
+// Curated Premium Level 1 packages are classified by a closed objective
+// vocabulary. The objective is server-owned catalogue metadata: the client
+// renders it but a buyer never chooses or overrides it.
+export const PROGRAM_OBJECTIVE = {
+  GAIN_MUSCLE: "gain_muscle",
+  LOSE_FAT: "lose_fat",
+  STRENGTH_CONDITIONING: "strength_conditioning"
+} as const;
+
+export type ProgramObjectiveValue =
+  typeof PROGRAM_OBJECTIVE[keyof typeof PROGRAM_OBJECTIVE];
+
+export const PROGRAM_OBJECTIVES: readonly ProgramObjectiveValue[] = [
+  PROGRAM_OBJECTIVE.GAIN_MUSCLE,
+  PROGRAM_OBJECTIVE.LOSE_FAT,
+  PROGRAM_OBJECTIVE.STRENGTH_CONDITIONING
+];
+
+export const programObjectiveLabel = (objective: ProgramObjectiveValue | string): string => {
+  switch (objective) {
+    case PROGRAM_OBJECTIVE.GAIN_MUSCLE:
+      return "Gain muscle";
+    case PROGRAM_OBJECTIVE.LOSE_FAT:
+      return "Lose fat";
+    default:
+      return "Strength & conditioning";
+  }
+};
+
+export const PROGRAM_NUTRITION_MODE = {
+  CURATED: "curated",
+  QUESTIONNAIRE_GENERATED: "questionnaire_generated"
+} as const;
+
+export type ProgramNutritionModeValue =
+  typeof PROGRAM_NUTRITION_MODE[keyof typeof PROGRAM_NUTRITION_MODE];
+
 // Controlled vocabulary stored verbatim in programs.training_type. Display
 // casing is part of the contract and shared with the public catalog filter.
 export type GenericTrainingType =
@@ -479,6 +516,9 @@ export interface GenericProgramSummary {
   description: string;
   type: ProgramTypeValue;
   product_type: ProgramProductTypeValue;
+  objective: ProgramObjectiveValue | null;
+  nutrition_mode: ProgramNutritionModeValue | null;
+  content_version: number;
   status: ProgramStatusValue;
   level: GenericProgramLevel | null;
   duration_weeks: number | null;
@@ -527,7 +567,70 @@ export interface GenericProgramWeek {
   workouts: GenericProgramWorkout[];
 }
 
+export interface GenericCuratedNutritionItem {
+  position: number;
+  food_name: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  calories: number;
+  protein_grams: number;
+  carbohydrate_grams: number;
+  fat_grams: number;
+  fiber_grams: number;
+  substitution_note?: string;
+}
+
+export interface GenericCuratedNutritionMeal {
+  position: number;
+  label: string;
+  kind: "meal" | "snack";
+  notes?: string;
+  items: GenericCuratedNutritionItem[];
+}
+
+export interface GenericCuratedNutrition {
+  dietary_pattern: string;
+  summary: string;
+  prep_guidance: string;
+  hydration_litres: number;
+  hydration_note: string;
+  cautions: string[];
+  meals: GenericCuratedNutritionMeal[];
+}
+
+export interface GenericCuratedNutritionItemInput {
+  food_name: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  calories: number;
+  protein_grams: number;
+  carbohydrate_grams: number;
+  fat_grams: number;
+  fiber_grams: number;
+  substitution_note: string;
+}
+
+export interface GenericCuratedNutritionMealInput {
+  label: string;
+  kind: "meal" | "snack";
+  notes: string;
+  items: GenericCuratedNutritionItemInput[];
+}
+
+export interface GenericCuratedNutritionInput {
+  dietary_pattern: string;
+  summary: string;
+  prep_guidance: string;
+  hydration_litres: number;
+  hydration_note: string;
+  cautions: string[];
+  meals: GenericCuratedNutritionMealInput[];
+}
+
 export interface GenericProgramDetail extends GenericProgramSummary {
+  curated_nutrition: GenericCuratedNutrition | null;
   weeks: GenericProgramWeek[];
 }
 
@@ -561,6 +664,9 @@ export interface GenericProgramInput {
   description: string;
   type: ProgramTypeValue;
   status: ProgramStatusValue;
+  objective: ProgramObjectiveValue | "";
+  nutrition_mode: ProgramNutritionModeValue | "";
+  curated_nutrition: GenericCuratedNutritionInput | null;
   level: GenericProgramLevel | "";
   duration_weeks: number;
   frequency_per_week: number;

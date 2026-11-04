@@ -961,8 +961,12 @@ func TestCreateProgramStampsProductFamily(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &stubGenericRepo{}
 			svc := newService(repo)
+			input := validProgramInput()
+			if tc.typ == models.ProgramProductTypePremiumLevel1 {
+				input.NutritionMode = models.ProgramNutritionModeQuestionnaireGenerated
+			}
 
-			program, err := svc.CreateProgram(context.Background(), tc.typ, validProgramInput())
+			program, err := svc.CreateProgram(context.Background(), tc.typ, input)
 			if err != nil {
 				t.Fatalf("CreateProgram: %v", err)
 			}
@@ -1040,6 +1044,8 @@ func TestFamilyForwardedToRepository(t *testing.T) {
 
 	premium := validProgramModel()
 	premium.ProductType = models.ProgramProductTypePremiumLevel1
+	legacyMode := models.ProgramNutritionModeQuestionnaireGenerated
+	premium.NutritionMode = &legacyMode
 	repo.program = premium
 	if _, err := svc.GetProgram(context.Background(), models.ProgramProductTypePremiumLevel1, programID); err != nil {
 		t.Fatalf("GetProgram: %v", err)
@@ -1056,6 +1062,7 @@ func TestFamilyForwardedToRepository(t *testing.T) {
 		t.Fatalf("update family = %q, want %q", repo.updateProductType, models.ProgramProductTypeGeneric)
 	}
 
+	repo.program = premium
 	if _, err := svc.PublishProgram(context.Background(), models.ProgramProductTypePremiumLevel1, programID); err != nil {
 		t.Fatalf("PublishProgram: %v", err)
 	}

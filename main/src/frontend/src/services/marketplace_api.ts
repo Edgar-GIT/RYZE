@@ -45,6 +45,7 @@ export interface MarketplaceProgram extends MarketplaceProgramProduct {
   duration_weeks: number | null;
   frequency_per_week: number | null;
   training_type: string | null;
+  objective: string | null;
   price_minor_units: number;
   currency: string;
   created_at: string;

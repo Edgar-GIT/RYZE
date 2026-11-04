@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/google/uuid"
 
@@ -57,6 +58,13 @@ type AssignmentRepository interface {
 	MarkFailed(ctx context.Context, userID, programID, reason string) error
 }
 
+// CuratedNutritionReader reads the predefined plan bundled with a curated
+// Premium Level 1 package. It is only consulted after the entitlement gate has
+// succeeded, so it never leaks package content to an unowned caller.
+type CuratedNutritionReader interface {
+	FindByProgramID(ctx context.Context, programID string) (*models.CuratedNutritionPlan, error)
+}
+
 // PlanRepository persists and reads generated plan versions.
 type PlanRepository interface {
 	Complete(ctx context.Context, userID, programID string, plan *models.NutritionPlan) error
@@ -87,18 +95,29 @@ type Service interface {
 }
 
 type service struct {
-	programs       ProgramReader
-	entitlements   EntitlementReader
-	questionnaires QuestionnaireReader
-	assignments    AssignmentRepository
-	plans          PlanRepository
-	generator      Generator
+	programs         ProgramReader
+	entitlements     EntitlementReader
+	questionnaires   QuestionnaireReader
+	assignments      AssignmentRepository
+	plans            PlanRepository
+	generator        Generator
+	curatedNutrition CuratedNutritionReader
+}
+
+// Option configures an optional nutrition delivery collaborator.
+type Option func(*service)
+
+// WithCuratedNutrition installs the package-owned nutrition reader used by
+// curated Premium Level 1 packages. A service without it keeps serving the
+// legacy questionnaire-generated model only.
+func WithCuratedNutrition(reader CuratedNutritionReader) Option {
+	return func(s *service) { s.curatedNutrition = reader }
 }
 
 // NewService wires the program gate, the intake reader, the assignment and plan
 // repositories and the generator.
-func NewService(programs ProgramReader, entitlements EntitlementReader, questionnaires QuestionnaireReader, assignments AssignmentRepository, plans PlanRepository, generator Generator) Service {
-	return &service{
+func NewService(programs ProgramReader, entitlements EntitlementReader, questionnaires QuestionnaireReader, assignments AssignmentRepository, plans PlanRepository, generator Generator, options ...Option) Service {
+	svc := &service{
 		programs:       programs,
 		entitlements:   entitlements,
 		questionnaires: questionnaires,
@@ -106,6 +125,10 @@ func NewService(programs ProgramReader, entitlements EntitlementReader, question
 		plans:          plans,
 		generator:      generator,
 	}
+	for _, option := range options {
+		option(svc)
+	}
+	return svc
 }
 
 // Status is the owner-scoped nutrition state for one program. Plan is populated
@@ -200,13 +223,18 @@ func (s *service) EnsureProvisioned(ctx context.Context, userID, programID strin
 		return err
 	}
 
-	_, inFamily, err := s.premiumLevel1Program(ctx, programID)
+	program, inFamily, err := s.premiumLevel1Program(ctx, programID)
 	if err != nil || !inFamily {
 		return err
 	}
 
 	if err := s.requireEntitlement(ctx, userID, programID); err != nil {
 		return err
+	}
+	if isCuratedProgram(program) {
+		// A curated package owes no per-buyer generation: the entitlement alone
+		// unlocks the package plan.
+		return nil
 	}
 
 	stored, err := s.questionnaires.FindStored(ctx, userID, programID)
@@ -240,9 +268,12 @@ func (s *service) FulfillPurchase(ctx context.Context, userID, programID string)
 		return err
 	}
 
-	_, inFamily, err := s.premiumLevel1Program(ctx, programID)
+	program, inFamily, err := s.premiumLevel1Program(ctx, programID)
 	if err != nil || !inFamily {
 		return err
+	}
+	if isCuratedProgram(program) {
+		return nil
 	}
 
 	if _, err := s.Run(ctx, userID, programID); err != nil {
@@ -307,6 +338,14 @@ func (s *service) Run(ctx context.Context, userID, programID string) (*Status, e
 	// never exist for an unowned program.
 	if err := s.EnsureProvisioned(ctx, userID, programID); err != nil {
 		return nil, err
+	}
+
+	program, inFamily, err := s.premiumLevel1Program(ctx, programID)
+	if err != nil {
+		return nil, err
+	}
+	if inFamily && isCuratedProgram(program) {
+		return s.curatedStatus(ctx, userID, programID, program)
 	}
 
 	assignment, err := s.assignments.FindByUserAndProgram(ctx, userID, programID)
@@ -415,6 +454,14 @@ func (s *service) GetStatus(ctx context.Context, userID, programID string) (*Sta
 		return nil, err
 	}
 
+	program, inFamily, err := s.premiumLevel1Program(ctx, programID)
+	if err != nil {
+		return nil, err
+	}
+	if inFamily && isCuratedProgram(program) {
+		return s.curatedStatus(ctx, userID, programID, program)
+	}
+
 	assignment, err := s.assignments.FindByUserAndProgram(ctx, userID, programID)
 	if err != nil {
 		if errors.Is(err, repositories.ErrNutritionAssignmentNotFound) {
@@ -459,6 +506,133 @@ func (s *service) GetStatus(ctx context.Context, userID, programID string) (*Sta
 	}
 
 	return status, nil
+}
+
+// isCuratedProgram reports whether the package ships a predefined plan instead
+// of generating one from an intake.
+func isCuratedProgram(program *models.Program) bool {
+	return program != nil && program.NutritionMode != nil && *program.NutritionMode == models.ProgramNutritionModeCurated
+}
+
+// curatedStatus projects the package plan onto the existing client contract.
+// The entitlement was already checked by EnsureProvisioned; this method only
+// reads the plan the buyer is owed.
+func (s *service) curatedStatus(ctx context.Context, userID, programID string, program *models.Program) (*Status, error) {
+	if s.curatedNutrition == nil {
+		return nil, ErrAssignmentNotFound
+	}
+	stored, err := s.curatedNutrition.FindByProgramID(ctx, programID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrCuratedNutritionNotFound) {
+			return nil, ErrAssignmentNotFound
+		}
+		return nil, fmt.Errorf("failed to load curated nutrition plan: %w", err)
+	}
+	plan, err := toClientCuratedPlan(stored, program)
+	if err != nil {
+		return nil, err
+	}
+	return &Status{
+		ProgramID: programID,
+		Status:    models.NutritionAssignmentStatusCompleted,
+		Version:   stored.Version,
+		Plan:      plan,
+	}, nil
+}
+
+// toClientCuratedPlan maps the package plan onto the same plan contract the
+// generated model uses, so the client renders one nutrition surface regardless
+// of how the package delivered it.
+func toClientCuratedPlan(stored *models.CuratedNutritionPlan, program *models.Program) (*Plan, error) {
+	cautions := []string{}
+	if len(stored.Cautions) > 0 {
+		if err := json.Unmarshal(stored.Cautions, &cautions); err != nil {
+			return nil, fmt.Errorf("failed to decode curated nutrition cautions: %w", err)
+		}
+	}
+
+	plan := &Plan{
+		Version:        stored.Version,
+		DietaryPattern: stored.DietaryPattern,
+		Hydration: Hydration{
+			DailyLitres: stored.HydrationLitres,
+			Note:        stored.HydrationNote,
+		},
+		Summary:      stored.Summary,
+		PrepGuidance: stored.PrepGuidance,
+		Cautions:     cautions,
+		Meals:        make([]Meal, 0, len(stored.Meals)),
+		Exclusions:   []Exclusion{},
+	}
+	if program != nil {
+		plan.Fingerprint = fmt.Sprintf("curated:%s:%d", program.ID, stored.Version)
+	}
+
+	for _, meal := range stored.Meals {
+		projected := Meal{
+			Position: meal.Position,
+			Label:    meal.Label,
+			Kind:     meal.Kind,
+			Items:    make([]MealItem, 0, len(meal.Items)),
+		}
+		if meal.Notes != nil {
+			projected.Notes = *meal.Notes
+		}
+		for _, item := range meal.Items {
+			projected.Macros.Calories += item.Calories
+			projected.Macros.ProteinGrams += item.ProteinGrams
+			projected.Macros.CarbsGrams += item.CarbohydrateGrams
+			projected.Macros.FatGrams += item.FatGrams
+			projected.Macros.FiberGrams += item.FiberGrams
+			projectedItem := MealItem{
+				Position: item.Position,
+				FoodName: item.FoodName,
+				Category: item.Category,
+				Quantity: item.Quantity,
+				Unit:     item.Unit,
+				Macros: Macros{
+					Calories:     item.Calories,
+					ProteinGrams: item.ProteinGrams,
+					CarbsGrams:   item.CarbohydrateGrams,
+					FatGrams:     item.FatGrams,
+					FiberGrams:   item.FiberGrams,
+				},
+			}
+			if item.SubstitutionNote != nil {
+				projectedItem.SubstitutionNote = *item.SubstitutionNote
+			}
+			projected.Items = append(projected.Items, projectedItem)
+		}
+		plan.TargetCalories += projected.Macros.Calories
+		plan.Daily.ProteinGrams += projected.Macros.ProteinGrams
+		plan.Daily.CarbsGrams += projected.Macros.CarbsGrams
+		plan.Daily.FatGrams += projected.Macros.FatGrams
+		plan.Daily.FiberGrams += projected.Macros.FiberGrams
+		if meal.Kind == models.NutritionPlanMealKindSnack {
+			plan.SnacksPerDay++
+		} else {
+			plan.MealsPerDay++
+		}
+		plan.Meals = append(plan.Meals, projected)
+	}
+	plan.MaintenanceCalories = plan.TargetCalories
+	plan.Daily.Calories = plan.TargetCalories
+	for i := range plan.Meals {
+		if plan.TargetCalories > 0 {
+			plan.Meals[i].PercentOfDaily = int(math.Round(float64(plan.Meals[i].Macros.Calories) / float64(plan.TargetCalories) * 100))
+		}
+	}
+	plan.ProteinPercent = macroPercent(plan.Daily.ProteinGrams*4, plan.TargetCalories)
+	plan.CarbohydratePercent = macroPercent(plan.Daily.CarbsGrams*4, plan.TargetCalories)
+	plan.FatPercent = macroPercent(plan.Daily.FatGrams*9, plan.TargetCalories)
+	return plan, nil
+}
+
+func macroPercent(calories, total int) int {
+	if total <= 0 {
+		return 0
+	}
+	return int(math.Round(float64(calories) / float64(total) * 100))
 }
 
 // toStoredPlan projects a generated plan onto the persisted normalised domain.

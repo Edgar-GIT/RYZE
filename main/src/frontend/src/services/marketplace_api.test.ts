@@ -29,6 +29,7 @@ const program = (id: string): MarketplaceProgram => ({
   duration_weeks: 4,
   frequency_per_week: 3,
   training_type: "Strength",
+  objective: null,
   price_minor_units: 0,
   currency: "EUR",
   product_type: "generic",

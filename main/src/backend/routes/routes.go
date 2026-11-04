@@ -225,15 +225,17 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	commissionRulesService := commission_rules.NewService(commissionRuleRepository, trainerRepository, commissionCfg)
 	adminCommissionHandler := auth.NewAdminCommissionHandler(commissionRulesService)
 
-	// Premium Level 1 intake and its derived nutrition plan. The questionnaire
-	// service is also the checkout precondition gate, so a program in this family
-	// cannot be bought before an intake exists.
+	// Premium Level 1 has two delivery models. Curated packages ship a predefined
+	// plan and need no intake; legacy questionnaire-generated packages still use
+	// the intake as their checkout precondition. The questionnaire service
+	// implements that gate and is transparent for curated packages.
 	nutritionQuestionnaireRepository := repositories.NewNutritionQuestionnaireRepository(db)
 	questionnaireService := questionnaires.NewService(trainerProgramRepository, nutritionQuestionnaireRepository, entitlementRepository)
 	questionnaireHandler := auth.NewQuestionnaireHandler(questionnaireService)
 
 	nutritionAssignmentRepository := repositories.NewNutritionAssignmentRepository(db)
 	nutritionPlanRepository := repositories.NewNutritionPlanRepository(db)
+	curatedNutritionRepository := repositories.NewCuratedNutritionRepository(db)
 	nutritionAssignmentService := nutrition_assignment.NewService(
 		trainerProgramRepository,
 		entitlementRepository,
@@ -241,6 +243,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 		nutritionAssignmentRepository,
 		nutritionPlanRepository,
 		nutrition_assignment.NewDeterministicGenerator(),
+		nutrition_assignment.WithCuratedNutrition(curatedNutritionRepository),
 	)
 	nutritionHandler := auth.NewNutritionHandler(nutritionAssignmentService)
 

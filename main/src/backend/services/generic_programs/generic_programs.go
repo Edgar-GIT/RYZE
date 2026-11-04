@@ -13,6 +13,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
+	"ryze/backend/services/curated_nutrition"
 	"ryze/backend/services/exercise_media"
 	"ryze/backend/services/training_prescription"
 )
@@ -34,6 +35,10 @@ var (
 	// ErrProgramAlreadyPublished indicates the generic program is already in
 	// the published state and cannot be published again.
 	ErrProgramAlreadyPublished = errors.New("generic program already published")
+	// ErrProgramContentLocked indicates a published package with real sales can
+	// no longer be edited, unpublished or deleted. The content a client bought is
+	// kept immutable; further changes require a new package.
+	ErrProgramContentLocked = errors.New("program content is locked by an existing purchase")
 )
 
 const (
@@ -141,6 +146,9 @@ type ProgramInput struct {
 	TrainingType     string
 	PriceMinorUnits  int64
 	Currency         string
+	Objective        string
+	NutritionMode    string
+	CuratedNutrition *curated_nutrition.PlanInput
 	Weeks            []WeekInput
 }
 
@@ -216,6 +224,9 @@ type Program struct {
 	Type             string
 	Status           string
 	ProductType      string
+	Objective        *string
+	NutritionMode    *string
+	ContentVersion   int
 	Level            *string
 	DurationWeeks    *int
 	FrequencyPerWeek *int
@@ -230,7 +241,8 @@ type Program struct {
 // its complete structure.
 type ProgramDetail struct {
 	Program
-	Weeks []Week
+	CuratedNutrition *curated_nutrition.Plan
+	Weeks            []Week
 }
 
 // ListProgramsResult carries one page of generic programs plus the pagination
@@ -277,11 +289,14 @@ func (s *service) CreateProgram(ctx context.Context, productType string, input P
 	if err := validateProductType(productType); err != nil {
 		return nil, err
 	}
-	if err := s.validateProgramInput(input); err != nil {
+	if err := s.validateProgramInput(productType, input); err != nil {
 		return nil, err
 	}
 
-	program := buildProgramModel(productType, input)
+	program, err := buildProgramModel(productType, input)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.programs.CreateFull(ctx, program); err != nil {
 		if errors.Is(err, repositories.ErrExerciseNotFound) {
 			return nil, ErrExerciseNotFound
@@ -356,14 +371,20 @@ func (s *service) UpdateProgram(ctx context.Context, productType, programID stri
 	if err := validateProgramID(programID); err != nil {
 		return nil, err
 	}
-	if err := s.validateProgramInput(input); err != nil {
+	if err := s.validateProgramInput(productType, input); err != nil {
 		return nil, err
 	}
 
-	program := buildProgramModel(productType, input)
+	program, err := buildProgramModel(productType, input)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.programs.UpdateFull(ctx, productType, programID, program); err != nil {
 		if errors.Is(err, repositories.ErrGenericProgramNotFound) {
 			return nil, ErrProgramNotFound
+		}
+		if errors.Is(err, repositories.ErrProgramContentLocked) {
+			return nil, ErrProgramContentLocked
 		}
 		if errors.Is(err, repositories.ErrExerciseNotFound) {
 			return nil, ErrExerciseNotFound
@@ -403,6 +424,11 @@ func (s *service) PublishProgram(ctx context.Context, productType, programID str
 	if err := validatePriceForType(model.Type, model.PriceMinorUnits, model.Currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
 		return Program{}, err
 	}
+	if productType == models.ProgramProductTypePremiumLevel1 {
+		if err := validatePublishedPremiumMetadata(model); err != nil {
+			return Program{}, err
+		}
+	}
 
 	err = s.programs.Publish(ctx, productType, programID)
 	if err != nil {
@@ -422,6 +448,34 @@ func (s *service) PublishProgram(ctx context.Context, productType, programID str
 	return newProgramSummary(model), nil
 }
 
+// validatePublishedPremiumMetadata re-checks the package content at publication
+// time. Curated packages must have an objective and a complete package plan;
+// legacy packages must never have acquired either.
+func validatePublishedPremiumMetadata(model *models.Program) error {
+	if model.NutritionMode == nil {
+		return fmt.Errorf("%w: premium level 1 packages require a nutrition mode", ErrInvalidInput)
+	}
+	switch *model.NutritionMode {
+	case models.ProgramNutritionModeCurated:
+		if model.Objective == nil {
+			return fmt.Errorf("%w: a curated package requires an objective", ErrInvalidInput)
+		}
+		if err := validateObjective(*model.Objective); err != nil {
+			return err
+		}
+		if err := curated_nutrition.ValidateModel(model.CuratedNutrition); err != nil {
+			return fmt.Errorf("%w: curated nutrition plan is incomplete", ErrInvalidInput)
+		}
+	case models.ProgramNutritionModeQuestionnaireGenerated:
+		if model.Objective != nil || model.CuratedNutrition != nil {
+			return fmt.Errorf("%w: legacy questionnaire packages cannot carry curated content", ErrInvalidInput)
+		}
+	default:
+		return fmt.Errorf("%w: unsupported nutrition mode", ErrInvalidInput)
+	}
+	return nil
+}
+
 // DeleteProgram soft-deletes one active platform-owned program of the given
 // product family. Only the program row is touched and it is never removed from
 // the database.
@@ -437,6 +491,9 @@ func (s *service) DeleteProgram(ctx context.Context, productType, programID stri
 		if errors.Is(err, repositories.ErrGenericProgramNotFound) {
 			return ErrProgramNotFound
 		}
+		if errors.Is(err, repositories.ErrProgramContentLocked) {
+			return ErrProgramContentLocked
+		}
 		return fmt.Errorf("failed to delete generic program: %w", err)
 	}
 	return nil
@@ -446,7 +503,7 @@ func (s *service) DeleteProgram(ctx context.Context, productType, programID stri
 // required and bounded metadata, controlled vocabularies, contiguous structural
 // ordering and the duplicate-exercise rule. Structural keys (week_number,
 // position, set_number) are contiguous and start at 1.
-func (s *service) validateProgramInput(input ProgramInput) error {
+func (s *service) validateProgramInput(productType string, input ProgramInput) error {
 	if err := validateName(input.Name); err != nil {
 		return err
 	}
@@ -486,6 +543,9 @@ func (s *service) validateProgramInput(input ProgramInput) error {
 		return err
 	}
 	if err := validateFrequency(input.FrequencyPerWeek); err != nil {
+		return err
+	}
+	if err := validateProductMetadata(productType, input); err != nil {
 		return err
 	}
 
@@ -574,7 +634,7 @@ func (s *service) normalizeFilter(filter ProgramFilter) (ProgramFilter, error) {
 // NULL when unset. The product family comes from the route and is stamped onto
 // the model; the model hook defaults an empty family to generic, but the family
 // is never empty here because every caller has validated it first.
-func buildProgramModel(productType string, input ProgramInput) *models.Program {
+func buildProgramModel(productType string, input ProgramInput) (*models.Program, error) {
 	var level *string
 	if strings.TrimSpace(input.Level) != "" {
 		v := strings.TrimSpace(input.Level)
@@ -596,12 +656,25 @@ func buildProgramModel(productType string, input ProgramInput) *models.Program {
 		trainingType = &v
 	}
 
+	var objective *string
+	if strings.TrimSpace(input.Objective) != "" {
+		v := strings.TrimSpace(input.Objective)
+		objective = &v
+	}
+	var nutritionMode *string
+	if strings.TrimSpace(input.NutritionMode) != "" {
+		v := strings.TrimSpace(input.NutritionMode)
+		nutritionMode = &v
+	}
+
 	program := &models.Program{
 		Name:             strings.TrimSpace(input.Name),
 		Description:      input.Description,
 		Type:             input.Type,
 		Status:           strings.TrimSpace(input.Status),
 		ProductType:      productType,
+		Objective:        objective,
+		NutritionMode:    nutritionMode,
 		Level:            level,
 		DurationWeeks:    duration,
 		FrequencyPerWeek: frequency,
@@ -651,7 +724,21 @@ func buildProgramModel(productType string, input ProgramInput) *models.Program {
 		}
 		program.Weeks = append(program.Weeks, modelWeek)
 	}
-	return program
+	if productType == models.ProgramProductTypePremiumLevel1 && input.NutritionMode == models.ProgramNutritionModeCurated {
+		if input.CuratedNutrition == nil {
+			return nil, fmt.Errorf("%w: a curated package requires a nutrition plan", ErrInvalidInput)
+		}
+		plan, err := curated_nutrition.Validate(*input.CuratedNutrition)
+		if err != nil {
+			return nil, err
+		}
+		stored, err := curated_nutrition.ToModel(plan, program.ID, 0)
+		if err != nil {
+			return nil, err
+		}
+		program.CuratedNutrition = stored
+	}
+	return program, nil
 }
 
 func newProgramSummary(model *models.Program) Program {
@@ -662,6 +749,9 @@ func newProgramSummary(model *models.Program) Program {
 		Type:             model.Type,
 		Status:           model.Status,
 		ProductType:      model.ProductType,
+		Objective:        model.Objective,
+		NutritionMode:    model.NutritionMode,
+		ContentVersion:   model.ContentVersion,
 		Level:            model.Level,
 		DurationWeeks:    model.DurationWeeks,
 		FrequencyPerWeek: model.FrequencyPerWeek,
@@ -675,8 +765,9 @@ func newProgramSummary(model *models.Program) Program {
 
 func (s *service) newProgramDetail(model *models.Program) *ProgramDetail {
 	detail := &ProgramDetail{
-		Program: newProgramSummary(model),
-		Weeks:   make([]Week, 0, len(model.Weeks)),
+		Program:          newProgramSummary(model),
+		CuratedNutrition: curated_nutrition.FromModel(model.CuratedNutrition),
+		Weeks:            make([]Week, 0, len(model.Weeks)),
 	}
 	for i := range model.Weeks {
 		week := &model.Weeks[i]
@@ -803,6 +894,53 @@ func validateProductType(productType string) error {
 		}
 	}
 	return fmt.Errorf("%w: unsupported product type", ErrInvalidInput)
+}
+
+// validateProductMetadata keeps the objective and nutrition delivery model in
+// lockstep with the product family. Generic programs have neither. Premium
+// Level 1 packages are either curated (objective + complete plan) or legacy
+// questionnaire-generated (no objective, no package plan).
+func validateProductMetadata(productType string, input ProgramInput) error {
+	objective := strings.TrimSpace(input.Objective)
+	mode := strings.TrimSpace(input.NutritionMode)
+	if productType == models.ProgramProductTypeGeneric {
+		if objective != "" || mode != "" || input.CuratedNutrition != nil {
+			return fmt.Errorf("%w: generic programs cannot carry premium nutrition metadata", ErrInvalidInput)
+		}
+		return nil
+	}
+
+	switch mode {
+	case models.ProgramNutritionModeCurated:
+		if err := validateObjective(objective); err != nil {
+			return err
+		}
+		if input.CuratedNutrition == nil {
+			return fmt.Errorf("%w: a curated package requires a nutrition plan", ErrInvalidInput)
+		}
+		if _, err := curated_nutrition.Validate(*input.CuratedNutrition); err != nil {
+			return err
+		}
+	case models.ProgramNutritionModeQuestionnaireGenerated:
+		if objective != "" {
+			return fmt.Errorf("%w: legacy questionnaire packages cannot carry an objective", ErrInvalidInput)
+		}
+		if input.CuratedNutrition != nil {
+			return fmt.Errorf("%w: legacy questionnaire packages cannot carry a curated plan", ErrInvalidInput)
+		}
+	default:
+		return fmt.Errorf("%w: premium level 1 packages require a nutrition mode", ErrInvalidInput)
+	}
+	return nil
+}
+
+func validateObjective(objective string) error {
+	for _, candidate := range models.ProgramObjectives {
+		if objective == candidate {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: a curated package requires a supported objective", ErrInvalidInput)
 }
 
 func validateStatus(status string) error {

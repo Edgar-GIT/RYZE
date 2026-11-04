@@ -3908,14 +3908,16 @@ type stubCheckoutPrerequisite struct {
 	seenUserID  string
 	seenProgID  string
 	seenProduct string
+	seenMode    string
 	calls       int
 }
 
-func (s *stubCheckoutPrerequisite) Satisfied(_ context.Context, userID, programID, productType string) error {
+func (s *stubCheckoutPrerequisite) Satisfied(_ context.Context, userID, programID, productType, nutritionMode string) error {
 	s.calls++
 	s.seenUserID = userID
 	s.seenProgID = programID
 	s.seenProduct = productType
+	s.seenMode = nutritionMode
 	if s.err != nil {
 		return s.err
 	}

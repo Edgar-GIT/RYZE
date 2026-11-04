@@ -73,6 +73,14 @@ type stubPrograms struct {
 }
 
 func (s *stubPrograms) FindPublishedByIDWithStructure(_ context.Context, programID string) (*models.Program, error) {
+	return s.find(programID)
+}
+
+func (s *stubPrograms) FindByIDWithStructure(_ context.Context, programID string) (*models.Program, error) {
+	return s.find(programID)
+}
+
+func (s *stubPrograms) find(programID string) (*models.Program, error) {
 	s.gotProgram = programID
 	if s.err != nil {
 		return nil, s.err

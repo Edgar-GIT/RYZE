@@ -118,8 +118,11 @@ type Program struct {
 	// product metadata: it tells the client which marketplace and which
 	// onboarding flow the program belongs to.
 	ProductType string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// Objective is the curated Premium Level 1 goal. It is public catalogue
+	// metadata and is nil for generic and legacy packages.
+	Objective *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // ListProgramsResult carries one page of published programs plus the
@@ -287,6 +290,7 @@ func toSafe(model *models.Program) *Program {
 		TrainingType:     model.TrainingType,
 		PriceMinorUnits:  model.PriceMinorUnits,
 		ProductType:      model.ProductType,
+		Objective:        model.Objective,
 		Currency:         model.Currency,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,

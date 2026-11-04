@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"ryze/backend/services/curated_nutrition"
 	"ryze/backend/services/generic_programs"
 )
 
@@ -23,6 +24,9 @@ type genericProgramResponse struct {
 	Type             string    `json:"type"`
 	Status           string    `json:"status"`
 	ProductType      string    `json:"product_type"`
+	Objective        *string   `json:"objective"`
+	NutritionMode    *string   `json:"nutrition_mode"`
+	ContentVersion   int       `json:"content_version"`
 	Level            *string   `json:"level"`
 	DurationWeeks    *int      `json:"duration_weeks"`
 	FrequencyPerWeek *int      `json:"frequency_per_week"`
@@ -41,6 +45,9 @@ func newGenericProgramResponse(program generic_programs.Program) genericProgramR
 		Type:             program.Type,
 		Status:           program.Status,
 		ProductType:      program.ProductType,
+		Objective:        program.Objective,
+		NutritionMode:    program.NutritionMode,
+		ContentVersion:   program.ContentVersion,
 		Level:            program.Level,
 		DurationWeeks:    program.DurationWeeks,
 		FrequencyPerWeek: program.FrequencyPerWeek,
@@ -154,7 +161,8 @@ func newGenericWeekResponse(week generic_programs.Week) genericWeekResponse {
 // program including its complete structure.
 type genericProgramDetailResponse struct {
 	genericProgramResponse
-	Weeks []genericWeekResponse `json:"weeks"`
+	CuratedNutrition *curated_nutrition.Plan `json:"curated_nutrition,omitempty"`
+	Weeks            []genericWeekResponse   `json:"weeks"`
 }
 
 func newGenericProgramDetailResponse(program *generic_programs.ProgramDetail) genericProgramDetailResponse {
@@ -164,6 +172,7 @@ func newGenericProgramDetailResponse(program *generic_programs.ProgramDetail) ge
 	}
 	return genericProgramDetailResponse{
 		genericProgramResponse: newGenericProgramResponse(program.Program),
+		CuratedNutrition:       program.CuratedNutrition,
 		Weeks:                  weeks,
 	}
 }
@@ -205,17 +214,50 @@ type genericWeekRequest struct {
 // 0 when unset. Weeks are strongly ordered and their numbers/positions are
 // derived server-side as 1..n.
 type genericProgramRequest struct {
-	Name             string               `json:"name"`
-	Description      string               `json:"description"`
-	Type             string               `json:"type"`
-	Status           string               `json:"status"`
-	Level            string               `json:"level"`
-	DurationWeeks    int                  `json:"duration_weeks"`
-	FrequencyPerWeek int                  `json:"frequency_per_week"`
-	TrainingType     string               `json:"training_type"`
-	PriceMinorUnits  int64                `json:"price_minor_units"`
-	Currency         string               `json:"currency"`
-	Weeks            []genericWeekRequest `json:"weeks"`
+	Name             string                   `json:"name"`
+	Description      string                   `json:"description"`
+	Type             string                   `json:"type"`
+	Status           string                   `json:"status"`
+	Objective        string                   `json:"objective"`
+	NutritionMode    string                   `json:"nutrition_mode"`
+	CuratedNutrition *curatedNutritionRequest `json:"curated_nutrition"`
+	Level            string                   `json:"level"`
+	DurationWeeks    int                      `json:"duration_weeks"`
+	FrequencyPerWeek int                      `json:"frequency_per_week"`
+	TrainingType     string                   `json:"training_type"`
+	PriceMinorUnits  int64                    `json:"price_minor_units"`
+	Currency         string                   `json:"currency"`
+	Weeks            []genericWeekRequest     `json:"weeks"`
+}
+
+type curatedNutritionRequest struct {
+	DietaryPattern  string               `json:"dietary_pattern"`
+	Summary         string               `json:"summary"`
+	PrepGuidance    string               `json:"prep_guidance"`
+	HydrationLitres float64              `json:"hydration_litres"`
+	HydrationNote   string               `json:"hydration_note"`
+	Cautions        []string             `json:"cautions"`
+	Meals           []curatedMealRequest `json:"meals"`
+}
+
+type curatedMealRequest struct {
+	Label string               `json:"label"`
+	Kind  string               `json:"kind"`
+	Notes string               `json:"notes"`
+	Items []curatedItemRequest `json:"items"`
+}
+
+type curatedItemRequest struct {
+	FoodName          string  `json:"food_name"`
+	Category          string  `json:"category"`
+	Quantity          float64 `json:"quantity"`
+	Unit              string  `json:"unit"`
+	Calories          int     `json:"calories"`
+	ProteinGrams      int     `json:"protein_grams"`
+	CarbohydrateGrams int     `json:"carbohydrate_grams"`
+	FatGrams          int     `json:"fat_grams"`
+	FiberGrams        int     `json:"fiber_grams"`
+	SubstitutionNote  string  `json:"substitution_note"`
 }
 
 func toGenericProgramInput(req *genericProgramRequest) generic_programs.ProgramInput {
@@ -230,7 +272,45 @@ func toGenericProgramInput(req *genericProgramRequest) generic_programs.ProgramI
 		TrainingType:     req.TrainingType,
 		PriceMinorUnits:  req.PriceMinorUnits,
 		Currency:         req.Currency,
+		Objective:        req.Objective,
+		NutritionMode:    req.NutritionMode,
 		Weeks:            make([]generic_programs.WeekInput, 0, len(req.Weeks)),
+	}
+	if req.CuratedNutrition != nil {
+		input.CuratedNutrition = &curated_nutrition.PlanInput{
+			DietaryPattern:  req.CuratedNutrition.DietaryPattern,
+			Summary:         req.CuratedNutrition.Summary,
+			PrepGuidance:    req.CuratedNutrition.PrepGuidance,
+			HydrationLitres: req.CuratedNutrition.HydrationLitres,
+			HydrationNote:   req.CuratedNutrition.HydrationNote,
+			Cautions:        req.CuratedNutrition.Cautions,
+			Meals:           make([]curated_nutrition.MealInput, 0, len(req.CuratedNutrition.Meals)),
+		}
+		for i := range req.CuratedNutrition.Meals {
+			meal := &req.CuratedNutrition.Meals[i]
+			mealInput := curated_nutrition.MealInput{
+				Label: meal.Label,
+				Kind:  meal.Kind,
+				Notes: meal.Notes,
+				Items: make([]curated_nutrition.ItemInput, 0, len(meal.Items)),
+			}
+			for j := range meal.Items {
+				item := &meal.Items[j]
+				mealInput.Items = append(mealInput.Items, curated_nutrition.ItemInput{
+					FoodName:          item.FoodName,
+					Category:          item.Category,
+					Quantity:          item.Quantity,
+					Unit:              item.Unit,
+					Calories:          item.Calories,
+					ProteinGrams:      item.ProteinGrams,
+					CarbohydrateGrams: item.CarbohydrateGrams,
+					FatGrams:          item.FatGrams,
+					FiberGrams:        item.FiberGrams,
+					SubstitutionNote:  item.SubstitutionNote,
+				})
+			}
+			input.CuratedNutrition.Meals = append(input.CuratedNutrition.Meals, mealInput)
+		}
 	}
 	for i := range req.Weeks {
 		weekInput := generic_programs.WeekInput{WeekNumber: i + 1, Workouts: make([]generic_programs.WorkoutInput, 0, len(req.Weeks[i].Workouts))}
@@ -451,6 +531,8 @@ func (h *GenericProgramsHandler) respondGenericProgramsError(c *gin.Context, err
 		RespondError(c, http.StatusConflict, "DUPLICATE_EXERCISE", "The same exercise cannot appear more than once in a workout.", nil)
 	case errors.Is(err, generic_programs.ErrProgramAlreadyPublished):
 		RespondError(c, http.StatusConflict, "PROGRAM_ALREADY_PUBLISHED", "Program is already published.", nil)
+	case errors.Is(err, generic_programs.ErrProgramContentLocked):
+		RespondError(c, http.StatusConflict, "PROGRAM_CONTENT_LOCKED", "This package has already been purchased and can no longer be changed.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}

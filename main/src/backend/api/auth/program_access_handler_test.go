@@ -281,7 +281,7 @@ func TestProgramAccessReadCrossUserIsolation(t *testing.T) {
 	}
 }
 
-func TestProgramAccessReadUnpublishedProgram(t *testing.T) {
+func TestProgramAccessReadEntitledUnpublishedProgram(t *testing.T) {
 	router, userRepo, tx, tokenSvc := newProgramAccessTestRouter(t)
 	entitlementRepo := repositories.NewEntitlementRepository(tx)
 	ctx := context.Background()
@@ -299,8 +299,28 @@ func TestProgramAccessReadUnpublishedProgram(t *testing.T) {
 	}
 
 	rec, _, raw := entitlementsRequest(router, jwtValue, http.MethodGet, accessRoutePrefix+program.ID, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for an entitled unpublished program, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, "Draft Plan") {
+		t.Fatalf("entitled program content must remain accessible, got %s", raw)
+	}
+}
+
+func TestProgramAccessReadUnpublishedWithoutEntitlement(t *testing.T) {
+	router, userRepo, tx, tokenSvc := newProgramAccessTestRouter(t)
+
+	clientUser := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	program, _ := seedAccessProgram(t, tx, "Draft Plan", "Bench Press", models.ProgramStatusDraft)
+
+	jwtValue, err := tokenSvc.GenerateAccessToken(clientUser.ID, clientUser.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := entitlementsRequest(router, jwtValue, http.MethodGet, accessRoutePrefix+program.ID, "")
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected 404 for an unpublished program, got %d (body: %s)", rec.Code, raw)
+		t.Fatalf("expected 404 without an entitlement, got %d (body: %s)", rec.Code, raw)
 	}
 	if strings.Contains(raw, "Draft Plan") {
 		t.Fatalf("unpublished program content must never leak, got %s", raw)

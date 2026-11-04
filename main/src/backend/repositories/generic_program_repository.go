@@ -16,6 +16,9 @@ var (
 	// ErrGenericProgramNotFound is returned when a generic (platform-owned)
 	// program does not exist, is soft-deleted, or its trainer_id is not NULL.
 	ErrGenericProgramNotFound = errors.New("generic program not found")
+	// ErrProgramContentLocked is returned when a completed purchase already
+	// delivered the package, so its content can no longer change or disappear.
+	ErrProgramContentLocked = errors.New("program content is locked by a completed purchase")
 )
 
 // GenericProgramFilter narrows the generic program search. Empty values are
@@ -119,10 +122,13 @@ func (r *genericProgramRepository) CreateFull(ctx context.Context, program *mode
 		if err := verifyCatalogExercises(tx, catalogExerciseIDs(program.Weeks)); err != nil {
 			return err
 		}
-		if err := tx.Omit("TrainerID", "Weeks").Create(program).Error; err != nil {
+		if err := tx.Omit("TrainerID", "Weeks", "CuratedNutrition").Create(program).Error; err != nil {
 			return fmt.Errorf("failed to create generic program: %w", err)
 		}
 		if err := createWeeks(tx, program.ID, program.Weeks); err != nil {
+			return err
+		}
+		if err := createCuratedNutrition(tx, program.ID, program.CuratedNutrition); err != nil {
 			return err
 		}
 		return nil
@@ -146,6 +152,14 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, productType, 
 			return fmt.Errorf("failed to verify generic program ownership: %w", err)
 		}
 
+		locked, err := hasCompletedPurchase(tx, programID)
+		if err != nil {
+			return err
+		}
+		if locked {
+			return ErrProgramContentLocked
+		}
+
 		if err := verifyCatalogExercises(tx, catalogExerciseIDs(program.Weeks)); err != nil {
 			return err
 		}
@@ -156,6 +170,9 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, productType, 
 				"description":        program.Description,
 				"type":               program.Type,
 				"status":             program.Status,
+				"objective":          program.Objective,
+				"nutrition_mode":     program.NutritionMode,
+				"content_version":    gorm.Expr("content_version + 1"),
 				"level":              program.Level,
 				"duration_weeks":     program.DurationWeeks,
 				"frequency_per_week": program.FrequencyPerWeek,
@@ -164,6 +181,9 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, productType, 
 				"currency":           program.Currency,
 			}).Error; err != nil {
 			return fmt.Errorf("failed to update generic program: %w", err)
+		}
+		if err := reconcileCuratedNutrition(tx, programID, program.CuratedNutrition); err != nil {
+			return err
 		}
 
 		existingWeeks, err := loadWeeksForProgram(tx, programID)
@@ -199,6 +219,9 @@ func (r *genericProgramRepository) FindByID(ctx context.Context, productType, pr
 		Preload("Weeks.Workouts.Exercises", orderedByPosition()).
 		Preload("Weeks.Workouts.Exercises.Exercise").
 		Preload("Weeks.Workouts.Exercises.Sets", orderedBySetNumber()).
+		Preload("CuratedNutrition").
+		Preload("CuratedNutrition.Meals", orderedByPosition()).
+		Preload("CuratedNutrition.Meals.Items", orderedByPosition()).
 		First(&program).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -258,15 +281,117 @@ func (r *genericProgramRepository) Search(ctx context.Context, productType strin
 // trainer-owned or foreign-family program is indistinguishable and maps to
 // ErrGenericProgramNotFound.
 func (r *genericProgramRepository) SoftDelete(ctx context.Context, productType, programID string) error {
-	result := genericScope(r.db.WithContext(ctx), productType, programID).
-		Delete(&models.Program{})
-	if result.Error != nil {
-		return fmt.Errorf("failed to soft delete generic program: %w", result.Error)
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var existing models.Program
+		if err := genericScope(tx.Clauses(clause.Locking{Strength: "UPDATE"}), productType, programID).
+			First(&existing).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrGenericProgramNotFound
+			}
+			return fmt.Errorf("failed to verify generic program ownership: %w", err)
+		}
+		locked, err := hasCompletedPurchase(tx, programID)
+		if err != nil {
+			return err
+		}
+		if locked {
+			return ErrProgramContentLocked
+		}
+		result := genericScope(tx, productType, programID).Delete(&models.Program{})
+		if result.Error != nil {
+			return fmt.Errorf("failed to soft delete generic program: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return ErrGenericProgramNotFound
+		}
+		return nil
+	})
+}
+
+func hasCompletedPurchase(tx *gorm.DB, programID string) (bool, error) {
+	var count int64
+	if err := tx.Model(&models.Purchase{}).
+		Where("program_id = ? AND status = ?", programID, models.PurchaseStatusCompleted).
+		Count(&count).Error; err != nil {
+		return false, fmt.Errorf("failed to check completed purchases: %w", err)
 	}
-	if result.RowsAffected == 0 {
-		return ErrGenericProgramNotFound
+	return count > 0, nil
+}
+
+func createCuratedNutrition(tx *gorm.DB, programID string, plan *models.CuratedNutritionPlan) error {
+	if plan == nil {
+		return nil
+	}
+	plan.ProgramID = programID
+	if err := tx.Omit("Meals").Create(plan).Error; err != nil {
+		return fmt.Errorf("failed to create curated nutrition plan: %w", err)
+	}
+	return createCuratedNutritionChildren(tx, plan)
+}
+
+func createCuratedNutritionChildren(tx *gorm.DB, plan *models.CuratedNutritionPlan) error {
+	for i := range plan.Meals {
+		meal := &plan.Meals[i]
+		meal.PlanID = plan.ID
+		if err := tx.Omit("Items").Create(meal).Error; err != nil {
+			return fmt.Errorf("failed to create curated nutrition meal: %w", err)
+		}
+		for j := range meal.Items {
+			meal.Items[j].PlanID = plan.ID
+			meal.Items[j].MealID = meal.ID
+			if err := tx.Create(&meal.Items[j]).Error; err != nil {
+				return fmt.Errorf("failed to create curated nutrition food: %w", err)
+			}
+		}
 	}
 	return nil
+}
+
+func reconcileCuratedNutrition(tx *gorm.DB, programID string, desired *models.CuratedNutritionPlan) error {
+	var existing models.CuratedNutritionPlan
+	err := tx.Where("program_id = ?", programID).Take(&existing).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to load curated nutrition plan: %w", err)
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return createCuratedNutrition(tx, programID, desired)
+	}
+	if desired == nil {
+		if err := tx.Where("plan_id = ?", existing.ID).Delete(&models.CuratedNutritionPlanMealItem{}).Error; err != nil {
+			return fmt.Errorf("failed to remove curated nutrition foods: %w", err)
+		}
+		if err := tx.Where("plan_id = ?", existing.ID).Delete(&models.CuratedNutritionPlanMeal{}).Error; err != nil {
+			return fmt.Errorf("failed to remove curated nutrition meals: %w", err)
+		}
+		if err := tx.Unscoped().Delete(&models.CuratedNutritionPlan{}, "id = ?", existing.ID).Error; err != nil {
+			return fmt.Errorf("failed to remove curated nutrition plan: %w", err)
+		}
+		return nil
+	}
+
+	desired.ID = existing.ID
+	desired.ProgramID = programID
+	desired.Version = existing.Version + 1
+	if err := tx.Model(&models.CuratedNutritionPlan{}).Where("id = ?", existing.ID).
+		Updates(map[string]any{
+			"version":          desired.Version,
+			"dietary_pattern":  desired.DietaryPattern,
+			"summary":          desired.Summary,
+			"prep_guidance":    desired.PrepGuidance,
+			"hydration_litres": desired.HydrationLitres,
+			"hydration_note":   desired.HydrationNote,
+			"cautions":         desired.Cautions,
+			"deleted_at":       nil,
+		}).Error; err != nil {
+		return fmt.Errorf("failed to update curated nutrition plan: %w", err)
+	}
+	if err := tx.Where("plan_id = ?", existing.ID).Delete(&models.CuratedNutritionPlanMealItem{}).Error; err != nil {
+		return fmt.Errorf("failed to replace curated nutrition foods: %w", err)
+	}
+	if err := tx.Where("plan_id = ?", existing.ID).Delete(&models.CuratedNutritionPlanMeal{}).Error; err != nil {
+		return fmt.Errorf("failed to replace curated nutrition meals: %w", err)
+	}
+	return createCuratedNutritionChildren(tx, desired)
 }
 
 // Publish transitions a draft platform-owned program of the given product

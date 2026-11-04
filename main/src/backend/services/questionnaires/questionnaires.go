@@ -82,7 +82,7 @@ type Service interface {
 	// cannot be bought before the authenticated buyer submitted an intake. It is
 	// part of this contract so the purchase service depends on a documented
 	// behaviour rather than on the concrete implementation.
-	Satisfied(ctx context.Context, userID, programID, productType string) error
+	Satisfied(ctx context.Context, userID, programID, productType, nutritionMode string) error
 }
 
 // Requirement is the client-safe view of the intake state for one program. It
@@ -272,8 +272,11 @@ func (s *service) FindStored(ctx context.Context, userID, programID string) (*nu
 //
 // A product type other than Premium Level 1 has no intake requirement, so the
 // gate is transparent for every existing product.
-func (s *service) Satisfied(ctx context.Context, userID, programID, productType string) error {
+func (s *service) Satisfied(ctx context.Context, userID, programID, productType, nutritionMode string) error {
 	if productType != models.ProgramProductTypePremiumLevel1 {
+		return nil
+	}
+	if nutritionMode == models.ProgramNutritionModeCurated {
 		return nil
 	}
 	if err := validateIdentifiers(userID, programID); err != nil {

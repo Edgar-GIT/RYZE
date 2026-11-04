@@ -43,6 +43,12 @@ type ProgramRepository interface {
 	// FindPublishedByID returns one published, non-deleted program by its
 	// id. Ownership is never checked: the catalog is global.
 	FindPublishedByID(ctx context.Context, programID string) (*models.Program, error)
+	// FindByIDWithStructure returns one non-deleted program by id with its full
+	// structure, regardless of publication status. It exists only for access
+	// surfaces whose grant has already been verified, so a purchased program
+	// stays readable if the catalogue entry is later unpublished. It must never
+	// be used to expand a public catalogue query.
+	FindByIDWithStructure(ctx context.Context, programID string) (*models.Program, error)
 	// FindPublishedByIDWithStructure returns one published, non-deleted
 	// program with its complete nested structure (weeks → workouts →
 	// workout exercises → sets and the catalog exercise summary). Ownership
@@ -257,6 +263,26 @@ func (r *programRepository) FindPublishedByID(ctx context.Context, programID str
 			return nil, ErrProgramNotFound
 		}
 		return nil, fmt.Errorf("failed to find published program: %w", err)
+	}
+	return &program, nil
+}
+
+// FindByIDWithStructure returns one non-deleted program by id with its complete
+// nested structure, regardless of status. The caller is responsible for having
+// verified a grant before calling it.
+func (r *programRepository) FindByIDWithStructure(ctx context.Context, programID string) (*models.Program, error) {
+	var program models.Program
+	if err := r.db.WithContext(ctx).
+		Preload("Weeks", orderedByWeekNumber()).
+		Preload("Weeks.Workouts", orderedByPosition()).
+		Preload("Weeks.Workouts.Exercises", orderedByPosition()).
+		Preload("Weeks.Workouts.Exercises.Exercise").
+		Preload("Weeks.Workouts.Exercises.Sets", orderedBySetNumber()).
+		First(&program, "id = ?", programID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to find program structure: %w", err)
 	}
 	return &program, nil
 }

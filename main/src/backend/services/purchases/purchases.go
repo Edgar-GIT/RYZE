@@ -237,9 +237,11 @@ type service struct {
 // a client can never satisfy a precondition on behalf of another account.
 type CheckoutPrerequisite interface {
 	// Satisfied returns nil when the precondition for the product is met, or a
-	// sentinel error when it is not. The product type is passed in because the
-	// caller has already resolved the program.
-	Satisfied(ctx context.Context, userID, programID, productType string) error
+	// sentinel error when it is not. The product type and the nutrition mode are
+	// passed in because the caller has already resolved the program; a curated
+	// Premium Level 1 package has no intake requirement, while a legacy
+	// questionnaire-generated one still does.
+	Satisfied(ctx context.Context, userID, programID, productType, nutritionMode string) error
 }
 
 // PurchaseFulfiller provisions the derived artifacts a completed purchase owes,
@@ -337,14 +339,21 @@ func (s *service) fulfill(ctx context.Context, userID, programID string) {
 // checkPrerequisites enforces the per-product checkout precondition. It runs
 // before any purchase row is created, so a product that is not ready to sell
 // never produces a pending purchase.
-func (s *service) checkPrerequisites(ctx context.Context, userID, programID, productType string) error {
+func (s *service) checkPrerequisites(ctx context.Context, userID, programID, productType, mode string) error {
 	if s.prerequisites == nil {
 		return nil
 	}
-	if err := s.prerequisites.Satisfied(ctx, userID, programID, productType); err != nil {
+	if err := s.prerequisites.Satisfied(ctx, userID, programID, productType, mode); err != nil {
 		return fmt.Errorf("%w: %w", ErrPrerequisiteNotMet, err)
 	}
 	return nil
+}
+
+func nutritionMode(program *models.Program) string {
+	if program.NutritionMode == nil {
+		return ""
+	}
+	return *program.NutritionMode
 }
 
 // isExpired reports whether a pending purchase can no longer be paid. Expiry is
@@ -388,7 +397,7 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 	// precondition holds. The check runs before the duplicate checks and before
 	// any row is written, so a rejected checkout leaves no pending purchase
 	// behind and never snapshots a price for a product the buyer cannot yet buy.
-	if err := s.checkPrerequisites(ctx, userID, programID, program.ProductType); err != nil {
+	if err := s.checkPrerequisites(ctx, userID, programID, program.ProductType, nutritionMode(program)); err != nil {
 		return nil, err
 	}
 
@@ -766,7 +775,7 @@ func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID st
 	// precondition holds. The check runs before the duplicate checks and before
 	// any row is written, so a rejected checkout leaves no pending purchase
 	// behind and never snapshots a price for a product the buyer cannot yet buy.
-	if err := s.checkPrerequisites(ctx, userID, programID, program.ProductType); err != nil {
+	if err := s.checkPrerequisites(ctx, userID, programID, program.ProductType, nutritionMode(program)); err != nil {
 		return nil, err
 	}
 
