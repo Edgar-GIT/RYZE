@@ -491,6 +491,20 @@ func TestGenericProgramRepositoryPremiumLevel1Family(t *testing.T) {
 		t.Fatalf("premium search: expected 1 result, got total=%d err=%v", total, err)
 	}
 
+	// The objective and nutrition mode are fixed when the package is created.
+	changedObjective := *found
+	objective := models.ProgramObjectiveGainMuscle
+	changedObjective.Objective = &objective
+	if err := repo.UpdateFull(ctx, models.ProgramProductTypePremiumLevel1, premium.ID, &changedObjective); !errors.Is(err, repositories.ErrProgramMetadataLocked) {
+		t.Fatalf("objective change = %v, want ErrProgramMetadataLocked", err)
+	}
+	changedMode := *found
+	mode := models.ProgramNutritionModeCurated
+	changedMode.NutritionMode = &mode
+	if err := repo.UpdateFull(ctx, models.ProgramProductTypePremiumLevel1, premium.ID, &changedMode); !errors.Is(err, repositories.ErrProgramMetadataLocked) {
+		t.Fatalf("nutrition mode change = %v, want ErrProgramMetadataLocked", err)
+	}
+
 	// ...and invisible under the generic family.
 	if _, err := repo.FindByID(ctx, models.ProgramProductTypeGeneric, premium.ID); !errors.Is(err, repositories.ErrGenericProgramNotFound) {
 		t.Fatalf("generic FindByID on premium program = %v, want ErrGenericProgramNotFound", err)

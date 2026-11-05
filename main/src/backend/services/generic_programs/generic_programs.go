@@ -35,10 +35,13 @@ var (
 	// ErrProgramAlreadyPublished indicates the generic program is already in
 	// the published state and cannot be published again.
 	ErrProgramAlreadyPublished = errors.New("generic program already published")
-	// ErrProgramContentLocked indicates a published package with real sales can
-	// no longer be edited, unpublished or deleted. The content a client bought is
-	// kept immutable; further changes require a new package.
+	// ErrProgramContentLocked indicates a package with a completed purchase can
+	// no longer be edited or deleted. The content a client bought is kept
+	// immutable; further changes require a new package.
 	ErrProgramContentLocked = errors.New("program content is locked by an existing purchase")
+	// ErrProgramMetadataLocked indicates an edit tried to change the objective
+	// or nutrition mode assigned when the package was created.
+	ErrProgramMetadataLocked = errors.New("program metadata is fixed at creation")
 )
 
 const (
@@ -385,6 +388,9 @@ func (s *service) UpdateProgram(ctx context.Context, productType, programID stri
 		}
 		if errors.Is(err, repositories.ErrProgramContentLocked) {
 			return nil, ErrProgramContentLocked
+		}
+		if errors.Is(err, repositories.ErrProgramMetadataLocked) {
+			return nil, ErrProgramMetadataLocked
 		}
 		if errors.Is(err, repositories.ErrExerciseNotFound) {
 			return nil, ErrExerciseNotFound

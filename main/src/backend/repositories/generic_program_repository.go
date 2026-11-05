@@ -19,6 +19,9 @@ var (
 	// ErrProgramContentLocked is returned when a completed purchase already
 	// delivered the package, so its content can no longer change or disappear.
 	ErrProgramContentLocked = errors.New("program content is locked by a completed purchase")
+	// ErrProgramMetadataLocked is returned when an edit tries to change the
+	// objective or nutrition mode a package was created with.
+	ErrProgramMetadataLocked = errors.New("program objective and nutrition mode are fixed at creation")
 )
 
 // GenericProgramFilter narrows the generic program search. Empty values are
@@ -150,6 +153,11 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, productType, 
 				return ErrGenericProgramNotFound
 			}
 			return fmt.Errorf("failed to verify generic program ownership: %w", err)
+		}
+
+		if !sameOptionalString(existing.Objective, program.Objective) ||
+			!sameOptionalString(existing.NutritionMode, program.NutritionMode) {
+			return ErrProgramMetadataLocked
 		}
 
 		locked, err := hasCompletedPurchase(tx, programID)
@@ -306,6 +314,13 @@ func (r *genericProgramRepository) SoftDelete(ctx context.Context, productType, 
 		}
 		return nil
 	})
+}
+
+func sameOptionalString(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func hasCompletedPurchase(tx *gorm.DB, programID string) (bool, error) {

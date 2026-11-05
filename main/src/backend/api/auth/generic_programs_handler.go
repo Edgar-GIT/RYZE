@@ -533,6 +533,8 @@ func (h *GenericProgramsHandler) respondGenericProgramsError(c *gin.Context, err
 		RespondError(c, http.StatusConflict, "PROGRAM_ALREADY_PUBLISHED", "Program is already published.", nil)
 	case errors.Is(err, generic_programs.ErrProgramContentLocked):
 		RespondError(c, http.StatusConflict, "PROGRAM_CONTENT_LOCKED", "This package has already been purchased and can no longer be changed.", nil)
+	case errors.Is(err, generic_programs.ErrProgramMetadataLocked):
+		RespondError(c, http.StatusConflict, "PROGRAM_METADATA_LOCKED", "The objective and nutrition mode are fixed when the package is created.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}
