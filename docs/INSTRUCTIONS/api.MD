@@ -687,13 +687,15 @@ Responses:
 
 #### `GET /api/v1/me/programs/:programID`
 
-Returns the client-safe structure of one published program the authenticated
-user may access. Access is granted by exactly one of: an active entitlement, an
-active trainer assignment, or an active Free activation. The program must still
-be published. A missing grant, a missing program, a soft-deleted program and an
-unpublished program are all indistinguishable and return the same generic
-`404`. The user identity comes exclusively from the authentication context; the
-path parameter only identifies the requested resource.
+Returns the client-safe structure of one program the authenticated user may
+access. Access is granted by exactly one of: an active entitlement, an active
+trainer assignment, or an active Free activation. An entitlement keeps access
+after the program is unpublished; an assignment or Free activation still
+requires the program to be published. A missing grant, a nonexistent program and
+a soft-deleted program return the same generic `404`. For assignment and Free
+grants, an unpublished program is indistinguishable from those cases and also
+returns `404`. The user identity comes exclusively from the authentication
+context; the path parameter only identifies the requested resource.
 
 Response `data`:
 
@@ -717,11 +719,13 @@ All exercise summaries follow the server-wide exercise-media gate. While
 
 Responses:
 
-- `200 OK` — the accessible, published program with its full structure.
+- `200 OK` — the accessible program with its full structure. A purchased
+  program remains readable while unpublished.
 - `400 VALIDATION_ERROR` — malformed program id.
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
-- `404 PROGRAM_NOT_FOUND` — no active grant, program unpublished, soft-deleted,
-  or nonexistent. The cases are indistinguishable by design.
+- `404 PROGRAM_NOT_FOUND` — no active grant, soft-deleted or nonexistent
+  program, or an unpublished program reached through an assignment or Free
+  activation. The cases are indistinguishable by design.
 
 ---
 
@@ -2981,8 +2985,10 @@ Response `data`:
 
 - `programs` — array of program objects: `id`, `name`, `description`, `type`,
   `status`, `level`, `duration_weeks`, `frequency_per_week`, `training_type`,
-  `price_minor_units`, `currency`, `product_type`, `created_at`, `updated_at`.
-  The owning `trainer_id` is never public.
+  `price_minor_units`, `currency`, `product_type`, `objective`, `created_at`,
+  `updated_at`. `objective` is a controlled Premium Level 1 catalogue value
+  (`gain_muscle`, `lose_fat`, `strength_conditioning`) or `null` for legacy and
+  non-curated programs. The owning `trainer_id` is never public.
 - `pagination` — `page`, `limit`, `total`, `total_pages`.
 
 ### `GET /api/v1/programs/:programID`
@@ -2998,8 +3004,10 @@ Response `data`:
 
 - `id`, `name`, `description`, `type`, `status`, `level`, `duration_weeks`,
   `frequency_per_week`, `training_type`, `price_minor_units`, `currency`,
-  `product_type`, `created_at`, `updated_at`.
-- No `trainer_id` and no `weeks`, `workouts`, `exercises` or `sets`. Structure
+  `product_type`, `objective`, `created_at`, `updated_at`. `objective` is the
+  controlled Premium Level 1 catalogue value or `null`.
+- No `trainer_id`, no `nutrition_mode`, no curated plan content and no `weeks`,
+  `workouts`, `exercises` or `sets`. Structure
   is served exclusively by `GET /api/v1/me/programs/:programID`, which enforces
   an active access grant and the exercise-media gate.
 
@@ -3664,21 +3672,32 @@ Returns the state of the calling user's intake for this program.
 Fields:
 
 - `program_id` — the program the state belongs to.
-- `submitted` — whether an intake exists.
+- `required` — whether this package collects a nutrition intake. It is `true`
+  for legacy questionnaire-generated Premium Level 1 packages and `false` for
+  curated packages and every other product family.
+- `submitted` — whether an intake exists. It is always `false` for a program
+  that does not require one.
 - `locked` — whether the intake is immutable, that is, whether an active
-  entitlement exists for this program.
+  entitlement exists for this program. It is always `false` for a program that
+  does not collect an intake.
 - `version` — the current intake revision; `0` when nothing is stored.
+- `schema_version` / `min_schema_version` — the intake contract version and the
+  lowest version the backend still accepts.
 - `submitted_at` — first submission time, nullable.
 
-`locked` is the server's authoritative answer to "may this intake still be
-edited". The client must never infer it from `submitted`, from purchase state, or
-from anything the user did. If the server cannot verify the lock it still answers
-`200` with `locked: true`, so the client can render the package it already owns
-instead of failing the page.
+`required` and `locked` are the server's authoritative answers. The client must
+never infer them from `submitted`, from purchase state, objective metadata or
+from anything the user did. If the server cannot verify the lock on a required
+intake it still answers `200` with `locked: true`, so the client can render the
+package it already owns instead of failing the page.
+
+A curated package answers `200` with `required: false`, `submitted: false` and
+`locked: false`. The endpoint remains usable as one client-side check without
+inventing an intake that the package never collects.
 
 Success: `200 OK` with the fields above under the response `data` wrapper
-(`{ success, message, data: { program_id, submitted, locked, version,
-submitted_at } }`).
+(`{ success, message, data: { program_id, required, submitted, locked, version,
+schema_version, min_schema_version, submitted_at } }`).
 
 Failure:
 
@@ -3699,7 +3718,10 @@ Request body:
 { "answers": { "goal": "fat_loss", "height_cm": 180, "dietary_restrictions": ["lactose"] } }
 ```
 
-Creates or replaces the calling user's intake for this program.
+Creates or replaces the calling user's intake for this program. The package must
+be a questionnaire-generated Premium Level 1 program. Curated packages ship a
+fixed nutrition plan and answer `404 PROGRAM_NOT_FOUND` because they have no
+intake resource; nothing is persisted.
 
 Before a purchase, resubmission is allowed and increments `version`; the intake is
 an editable draft and the nutrition programme has not been built from it yet.
@@ -3730,8 +3752,9 @@ Failure:
   `too many entries`, `entry too long`, `too long`). The client owns the
   presentation wording for these codes.
 - `401 UNAUTHORIZED` — no valid session.
-- `404 PROGRAM_NOT_FOUND` — the program does not exist, is not a Premium Level 1
-  program, or is not available.
+- `404 PROGRAM_NOT_FOUND` — the program does not exist, is not a
+  questionnaire-generated Premium Level 1 program, is a curated package, or is
+  not available.
 - `409 QUESTIONNAIRE_LOCKED` — an active entitlement exists, so the intake is
   immutable.
 
@@ -3744,7 +3767,9 @@ GET /api/v1/me/programs/{programID}/nutrition
 ```
 
 Returns the calling user's nutrition assignment state and, only when it is
-`completed`, the generated plan.
+`completed`, the nutrition plan. Both delivery models share this contract: a
+legacy questionnaire-generated assignment and the fixed plan bundled with a
+curated package.
 
 Both endpoints that return assignment state (`GET` here and `POST` on
 `/nutrition/generate`) answer with the same envelope:
@@ -3770,26 +3795,30 @@ Fields in `data`:
 - `status` — `pending` | `processing` | `completed` | `failed`. `completed` is
   the only status that may be rendered as a plan; `failed` is a retryable state,
   and `pending`/`processing` mean the run has not finished.
-- `version` — the assignment revision. It equals the version of the active plan
-  and is incremented on every completed generation.
-- `questionnaire_version` — the intake revision the plan was derived from.
+- `version` — the assignment revision for a generated plan, or the package plan
+  version for a curated package. It equals the version of the active plan.
+- `questionnaire_version` — the intake revision the plan was derived from. It is
+  `0` for a curated package because no intake exists.
 - `out_of_date` — whether a newer intake revision exists than the one this plan
-  was built from. Because the intake is immutable once an entitlement exists, it
-  stays `false` in practice and exists to keep the guarantee honest rather than
-  to power a routine user flow.
-- `plan` — the generated programme, or `null` for every non-completed status.
+  was built from. It stays `false` for a curated package and, because the legacy
+  intake is immutable once an entitlement exists, in practice for a generated
+  plan too. It keeps the guarantee honest rather than powering a routine flow.
+- `plan` — the nutrition plan, or `null` for every non-completed status.
 
 `plan` is `null` unless `status` is `completed`. A completed checkout attempts
-plan delivery as part of the purchase itself, but delivery can fail and the
-ambit is swallowed by the purchase so a payment is never undone by a plan
-problem; no endpoint ever reports a plan that has not been generated, and only
-`completed` proves one exists.
+plan delivery as part of the purchase itself, but delivery can fail for a legacy
+generated plan and that failure is swallowed by the purchase so a payment is
+never undone by a plan problem; no endpoint ever reports a plan that has not been
+stored or generated, and only `completed` proves one exists. A curated package
+plan is already stored with the package, so its status is `completed` as soon as
+the entitlement is verified.
 
-This endpoint requires all three of: the program being `premium_level_1`, an
-active entitlement, and a submitted intake. Any missing condition answers
-`404 NUTRITION_NOT_FOUND`, which is the same response an unowned assignment
-returns. Reading someone's nutrition programme must not be distinguishable from
-reading nothing.
+This endpoint requires the program being `premium_level_1` and an active
+entitlement. A legacy questionnaire-generated program additionally requires a
+submitted intake; a curated package requires its stored package plan instead.
+Any missing condition answers `404 NUTRITION_NOT_FOUND`, which is the same
+response an unowned assignment returns. Reading someone's nutrition programme
+must not be distinguishable from reading nothing.
 
 Success: `200 OK`.
 
@@ -3797,7 +3826,8 @@ Failure:
 
 - `401 UNAUTHORIZED` — no valid session.
 - `404 NUTRITION_NOT_FOUND` — not entitled, not Premium Level 1, no submitted
-  intake, or no assignment for this user.
+  intake for a questionnaire-generated plan, no stored plan for a curated
+  package, or no assignment for this user.
 
 ---
 
@@ -3807,7 +3837,10 @@ Failure:
 POST /api/v1/me/programs/{programID}/nutrition/generate
 ```
 
-Runs the deterministic, server-side generation step over the stored intake.
+Runs the deterministic, server-side generation step over the stored intake for a
+legacy questionnaire-generated package. A curated package needs no generation:
+the endpoint verifies the entitlement and returns the completed package-plan
+status unchanged.
 
 The same ownership, entitlement and intake preconditions as the status endpoint
 apply, and each missing condition answers `404 NUTRITION_NOT_FOUND`.
@@ -3831,8 +3864,9 @@ Success: `200 OK` with the assignment envelope.
 Failure:
 
 - `401 UNAUTHORIZED` — no valid session.
-- `404 NUTRITION_NOT_FOUND` — not entitled, not Premium Level 1, or no submitted
-  intake.
+- `404 NUTRITION_NOT_FOUND` — not entitled, not Premium Level 1, no submitted
+  intake for a questionnaire-generated plan, or no stored plan for a curated
+  package.
 - `409 NUTRITION_NOT_READY` — the assignment changed during generation, is
   already processing, or is not in a state this run can move forward. Retrying
   later is the correct client response.
@@ -3846,9 +3880,11 @@ Failure:
 ## Nutrition Plan Document
 
 The `plan` field of a `completed` assignment is the server-owned nutrition
-programme. It is generated deterministically from the normalized intake, so the
-same intake always produces the same plan, and it is written as a normalised,
-versioned record rather than an opaque blob.
+programme. A questionnaire-generated plan is derived deterministically from the
+normalized intake, so the same intake always produces the same plan, and it is
+written as a normalised, versioned record rather than an opaque blob. A curated
+plan is authored with the package and delivered unchanged to every buyer; it is
+stored in its own normalised tables and projected onto the same client contract.
 
 The document shape:
 
@@ -3923,23 +3959,30 @@ Key points:
   that produced it and the deterministic digest of the intake and plan body. An
   unchanged intake is provably still current by reproducing the fingerprint.
 
+For a curated package, `engine_version` is `0`, `fingerprint` is
+`curated:<program-id>:<plan-version>`, `maintenance_calories` equals the sum of
+the meal energy, `exclusions` is empty, and the daily/macro totals are derived
+from the authored foods. `questionnaire_version` is `0`. These fields are
+projected from package content, never from a client intake.
+
 ---
 
 ## Purchase Prerequisite
 
 Premium Level 1 participates in the existing purchase flow. Checkout against a
-`premium_level_1` program is refused until the calling user has a submitted
-intake for that exact program.
+questionnaire-generated `premium_level_1` program is refused until the calling
+user has a submitted intake for that exact program. A curated package ships its
+plan with the package and has no intake prerequisite.
 
 Failure:
 
-- `409 PURCHASE_PREREQUISITE_NOT_MET` — a Premium Level 1 program was purchased
-  without a submitted intake.
+- `409 PURCHASE_PREREQUISITE_NOT_MET` — a questionnaire-generated Premium Level 1
+  program was purchased without a submitted intake.
 
 This applies identically to the regular purchase path and to the Test Mode
 purchase path; both verify the same prerequisite through the same code path.
-Programs of any other `product_type` are unaffected and continue to purchase
-without an intake.
+Curated packages and programs of any other `product_type` are unaffected and
+continue to purchase without an intake.
 
 ---
 
@@ -3952,7 +3995,9 @@ and in the authenticated entitlement and program access responses.
 
 It lets the client render a Premium Level 1 package as training plus nutrition
 without a second request, and it lets the public catalog be scoped to a single
-family.
+family. The public catalogue also exposes `objective` so the package can be
+grouped by goal; `nutrition_mode` and the curated plan content remain
+administrative and are never public.
 
 The public catalog accepts a `scope` query parameter:
 
@@ -4974,13 +5019,18 @@ Responses:
 - `403 FORBIDDEN` — insufficient permissions.
 - `404 PROGRAM_NOT_FOUND` — missing or soft-deleted program.
 
-# GENERIC PROGRAMS (PLATFORM-OWNED)
+# PLATFORM-OWNED PROGRAMS (GENERIC AND PREMIUM LEVEL 1)
 
 Generic programs are pre-built, platform-owned programs created by the RYZE
-team. They reuse the same Program → Week → Workout → Exercise structure as
+team. Premium Level 1 programs are the platform-owned training-plus-nutrition
+family. Both reuse the same Program → Week → Workout → Exercise structure as
 trainer programs, but their `trainer_id` is always `NULL` and they can never be
-converted into trainer-owned content. They hold no commission: a generic program
-is never involved in trainer revenue.
+converted into trainer-owned content. Generic programs hold no commission: a
+generic program is never involved in trainer revenue.
+
+The two families are administered through separate route groups. The handler is
+bound to the family by the route, so the client never chooses or changes
+`product_type`, and a program is only ever visible under its own family.
 
 ## Ownership & Authorization
 
@@ -4998,7 +5048,86 @@ GET    /api/v1/programs/generic/:programID
 PATCH  /api/v1/programs/generic/:programID
 POST   /api/v1/programs/generic/:programID/publish
 DELETE /api/v1/programs/generic/:programID
+
+GET    /api/v1/programs/premium-level-1
+POST   /api/v1/programs/premium-level-1
+GET    /api/v1/programs/premium-level-1/:programID
+PATCH  /api/v1/programs/premium-level-1/:programID
+POST   /api/v1/programs/premium-level-1/:programID/publish
+DELETE /api/v1/programs/premium-level-1/:programID
 ```
+
+Both prefixes accept the same payload, query and response shapes described
+below; the route decides the product family.
+
+## Product Metadata
+
+- `generic` programs must carry `objective = null` and `nutrition_mode = null`
+  and can never carry a curated nutrition plan.
+- `premium_level_1` programs require `nutrition_mode`:
+  - `questionnaire_generated` is the legacy intake-first model. It must carry
+    `objective = null` and no curated nutrition plan.
+  - `curated` requires a known `objective` and a complete curated nutrition
+    plan. The plan is delivered unchanged to every buyer.
+- `objective` is a closed vocabulary: `gain_muscle`, `lose_fat`,
+  `strength_conditioning`.
+- `objective` and `nutrition_mode` are fixed at creation. A PATCH that changes
+  either answers `409 PROGRAM_METADATA_LOCKED`.
+- `content_version` starts at `1` and increments on every successful content
+  update. It is returned by the admin endpoints and is not public.
+
+### Curated nutrition payload
+
+`curated_nutrition` has this shape:
+
+```json
+{
+  "dietary_pattern": "balanced",
+  "summary": "…",
+  "prep_guidance": "…",
+  "hydration_litres": 2.5,
+  "hydration_note": "…",
+  "cautions": ["…"],
+  "meals": [
+    {
+      "label": "Breakfast",
+      "kind": "meal",
+      "notes": "…",
+      "items": [
+        {
+          "food_name": "Oats",
+          "category": "carbohydrate",
+          "quantity": 80,
+          "unit": "g",
+          "calories": 300,
+          "protein_grams": 10,
+          "carbohydrate_grams": 50,
+          "fat_grams": 6,
+          "fiber_grams": 8,
+          "substitution_note": "…"
+        }
+      ]
+    }
+  ]
+}
+```
+
+The capped values are 14 meals, 30 foods per meal, 10 cautions, a summary,
+preparation guidance and hydration note of 255 characters, meal labels of 48,
+food names of 120, categories of 32, units of 24 and cautions of 160.
+Hydration is between 0.1 and 20 litres. A plan needs at least one meal and every
+meal needs at least one food; quantities, calories and macros must be
+non-negative, and `kind` is `meal` or `snack`.
+
+## Content locks
+
+A completed purchase, including a Test Mode purchase, freezes the package
+content. `PATCH` and `DELETE` on a purchased package answer
+`409 PROGRAM_CONTENT_LOCKED`; selling a package is the point at which a buyer
+relies on the delivered structure and nutrition. Publishing is not blocked by
+the content lock, but the premium metadata and curated plan are re-validated
+before the transition. Reads remain available. Unpublishing does not revoke a
+purchased client's access.
 
 ## Cap Limits
 
@@ -5027,8 +5156,8 @@ Within one program the server derives ordering and uniqueness server-side:
 
 ## Status & Pricing
 
-- `status`: `draft` | `published`. Only a `draft` generic program can be
-  published; publishing is irreversible without a new update cycle.
+- `status`: `draft` | `published`. Only a `draft` program can be published;
+  publishing is irreversible without a new update cycle.
 - `type`: `free` | `premium` | `personalized`.
   - `free` → `price_minor_units` must be 0.
   - `premium`/`personalized` → must meet the configured minimum price.
@@ -5046,7 +5175,8 @@ Query parameters:
 
 - `page` — page number, default 1.
 - `limit` — page size, default 20.
-- `search` — substring match on program name.
+- `search` — substring match on program name. The route determines the
+  product family, so a search never crosses families.
 - `type` — `free` | `premium` | `personalized`.
 - `level` — `Beginner` | `Intermediate` | `Advanced`.
 - `training_type` — `Hypertrophy` | `Strength` | `HYROX` | `CrossFit` |
@@ -5081,6 +5211,10 @@ Request body:
 - `frequency_per_week` — integer, ≤ 7 (nullable).
 - `price_minor_units` — integer minor units; 0 for `free`, minimum for paid.
 - `currency` — `EUR`.
+- `objective` — required for a curated Premium Level 1 package; omitted/null
+  otherwise.
+- `nutrition_mode` — required for Premium Level 1; omitted/null for generic.
+- `curated_nutrition` — required for a curated package; omitted/null otherwise.
 - `weeks` — array of week objects:
   - `week_number` (ignored, derived server-side), `workouts`:
     - `name`, `description`, `exercises`:
@@ -5092,8 +5226,9 @@ Request body:
 
 Responses:
 
-- `201 CREATED` — full generic program object.
-- `400 VALIDATION_ERROR` — invalid body or any cap exceeded.
+- `201 CREATED` — full program object.
+- `400 VALIDATION_ERROR` — invalid body, invalid product metadata, incomplete
+  curated plan, or any cap exceeded.
 - `403 FORBIDDEN` — insufficient permissions.
 - `422 EXERCISE_NOT_FOUND` — unknown catalog `exercise_id`.
 - `409 DUPLICATE_EXERCISE` — same catalog exercise twice in one workout.
@@ -5105,22 +5240,25 @@ exercises and sets). Protected by `plans`.
 
 Response `data`:
 
-- Program fields (`id`, `name`, `description`, `type`, `status`, `level`,
-  `training_type`, `duration_weeks`, `frequency_per_week`, `price_minor_units`,
-  `currency`, `created_at`, `updated_at`) plus `weeks` (each with ordered
-  `workouts`); each exercise exposes `catalog_instructions`, `target_muscles`,
-  `equipment`, `difficulty`, `video_url`, `image_url`, `media_available`,
-  `media_attribution`, per-assignment `instructions` and `notes`, and its
-  `sets`. Only `draft`/`published` programs
-  are returned; the `trainer_id` field is never exposed.
+- Program fields (`id`, `name`, `description`, `type`, `status`, `product_type`,
+  `objective`, `nutrition_mode`, `content_version`, `level`, `training_type`,
+  `duration_weeks`, `frequency_per_week`, `price_minor_units`, `currency`,
+  `created_at`, `updated_at`) plus `weeks` (each with ordered `workouts`). A
+  curated package also carries `curated_nutrition`. Each exercise exposes
+  `catalog_instructions`, `target_muscles`, `equipment`, `difficulty`,
+  `video_url`, `image_url`, `media_available`, `media_attribution`,
+  per-assignment `instructions` and `notes`, and its `sets`. Only
+  `draft`/`published` programs are returned; the `trainer_id` field is never
+  exposed.
 
 Responses:
 
 - `200 OK` — full program object.
 - `400 VALIDATION_ERROR` — malformed program id.
 - `403 FORBIDDEN` — insufficient permissions.
-- `404 PROGRAM_NOT_FOUND` — missing, soft-deleted generic program, or a
-  trainer-owned program id addressed through this endpoint.
+- `404 PROGRAM_NOT_FOUND` — missing, soft-deleted program, a program of the
+  other product family, or a trainer-owned program id addressed through this
+  endpoint.
 
 ## `PATCH /api/v1/programs/generic/:programID`
 
@@ -5133,12 +5271,16 @@ Request body: same shape as `POST /api/v1/programs/generic`.
 Responses:
 
 - `200 OK` — updated full program object.
-- `400 VALIDATION_ERROR` — invalid body, cap exceeded, or structural
-  inconsistency (referencing non-existing week/workout/exercise).
+- `400 VALIDATION_ERROR` — invalid body, invalid product metadata, incomplete
+  curated plan, cap exceeded, or structural inconsistency (referencing
+  non-existing week/workout/exercise).
 - `403 FORBIDDEN` — insufficient permissions.
 - `404 PROGRAM_NOT_FOUND` — program not found.
-- `422 EXERCISE_NOT_FOUND` — unknown catalog `exercise_id`.
 - `409 DUPLICATE_EXERCISE` — same catalog exercise twice in one workout.
+- `409 PROGRAM_METADATA_LOCKED` — `objective` or `nutrition_mode` differs from
+  the stored package.
+- `409 PROGRAM_CONTENT_LOCKED` — the package has a completed purchase.
+- `422 EXERCISE_NOT_FOUND` — unknown catalog `exercise_id`.
 
 ## `POST /api/v1/programs/generic/:programID/publish`
 
@@ -5150,15 +5292,18 @@ commercial gate is re-checked server-side before the transition: free programs
 must carry a price of `0` minor units and paid programs must carry at least the
 configured minimum (`MIN_PROGRAM_PRICE_MINOR_UNITS`, default 100 = €1.00). An
 invalid price rejects the publish even though create/update already validate
-prices.
+prices. A Premium Level 1 package is also re-checked for a valid nutrition mode,
+and a curated package for its objective and complete plan. A content lock does
+not block publishing.
 
 Responses:
 
 - `200 OK` — `{ "status": "published" }`.
-- `400 VALIDATION_ERROR` — the program price is invalid for its type.
+- `400 VALIDATION_ERROR` — the program price, product metadata or curated plan
+  is invalid for its type.
 - `403 FORBIDDEN` — insufficient permissions.
-- `404 PROGRAM_NOT_FOUND` — program missing, not `draft`, trainer-owned, or
-  already published.
+- `404 PROGRAM_NOT_FOUND` — program missing, not `draft`, of the other product
+  family, trainer-owned, or already published.
 
 ## `DELETE /api/v1/programs/generic/:programID`
 
@@ -5170,6 +5315,8 @@ Responses:
 - `200 OK` — deletion successful.
 - `403 FORBIDDEN` — insufficient permissions.
 - `404 PROGRAM_NOT_FOUND` — missing or already deleted program.
+- `409 PROGRAM_CONTENT_LOCKED` — the package has a completed purchase and its
+  content is frozen.
 
 # ADMIN COMMISSION RULES
 

@@ -483,12 +483,18 @@ owning workout. The set prescription (`workout_exercise_sets`) is guarded by
 the same scoping chain (`trainer → program → week → workout → workout_exercise
 → set`) and every set is only reachable through an active assignment.
 
-### Premium Level 1 (Intake and Nutrition)
+### Premium Level 1 (Curated and Intake Nutrition)
 
 Premium Level 1 is a product family, not a separate platform. It reuses the
 program hierarchy, the purchase flow, the entitlement model and the program
-access surface that Generic Programs already use, and adds exactly two modules
-plus one prerequisite check and one persistence layer for the generated plan.
+access surface that Generic Programs already use. It supports two nutrition
+delivery models:
+
+- `curated` — the package ships a predefined nutrition plan authored with the
+  training content. Every buyer receives the same plan; no intake is collected.
+- `questionnaire_generated` — the legacy intake-first model. The buyer submits
+  a questionnaire before checkout and the server generates a per-client plan
+  after purchase.
 
 The discriminator is `programs.product_type` (`generic` | `premium_level_1`).
 It is orthogonal to `programs.type`, which stays the commercial category, so
@@ -502,15 +508,20 @@ The area is layered like every other module:
 - `NutritionHandler` (in `api/auth`, thin) → `nutrition_assignment` service (in
   `services/nutrition_assignment`) → `NutritionAssignmentRepository` and
   `NutritionPlanRepository` (in `repositories`) → `generator` (in
-  `services/nutrition_assignment`) + `food_catalog` (server-owned catalog data).
+  `services/nutrition_assignment`) + `food_catalog` (server-owned catalog data)
+  for legacy packages.
+- `CuratedNutritionRepository` and `services/curated_nutrition` own the
+  package-level curated plan: validation, normalization and the safe read used
+  by `nutrition_assignment` after the entitlement gate.
 - The question catalog itself lives in `services/nutrition_questionnaire`, which
   owns field definitions, validation and normalization and is shared by both
   services.
 
 The purchase service holds a fulfilment hook (the `nutrition_assignment` service
-itself) that delivers the plan as part of a completed purchase, so the buyer does
-not have to trigger generation by hand; the hook is idempotent and its failures
-are logged, not bubbled up to the payment.
+itself) that delivers a generated plan as part of a completed purchase, so the
+buyer does not have to trigger generation by hand; the hook is idempotent and its
+failures are logged, not bubbled up to the payment. Curated packages are a no-op
+at fulfilment: their plan is already stored with the package.
 
 Both handlers sit behind `Authenticate` only. There is no trainer ownership to
 verify and no administrator permission involved: the owner is always the
@@ -523,56 +534,81 @@ Key architectural decisions:
   sells; `product_type` decides which lifecycle parts it participates in. This is
   why Premium Level 1 did not need a new table, a new purchase flow or a new
   entitlement model: it is one more value in one constrained column.
+- **Two nutrition delivery modes share one contract.** `nutrition_mode` decides
+  whether the plan is authored with the package (`curated`) or derived from a
+  client intake (`questionnaire_generated`). Both project onto the same client
+  plan contract, so the Program Access UI never forks by mode.
+- **Curated content is package-owned.** The curated plan is stored once per
+  program and loaded only after the entitlement check. It is not a client record,
+  not derived from answers and not projected into public or commerce responses.
+- **Metadata is fixed at creation.** `objective` and `nutrition_mode` classify
+  the commercial package and can never be changed by an edit (the repository
+  answers `PROGRAM_METADATA_LOCKED`). The product family is fixed by the admin
+  route.
+- **Completed sales freeze content.** A completed purchase, including Test Mode,
+  locks the training structure and the curated plan against update and deletion
+  (`PROGRAM_CONTENT_LOCKED`). Unpublishing does not revoke purchased access.
 - **Two independent catalog scopes.** `ScopeGeneric` and `ScopePremiumLevel1` are
   separate boolean filters, not one `scope` string, so a single flag can never
   serve both marketplaces. The generic scope requires both `trainer_id IS NULL`
   and `product_type = 'generic'`.
-- **Derived lock, not a stored flag.** Immutability after purchase is computed
-  from the entitlement record rather than persisted. There is no lock column to
-  keep consistent, and no crash window that leaves a purchase unlocked. The
-  entitlement lookup fails closed.
+- **Derived intake lock, not a stored flag.** For a legacy intake, immutability
+  after purchase is computed from the entitlement record rather than persisted.
+  There is no lock column to keep consistent, and no crash window that leaves a
+  purchase unlocked. The entitlement lookup fails closed. Curated packages have
+  no intake and therefore no intake lock.
 - **A dedicated prerequisite, not a fork.** The purchase service gained one
-  `checkPrerequisites` step that is a no-op for every other product family. The
-  regular and Test Mode purchase paths call the same check, so the two can never
-  disagree.
-- **Deterministic generation.** The nutrition generator is a pure function of the
-  normalized intake. No external AI provider is involved in v2.82.0, so the same
-  inputs always yield the same plan, generation is idempotent, and a failure is
-  retryable in place instead of needing a second plan. The food catalog is Go
-  code versioned with the engine, so a plan can never be influenced by runtime
-  data a request could touch.
-- **Normalised, versioned persistence.** A delivered plan is stored as a
-  normalised domain (`nutrition_plans`, its meals, their foods and an exclusions
+  `checkPrerequisites` step that is a no-op for every other product family and
+  for curated Premium Level 1 packages. The regular and Test Mode purchase paths
+  call the same check, so the two can never disagree.
+- **One grant rule, status-aware content read.** Entitlements keep purchased
+  access after an unpublish; assignments and Free activations still require a
+  published program. All three resolve through `program_access`, which loads
+  status-agnostic content only for the entitlement path.
+- **Deterministic generation.** The legacy nutrition generator is a pure function
+  of the normalized intake. No external AI provider is involved in v2.82.0, so
+  the same inputs always yield the same plan, generation is idempotent, and a
+  failure is retryable in place instead of needing a second plan. The food
+  catalog is Go code versioned with the engine, so a plan can never be influenced
+  by runtime data a request could touch.
+- **Normalised, versioned persistence.** A delivered generated plan is stored as
+  a normalised domain (`nutrition_plans`, its meals, their foods and an exclusions
   audit) rather than an opaque document, and each meal item is an immutable food
   snapshot. An explicit regeneration inserts the next plan version and marks the
   previous one superseded, so a delivered plan is never silently rewritten and
   the read surface always serves exactly one active version per assignment.
+  Curated plans use their own normalized tables and are projected onto the same
+  contract.
 - **Status is the only readiness signal.** A completed checkout attempts plan
   delivery, but delivery can fail and is never allowed to undo the payment. The
   assignment state machine (`pending`, `processing`, `completed`, `failed`) is
   the single observable contract, and the plan is served only from `completed`.
+  A curated package synthesizes `completed` from its stored plan after the
+  entitlement gate.
 - **Views as the read surface.** The repositories read through
-  `v_nutrition_questionnaire_summary`, `v_nutrition_assignment` and the
-  `v_nutrition_plan*` views, which omit answers and internal diagnostics. The
-  write model is never an API contract.
+  `v_nutrition_questionnaire_summary`, `v_nutrition_assignment`, the
+  `v_nutrition_plan*` views and the `v_curated_nutrition_plan*` views, which omit
+  answers and internal diagnostics. The write model is never an API contract.
 - **Frontend reuse.** The Premium page reuses the existing purchase and payment
   APIs through `useProgramCheckout`, the shared hook extracted from the Generic
   detail page, so both families share one checkout state machine including
   redirect, capture, cancellation and Test Mode handling.
 
-### Generic Programs (Platform-Owned)
+### Platform-Owned Programs (Generic and Premium Level 1)
 
-Generic programs are the platform-owned counterpart of trainer programs and
-reuse the exact same hierarchy (`programs → program_weeks → program_workouts →
-workout_exercises → workout_exercise_sets`). They are the realization of the
-`trainer_id NULL` invariant documented in the database: a generic program is
-created with no owner and can never become trainer-owned.
+Generic and Premium Level 1 programs are the platform-owned counterpart of
+trainer programs and reuse the exact same hierarchy (`programs → program_weeks →
+program_workouts → workout_exercises → workout_exercise_sets`). They are the
+realization of the `trainer_id NULL` invariant documented in the database: a
+platform-owned program is created with no owner and can never become
+trainer-owned.
 
 The area is layered like the other modules:
 
 - `GenericProgramsHandler` (in `api/auth`, thin) → `generic_programs` service
   (in `services/generic_programs`) → `GenericProgramRepository` (in
-  `repositories`) over the existing program tables.
+  `repositories`) over the existing program tables. The same handler and
+  service serve both families; the route binds `product_type`.
 
 It is guarded by `AdminAuthenticate` + `RequireAdminPermission(plans)`, so only
 the Management Administrator (ADMIN_2) can manage generic programs; the
@@ -594,23 +630,29 @@ Key architectural decisions:
 - **Not-found equivalence.** Every generic-program query is scoped by
   `trainer_id IS NULL`; a trainer-owned id addressed through a generic endpoint
   is indistinguishable from a missing or soft-deleted one (`PROGRAM_NOT_FOUND`).
-- **Scoped by family as well as ownership.** Generic-program management requires
-  `product_type = 'generic'` as well as `trainer_id IS NULL`, so a
-  platform-owned Premium Level 1 program can never be created or edited through
-  the generic administration endpoints.
+- **Scoped by family as well as ownership.** Each administration route requires
+  its own `product_type` as well as `trainer_id IS NULL`, so a platform-owned
+  Premium Level 1 program can never be created or edited through the generic
+  endpoints, or the reverse. The family is never accepted from the payload.
+- **Metadata and content locks.** A Premium Level 1 package fixes `objective`
+  and `nutrition_mode` at creation; a complete curated plan is validated before
+  create, update and publish. A completed purchase freezes content updates and
+  deletion, while reads and publishing remain available.
 - **No commission involvement.** Generic programs are platform-owned and never
   participate in trainer revenue or commission resolution. When a generic
   program is purchased, the sale carries zero commission: `commission_bps = 0`
   and the platform keeps the full amount.
 
-The frontend counterpart is the ADMIN_2 plans area, which manages generic
-programs through this API instead of a trainer-scoped one: the plan list
-(`/admin2/plans`) searches and paginates against the list endpoint, the plan
-detail page (`/admin2/plans/:programId`) reads the full structure from the
-detail endpoint, and the plan builder (`/admin2/plans/create`) creates new
-programs and, in edit mode (`?edit=<id>`), updates an existing one through the
-transactional update endpoint. All mutations (create, update, publish, soft
-delete) flow through `AdminAuthenticate` + the `plans` permission.
+The frontend counterpart is the ADMIN_2 plans area, which manages both families
+through this API instead of a trainer-scoped one. The plan list
+(`/admin2/plans`) searches and paginates against the list endpoint with a
+product-family tab, the plan detail page (`/admin2/plans/:programId?family=…`)
+reads the full structure from the detail endpoint, and the plan builder
+(`/admin2/plans/create?family=…`) creates new programs, including the objective,
+nutrition mode and curated plan for Premium Level 1, and in edit mode
+(`?edit=<id>`) updates an existing one through the transactional update
+endpoint. All mutations (create, update, publish, soft delete) flow through
+`AdminAuthenticate` + the `plans` permission.
 
 ### Client Program Read
 
@@ -798,18 +840,20 @@ introducing a parallel access path:
 - The client identity always comes exclusively from the authenticated user
   context. The path parameter only identifies the requested program.
 - Access resolves exactly one of: an active unexpired entitlement, an active
-  trainer assignment, or an active unexpired Free activation. The program must
-  still be published. A missing grant, a missing program, a soft-deleted program
-  and an unpublished program are indistinguishable (generic `404`), so access
-  is never revealed.
+  trainer assignment, or an active unexpired Free activation. A missing grant, a
+  missing program and a soft-deleted program are indistinguishable (generic
+  `404`), so access is never revealed.
+- The entitlement path loads the program without a status filter, so a completed
+  purchase stays accessible after the catalogue entry is unpublished. The
+  assignment and Free paths still require a published program; for them an
+  unpublished program remains indistinguishable from no access.
 - The grant lookup is performed by the participating repositories
   (`EntitlementRepository.FindActiveByUserAndProgram`,
   `ProgramAssignmentRepository` and
   `FreeProgramActivationRepository`); a lookup failure fails closed.
-- The program content is loaded through the shared `program_content` mapper,
-  which enforces the published + not-soft-deleted filters and produces one safe
-  structure DTO used by every access grant. The owning trainer and parent
-  identifiers are never part of it.
+- The program content is loaded through the shared `program_content` mapper and
+  produces one safe structure DTO used by every access grant. The owning trainer
+  and parent identifiers are never part of it.
 - Internal repository failures never leak details; they surface as a generic
   `500`.
 
@@ -1536,9 +1580,12 @@ Important public UI building blocks currently include:
   published generic and Premium Level 1 families, and
   `services/service_catalog.ts` derives category cards, price labels and Home
   highlights. No product price or offer copy is hardcoded.
-- Premium Level 1 catalogue: `/services/premium-level-1` lists every returned
-  package and selects one through `?program=<id>`; the selected package keeps
-  the existing product → questionnaire → checkout → access flow.
+- Premium Level 1 catalogue: `/services/premium-level-1` groups returned
+  packages by their server-owned objective and filters through
+  `?objective=<value>`. A selected package is addressed by `?program=<id>` and
+  keeps the active objective in the URL. Curated packages go straight from
+  product to checkout; legacy packages keep product → questionnaire → checkout →
+  access. Packages without a known objective remain under “Other packages”.
 - glass panels and shared primitives
 - generic training plans marketplace: search bar (displays filter-aware result
   count + live search dropdown resolving through `services/program_search.ts`),

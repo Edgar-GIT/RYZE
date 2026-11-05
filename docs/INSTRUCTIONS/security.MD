@@ -1082,6 +1082,26 @@ the commercial gate is re-checked server-side at publish time:
   commission rule and always produce `commission_bps = 0` / zero trainer share,
   keeping the platform as the sole merchant for its own content.
 
+### Platform Package Metadata and Content Locks
+
+Premium Level 1 package metadata is commercial content, not client data:
+
+- `objective` and `nutrition_mode` are fixed when the package is created. Any
+  update that tries to change either is refused with `409 PROGRAM_METADATA_LOCKED`,
+  so a sold package can never be reclassified into another objective or delivery
+  model.
+- A curated nutrition plan is validated server-side before create, update and
+  publish. The client cannot supply a plan for a legacy package, and a curated
+  package cannot be published without one.
+- A completed purchase, including a Test Mode purchase, freezes package content.
+  `PATCH` and `DELETE` answer `409 PROGRAM_CONTENT_LOCKED`; reads and publishing
+  remain available. Selling a package is the point at which a buyer relies on the
+  delivered structure and nutrition, so later edits are refused rather than
+  silently changing a purchased product.
+- The product family is bound to the admin route and is never read from the
+  request payload, so a package cannot be smuggled between the generic and
+  Premium Level 1 administration surfaces.
+
 ### Webhook Security
 
 A purchase may be completed only through two server-side paths: the verified
@@ -1472,12 +1492,15 @@ enforces access strictly on the backend:
   body or header) is never accepted and can never change which program is
   returned. Query parameters or request bodies carry no identity and are
   ignored.
-- Access is granted only when the program is still published AND exactly one
-  grant exists for the authenticated user: an active unexpired entitlement, an
-  active trainer assignment, or an active unexpired Free activation. A missing
-  grant, a nonexistent program, a soft-deleted program and an unpublished
-  program are indistinguishable and always return the same generic
-  `404 PROGRAM_NOT_FOUND`. The response never reveals which condition failed.
+- Access is granted only when exactly one grant exists for the authenticated
+  user: an active unexpired entitlement, an active trainer assignment, or an
+  active unexpired Free activation. A completed entitlement keeps access after
+  the program is unpublished, because the buyer already paid for the content and
+  a catalogue decision must not revoke it. Assignments and Free activations still
+  require a published program. A missing grant, a nonexistent program and a
+  soft-deleted program always return the same generic `404 PROGRAM_NOT_FOUND`;
+  for the published-only grants, an unpublished program is indistinguishable from
+  those cases. The response never reveals which condition failed.
 - Cross-user isolation is enforced: a user with no grant for the requested
   program receives the same `404` as a user asking for a random id. There is no
   way to probe, enumerate or read another user's accessible programs.
@@ -1490,8 +1513,9 @@ enforces access strictly on the backend:
   its own set ids.
 - Internal repository/service failures are never surfaced to the client; they
   are mapped to a generic `500 INTERNAL_ERROR` with no details leaked.
-- The content is loaded through the shared `program_content` mapper, which
-  re-enforces the published + not-soft-deleted filters. Frontend permission
+- The content is loaded through the shared `program_content` mapper. The
+  entitlement path uses the status-agnostic lookup, while assignment and Free
+  reads retain the published and not-soft-deleted filters. Frontend permission
   checks are never trusted for access decisions.
 
 ### Free Program Activation Security
@@ -3296,19 +3320,23 @@ The goal of RYZE is not only to protect data, but to build a secure, trustworthy
 
 ---
 
-## Premium Level 1 intake and nutrition
+## Premium Level 1 nutrition
 
-The Premium Level 1 intake is one of the most sensitive data classes in the
-platform: it collects body metrics and health information about a real person,
-and it is the input to a plan that person then follows. It is therefore treated
-as sensitive data everywhere, not as ordinary profile content.
+Premium Level 1 has two nutrition delivery models. A legacy
+questionnaire-generated package collects body metrics and health information
+about a real person; that intake is one of the most sensitive data classes in the
+platform and is treated as sensitive everywhere. A curated package collects no
+intake: its nutrition plan is package-owned content, delivered unchanged to every
+buyer, and the entitlement alone gates the read.
 
 ### Ownership
 
-Intake and nutrition records are always owned by the authenticated client. The
-acting user id is taken from the authentication context on every request. No
-questionnaire or nutrition endpoint accepts a user id from the client, and none
-of them trusts a client-supplied owner, role or entitlement.
+Intake and per-client nutrition records are always owned by the authenticated
+client. The acting user id is taken from the authentication context on every
+request. No questionnaire or nutrition endpoint accepts a user id from the
+client, and none of them trusts a client-supplied owner, role or entitlement.
+Curated package content is platform-owned and is only projected after the
+entitlement gate succeeds.
 
 ### Answers are never echoed
 
@@ -3327,11 +3355,13 @@ stable reason codes, never values.
 
 ### Indistinguishable refusals
 
-A caller that is not entitled, has no submitted intake, or is looking at another
-client's assignment receives the same `404 NUTRITION_NOT_FOUND`. A `403` or a
-distinct "not entitled" response would confirm that a record exists, turning the
-endpoint into a probe for other clients' purchases and health data. The refusal
-and the absence of data are the same answer on purpose.
+A caller that is not entitled, has no submitted intake for a legacy package, or
+is looking at another client's assignment receives the same
+`404 NUTRITION_NOT_FOUND`. A `403` or a distinct "not entitled" response would
+confirm that a record exists, turning the endpoint into a probe for other
+clients' purchases and health data. The refusal and the absence of data are the
+same answer on purpose. A curated package with no stored plan also maps to the
+same response.
 
 ### Fail-closed locking
 
@@ -3363,12 +3393,14 @@ rule is re-enforced on submission.
 Raw client input is never stored. Only the normalized form is persisted, so the
 stored record cannot contain a value the generator was never validated against.
 
-### Generated plans are server-owned
+### Nutrition plans are server-owned
 
-Nutrition plans are produced by a deterministic, server-side generator. There is
-no client-supplied plan content, no client-supplied calorie or macro target, and
-no client edit of a delivered plan. A plan can only be built from a stored,
-validated intake belonging to the entitled client.
+A legacy nutrition plan is produced by a deterministic, server-side generator.
+A curated nutrition plan is authored and validated through the ADMIN_2 package
+surface. In both modes there is no client-supplied plan content, no
+client-supplied calorie or macro target, and no client edit of a delivered plan.
+A generated plan can only be built from a stored, validated intake belonging to
+the entitled client; a curated plan is read only after the entitlement gate.
 
 The food catalog is server-owned code versioned with the engine, never a table a
 request can reach and never a client-input field. Every meal item stored with a
@@ -3418,22 +3450,25 @@ plans for the same purchase.
 `product_type` is a product family, not an authorization decision, but it is
 used as one. The generic marketplace is scoped to platform-owned programs with
 `product_type = 'generic'`, so a platform-owned Premium Level 1 program never
-appears in a marketplace where the questionnaire prerequisite would not be
-enforced. The nutrition endpoints additionally require the program to be
-`premium_level_1`, so a generic purchase never creates a nutrition assignment.
+appears in a marketplace where its nutrition lifecycle is not served. The
+nutrition endpoints additionally require the program to be `premium_level_1`, so
+a generic purchase never creates a nutrition assignment or opens a curated plan.
+The public catalogue exposes only `objective`; `nutrition_mode` and curated plan
+content are never public.
 
 ### Payment prerequisite
 
-Checkout for `premium_level_1` is refused until a submitted intake exists for
-that exact user and program, on both the regular and the Test Mode paths. The
-check is server-side and cannot be satisfied by the client. Without it, a client
-could reach a paid package whose nutrition programme has no intake to derive
-from.
+Checkout for a questionnaire-generated `premium_level_1` program is refused
+until a submitted intake exists for that exact user and program, on both the
+regular and the Test Mode paths. The check is server-side and cannot be
+satisfied by the client. Without it, a client could reach a paid package whose
+nutrition programme has no intake to derive from. Curated packages have no intake
+prerequisite because their plan is already part of the package.
 
 ### Client-side handling
 
-The Premium client stores in-progress answers in component state only. There is
-no browser persistence layer, no analytics call and no third-party embed inside
-the intake flow. Field-level rejection reasons are stable codes rendered with
-client-owned wording, so the API never has to carry presentation copy for a
-health-related field.
+The Premium client stores in-progress legacy answers in component state only.
+There is no browser persistence layer, no analytics call and no third-party embed
+inside the intake flow. Field-level rejection reasons are stable codes rendered
+with client-owned wording, so the API never has to carry presentation copy for a
+health-related field. Curated packages never request or display an intake.
