@@ -358,6 +358,91 @@
   gap: 1.6rem;
 }
 
+.objectiveGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1.1rem;
+}
+
+.objectiveCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(24, 216, 255, 0.18);
+  border-radius: var(--radius-md, 14px);
+  background: linear-gradient(180deg, rgba(24, 216, 255, 0.05), rgba(255, 255, 255, 0.01));
+}
+
+.objectiveIcon {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid rgba(24, 216, 255, 0.3);
+  border-radius: 0.8rem;
+  color: var(--accent, #18d8ff);
+  background: rgba(24, 216, 255, 0.08);
+}
+
+.objectiveBody {
+  display: grid;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+.objectiveName {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.objectiveDescription {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.objectiveMeta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.catalogueBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.catalogueCount {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.catalogueGroup {
+  display: grid;
+  gap: 1rem;
+}
+
+.groupTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
 .productGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));

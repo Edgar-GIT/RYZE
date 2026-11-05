@@ -19,6 +19,8 @@ interface PremiumNutritionPlanProps {
   status: NutritionAssignmentStatus;
   /** True while the generation request is in flight. */
   generating: boolean;
+  /** Curated packages ship a fixed plan; no answers or generation exist. */
+  curated?: boolean;
   /** Client-owned wording for the most recent generation failure, if any. */
   errorMessage?: string | null;
   onGenerate: () => void;
@@ -47,21 +49,28 @@ const mealItemKey = (item: NutritionMealItem) => `${item.position}-${item.food_n
 // PremiumNutritionPlan renders the server-owned assignment lifecycle. The
 // component maps the backend state directly and never invents readiness: a plan
 // is only ever presented when the backend reports `completed`.
-export const PremiumNutritionPlan = ({ status, generating, errorMessage, onGenerate, onRefresh }: PremiumNutritionPlanProps) => {
+export const PremiumNutritionPlan = ({
+  status,
+  generating,
+  curated = false,
+  errorMessage,
+  onGenerate,
+  onRefresh
+}: PremiumNutritionPlanProps) => {
   if (status.status === "failed") {
     return (
-      <section className={styles.panel} aria-label="Nutrition programme">
+      <section className={styles.panel} aria-label="Nutrition plan">
         <p className={styles.heading}>
           <AlertTriangle size={16} aria-hidden="true" />
-          We could not build your nutrition programme yet
+          {curated ? "We could not load your nutrition plan yet" : "We could not build your nutrition programme yet"}
         </p>
         <p className={styles.body}>
           {errorMessage ??
-            "Nothing is wrong with your purchase and no action is required from you. You can try building it again — your package and your access are unchanged."}
+            "Nothing is wrong with your purchase and no action is required from you. You can try again — your package and your access are unchanged."}
         </p>
         <div className={styles.actions}>
           <Button variant="primary" size="small" onClick={onGenerate} disabled={generating}>
-            {generating ? "Building…" : "Try again"}
+            {generating ? "Loading…" : "Try again"}
           </Button>
         </div>
       </section>
@@ -70,21 +79,23 @@ export const PremiumNutritionPlan = ({ status, generating, errorMessage, onGener
 
   if (status.status === "pending" || status.status === "processing") {
     return (
-      <section className={styles.panel} aria-label="Nutrition programme">
+      <section className={styles.panel} aria-label="Nutrition plan">
         <p className={styles.heading}>
           <RefreshCw size={16} aria-hidden="true" />
-          Preparing your nutrition programme
+          {curated ? "Preparing your nutrition plan" : "Preparing your nutrition programme"}
         </p>
         <p className={styles.body}>
-          {status.status === "processing"
-            ? "RYZE is building your personalised nutrition programme now. This only takes a moment."
-            : "Your package is confirmed. Your personalised nutrition programme has not been built yet."}
+          {curated
+            ? "Your package is confirmed. Your curated nutrition plan is being opened now."
+            : status.status === "processing"
+              ? "RYZE is building your personalised nutrition programme now. This only takes a moment."
+              : "Your package is confirmed. Your personalised nutrition programme has not been built yet."}
         </p>
         {errorMessage ? <p className={styles.notice}>{errorMessage}</p> : null}
         <div className={styles.actions}>
           {status.status === "pending" ? (
             <Button variant="primary" size="small" onClick={onGenerate} disabled={generating}>
-              {generating ? "Building…" : "Build my nutrition programme"}
+              {generating ? "Loading…" : curated ? "Open my nutrition plan" : "Build my nutrition programme"}
             </Button>
           ) : null}
           <Button variant="secondary" size="small" onClick={onRefresh}>
@@ -100,14 +111,14 @@ export const PremiumNutritionPlan = ({ status, generating, errorMessage, onGener
     // The backend reported completion but sent no plan. Treating that as
     // anything other than an unavailable plan would be inventing state.
     return (
-      <section className={styles.panel} aria-label="Nutrition programme">
+      <section className={styles.panel} aria-label="Nutrition plan">
         <p className={styles.heading}>
           <AlertTriangle size={16} aria-hidden="true" />
-          Nutrition programme unavailable
+          Nutrition plan unavailable
         </p>
         <p className={styles.body}>
-          Your training plan is ready. The nutrition programme could not be displayed right now. Please refresh
-          to try again.
+          Your training plan is ready. {curated ? "The nutrition plan" : "The nutrition programme"} could not be
+          displayed right now. Please refresh to try again.
         </p>
         <div className={styles.actions}>
           <Button variant="secondary" size="small" onClick={onRefresh}>
@@ -119,14 +130,14 @@ export const PremiumNutritionPlan = ({ status, generating, errorMessage, onGener
   }
 
   return (
-    <section className={styles.panel} aria-label="Nutrition programme">
+    <section className={styles.panel} aria-label="Nutrition plan">
       <p className={styles.heading}>
         <CheckCircle2 size={16} aria-hidden="true" />
-        Your nutrition programme is ready
+        {curated ? "Your nutrition plan is ready" : "Your nutrition programme is ready"}
       </p>
       <p className={styles.summary}>{plan.summary}</p>
 
-      {status.out_of_date ? (
+      {status.out_of_date && !curated ? (
         // The delivered plan is still shown while it is stale: it is what the
         // client is following today, and hiding it would leave them without one.
         // Regeneration stays an explicit action because it supersedes a version
@@ -230,7 +241,9 @@ export const PremiumNutritionPlan = ({ status, generating, errorMessage, onGener
 
       {plan.exclusions.length > 0 ? (
         <>
-          <h3 className={styles.subheading}>Built around your answers</h3>
+          <h3 className={styles.subheading}>
+            {curated ? "Package nutrition notes" : "Built around your answers"}
+          </h3>
           <div className={styles.tags}>
             {plan.exclusions.map((exclusion) => (
               <span
@@ -256,11 +269,12 @@ export const PremiumNutritionPlan = ({ status, generating, errorMessage, onGener
       ) : null}
 
       {/* A delivered plan is part of a purchased package. It is deliberately
-          read-only: the only way it changes is an explicit refresh when the
-          questionnaire moved on, never an edit. */}
+          read-only: the only way a questionnaire-derived plan changes is an
+          explicit refresh when the intake moved on, never an edit. */}
       <p className={styles.immutable}>
-        This nutrition programme is part of your package and is built from the answers you submitted before
-        checkout.
+        {curated
+          ? "This nutrition plan is part of your package. It is the same expert-defined plan for every buyer and does not change."
+          : "This nutrition programme is part of your package and is built from the answers you submitted before checkout."}
       </p>
     </section>
   );

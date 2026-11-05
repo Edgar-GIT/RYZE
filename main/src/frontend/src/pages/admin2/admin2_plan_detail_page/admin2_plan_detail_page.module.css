@@ -197,6 +197,104 @@
   gap: 0.75rem;
 }
 
+.nutritionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1.15rem 1rem;
+}
+
+.nutritionSummary {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.nutritionBody .detailList {
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+
+.nutritionBody .row {
+  padding: 0.5rem 0.8rem;
+}
+
+.nutritionNote {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.nutritionMeals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mealCard {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+
+.mealHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.mealTitle {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mealMeta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.itemList {
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.itemRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.79rem;
+}
+
+.itemName {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+}
+
+.itemAmount {
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.itemMacros {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .noticeWarn {
   margin: 0.25rem 1.15rem 0;
   padding: 0.7rem 0.9rem;

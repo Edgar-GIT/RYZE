@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, FlaskConical, Sparkles } from "lucide-react";
+import { Activity, ArrowLeft, CheckCircle2, Dumbbell, Flame, FlaskConical, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useHistory, useLocation } from "react-router-dom";
 
@@ -12,7 +12,12 @@ import {
   formatMarketplacePrice,
   type MarketplaceProgram
 } from "@/services/marketplace_api";
-import { programObjectiveLabel } from "@/services/admin2_api";
+import {
+  PROGRAM_OBJECTIVE,
+  PROGRAM_OBJECTIVES,
+  programObjectiveLabel,
+  type ProgramObjectiveValue
+} from "@/services/admin2_api";
 import {
   fetchNutritionAssignment,
   fetchQuestionnaireCatalog,
@@ -66,6 +71,30 @@ const QUESTIONNAIRE_PACKAGE_INCLUDES = [
 const isCuratedPackage = (program: MarketplaceProgram | null): boolean =>
   program !== null && program.objective !== null;
 
+const isProgramObjective = (value: string | null): value is ProgramObjectiveValue =>
+  value !== null && (PROGRAM_OBJECTIVES as readonly string[]).includes(value);
+
+const OBJECTIVE_META: Record<
+  ProgramObjectiveValue,
+  { description: string; icon: typeof Dumbbell }
+> = {
+  [PROGRAM_OBJECTIVE.GAIN_MUSCLE]: {
+    description:
+      "Build size and strength with progressive training and a nutrition plan built around growth.",
+    icon: Dumbbell
+  },
+  [PROGRAM_OBJECTIVE.LOSE_FAT]: {
+    description:
+      "Reduce body fat while protecting training quality, with a clear calorie and meal structure.",
+    icon: Flame
+  },
+  [PROGRAM_OBJECTIVE.STRENGTH_CONDITIONING]: {
+    description:
+      "Get stronger, fitter and more capable with structured strength work and conditioning.",
+    icon: Activity
+  }
+};
+
 export const PremiumLevel1Page = () => {
   const history = useHistory();
   const location = useLocation();
@@ -100,8 +129,11 @@ export const PremiumLevel1Page = () => {
     enabled: programId !== "" && !loading
   });
 
-  const requestedProgramId = new URLSearchParams(location.search).get("program") ?? "";
-  const returningFromPayment = new URLSearchParams(location.search).has("purchase_id");
+  const searchParams = new URLSearchParams(location.search);
+  const requestedProgramId = searchParams.get("program") ?? "";
+  const requestedObjective = searchParams.get("objective");
+  const selectedObjective = isProgramObjective(requestedObjective) ? requestedObjective : null;
+  const returningFromPayment = searchParams.has("purchase_id");
 
   // The product metadata comes from the backend: nothing about price, duration
   // or contents is hardcoded here. Without a selected program the page is a
@@ -290,6 +322,15 @@ export const PremiumLevel1Page = () => {
   const cancelled = checkout.state.status === "cancelled" ? checkout.state : null;
   const owned = checkout.state.status === "owned" || checkout.state.status === "success";
 
+  const objectiveCards = PROGRAM_OBJECTIVES.map((objective) => ({
+    objective,
+    packages: products.filter((entry) => entry.objective === objective)
+  })).filter((entry) => entry.packages.length > 0);
+  const objectivePackages = selectedObjective
+    ? products.filter((entry) => entry.objective === selectedObjective)
+    : [];
+  const unclassifiedPackages = products.filter((entry) => entry.objective === null);
+
   // A client who already owns this package, or who just bought it, should not
   // land on a questionnaire they cannot submit. Ownership is resolved by the
   // shared checkout hook, so this is the same answer the marketplace uses to route
@@ -420,6 +461,53 @@ export const PremiumLevel1Page = () => {
     </section>
   );
 
+  const renderPackageCard = (entry: MarketplaceProgram) => (
+    <article key={entry.id} className={styles.productCard}>
+      <div className={styles.productBody}>
+        <h2 className={styles.productName}>{entry.name}</h2>
+        {entry.description ? (
+          <p className={styles.productDescription}>{entry.description}</p>
+        ) : null}
+        <div className={styles.chips}>
+          <span className={styles.chipPrice}>
+            {testModeActive
+              ? formatMarketplacePrice(0, entry.currency, entry.type)
+              : formatMarketplacePrice(entry.price_minor_units, entry.currency, entry.type)}
+          </span>
+          {testModeActive ? (
+            <span className={styles.chipTestMode}>
+              <FlaskConical size={12} aria-hidden="true" />
+              Test Mode
+            </span>
+          ) : null}
+          {entry.duration_weeks !== null ? (
+            <span className={styles.chip}>
+              {entry.duration_weeks} week{entry.duration_weeks === 1 ? "" : "s"}
+            </span>
+          ) : null}
+          {entry.frequency_per_week !== null ? (
+            <span className={styles.chip}>
+              {entry.frequency_per_week} day{entry.frequency_per_week === 1 ? "" : "s"}/week
+            </span>
+          ) : null}
+          {entry.objective ? (
+            <span className={styles.chip}>{programObjectiveLabel(entry.objective)}</span>
+          ) : null}
+          {entry.level ? <span className={styles.chip}>{entry.level}</span> : null}
+        </div>
+      </div>
+      <Button
+        variant="primary"
+        size="small"
+        to={`/services/premium-level-1?program=${entry.id}${
+          selectedObjective ? `&objective=${selectedObjective}` : ""
+        }`}
+      >
+        View package
+      </Button>
+    </article>
+  );
+
   return (
     <PageWrapper className={styles.page}>
       <section className={styles.detail}>
@@ -428,9 +516,17 @@ export const PremiumLevel1Page = () => {
             <Button to="/services" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
               Back to Services
             </Button>
-            {products.length > 1 && product ? (
+            {product && selectedObjective ? (
+              <Button
+                to={`/services/premium-level-1?objective=${selectedObjective}`}
+                variant="ghost"
+                size="small"
+              >
+                Back to {programObjectiveLabel(selectedObjective)}
+              </Button>
+            ) : products.length > 1 && product ? (
               <Button to="/services/premium-level-1" variant="ghost" size="small">
-                All packages
+                All objectives
               </Button>
             ) : null}
           </div>
@@ -447,10 +543,19 @@ export const PremiumLevel1Page = () => {
                     <Sparkles size={14} aria-hidden="true" />
                     Premium Level 1
                   </p>
-                  <h1 className={styles.title}>Choose your package</h1>
+                  <h1 className={styles.title}>
+                    {selectedObjective
+                      ? programObjectiveLabel(selectedObjective)
+                      : objectiveCards.length > 0
+                        ? "Choose your objective"
+                        : "Choose your package"}
+                  </h1>
                   <p className={styles.subtitle}>
-                    Every published Premium Level 1 package is shown below. Choose the one that
-                    matches your training and nutrition goals.
+                    {selectedObjective
+                      ? "These packages match your objective. Each one includes a structured training plan and the nutrition plan curated for this goal."
+                      : objectiveCards.length > 0
+                        ? "Start with the goal you want to train for. Every package includes a structured training plan and a nutrition plan curated for that objective."
+                        : "Every published Premium Level 1 package is shown below. Choose the one that matches your training and nutrition goals."}
                   </p>
                 </header>
 
@@ -458,52 +563,78 @@ export const PremiumLevel1Page = () => {
                   <p className={styles.inlineError} role="alert">{errorMessage}</p>
                 ) : null}
 
-                <div className={styles.productGrid}>
-                  {products.map((entry) => (
-                    <article key={entry.id} className={styles.productCard}>
-                      <div className={styles.productBody}>
-                        <h2 className={styles.productName}>{entry.name}</h2>
-                        {entry.description ? (
-                          <p className={styles.productDescription}>{entry.description}</p>
+                {selectedObjective ? (
+                  objectivePackages.length > 0 ? (
+                    <>
+                      <div className={styles.catalogueBar}>
+                        <p className={styles.catalogueCount}>
+                          {objectivePackages.length} package
+                          {objectivePackages.length === 1 ? "" : "s"} for{" "}
+                          {programObjectiveLabel(selectedObjective).toLowerCase()}
+                        </p>
+                        <Button to="/services/premium-level-1" variant="ghost" size="small">
+                          All objectives
+                        </Button>
+                      </div>
+                      <div className={styles.productGrid}>
+                        {objectivePackages.map(renderPackageCard)}
+                      </div>
+                    </>
+                  ) : (
+                    <div className={styles.state}>
+                      <p>No packages are available for this objective right now.</p>
+                      <Button to="/services/premium-level-1" variant="secondary" size="small">
+                        Choose another objective
+                      </Button>
+                    </div>
+                  )
+                ) : (
+                  <>
+                    {objectiveCards.length > 0 ? (
+                      <div className={styles.objectiveGrid}>
+                        {objectiveCards.map(({ objective, packages }) => {
+                          const Icon = OBJECTIVE_META[objective].icon;
+                          return (
+                            <article key={objective} className={styles.objectiveCard}>
+                              <span className={styles.objectiveIcon}>
+                                <Icon size={22} aria-hidden="true" />
+                              </span>
+                              <div className={styles.objectiveBody}>
+                                <h2 className={styles.objectiveName}>
+                                  {programObjectiveLabel(objective)}
+                                </h2>
+                                <p className={styles.objectiveDescription}>
+                                  {OBJECTIVE_META[objective].description}
+                                </p>
+                                <p className={styles.objectiveMeta}>
+                                  {packages.length} package{packages.length === 1 ? "" : "s"}
+                                </p>
+                              </div>
+                              <Button
+                                variant="secondary"
+                                size="small"
+                                to={`/services/premium-level-1?objective=${objective}`}
+                              >
+                                Explore packages
+                              </Button>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    {unclassifiedPackages.length > 0 ? (
+                      <div className={styles.catalogueGroup}>
+                        {objectiveCards.length > 0 ? (
+                          <h2 className={styles.groupTitle}>Other packages</h2>
                         ) : null}
-                        <div className={styles.chips}>
-                          <span className={styles.chipPrice}>
-                            {testModeActive
-                              ? formatMarketplacePrice(0, entry.currency, entry.type)
-                              : formatMarketplacePrice(entry.price_minor_units, entry.currency, entry.type)}
-                          </span>
-                          {testModeActive ? (
-                            <span className={styles.chipTestMode}>
-                              <FlaskConical size={12} aria-hidden="true" />
-                              Test Mode
-                            </span>
-                          ) : null}
-                          {entry.duration_weeks !== null ? (
-                            <span className={styles.chip}>
-                              {entry.duration_weeks} week{entry.duration_weeks === 1 ? "" : "s"}
-                            </span>
-                          ) : null}
-                          {entry.frequency_per_week !== null ? (
-                            <span className={styles.chip}>
-                              {entry.frequency_per_week} day{entry.frequency_per_week === 1 ? "" : "s"}/week
-                            </span>
-                          ) : null}
-                          {entry.objective ? (
-                            <span className={styles.chip}>{programObjectiveLabel(entry.objective)}</span>
-                          ) : null}
-                          {entry.level ? <span className={styles.chip}>{entry.level}</span> : null}
+                        <div className={styles.productGrid}>
+                          {unclassifiedPackages.map(renderPackageCard)}
                         </div>
                       </div>
-                      <Button
-                        variant="primary"
-                        size="small"
-                        to={`/services/premium-level-1?program=${entry.id}`}
-                      >
-                        View package
-                      </Button>
-                    </article>
-                  ))}
-                </div>
+                    ) : null}
+                  </>
+                )}
               </section>
             ) : (
               <div className={styles.state}>
@@ -628,6 +759,7 @@ export const PremiumLevel1Page = () => {
                         <PremiumNutritionPlan
                           status={nutrition}
                           generating={generating}
+                          curated={isCuratedPackage(product)}
                           errorMessage={nutritionError}
                           onGenerate={() => void handleGenerate()}
                           onRefresh={() => void loadNutrition()}

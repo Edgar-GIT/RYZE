@@ -13,13 +13,16 @@ import {
   fetchGenericProgram,
   formatAdminPrice,
   isProgramProductType,
+  PROGRAM_NUTRITION_MODE,
   PROGRAM_PRODUCT_TYPE,
   programFamilyLabel,
+  programObjectiveLabel,
   programTypeLabel,
   ProgramStatusEnum,
   publishGenericProgram,
   updateGenericProgram,
   type AdminProgramSale,
+  type GenericCuratedNutrition,
   type GenericProgramDetail,
   type GenericProgramSet,
   type ProgramProductTypeValue,
@@ -33,6 +36,70 @@ import styles from "./admin2_plan_detail_page.module.css";
 const optionalValue = (value: number | null): string => (value === null ? "—" : String(value));
 
 const setCell = (value: string): string => (value.trim() === "" ? "—" : value);
+
+const nutritionModeLabel = (mode: GenericProgramDetail["nutrition_mode"]): string => {
+  if (mode === PROGRAM_NUTRITION_MODE.CURATED) return "Curated package plan";
+  if (mode === PROGRAM_NUTRITION_MODE.QUESTIONNAIRE_GENERATED) return "Questionnaire-generated";
+  return "—";
+};
+
+const CuratedNutritionSummary = ({ nutrition }: { nutrition: GenericCuratedNutrition }) => (
+  <div className={styles.nutritionBody}>
+    <p className={styles.nutritionSummary}>{nutrition.summary}</p>
+    <div className={styles.detailList}>
+      <div className={styles.row}>
+        <p className={styles.rowLabel}>Dietary pattern</p>
+        <p className={styles.rowValue}>{nutrition.dietary_pattern}</p>
+      </div>
+      <div className={styles.row}>
+        <p className={styles.rowLabel}>Daily fluids</p>
+        <p className={styles.rowValue}>{nutrition.hydration_litres} L</p>
+      </div>
+      <div className={styles.row}>
+        <p className={styles.rowLabel}>Meals & snacks</p>
+        <p className={styles.rowValue}>
+          {nutrition.meals.filter((meal) => meal.kind === "meal").length} meals ·{" "}
+          {nutrition.meals.filter((meal) => meal.kind === "snack").length} snacks
+        </p>
+      </div>
+    </div>
+
+    {nutrition.prep_guidance ? <p className={styles.nutritionNote}>{nutrition.prep_guidance}</p> : null}
+    {nutrition.hydration_note ? <p className={styles.nutritionNote}>{nutrition.hydration_note}</p> : null}
+
+    <div className={styles.nutritionMeals}>
+      {nutrition.meals.map((meal) => (
+        <div key={`${meal.position}-${meal.label}`} className={styles.mealCard}>
+          <div className={styles.mealHead}>
+            <p className={styles.mealTitle}>{meal.label}</p>
+            <span className={styles.mealMeta}>
+              {meal.kind} · {meal.items.length} item{meal.items.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          {meal.notes ? <p className={styles.nutritionNote}>{meal.notes}</p> : null}
+          <ul className={styles.itemList}>
+            {meal.items.map((item) => (
+              <li key={`${item.position}-${item.food_name}`} className={styles.itemRow}>
+                <span className={styles.itemName}>{item.food_name}</span>
+                <span className={styles.itemAmount}>
+                  {item.quantity} {item.unit}
+                </span>
+                <span className={styles.itemMacros}>
+                  {item.calories} kcal · {item.protein_grams} P · {item.carbohydrate_grams} C ·{" "}
+                  {item.fat_grams} F
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+
+    {nutrition.cautions.length > 0 ? (
+      <p className={styles.nutritionNote}>Cautions: {nutrition.cautions.join(" · ")}</p>
+    ) : null}
+  </div>
+);
 
 const SetTable = ({ sets }: { sets: GenericProgramSet[] }) => (
   <div className={styles.setTableWrap}>
@@ -131,12 +198,7 @@ export default function Admin2PlanDetailPage() {
   const [sale, setSale] = useState<AdminProgramSale | null>(null);
   const [salesError, setSalesError] = useState(false);
 
-  const loadSales = useCallback(async (programId: string, status: ProgramStatusValue) => {
-    if (status !== ProgramStatusEnum.PUBLISHED) {
-      setSale(null);
-      setSalesError(false);
-      return;
-    }
+  const loadSales = useCallback(async (programId: string) => {
     try {
       const sales = await fetchAdminSalesByProgramIds([programId]);
       setSale(sales[0] ?? null);
@@ -154,7 +216,7 @@ export default function Admin2PlanDetailPage() {
       const result = await fetchGenericProgram(family, programId);
       setFamily(result.product_type);
       setProgram(result);
-      await loadSales(result.id, result.status);
+      await loadSales(result.id);
     } catch {
       setErrorMessage("Unable to load this plan. It may have been removed.");
     } finally {
@@ -208,6 +270,9 @@ export default function Admin2PlanDetailPage() {
       setPublishing(false);
     }
   };
+
+  // Every completed purchase (Test Mode included) freezes the package content.
+  const contentLocked = sale !== null && sale.completed_sales > 0;
 
   return (
     <>
@@ -301,12 +366,31 @@ export default function Admin2PlanDetailPage() {
             </div>
           </Admin2Section>
 
+          {program.curated_nutrition ? (
+            <Admin2Section
+              title="Curated nutrition"
+              subtitle="The predefined plan delivered with this package"
+            >
+              <CuratedNutritionSummary nutrition={program.curated_nutrition} />
+            </Admin2Section>
+          ) : null}
+
           <div className={styles.sideRail}>
             <Admin2Section title="Summary" subtitle="Program facts">
               <div className={styles.detailList}>
                 <div className={styles.row}>
                   <p className={styles.rowLabel}>Product family</p>
                   <p className={styles.rowValue}>{programFamilyLabel(program.product_type)}</p>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Objective</p>
+                  <p className={styles.rowValue}>
+                    {program.objective ? programObjectiveLabel(program.objective) : "—"}
+                  </p>
+                </div>
+                <div className={styles.row}>
+                  <p className={styles.rowLabel}>Nutrition</p>
+                  <p className={styles.rowValue}>{nutritionModeLabel(program.nutrition_mode)}</p>
                 </div>
                 <div className={styles.row}>
                   <p className={styles.rowLabel}>Type</p>
@@ -361,12 +445,12 @@ export default function Admin2PlanDetailPage() {
                 </div>
               </div>
 
-              {program.status === ProgramStatusEnum.PUBLISHED && sale && sale.real_sales > 0 ? (
+              {contentLocked && sale ? (
                 <p className={styles.noticeWarn} role="alert">
-                  {sale.real_sales} client{sale.real_sales === 1 ? " has" : "s have"} paid access to
-                  this plan. Unpublishing revokes that access immediately: the programme disappears
-                  from their RYZE app until this plan is published again. Their entitlement is
-                  preserved.
+                  {sale.completed_sales} completed purchase{sale.completed_sales === 1 ? "" : "s"}{" "}
+                  exist for this package. Its content and status are locked: it can no longer be
+                  edited, unpublished or deleted. Existing clients keep access through their
+                  entitlement.
                 </p>
               ) : null}
 
@@ -382,7 +466,7 @@ export default function Admin2PlanDetailPage() {
                     variant="secondary"
                     size="small"
                     onClick={() => void changeStatus(ProgramStatusEnum.PUBLISHED)}
-                    disabled={publishing}
+                    disabled={publishing || contentLocked}
                   >
                     {publishing ? "Publishing…" : "Publish plan"}
                   </Button>
@@ -404,7 +488,7 @@ export default function Admin2PlanDetailPage() {
                       variant="ghost"
                       size="small"
                       onClick={() => void changeStatus(ProgramStatusEnum.DRAFT)}
-                      disabled={publishing}
+                      disabled={publishing || contentLocked}
                     >
                       {publishing ? "Unpublishing…" : "Unpublish plan"}
                     </Button>
@@ -416,6 +500,7 @@ export default function Admin2PlanDetailPage() {
                   variant="secondary"
                   size="small"
                   icon={<Edit size={14} />}
+                  disabled={contentLocked}
                 >
                   Edit plan
                 </Button>
@@ -423,6 +508,7 @@ export default function Admin2PlanDetailPage() {
                   variant="ghost"
                   size="small"
                   icon={<Trash2 size={14} />}
+                  disabled={contentLocked}
                   onClick={() => {
                     setDeleteError("");
                     setShowDelete(true);
@@ -448,7 +534,7 @@ export default function Admin2PlanDetailPage() {
                         variant="secondary"
                         size="small"
                         icon={<RefreshCw size={15} />}
-                        onClick={() => void loadSales(program.id, program.status)}
+                        onClick={() => void loadSales(program.id)}
                       >
                         Retry
                       </Button>
