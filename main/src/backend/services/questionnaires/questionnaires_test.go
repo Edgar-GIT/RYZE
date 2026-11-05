@@ -160,6 +160,13 @@ func genericProgram() *models.Program {
 	}
 }
 
+func curatedProgram() *models.Program {
+	program := premiumProgram()
+	mode := models.ProgramNutritionModeCurated
+	program.NutritionMode = &mode
+	return program
+}
+
 func TestSubmitPersistsNormalizedAnswersForAuthenticatedUser(t *testing.T) {
 	repo := &stubQuestionnaireRepository{}
 	svc := newService(premiumProgram(), repo)
@@ -213,6 +220,18 @@ func TestSubmitRejectsGenericProgram(t *testing.T) {
 	}
 }
 
+func TestSubmitRejectsCuratedProgram(t *testing.T) {
+	repo := &stubQuestionnaireRepository{}
+	svc := newService(curatedProgram(), repo)
+
+	if _, err := svc.Submit(context.Background(), premiumUser, premiumProg, validAnswers()); !errors.Is(err, questionnaires.ErrProgramNotFound) {
+		t.Fatalf("expected ErrProgramNotFound for a curated package, got %v", err)
+	}
+	if repo.upsertCalls != 0 {
+		t.Error("expected nothing to be persisted for a curated package")
+	}
+}
+
 func TestSubmitRejectsUnpublishedProgram(t *testing.T) {
 	repo := &stubQuestionnaireRepository{}
 	svc := questionnaires.NewService(&stubProgramRepository{err: repositories.ErrProgramNotFound}, repo, &stubEntitlementRepository{})
@@ -258,6 +277,21 @@ func TestGetRequirementDoesNotRequireIntakeForGenericProgram(t *testing.T) {
 	}
 	if requirement.Required {
 		t.Error("expected a generic program not to require an intake")
+	}
+}
+
+func TestGetRequirementDoesNotRequireIntakeForCuratedProgram(t *testing.T) {
+	svc := newService(curatedProgram(), &stubQuestionnaireRepository{})
+
+	requirement, err := svc.GetRequirement(context.Background(), premiumUser, premiumProg)
+	if err != nil {
+		t.Fatalf("GetRequirement failed: %v", err)
+	}
+	if requirement.Required {
+		t.Error("expected a curated package not to require an intake")
+	}
+	if requirement.Submitted || requirement.Locked {
+		t.Errorf("curated requirement = %+v, want no submission and no lock", requirement)
 	}
 }
 

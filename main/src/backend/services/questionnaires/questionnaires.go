@@ -26,9 +26,9 @@ var (
 	// questionnaire that failed validation.
 	ErrInvalidInput = errors.New("invalid questionnaire input")
 	// ErrProgramNotFound indicates the program does not exist, is soft-deleted,
-	// is not published, or is not a Premium Level 1 program. All four cases are
-	// reported identically so the questionnaire surface never reveals which
-	// programs exist but are not questionnaire-driven.
+	// is not published, or is not a questionnaire-driven Premium Level 1 program.
+	// All four cases are reported identically so the questionnaire surface never
+	// reveals which programs exist but do not collect an intake.
 	ErrProgramNotFound = errors.New("questionnaire program not found")
 	// ErrIntakeRequired indicates the product cannot be checked out until the
 	// authenticated buyer submits an intake. The purchase service surfaces it as
@@ -78,9 +78,10 @@ type Service interface {
 	// must be derived from, together with the identity and revision of the stored
 	// row. It fails with nutrition_questionnaire.ErrNotSubmitted when none exists.
 	FindStored(ctx context.Context, userID, programID string) (*nutrition_questionnaire.StoredIntake, error)
-	// Satisfied enforces the checkout precondition: a Premium Level 1 program
-	// cannot be bought before the authenticated buyer submitted an intake. It is
-	// part of this contract so the purchase service depends on a documented
+	// Satisfied enforces the checkout precondition: a questionnaire-generated
+	// Premium Level 1 program cannot be bought before the authenticated buyer
+	// submitted an intake. Curated packages ship a fixed plan and are exempt. It
+	// is part of this contract so the purchase service depends on a documented
 	// behaviour rather than on the concrete implementation.
 	Satisfied(ctx context.Context, userID, programID, productType, nutritionMode string) error
 }
@@ -90,8 +91,9 @@ type Service interface {
 // must still answer, not to read its own health data back from the server.
 type Requirement struct {
 	ProgramID string `json:"program_id"`
-	// Required is true for Premium Level 1 programs, which cannot be checked
-	// out before an intake exists.
+	// Required is true for questionnaire-generated Premium Level 1 programs,
+	// which cannot be checked out before an intake exists. Curated packages and
+	// other product families report false.
 	Required bool `json:"required"`
 	// Submitted is true once the authenticated user has a stored intake.
 	Submitted bool `json:"submitted"`
@@ -143,9 +145,16 @@ func (s *service) GetRequirement(ctx context.Context, userID, programID string) 
 
 	requirement := &Requirement{
 		ProgramID:        programID,
-		Required:         program.ProductType == models.ProgramProductTypePremiumLevel1,
+		Required:         requiresIntake(program),
 		SchemaVersion:    nutrition_questionnaire.SchemaVersion,
 		MinSchemaVersion: nutrition_questionnaire.SchemaVersion,
+	}
+
+	// A program that does not take an intake has no intake state to report. This
+	// keeps the endpoint usable as a single client-side check without inventing a
+	// lock or a submission for a package that never collects one.
+	if !requirement.Required {
+		return requirement, nil
 	}
 
 	// The lock is derived from the entitlement, so it is reported even when no
@@ -179,7 +188,8 @@ func (s *service) GetRequirement(ctx context.Context, userID, programID string) 
 
 // Submit validates and stores the intake for the authenticated user. The whole
 // submission is accepted or rejected as a unit: a partially valid intake is
-// never persisted, and a resubmission supersedes the previous revision.
+// never persisted, and a resubmission supersedes the previous revision. A
+// package that does not collect an intake is reported as not found.
 //
 // Once the purchase has completed the intake is immutable. The lock is checked
 // before the payload is parsed, so a locked questionnaire rejects every mutation
@@ -196,7 +206,7 @@ func (s *service) Submit(ctx context.Context, userID, programID string, answers 
 		}
 		return nil, fmt.Errorf("failed to load program: %w", err)
 	}
-	if program.ProductType != models.ProgramProductTypePremiumLevel1 {
+	if !requiresIntake(program) {
 		return nil, ErrProgramNotFound
 	}
 
@@ -289,6 +299,17 @@ func (s *service) Satisfied(ctx context.Context, userID, programID, productType,
 		return fmt.Errorf("failed to verify nutrition questionnaire: %w", err)
 	}
 	return nil
+}
+
+// requiresIntake reports whether the program delivers a per-client nutrition
+// intake. Curated Premium Level 1 packages ship a fixed plan and need none;
+// legacy questionnaire-generated packages still do. A missing nutrition mode is
+// treated as legacy so pre-existing rows keep their behaviour.
+func requiresIntake(program *models.Program) bool {
+	if program == nil || program.ProductType != models.ProgramProductTypePremiumLevel1 {
+		return false
+	}
+	return program.NutritionMode == nil || *program.NutritionMode != models.ProgramNutritionModeCurated
 }
 
 // isLocked reports whether the intake for this (user, program) pair can no

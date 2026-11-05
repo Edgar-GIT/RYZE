@@ -68,11 +68,14 @@ const QUESTIONNAIRE_PACKAGE_INCLUDES = [
   "Dietary rules built around the restrictions you reported"
 ];
 
-const isCuratedPackage = (program: MarketplaceProgram | null): boolean =>
-  program !== null && program.objective !== null;
-
 const isProgramObjective = (value: string | null): value is ProgramObjectiveValue =>
   value !== null && (PROGRAM_OBJECTIVES as readonly string[]).includes(value);
+
+// A package is curated only when the server classified it with a known
+// objective. Responses from an older backend omit the field, and those
+// packages must keep following the legacy questionnaire flow.
+const isCuratedPackage = (program: MarketplaceProgram | null): boolean =>
+  program !== null && isProgramObjective(program.objective);
 
 const OBJECTIVE_META: Record<
   ProgramObjectiveValue,
@@ -329,7 +332,7 @@ export const PremiumLevel1Page = () => {
   const objectivePackages = selectedObjective
     ? products.filter((entry) => entry.objective === selectedObjective)
     : [];
-  const unclassifiedPackages = products.filter((entry) => entry.objective === null);
+  const unclassifiedPackages = products.filter((entry) => !isProgramObjective(entry.objective));
 
   // A client who already owns this package, or who just bought it, should not
   // land on a questionnaire they cannot submit. Ownership is resolved by the

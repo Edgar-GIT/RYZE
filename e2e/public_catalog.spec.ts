@@ -38,7 +38,8 @@ const premiumPrograms = [
     description: "Training and nutrition for your first hypertrophy block.",
     type: "premium",
     price_minor_units: 1449,
-    product_type: "premium_level_1"
+    product_type: "premium_level_1",
+    objective: "gain_muscle"
   },
   {
     ...genericProgram,
@@ -47,7 +48,8 @@ const premiumPrograms = [
     description: "Training and nutrition for experienced lifters.",
     type: "premium",
     price_minor_units: 1949,
-    product_type: "premium_level_1"
+    product_type: "premium_level_1",
+    objective: "gain_muscle"
   }
 ];
 
@@ -151,20 +153,29 @@ test("Home highlights published programs instead of hardcoded offers", async ({ 
   await expect(page.locator('a[href*="premium-level-2"]')).toHaveCount(0);
 });
 
-test("Premium Level 1 lists every returned package and opens the chosen one", async ({ page }) => {
+test("Premium Level 1 groups packages by objective and opens the chosen one", async ({ page }) => {
   await page.goto("/services/premium-level-1");
 
-  await expect(page.getByRole("heading", { name: "Choose your package" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Choose your objective" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Gain muscle" })).toBeVisible();
+  await expect(page.getByText("2 packages", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Explore packages" }).click();
+
+  await expect(page).toHaveURL(/\/services\/premium-level-1\?objective=gain_muscle$/);
   await expect(page.getByRole("heading", { name: "Hypertrophy Foundations" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Hypertrophy Advanced" })).toBeVisible();
 
   const advanced = page.getByRole("article").filter({ hasText: "Hypertrophy Advanced" });
   await advanced.getByRole("link", { name: "View package" }).click();
 
-  await expect(page).toHaveURL(/\/services\/premium-level-1\?program=premium-2$/);
+  await expect(page).toHaveURL(
+    /\/services\/premium-level-1\?program=premium-2&objective=gain_muscle$/
+  );
   await expect(page.getByRole("heading", { name: "Hypertrophy Advanced" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "All packages" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start my questionnaire" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to Gain muscle" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue to checkout" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start my questionnaire" })).toHaveCount(0);
 });
 
 test("Generic marketplace applies filters on the server and renders honest discovery rows", async ({ page }) => {
