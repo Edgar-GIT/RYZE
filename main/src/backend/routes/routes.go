@@ -48,6 +48,7 @@ import (
 	"ryze/backend/services/test_mode"
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
+	"ryze/backend/services/trainer_client_insights"
 	"ryze/backend/services/trainer_clients"
 	"ryze/backend/services/trainer_evidence"
 	"ryze/backend/services/trainer_profile"
@@ -300,6 +301,15 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	statisticsService := statistics.NewService(statisticsRepository)
 	statisticsHandler := auth.NewStatisticsHandler(statisticsService)
 
+	trainerClientInsightRepository := repositories.NewTrainerClientInsightRepository(db)
+	trainerClientInsightService := trainer_client_insights.NewService(
+		trainerClientService,
+		statisticsService,
+		workoutSessionService,
+		trainerClientInsightRepository,
+	)
+	trainerClientInsightHandler := auth.NewTrainerClientInsightsHandler(trainerClientInsightService)
+
 	testSessionRepository := repositories.NewTestSessionRepository(db)
 	testModeService := test_mode.NewService(testModeCfg.Enabled, testSessionRepository, userRepository, trainerRepository, password.Hasher{}, test_mode.WithSessionTTL(jwtCfg.AccessTokenTTL))
 	testModeHandler := auth.NewTestModeHandler(testModeService, tokenService, userRepository, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
@@ -383,6 +393,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.GET("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.ListClients)
 	trainer.GET("/clients/lookup", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.LookupClient)
 	trainer.GET("/clients/:userID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.GetClient)
+	trainer.GET("/clients/:userID/overview", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientInsightHandler.GetOverview)
+	trainer.GET("/clients/:userID/statistics", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientInsightHandler.GetStatistics)
+	trainer.GET("/clients/:userID/workout-sessions", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientInsightHandler.ListWorkoutSessions)
+	trainer.GET("/clients/:userID/workout-sessions/:sessionID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientInsightHandler.GetWorkoutSession)
+	trainer.GET("/clients/:userID/exercises/:exerciseID/history", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientInsightHandler.GetExerciseHistory)
 	trainer.POST("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.AddClient)
 	trainer.DELETE("/clients/:userID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.RemoveClient)
 	trainer.POST("/clients/:userID/reactivate", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.ReactivateClient)
