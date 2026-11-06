@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # ARCHITECTURE.MD
 
-Version: 2.100.0
+Version: 2.101.0
 
 ---
 
@@ -566,7 +566,7 @@ Key architectural decisions:
   published program. All three resolve through `program_access`, which loads
   status-agnostic content only for the entitlement path.
 - **Deterministic generation.** The legacy nutrition generator is a pure function
-  of the normalized intake. No external AI provider is involved in v2.82.0, so
+  of the normalized intake. No external AI provider is involved in v2.101.0, so
   the same inputs always yield the same plan, generation is idempotent, and a
   failure is retryable in place instead of needing a second plan. The food
   catalog is Go code versioned with the engine, so a plan can never be influenced
@@ -611,10 +611,10 @@ The area is layered like the other modules:
   service serve both families; the route binds `product_type`.
 
 It is guarded by `AdminAuthenticate` + `RequireAdminPermission(plans)`, so only
-the Management Administrator (ADMIN_2) can manage generic programs; the
-Technical Administrator (ADMIN_1) gets `403` on every generic endpoint. There is
-no trainer ownership to verify server-side: the platform is the single owner
-and the id of the acting administrator always comes from the authenticated
+the Management Administrator (ADMIN_2) can manage platform-owned programs; the
+Technical Administrator (ADMIN_1) gets `403` on every platform-program endpoint.
+There is no trainer ownership to verify server-side: the platform is the single
+owner and the id of the acting administrator always comes from the authenticated
 session, never from the client.
 
 Key architectural decisions:
@@ -695,9 +695,10 @@ but exposes only read-only methods through a separate read-only interface:
     ordering for any other value; ties are broken by `id ASC` so pagination is
     deterministic. The service caps each multi-value dimension at 20 values and
     rejects malformed controlled values with `400 VALIDATION_ERROR`.
-- Detail: `FindPublishedByIDWithStructure(id)` — returns one published program
-  with its client-safe nested `weeks` tree (week_number → workouts → exercises
-  with sets). It must not leak `trainer_id` of the owner.
+- Detail: `FindPublishedByID(id)` — returns one published program's public
+  product metadata only. Programme structure is served exclusively through the
+  authenticated `program_access` read, never by the public catalog. It must not
+  leak `trainer_id`, nutrition mode or curated plan content.
 
 Request flow:
 

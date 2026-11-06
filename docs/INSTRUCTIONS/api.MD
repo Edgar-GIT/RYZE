@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # API.MD
 
-Version: 2.100.0
+Version: 2.101.0
 
 ---
 
@@ -485,8 +485,10 @@ a database unique constraint.
 
 The acting user always comes from the authentication context. A client-supplied
 `user_id`, `client_id` or `trainer_id` is always ignored. Any missing access
-grant, missing published program, foreign workout and unknown workout are
-indistinguishable and answer `404 WORKOUT_NOT_FOUND`.
+grant, inaccessible program, foreign workout and unknown workout are
+indistinguishable and answer `404 WORKOUT_NOT_FOUND`. An entitlement keeps
+granting sessions after the program is unpublished; an assignment or Free
+activation still requires a published program.
 
 #### `POST /api/v1/me/programs/{programID}/workouts/{workoutID}/sessions`
 
@@ -523,8 +525,9 @@ Responses:
 - `200 OK` — the started or already-active session.
 - `400 VALIDATION_ERROR` — malformed identifier.
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication.
-- `404 WORKOUT_NOT_FOUND` — no access grant, unpublished program, foreign or
-  unknown workout.
+- `404 WORKOUT_NOT_FOUND` — no access grant, inaccessible program (including an
+  unpublished program reached through an assignment or Free activation), foreign
+  or unknown workout.
 - `409 WORKOUT_SESSION_ACTIVE` — another workout session is already active.
 
 #### `GET /api/v1/me/workout-sessions/active`
@@ -1262,7 +1265,8 @@ Responses:
 - `409 PROGRAM_NOT_PURCHASABLE` — the program is a free program (nothing to
   purchase).
 - `409 PURCHASE_PREREQUISITE_NOT_MET` — the product requires a submitted
-  prerequisite, such as the Premium Level 1 questionnaire.
+  prerequisite, such as the legacy questionnaire-generated Premium Level 1
+  intake. A curated package has no prerequisite.
 - `409 DUPLICATE_ENTITLEMENT` — the persona already holds an active entitlement
   for the program (idempotent signal; the client resolves ownership).
 
@@ -3611,24 +3615,30 @@ Downloads the generated invoice.
 
 # PREMIUM LEVEL 1 ENDPOINTS
 
-These endpoints implement the Premium Level 1 journey: collect a nutrition
-intake before checkout, then serve the server-owned nutrition programme once the
-purchase is verified.
+These endpoints implement Premium Level 1 nutrition. A legacy
+`questionnaire_generated` package collects an intake before checkout and serves a
+server-owned generated programme once the purchase is verified. A `curated`
+package has no intake: it serves the package-owned plan after the entitlement
+check.
 
-All five endpoints require authentication. The acting user is always taken from
-the authentication context; no endpoint accepts a user id from the client.
+All endpoints require authentication. The acting user is always taken from the
+authentication context; no endpoint accepts a user id from the client.
 
 ## Ownership model
 
 Every endpoint is scoped to `(authenticated user, program_id)`. A client may only
-act on its own intake and its own nutrition assignment.
+act on its own intake and its own nutrition assignment. A curated plan is
+package-owned rather than user-owned, but it is only projected after the same
+active-entitlement check.
 
 A program with no record for the calling user is indistinguishable from one the
-caller does not own: both answer `404 NUTRITION_NOT_FOUND`. This is deliberate,
-because a `403` would confirm that another client's record exists.
+caller does not own: both answer `404 NUTRITION_NOT_FOUND`. This also covers a
+curated package with no stored plan. This is deliberate, because a `403` would
+confirm that another client's record exists.
 
 Intake answers are never returned by any endpoint. The requirement endpoint
-reports only that an intake exists and its revision, never its contents.
+reports only that an intake exists and its revision, never its contents. A
+curated package has no intake to report.
 
 ---
 

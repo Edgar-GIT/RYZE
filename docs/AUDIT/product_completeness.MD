@@ -1,7 +1,7 @@
 # RYZE Product Completeness Audit
 
-Version: v2.99.0
-Date: 2026-11-01
+Version: v2.101.0
+Date: 2026-11-05
 Status: living document — update whenever a backlog item is closed.
 
 This document records the product-completeness audit of the RYZE platform
@@ -37,12 +37,12 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
 | Backend API (Go/Gin/GORM/MariaDB) | Complete/Verified | `go test ./...` green (40 packages) |
-| Database migrations | Complete/Verified | schema version 33, `dirty=false`; migrations embedded in the release binary |
+| Database migrations | Complete/Verified | schema version 34, `dirty=false`; migrations embedded in the release binary |
 | Frontend SPA (React 19/Vite/TS/CSS Modules) | Complete/Verified | `tsc --noEmit` clean, vitest green |
 | CI (race detector + frontend tests + Playwright) | Implemented (hosted run unverified) | `.github/workflows/ci.yml`; local CI-equivalent checks passed in v2.99.0 |
 | Docker compose stack | Implemented (unverified) | `docker compose config` parsed in v2.99.0; image/build/runtime blocked by unavailable daemon |
 | systemd unit (`deploy/ryze-backend.service`) | Implemented (unverified) | `systemd-analyze verify` accepted the unit apart from the absent deployed binary |
-| Database backup script | Complete/Verified (local drill) | plain and GPG restores matched 33 tables, version 32 and row counts; off-host storage still operator-owned |
+| Database backup script | Complete/Verified (local drill) | v2.99.0 plain and GPG restores matched 33 tables, version 32 and row counts; not rerun after migration 000034; off-host storage still operator-owned |
 | Security baseline (v2.93.0) | Complete/Verified (unit level) | CSRF OriginGuard, JWT claims/TTL cap, rate-limiter body bound, parameterized SQL logs; v2.99.0 adds mandatory SMTP STARTTLS and a CSP browser sweep; git-history rotation remains an operator action |
 
 ### Authentication and accounts
@@ -68,7 +68,7 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Contact | Implemented, real relay unverified | Multipart API, mandatory STARTTLS, validation, rate limit and browser states; positive and failure paths verified against controlled local SMTP sinks |
 | Generic marketplace | Complete/Verified (mocked) | server-side filters, sort and pagination; deterministic rows; browser E2E with mocked API; live positive path unverified because the DB has no published programs |
 | Generic program detail + checkout | Complete/Verified | API-driven detail, `useProgramCheckout`, entitlement states |
-| Premium Level 1 page | Complete/Verified | complete returned catalogue, query-based selection, questionnaire/checkout/delivery unchanged; mocked browser E2E; live purchase still unverified |
+| Premium Level 1 page | Complete/Verified | objective-based catalogue, query-based objective/package selection, curated and legacy questionnaire delivery, shared checkout and status-aware access; mocked browser E2E; live purchase still unverified |
 | Purchase history (`/account/purchases`) | Complete/Verified | API-driven |
 | My Programs / Program Access (training + nutrition) | Complete/Verified | unified entitlement/assignment/Free access, metadata-only public detail, backend e2e and handler/service tests |
 | RYZE Feed | Missing | route exists as an explicit `UnderDevelopmentPage` placeholder (deferred by product decision) |
@@ -110,7 +110,7 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | --- | --- | --- |
 | ADMIN_1 dashboard/users/trainers/system/configuration/test-mode/development/audit | Implemented (unverified) | pages + APIs present; audit page backing not independently verified |
 | ADMIN_1 trainer applications review | Partial | approve/reject only; no evidence viewing (no evidence exists) |
-| ADMIN_2 dashboard/plans/marketplace/trainers/clients/sales/analytics/feedback/settings | Implemented (unverified) | pages + APIs present |
+| ADMIN_2 dashboard/plans/marketplace/trainers/clients/sales/analytics/feedback/settings | Implemented (unverified) | pages + APIs present; Premium Level 1 family tab, objective/mode authoring, curated nutrition editor and content-lock UX implemented |
 | ADMIN_2 catalogue management (exercises) | Missing | no page, no API |
 | Role/permission model | Complete/Verified | `adminroles.go` grants + middleware; catalogue permission to be added |
 
@@ -151,6 +151,8 @@ its configuration locally, so deployment-only paths remain marked unverified.
 8. Marketplace: use server-side filtering/sorting/pagination. **Closed in v2.98.0.**
 9. Premium Level 1: render all returned programs, not only the first.
    **Closed in v2.97.0.**
+- **v2.101.0:** objective-based Premium Level 1 catalogue, curated nutrition
+  packages, ADMIN_2 authoring and legacy questionnaire compatibility. Closed.
 
 ### P2 — product capability gaps
 

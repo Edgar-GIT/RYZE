@@ -1,6 +1,6 @@
 # RYZE
 
-Version: 2.85.0
+Version: 2.101.0
 
 ---
 
@@ -175,28 +175,19 @@ Features include:
 
 ## RYZE Premium
 
-Premium Level 1 combines a structured training program with an automatically generated nutrition program.
+Premium Level 1 combines a structured training program with a nutrition program. It supports two delivery models:
 
-Before purchasing, the user completes a short questionnaire describing their fitness goals and basic personal information.
+- **Curated** — the package ships a predefined nutrition plan authored with the package. Packages are grouped by objective (Gain muscle, Lose fat, Strength & conditioning), and every buyer of a package receives the same expert-defined plan.
+- **Questionnaire-generated** — the legacy model. Before purchasing, the user completes a short nutrition questionnaire describing their goals and basic personal information, and the RYZE Recommendation Engine derives a nutrition programme from those answers.
 
-Examples include:
-
-- Build muscle
-- Lose fat
-- Improve endurance
-- Maintain weight
-
-Based on the questionnaire, the RYZE Recommendation Engine automatically selects the most appropriate nutrition program.
-
-This allows users to receive both a workout program and a nutrition program immediately after purchase, without waiting for manual preparation.
+In both models the workout and nutrition sides are delivered immediately after purchase, without waiting for manual preparation.
 
 Features include:
 
-- Personalized training pack
-- Automatically assigned nutrition program
+- Structured training pack
+- A curated package nutrition plan or an automatically generated nutrition programme
 - Immediate delivery
 - Exercise demonstrations
-- PDF export
 
 ---
 
@@ -266,9 +257,9 @@ Purchased programs appear in the authenticated client "My Programs" area
 served by `GET /api/v1/me/entitlements`, with each program opened through the
 entitlement-protected structural read
 (`GET /api/v1/me/programs/:programID`, "My Programs" detail). Access to that
-read requires an active entitlement AND a still-published program; a missing
-entitlement, an unpublished, soft-deleted or nonexistent program are
-indistinguishable `404`s.
+read requires an active entitlement. A completed entitlement remains valid after
+the program is unpublished; a missing entitlement and a soft-deleted or
+nonexistent program are indistinguishable `404`s.
 
 ---
 
@@ -436,8 +427,8 @@ sales tool.
 - Inside Test Mode every purchasable program (Generic or Premium Level 1)
   renders as Free, and buying completes a real zero-cost purchase + entitlement
   server-side — no payment provider, redirect or capture is involved. The same
-  checkout prerequisites, including the Premium Level 1 questionnaire, still
-  apply.
+  checkout prerequisites still apply, including the legacy Premium Level 1
+  questionnaire. A curated package has no questionnaire prerequisite.
 - Identity is entirely server-side: the backend mints the persona session
   cookie and restores the administrator identity on exit.
 - The feature is globally controlled by `TEST_MODE_ENABLED` (default false) — a
@@ -639,47 +630,59 @@ Every new feature should remain aligned with the project's original philosophy:
 
 # PREMIUM LEVEL 1
 
-Premium Level 1 is the first RYZE package that sells a complete, personalised
-outcome rather than a training plan alone. It is defined by one idea:
+Premium Level 1 is a complete training and nutrition package sold once. It is
+defined by two delivery models rather than by a single nutrition mechanism:
 
-> A client answers a short nutrition questionnaire, buys once, and receives a
-> training plan and a nutrition programme built from exactly those answers.
+> A client chooses a training and nutrition package, buys once, and receives both
+> halves immediately. A curated package ships a fixed nutrition plan authored for
+> its objective; a legacy package derives a personalised plan from a questionnaire
+> answered before checkout.
 
 ## What it includes
 
 - A structured training plan, already part of the existing program hierarchy.
-- A nutrition programme generated on the server from the stored questionnaire,
-  delivered as part of a completed purchase and persisted as a normalised,
-  versioned plan (every delivered version is immutable and retained).
-- Daily energy and macronutrient targets, a daily meal structure and a hydration
-  target.
-- Dietary rules built around the restrictions the client reported.
+- Curated mode: a predefined package nutrition plan with a daily meal structure,
+  portions, macronutrients, hydration guidance and cautions. Every buyer of the
+  same package receives the same content.
+- Legacy questionnaire mode: a nutrition programme generated on the server from
+  the stored questionnaire, delivered as part of a completed purchase and
+  persisted as a normalised, versioned plan (every delivered version is immutable
+  and retained).
+- Daily energy and macronutrient targets and a hydration target in both modes.
+- Legacy mode: dietary rules built around the restrictions the client reported.
+- Curated mode: the package's own predefined dietary pattern and cautions; there
+  is no intake and therefore no per-client restrictions audit.
 
 ## What it is not
 
-- It is not human coaching. No trainer reviews the answers, and nothing in the
+- It is not human coaching. No trainer reviews an intake, and nothing in the
   product promises one-to-one guidance.
-- It is not a medical or clinical assessment. The generated plan carries the
-  server's own cautions and the interface repeats that it is not medical advice.
+- It is not a medical or clinical assessment. The delivered plan carries the
+  server's or package's own cautions and the interface repeats that it is not
+  medical advice.
 - It is not a subscription. Entitlements do not expire.
-- It is not an AI chat product. In v2.82.0 the generator is a deterministic
+- It is not an AI chat product. In v2.101.0 the legacy generator is a deterministic
   server-side function, which is what makes the plan reproducible and the
-  questionnaire safely immutable.
+  questionnaire safely immutable; curated content is authored package content.
 
-## The questionnaire is part of the product
+## The questionnaire is part of the legacy product
 
-The intake is collected before checkout because it is an input to the product, not
-a form for its own sake. It is editable until the purchase and immutable after it,
-because the delivered nutrition programme is derived from it: changing the answers
-would silently change a plan the client already received. This is a product
-decision, not a technical limitation, and the interface states it plainly instead
-of hiding it behind a disabled control.
+The intake exists only for a questionnaire-generated package. It is collected
+before checkout because it is an input to that product, not a form for its own
+sake. It is editable until the purchase and immutable after it, because the
+delivered nutrition programme is derived from it: changing the answers would
+silently change a plan the client already received. This is a product decision,
+not a technical limitation, and the interface states it plainly instead of hiding
+it behind a disabled control. A curated package has no intake and goes directly
+from product to checkout.
 
 ## Delivery
 
 Premium Level 1 uses the existing purchase, payment and entitlement flow. It adds
 no payment method, no provider, no currency handling and no refund behaviour, and
-it inherits every invariant established for v2.80.0.
+it inherits every invariant established for v2.80.0. A curated plan is synthesized
+from the package after the entitlement check; a legacy plan is generated after the
+purchase. An entitlement keeps access after a package is unpublished.
 
 ## Scope discipline
 

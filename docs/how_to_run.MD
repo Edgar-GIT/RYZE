@@ -1,7 +1,7 @@
 # RYZE
 # How to Run
 
-Version: 2.83.0
+Version: 2.101.0
 
 ---
 
@@ -1156,8 +1156,10 @@ routed, and always fails closed.
 
 ## Premium Level 1 (Local Walkthrough)
 
-Premium Level 1 needs migrations `000025` and `000026` and a published Premium
-Level 1 program before the page has anything to show.
+Premium Level 1 needs migrations `000025`, `000026` and `000034` and a published
+Premium Level 1 program before the page has anything to show. Package creation
+now chooses the nutrition delivery model: `curated` (predefined package plan) or
+`questionnaire_generated` (legacy intake-derived plan).
 
 ### Apply the migration
 
@@ -1166,7 +1168,7 @@ cd main/src/backend
 go run . migrate up
 ```
 
-Verify the schema version afterwards. The expected result is version `26` with
+Verify the schema version afterwards. The expected result is version `34` with
 `dirty = false`:
 
 ```text
@@ -1183,8 +1185,12 @@ Create and publish one as the Management Administrator (ADMIN_2):
 1. Log into the administration console and open **Plans** (Programs → Plans).
 2. Switch to the **Premium · Level 1** family tab.
 3. Select **New plan**. The plan workspace opens in the Premium Level 1 family.
-   Choose the **Premium plan** pricing category, set the price, build the weeks,
-   training days and exercises, and publish it.
+   Choose the **Premium plan** pricing category, set the price, choose the
+   **Objective** (Gain muscle / Lose fat / Strength & conditioning) and the
+   nutrition mode. For a curated package, complete the curated nutrition editor
+   (summary, hydration, cautions, meals, foods and macros). Build the weeks,
+   training days and exercises, then publish it. Objective and mode are fixed at
+   creation and cannot be changed later.
 
 The Premium Level 1 family is administered through `/api/v1/programs/premium-level-1`:
 the family is derived from the route alone and the request payloads carry no
@@ -1195,10 +1201,23 @@ program, and the family is locked once the plan exists. After publishing, the
 program surfaces on `/services/premium-level-1` through the existing
 `premium_level_1` catalog scope.
 
-### Walk the flow
+### Walk a curated package
 
-1. Open `/services/premium-level-1`. The product name, description, price, currency
-   and duration come from the backend.
+1. Open `/services/premium-level-1`. The page groups published packages by
+   objective. Select an objective, then a package. The product name, description,
+   price, currency, duration and objective come from the backend.
+2. Select **Continue to checkout**. A curated package has no questionnaire.
+3. Complete the purchase. In a Test Mode session this needs no provider
+   configuration and no real money.
+4. The nutrition tab reads the package-owned plan through the normal entitlement
+   check. The plan is fixed, read-only and identical for every buyer.
+5. Open **My Programs**. The entitlement carries the Premium Level 1 chip, and
+   Program Access renders the training structure plus the curated nutrition panel.
+
+### Walk a legacy questionnaire package
+
+1. Open `/services/premium-level-1` and select a package without a curated
+   objective (legacy rows appear under "Other packages").
 2. Select **Start my questionnaire**. The form renders from the server catalog; the
    client holds no hardcoded field list.
 3. Submit a complete intake, then continue to checkout.
@@ -1226,12 +1245,15 @@ GET  /api/v1/me/programs/{programID}/nutrition
 POST /api/v1/me/programs/{programID}/nutrition/generate
 ```
 
-The requirement response reports `locked`. Before a purchase it is `false`; after
-any completed purchase, regular or Test Mode, it is `true` and every further
-mutation is refused.
+For a legacy package the requirement response reports `locked`. Before a purchase
+it is `false`; after any completed purchase, regular or Test Mode, it is `true`
+and every further mutation is refused. For a curated package the requirement
+answers `required: false`, `submitted: false`, `locked: false`, and a submit
+attempt returns `404 PROGRAM_NOT_FOUND` without writing anything.
 
-Checkout against a Premium Level 1 program without a submitted intake answers
-`409 PURCHASE_PREREQUISITE_NOT_MET`.
+Checkout against a legacy questionnaire-generated Premium Level 1 program without
+a submitted intake answers `409 PURCHASE_PREREQUISITE_NOT_MET`. A curated package
+has no such prerequisite.
 
 ### Provider-dependent steps
 

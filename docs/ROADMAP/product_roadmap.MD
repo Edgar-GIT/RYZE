@@ -49,6 +49,9 @@ Scope:
   Level 2 placeholder.
 - Marketplace server-side filtering, sorting and pagination. **Closed in v2.98.0.**
 - Premium Level 1 lists every returned program, not only the first.
+- Objective-based Premium Level 1 catalogue with predefined training plus curated
+  nutrition packages, ADMIN_2 package authoring, legacy questionnaire
+  compatibility and purchased-access preservation. **Closed in v2.101.0.**
 - Contact page submission backend. **Closed in v2.98.0** (live SMTP delivery still unverified).
 - Import reporting improvements for rejected/unchanged records, with tests.
 - Test Mode persona-email reservation and fail-closed ownership checks, with
@@ -71,7 +74,11 @@ browsing and trainer prescription editing. v2.98.0 completed marketplace
 server-side filtering/sorting/pagination and the contact submission backend.
 v2.99.0 makes STARTTLS mandatory for every contact delivery and verifies the
 success and failure paths against controlled local SMTP sinks; a real relay
-configuration is still required before a live send can be verified.
+configuration is still required before a live send can be verified. v2.100.0
+completed secure programme access, Free activation and interactive workout
+sessions. v2.101.0 completed the objective-based Premium Level 1 catalogue,
+curated nutrition packages, ADMIN_2 authoring and the legacy questionnaire
+compatibility path.
 
 ## Phase C — Commerce and Operations
 

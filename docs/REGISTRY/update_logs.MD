@@ -1,3 +1,95 @@
+# Version 2.101.0
+
+Title: Objective-based Premium Level 1 catalogue and curated nutrition
+
+Date: 2026-11-05
+
+Summary:
+
+v2.101.0 completes the Premium Level 1 catalogue remodel. Premium Level 1
+packages are now grouped by a closed objective vocabulary and can deliver one of
+two server-owned nutrition models: a predefined curated plan authored with the
+package, or the legacy questionnaire-generated plan derived from a client intake.
+The Management Administrator can author both training and curated nutrition in
+one workspace, completed purchases freeze package content, and purchasers keep
+access after a catalogue entry is unpublished.
+
+The legacy intake flow remains compatible: existing rows are backfilled as
+`questionnaire_generated`, old questionnaires/plans/entitlements are untouched,
+and packages without a known objective continue to render through the legacy
+client path.
+
+Main changes:
+
+- Migration `000034_add_curated_premium_level_1_nutrition` adds
+  `programs.objective`, `programs.nutrition_mode` and
+  `programs.content_version`, backfills existing Premium Level 1 rows as legacy,
+  adds metadata/content CHECK constraints and indexes, and creates the
+  package-owned `curated_nutrition_plans`,
+  `curated_nutrition_plan_meals` and `curated_nutrition_plan_meal_items` tables
+  plus their safe read views.
+- `models/program.go` adds the objective, nutrition-mode and content-version
+  fields and constants. `models/curated_nutrition.go` and
+  `services/curated_nutrition` add the curated aggregate, normalization and
+  validation.
+- The generic/platform program service, repository and handler now share one
+  family-bound administration surface for Generic and Premium Level 1 packages.
+  It validates objective/mode, requires a complete curated plan for a curated
+  package, revalidates at publish, increments `content_version` on successful
+  edits, and refuses metadata changes after creation
+  (`409 PROGRAM_METADATA_LOCKED`) and content edits/deletion after a completed
+  purchase (`409 PROGRAM_CONTENT_LOCKED`).
+- Checkout prerequisites now apply only to questionnaire-generated Premium
+  Level 1 packages. Curated packages skip the intake entirely.
+- `services/questionnaires` adds `requiresIntake`: a curated/generic package
+  answers `required: false`, `submitted: false`, `locked: false`, and a submit
+  attempt returns `404 PROGRAM_NOT_FOUND` without writing.
+- Nutrition delivery gains a curated branch that reads the package plan after the
+  entitlement check and projects it onto the existing client plan contract with
+  `engine_version = 0`, `questionnaire_version = 0`, fingerprint
+  `curated:<program-id>:<plan-version>`, empty exclusions and macros derived from
+  the authored foods. Legacy generation, supersession and retry behavior are
+  unchanged.
+- Program access now treats an entitlement as status-agnostic: a purchased
+  program stays readable and executable after unpublishing. Assignment and Free
+  grants still require a published program.
+- The public catalogue exposes `objective`; `nutrition_mode` and curated plan
+  content remain private.
+- Frontend: ADMIN_2 family tabs, objective/mode authoring, curated nutrition
+  editor, read-only curated detail section and content-lock actions. The Premium
+  page groups packages by objective with `?objective=` filtering, keeps legacy
+  objective-null packages under "Other packages", sends curated packages
+  directly to checkout, and maps curated/legacy nutrition copy and states.
+- E2E fixtures and the Premium catalogue test assert objective grouping and
+  package selection.
+- Docs updated: API, architecture, database, security, design, project vision,
+  local walkthrough, roadmap, completeness audit, procedures, agent rules and
+  this registry.
+
+Reason:
+
+Premium Level 1 only supported a questionnaire-generated plan, while the product
+needs objective-based packages that ship a predefined nutrition plan. The previous
+catalogue also gave no product-level way to group packages by goal, and
+unpublishing a sold program revoked paid access. This release adds the curated
+model without a parallel product family or payment flow, preserves the legacy
+intake path, and makes purchased access independent of catalogue publication.
+
+Validation:
+
+- Isolated MariaDB on `127.0.0.1:33107`, database `ryze_test_workout`;
+  `migrate down 1` → `migrate up` succeeded and `migrate version` reported
+  `34 (dirty=false)`.
+- `DB_HOST=127.0.0.1 DB_PORT=33107 DB_NAME=ryze_test_workout DB_USER=root DB_PASSWORD= go test -count=1 ./...` passed every package uncached (`api/auth` 38.186s, `repositories` 3.730s, `routes` 5.499s).
+- `go vet ./...`, `go build ./...` and a clean `gofmt -l .` check passed.
+- `npm run typecheck` passed.
+- `npm run test` passed 18 files / 123 tests.
+- `npm run build` passed.
+- `npm run test:e2e` passed 8/8 Playwright tests in 21.1s, including the
+  objective-grouped Premium catalogue flow.
+
+---
+
 # Version 2.100.0
 
 Title: Secure programme access, Free activation and interactive workout sessions

@@ -986,6 +986,10 @@ questions that were already answered.
 
 If the new tier differs only in content, difficulty or duration, it is a program,
 not a family: create programs through the existing administration flow and stop.
+A different nutrition delivery model inside an existing family is a variant of
+that family, represented by `programs.nutrition_mode`, not a new `product_type`.
+Curated and questionnaire-generated Premium Level 1 packages are the reference
+for this distinction.
 
 Only create a new `product_type` value when the tier participates in different
 parts of the lifecycle. The discriminator exists to answer one question: which
@@ -1026,7 +1030,8 @@ Any new post-purchase artefact must require all of:
 - an authenticated owner,
 - an active entitlement,
 - the correct `product_type`,
-- any prerequisite submission.
+- the prerequisite submission required by its mode, if any (the legacy
+  questionnaire mode requires one; the curated mode has none).
 
 All four failing conditions must produce the same response as "no record", for the
 same reason documented in `security.MD`: a distinguishable refusal is a probe.
@@ -1055,6 +1060,23 @@ Update `api.MD`, `database.MD`, `security.MD`, `architecture.MD`, `design.MD` an
 `update_logs.MD` in the same development cycle as the code. A new tier that
 reaches production undocumented is the specific outcome this project documents
 itself to avoid.
+
+## Adding a nutrition mode inside an existing family
+
+A new delivery mode must update every mode condition together:
+
+- the `programs.nutrition_mode` constraint and the product-metadata CHECK,
+- the admin metadata validation and authoring surface,
+- the public catalogue grouping and client rendering,
+- the purchase prerequisite check,
+- the nutrition read, entitlement gate and any mode-specific projection,
+- the seed/backfill rule for existing rows,
+- the mode-specific content lock and immutability rules,
+- all documentation listed in step 7.
+
+Mode and objective are fixed at creation. A completed purchase freezes the
+package content; a legacy delivered plan is immutable and versioned, while a
+curated plan is package-owned and identical for every buyer.
 
 ---
 

@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.83.0
+Version: 2.101.0
 
 ---
 
@@ -1498,60 +1498,72 @@ Pages implemented in the current cycle:
 - **ADMIN_2 Dashboard** — live platform totals (clients, trainers, pending
   applications, published programs), product mix bars and a recently published
   programs table.
-- **ADMIN_2 Plans** — the platform-owned Generic Program list backed by
-  `/api/v1/programs/generic`. Searchable (the search bar queries the real
-  backend), with type tabs (All / Free / Premium /
-  Personalized), a level filter and pagination. The tabs filter the commercial
-  pricing category `type` and are labelled as such; they are not product tiers,
-  because every program managed in this workspace belongs to the `generic` product
-  family. Each row shows the plan title, type, level,
-  frequency, duration, price and last-updated date with Edit and Delete
-  (soft delete, confirmed via dialog) actions. The list also exposes one
-  right-aligned sales group per plan — Sales (`real_sales`: completed non-test
-  purchases), Test (Test Mode completions) and Revenue (completed non-test) —
-  fetched in a single batch call against the commerce endpoint (Management
-  Administrator only). When the sales batch fails the numeric columns fall back
-  to an em dash and the section subtitle adds "· Sales unavailable" without
-  taking the plan list down.
+- **ADMIN_2 Plans** — the platform-owned plan list with two product-family tabs,
+  Generic and Premium Level 1, each backed by its own family route
+  (`/api/v1/programs/generic` and `/api/v1/programs/premium-level-1`). The list
+  always shows exactly one family at a time; the family is carried in the URL
+  (`?family=`) and can never be invented by the client. Searchable (the search bar
+  queries the real backend), with a pricing-category filter (All / Free / Premium
+  / Personalized), a level filter and pagination. The pricing-category filter
+  filters the commercial `type` and is labelled as such; it is not the product
+  family. Each row shows the plan title, type, level, frequency, duration, price
+  and last-updated date with Edit and Delete (soft delete, confirmed via dialog)
+  actions. The list also exposes one right-aligned sales group per plan — Sales
+  (`real_sales`: completed non-test purchases), Test (Test Mode completions) and
+  Revenue (completed non-test) — fetched in a single batch call against the
+  commerce endpoint (Management Administrator only). When the sales batch fails
+  the numeric columns fall back to an em dash and the section subtitle adds
+  "· Sales unavailable" without taking the plan list down. "New plan" opens the
+  creation workspace in the active family.
 - **ADMIN_2 Plan creation workspace** — a dedicated `/admin2/plans/create`
-  flow to build a Generic Plan: 4-step wizard (basic info, program structure,
-  marketplace, review & publish) with a live RYZE marketplace card preview and
-  a two-pane exercise library picker. Weeks contain training days; a day holds
-  structured exercise assignments — each assignment references one catalog
-  exercise (never a copy), carries its position, an optional per-day tailored
-  instruction, and its full set prescription (reps, weight, RIR, RPE, rest,
-  tempo, set type). Clicking an assignment opens the detailed editor where the
-  instructor tailors the instruction, edits or adds sets, replaces the exercise
-  with a catalog alternative and removes it; assignments reorder within the day
-  and remain immutable references so a catalog update is reflected everywhere.
-  The Marketplace step also captures the optional audience metadata — Level
+  flow to build a platform-owned plan: a product-family selector (Generic or
+  Premium Level 1), a 4-step wizard (basic info, program structure, marketplace,
+  review & publish) with a live RYZE marketplace card preview and a two-pane
+  exercise library picker. Weeks contain training days; a day holds structured
+  exercise assignments — each assignment references one catalog exercise (never
+  a copy), carries its position, an optional per-day tailored instruction, and
+  its full set prescription (reps, weight, RIR, RPE, rest, tempo, set type).
+  Clicking an assignment opens the detailed editor where the instructor tailors
+  the instruction, edits or adds sets, replaces the exercise with a catalog
+  alternative and removes it; assignments reorder within the day and remain
+  immutable references so a catalog update is reflected everywhere. The
+  Marketplace step also captures the optional audience metadata — Level
   (Beginner / Intermediate / Advanced), Training Type (Hypertrophy / Strength /
   HYROX / CrossFit / Fat Loss / At Home), Duration in weeks and Frequency in
-  days per week. The Publish & Save action talks to the generic program API:
-  it maps the local draft to the create payload, disables the button until a
-  change is dirty and while a request is in flight (`Saving…`), and surfaces
-  the outcome as an inline notice — green on success, and per-code friendly
-  errors (e.g. missing catalog exercise, duplicate exercise inside a workout,
-  program not found, already-published conflict, validation details) instead
-  of a raw failure. The same workspace opens in edit mode at
-  `/admin2/plans/create?edit=<id>`, loads the existing program into the draft
-  and saves changes transactionally through the update endpoint.
-- **ADMIN_2 Plan detail** — `/admin2/plans/:programId` opens a Generic Program
-  from the real detail endpoint and renders the complete structure in-tree
-  (weeks → training days → exercises → sets with reps, weight, RIR, RPE, rest
-  and tempo) next to a program-facts summary (type, status, level, training
-  type, frequency, duration, price, created, updated). Actions: Publish plan
-  (draft → published via the guarded publish endpoint), Unpublish plan
-  (published → draft via the full update with a draft status), View in
-  marketplace (links to the public `/services/generic-program/:programId`
-  detail page when published), Edit plan (builds on the plan workspace in edit
-  mode) and Delete (soft delete with confirmation). While a plan is published
-  a compact Sales section in the right rail shows Sales (`real_sales`), Revenue
-  and Test purchases and a "View purchases" action that deep-links to
-  `/admin2/sales?program_id=<id>`; when a published plan has paying clients,
-  the Unpublish action is preceded by a warning that unpublishing revokes those
-  clients' access (their entitlement is preserved, and access returns when the
-  plan is republished).
+  days per week. A Premium Level 1 package additionally requires an objective
+  (Gain muscle / Lose fat / Strength & conditioning) and a nutrition mode. The
+  curated mode opens the curated nutrition editor for the package summary,
+  hydration guidance, cautions, meals, foods and macros. Objective and mode are
+  fixed after creation; the selector is disabled in edit mode. The Publish &
+  Save action talks to the family API: it maps the local draft to the create
+  payload, disables the button until a change is dirty and while a request is in
+  flight (`Saving…`), and surfaces the outcome as an inline notice — green on
+  success, and per-code friendly errors (e.g. missing catalog exercise, duplicate
+  exercise inside a workout, program not found, already-published conflict,
+  validation details) instead of a raw failure. The same workspace opens in edit
+  mode at `/admin2/plans/create?edit=<id>&family=<family>`, loads the existing
+  program into the draft and saves changes transactionally through the update
+  endpoint.
+- **ADMIN_2 Plan detail** — `/admin2/plans/:programId?family=<family>` opens a
+  platform-owned plan from the real family detail endpoint and renders the
+  complete structure in-tree (weeks → training days → exercises → sets with
+  reps, weight, RIR, RPE, rest and tempo) next to a program-facts summary
+  (product family, objective, nutrition mode, type, status, level, training
+  type, frequency, duration, price, created, updated). A curated package also
+  shows a read-only Curated nutrition section with its summary, dietary pattern,
+  hydration, meals, foods, macros and cautions. Actions: Publish plan (draft →
+  published via the guarded publish endpoint), Unpublish plan (published → draft
+  via the full update with a draft status), View in marketplace (the Premium
+  catalogue for a Premium Level 1 package, otherwise the public
+  `/services/generic-program/:programId` detail page when published), Edit plan
+  (builds on the plan workspace in edit mode) and Delete (soft delete with
+  confirmation). While a plan is published a compact Sales section in the right
+  rail shows Sales (`real_sales`), Revenue and Test purchases and a "View
+  purchases" action that deep-links to `/admin2/sales?program_id=<id>`. A plan
+  with any completed purchase is content-locked: the page states that its content
+  and status are locked, and disables Publish/Unpublish, Edit and Delete.
+  Existing clients keep access through their entitlement even if the catalogue
+  state changes.
 - **ADMIN_2 Exercises** — `/admin2/exercises`, the administrative surface of the
   canonical exercise catalogue (Management Administrator only). A debounced
   search, status filter (All / Draft / Published / Archived) and body-part
@@ -1845,42 +1857,60 @@ Route: `/services/premium-level-1`. It must be declared before the dynamic
 `/services/:serviceSlug` route, or the slug route will swallow it.
 
 The selected package is a single scrolling detail page, not a wizard with its
-own navigation. The flow is product → questionnaire → checkout → access, and the
-user always sees where they are. Without a selected package the same route is a
-catalogue of every returned Premium Level 1 package.
+own navigation. A legacy package follows product → questionnaire → checkout →
+access; a curated package follows product → checkout → access. The user always
+sees where they are. Without a selected package the same route is a catalogue of
+every returned Premium Level 1 package.
 
 ## Package catalogue
 
-Without a `program` query parameter, the page lists every returned published
-Premium Level 1 package. Each card shows the API name and description, the
-Test Mode-aware price, available duration/frequency/level metadata and a "View
-package" action. Selecting a package navigates to
-`/services/premium-level-1?program=<id>`.
+Without a `program` query parameter, the page groups published Premium Level 1
+packages by objective. Each objective card shows its icon, client label,
+description and package count and opens
+`/services/premium-level-1?objective=<value>`. The three objectives are Gain
+muscle, Lose fat and Strength & conditioning, in that fixed order. An objective
+with no packages is not shown.
 
-The selected package page offers "All packages" when more than one package is
-available. A provider return that omits the query parameter selects the first
-package only long enough to resolve the purchase, then replaces the URL with the
-purchased `program_id`. An unavailable requested package renders the catalogue
-with an inline error instead of silently opening another product.
+A selected objective lists only its packages, headed by the objective label, a
+package count and an "All objectives" action. Each package card shows the API
+name and description, the Test Mode-aware price, available
+duration/frequency/level metadata and a "View package" action. Selecting a
+package navigates to
+`/services/premium-level-1?program=<id>&objective=<value>` so the back link can
+return to the active objective.
+
+When the response also contains packages without a known objective (legacy rows
+from before this catalogue model), they are listed under "Other packages" rather
+than being hidden or forced into an objective. When no objective is known at
+all, the page falls back to the flat package list. A provider return that omits
+the query parameter selects the first package only long enough to resolve the
+purchase, then replaces the URL with the purchased `program_id`. An unavailable
+requested package renders the catalogue with an inline error instead of silently
+opening another product.
+
+With a selected package, the page offers "Back to <objective>" plus "All
+objectives" when an objective is active, or "All objectives" when several
+packages are available. A re-read after purchase keeps the objective context.
 
 ## Product presentation
 
 Everything on this page is read from the backend. Name, description, price,
-currency, duration, level, frequency and product family come from the public
-catalog scoped to `premium_level_1` and from the program detail response. The page
-never hardcodes a product id, a price or an offer description.
+currency, duration, level, frequency, objective and product family come from the
+public catalog scoped to `premium_level_1` and from the program detail response.
+The page never hardcodes a product id, a price or an offer description.
 
-Product copy states plainly what the package is and what it is not:
-
-- It is a complete training and nutrition package in one purchase.
-- The nutrition side is personalised automatically from the questionnaire, so both
-  halves are built from the same answers.
-- It is an automated programme, not personal coaching. No trainer reviews the
-  answers.
-- It is not a medical or clinical assessment.
+Product copy states plainly what the package is and what it is not. A curated
+package says that its nutrition side is a fixed, expert-defined plan curated for
+the package objective and that every buyer receives the same content. A legacy
+package says that its nutrition side is personalised automatically from the
+questionnaire, so both halves are built from the same answers. Both modes state
+that the package is not personal coaching, that no trainer reviews an intake
+(for the curated mode there is no intake at all), and that it is not a medical or
+clinical assessment.
 
 The disclaimers are part of the product presentation, not fine print. A client
-should not have to discover that Premium Level 1 is automated after paying.
+should not have to discover that Premium Level 1 is automated or predefined after
+paying.
 
 Price presentation follows the existing rule: Test Mode sessions display a zeroed
 price, and the underlying product data is never mutated. Test Mode is marked with
@@ -1899,10 +1929,13 @@ page never scrolls horizontally.
 
 ## Questionnaire
 
-The form is rendered from the server-declared catalog: field type, label, help
-text, required flag, sensitive flag, options, numeric bounds and entry caps. The
-client holds no hardcoded field list, so a new question renders without a client
-release.
+A curated package has no questionnaire. Its primary action is "Continue to
+checkout" and the page goes directly from product to checkout.
+
+A legacy package renders the form from the server-declared catalog: field type,
+label, help text, required flag, sensitive flag, options, numeric bounds and
+entry caps. The client holds no hardcoded field list, so a new question renders
+without a client release.
 
 - Required fields are marked with an asterisk and carry an accessible
   "(required)" label for assistive technology only.
@@ -1924,9 +1957,9 @@ renders the locked view.
 
 ## Locked questionnaire
 
-Once a purchase exists, the questionnaire is replaced by a locked panel with a
-lock icon and a plain explanation that the answers are part of the delivered
-package.
+A legacy package replaces the questionnaire with a locked panel once a purchase
+exists. The panel carries a lock icon and a plain explanation that the answers
+are part of the delivered package.
 
 There is intentionally no "edit again", "regenerate" or "start over" action. The
 primary action becomes "Continue to checkout" or "Open Program Access". A delivered
@@ -1936,7 +1969,8 @@ would be worse than not offering it.
 ## Checkout
 
 Checkout reuses the existing purchase and payment APIs through the shared
-checkout hook. The panel states that the questionnaire is saved and that the
+checkout hook. A legacy panel states that the questionnaire is saved; a curated
+panel states that the predefined nutrition plan is included. Both state that the
 purchase unlocks both halves of the package.
 
 States are rendered explicitly rather than hidden: purchase confirmed, payment
@@ -1944,9 +1978,10 @@ cancelled with a resume action, payment failed with a retry action, sign-in
 required, and checkout unavailable. Payment methods are radio options rendered
 from the entitlements response.
 
-A cancelled payment states plainly that no money was taken and that the
-questionnaire is still saved. This matters: the user has already invested in a
-long form and should not be asked to redo it.
+A cancelled payment states plainly that no money was taken. On a legacy package
+it also says that the questionnaire is still saved: the user has already invested
+in a long form and should not be asked to redo it. A curated package has no form
+to preserve.
 
 In a Test Mode session a banner states that the purchase completes without
 contacting a payment provider.
@@ -1954,10 +1989,13 @@ contacting a payment provider.
 ## Nutrition
 
 The nutrition panel maps the server's assignment state directly and never invents
-readiness:
+readiness. A curated package reads its completed plan through the same client
+contract, but the copy says "nutrition plan" and never implies generation from
+answers. A legacy package uses the generation wording and the build/retry actions.
 
 - `pending` and `processing` — a preparing state with a refresh action, and a build
-  action when `pending`.
+  action when `pending`. A curated pending state says the curated plan is being
+  opened; a legacy pending state says the personalised programme is being built.
 - `failed` — states that nothing is wrong with the purchase and that no action is
   required from the client, with a retry action, in a non-alarm note. A failed
   generation is never presented as a broken purchase, and a refused generation
@@ -1973,8 +2011,9 @@ A completed plan is rendered from the delivered contract:
   the day, its energy, and its actual foods as real entries (name, quantity, unit,
   macros). An entry that was substituted during planning shows the equivalent it
   may be replaced with; a substituted entry never hides what it originally was.
-- The dietary guarantee as an exclusions audit — the controlled reason and the
-  resolved exclusion token. No free-text from the intake is ever shown.
+- The dietary guarantee as an exclusions audit for a legacy plan — the controlled
+  reason and the resolved exclusion token. No free-text from the intake is ever
+  shown. A curated plan has no intake and therefore no exclusions audit.
 - The server's cautions in a highlighted note, and the preparation guidance and
   summary when present.
 
@@ -1983,16 +2022,18 @@ The panel is resilient to the safety contract too:
 - A panel that reports completion but sends no plan renders as unavailable with a
   refresh action. Inventing readiness from a missing payload would be a lie the
   client cannot detect.
-- When the server marks the plan `out_of_date`, the panel keeps showing the
+- When a legacy server marks the plan `out_of_date`, the panel keeps showing the
   delivered plan and adds a stale banner offering to update to the latest
   answers. This banner is defensive: the intake is locked for the life of the
-  entitlement, so it should never appear in production.
+  entitlement, so it should never appear in production. A curated plan never
+  renders this banner.
 
-A delivered plan is read-only. There is no manual regeneration control anywhere in
-this flow: the only actions that call generation are the build/retry actions of the
-`pending` and `failed` states and the defensive stale-banner update. The panel
-closes by stating that the programme is part of the package and is fixed from the
-submitted answers.
+A delivered plan is read-only. There is no manual regeneration or replacement
+control anywhere in this flow: the only actions that call generation are the
+build/retry actions of the legacy `pending` and `failed` states and the defensive
+legacy stale-banner update. The panel closes by stating that the programme is
+part of the package: fixed from the submitted answers for a legacy package, or
+fixed package content for a curated package.
 
 ### Program Access
 
@@ -2009,7 +2050,9 @@ The Premium tier is not given its own account area.
   Level 1.
 - **Program Access** marks the owned program the same way and renders the nutrition
   panel below the training structure, for Premium entitlements only. A generic
-  program never issues the nutrition request at all.
+  program never issues the nutrition request at all. The panel keeps its curated
+  or legacy wording based on the package's objective, and a purchased program
+  remains accessible even if it is later unpublished.
 
 Both read the family from the backend response and never compare a hardcoded id.
 

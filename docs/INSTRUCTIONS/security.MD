@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # SECURITY.MD
 
-Version: 2.100.0
+Version: 2.101.0
 
 ---
 
@@ -1546,9 +1546,11 @@ grant and follow the same model:
   set and transition query is scoped by `user_id`; cross-user access returns the
   same `404 WORKOUT_SESSION_NOT_FOUND` as an unknown id.
 - Starting a session requires all of: a resolvable access grant (entitlement,
-  assignment or Free activation), a still-published programme, and a workout
-  that belongs to that programme's active structure. A missing/failed grant,
-  foreign workout and unknown workout all return the same `404 WORKOUT_NOT_FOUND`.
+  assignment or Free activation), an accessible programme, and a workout that
+  belongs to that programme's active structure. An entitlement remains
+  accessible after the programme is unpublished; assignment and Free grants
+  require a published programme. A missing/failed grant, foreign workout and
+  unknown workout all return the same `404 WORKOUT_NOT_FOUND`.
 - The prescription is snapshotted at start. A client can write only actual
   reps/weight/RIR/RPE and the set status; it can never change prescribed values,
   the exercise, the programme, week, position, timestamps, duration or the
