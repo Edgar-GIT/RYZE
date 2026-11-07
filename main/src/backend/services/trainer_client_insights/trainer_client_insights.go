@@ -407,7 +407,7 @@ func accessOverviewFor(trainerID string, assignments []models.ProgramAssignment,
 		FreeActivations: make([]ProgramAccess, 0, len(activations)),
 	}
 	for _, assignment := range assignments {
-		programName, programStatus, accessStatus := programAccess(assignment.Program)
+		programName, programStatus, accessStatus := programAccess(assignment.Program, true)
 		item := AssignmentAccess{
 			ProgramID:             assignment.ProgramID,
 			ProgramName:           programName,
@@ -422,7 +422,7 @@ func accessOverviewFor(trainerID string, assignments []models.ProgramAssignment,
 		overview.Assignments = append(overview.Assignments, item)
 	}
 	for _, entitlement := range entitlements {
-		programName, programStatus, accessStatus := programAccess(entitlement.Program)
+		programName, programStatus, accessStatus := programAccess(entitlement.Program, false)
 		item := ProgramAccess{
 			ProgramID:     entitlement.ProgramID,
 			ProgramName:   programName,
@@ -437,7 +437,10 @@ func accessOverviewFor(trainerID string, assignments []models.ProgramAssignment,
 		overview.Purchases = append(overview.Purchases, item)
 	}
 	for _, activation := range activations {
-		programName, programStatus, accessStatus := programAccess(activation.Program)
+		programName, programStatus, accessStatus := programAccess(activation.Program, true)
+		if accessStatus == "active" && (activation.Program.Type != models.ProgramTypeFree || activation.Program.ProductType != models.ProgramProductTypeGeneric) {
+			accessStatus = "unavailable"
+		}
 		item := ProgramAccess{
 			ProgramID:     activation.ProgramID,
 			ProgramName:   programName,
@@ -454,7 +457,7 @@ func accessOverviewFor(trainerID string, assignments []models.ProgramAssignment,
 	return overview
 }
 
-func programAccess(program models.Program) (string, string, string) {
+func programAccess(program models.Program, requirePublished bool) (string, string, string) {
 	if program.ID == "" {
 		return "Programme unavailable", "unavailable", "unavailable"
 	}
@@ -464,6 +467,9 @@ func programAccess(program models.Program) (string, string, string) {
 	}
 	if program.DeletedAt.Valid {
 		return name, "unavailable", "unavailable"
+	}
+	if requirePublished && program.Status != models.ProgramStatusPublished {
+		return name, program.Status, "unavailable"
 	}
 	return name, program.Status, "active"
 }

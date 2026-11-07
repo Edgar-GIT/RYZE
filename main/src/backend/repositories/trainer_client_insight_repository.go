@@ -127,6 +127,10 @@ func (r *trainerClientInsightRepository) ListActiveFreeActivationsByUser(ctx con
 func (r *trainerClientInsightRepository) ListSessions(ctx context.Context, userID string, limit, offset int) ([]TrainerClientSessionSummary, error) {
 	var summaries []TrainerClientSessionSummary
 	if err := r.sessionSummaryQuery(ctx, userID).
+		Where("ws.status IN ?", []string{
+			models.WorkoutSessionStatusCompleted,
+			models.WorkoutSessionStatusAbandoned,
+		}).
 		Order("ws.started_at DESC, ws.id DESC").
 		Limit(limit).
 		Offset(offset).
