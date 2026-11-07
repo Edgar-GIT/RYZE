@@ -25,10 +25,18 @@ import {
   fetchProgramWeeks,
   fetchTrainerAccess,
   fetchTrainerApplicationDocuments,
+  fetchTrainerClient,
+  fetchTrainerClientExerciseHistory,
+  fetchTrainerClientOverview,
+  fetchTrainerClientPrograms,
+  fetchTrainerClientWorkoutSession,
+  fetchTrainerClientWorkoutSessions,
   fetchTrainerClients,
   fetchTrainerPrograms,
   fetchWorkoutExercises,
+  assignTrainerClientProgram,
   lookupTrainerClient,
+  removeTrainerClientProgram,
   reorderProgramWeeks,
   reorderWorkoutExercises,
   submitTrainerApplication,
@@ -249,5 +257,74 @@ describe("application documents", () => {
       "/trainer/application/documents/doc-1/download",
       "certification.pdf"
     );
+  });
+});
+
+
+describe("client insight", () => {
+  it("reads the client profile by encoded user id", async () => {
+    mockedGet.mockResolvedValue({ id: "relation-1" });
+
+    await fetchTrainerClient("user/1");
+
+    expect(mockedGet).toHaveBeenCalledWith("/trainer/clients/user%2F1");
+  });
+
+  it("reads the client overview", async () => {
+    mockedGet.mockResolvedValue({});
+
+    await fetchTrainerClientOverview("u1");
+
+    expect(mockedGet).toHaveBeenCalledWith("/trainer/clients/u1/overview");
+  });
+
+  it("reads a paginated session history", async () => {
+    mockedGet.mockResolvedValue({ sessions: [], pagination: { page: 2, limit: 10, total: 0, total_pages: 0 } });
+
+    await fetchTrainerClientWorkoutSessions("u1", 2, 10);
+
+    expect(mockedGet).toHaveBeenCalledWith("/trainer/clients/u1/workout-sessions?page=2&limit=10");
+  });
+
+  it("encodes the session id when reading detail", async () => {
+    mockedGet.mockResolvedValue({ id: "s/1" });
+
+    await fetchTrainerClientWorkoutSession("u1", "s/1");
+
+    expect(mockedGet).toHaveBeenCalledWith("/trainer/clients/u1/workout-sessions/s%2F1");
+  });
+
+  it("reads exercise history with a bounded limit", async () => {
+    mockedGet.mockResolvedValue({ sessions: [] });
+
+    await fetchTrainerClientExerciseHistory("u1", "e/1", 25);
+
+    expect(mockedGet).toHaveBeenCalledWith("/trainer/clients/u1/exercises/e%2F1/history?limit=25");
+  });
+
+  it("unwraps the client programme assignment envelope", async () => {
+    const programs = [{ id: "a1" }];
+    mockedGet.mockResolvedValue({ programs });
+
+    const result = await fetchTrainerClientPrograms("u1");
+
+    expect(mockedGet).toHaveBeenCalledWith("/trainer/clients/u1/programs");
+    expect(result).toEqual(programs);
+  });
+
+  it("assigns a programme by id", async () => {
+    mockedPost.mockResolvedValue({ id: "a1" });
+
+    await assignTrainerClientProgram("u1", "p1");
+
+    expect(mockedPost).toHaveBeenCalledWith("/trainer/clients/u1/programs", { program_id: "p1" });
+  });
+
+  it("removes an assignment by id", async () => {
+    mockedDelete.mockResolvedValue({});
+
+    await removeTrainerClientProgram("u1", "a/1");
+
+    expect(mockedDelete).toHaveBeenCalledWith("/trainer/clients/u1/programs/a%2F1");
   });
 });

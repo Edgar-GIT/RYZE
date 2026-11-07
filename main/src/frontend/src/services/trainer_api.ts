@@ -1,6 +1,7 @@
 import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, downloadFile, encodePathSegment } from "@utils/http_client";
 
 import { AdminPagination } from "./admin_api";
+import type { WorkoutSession } from "./workout_sessions_api";
 
 // The trainer session state comes from the backend access endpoint, which is
 // the only source of truth for "is this user a trainer" and for the latest
@@ -369,4 +370,195 @@ export const reorderWorkoutExercises = (
   apiPatch<never>(
     `${structurePath(programId)}/weeks/${encodeURIComponent(weekId)}/workouts/${encodeURIComponent(workoutId)}/exercises/order`,
     { ids }
+  );
+
+
+export interface TrainerClientAccessAssignment {
+  assignment_id?: string;
+  program_id: string;
+  program_name: string;
+  program_status: string;
+  assigned_at: string;
+  owned_by_current_trainer: boolean;
+  access_status: "active" | "unavailable";
+}
+
+export interface TrainerClientProgramAccess {
+  program_id: string;
+  program_name: string;
+  program_status: string;
+  granted_at: string;
+  expires_at: string | null;
+  access_status: "active" | "unavailable";
+}
+
+export interface TrainerClientStatistics {
+  has_active_assignment: boolean;
+  has_active_program: boolean;
+  current_program_name: string;
+  total_executions: number;
+  unique_workouts_completed: number;
+  total_workouts_in_program: number;
+  completion_percentage: number;
+  last_workout_date: string | null;
+  completed_sessions: number;
+  abandoned_sessions: number;
+  completed_sets: number;
+  skipped_sets: number;
+  total_active_seconds: number;
+}
+
+export interface TrainerClientSessionSummary {
+  id: string;
+  program_id: string;
+  program_name: string;
+  week_number: number;
+  workout_position: number;
+  status: "in_progress" | "paused" | "completed" | "abandoned";
+  started_at: string;
+  completed_at: string | null;
+  abandoned_at: string | null;
+  elapsed_seconds: number;
+  total_sets: number;
+  completed_sets: number;
+  skipped_sets: number;
+}
+
+export interface TrainerClientExerciseSummary {
+  exercise_id: string;
+  name: string;
+  session_count: number;
+  last_performed_at: string;
+}
+
+export interface TrainerClientOverview {
+  access: {
+    assignments: TrainerClientAccessAssignment[];
+    purchases: TrainerClientProgramAccess[];
+    free_activations: TrainerClientProgramAccess[];
+  };
+  statistics: TrainerClientStatistics;
+  active_session: TrainerClientSessionSummary | null;
+  recent_sessions: TrainerClientSessionSummary[];
+  legacy: {
+    count: number;
+    last_completed_at: string | null;
+  };
+  exercises: TrainerClientExerciseSummary[];
+}
+
+export interface TrainerClientSessionsPage {
+  sessions: TrainerClientSessionSummary[];
+  pagination: AdminPagination;
+}
+
+export interface TrainerClientExerciseHistorySet {
+  id: string;
+  set_number: number;
+  set_type: string;
+  prescribed_reps: number | null;
+  prescribed_weight_kg: number | null;
+  prescribed_rir: number | null;
+  prescribed_rpe: number | null;
+  prescribed_rest_seconds: number | null;
+  prescribed_tempo: string;
+  actual_reps: number | null;
+  actual_weight_kg: number | null;
+  actual_rir: number | null;
+  actual_rpe: number | null;
+  status: "pending" | "completed" | "skipped";
+  completed_at: string | null;
+}
+
+export interface TrainerClientExerciseHistorySession {
+  session_id: string;
+  program_id: string;
+  program_name: string;
+  week_number: number;
+  workout_position: number;
+  completed_at: string | null;
+  exercise_id: string;
+  exercise_name: string;
+  instructions: string;
+  notes: string;
+  sets: TrainerClientExerciseHistorySet[];
+}
+
+export interface TrainerClientExerciseHistory {
+  exercise_id: string;
+  name: string;
+  sessions: TrainerClientExerciseHistorySession[];
+}
+
+export interface TrainerClientProgramAssignment {
+  id: string;
+  trainer_id: string;
+  program_id: string;
+  user_id: string;
+  program: {
+    id: string;
+    trainer_id: string;
+    name: string;
+    description: string;
+    type: TrainerProgramTypeValue;
+    status: TrainerProgramStatusValue;
+    created_at: string;
+    updated_at: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export const fetchTrainerClient = (userId: string): Promise<TrainerClient> =>
+  apiGet<TrainerClient>(`/trainer/clients/${encodeURIComponent(userId)}`);
+
+export const fetchTrainerClientOverview = (userId: string): Promise<TrainerClientOverview> =>
+  apiGet<TrainerClientOverview>(`/trainer/clients/${encodeURIComponent(userId)}/overview`);
+
+export const fetchTrainerClientStatistics = (userId: string): Promise<TrainerClientStatistics> =>
+  apiGet<TrainerClientStatistics>(`/trainer/clients/${encodeURIComponent(userId)}/statistics`);
+
+export const fetchTrainerClientWorkoutSessions = (
+  userId: string,
+  page: number,
+  limit: number
+): Promise<TrainerClientSessionsPage> =>
+  apiGet<TrainerClientSessionsPage>(
+    `/trainer/clients/${encodeURIComponent(userId)}/workout-sessions?page=${page}&limit=${limit}`
+  );
+
+export const fetchTrainerClientWorkoutSession = (
+  userId: string,
+  sessionId: string
+): Promise<WorkoutSession> =>
+  apiGet<WorkoutSession>(
+    `/trainer/clients/${encodeURIComponent(userId)}/workout-sessions/${encodeURIComponent(sessionId)}`
+  );
+
+export const fetchTrainerClientExerciseHistory = (
+  userId: string,
+  exerciseId: string,
+  limit = 20
+): Promise<TrainerClientExerciseHistory> =>
+  apiGet<TrainerClientExerciseHistory>(
+    `/trainer/clients/${encodeURIComponent(userId)}/exercises/${encodeURIComponent(exerciseId)}/history?limit=${limit}`
+  );
+
+export const fetchTrainerClientPrograms = (userId: string): Promise<TrainerClientProgramAssignment[]> =>
+  apiGet<{ programs: TrainerClientProgramAssignment[] }>(
+    `/trainer/clients/${encodeURIComponent(userId)}/programs`
+  ).then((data) => data.programs);
+
+export const assignTrainerClientProgram = (
+  userId: string,
+  programId: string
+): Promise<TrainerClientProgramAssignment> =>
+  apiPost<TrainerClientProgramAssignment>(
+    `/trainer/clients/${encodeURIComponent(userId)}/programs`,
+    { program_id: programId }
+  );
+
+export const removeTrainerClientProgram = (userId: string, assignmentId: string): Promise<never> =>
+  apiDelete<never>(
+    `/trainer/clients/${encodeURIComponent(userId)}/programs/${encodeURIComponent(assignmentId)}`
   );

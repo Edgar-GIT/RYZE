@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # API.MD
 
-Version: 2.101.0
+Version: 2.102.0
 
 ---
 
@@ -1520,8 +1520,9 @@ Response `data` uses the same shape as a list item: the relationship identity,
 `trainer_id` (always the authenticated trainer), `user_id` and a nested safe
 user object (`id`, `email`, `first_name`, `last_name`, `created_at`,
 `updated_at`). Password hashes, session versions and soft-delete flags are never
-exposed. No trainer-specific fitness data (weight, goals, diet, progress, PRs,
-programs, statistics or payments) is returned.
+exposed. This profile response is identity and relationship metadata only.
+Fitness data is returned exclusively by the explicit trainer client insight
+endpoints below, which enforce the same active relationship and permission.
 
 Responses:
 
@@ -1724,6 +1725,139 @@ Responses:
 - `400 VALIDATION_ERROR` — malformed identifiers.
 - `404 ASSIGNMENT_NOT_FOUND` — the assignment does not exist, is soft-deleted,
   belongs to another client or the owning relationship is not active.
+
+Requires `trainer.clients`.
+
+---
+
+### Trainer Client Insights
+
+The insight endpoints are grouped under `/api/v1/trainer/clients/:userID` and
+require `trainer.clients`. They are strictly read-only. The acting trainer comes
+exclusively from the authenticated trainer context, and every request verifies
+the active `trainer_clients` relationship before reading anything. The `userID`
+path parameter identifies the resource and never proves access. A missing user,
+a removed relationship, a soft-deleted client and a user managed by another
+trainer are indistinguishable and answer `404 CLIENT_NOT_FOUND`.
+
+An insight response never includes nutrition, questionnaire answers, medical
+data, payments, password hashes, session versions, deletion markers or internal
+storage fields. A removed relationship blocks every insight endpoint on the next
+request.
+
+All timestamps are ISO 8601 UTC.
+
+#### `GET /api/v1/trainer/clients/:userID/overview`
+
+Returns the client's current training snapshot. Response `data`:
+
+- `access` — the client's active access sources:
+  - `assignments` — every active trainer assignment held by the client, across
+    trainers, newest first:
+    - `assignment_id` — present only when
+      `owned_by_current_trainer` is `true`; omitted for another trainer's
+      assignment so it can never be addressed through this trainer's API.
+    - `program_id`, `program_name`, `program_status`, `assigned_at`.
+    - `owned_by_current_trainer` — whether this trainer created the assignment.
+    - `access_status` — `active` or `unavailable`. An assignment is `unavailable`
+      when its programme is missing, soft-deleted or unpublished.
+  - `purchases` — live purchase-backed entitlements, in grant order:
+    `program_id`, `program_name`, `program_status`, `granted_at`, `expires_at`
+    and `access_status`. A live entitlement stays `active` after the programme is
+    unpublished; a soft-deleted programme is `unavailable`.
+  - `free_activations` — live Free activations with the same fields plus
+    `granted_at`. A Free access requires a published `free` / `generic`
+    programme.
+- `statistics` — the same aggregate payload as `GET /api/v1/me/statistics`,
+  computed by the shared statistics service for this client.
+- `active_session` — the client's single `in_progress` or `paused` session
+  summary, or `null`. `elapsed_seconds` includes the live segment while the
+  session is in progress and only accumulated time while paused.
+- `recent_sessions` — the 10 newest finished sessions (`completed` or
+  `abandoned`), newest first. Each summary carries `id`, `program_id`,
+  `program_name`, `week_number`, `workout_position`, `status`, `started_at`,
+  `completed_at`, `abandoned_at`, `elapsed_seconds`, `total_sets`,
+  `completed_sets` and `skipped_sets`. Legacy completion-only entries are never
+  mixed into this list.
+- `legacy` — `count` and `last_completed_at` for the client's legacy
+  `workout_history` rows. Those rows have no duration, exercise or set data.
+- `exercises` — exercises present in the client's completed sessions:
+  `exercise_id`, `name`, `session_count`, `last_performed_at`, most recently
+  performed first.
+
+#### `GET /api/v1/trainer/clients/:userID/statistics`
+
+Returns the same client statistics payload as `GET /api/v1/me/statistics`,
+after the trainer-client relationship check. The current programme resolution
+and the all-time session/set counters are owned by the statistics module; the
+trainer insight surface does not reimplement or alter them.
+
+#### `GET /api/v1/trainer/clients/:userID/workout-sessions?page=1&limit=20`
+
+Returns one page of the client's finished interactive sessions, newest first.
+
+- `page` — 1-based, default `1`.
+- `limit` — default `20`, maximum `100`.
+
+Response `data`:
+
+- `sessions` — array of session summaries with the same shape as
+  `recent_sessions` above.
+- `pagination` — `page`, `limit`, `total`, `total_pages`.
+
+Only `completed` and `abandoned` sessions are listed. Legacy history is exposed
+only through the aggregate `legacy` summary. Invalid pagination values answer
+`400 VALIDATION_ERROR`.
+
+#### `GET /api/v1/trainer/clients/:userID/workout-sessions/:sessionID`
+
+Returns one of the client's sessions with the full exercise and set snapshot,
+using the same session representation as
+`GET /api/v1/me/workout-sessions/{sessionID}`. The session must belong to the
+verified client. A foreign or unknown session answers
+`404 WORKOUT_SESSION_NOT_FOUND`; malformed identifiers answer
+`400 VALIDATION_ERROR`.
+
+#### `GET /api/v1/trainer/clients/:userID/exercises/:exerciseID/history?limit=20`
+
+Returns the client's completed sessions that contain the requested exercise,
+newest first.
+
+- `limit` — default `20`, maximum `100`.
+
+Response `data`:
+
+- `exercise_id` — the requested exercise UUID.
+- `name` — the exercise name from the session snapshot; empty when no completed
+  session contains it.
+- `sessions` — array of:
+  - `session_id`, `program_id`, `program_name`, `week_number`,
+    `workout_position`, `completed_at`.
+  - `exercise_id`, `exercise_name`, `instructions`, `notes`.
+  - `sets` — the immutable session sets for that exercise: `id`, `set_number`,
+    `set_type`, the prescribed snapshot (`prescribed_reps`,
+    `prescribed_weight_kg`, `prescribed_rir`, `prescribed_rpe`,
+    `prescribed_rest_seconds`, `prescribed_tempo`), the actual values
+    (`actual_reps`, `actual_weight_kg`, `actual_rir`, `actual_rpe`), `status`
+    and `completed_at`.
+
+Only `completed` sessions are included. A valid exercise UUID that the client
+has never completed returns an empty `sessions` array, so the endpoint cannot
+enumerate other clients' training data.
+
+Responses common to the insight endpoints:
+
+- `200 OK` — the requested insight data.
+- `400 VALIDATION_ERROR` — malformed identifiers or pagination/limit values.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication or trainer
+  context.
+- `403 FORBIDDEN` — non-trainer or missing `trainer.clients` permission.
+- `404 CLIENT_NOT_FOUND` — the user does not exist, is soft-deleted, is not an
+  active client of this trainer or the relationship was soft-deleted.
+- `404 WORKOUT_SESSION_NOT_FOUND` — the session is unknown or belongs to another
+  client.
+- `500 INTERNAL_ERROR` — the insight could not be read; internal details are
+  never exposed.
 
 Requires `trainer.clients`.
 

@@ -48,6 +48,7 @@ import Admin2FeedbackPage from "@/pages/admin2/admin2_feedback_page/admin2_feedb
 import Admin2ExercisesPage from "@/pages/admin2/admin2_exercises_page/admin2_exercises_page";
 import Admin2SettingsPage from "@/pages/admin2/admin2_settings_page/admin2_settings_page";
 import { TrainerApplyPage } from "@/pages/trainer/trainer_apply_page/trainer_apply_page";
+import { TrainerClientDetailPage } from "@/pages/trainer/trainer_client_detail_page/trainer_client_detail_page";
 import { TrainerClientsPage } from "@/pages/trainer/trainer_clients_page/trainer_clients_page";
 import { TrainerDashboardPage } from "@/pages/trainer/trainer_dashboard_page/trainer_dashboard_page";
 import { TrainerProfilePage } from "@/pages/trainer/trainer_profile_page/trainer_profile_page";
@@ -133,6 +134,7 @@ export const AppRoutes = () => {
                   <Redirect from="/trainer" exact to="/trainer/dashboard" />
                   <Route exact path="/trainer/dashboard" component={TrainerDashboardPage} />
                   <Route exact path="/trainer/clients" component={TrainerClientsPage} />
+                  <Route exact path="/trainer/clients/:userID" component={TrainerClientDetailPage} />
                   <Route exact path="/trainer/programs" component={TrainerProgramsPage} />
                   <Route exact path="/trainer/programs/:programId" component={TrainerProgramDetailPage} />
                   <Route exact path="/trainer/profile" component={TrainerProfilePage} />

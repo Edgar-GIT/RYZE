@@ -1,6 +1,6 @@
 # RYZE Product Completeness Audit
 
-Version: v2.101.0
+Version: v2.102.0
 Date: 2026-11-05
 Status: living document — update whenever a backlog item is closed.
 

@@ -1,0 +1,175 @@
+.clientHeader {
+  margin-top: 0.5rem;
+}
+
+.clientIdentity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 4rem;
+  height: 4rem;
+  border: 1px solid rgba(24, 216, 255, 0.3);
+  border-radius: 50%;
+  color: var(--accent-cyan);
+  background: rgba(24, 216, 255, 0.1);
+  font-size: 1.45rem;
+  font-weight: 800;
+}
+
+.sectionHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.activeCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  border-color: rgba(87, 214, 145, 0.3);
+  background: rgba(87, 214, 145, 0.07);
+}
+
+.chipActive {
+  border-color: rgba(87, 214, 145, 0.4);
+  color: #8be8b3;
+  background: rgba(87, 214, 145, 0.1);
+}
+
+.assignmentForm {
+  display: grid;
+  gap: 0.8rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(24, 216, 255, 0.1);
+}
+
+.assignmentActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.sessionItem {
+  overflow: hidden;
+  border: 1px solid rgba(24, 216, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(7, 11, 18, 0.5);
+}
+
+.sessionButton {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 1rem 1.15rem;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sessionButton:hover,
+.sessionButton:focus-visible {
+  background: rgba(24, 216, 255, 0.06);
+}
+
+.sessionButton:focus-visible {
+  outline: 2px solid rgba(24, 216, 255, 0.55);
+  outline-offset: -2px;
+}
+
+.sessionDetail {
+  display: grid;
+  gap: 1rem;
+  padding: 0 1.15rem 1.15rem;
+}
+
+.exerciseBlock {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(24, 216, 255, 0.1);
+}
+
+.exerciseTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgba(24, 216, 255, 0.12);
+  border-radius: 10px;
+}
+
+.table {
+  width: 100%;
+  min-width: 36rem;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.table th,
+.table td {
+  padding: 0.6rem 0.7rem;
+  border-bottom: 1px solid rgba(24, 216, 255, 0.08);
+  color: var(--text-secondary);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  color: var(--text-muted);
+  background: rgba(24, 216, 255, 0.04);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+.mutedNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.mutedNote p {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .avatar {
+    width: 3.2rem;
+    height: 3.2rem;
+    font-size: 1.15rem;
+  }
+
+  .sessionButton {
+    align-items: flex-start;
+  }
+}

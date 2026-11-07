@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Search, Trash2, UserPlus } from "lucide-react";
+import { ChevronRight, RefreshCw, Search, Trash2, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
@@ -290,14 +290,24 @@ export const TrainerClientsPage = () => {
                         </Button>
                       </>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        size="small"
-                        icon={<Trash2 size={15} />}
-                        onClick={() => setConfirmRemoveId(client.user_id)}
-                      >
-                        Remove
-                      </Button>
+                      <>
+                        <Button
+                          to={`/trainer/clients/${client.user_id}`}
+                          variant="secondary"
+                          size="small"
+                          icon={<ChevronRight size={15} />}
+                        >
+                          View client
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="small"
+                          icon={<Trash2 size={15} />}
+                          onClick={() => setConfirmRemoveId(client.user_id)}
+                        >
+                          Remove
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>

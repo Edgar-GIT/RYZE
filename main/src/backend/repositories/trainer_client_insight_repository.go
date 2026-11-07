@@ -10,10 +10,6 @@ import (
 	"ryze/backend/models"
 )
 
-// TrainerClientSessionSummary is the aggregate view of one workout session
-// without its exercise/set detail. It is used by the trainer client activity
-// list, so it carries only the session identity, the display context, the
-// lifecycle timestamps, the active duration and the set counters.
 type TrainerClientSessionSummary struct {
 	ID                 string
 	ProgramID          string
@@ -32,16 +28,11 @@ type TrainerClientSessionSummary struct {
 	SkippedSets        int64
 }
 
-// TrainerClientLegacySummary is the aggregate of the completion-only workout
-// history. Legacy entries have no duration or set-level performance, so only
-// their count and latest completion date can be reported.
 type TrainerClientLegacySummary struct {
 	Count           int64
 	LastCompletedAt *time.Time
 }
 
-// TrainerClientExerciseSummary identifies one exercise that appears in the
-// client's completed sessions and the number of sessions that recorded it.
 type TrainerClientExerciseSummary struct {
 	ExerciseID      string
 	Name            string
@@ -49,11 +40,6 @@ type TrainerClientExerciseSummary struct {
 	LastPerformedAt time.Time
 }
 
-// TrainerClientInsightRepository is the read-only data-access surface used by
-// the trainer client detail area. Every operation receives the client user id
-// explicitly. The caller must first verify that the authenticated trainer has
-// an active relationship with that user; this repository never resolves an
-// identity from an HTTP context.
 type TrainerClientInsightRepository interface {
 	ListActiveAssignmentsByUser(ctx context.Context, userID string) ([]models.ProgramAssignment, error)
 	ListActiveEntitlementsByUser(ctx context.Context, userID string) ([]models.Entitlement, error)
@@ -74,11 +60,6 @@ func NewTrainerClientInsightRepository(db *gorm.DB) TrainerClientInsightReposito
 	return &trainerClientInsightRepository{db: db}
 }
 
-// ListActiveAssignmentsByUser returns every active trainer assignment held by
-// the client, across all trainers, newest first. Soft-deleted assignments are
-// excluded by GORM's default scope. The program is preloaded without the
-// soft-delete scope so a historical assignment keeps its display metadata even
-// after the program was retired.
 func (r *trainerClientInsightRepository) ListActiveAssignmentsByUser(ctx context.Context, userID string) ([]models.ProgramAssignment, error) {
 	var assignments []models.ProgramAssignment
 	if err := r.db.WithContext(ctx).
@@ -91,10 +72,6 @@ func (r *trainerClientInsightRepository) ListActiveAssignmentsByUser(ctx context
 	return assignments, nil
 }
 
-// ListActiveEntitlementsByUser returns every live purchase-backed entitlement
-// held by the client. Expired and soft-deleted rows are excluded. The program
-// is loaded without the soft-delete scope so the trainer can tell a retired
-// program apart from a missing one without losing its name.
 func (r *trainerClientInsightRepository) ListActiveEntitlementsByUser(ctx context.Context, userID string) ([]models.Entitlement, error) {
 	var entitlements []models.Entitlement
 	if err := r.db.WithContext(ctx).
@@ -107,8 +84,6 @@ func (r *trainerClientInsightRepository) ListActiveEntitlementsByUser(ctx contex
 	return entitlements, nil
 }
 
-// ListActiveFreeActivationsByUser returns the client's live Free activation.
-// The product rule allows at most one active activation per user.
 func (r *trainerClientInsightRepository) ListActiveFreeActivationsByUser(ctx context.Context, userID string) ([]models.FreeProgramActivation, error) {
 	var activations []models.FreeProgramActivation
 	if err := r.db.WithContext(ctx).
@@ -121,9 +96,6 @@ func (r *trainerClientInsightRepository) ListActiveFreeActivationsByUser(ctx con
 	return activations, nil
 }
 
-// ListSessions returns one page of the client's finished interactive sessions,
-// newest first, with their set counters. Legacy completion-only entries are a
-// separate history source and are never mixed into this list.
 func (r *trainerClientInsightRepository) ListSessions(ctx context.Context, userID string, limit, offset int) ([]TrainerClientSessionSummary, error) {
 	var summaries []TrainerClientSessionSummary
 	if err := r.sessionSummaryQuery(ctx, userID).
@@ -140,8 +112,6 @@ func (r *trainerClientInsightRepository) ListSessions(ctx context.Context, userI
 	return summaries, nil
 }
 
-// CountSessions returns the total number of finished interactive sessions the
-// client owns.
 func (r *trainerClientInsightRepository) CountSessions(ctx context.Context, userID string) (int64, error) {
 	var total int64
 	if err := r.db.WithContext(ctx).
@@ -156,8 +126,6 @@ func (r *trainerClientInsightRepository) CountSessions(ctx context.Context, user
 	return total, nil
 }
 
-// FindActiveSession returns the client's in-progress or paused session, if one
-// exists. The caller derives the live elapsed time from LastResumedAt.
 func (r *trainerClientInsightRepository) FindActiveSession(ctx context.Context, userID string) (*TrainerClientSessionSummary, error) {
 	var summary TrainerClientSessionSummary
 	if err := r.sessionSummaryQuery(ctx, userID).
@@ -176,8 +144,6 @@ func (r *trainerClientInsightRepository) FindActiveSession(ctx context.Context, 
 	return &summary, nil
 }
 
-// LegacySummary returns the count and latest date of completion-only history
-// entries. Those entries do not carry duration, exercise or set data.
 func (r *trainerClientInsightRepository) LegacySummary(ctx context.Context, userID string) (TrainerClientLegacySummary, error) {
 	var summary TrainerClientLegacySummary
 	if err := r.db.WithContext(ctx).
@@ -190,9 +156,6 @@ func (r *trainerClientInsightRepository) LegacySummary(ctx context.Context, user
 	return summary, nil
 }
 
-// ListExerciseSummaries returns the exercises that appear in the client's
-// completed sessions, with the number of completed sessions and the latest
-// completion date. Names come from the immutable session snapshot.
 func (r *trainerClientInsightRepository) ListExerciseSummaries(ctx context.Context, userID string) ([]TrainerClientExerciseSummary, error) {
 	var summaries []TrainerClientExerciseSummary
 	if err := r.db.WithContext(ctx).
@@ -214,10 +177,6 @@ func (r *trainerClientInsightRepository) ListExerciseSummaries(ctx context.Conte
 	return summaries, nil
 }
 
-// ListExerciseHistory returns the client's completed sessions that contain the
-// requested exercise, newest first, with only that exercise and its recorded
-// sets preloaded. The session prescription snapshot is preserved, so the
-// prescribed and actual values remain separate.
 func (r *trainerClientInsightRepository) ListExerciseHistory(ctx context.Context, userID, exerciseID string, limit int) ([]models.WorkoutSession, error) {
 	exerciseSessions := r.db.Model(&models.WorkoutSessionExercise{}).
 		Select("workout_session_id").
