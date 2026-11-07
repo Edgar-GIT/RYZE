@@ -1235,7 +1235,8 @@ CTA
 # Trainer Area
 
 Routes: `/trainer/apply`, `/trainer/dashboard`, `/trainer/clients`,
-`/trainer/programs`, `/trainer/programs/:programId`, `/trainer/profile`.
+`/trainer/clients/:userID`, `/trainer/programs`, `/trainer/programs/:programId`,
+`/trainer/profile`.
 
 The trainer area reuses the existing dark RYZE design language (near-black
 backgrounds, cyan accents, rounded translucent cards, the shared `Button` and
@@ -1290,8 +1291,42 @@ Clients (`/trainer/clients`)
   confirm. No fuzzy search and no user directory.
 - One card list of active clients (name, email, relationship date) with
   pagination and an inline two-step remove confirmation.
-- Server codes are mapped to plain wording (unknown email, already added,
-  already removed, self-add); raw tokens are never displayed.
+- Each client row has a clear "View client" action. Server codes are mapped to
+  plain wording (unknown email, already added, already removed, self-add); raw
+  tokens are never displayed.
+
+Client detail (`/trainer/clients/:userID`)
+
+- The page loads the safe client profile, the training overview, the client's
+  trainer assignments and the trainer's own programme list together; a missing
+  or unrelated client shows one honest "Client not found" state, never a
+  distinguishable reason.
+- Header: avatar initial, name, email and relationship date, plus a back link to
+  all clients.
+- Four compact summary cards: current programme, programme completion, completed
+  workouts and training time. Values are real API data only; empty states are
+  explicit and no placeholder charts are shown.
+- A live-workout card appears only when the client has an in-progress or paused
+  session, with programme, week/workout position, elapsed time and status.
+- Programme access is one card with three separate source groups: trainer
+  assignments, purchases and Free activations. Each row shows the programme,
+  grant date, optional expiry and an Active/Unavailable chip. Assignment and
+  Free access become Unavailable when the programme is not published; purchases
+  stay Active after unpublishing.
+- The current trainer may assign one of their own programmes and remove their
+  own assignment with an inline two-step confirmation. Another trainer's
+  assignment is read-only and has no addressable action.
+- Session history starts from the 10 most recent finished sessions and can load
+  the paginated full list. Each row expands to show the snapshot exercises, the
+  prescribed and actual reps/weight, effort and set status. Long tables scroll
+  horizontally on small screens.
+- Exercise history uses an exercise selector built from completed sessions and
+  shows the prescribed and actual sets from that immutable snapshot.
+- Legacy completion-only history is explained as a count and latest date, never
+  rendered as if it had duration or set performance.
+- The page notes that it reflects recorded training only and includes no
+  nutrition, medical data or unrecorded activity. All expandable rows are real
+  buttons with `aria-expanded`; color is never the only status signal.
 
 Programs (`/trainer/programs`)
 

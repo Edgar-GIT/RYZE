@@ -251,25 +251,23 @@ export const TrainerClientDetailPage = () => {
     return state.programs.filter((program) => !assignedProgramIds.has(program.id));
   }, [state]);
 
-  useEffect(() => {
-    if (availablePrograms.length === 0) {
-      setSelectedProgramId("");
-      return;
-    }
-    if (!availablePrograms.some((program) => program.id === selectedProgramId)) {
-      setSelectedProgramId(availablePrograms[0].id);
-    }
-  }, [availablePrograms, selectedProgramId]);
+  const selectedAvailableProgramId = useMemo(
+    () =>
+      availablePrograms.some((program) => program.id === selectedProgramId)
+        ? selectedProgramId
+        : availablePrograms[0]?.id ?? "",
+    [availablePrograms, selectedProgramId]
+  );
 
   const assignProgram = async () => {
-    if (!selectedProgramId) {
+    if (!selectedAvailableProgramId) {
       setFeedback({ kind: "error", text: "Choose a programme first." });
       return;
     }
     setAssignmentBusy("assign");
     setFeedback(null);
     try {
-      await assignTrainerClientProgram(userID, selectedProgramId);
+      await assignTrainerClientProgram(userID, selectedAvailableProgramId);
       await refreshInsights();
       setFeedback({ kind: "success", text: "Programme assigned to this client." });
     } catch (error) {
@@ -579,7 +577,7 @@ export const TrainerClientDetailPage = () => {
             <span className={styles.label}>Assign one of your programmes</span>
             <select
               className={styles.select}
-              value={selectedProgramId}
+              value={selectedAvailableProgramId}
               onChange={(event) => setSelectedProgramId(event.target.value)}
               disabled={currentAssignment !== undefined || availablePrograms.length === 0}
             >

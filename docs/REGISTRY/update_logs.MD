@@ -1,3 +1,86 @@
+# Version 2.102.0
+
+Title: Secure trainer client detail with training insight and programme assignments
+
+Date: 2026-11-07
+
+Summary:
+
+v2.102.0 completes the trainer client-management detail surface. A trainer can
+open one of their active clients and see the client's real programme access,
+statistics, live session, finished session history and exercise performance,
+then assign or remove their own programme without exposing another trainer's
+mutable assignment. Every insight read revalidates the active trainer-client
+relationship and remains strictly read-only.
+
+The release adds no database migration and no parallel statistics, access or
+session model. It reuses `trainer_clients`, `statistics`, `workout_sessions`,
+program entitlements and Free activations, and presents legacy completion-only
+history honestly as a count and latest date.
+
+Main changes:
+
+- New repository `repositories/trainer_client_insight_repository.go` reads
+  active assignments, live entitlements, live Free activations, finished and
+  active sessions, set counters, legacy summaries and exercise snapshots. All
+  queries receive the verified client user id explicitly and are read-only.
+- New service `services/trainer_client_insights` verifies the active
+  trainer-client relationship before every operation, reuses the statistics and
+  workout-session services, maps access statuses and builds the overview,
+  paginated session list, full session detail and exercise history DTOs. Recent
+  sessions are limited to 10; history pages default to 20 and cap at 100.
+- New handler `api/auth/trainer_client_insights_handler.go` and five routes under
+  `/api/v1/trainer/clients/:userID`:
+  `overview`, `statistics`, `workout-sessions`,
+  `workout-sessions/:sessionID` and `exercises/:exerciseID/history`. Every route
+  requires `trainer.clients`; malformed input answers `VALIDATION_ERROR`,
+  unrelated clients `CLIENT_RELATION_NOT_FOUND`, foreign sessions
+  `WORKOUT_SESSION_NOT_FOUND`, and internal details never reach the response.
+- Access overview keeps trainer assignments, purchase entitlements and Free
+  activations separate. Assignment and Free access become `unavailable` when the
+  programme is missing, deleted or unpublished; live entitlements stay `active`
+  after unpublishing. Another trainer's assignment is visible as read-only
+  context but its assignment id is omitted.
+- Frontend `services/trainer_api.ts` gains the insight types and fetch calls.
+  The new `/trainer/clients/:userID` page reuses the shared trainer styling,
+  `Button`, `LoadingScreen` and `workout_sessions_api` session shape. It presents
+  real stats, a live-workout card, access sources, assign/remove controls,
+  expandable session snapshots, paginated history, exercise history and the
+  legacy note with honest empty/error states. The client list now links each row
+  through "View client".
+- No nutrition, questionnaire answers, medical data, payments, trainer-authored
+  performance or client-generated training records are exposed. No new
+  permission, role, upload, notification or messaging surface is introduced.
+- Docs updated: API, security, architecture, database, design, project vision,
+  local endpoint list, roadmap, completeness audit and this registry. No
+  migration file was added; schema version remains `34`.
+
+Reason:
+
+Trainers could manage client relationships and assignments but could not see the
+client's actual training record, so the client detail area stopped at identity
+metadata. The product needs a secure, useful training overview without turning
+the trainer area into a second statistics engine or granting access to sensitive
+non-training data. This release composes the existing modules behind one
+relationship-scoped read surface, preserves historical snapshots and legacy
+history semantics, and keeps assignments scoped to their owning trainer.
+
+Validation:
+
+- Isolated MariaDB on `127.0.0.1:33107`, database `ryze_test_workout`;
+  `migrate version` reports `34 (dirty=false)`.
+- `DB_HOST=127.0.0.1 DB_PORT=33107 DB_NAME=ryze_test_workout DB_USER=root DB_PASSWORD= go test -count=1 ./...` passed every package uncached (`api/auth` 34.953s, `repositories` 2.825s, `routes` 5.248s).
+- `go vet ./...`, `go build ./...` and a clean `gofmt -l` check passed.
+- `npm run typecheck` passed.
+- `npm run test` passed 19 files / 137 tests.
+- `npm run build` passed.
+- `npm run test:e2e` passed 8/8 Playwright tests in 19.5s.
+- Focused coverage: `trainer_client_insights` service tests, isolated
+  `TrainerClientInsightRepository` integration tests, insight handler tests,
+  25 trainer API tests and 6 client-detail page tests.
+
+---
+
 # Version 2.101.0
 
 Title: Objective-based Premium Level 1 catalogue and curated nutrition

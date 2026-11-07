@@ -153,7 +153,7 @@ func (h *TrainerClientInsightsHandler) respondError(c *gin.Context, err error) {
 	case errors.Is(err, trainer_client_insights.ErrInvalidInput):
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 	case errors.Is(err, trainer_client_insights.ErrClientNotFound):
-		RespondError(c, http.StatusNotFound, "CLIENT_NOT_FOUND", "Client not found.", nil)
+		RespondError(c, http.StatusNotFound, "CLIENT_RELATION_NOT_FOUND", "Client relationship not found.", nil)
 	case errors.Is(err, trainer_client_insights.ErrSessionNotFound):
 		RespondError(c, http.StatusNotFound, "WORKOUT_SESSION_NOT_FOUND", "Workout session not found.", nil)
 	case errors.Is(err, trainer_client_insights.ErrStatisticsInternal),

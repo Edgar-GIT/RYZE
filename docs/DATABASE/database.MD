@@ -1607,6 +1607,33 @@ assignments, so no foreign data can ever leak.
 
 ---
 
+## Trainer Client Insight Reads (no schema change)
+
+The trainer client detail area does not add a table, column or migration. It is a
+read-only composition of existing records, scoped by the verified
+`trainer_clients` relationship:
+
+- Access sources come from `program_assignments`, `entitlements` and
+  `free_program_activations`, each joined to its programme. Active assignment and
+  Free access require a published programme; a live purchase entitlement stays
+  active after unpublishing. Soft-deleted programmes are reported as
+  unavailable without being removed from historical display.
+- Finished training comes from `workout_sessions`,
+  `workout_session_exercises` and `workout_session_sets`; the session snapshots
+  preserve the prescription and recorded performance. Only `completed` and
+  `abandoned` sessions enter the history list, and full exercise history reads
+  only `completed` sessions.
+- Legacy `workout_history` contributes only its row count and latest
+  `completed_at`. It has no duration, exercise or set detail to join.
+- Statistics are resolved by the existing statistics query over the same tables;
+  the insight read does not duplicate that aggregation.
+- Assignment ids belonging to another trainer are never projected. All queries
+  require the caller to pass the client user id after the service has verified
+  the active relationship, and removing that relationship blocks the reads on the
+  next request.
+
+---
+
 ## Client Workout History
 
 The `workout_history` table is the append-only execution log of one workout of

@@ -138,7 +138,7 @@ func TestTrainerClientInsightsHandlerErrors(t *testing.T) {
 		&identity,
 	)
 	recorder, body := insightRequest(notFoundRouter, http.MethodGet, "/api/v1/trainer/clients/22222222-2222-2222-2222-222222222222/overview")
-	if recorder.Code != http.StatusNotFound || body["error"].(map[string]any)["code"] != "CLIENT_NOT_FOUND" {
+	if recorder.Code != http.StatusNotFound || body["error"].(map[string]any)["code"] != "CLIENT_RELATION_NOT_FOUND" {
 		t.Fatalf("unrelated client response = %d %v", recorder.Code, body)
 	}
 

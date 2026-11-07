@@ -839,6 +839,17 @@ Current API surface (versioned under `/api/v1`):
   `trainer.clients`.
 - `POST /api/v1/trainer/clients/{userID}/reactivate` — restores the exact same
   previously removed relationship; requires `trainer.clients`.
+- `GET /api/v1/trainer/clients/{userID}/overview` — returns the client's access
+  sources, statistics, active session, recent sessions, legacy summary and
+  exercise list; requires `trainer.clients`.
+- `GET /api/v1/trainer/clients/{userID}/statistics` — returns the client's
+  programme-aware workout statistics; requires `trainer.clients`.
+- `GET /api/v1/trainer/clients/{userID}/workout-sessions` — lists the client's
+  finished sessions (paginated); requires `trainer.clients`.
+- `GET /api/v1/trainer/clients/{userID}/workout-sessions/{sessionID}` — returns
+  one full session snapshot owned by the client; requires `trainer.clients`.
+- `GET /api/v1/trainer/clients/{userID}/exercises/{exerciseID}/history` — returns
+  the client's completed snapshots for one exercise; requires `trainer.clients`.
 - `GET /api/v1/admin/trainer-applications` — lists trainer applications
   (pagination + optional `status` filter); requires `trainer_applications.read`
   (both roles).

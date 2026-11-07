@@ -1,7 +1,7 @@
 # RYZE Product Completeness Audit
 
 Version: v2.102.0
-Date: 2026-11-05
+Date: 2026-11-07
 Status: living document — update whenever a backlog item is closed.
 
 This document records the product-completeness audit of the RYZE platform
@@ -100,8 +100,9 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Trainer approval / rejection | Partial | transactional approval exists but the final status update is guarded only by `id` (concurrent-review race); no decision history; rejection atomic |
 | Verification lifecycle (more-info, suspend, reinstate, history) | Missing | only PENDING/APPROVED/REJECTED, no stored reviewer decisions |
 | Trainer dashboard | Complete/Verified | data from clients/programs services |
-| Trainer clients | Complete/Verified | trainer_clients service + tests |
-| Trainer private client programs | Complete/Verified | trainer_client_program handler tests |
+| Trainer clients | Complete/Verified | trainer_clients service + tests; client list UI |
+| Trainer client training insight | Complete/Verified | relationship-scoped overview/statistics/session/exercise-history APIs, repository + service + handler tests, client detail page tests |
+| Trainer private client programs | Complete/Verified | trainer_client_program handler tests; assign/remove controls in the client detail UI |
 | Trainer profile | Complete/Verified | trainer_profile service |
 
 ### Administration
@@ -153,6 +154,9 @@ its configuration locally, so deployment-only paths remain marked unverified.
    **Closed in v2.97.0.**
 - **v2.101.0:** objective-based Premium Level 1 catalogue, curated nutrition
   packages, ADMIN_2 authoring and legacy questionnaire compatibility. Closed.
+- **v2.102.0:** secure trainer client detail with access sources, programme
+  assignment controls, statistics, session history and exercise performance.
+  Closed.
 
 ### P2 — product capability gaps
 

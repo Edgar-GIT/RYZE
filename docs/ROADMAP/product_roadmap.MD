@@ -45,6 +45,8 @@ implemented surfaces.
 Scope:
 
 - Trainer program detail prescription editor consuming the Phase A API.
+- Secure trainer client detail with real access sources, assignments, statistics,
+  session history and exercise performance. **Closed in v2.102.0.**
 - Home/Services content from the API; remove hardcoded prices and any Premium
   Level 2 placeholder.
 - Marketplace server-side filtering, sorting and pagination. **Closed in v2.98.0.**
@@ -78,7 +80,9 @@ configuration is still required before a live send can be verified. v2.100.0
 completed secure programme access, Free activation and interactive workout
 sessions. v2.101.0 completed the objective-based Premium Level 1 catalogue,
 curated nutrition packages, ADMIN_2 authoring and the legacy questionnaire
-compatibility path.
+compatibility path. v2.102.0 completed the secure trainer client detail with
+real access sources, programme assignment controls, statistics, session history
+and exercise performance.
 
 ## Phase C — Commerce and Operations
 

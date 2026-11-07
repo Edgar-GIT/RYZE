@@ -1738,7 +1738,7 @@ exclusively from the authenticated trainer context, and every request verifies
 the active `trainer_clients` relationship before reading anything. The `userID`
 path parameter identifies the resource and never proves access. A missing user,
 a removed relationship, a soft-deleted client and a user managed by another
-trainer are indistinguishable and answer `404 CLIENT_NOT_FOUND`.
+trainer are indistinguishable and answer `404 CLIENT_RELATION_NOT_FOUND`.
 
 An insight response never includes nutrition, questionnaire answers, medical
 data, payments, password hashes, session versions, deletion markers or internal
@@ -1852,8 +1852,8 @@ Responses common to the insight endpoints:
 - `401 AUTHENTICATION_REQUIRED` — missing or invalid authentication or trainer
   context.
 - `403 FORBIDDEN` — non-trainer or missing `trainer.clients` permission.
-- `404 CLIENT_NOT_FOUND` — the user does not exist, is soft-deleted, is not an
-  active client of this trainer or the relationship was soft-deleted.
+- `404 CLIENT_RELATION_NOT_FOUND` — the user does not exist, is soft-deleted, is
+  not an active client of this trainer or the relationship was soft-deleted.
 - `404 WORKOUT_SESSION_NOT_FOUND` — the session is unknown or belongs to another
   client.
 - `500 INTERNAL_ERROR` — the insight could not be read; internal details are

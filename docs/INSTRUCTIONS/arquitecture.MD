@@ -414,8 +414,41 @@ The trainer-client area is a deliberately bounded foundation:
   trainer area: the client profile is exposed strictly as a read-only safe view.
 - The whole area is guarded by the single `trainer.clients` permission. There
   are no sub-permissions and operations never branch on finer-grained roles.
-- The relationship carries no business fields (progress, goals, diet or
-  statistics) and no such field is added until a real feature requires it.
+- The relationship carries no duplicated business fields (progress, goals, diet
+  or statistics). Recorded training insight is derived from the owning modules
+  through a separate read-only surface, never stored on the relationship.
+
+### Trainer Client Insights
+
+The client detail area adds a read-only insight module without introducing a new
+source of truth:
+
+- `TrainerClientInsightsHandler` (thin, in `api/auth`) →
+  `trainer_client_insights` service (in
+  `services/trainer_client_insights`) → `TrainerClientInsightRepository` (in
+  `repositories`) for access and training-history reads.
+- The service reuses `trainer_clients` for the relationship check,
+  `statistics` for the client aggregates and `workout_sessions` for full session
+  detail. It does not fork statistics, access-grant resolution or session
+  authorization.
+- Every operation takes the client user id explicitly after verifying the active
+  trainer-client relationship. The repository never resolves identity from an
+  HTTP context and every query is scoped by the verified client id.
+- Access overview keeps trainer assignments, purchase entitlements and Free
+  activations separate. Assignment and Free access require a published
+  programme; a live entitlement remains active after unpublishing. Other
+  trainers' assignment ids are omitted because they are not addressable by this
+  trainer.
+- Finished interactive sessions are read newest first with set counters, while
+  the legacy `workout_history` is represented only by its count and latest
+  completion date. Full exercise history reads the immutable session snapshots,
+  preserving prescribed and actual values.
+- The repository is read-only and adds no table, column, migration or duplicated
+  denormalised progress state. The relationship is revalidated on every request,
+  so removing a client closes the insight surface immediately.
+- Frontend: `/trainer/clients/:userID` renders the overview, access sources,
+  assignment controls, session history and exercise performance through the
+  existing trainer API service; `/trainer/clients` links each row to it.
 
 ### Trainer Program Assignments
 

@@ -311,9 +311,13 @@ infers trainer status client-side.
 
 Client management is a first-class trainer capability (under `trainer.clients`):
 an active trainer can list their clients, resolve an exact email to confirm the
-account, and add or remove the relationship with any active user. The
-relationship has its own lifecycle and is independent of the user account and
-the trainer profile (see the Trainer Clients sections in `database.MD` and
+account, add or remove the relationship with any active user, assign one of
+their own programmes, and read the client's recorded training overview, session
+history and exercise performance. The relationship has its own lifecycle and is
+independent of the user account and the trainer profile. Training insight is
+read-only and derived from the client's real access grants, statistics and
+immutable session snapshots; it never exposes nutrition, questionnaire answers,
+medical data or payments (see the Trainer Clients sections in `database.MD` and
 `api.MD`).
 
 ---

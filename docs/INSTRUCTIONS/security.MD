@@ -762,8 +762,51 @@ security model:
   reactivation.
 - Responses expose only the relationship identity and the client's public
   user fields. Password hashes, session versions and deletion markers are
-  never exposed. No trainer-specific fitness data (weight, goals, diet,
-  progress, PRs, programs, statistics or payments) is ever returned.
+  never exposed. The profile response remains identity and relationship
+  metadata only; recorded training insight is available exclusively through the
+  explicit read-only insight endpoints described below.
+
+### Trainer Client Insight Security
+
+The read-only insight routes
+(`/trainer/clients/:userID/overview`, `/statistics`,
+`/workout-sessions[/:sessionID]` and `/exercises/:exerciseID/history`) expose
+recorded training data, so they apply the relationship rule before every read:
+
+- The trainer identity comes only from the authenticated trainer context and
+  the route requires `trainer.clients`. No client-supplied trainer id, user id,
+  permission or role can change the scope.
+- `userID` is validated as a canonical UUID and the active
+  `trainer_clients` relationship is rechecked server-side on every request, not
+  cached from an earlier page load. Removing the relationship immediately
+  blocks overview, statistics, session and exercise-history reads.
+- A missing user, soft-deleted client, unrelated user and removed relationship
+  are indistinguishable and answer the same `404 CLIENT_RELATION_NOT_FOUND`, so
+  the endpoints cannot enumerate accounts.
+- Every query is scoped by the verified client user id. Session detail is
+  resolved through the existing workout-session service with that user id, so a
+  foreign or unknown session answers the same
+  `404 WORKOUT_SESSION_NOT_FOUND`.
+- Active assignments created by another trainer may be listed as read-only
+  context, but their assignment ids are omitted. This trainer cannot modify or
+  address another trainer's assignment through the insight API.
+- The overview reuses the client statistics service instead of maintaining a
+  second aggregation implementation. Access sources stay distinct: trainer
+  assignments, purchase entitlements and Free activations.
+- Access status is derived server-side. Assignment and Free access become
+  `unavailable` when the programme is missing, soft-deleted or unpublished;
+  live purchase entitlements remain `active` after unpublishing. Program names
+  and statuses are display metadata, not an authorization grant.
+- Responses contain only recorded training metadata and performance. Nutrition,
+  questionnaire answers, medical data, payments, password hashes, session
+  versions, deleted markers, internal columns and storage paths are never
+  projected. Prescribed and actual set values remain separate.
+- Legacy `workout_history` is exposed only as a count and latest completion
+  date; the full detail routes read immutable workout-session snapshots. No
+  legacy row is joined to unrelated records to infer missing performance.
+- The insight surface is strictly read-only and writes nothing. It performs no
+  logging of client performance data and returns generic server errors rather
+  than driver or query details.
 
 ### Trainer Program Assignment Security
 
