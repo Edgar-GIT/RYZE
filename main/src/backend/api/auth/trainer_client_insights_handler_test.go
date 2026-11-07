@@ -3,7 +3,6 @@ package auth_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -163,9 +162,5 @@ func TestTrainerClientInsightsHandlerErrors(t *testing.T) {
 	recorder, body = insightRequest(sessionNotFoundRouter, http.MethodGet, "/api/v1/trainer/clients/22222222-2222-2222-2222-222222222222/workout-sessions/33333333-3333-3333-3333-333333333333")
 	if recorder.Code != http.StatusNotFound || body["error"].(map[string]any)["code"] != "WORKOUT_SESSION_NOT_FOUND" {
 		t.Fatalf("missing session response = %d %v", recorder.Code, body)
-	}
-
-	if !errors.Is(workout_sessions.ErrSessionNotFound, workout_sessions.ErrSessionNotFound) {
-		t.Fatal("unreachable")
 	}
 }
