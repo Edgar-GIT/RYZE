@@ -23,5 +23,12 @@ export const SERVICE_CATEGORY_PRESENTATION = {
     to: "/services/premium-level-1",
     imageSrc: rccImageTwo,
     featured: true
+  },
+  premiumLevel2: {
+    title: "Premium Level 2",
+    ctaLabel: "View Premium Level 2",
+    to: "/services/premium-level-2",
+    imageSrc: rccImageTwo,
+    featured: true
   }
 } as const;

@@ -2,6 +2,7 @@ import { apiDelete, apiGet, apiPatch, apiPost, encodePathSegment } from "@utils/
 import { AdminPagination } from "./admin_api";
 import type { SetType } from "./exercise_library";
 import { PREMIUM_LEVEL_1_PRODUCT_TYPE } from "./premium_level1_api";
+import { PREMIUM_LEVEL_2_PRODUCT_TYPE } from "./premium_level_2_api";
 
 export const ProgramType = {
   FREE: "free",
@@ -20,14 +21,16 @@ export type ProgramTypeValue = typeof ProgramType[keyof typeof ProgramType];
 // already used by the Premium Level 1 product surfaces.
 export const PROGRAM_PRODUCT_TYPE = {
   GENERIC: "generic",
-  PREMIUM_LEVEL_1: PREMIUM_LEVEL_1_PRODUCT_TYPE
+  PREMIUM_LEVEL_1: PREMIUM_LEVEL_1_PRODUCT_TYPE,
+  PREMIUM_LEVEL_2: PREMIUM_LEVEL_2_PRODUCT_TYPE
 } as const;
 
 export type ProgramProductTypeValue = typeof PROGRAM_PRODUCT_TYPE[keyof typeof PROGRAM_PRODUCT_TYPE];
 
 export const PROGRAM_PRODUCT_TYPES: readonly ProgramProductTypeValue[] = [
   PROGRAM_PRODUCT_TYPE.GENERIC,
-  PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1
+  PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1,
+  PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2
 ];
 
 // isProgramProductType narrows an unknown query value to a real family. Query
@@ -397,12 +400,18 @@ export const programFamilyLabel = (family: ProgramProductTypeValue): string => {
   if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) {
     return "Premium · Level 1";
   }
+  if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2) {
+    return "Premium · Level 2";
+  }
   return "Generic";
 };
 
 export const programFamilyShortLabel = (family: ProgramProductTypeValue): string => {
   if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) {
     return "Premium L1";
+  }
+  if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2) {
+    return "Premium L2";
   }
   return "Generic";
 };
@@ -413,6 +422,9 @@ export const programFamilyShortLabel = (family: ProgramProductTypeValue): string
 export const programFamilyPath = (family: ProgramProductTypeValue): string => {
   if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) {
     return "premium-level-1";
+  }
+  if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2) {
+    return "premium-level-2";
   }
   return "generic";
 };

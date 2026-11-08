@@ -98,11 +98,11 @@ type GenericProgramRepository interface {
 // SupportedProductTypes is the closed list of platform-owned program families.
 // Every family-specific condition (public catalog scope, generic administration
 // scope, purchase prerequisite check, client rendering) must be updated for the
-// same set when a family is added or changed. premium_level_1 is included here
-// on purpose, and premium_level_2 is absent on purpose.
+// same set when a family is added or changed.
 var SupportedProductTypes = []string{
 	models.ProgramProductTypeGeneric,
 	models.ProgramProductTypePremiumLevel1,
+	models.ProgramProductTypePremiumLevel2,
 }
 
 // SetInput carries one prescription set of a workout exercise. The shared
@@ -555,6 +555,10 @@ func (s *service) validateProgramInput(productType string, input ProgramInput) e
 		return err
 	}
 
+	if productType == models.ProgramProductTypePremiumLevel2 {
+		return validatePremiumLevel2Offer(input)
+	}
+
 	if len(input.Weeks) < 1 {
 		return fmt.Errorf("%w: a generic program requires at least one week", ErrInvalidInput)
 	}
@@ -890,9 +894,7 @@ func validateType(programType string) error {
 }
 
 // validateProductType restricts platform-owned program families to the closed
-// SupportedProductTypes list. premium_level_2 is not implemented and is never
-// accepted here; it is absent from the database product_type CHECK constraint
-// on purpose.
+// SupportedProductTypes list.
 func validateProductType(productType string) error {
 	for _, supported := range SupportedProductTypes {
 		if productType == supported {
@@ -903,15 +905,15 @@ func validateProductType(productType string) error {
 }
 
 // validateProductMetadata keeps the objective and nutrition delivery model in
-// lockstep with the product family. Generic programs have neither. Premium
-// Level 1 packages are either curated (objective + complete plan) or legacy
-// questionnaire-generated (no objective, no package plan).
+// lockstep with the product family. Generic and Premium Level 2 programs have
+// neither. Premium Level 1 packages are either curated (objective + complete
+// plan) or legacy questionnaire-generated (no objective, no package plan).
 func validateProductMetadata(productType string, input ProgramInput) error {
 	objective := strings.TrimSpace(input.Objective)
 	mode := strings.TrimSpace(input.NutritionMode)
-	if productType == models.ProgramProductTypeGeneric {
+	if productType == models.ProgramProductTypeGeneric || productType == models.ProgramProductTypePremiumLevel2 {
 		if objective != "" || mode != "" || input.CuratedNutrition != nil {
-			return fmt.Errorf("%w: generic programs cannot carry premium nutrition metadata", ErrInvalidInput)
+			return fmt.Errorf("%w: this product family cannot carry premium nutrition metadata", ErrInvalidInput)
 		}
 		return nil
 	}
@@ -936,6 +938,24 @@ func validateProductMetadata(productType string, input ProgramInput) error {
 		}
 	default:
 		return fmt.Errorf("%w: premium level 1 packages require a nutrition mode", ErrInvalidInput)
+	}
+	return nil
+}
+
+// validatePremiumLevel2Offer keeps the purchasable Level 2 offer empty of
+// training structure. The programme is authored per client after purchase, so
+// a package that already carries weeks or generic programme metadata would
+// make the offer indistinguishable from the delivered product.
+func validatePremiumLevel2Offer(input ProgramInput) error {
+	if len(input.Weeks) != 0 {
+		return fmt.Errorf("%w: a premium level 2 offer cannot carry training weeks", ErrInvalidInput)
+	}
+	if strings.TrimSpace(input.Level) != "" || strings.TrimSpace(input.TrainingType) != "" ||
+		input.DurationWeeks != 0 || input.FrequencyPerWeek != 0 {
+		return fmt.Errorf("%w: a premium level 2 offer carries no generic training metadata", ErrInvalidInput)
+	}
+	if input.Type != models.ProgramTypePremium {
+		return fmt.Errorf("%w: a premium level 2 offer must be a premium product", ErrInvalidInput)
 	}
 	return nil
 }

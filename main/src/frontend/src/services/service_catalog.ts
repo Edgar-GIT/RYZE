@@ -4,7 +4,7 @@ import {
   type MarketplaceProgram
 } from "@/services/marketplace_api";
 
-export type ProgramHighlightCategory = "generic" | "premium";
+export type ProgramHighlightCategory = "generic" | "premium" | "premiumLevel2";
 
 export interface ProgramHighlight {
   id: string;
@@ -38,7 +38,8 @@ export const describeCatalogPrice = (programs: MarketplaceProgram[]): string => 
 
 export const buildServiceCategoryCards = (
   generic: MarketplaceProgram[],
-  premium: MarketplaceProgram[]
+  premium: MarketplaceProgram[],
+  premiumLevel2: MarketplaceProgram[] = []
 ): ServiceProgram[] => {
   const cards: ServiceProgram[] = [];
   if (generic.length > 0) {
@@ -53,6 +54,12 @@ export const buildServiceCategoryCards = (
       price: describeCatalogPrice(premium)
     });
   }
+  if (premiumLevel2.length > 0) {
+    cards.push({
+      ...SERVICE_CATEGORY_PRESENTATION.premiumLevel2,
+      price: describeCatalogPrice(premiumLevel2)
+    });
+  }
   return cards;
 };
 
@@ -63,6 +70,15 @@ const premiumHighlight = (program: MarketplaceProgram): ProgramHighlight => ({
   description: program.description,
   ctaLabel: "View package",
   to: `/services/premium-level-1?program=${program.id}`
+});
+
+const premiumLevel2Highlight = (program: MarketplaceProgram): ProgramHighlight => ({
+  id: program.id,
+  category: "premiumLevel2",
+  title: program.name,
+  description: program.description,
+  ctaLabel: "View service",
+  to: `/services/premium-level-2?program=${program.id}`
 });
 
 const genericHighlight = (program: MarketplaceProgram): ProgramHighlight => ({
@@ -77,14 +93,27 @@ const genericHighlight = (program: MarketplaceProgram): ProgramHighlight => ({
 export const buildProgramHighlights = (
   generic: MarketplaceProgram[],
   premium: MarketplaceProgram[],
+  premiumLevel2: MarketplaceProgram[] = [],
   limit = 3
 ): ProgramHighlight[] => {
-  const featured = premium.slice(0, 1).map(premiumHighlight);
+  const featured = [
+    ...premiumLevel2.slice(0, 1).map(premiumLevel2Highlight),
+    ...premium.slice(0, 1).map(premiumHighlight)
+  ].slice(0, limit);
   const remaining = limit - featured.length;
   const highlights = [...featured, ...generic.slice(0, Math.max(remaining, 0)).map(genericHighlight)];
   if (highlights.length < limit) {
     highlights.push(
-      ...premium.slice(1, 1 + (limit - highlights.length)).map(premiumHighlight)
+      ...premiumLevel2
+        .slice(1, 1 + (limit - highlights.length))
+        .map(premiumLevel2Highlight)
+    );
+  }
+  if (highlights.length < limit) {
+    highlights.push(
+      ...premium
+        .slice(1, 1 + (limit - highlights.length))
+        .map(premiumHighlight)
     );
   }
   return highlights;

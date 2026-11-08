@@ -112,6 +112,11 @@ const FAMILY_OPTIONS: Array<{ id: ProgramProductTypeValue; label: string; descri
     id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1,
     label: programFamilyLabel(PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1),
     description: "Catalogue plans that deliver training plus a curated nutrition plan."
+  },
+  {
+    id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2,
+    label: programFamilyLabel(PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2),
+    description: "A purchased service: the trainer authors the programme and nutrition after intake."
   }
 ];
 
@@ -467,10 +472,11 @@ export default function Admin2PlanCreatePage() {
   }, [dirty]);
 
   const validation = useMemo(() => validatePlan(draft), [draft]);
+  const isLevel2 = draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2;
 
   const completion: boolean[] = [
     Boolean(draft.name.trim()) && Boolean(draft.description.trim()),
-    countExercises(draft) > 0 && countWeeks(draft) > 0,
+    isLevel2 || (countExercises(draft) > 0 && countWeeks(draft) > 0),
     validation.messages.length === 0,
     true
   ];
@@ -650,6 +656,25 @@ export default function Admin2PlanCreatePage() {
     }
 
     if (step === 1) {
+      if (isLevel2) {
+        return (
+          <Admin2Section
+            title="Delivery model"
+            subtitle="How the Premium Level 2 service is produced"
+          >
+            <div className={styles.sectionBody}>
+              <div className={styles.notice}>
+                <span>
+                  The published offer carries no training weeks. After purchase, the client
+                  completes a detailed intake and an administrator allocates a trainer. That trainer
+                  authors the individual programme and nutrition plan from the Premium Level 2
+                  workspace, then delivers both to the client.
+                </span>
+              </div>
+            </div>
+          </Admin2Section>
+        );
+      }
       return (
         <>
         <Admin2Section
@@ -748,6 +773,10 @@ export default function Admin2PlanCreatePage() {
         }
       ];
 
+      const pricingTypes = isLevel2
+        ? types.filter((typeOption) => typeOption.id === ProgramType.PREMIUM)
+        : types;
+
       return (
         <Admin2Section
           title="Marketplace & publishing"
@@ -770,10 +799,15 @@ export default function Admin2PlanCreatePage() {
                       setFamily(option.id);
                       update((current) => {
                         const base = createPlanDraft(option.id);
+                        const switchingToLevel2 = option.id === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2;
                         return {
                           ...current,
                           product_type: option.id,
-                          objective: option.id === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? current.objective : "",
+                          type: switchingToLevel2 ? ProgramType.PREMIUM : current.type,
+                          objective:
+                            option.id === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1
+                              ? current.objective
+                              : "",
                           nutrition_mode:
                             option.id === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1
                               ? current.nutrition_mode || base.nutrition_mode
@@ -781,7 +815,16 @@ export default function Admin2PlanCreatePage() {
                           curated_nutrition:
                             option.id === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1
                               ? current.curated_nutrition ?? base.curated_nutrition
-                              : null
+                              : null,
+                          level: switchingToLevel2 ? "" : current.level,
+                          training_type: switchingToLevel2 ? "" : current.training_type,
+                          duration_weeks: switchingToLevel2 ? "" : current.duration_weeks,
+                          frequency_per_week: switchingToLevel2 ? "" : current.frequency_per_week,
+                          weeks: switchingToLevel2
+                            ? []
+                            : current.weeks.length > 0
+                              ? current.weeks
+                              : base.weeks
                         };
                       });
                     }}
@@ -802,7 +845,7 @@ export default function Admin2PlanCreatePage() {
             <div className={styles.formRow}>
               <span className={styles.formLabel}>Pricing category</span>
               <div className={styles.typeGrid}>
-                {types.map((typeOption) => (
+                {pricingTypes.map((typeOption) => (
                   <button
                     key={typeOption.id}
                     type="button"
@@ -819,6 +862,8 @@ export default function Admin2PlanCreatePage() {
               </div>
             </div>
 
+            {!isLevel2 ? (
+            <>
             <div className={styles.formRow}>
               <span className={styles.formLabel}>Audience level</span>
               <div className={styles.levelRow}>
@@ -898,6 +943,9 @@ export default function Admin2PlanCreatePage() {
               </div>
             </div>
 
+            </>
+            ) : null}
+
             <div className={styles.priceRow}>
               <div className={styles.formRow}>
                 <label className={styles.formLabel} htmlFor="plan-price">
@@ -955,14 +1003,24 @@ export default function Admin2PlanCreatePage() {
       <Admin2Section title="Review & publish" subtitle="Confirm the plan before publishing">
         <div className={styles.sectionBody}>
           <div className={styles.reviewSummary}>
-            <span className={styles.chip}>{countWeeks(draft)} week{countWeeks(draft) === 1 ? "" : "s"}</span>
-            <span className={styles.chip}>{countDays(draft)} day{countDays(draft) === 1 ? "" : "s"}</span>
-            <span className={styles.chip}>
-              {countExercises(draft)} exercise{countExercises(draft) === 1 ? "" : "s"}
-            </span>
-            <span className={styles.chip}>
-              {countSets(draft)} set{countSets(draft) === 1 ? "" : "s"}
-            </span>
+            {isLevel2 ? (
+              <>
+                <span className={styles.chip}>Trainer authored</span>
+                <span className={styles.chip}>Intake required</span>
+                <span className={styles.chip}>Training + nutrition</span>
+              </>
+            ) : (
+              <>
+                <span className={styles.chip}>{countWeeks(draft)} week{countWeeks(draft) === 1 ? "" : "s"}</span>
+                <span className={styles.chip}>{countDays(draft)} day{countDays(draft) === 1 ? "" : "s"}</span>
+                <span className={styles.chip}>
+                  {countExercises(draft)} exercise{countExercises(draft) === 1 ? "" : "s"}
+                </span>
+                <span className={styles.chip}>
+                  {countSets(draft)} set{countSets(draft) === 1 ? "" : "s"}
+                </span>
+              </>
+            )}
           </div>
 
           <div className={styles.reviewList}>
@@ -1007,7 +1065,9 @@ export default function Admin2PlanCreatePage() {
         description={
           editing
             ? "Modify the plan's metadata and structured workout content, then save your changes."
-            : "Design a ready-made catalogue plan with the RYZE program model: weeks, training days and catalogue exercises."
+            : isLevel2
+              ? "Create a Premium Level 2 service offer. The individual programme and nutrition plan are authored by a trainer after purchase."
+              : "Design a ready-made catalogue plan with the RYZE program model: weeks, training days and catalogue exercises."
         }
         actions={
           <Button

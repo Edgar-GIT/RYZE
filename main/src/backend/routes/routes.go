@@ -36,11 +36,13 @@ import (
 	"ryze/backend/services/nutrition_assignment"
 	"ryze/backend/services/password"
 	"ryze/backend/services/payments"
+	"ryze/backend/services/premium_level_2"
 	"ryze/backend/services/program_access"
 	"ryze/backend/services/program_assignments"
 	"ryze/backend/services/program_structure"
 	"ryze/backend/services/programs"
 	"ryze/backend/services/public_programs"
+	"ryze/backend/services/purchase_fulfillment"
 	"ryze/backend/services/purchases"
 	"ryze/backend/services/questionnaires"
 	"ryze/backend/services/registration"
@@ -186,6 +188,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerProgramService := programs.NewService(trainerProgramRepository, pricingCfg)
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
 
+	premiumLevel2Repository := repositories.NewPremiumLevel2Repository(db)
+	premiumLevel2Service := premium_level_2.NewService(premiumLevel2Repository, trainerProgramRepository, entitlementRepository)
+	premiumLevel2Handler := auth.NewPremiumLevel2Handler(premiumLevel2Service)
+
 	publicProgramService := public_programs.NewService(trainerProgramRepository)
 	publicProgramHandler := auth.NewPublicProgramsHandler(publicProgramService)
 
@@ -221,6 +227,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// its own family.
 	genericProgramHandler := auth.NewGenericProgramsHandler(genericProgramService, models.ProgramProductTypeGeneric)
 	premiumLevel1ProgramHandler := auth.NewGenericProgramsHandler(genericProgramService, models.ProgramProductTypePremiumLevel1)
+	premiumLevel2ProgramHandler := auth.NewGenericProgramsHandler(genericProgramService, models.ProgramProductTypePremiumLevel2)
 
 	commissionRuleRepository := repositories.NewCommissionRuleRepository(db)
 	commissionRulesService := commission_rules.NewService(commissionRuleRepository, trainerRepository, commissionCfg)
@@ -264,7 +271,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 		// Completing a purchase delivers what the product owes. Nutrition is the
 		// first such artifact: the hook runs after the entitlement is committed and
 		// its failure never fails the purchase.
-		purchases.WithFulfillment(nutritionAssignmentService),
+		purchases.WithFulfillment(purchase_fulfillment.New(nutritionAssignmentService, premiumLevel2Service)),
 	)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)
@@ -343,6 +350,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/programs/:programID", middleware.Authenticate(tokenService, userRepository), programAccessHandler.GetProgramAccess)
 	v1.POST("/me/programs/:programID/free-activation", middleware.Authenticate(tokenService, userRepository), freeProgramHandler.Activate)
 	v1.GET("/me/free-programs", middleware.Authenticate(tokenService, userRepository), freeProgramHandler.ListActive)
+	v1.GET("/me/premium-level-2/catalog", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.GetCatalog)
+	v1.GET("/me/premium-level-2", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.ListClientRequests)
+	v1.GET("/me/premium-level-2/:requestID", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.GetClientRequest)
+	v1.PUT("/me/premium-level-2/:requestID/intake", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.SubmitIntake)
+	v1.GET("/me/premium-level-2/:requestID/nutrition", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.GetDeliveredNutrition)
 	v1.GET("/me/questionnaire/questions", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.GetQuestions)
 	v1.GET("/me/programs/:programID/questionnaire", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.GetRequirement)
 	v1.POST("/me/programs/:programID/questionnaire", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.Submit)
@@ -390,6 +402,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.Use(middleware.Authenticate(tokenService, userRepository))
 	trainer.Use(middleware.TrainerAuthenticate(trainerRepository))
 	trainer.GET("/profile", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerProfileHandler.GetProfile)
+	trainer.GET("/premium-level-2/requests", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.ListTrainerRequests)
+	trainer.GET("/premium-level-2/requests/:requestID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.GetTrainerRequest)
+	trainer.PUT("/premium-level-2/requests/:requestID/training-program", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), premiumLevel2Handler.AttachTrainingProgram)
+	trainer.PUT("/premium-level-2/requests/:requestID/nutrition", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.SaveNutrition)
+	trainer.POST("/premium-level-2/requests/:requestID/deliver", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.Deliver)
 	trainer.GET("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.ListClients)
 	trainer.GET("/clients/lookup", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.LookupClient)
 	trainer.GET("/clients/:userID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.GetClient)
@@ -459,6 +476,19 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	premiumLevel1Programs.POST("/:programID/publish", premiumLevel1ProgramHandler.PublishProgram)
 	premiumLevel1Programs.DELETE("/:programID", premiumLevel1ProgramHandler.DeleteProgram)
 
+	// Premium Level 2 administration publishes the purchasable service offer.
+	// The per-client programme and nutrition are never managed here: they belong
+	// to the request lifecycle and the allocated trainer.
+	premiumLevel2Programs := v1.Group("/programs/premium-level-2")
+	premiumLevel2Programs.Use(middleware.AdminAuthenticate(tokenService))
+	premiumLevel2Programs.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
+	premiumLevel2Programs.GET("", premiumLevel2ProgramHandler.ListPrograms)
+	premiumLevel2Programs.POST("", premiumLevel2ProgramHandler.CreateProgram)
+	premiumLevel2Programs.GET("/:programID", premiumLevel2ProgramHandler.GetProgram)
+	premiumLevel2Programs.PATCH("/:programID", premiumLevel2ProgramHandler.UpdateProgram)
+	premiumLevel2Programs.POST("/:programID/publish", premiumLevel2ProgramHandler.PublishProgram)
+	premiumLevel2Programs.DELETE("/:programID", premiumLevel2ProgramHandler.DeleteProgram)
+
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))
 	admin.GET("/auth/me", adminMeHandler.GetMe)
@@ -516,6 +546,12 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminExerciseMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionExercisesManage))
 	adminExerciseMutate.POST("/exercises", adminExercisesHandler.CreateExercise)
 	adminExerciseMutate.PATCH("/exercises/:exerciseID", adminExercisesHandler.UpdateExercise)
+
+	adminPremiumLevel2 := admin.Group("")
+	adminPremiumLevel2.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
+	adminPremiumLevel2.GET("/premium-level-2/requests", premiumLevel2Handler.ListAdminRequests)
+	adminPremiumLevel2.GET("/premium-level-2/requests/:requestID", premiumLevel2Handler.GetAdminRequest)
+	adminPremiumLevel2.POST("/premium-level-2/requests/:requestID/trainer", premiumLevel2Handler.AssignTrainer)
 
 	adminPricing := admin.Group("")
 	adminPricing.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))

@@ -38,7 +38,7 @@ export const ServicesPage = () => {
   const catalog = useServiceCatalog();
   const services =
     catalog.status === "ready"
-      ? buildServiceCategoryCards(catalog.generic, catalog.premium)
+      ? buildServiceCategoryCards(catalog.generic, catalog.premium, catalog.premiumLevel2)
       : [];
 
   return (

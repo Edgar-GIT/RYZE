@@ -24,6 +24,9 @@ var (
 	// ErrProgramAlreadyPublished indicates the program is already in the
 	// published state and cannot be published again.
 	ErrProgramAlreadyPublished = errors.New("program already published")
+	// ErrProgramLocked indicates the program is attached to a Premium Level 2
+	// request and can no longer be published, deleted or edited after delivery.
+	ErrProgramLocked = errors.New("program locked by premium level 2 delivery")
 )
 
 const (
@@ -129,6 +132,10 @@ type Service interface {
 	// GetProgramByID returns one active program by its id without ownership
 	// scoping. This is used by the admin pricing path.
 	GetProgramByID(ctx context.Context, programID string) (*Program, error)
+}
+
+type premiumLevel2LinkReader interface {
+	PremiumLevel2Link(ctx context.Context, programID string) (linked bool, delivered bool, err error)
 }
 
 type service struct {
@@ -264,6 +271,17 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 		return nil, fmt.Errorf("failed to verify program ownership: %w", err)
 	}
 
+	linked, delivered, err := s.premiumLevel2Link(ctx, programID)
+	if err != nil {
+		return nil, err
+	}
+	if delivered {
+		return nil, ErrProgramLocked
+	}
+	if linked && input.Status != nil && *input.Status == models.ProgramStatusPublished {
+		return nil, ErrProgramLocked
+	}
+
 	updates := make(map[string]any)
 	if input.Name != nil {
 		if err := validateName(*input.Name); err != nil {
@@ -339,7 +357,15 @@ func (s *service) PublishProgram(ctx context.Context, trainerID, programID strin
 		return nil, err
 	}
 
-	err := s.programs.Publish(ctx, trainerID, programID)
+	linked, _, err := s.premiumLevel2Link(ctx, programID)
+	if err != nil {
+		return nil, err
+	}
+	if linked {
+		return nil, ErrProgramLocked
+	}
+
+	err = s.programs.Publish(ctx, trainerID, programID)
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrProgramNotFound):
@@ -372,6 +398,14 @@ func (s *service) DeleteProgram(ctx context.Context, trainerID, programID string
 	}
 	if err := validateProgramID(programID); err != nil {
 		return err
+	}
+
+	linked, _, err := s.premiumLevel2Link(ctx, programID)
+	if err != nil {
+		return err
+	}
+	if linked {
+		return ErrProgramLocked
 	}
 
 	if err := s.programs.SoftDelete(ctx, trainerID, programID); err != nil {
@@ -441,6 +475,18 @@ func (s *service) GetProgramByID(ctx context.Context, programID string) (*Progra
 	}
 
 	return newProgram(model), nil
+}
+
+func (s *service) premiumLevel2Link(ctx context.Context, programID string) (bool, bool, error) {
+	reader, ok := s.programs.(premiumLevel2LinkReader)
+	if !ok {
+		return false, false, nil
+	}
+	linked, delivered, err := reader.PremiumLevel2Link(ctx, programID)
+	if err != nil {
+		return false, false, fmt.Errorf("failed to verify premium level 2 link: %w", err)
+	}
+	return linked, delivered, nil
 }
 
 func newProgram(model *models.Program) *Program {

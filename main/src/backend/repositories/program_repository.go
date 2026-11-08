@@ -99,6 +99,9 @@ type PublicCatalogFilter struct {
 	// family. It is a separate flag from ScopeGeneric so the two marketplaces can
 	// never be served by the same filter.
 	ScopePremiumLevel1 bool
+	// ScopePremiumLevel2 restricts the catalog to the Premium Level 2 offer
+	// family. Only these offers start the post-purchase service flow.
+	ScopePremiumLevel2 bool
 }
 
 type programRepository struct {
@@ -338,6 +341,13 @@ func (r *programRepository) SearchPublished(ctx context.Context, filter PublicCa
 		db = db.Where("product_type = ?", models.ProgramProductTypePremiumLevel1)
 	}
 
+	if filter.ScopePremiumLevel2 {
+		// The Premium Level 2 catalogue is the purchasable offer only. The
+		// per-client training programme is trainer-owned and draft, so it can
+		// never match this family scope.
+		db = db.Where("product_type = ?", models.ProgramProductTypePremiumLevel2)
+	}
+
 	if filter.Query != "" {
 		escaped := escapeSQLLike(filter.Query)
 		db = db.Where("name LIKE ?", "%"+escaped+"%")
@@ -470,4 +480,26 @@ func (r *programRepository) FindAllByIDsUnscoped(ctx context.Context, ids []stri
 		return nil, fmt.Errorf("failed to find programs: %w", err)
 	}
 	return programs, nil
+}
+
+// PremiumLevel2Link reports whether a trainer-owned program is attached to a
+// live Premium Level 2 request and whether that request has already been
+// delivered. It exists so the programme delivery surface can keep an
+// individually authored programme private and immutable after delivery without
+// changing the generic program contract.
+func (r *programRepository) PremiumLevel2Link(ctx context.Context, programID string) (bool, bool, error) {
+	var requests []models.PremiumLevel2Request
+	if err := r.db.WithContext(ctx).
+		Where("training_program_id = ? AND status <> ?", programID, models.PremiumLevel2StatusCancelled).
+		Find(&requests).Error; err != nil {
+		return false, false, fmt.Errorf("failed to inspect premium level 2 link: %w", err)
+	}
+	delivered := false
+	for _, request := range requests {
+		if request.Status == models.PremiumLevel2StatusDelivered {
+			delivered = true
+			break
+		}
+	}
+	return len(requests) > 0, delivered, nil
 }

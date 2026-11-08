@@ -107,7 +107,7 @@ func (h *PublicProgramsHandler) ListPublishedPrograms(c *gin.Context) {
 	}
 
 	scope := strings.TrimSpace(c.Query("scope"))
-	if scope != "" && scope != "generic" && scope != models.ProgramProductTypePremiumLevel1 {
+	if scope != "" && scope != "generic" && scope != models.ProgramProductTypePremiumLevel1 && scope != models.ProgramProductTypePremiumLevel2 {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		return
 	}
@@ -124,11 +124,12 @@ func (h *PublicProgramsHandler) ListPublishedPrograms(c *gin.Context) {
 		Order:              strings.TrimSpace(c.Query("order")),
 		ScopeGeneric:       scope == "generic",
 		ScopePremiumLevel1: scope == models.ProgramProductTypePremiumLevel1,
+		ScopePremiumLevel2: scope == models.ProgramProductTypePremiumLevel2,
 	}
 
 	hasSearchParams := filter.Query != "" || filter.ProgramType != "" || len(filter.TrainingTypes) > 0 ||
 		len(filter.Levels) > 0 || len(filter.Frequencies) > 0 || filter.DurationMin > 0 || filter.DurationMax > 0 ||
-		len(filter.DurationRanges) > 0 || filter.SortBy != "" || filter.Order != "" || filter.ScopeGeneric || filter.ScopePremiumLevel1
+		len(filter.DurationRanges) > 0 || filter.SortBy != "" || filter.Order != "" || filter.ScopeGeneric || filter.ScopePremiumLevel1 || filter.ScopePremiumLevel2
 
 	var result public_programs.ListProgramsResult
 	if hasSearchParams {

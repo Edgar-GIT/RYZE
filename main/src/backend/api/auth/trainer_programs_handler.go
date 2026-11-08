@@ -269,6 +269,8 @@ func (h *TrainerProgramsHandler) respondProgramsError(c *gin.Context, err error)
 		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
 	case errors.Is(err, programs.ErrProgramAlreadyPublished):
 		RespondError(c, http.StatusConflict, "PROGRAM_ALREADY_PUBLISHED", "Program is already published.", nil)
+	case errors.Is(err, programs.ErrProgramLocked):
+		RespondError(c, http.StatusConflict, "PROGRAM_LOCKED", "This program is part of a delivered Premium Level 2 plan and cannot be changed.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}

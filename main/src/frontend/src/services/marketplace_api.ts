@@ -163,6 +163,7 @@ export const fetchMarketplaceProgram = (id: string): Promise<MarketplaceProgramD
   apiGet<MarketplaceProgramDetail>(`/programs/${encodePathSegment(id)}`);
 // PREMIUM_SCOPE is the catalog scope for the Premium Level 1 product family.
 const PREMIUM_SCOPE = "premium_level_1";
+const PREMIUM_LEVEL_2_SCOPE = "premium_level_2";
 
 // fetchPremiumLevel1Programs returns the published Premium Level 1 packages.
 // The Premium entry point reads real product data from the backend rather than
@@ -196,6 +197,54 @@ export const fetchAllPremiumLevel1Programs = async (
   for (let guard = 0; guard < 100; guard += 1) {
     const query = new URLSearchParams({
       scope: PREMIUM_SCOPE,
+      page: String(page),
+      limit: String(pageSize)
+    });
+    const data = await apiGet<{
+      programs: MarketplaceProgram[];
+      pagination: { page: number; limit: number; total: number };
+    }>(`/programs?${query.toString()}`);
+    collected.push(...data.programs);
+    total = data.pagination.total;
+    if (collected.length >= total || data.programs.length === 0) {
+      break;
+    }
+    page += 1;
+  }
+
+  return { programs: collected, total };
+};
+
+// fetchPremiumLevel2Programs returns the published Premium Level 2 offers. The
+// offer is an ordinary published program; the trainer-delivered service begins
+// only after purchase.
+export const fetchPremiumLevel2Programs = async (
+  limit = 20
+): Promise<{ programs: MarketplaceProgram[]; total: number }> => {
+  const query = new URLSearchParams({
+    scope: PREMIUM_LEVEL_2_SCOPE,
+    page: "1",
+    limit: String(limit)
+  });
+
+  const data = await apiGet<{
+    programs: MarketplaceProgram[];
+    pagination: { page: number; limit: number; total: number };
+  }>(`/programs?${query.toString()}`);
+
+  return { programs: data.programs, total: data.pagination.total };
+};
+
+export const fetchAllPremiumLevel2Programs = async (
+  pageSize = 100
+): Promise<{ programs: MarketplaceProgram[]; total: number }> => {
+  const collected: MarketplaceProgram[] = [];
+  let page = 1;
+  let total = 0;
+
+  for (let guard = 0; guard < 100; guard += 1) {
+    const query = new URLSearchParams({
+      scope: PREMIUM_LEVEL_2_SCOPE,
       page: String(page),
       limit: String(pageSize)
     });

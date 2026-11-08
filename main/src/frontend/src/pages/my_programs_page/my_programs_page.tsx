@@ -6,16 +6,19 @@ import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { ApiError } from "@utils/http_client";
 import { fetchEntitlements } from "@/services/purchases_api";
 import { fetchFreeActivations } from "@/services/free_programs_api";
+import { fetchMyPremiumLevel2Requests } from "@/services/premium_level_2_api";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
 
 import styles from "./my_programs_page.module.css";
 
-// A Premium Level 1 entitlement is a complete training and nutrition package,
-// so the card says so instead of describing it as a training plan only. The
-// family comes from the backend, never from a hardcoded program id.
-const isPremiumPackage = (productType: string): boolean => productType === "premium_level_1";
+// Premium Level 1 ships a complete package with the offer. Premium Level 2 is a
+// trainer-delivered service, so its entitlement opens the service request where
+// the intake, allocation and delivered plans live. The family comes from the
+// backend, never from a hardcoded program id.
+const isPremiumLevel1 = (productType: string): boolean => productType === "premium_level_1";
+const isPremiumLevel2 = (productType: string): boolean => productType === "premium_level_2";
 
 interface ProgramCard {
   key: string;
@@ -23,6 +26,7 @@ interface ProgramCard {
   name: string;
   description: string;
   productType: string;
+  to: string;
   trainingType: string | null;
   level: string | null;
   durationWeeks: number | null;
@@ -44,29 +48,41 @@ export const MyProgramsPage = () => {
   const load = useCallback(async () => {
     setState({ status: "loading" });
     try {
-      const [entitlements, activations] = await Promise.all([
+      const [entitlements, activations, level2Requests] = await Promise.all([
         fetchEntitlements(),
-        fetchFreeActivations()
+        fetchFreeActivations(),
+        fetchMyPremiumLevel2Requests().catch(() => [])
       ]);
       const programs: ProgramCard[] = [
-        ...entitlements.map((entitlement) => ({
-          key: entitlement.id,
-          programId: entitlement.program_id,
-          name: entitlement.program.name,
-          description: entitlement.program.description,
-          productType: entitlement.program.product_type,
-          trainingType: entitlement.program.training_type ?? null,
-          level: entitlement.program.level ?? null,
-          durationWeeks: entitlement.program.duration_weeks ?? null,
-          frequencyPerWeek: entitlement.program.frequency_per_week ?? null,
-          free: entitlement.program.type === "free"
-        })),
+        ...entitlements.map((entitlement) => {
+          const level2Request = isPremiumLevel2(entitlement.program.product_type)
+            ? level2Requests.find((request) => request.program_id === entitlement.program_id)
+            : undefined;
+          return {
+            key: entitlement.id,
+            programId: entitlement.program_id,
+            name: entitlement.program.name,
+            description: entitlement.program.description,
+            productType: entitlement.program.product_type,
+            to: level2Request
+              ? `/services/premium-level-2/requests/${level2Request.id}`
+              : isPremiumLevel2(entitlement.program.product_type)
+                ? `/services/premium-level-2?program=${entitlement.program_id}`
+                : `/services/my-programs/${entitlement.program_id}`,
+            trainingType: entitlement.program.training_type ?? null,
+            level: entitlement.program.level ?? null,
+            durationWeeks: entitlement.program.duration_weeks ?? null,
+            frequencyPerWeek: entitlement.program.frequency_per_week ?? null,
+            free: entitlement.program.type === "free"
+          };
+        }),
         ...activations.map((activation) => ({
           key: activation.id,
           programId: activation.program.id,
           name: activation.program.name,
           description: activation.program.description,
           productType: "generic",
+          to: `/services/my-programs/${activation.program.id}`,
           trainingType: activation.program.training_type,
           level: activation.program.level,
           durationWeeks: activation.program.duration_weeks,
@@ -127,6 +143,9 @@ export const MyProgramsPage = () => {
               <Button to="/services/premium-level-1" variant="secondary" size="small">
                 Explore Premium Level 1
               </Button>
+              <Button to="/services/premium-level-2" variant="secondary" size="small">
+                Explore Premium Level 2
+              </Button>
             </div>
           </section>
         ) : null}
@@ -142,13 +161,10 @@ export const MyProgramsPage = () => {
 
             <div className={styles.grid}>
               {state.programs.map((program) => {
-                const premium = isPremiumPackage(program.productType);
+                const premiumLevel1 = isPremiumLevel1(program.productType);
+                const premiumLevel2 = isPremiumLevel2(program.productType);
                 return (
-                  <Link
-                    key={program.key}
-                    className={styles.card}
-                    to={`/services/my-programs/${program.programId}`}
-                  >
+                  <Link key={program.key} className={styles.card} to={program.to}>
                     <span className={styles.cardTitle}>{program.name}</span>
                     {program.description ? (
                       <span className={styles.cardDescription}>{program.description}</span>
@@ -156,11 +172,17 @@ export const MyProgramsPage = () => {
 
                     <span className={styles.chips}>
                       {program.free ? <span className={styles.chipFree}>Free</span> : null}
-                      {premium ? (
+                      {premiumLevel1 ? (
                         <span className={styles.chipPremium}>Premium Level 1</span>
                       ) : null}
-                      {premium ? (
+                      {premiumLevel1 ? (
                         <span className={styles.chip}>Training + nutrition</span>
+                      ) : null}
+                      {premiumLevel2 ? (
+                        <span className={styles.chipPremium}>Premium Level 2</span>
+                      ) : null}
+                      {premiumLevel2 ? (
+                        <span className={styles.chip}>Trainer authored</span>
                       ) : null}
                       {program.trainingType ? <span className={styles.chip}>{program.trainingType}</span> : null}
                       {program.level ? <span className={styles.chip}>{program.level}</span> : null}
@@ -177,7 +199,11 @@ export const MyProgramsPage = () => {
                     </span>
 
                     <span className={styles.cardAction}>
-                      {premium ? "Open package" : "Open program"}
+                      {premiumLevel2
+                        ? "Open service"
+                        : premiumLevel1
+                          ? "Open package"
+                          : "Open program"}
                       <ChevronRight size={15} aria-hidden="true" />
                     </span>
                   </Link>

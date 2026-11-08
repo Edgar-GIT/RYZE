@@ -16,7 +16,7 @@ export const HomePage = () => {
   const catalog = useServiceCatalog();
   const services =
     catalog.status === "ready"
-      ? buildServiceCategoryCards(catalog.generic, catalog.premium)
+      ? buildServiceCategoryCards(catalog.generic, catalog.premium, catalog.premiumLevel2)
       : [];
 
   return (
@@ -34,7 +34,7 @@ export const HomePage = () => {
               <SectionTitle
                 eyebrow="Catalog"
                 title="Available RYZE program categories."
-                description="Explore the published training plans and Premium Level 1 packages."
+                description="Explore training plans, Premium Level 1 packages and trainer-delivered Premium Level 2 services."
               />
             </Reveal>
             <div className={styles.serviceGrid}>

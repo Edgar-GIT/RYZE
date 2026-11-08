@@ -178,7 +178,10 @@ export const createPlanDraft = (
 ): PlanDraft => ({
   name: "",
   description: "",
-  type: ProgramType.FREE,
+  type:
+    productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2
+      ? ProgramType.PREMIUM
+      : ProgramType.FREE,
   product_type: productType,
   objective: "",
   nutrition_mode:
@@ -210,7 +213,10 @@ export const createPlanDraft = (
   training_type: "",
   duration_weeks: "",
   frequency_per_week: "",
-  weeks: [{ id: uid(), week_number: 1, workouts: [] }]
+  weeks:
+    productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2
+      ? []
+      : [{ id: uid(), week_number: 1, workouts: [] }]
 });
 
 export const addWeek = (draft: PlanDraft): PlanDraft => ({
@@ -431,10 +437,11 @@ export const validatePlan = (draft: PlanDraft): PlanValidation => {
   if (!draft.description.trim()) {
     messages.push("The plan needs a description.");
   }
-  if (draft.weeks.length === 0) {
+  const isLevel2 = draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2;
+  if (!isLevel2 && draft.weeks.length === 0) {
     messages.push("The plan needs at least one week.");
   }
-  if (countExercises(draft) === 0) {
+  if (!isLevel2 && countExercises(draft) === 0) {
     messages.push("The plan needs at least one exercise across its training days.");
   }
   if (draft.type !== ProgramType.FREE) {
@@ -444,13 +451,15 @@ export const validatePlan = (draft: PlanDraft): PlanValidation => {
     }
   }
 
-  const duration = optionalNumber(draft.duration_weeks);
-  if (duration !== null && (duration < 1 || duration > 52)) {
-    messages.push("The plan duration must be between 1 and 52 weeks.");
-  }
-  const frequency = optionalNumber(draft.frequency_per_week);
-  if (frequency !== null && (frequency < 1 || frequency > 7)) {
-    messages.push("The frequency must be between 1 and 7 training days per week.");
+  if (!isLevel2) {
+    const duration = optionalNumber(draft.duration_weeks);
+    if (duration !== null && (duration < 1 || duration > 52)) {
+      messages.push("The plan duration must be between 1 and 52 weeks.");
+    }
+    const frequency = optionalNumber(draft.frequency_per_week);
+    if (frequency !== null && (frequency < 1 || frequency > 7)) {
+      messages.push("The frequency must be between 1 and 7 training days per week.");
+    }
   }
 
   if (draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) {
@@ -533,10 +542,12 @@ const optionalNumber = (value: string): number | null => {
 // position) are derived server-side from array order and are never sent; the
 // optional level, duration and frequency metadata are only sent when set, and
 // the server maps empty values back to "not set".
-export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => ({
+export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => {
+  const isLevel2 = draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2;
+  return {
   name: draft.name.trim(),
   description: draft.description.trim(),
-  type: draft.type,
+  type: isLevel2 ? ProgramType.PREMIUM : draft.type,
   status: draft.status,
   objective: draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? draft.objective : "",
   nutrition_mode:
@@ -547,13 +558,16 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
     draft.curated_nutrition
       ? toCuratedNutritionInput(draft.curated_nutrition)
       : null,
-  level: draft.level,
-  training_type: draft.training_type,
-  duration_weeks: optionalNumber(draft.duration_weeks) ?? 0,
-  frequency_per_week: optionalNumber(draft.frequency_per_week) ?? 0,
-  price_minor_units: draft.type === ProgramType.FREE ? 0 : Math.round(Number(draft.price) * 100),
+  level: isLevel2 ? "" : draft.level,
+  training_type: isLevel2 ? "" : draft.training_type,
+  duration_weeks: isLevel2 ? 0 : optionalNumber(draft.duration_weeks) ?? 0,
+  frequency_per_week: isLevel2 ? 0 : optionalNumber(draft.frequency_per_week) ?? 0,
+  price_minor_units:
+    !isLevel2 && draft.type === ProgramType.FREE ? 0 : Math.round(Number(draft.price) * 100),
   currency: draft.currency || "EUR",
-  weeks: draft.weeks.map((week) => ({
+  weeks: isLevel2
+    ? []
+    : draft.weeks.map((week) => ({
     workouts: week.workouts.map((workout) => ({
       exercises: workout.exercises.map((assignment) => ({
         exercise_id: assignment.exercise_id,
@@ -571,7 +585,8 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
       }))
     }))
   }))
-});
+  };
+};
 
 const toCuratedNutritionInput = (nutrition: PlanDraftCuratedNutrition) => ({
   dietary_pattern: nutrition.dietary_pattern.trim() || "balanced",

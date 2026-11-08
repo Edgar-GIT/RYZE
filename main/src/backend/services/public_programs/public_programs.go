@@ -96,6 +96,7 @@ type ProgramFilter struct {
 	Order              string
 	ScopeGeneric       bool
 	ScopePremiumLevel1 bool
+	ScopePremiumLevel2 bool
 }
 
 // Program is the safe representation of one published program. It carries
@@ -264,6 +265,7 @@ func (s *service) SearchPublishedPrograms(ctx context.Context, filter ProgramFil
 		Order:              filter.Order,
 		ScopeGeneric:       filter.ScopeGeneric,
 		ScopePremiumLevel1: filter.ScopePremiumLevel1,
+		ScopePremiumLevel2: filter.ScopePremiumLevel2,
 	}, page, limit)
 	if err != nil {
 		return ListProgramsResult{}, fmt.Errorf("failed to search published programs: %w", err)

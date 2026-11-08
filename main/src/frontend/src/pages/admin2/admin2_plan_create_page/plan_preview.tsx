@@ -1,6 +1,6 @@
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { Admin2StatusBadge } from "@/components/admin2/admin2_status_badge/admin2_status_badge";
-import { formatAdminPrice, programTypeShortLabel, ProgramType } from "@/services/admin2_api";
+import { formatAdminPrice, programTypeShortLabel, ProgramType, PROGRAM_PRODUCT_TYPE } from "@/services/admin2_api";
 import {
   countDays,
   countExercises,
@@ -14,6 +14,7 @@ export const PlanPreview = ({ draft }: { draft: PlanDraft }) => {
   const paidPrice = Math.round((Number(draft.price) || 0) * 100);
   const priceLabel =
     draft.type === ProgramType.FREE ? "Free" : formatAdminPrice(paidPrice, draft.currency);
+  const isLevel2 = draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2;
   const hasWeeks = countWeeks(draft) > 0;
 
   return (
@@ -44,7 +45,9 @@ export const PlanPreview = ({ draft }: { draft: PlanDraft }) => {
         </div>
       </div>
       <div className={styles.stats}>
-        {hasWeeks ? (
+        {isLevel2 ? (
+          <span className={styles.stat}>Trainer delivered after purchase</span>
+        ) : hasWeeks ? (
           <>
             <span className={styles.stat}>{countWeeks(draft)} week{countWeeks(draft) === 1 ? "" : "s"}</span>
             <span className={styles.stat}>{countDays(draft)} day{countDays(draft) === 1 ? "" : "s"}</span>

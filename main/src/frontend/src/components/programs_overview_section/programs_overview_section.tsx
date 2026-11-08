@@ -24,7 +24,7 @@ interface ProgramsOverviewSectionProps {
 export const ProgramsOverviewSection = ({ catalog }: ProgramsOverviewSectionProps) => {
   const reduceMotion = useReducedMotion();
   const highlights =
-    catalog.status === "ready" ? buildProgramHighlights(catalog.generic, catalog.premium) : [];
+    catalog.status === "ready" ? buildProgramHighlights(catalog.generic, catalog.premium, catalog.premiumLevel2) : [];
 
   return (
     <section className={styles.section}>
@@ -58,7 +58,7 @@ export const ProgramsOverviewSection = ({ catalog }: ProgramsOverviewSectionProp
         ) : (
           <div className={styles.cardGrid}>
             {highlights.map((program, index) => {
-              const Icon = program.category === "premium" ? Sparkles : Dumbbell;
+              const Icon = program.category === "generic" ? Dumbbell : Sparkles;
               const accent = accents[index % accents.length];
 
               return (

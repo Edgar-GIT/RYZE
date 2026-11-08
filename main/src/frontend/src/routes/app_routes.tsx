@@ -18,6 +18,8 @@ import { LoginPage } from "@/pages/login_page/login_page";
 import { MyProgramsPage } from "@/pages/my_programs_page/my_programs_page";
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
 import { PremiumLevel1Page } from "@/pages/premium_level1_page/premium_level1_page";
+import { PremiumLevel2Page } from "@/pages/premium_level2_page/premium_level2_page";
+import { PremiumLevel2RequestPage } from "@/pages/premium_level2_request_page/premium_level2_request_page";
 import { ProfilePage } from "@/pages/profile_page/profile_page";
 import { ProgressPage } from "@/pages/progress_page/progress_page";
 import { ProgramAccessPage } from "@/pages/program_access_page/program_access_page";
@@ -67,6 +69,8 @@ export const AppRoutes = () => {
         {/* Premium Level 1 must be declared before the dynamic /services/:serviceSlug
             route, otherwise the slug route would swallow it. */}
         <Route exact path="/services/premium-level-1" component={PremiumLevel1Page} />
+        <Route exact path="/services/premium-level-2" component={PremiumLevel2Page} />
+        <Route exact path="/services/premium-level-2/requests/:requestID" component={PremiumLevel2RequestPage} />
         <Route exact path="/services/generic-program/:programId" component={GenericProgramDetailPage} />
         {/* The configured payment return URLs land here (Stripe appends
             session_id, PayPal appends token, both with purchase_id). They must

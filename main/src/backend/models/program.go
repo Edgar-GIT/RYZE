@@ -23,6 +23,7 @@ const (
 const (
 	ProgramProductTypeGeneric       = "generic"
 	ProgramProductTypePremiumLevel1 = "premium_level_1"
+	ProgramProductTypePremiumLevel2 = "premium_level_2"
 )
 
 // ProgramObjective values are the closed objective vocabulary of curated
