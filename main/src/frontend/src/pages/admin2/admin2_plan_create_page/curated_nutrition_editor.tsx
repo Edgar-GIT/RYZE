@@ -118,10 +118,12 @@ const ItemFields = ({
 
 export const CuratedNutritionEditor = ({
   nutrition,
-  onChange
+  onChange,
+  intro
 }: {
   nutrition: PlanDraftCuratedNutrition;
   onChange: (next: PlanDraftCuratedNutrition) => void;
+  intro?: string;
 }) => {
   const updateMeal = (mealId: string, update: (meal: PlanDraftCuratedNutrition["meals"][number]) => PlanDraftCuratedNutrition["meals"][number]) => {
     onChange({
@@ -133,8 +135,8 @@ export const CuratedNutritionEditor = ({
   return (
     <div className={styles.sectionBody}>
       <p className={styles.formHint}>
-        This plan is bundled with the package. Every buyer receives exactly this content, so it
-        must be safe, complete and independent of any intake answers.
+        {intro ??
+          "This plan is bundled with the package. Every buyer receives exactly this content, so it must be safe, complete and independent of any intake answers."}
       </p>
 
       <div className={styles.nutritionGridTwo}>

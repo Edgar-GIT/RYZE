@@ -93,6 +93,13 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
           <NavLink
             className={styles.navLink}
             activeClassName={joinClassNames(styles.navLink, styles.navLinkActive)}
+            to="/trainer/premium-level-2"
+          >
+            Premium L2
+          </NavLink>
+          <NavLink
+            className={styles.navLink}
+            activeClassName={joinClassNames(styles.navLink, styles.navLinkActive)}
             to="/trainer/programs"
           >
             Programs

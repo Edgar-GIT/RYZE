@@ -402,6 +402,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.Use(middleware.Authenticate(tokenService, userRepository))
 	trainer.Use(middleware.TrainerAuthenticate(trainerRepository))
 	trainer.GET("/profile", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerProfileHandler.GetProfile)
+	trainer.GET("/premium-level-2/catalog", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.GetStaffCatalog)
 	trainer.GET("/premium-level-2/requests", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.ListTrainerRequests)
 	trainer.GET("/premium-level-2/requests/:requestID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.GetTrainerRequest)
 	trainer.PUT("/premium-level-2/requests/:requestID/training-program", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), premiumLevel2Handler.AttachTrainingProgram)
@@ -549,6 +550,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	adminPremiumLevel2 := admin.Group("")
 	adminPremiumLevel2.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
+	adminPremiumLevel2.GET("/premium-level-2/catalog", premiumLevel2Handler.GetStaffCatalog)
 	adminPremiumLevel2.GET("/premium-level-2/requests", premiumLevel2Handler.ListAdminRequests)
 	adminPremiumLevel2.GET("/premium-level-2/requests/:requestID", premiumLevel2Handler.GetAdminRequest)
 	adminPremiumLevel2.POST("/premium-level-2/requests/:requestID/trainer", premiumLevel2Handler.AssignTrainer)

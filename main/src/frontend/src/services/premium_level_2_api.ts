@@ -235,20 +235,32 @@ export const fetchMyPremiumLevel2Nutrition = (
     `/me/premium-level-2/${encodePathSegment(requestId)}/nutrition`
   );
 
-const staffQuery = (page: number, limit: number, status: string): string => {
+const staffQuery = (page: number, limit: number, status: string, search = ""): string => {
   const query = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (status) {
     query.set("status", status);
   }
+  if (search.trim()) {
+    query.set("q", search.trim());
+  }
   return query.toString();
 };
+
+export const fetchAdminPremiumLevel2Catalog = (): Promise<PremiumLevel2Catalog> =>
+  apiGet<PremiumLevel2Catalog>("/admin/premium-level-2/catalog");
+
+export const fetchTrainerPremiumLevel2Catalog = (): Promise<PremiumLevel2Catalog> =>
+  apiGet<PremiumLevel2Catalog>("/trainer/premium-level-2/catalog");
 
 export const fetchAdminPremiumLevel2Requests = (
   page: number,
   limit: number,
-  status = ""
+  status = "",
+  search = ""
 ): Promise<PremiumLevel2RequestsList> =>
-  apiGet<PremiumLevel2RequestsList>(`/admin/premium-level-2/requests?${staffQuery(page, limit, status)}`);
+  apiGet<PremiumLevel2RequestsList>(
+    `/admin/premium-level-2/requests?${staffQuery(page, limit, status, search)}`
+  );
 
 export const fetchAdminPremiumLevel2Request = (requestId: string): Promise<PremiumLevel2StaffDetail> =>
   apiGet<PremiumLevel2StaffDetail>(`/admin/premium-level-2/requests/${encodePathSegment(requestId)}`);
@@ -265,9 +277,12 @@ export const assignPremiumLevel2Trainer = (
 export const fetchTrainerPremiumLevel2Requests = (
   page: number,
   limit: number,
-  status = ""
+  status = "",
+  search = ""
 ): Promise<PremiumLevel2RequestsList> =>
-  apiGet<PremiumLevel2RequestsList>(`/trainer/premium-level-2/requests?${staffQuery(page, limit, status)}`);
+  apiGet<PremiumLevel2RequestsList>(
+    `/trainer/premium-level-2/requests?${staffQuery(page, limit, status, search)}`
+  );
 
 export const fetchTrainerPremiumLevel2Request = (requestId: string): Promise<PremiumLevel2StaffDetail> =>
   apiGet<PremiumLevel2StaffDetail>(`/trainer/premium-level-2/requests/${encodePathSegment(requestId)}`);

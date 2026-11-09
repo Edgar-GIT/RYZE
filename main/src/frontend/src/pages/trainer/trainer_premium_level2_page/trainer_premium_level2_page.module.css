@@ -1,0 +1,134 @@
+.page {
+  display: grid;
+  gap: 1.5rem;
+  width: min(72rem, 100%);
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.3rem;
+  color: var(--accent, #18d8ff);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary, #f5f7fb);
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  max-width: 40rem;
+  margin: 0.5rem 0 0;
+  color: var(--text-secondary, #9aa3b2);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.select {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: var(--text-primary, #f5f7fb);
+  background: rgba(255, 255, 255, 0.04);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.02);
+  text-decoration: none;
+}
+
+.row:hover {
+  border-color: rgba(24, 216, 255, 0.3);
+  background: rgba(24, 216, 255, 0.04);
+}
+
+.rowMain {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  color: var(--text-primary, #f5f7fb);
+  font-size: 0.9rem;
+}
+
+.rowMain span {
+  color: var(--text-secondary, #9aa3b2);
+  font-size: 0.8rem;
+}
+
+.rowMeta {
+  font-size: 0.74rem !important;
+}
+
+.rowSide {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  color: var(--text-secondary, #9aa3b2);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.stateBlock {
+  display: grid;
+  justify-items: start;
+  gap: 0.6rem;
+}
+
+.error {
+  margin: 0;
+  color: #ff7b86;
+  font-size: 0.86rem;
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-secondary, #9aa3b2);
+  font-size: 0.86rem;
+}
+
+@media (max-width: 720px) {
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

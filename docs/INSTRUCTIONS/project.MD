@@ -1,6 +1,6 @@
 # RYZE
 
-Version: 2.102.0
+Version: 2.103.0
 
 ---
 
@@ -220,14 +220,22 @@ Since every program is created individually, delivery is not immediate.
 
 Clients are informed of the estimated preparation time and receive access to their complete training and nutrition pack once it has been finalized.
 
+The implemented flow (v2.103.0) is purchase first, then a comprehensive
+server-catalogued intake, then trainer allocation by ADMIN_2, then
+trainer-authored training and nutrition, then delivery. The offer itself carries
+no training structure: the delivered programme and nutrition plan belong to the
+client and are authored per request. The intake is editable and versioned until
+a trainer is allocated; after allocation it becomes read-only.
+
 Features include:
 
 - Fully personalized workout program
 - Fully personalized nutrition program
-- Manual trainer review
+- Manual trainer review and authoring
 - Individual program creation
+- Versioned intake with resumable editing before allocation
+- Status tracking from intake to delivery
 - Exercise demonstrations
-- PDF export
 - Highest level of customization---
 
 # Marketplace
@@ -690,7 +698,16 @@ purchase. An entitlement keeps access after a package is unpublished.
 
 ## Scope discipline
 
-Premium Level 2 is a separate product and is not implemented. It is absent from the
-`programs.product_type` constraint on purpose, so the database cannot represent a
-product that does not exist. Trainer-authored nutrition, which would be the Level
-2 shape, is likewise not documented as existing behaviour.
+Premium Level 2 is implemented as a separate product family
+(`programs.product_type = 'premium_level_2'`). It reuses the existing catalogue,
+purchase, payment, entitlement and access systems; it does not introduce a second
+checkout or a parallel program hierarchy. A Premium Level 2 offer is a published
+platform-owned program with no weeks or nutrition content. Purchase fulfilment
+creates one service request. The client completes a detailed intake, ADMIN_2
+allocates an active trainer, and that trainer attaches one of their own draft
+programmes and authors the nutrition plan before delivery. Delivery creates the
+training entitlement and releases the nutrition plan to the client.
+
+Premium Level 3 and trainer-authored nutrition sold outside this service remain
+out of scope. The intake answers are sensitive health data and are exposed only
+to the owning client, the allocated trainer and authorised administrators.

@@ -72,6 +72,15 @@ describe("buildServiceCategoryCards", () => {
     expect(cards[0].featured).toBe(true);
     expect(cards[0].price).toBe("€14.49");
   });
+
+  it("adds the Premium Level 2 service card when offers exist", () => {
+    const cards = buildServiceCategoryCards([], [], [program({ id: "l2" })]);
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0].title).toBe("Premium Level 2");
+    expect(cards[0].to).toBe("/services/premium-level-2");
+    expect(cards[0].featured).toBe(true);
+  });
 });
 
 describe("buildProgramHighlights", () => {
@@ -84,6 +93,21 @@ describe("buildProgramHighlights", () => {
     expect(highlights.map((entry) => entry.title)).toEqual(["Premium one", "Generic one"]);
     expect(highlights[0].to).toBe("/services/premium-level-1?program=p1");
     expect(highlights[1].to).toBe("/services/generic-program/g1");
+  });
+
+  it("puts a Premium Level 2 service before the other featured families", () => {
+    const highlights = buildProgramHighlights(
+      [program({ id: "g1", name: "Generic one", product_type: "generic" })],
+      [program({ id: "p1", name: "Premium one", product_type: "premium_level_1" })],
+      [program({ id: "l2", name: "Level two", product_type: "premium_level_2" })]
+    );
+
+    expect(highlights.map((entry) => entry.title)).toEqual([
+      "Level two",
+      "Premium one",
+      "Generic one"
+    ]);
+    expect(highlights[0].to).toBe("/services/premium-level-2?program=l2");
   });
 
   it("fills the remaining slots with additional Premium packages when needed", () => {

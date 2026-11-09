@@ -44,6 +44,10 @@ const PLANS_FAMILY_TABS: Array<{ id: PlanFamilyTab; label: string }> = [
   {
     id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1,
     label: programFamilyLabel(PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1)
+  },
+  {
+    id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2,
+    label: programFamilyLabel(PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2)
   }
 ];
 
@@ -69,8 +73,11 @@ const familyFromQuery = (search: string): PlanFamilyTab => {
   return isProgramProductType(family) ? family : PROGRAM_PRODUCT_TYPE.GENERIC;
 };
 
-const familyPhrase = (family: PlanFamilyTab): string =>
-  family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? "premium level 1" : "generic";
+const familyPhrase = (family: PlanFamilyTab): string => {
+  if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) return "premium level 1";
+  if (family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2) return "premium level 2";
+  return "generic";
+};
 
 const levelLabel = (level: GenericProgramLevel | null): string => level ?? "—";
 

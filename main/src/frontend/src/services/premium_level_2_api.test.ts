@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiGet, apiPost, apiPut } from "@utils/http_client";
 import {
   assignPremiumLevel2Trainer,
+  fetchAdminPremiumLevel2Catalog,
   fetchAdminPremiumLevel2Requests,
   fetchPremiumLevel2Programs,
   submitPremiumLevel2Intake
@@ -55,5 +56,19 @@ describe("premium level 2 api", () => {
     expect(query.get("page")).toBe("2");
     expect(query.get("limit")).toBe("25");
     expect(query.get("status")).toBe("awaiting_intake");
+    expect(query.get("q")).toBeNull();
+  });
+
+  it("keeps the staff search term in the queue query", async () => {
+    mockedGet.mockResolvedValue({ requests: [], pagination: { page: 1, limit: 20, total: 0, total_pages: 0 } });
+    await fetchAdminPremiumLevel2Requests(1, 20, "", "alex@example.com");
+    const query = new URL(mockedGet.mock.calls[0][0], "http://localhost").searchParams;
+    expect(query.get("q")).toBe("alex@example.com");
+  });
+
+  it("reads the staff intake catalog from the admin route", async () => {
+    mockedGet.mockResolvedValue({ version: 1, sections: [] });
+    await fetchAdminPremiumLevel2Catalog();
+    expect(mockedGet).toHaveBeenCalledWith("/admin/premium-level-2/catalog");
   });
 });

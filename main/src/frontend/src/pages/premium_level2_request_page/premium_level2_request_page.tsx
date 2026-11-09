@@ -15,36 +15,21 @@ import {
   type PremiumLevel2NutritionPlan,
   type PremiumLevel2Question
 } from "@/services/premium_level_2_api";
+import {
+  formatPremiumLevel2Answer,
+  isEmptyPremiumLevel2Answer,
+  type PremiumLevel2AnswerValue
+} from "@/services/premium_level_2_format";
 import { ApiError } from "@utils/http_client";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./premium_level2_request_page.module.css";
 
-type AnswerValue = string | number | boolean | string[];
+type AnswerValue = PremiumLevel2AnswerValue;
 type Answers = Record<string, AnswerValue>;
 
 const EDITABLE_STATUSES = new Set(["awaiting_intake", "awaiting_trainer_assignment"]);
 
-const isEmpty = (value: AnswerValue | undefined): boolean => {
-  if (value === undefined || value === null) return true;
-  if (typeof value === "string") return value.trim() === "";
-  if (Array.isArray(value)) return value.length === 0;
-  return false;
-};
-
-const formatAnswer = (question: PremiumLevel2Question, value: AnswerValue | undefined): string => {
-  if (isEmpty(value)) return "Not answered";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => question.options?.find((option) => option.value === entry)?.label ?? entry)
-      .join(", ");
-  }
-  if (question.options) {
-    return question.options.find((option) => option.value === value)?.label ?? String(value);
-  }
-  return String(value);
-};
 
 const mapFormErrors = (error: unknown): Record<string, string> => {
   if (!(error instanceof ApiError) || error.status !== 400) {
@@ -346,7 +331,7 @@ export const PremiumLevel2RequestPage = () => {
     const nextFieldErrors: Record<string, string> = {};
     for (const section of catalog.sections) {
       for (const question of section.questions) {
-        if (question.required && isEmpty(answers[question.key])) {
+        if (question.required && isEmptyPremiumLevel2Answer(answers[question.key])) {
           nextFieldErrors[question.key] = "This answer is required.";
         }
       }
@@ -360,7 +345,7 @@ export const PremiumLevel2RequestPage = () => {
     const payload: Record<string, unknown> = {};
     for (const question of allQuestions) {
       const value = answers[question.key];
-      if (isEmpty(value)) continue;
+      if (isEmptyPremiumLevel2Answer(value)) continue;
       payload[question.key] = typeof value === "string" ? value.trim() : value;
     }
 
@@ -566,7 +551,7 @@ export const PremiumLevel2RequestPage = () => {
                       {section.questions.map((question) => (
                         <div key={question.key} className={styles.answerRow}>
                           <dt>{question.label}</dt>
-                          <dd>{formatAnswer(question, answers[question.key])}</dd>
+                          <dd>{formatPremiumLevel2Answer(question, answers[question.key])}</dd>
                         </div>
                       ))}
                     </dl>

@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # ARCHITECTURE.MD
 
-Version: 2.102.0
+Version: 2.103.0
 
 ---
 
@@ -529,7 +529,7 @@ delivery models:
   a questionnaire before checkout and the server generates a per-client plan
   after purchase.
 
-The discriminator is `programs.product_type` (`generic` | `premium_level_1`).
+The discriminator is `programs.product_type` (`generic` | `premium_level_1` | `premium_level_2`).
 It is orthogonal to `programs.type`, which stays the commercial category, so
 Generic Programs and Premium Level 1 can both sell under `premium`.
 
@@ -627,11 +627,76 @@ Key architectural decisions:
   detail page, so both families share one checkout state machine including
   redirect, capture, cancellation and Test Mode handling.
 
-### Platform-Owned Programs (Generic and Premium Level 1)
+### Premium Level 2 (Trainer-Delivered Service)
 
-Generic and Premium Level 1 programs are the platform-owned counterpart of
-trainer programs and reuse the exact same hierarchy (`programs → program_weeks →
-program_workouts → workout_exercises → workout_exercise_sets`). They are the
+Premium Level 2 reuses the same program catalogue, purchase, payment,
+entitlement and program-access systems as the other families. An offer is a
+platform-owned `premium_level_2` program with no training weeks, no objective and
+no nutrition mode. The offer is only the commercial entry point; the delivered
+product is authored after purchase.
+
+The lifecycle is owned by `premium_level_2_requests`:
+
+`awaiting_intake → awaiting_trainer_assignment → in_progress → ready_for_delivery → delivered`
+
+A request may also be `cancelled`. Purchase fulfilment creates the request
+idempotently and checks that an active entitlement exists. The client submits a
+versioned, server-catalogued intake. ADMIN_2 allocates an active trainer, which
+moves the request to `in_progress` and clears any previously attached programme
+on reassignment. The trainer attaches one of their own draft programmes with at
+least one exercise and saves a nutrition plan; readiness is derived from those
+two facts. Delivery creates the training entitlement and marks the nutrition plan
+`delivered` in one transaction.
+
+Layering:
+
+- `PremiumLevel2Handler` (thin, in `api/auth`) → `services/premium_level_2` →
+  `repositories/premium_level_2_repository.go`.
+- `services/premium_level_2/catalog.go` owns the versioned intake catalogue and
+  `validation.go` owns normalization; the handler never accepts raw answer shapes
+  without validation.
+- Purchase fulfilment is registered through the shared
+  `purchase_fulfillment.Multiplexer`, not a new checkout path.
+- The customer and staff surfaces read the same catalog service: client
+  `/me/premium-level-2/catalog`, admin `/admin/premium-level-2/catalog` and
+  trainer `/trainer/premium-level-2/catalog`, each behind its own authentication
+  and permission middleware.
+
+Key decisions:
+
+- **One offer, per-client delivery.** The offer has no weeks because selling a
+  pre-built structure would make the service indistinguishable from a generic
+  plan. The trainer attaches a private draft programme that is never published;
+  it becomes reachable only through the delivery entitlement.
+- **Purchase before intake.** Unlike legacy Premium Level 1, the Level 2 intake
+  requires an active entitlement. This prevents health data from being submitted
+  by users who have not bought the service.
+- **Versioned intake.** Every submission creates a new revision. Editing is
+  allowed only while the request is `awaiting_intake` or
+  `awaiting_trainer_assignment`; allocation locks it by state transition, not by
+  a separate flag.
+- **Server-derived read access.** Client reads require the authenticated owner and
+  an active entitlement. Trainer reads require the request to be allocated to the
+  authenticated trainer. Admin reads require the `plans` permission. Answer
+  content is never included in list responses, events or logs.
+- **Reassignment is explicit.** Changing the trainer clears the attached
+  programme and returns the request to `in_progress`, so a programme authored by
+  the previous trainer can never be delivered under another trainer's identity.
+- **Failure does not undo payment.** Request creation is transactional and
+  idempotent. If delivery fails, the payment and request remain valid and the
+  trainer can retry from the same request.
+- **Frontend reads product metadata from the API.** The customer page, My
+  Programs card and ADMIN_2 list use `product_type` and the request payload; no
+  product id, price or offer copy is hardcoded.
+
+### Platform-Owned Programs (Generic, Premium Level 1 and Premium Level 2 Offers)
+
+Generic, Premium Level 1 and Premium Level 2 offer programs are the
+platform-owned counterpart of trainer programs and reuse the exact same hierarchy
+(`programs → program_weeks → program_workouts → workout_exercises →
+workout_exercise_sets`). A Premium Level 2 offer deliberately carries no
+structure; the hierarchy still exists for historical consistency and for the
+trainer-authored programme delivered later. They are the
 realization of the `trainer_id NULL` invariant documented in the database: a
 platform-owned program is created with no owner and can never become
 trainer-owned.
@@ -665,8 +730,9 @@ Key architectural decisions:
   is indistinguishable from a missing or soft-deleted one (`PROGRAM_NOT_FOUND`).
 - **Scoped by family as well as ownership.** Each administration route requires
   its own `product_type` as well as `trainer_id IS NULL`, so a platform-owned
-  Premium Level 1 program can never be created or edited through the generic
-  endpoints, or the reverse. The family is never accepted from the payload.
+  Premium Level 1 or Premium Level 2 program can never be created or edited
+  through the generic endpoints, or the reverse. The family is never accepted
+  from the payload.
 - **Metadata and content locks.** A Premium Level 1 package fixes `objective`
   and `nutrition_mode` at creation; a complete curated plan is validated before
   create, update and publish. A completed purchase freezes content updates and

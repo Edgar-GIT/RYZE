@@ -17,6 +17,7 @@ export const ADMIN2_PATHS = {
   DASHBOARD: "/admin2/dashboard",
   PLANS: "/admin2/plans",
   PLAN_CREATE: "/admin2/plans/create",
+  PREMIUM_LEVEL_2: "/admin2/premium-level-2",
   EXERCISES: "/admin2/exercises",
   MARKETPLACE: "/admin2/marketplace",
   TRAINERS: "/admin2/trainers",
@@ -36,6 +37,7 @@ export const admin2NavGroups: Admin2NavGroup[] = [
     label: "Programs",
     items: [
       { label: "Plans", path: ADMIN2_PATHS.PLANS, icon: Package },
+      { label: "Premium L2", path: ADMIN2_PATHS.PREMIUM_LEVEL_2, icon: Users },
       { label: "Exercises", path: ADMIN2_PATHS.EXERCISES, icon: Dumbbell },
       { label: "Marketplace", path: ADMIN2_PATHS.MARKETPLACE, icon: Package }
     ]

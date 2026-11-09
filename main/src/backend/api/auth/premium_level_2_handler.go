@@ -149,6 +149,17 @@ func (h *PremiumLevel2Handler) GetCatalog(c *gin.Context) {
 	})
 }
 
+// GetStaffCatalog exposes the same server-owned intake catalog to the
+// authenticated staff surfaces so they can render answers with the labels the
+// client saw. The route middleware enforces the staff role and permission.
+func (h *PremiumLevel2Handler) GetStaffCatalog(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Premium Level 2 intake catalog retrieved successfully.",
+		"data":    h.service.Catalog(),
+	})
+}
+
 func (h *PremiumLevel2Handler) ListClientRequests(c *gin.Context) {
 	userID, ok := requireUserID(c)
 	if !ok {
