@@ -29,8 +29,8 @@ export const formatMarketplacePrice = (
   }).format(minorUnits / 100);
 };
 
-/** product_type is the product family: "generic" or "premium_level_1". It is
- *  public product metadata and is never client data. */
+/** product_type is the product family: "generic", "premium_level_1" or
+ *  "premium_level_2". It is public product metadata and is never client data. */
 export interface MarketplaceProgramProduct {
   product_type: string;
 }

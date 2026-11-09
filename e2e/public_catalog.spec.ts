@@ -53,6 +53,18 @@ const premiumPrograms = [
   }
 ];
 
+const premiumLevel2Programs = [
+  {
+    ...genericProgram,
+    id: "premium-l2-1",
+    name: "Elite Personal Coaching",
+    description: "A trainer-authored programme and nutrition plan prepared for you.",
+    type: "premium",
+    price_minor_units: 24900,
+    product_type: "premium_level_2"
+  }
+];
+
 const catalogHandler = (request: MockRequest): MockResponse | undefined => {
   const { method, path, url } = request;
   if (method !== "GET") {
@@ -69,7 +81,12 @@ const catalogHandler = (request: MockRequest): MockResponse | undefined => {
   }
   if (path === "/programs") {
     const scope = url.searchParams.get("scope");
-    let programs = scope === "premium_level_1" ? [...premiumPrograms] : [genericProgram, paidGenericProgram];
+    let programs =
+      scope === "premium_level_1"
+        ? [...premiumPrograms]
+        : scope === "premium_level_2"
+          ? [...premiumLevel2Programs]
+          : [genericProgram, paidGenericProgram];
 
     const listFilter = (key: string, value: string | null): string[] =>
       (value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
@@ -112,7 +129,7 @@ const catalogHandler = (request: MockRequest): MockResponse | undefined => {
       }
     };
   }
-  const program = [genericProgram, paidGenericProgram, ...premiumPrograms].find(
+  const program = [genericProgram, paidGenericProgram, ...premiumPrograms, ...premiumLevel2Programs].find(
     (entry) => path === `/programs/${entry.id}`
   );
   if (program) {
@@ -125,32 +142,36 @@ test.beforeEach(async ({ page }) => {
   await installApiMock(page, catalogHandler);
 });
 
-test("Services renders only API-backed product categories and no Premium Level 2", async ({ page }) => {
+test("Services renders API-backed product categories including Premium Level 2", async ({ page }) => {
   await page.goto("/services");
 
   await expect(page.getByRole("link", { name: /Browse training plans/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /View Premium Level 1/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /View Premium Level 2/ })).toBeVisible();
   await expect(page.getByText("Free and paid")).toBeVisible();
   await expect(page.getByText("From €14.49")).toBeVisible();
-  await expect(page.getByText("Featured", { exact: true })).toBeVisible();
+  await expect(page.getByText("€249.00")).toBeVisible();
+  await expect(page.getByText("Featured", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Most Popular", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Premium Level 2")).toHaveCount(0);
-  await expect(page.locator('a[href*="premium-level-2"]')).toHaveCount(0);
 });
 
-test("Home highlights published programs instead of hardcoded offers", async ({ page }) => {
+test("Home highlights the Level 2 service, Premium package and generic program", async ({ page }) => {
   await page.goto("/");
 
+  await expect(page.getByRole("heading", { name: "Elite Personal Coaching" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Hypertrophy Foundations" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Free Full Body" }).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Hypertrophy Builder" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hypertrophy Builder" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "View service" })).toHaveAttribute(
+    "href",
+    "/services/premium-level-2?program=premium-l2-1"
+  );
   await expect(page.getByRole("link", { name: "View package" })).toHaveAttribute(
     "href",
     "/services/premium-level-1?program=premium-1"
   );
   await expect(page.getByText("LOSE FAT")).toHaveCount(0);
   await expect(page.getByText("BUILD MUSCLE")).toHaveCount(0);
-  await expect(page.locator('a[href*="premium-level-2"]')).toHaveCount(0);
 });
 
 test("Premium Level 1 groups packages by objective and opens the chosen one", async ({ page }) => {

@@ -1,3 +1,82 @@
+# Version 2.103.0
+
+Title: Premium Level 2 trainer-delivered service
+
+Date: 2026-11-09
+
+Summary:
+
+v2.103.0 implements Premium Level 2 end to end. A client buys a platform-owned
+service offer, completes a versioned intake, ADMIN_2 allocates an active trainer,
+and that trainer authors the training programme and nutrition before delivering
+the pack. Delivery creates the existing training entitlement and releases the
+nutrition plan to the client. The feature reuses the existing program
+hierarchy, checkout, Test Mode, entitlement and program-access systems; it adds
+no second checkout, no new payment provider and no separate media pipeline.
+
+Main changes:
+
+- Added migration `000035_add_premium_level_2`: widens `programs.product_type`
+  and the product-metadata constraint, and creates the request, versioned intake,
+  per-request nutrition plan/meals/foods and request-event tables plus their
+  views and indexes. Verified up/down/up; schema version `35`.
+- Added `models/premium_level_2.go`, `repositories/premium_level_2_repository.go`
+  and `services/premium_level_2` for the request lifecycle, server-catalogued
+  intake validation, trainer allocation, readiness and idempotent delivery.
+- Added `api/auth/premium_level_2_handler.go` and all client, ADMIN_2 and trainer
+  routes, including the shared staff intake catalogue.
+- Added the purchase fulfilment multiplexer hook so a completed purchase creates
+  exactly one request in `awaiting_intake` after the entitlement check.
+- Added the platform-owned `premium_level_2` offer family to the ADMIN_2 program
+  service and plan builder: empty offer validation, premium-only pricing, no
+  structure or audience metadata, and no publish content lock regression.
+- Added the public `premium_level_2` catalogue scope and the API-backed Services,
+  Home and My Programs integrations.
+- Added the customer offer/purchase page and the request/intake/status page with
+  delivered nutrition and training access.
+- Added the ADMIN_2 Premium L2 request queue with search, status, pagination,
+  intake review, trainer allocation and delivery history.
+- Added the trainer Premium L2 workspace for allocated requests, draft programme
+  attachment, shared nutrition authoring and confirmed delivery.
+- Added frontend L2 contracts, nutrition mapping, answer formatting, shared
+  intake renderer and L2 unit/E2E coverage. Updated stale product-family tests to
+  recognise `premium_level_2` and to reject genuinely unknown families.
+- Updated `project.MD`, `arquitecture.MD`, `security.MD`, `api.MD`,
+  `database.MD`, `design.MD`, `procedure.MD`, `conventions.MD`, `how_to_run.MD`,
+  `product_roadmap.MD`, `product_completeness.MD` and this registry.
+
+Reason:
+
+Premium Level 2 was the next product tier and was explicitly excluded while
+unimplemented. The implementation needed to preserve the platform's existing
+purchase, authorization, entitlement and soft-delete guarantees while keeping
+sensitive intake data private to the owner, allocated trainer and authorised
+administrators. The new family is now documented as implemented instead of being
+a placeholder.
+
+Tests:
+
+- `go -C main/src/backend build ./...` — passed.
+- `go -C main/src/backend test -count=1 ./...` against isolated
+  `ryze_test_premium_l2` — all packages passed.
+- `npm run typecheck` — passed.
+- `npm test` — 21 files / 148 tests passed.
+- `npm run build` — passed.
+- `npm run test:e2e` — 8 tests passed, including the L2 catalogue cards and
+  highlighted service.
+- Migration up/down/up and `migrate version` verified version `35
+  (dirty=false)`.
+
+Known verification gaps:
+
+- A live Premium Level 2 purchase, real payment-provider delivery and a complete
+  multi-identity browser walkthrough remain unverified; the E2E catalogue paths
+  use mocked APIs and the lifecycle is covered by backend tests.
+- Richer browser coverage for the request/intake, admin allocation and trainer
+  authoring pages is not yet implemented.
+
+---
+
 # Version 2.102.0
 
 Title: Secure trainer client detail with training insight and programme assignments
