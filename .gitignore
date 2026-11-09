@@ -1,6 +1,4 @@
 .aider*
-CLAUDE.md
-AGENTS.md
 .env
 .codex*
 .gemini*
@@ -14,3 +12,5 @@ storage/
 *.log
 test-results/
 playwright-report/
+.claude/settings.local.json
+.claude/skills/**/AGENTS.md

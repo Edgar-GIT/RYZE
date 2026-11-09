@@ -1,5 +1,42 @@
 # Version 2.103.0
 
+Title: Claude Code engineering environment preparation
+
+Date: 2026-11-09
+
+Summary:
+
+Prepared a project-local Claude Code environment for the planned frontend
+revamp, backend hardening and future PostgreSQL migration. Added concise root
+instructions, scoped rules, read-only reviewer agents, RYZE-specific skills and
+factual AI workflow/inventory documents. Installed and pinned reviewed project
+skills for frontend design, React, responsive UI, Three.js and webapp testing;
+enabled the official Anthropic frontend-design plugin at project scope.
+
+Reason:
+
+The repository needs a maintainable, token-efficient AI engineering workflow
+without changing application functionality, dependencies, database schema or
+production configuration. The current MariaDB/MySQL architecture and frontend
+protected areas are recorded for future work.
+
+Modified files:
+
+- `CLAUDE.md`, `AGENTS.md`, `.gitignore`
+- `.claude/settings.json`, `.claude/rules/`, `.claude/skills/`, `.claude/agents/`
+- `skills-lock.json`
+- `docs/AI/`
+
+Verification:
+
+- Claude Code `2.1.319`, project plugin list and plugin details inspected.
+- Skills CLI `1.7.6`; project-local skill list, hashes and frontmatter inspected.
+- JSON/frontmatter, protected-area inventory and MariaDB/MySQL inventory checked.
+- No application source, package manifest, migration, database or production
+  configuration was modified.
+
+# Version 2.103.0
+
 Title: Premium Level 2 trainer-delivered service
 
 Date: 2026-11-09
