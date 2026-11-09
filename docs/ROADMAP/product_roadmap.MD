@@ -6,9 +6,10 @@ the prioritized findings behind it are recorded in
 decision and an update to this document.
 
 The roadmap does not introduce product scope that is explicitly excluded by the
-project instructions: no Premium Level 2, no RYZE Feed without a separate
-product decision, no additional payment methods and no trainer-authored
-nutrition.
+project instructions: no RYZE Feed without a separate product decision, no
+additional payment methods beyond the documented providers and no
+trainer-authored nutrition outside the Premium Level 2 service. Premium Level 2
+shipped in v2.103.0 and is no longer roadmap scope.
 
 ## Phase A — Training Content Backend (v2.95.x)
 
@@ -48,12 +49,15 @@ Scope:
 - Secure trainer client detail with real access sources, assignments, statistics,
   session history and exercise performance. **Closed in v2.102.0.**
 - Home/Services content from the API; remove hardcoded prices and any Premium
-  Level 2 placeholder.
+  Level 2 placeholder. **Closed in v2.103.0.**
 - Marketplace server-side filtering, sorting and pagination. **Closed in v2.98.0.**
 - Premium Level 1 lists every returned program, not only the first.
 - Objective-based Premium Level 1 catalogue with predefined training plus curated
   nutrition packages, ADMIN_2 package authoring, legacy questionnaire
   compatibility and purchased-access preservation. **Closed in v2.101.0.**
+- Premium Level 2 trainer-delivered service: platform-owned offers, purchased
+  intake, ADMIN_2 trainer allocation, trainer-authored programme and nutrition,
+  validated delivery and entitlement-backed access. **Closed in v2.103.0.**
 - Contact page submission backend. **Closed in v2.98.0** (live SMTP delivery still unverified).
 - Import reporting improvements for rejected/unchanged records, with tests.
 - Test Mode persona-email reservation and fail-closed ownership checks, with

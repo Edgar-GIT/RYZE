@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # API.MD
 
-Version: 2.102.0
+Version: 2.103.0
 
 ---
 
@@ -3092,7 +3092,8 @@ Query parameters:
 - `scope` — `generic` restricts the catalog to platform-owned programs
   (`trainer_id` is null) whose `product_type` is `generic`.
   `premium_level_1` restricts the catalog to the Premium Level 1 product family,
-  regardless of owner. Any other value is rejected with
+  regardless of owner. `premium_level_2` restricts the catalog to the Premium
+  Level 2 service offers. Any other value is rejected with
   `400 VALIDATION_ERROR`.
 - `q` — name query (LIKE, wildcards escaped), optional.
 - `type` — program type filter (`free`, `premium`, `personalized`), optional.
@@ -4132,8 +4133,8 @@ continue to purchase without an intake.
 
 ## Product Type in Program Responses
 
-`product_type` is the product family of a program (`generic` or
-`premium_level_1`). It is public product metadata, not client data, and it is
+`product_type` is the product family of a program (`generic`,
+`premium_level_1` or `premium_level_2`). It is public product metadata, not client data, and it is
 included in the public catalog responses, in the public program detail response
 and in the authenticated entitlement and program access responses.
 
@@ -4149,12 +4150,194 @@ The public catalog accepts a `scope` query parameter:
   `product_type = 'generic'`.
 - `scope=premium_level_1` — programs with `product_type = 'premium_level_1'`,
   regardless of owner. A trainer cannot publish into this family.
+- `scope=premium_level_2` — published `product_type = 'premium_level_2'`
+  service offers, regardless of owner. A trainer cannot publish into this
+  family.
 
-The two scopes are independent predicates. A platform-owned Premium Level 1
+The scopes are independent predicates. A platform-owned Premium Level 1
 program never appears in the generic marketplace, where the questionnaire
 prerequisite would not be enforced. Any other `scope` value answers
 `400 VALIDATION_ERROR`; it is never silently ignored.
 
+
+# PREMIUM LEVEL 2 ENDPOINTS
+
+Premium Level 2 is a trainer-delivered service. The offer is purchased like any
+other premium program; purchase fulfilment creates one service request. The
+client submits a detailed intake, ADMIN_2 allocates an active trainer, and the
+allocated trainer authors the training programme and nutrition before delivery.
+The training programme is an ordinary trainer-owned draft and the nutrition is
+stored per request, so Level 2 does not introduce a second program hierarchy or
+a second checkout.
+
+All endpoints below are served by `PremiumLevel2Handler` (thin) over
+`services/premium_level_2`. Error contract:
+
+- `400 VALIDATION_ERROR` — malformed body, invalid/normalized answer or plan.
+- `401 AUTHENTICATION_REQUIRED` — missing or invalid session.
+- `403 FORBIDDEN` — insufficient permission; trainer endpoints require the
+  `clients` permission, training attachment also requires `programs`.
+- `404 PREMIUM_LEVEL_2_NOT_FOUND` — request missing, not owned by the caller,
+  not allocated to the caller, or not found. Missing and unauthorised are
+  deliberately indistinguishable.
+- `404 NUTRITION_NOT_FOUND` — no nutrition plan has been delivered yet.
+- `409 PREMIUM_LEVEL_2_NOT_EDITABLE` — the request state no longer accepts the
+  write (intake after allocation, attachment/nutrition after delivery, delivery
+  before readiness).
+
+## Client Endpoints
+
+```
+GET /api/v1/me/premium-level-2/catalog
+GET /api/v1/me/premium-level-2
+GET /api/v1/me/premium-level-2/:requestID
+PUT /api/v1/me/premium-level-2/:requestID/intake
+GET /api/v1/me/premium-level-2/:requestID/nutrition
+```
+
+Protected by `Authenticate`. The owner always comes from the session; no user
+id is accepted in a path or body.
+
+### Catalog
+
+`GET /api/v1/me/premium-level-2/catalog` returns the versioned intake
+definition `{ version, sections }`. Each section has `key`, `title`,
+`description` and `questions`. Each question has `key`, `label`, `type`,
+`required`, optional `help`, `placeholder`, `options`, `min`, `max`, `step` and
+`max_length`. Types are `text`, `textarea`, `number`, `select`, `multiselect`
+and `boolean`. The same catalog is served to staff by
+`GET /api/v1/admin/premium-level-2/catalog` and
+`GET /api/v1/trainer/premium-level-2/catalog`.
+
+### List and detail
+
+`GET /api/v1/me/premium-level-2` returns `{ requests: [...] }` for the caller's
+active purchases only; each item includes `id`, `program_id`, `offer_name`,
+`offer_description`, `offer_price_minor_units`, `offer_currency`, `status`,
+`intake_version`, `trainer_id`, `trainer_name`, `training_program_id`,
+`training_program_name`, `nutrition_plan_version`,
+`nutrition_plan_status`, `delivered_at`, `created_at`, `updated_at`.
+
+`GET /api/v1/me/premium-level-2/:requestID` returns the same request plus
+`intake` (`id`, `version`, `answers`, `submitted_at`; `null` before the first
+submission) and `nutrition_plan` (the safe plan projection, `null` until the
+trainer saves one). The client is the only non-staff reader of `answers`.
+
+### Intake
+
+`PUT /api/v1/me/premium-level-2/:requestID/intake` accepts
+`{ "answers": { ... } }`. Answers are validated and normalized against the
+catalog version server-side; unknown keys, wrong types, missing required
+answers, out-of-range numbers and unsupported options are rejected. Every
+successful call creates a new immutable revision and increments
+`intake_version`. The first submission moves `awaiting_intake` to
+`awaiting_trainer_assignment`; further submissions are accepted in both
+pre-allocation states. Once a trainer is allocated the endpoint answers
+`409 PREMIUM_LEVEL_2_NOT_EDITABLE`.
+
+Response `data`: `{ request, intake }`.
+
+### Delivered nutrition
+
+`GET /api/v1/me/premium-level-2/:requestID/nutrition` requires an active
+entitlement for the offer and a plan in `delivered` state. It returns
+`{ request, plan }`; otherwise `404 NUTRITION_NOT_FOUND`. Draft nutrition is
+never exposed to the client.
+
+## ADMIN_2 Endpoints
+
+```
+GET  /api/v1/admin/premium-level-2/catalog
+GET  /api/v1/admin/premium-level-2/requests
+GET  /api/v1/admin/premium-level-2/requests/:requestID
+POST /api/v1/admin/premium-level-2/requests/:requestID/trainer
+```
+
+Protected by `AdminAuthenticate` + `RequireAdminPermission(plans)`.
+
+- `GET .../requests` accepts `page`, `limit`, `status` (`awaiting_intake`,
+  `awaiting_trainer_assignment`, `in_progress`, `ready_for_delivery`,
+  `delivered`, `cancelled`) and `q` (client name/email/offer search). It returns
+  `{ requests, pagination }`; the queue never includes intake answers.
+- `GET .../requests/:requestID` returns `{ request, intake, nutrition_plan,
+  events }`. The request includes client `client_first_name`,
+  `client_last_name` and `client_email`; events include `event_type`,
+  `actor_kind`, `from_status`, `to_status`, `created_at`.
+- `POST .../requests/:requestID/trainer` accepts `{ "trainer_id": "..." }`.
+  The trainer must be active. Allocation moves the request to `in_progress`;
+  reallocation is allowed before delivery, clears the previously attached
+  training programme and records the transition.
+
+## Trainer Endpoints
+
+```
+GET  /api/v1/trainer/premium-level-2/catalog
+GET  /api/v1/trainer/premium-level-2/requests
+GET  /api/v1/trainer/premium-level-2/requests/:requestID
+PUT  /api/v1/trainer/premium-level-2/requests/:requestID/training-program
+PUT  /api/v1/trainer/premium-level-2/requests/:requestID/nutrition
+POST /api/v1/trainer/premium-level-2/requests/:requestID/deliver
+```
+
+Protected by `RequireTrainerPermission`; the acting trainer always comes from
+the session. A trainer can only see and modify requests allocated to them.
+
+- The list accepts `page`, `limit` and `status`, and returns the same queue
+  shape as the admin list without client email or answers.
+- `PUT .../training-program` accepts `{ "program_id": "..." }`. The programme
+  must be trainer-owned, in `draft`, and contain at least one exercise. The
+  attached programme is never published; it is released only through delivery.
+- `PUT .../nutrition` accepts:
+
+```json
+{
+  "dietary_pattern": "balanced",
+  "summary": "...",
+  "prep_guidance": "...",
+  "hydration_litres": 2.5,
+  "hydration_note": "...",
+  "cautions": ["..."],
+  "meals": [
+    {
+      "label": "Breakfast",
+      "kind": "meal",
+      "notes": "...",
+      "foods": [
+        {
+          "name": "Oats",
+          "category": "carbohydrate",
+          "quantity": 80,
+          "unit": "g",
+          "calories": 300,
+          "protein_grams": 10,
+          "carbohydrate_grams": 50,
+          "fat_grams": 6,
+          "fiber_grams": 8,
+          "substitution_note": "..."
+        }
+      ]
+    }
+  ]
+}
+```
+
+  A plan requires 3–8 meals and at least one food per meal. Saving replaces the
+  meal/food rows and increments the plan version; the saved plan remains
+  `draft` until delivery. When both a programme and a plan exist the request
+  moves to `ready_for_delivery`.
+- `POST .../deliver` requires `ready_for_delivery`. It creates the training
+  entitlement idempotently, marks the nutrition plan `delivered`, stamps
+  `delivered_at` and moves the request to `delivered`. Delivery is retryable if
+  it fails; nothing about the purchase is rolled back. A delivered request
+  rejects further attachment and nutrition writes.
+
+## Purchase Integration
+
+Premium Level 2 uses the existing purchase and Test Mode paths. Purchase
+fulfilment verifies the active entitlement, then creates the request in
+`awaiting_intake`; duplicate fulfilment is a no-op. There is no intake
+prerequisite before checkout. The client list and detail enforce an active
+entitlement even after an offer is unpublished.
 
 # WORKOUT ENDPOINTS
 
@@ -5163,16 +5346,19 @@ Responses:
 - `403 FORBIDDEN` — insufficient permissions.
 - `404 PROGRAM_NOT_FOUND` — missing or soft-deleted program.
 
-# PLATFORM-OWNED PROGRAMS (GENERIC AND PREMIUM LEVEL 1)
+# PLATFORM-OWNED PROGRAMS (GENERIC, PREMIUM LEVEL 1 AND PREMIUM LEVEL 2)
 
 Generic programs are pre-built, platform-owned programs created by the RYZE
 team. Premium Level 1 programs are the platform-owned training-plus-nutrition
-family. Both reuse the same Program → Week → Workout → Exercise structure as
-trainer programs, but their `trainer_id` is always `NULL` and they can never be
-converted into trainer-owned content. Generic programs hold no commission: a
-generic program is never involved in trainer revenue.
+family. Premium Level 2 programs are platform-owned commercial offers; the
+delivered programme and nutrition are authored per client after purchase.
+Generic, Premium Level 1 and Premium Level 2 offers reuse the same Program →
+Week → Workout → Exercise structure as trainer programs, but their `trainer_id`
+is always `NULL` and they can never be converted into trainer-owned content.
+Generic and Premium Level 2 offers hold no commission: they are never involved
+in trainer revenue. A Premium Level 2 offer deliberately carries no weeks.
 
-The two families are administered through separate route groups. The handler is
+The families are administered through separate route groups. The handler is
 bound to the family by the route, so the client never chooses or changes
 `product_type`, and a program is only ever visible under its own family.
 
@@ -5199,9 +5385,16 @@ GET    /api/v1/programs/premium-level-1/:programID
 PATCH  /api/v1/programs/premium-level-1/:programID
 POST   /api/v1/programs/premium-level-1/:programID/publish
 DELETE /api/v1/programs/premium-level-1/:programID
+
+GET    /api/v1/programs/premium-level-2
+POST   /api/v1/programs/premium-level-2
+GET    /api/v1/programs/premium-level-2/:programID
+PATCH  /api/v1/programs/premium-level-2/:programID
+POST   /api/v1/programs/premium-level-2/:programID/publish
+DELETE /api/v1/programs/premium-level-2/:programID
 ```
 
-Both prefixes accept the same payload, query and response shapes described
+The prefixes accept the same payload, query and response shapes described
 below; the route decides the product family.
 
 ## Product Metadata
@@ -5213,6 +5406,10 @@ below; the route decides the product family.
     `objective = null` and no curated nutrition plan.
   - `curated` requires a known `objective` and a complete curated nutrition
     plan. The plan is delivered unchanged to every buyer.
+- `premium_level_2` offers must have `objective = null`,
+  `nutrition_mode = null`, no `curated_nutrition`, no `weeks`, no `level`, no
+  `training_type`, `duration_weeks = 0`, `frequency_per_week = 0` and
+  `type = premium`. Any other shape answers `400 VALIDATION_ERROR`.
 - `objective` is a closed vocabulary: `gain_muscle`, `lose_fat`,
   `strength_conditioning`.
 - `objective` and `nutrition_mode` are fixed at creation. A PATCH that changes

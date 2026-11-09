@@ -982,31 +982,30 @@ func TestCreateProgramStampsProductFamily(t *testing.T) {
 
 // TestUnsupportedProductFamilyRejectedEverywhere verifies that every service
 // entry point validates the family before any repository access and rejects
-// anything outside the supported list. premium_level_2 in particular is not an
-// implemented family and must never slip through a single surface.
+// anything outside the supported list.
 func TestUnsupportedProductFamilyRejectedEverywhere(t *testing.T) {
 	repo := &stubGenericRepo{program: validProgramModel()}
 	svc := newService(repo)
 
 	for name, call := range map[string]func() error{
 		"create": func() error {
-			_, err := svc.CreateProgram(context.Background(), "premium_level_2", validProgramInput())
+			_, err := svc.CreateProgram(context.Background(), "not-a-family", validProgramInput())
 			return err
 		},
 		"list": func() error {
-			_, err := svc.ListPrograms(context.Background(), "premium_level_2", generic_programs.ProgramFilter{}, 1, 10)
+			_, err := svc.ListPrograms(context.Background(), "not-a-family", generic_programs.ProgramFilter{}, 1, 10)
 			return err
 		},
-		"get": func() error { _, err := svc.GetProgram(context.Background(), "premium_level_2", programID); return err },
+		"get": func() error { _, err := svc.GetProgram(context.Background(), "not-a-family", programID); return err },
 		"update": func() error {
-			_, err := svc.UpdateProgram(context.Background(), "premium_level_2", programID, validProgramInput())
+			_, err := svc.UpdateProgram(context.Background(), "not-a-family", programID, validProgramInput())
 			return err
 		},
 		"publish": func() error {
-			_, err := svc.PublishProgram(context.Background(), "premium_level_2", programID)
+			_, err := svc.PublishProgram(context.Background(), "not-a-family", programID)
 			return err
 		},
-		"delete":       func() error { return svc.DeleteProgram(context.Background(), "premium_level_2", programID) },
+		"delete":       func() error { return svc.DeleteProgram(context.Background(), "not-a-family", programID) },
 		"create empty": func() error { _, err := svc.CreateProgram(context.Background(), "", validProgramInput()); return err },
 		"list garbage": func() error {
 			_, err := svc.ListPrograms(context.Background(), "not-a-family", generic_programs.ProgramFilter{}, 1, 10)
@@ -1025,6 +1024,42 @@ func TestUnsupportedProductFamilyRejectedEverywhere(t *testing.T) {
 	if repo.deleteProgramID != "" || repo.updateProgramID != "" || repo.publishProgramID != "" ||
 		repo.findProductType != "" || repo.searchProductType != "" || repo.createProductType != "" {
 		t.Fatal("no repository operation may run for an unsupported family")
+	}
+}
+
+// TestPremiumLevel2OfferLifecycle verifies that the Level 2 family is accepted
+// by the platform-owned program service but only as an empty premium offer: the
+// per-client training structure is authored later through the request flow.
+func TestPremiumLevel2OfferLifecycle(t *testing.T) {
+	repo := &stubGenericRepo{program: validProgramModel()}
+	svc := newService(repo)
+
+	offer := validProgramInput()
+	offer.Weeks = nil
+	offer.Level = ""
+	offer.DurationWeeks = 0
+	offer.FrequencyPerWeek = 0
+
+	program, err := svc.CreateProgram(context.Background(), models.ProgramProductTypePremiumLevel2, offer)
+	if err != nil {
+		t.Fatalf("CreateProgram: %v", err)
+	}
+	if repo.createProductType != models.ProgramProductTypePremiumLevel2 {
+		t.Fatalf("expected premium_level_2 stamped, got %q", repo.createProductType)
+	}
+	if program.ProductType != models.ProgramProductTypePremiumLevel2 {
+		t.Fatalf("expected premium_level_2 summary, got %q", program.ProductType)
+	}
+
+	withWeeks := validProgramInput()
+	if _, err := svc.CreateProgram(context.Background(), models.ProgramProductTypePremiumLevel2, withWeeks); !errors.Is(err, generic_programs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for weeks, got %v", err)
+	}
+
+	withMetadata := offer
+	withMetadata.Objective = "gain_muscle"
+	if _, err := svc.CreateProgram(context.Background(), models.ProgramProductTypePremiumLevel2, withMetadata); !errors.Is(err, generic_programs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for nutrition metadata, got %v", err)
 	}
 }
 

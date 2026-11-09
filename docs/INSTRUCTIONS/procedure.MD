@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # PROCEDURE.MD
 
-Version: 2.82.0
+Version: 2.103.0
 
 ---
 
@@ -978,9 +978,9 @@ Technical improvements may be proposed proactively, but should never override do
 
 # PROCEDURE: ADDING A NEW PREMIUM TIER
 
-Premium Level 1 shipped in v2.81.0. This is the procedure to follow when a
-successor tier is added. It exists so the next tier does not repeat the design
-questions that were already answered.
+Premium Level 1 shipped in v2.81.0 and Premium Level 2 in v2.103.0. This is the
+procedure to follow when a successor tier is added. It exists so the next tier
+does not repeat the design questions that were already answered.
 
 ## 1. Decide whether it is a new family or a variant
 
@@ -1012,12 +1012,16 @@ A new family is not finished when the catalog lists it. Every place that decides
 "which family is this?" must handle it:
 
 - The public catalog scope, as an independent filter next to
-  `ScopeGeneric` and `ScopePremiumLevel1`.
-- The generic administration scope, so the new family is unreachable through
-  generic endpoints.
-- The purchase prerequisite check, so a tier with prerequisites enforces them.
+  `ScopeGeneric`, `ScopePremiumLevel1` and `ScopePremiumLevel2`.
+- The platform-owned administration route group, so the new family is reachable
+  only through its own family route and never through generic or another
+  family's endpoints.
+- The purchase prerequisite check, so a tier with prerequisites enforces them,
+  and the purchase fulfilment hook when the tier creates a post-purchase
+  artefact.
 - The client rendering, which reads the family from the response and never
   compares a hardcoded id.
+- Every staff surface, with its own authorization rule and status lifecycle.
 
 Miss one and the tier is reachable through a marketplace or an administration
 surface where its prerequisites are not enforced. This is the most likely way a
@@ -1052,7 +1056,10 @@ Before declaring a tier complete, run at least:
 - the artefact lifecycle including the failure and retry state,
 - a cross-account refusal proving the artefact is private,
 - the regular and Test Mode purchase paths,
-- the catalogue isolation regression for every existing family.
+- the catalogue isolation regression for every existing family,
+- cross-account and cross-trainer refusals for every staff-facing artefact,
+- an idempotent fulfilment replay, proving duplicate purchase events do not
+  create a second artefact.
 
 ## 7. Document in the same cycle
 
@@ -1060,6 +1067,32 @@ Update `api.MD`, `database.MD`, `security.MD`, `architecture.MD`, `design.MD` an
 `update_logs.MD` in the same development cycle as the code. A new tier that
 reaches production undocumented is the specific outcome this project documents
 itself to avoid.
+
+## Premium Level 2 reference implementation
+
+Premium Level 2 is a trainer-delivered service, not an automated package. Use it
+as the reference when a future tier requires human authoring after purchase:
+
+- The offer is a platform-owned `premium_level_2` program with no weeks and no
+  nutrition metadata. `validatePremiumLevel2Offer` rejects structure at the
+  offer level.
+- Purchase fulfilment creates one `premium_level_2_requests` row after checking
+  the active entitlement. Replaying fulfilment is a no-op.
+- The client intake requires the active entitlement and is versioned. Editing
+  closes when a trainer is allocated; a delivered request is read-only.
+- ADMIN_2 allocates an active trainer. The trainer scope is re-checked on every
+  read and write, and reassignment clears the previously attached programme.
+- The trainer attaches an owned draft programme with at least one exercise and
+  saves a per-request nutrition plan. Delivery is allowed only in
+  `ready_for_delivery`.
+- Delivery creates the training entitlement idempotently and marks the nutrition
+  plan delivered in the same transaction. Failure never unwinds the purchase.
+- The client reads the delivered nutrition only after the entitlement and
+  delivered-state checks; draft nutrition is never exposed.
+
+Do not copy the Level 2 table set into a future tier without re-reading this
+section. The lifecycle, the trainer allocation rule and the entitlement gate are
+the reusable parts; the tier's own scope and authoring rules are not.
 
 ## Adding a nutrition mode inside an existing family
 

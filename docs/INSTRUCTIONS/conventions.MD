@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # CONVENTIONS.MD
 
-Version: 2.82.0
+Version: 2.103.0
 
 ---
 
@@ -649,8 +649,8 @@ the only authority on whether the intake may be edited.
 ## Shared flows become hooks
 
 When two pages implement the same state machine, it is extracted into a hook under
-`hooks/`. The Premium Level 1 page and the Generic program detail page share
-`useProgramCheckout`, which owns ownership resolution, purchase creation, payment
+`hooks/`. The Generic program detail, Premium Level 1 and Premium Level 2 pages
+share `useProgramCheckout`, which owns ownership resolution, purchase creation, payment
 selection, provider redirect and return, capture, cancellation, duplicate-purchase
 recovery, webhook race recovery and the Test Mode shortcut.
 
@@ -706,7 +706,9 @@ client.
 When several queries must agree on what a domain object is, the condition is
 expressed once as a helper rather than repeated as a string literal. Generic
 program management uses `genericScope` and `genericListScope`, and the public
-catalog uses the `ScopeGeneric` and `ScopePremiumLevel1` filters.
+catalog uses the `ScopeGeneric`, `ScopePremiumLevel1` and `ScopePremiumLevel2`
+filters. A product-family service validates its family before any repository
+access, so an unsupported family can never reach a query.
 
 A shared predicate string with a `?` placeholder is avoided on purpose. A
 placeholder-count mismatch does not fail loudly at the call site: GORM's `First`

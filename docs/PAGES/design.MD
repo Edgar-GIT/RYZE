@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.102.0
+Version: 2.103.0
 
 ---
 
@@ -417,8 +417,9 @@ Do not use generic admin-dashboard placeholder layouts for Platform.
 
 The program highlights are read from the published catalogue through
 `useServiceCatalog`; no price, offer or program title is hardcoded. The section
-shows at most three cards: one Premium Level 1 package first, then published
-generic programs, then additional Premium packages when needed. Each card uses
+shows at most three cards: one Premium Level 2 service first, then one Premium
+Level 1 package, then published generic programs, then additional Premium
+packages when needed. Each card uses
 the API name and description, links to its own package, and has explicit
 loading, error and empty states.
 
@@ -455,7 +456,8 @@ Catalog landing
   (Trophy), each with a short descriptive phrase
 - One image-backed category card per available product family, using
   `rcc1.png` for the generic training-plan marketplace and `rcc2.png` for
-  Premium Level 1, each animating in with a staggered fade-up on page load
+  Premium Level 1 and Premium Level 2, each animating in with a staggered
+  fade-up on page load
 - Explicit loading, error and empty states; no card is rendered until the
   published catalogue is known
 
@@ -469,9 +471,10 @@ Each card contains:
 - Featured Premium Level 1 card is taller, glows stronger and carries a
   floating "Featured" tag above its top edge
 
-The generic card opens the training-plan marketplace. The Premium Level 1 card
-opens the Premium package catalogue. No product price or offer copy is
-hardcoded, and there is no Premium Level 2 card.
+The generic card opens the training-plan marketplace, the Premium Level 1 card
+opens the Premium package catalogue and the Premium Level 2 card opens the
+trainer-delivered service page. No product price or offer copy is hardcoded;
+each card is rendered only when its family has at least one published offer.
 
 The same `ServiceCard` language is used on the homepage programs preview,
 which now sits on a plain dark background; only the Services page keeps the
@@ -859,11 +862,12 @@ palette, motion and typography and reuses the shared account navigation bar.
 
 ---
 
-### Premium Level 1
+### Premium Level 1 and Premium Level 2
 
 The public Premium Level 1 page is documented under "Premium Level 1 Page" below.
-It lists every published Premium Level 1 package and has no Premium Level 2 or
-Elite counterpart.
+The Premium Level 2 page is documented under "Premium Level 2 Page" below. Each
+page reads only its own product family; neither embeds the other family or a
+future Elite counterpart.
 
 ---
 
@@ -1236,6 +1240,7 @@ CTA
 
 Routes: `/trainer/apply`, `/trainer/dashboard`, `/trainer/clients`,
 `/trainer/clients/:userID`, `/trainer/programs`, `/trainer/programs/:programId`,
+`/trainer/premium-level-2`, `/trainer/premium-level-2/:requestID`,
 `/trainer/profile`.
 
 The trainer area reuses the existing dark RYZE design language (near-black
@@ -1257,8 +1262,8 @@ Entry point
 
 Trainer layout
 
-- Left/top navigation with four items — Dashboard, Clients, Programs, Profile —
-  rendered as links with an active state.
+- Left/top navigation with five items — Dashboard, Clients, Programs, Premium
+  L2, Profile — rendered as links with an active state.
 - Desktop: sidebar; small screens: horizontal navigation that wraps. Content
   sits on the same dark surface as the rest of the account area.
 
@@ -1347,6 +1352,27 @@ Program detail (`/trainer/programs/:programId`)
   picker. Workout exercises load lazily per workout.
 - Danger zone: delete program with inline confirmation.
 - Honest empty states at every level; no placeholder content.
+
+Premium L2 (`/trainer/premium-level-2`)
+
+- One card list of requests allocated to the signed-in trainer, with status and
+  pagination. Only allocated requests are returned; the page never exposes a
+  client directory.
+- The detail page (`/trainer/premium-level-2/:requestID`) shows the offer, the
+  client identity, the status and the full intake rendered with the shared staff
+  catalog. It reuses the existing dark card language and the shared intake
+  answer component.
+- Training: attach one of the trainer's own draft programmes that contains at
+  least one exercise, then review the attached programme. The attached
+  programme is never published.
+- Nutrition: the shared curated nutrition editor is reused with Level 2 copy;
+  the trainer authors summary, hydration, cautions, 3–8 meals and their foods,
+  and saves a versioned plan.
+- Delivery: the action is enabled only when both a programme and a nutrition
+  plan exist. A two-step confirmation explains that delivery releases the
+  content and creates the client's entitlement. After delivery the page shows
+  the delivered state and history and becomes read-only. Errors use plain
+  wording derived from server codes; no raw token is shown.
 
 Profile (`/trainer/profile`)
 
@@ -1533,9 +1559,12 @@ Pages implemented in the current cycle:
 - **ADMIN_2 Dashboard** — live platform totals (clients, trainers, pending
   applications, published programs), product mix bars and a recently published
   programs table.
-- **ADMIN_2 Plans** — the platform-owned plan list with two product-family tabs,
-  Generic and Premium Level 1, each backed by its own family route
-  (`/api/v1/programs/generic` and `/api/v1/programs/premium-level-1`). The list
+- **ADMIN_2 Plans** — the platform-owned plan list with three product-family
+  tabs, Generic, Premium Level 1 and Premium Level 2, each backed by its own
+  family route (`/api/v1/programs/generic`,
+  `/api/v1/programs/premium-level-1` and
+  `/api/v1/programs/premium-level-2`). A Premium Level 2 row is an offer, not a
+  training structure. The list
   always shows exactly one family at a time; the family is carried in the URL
   (`?family=`) and can never be invented by the client. Searchable (the search bar
   queries the real backend), with a pricing-category filter (All / Free / Premium
@@ -1551,8 +1580,8 @@ Pages implemented in the current cycle:
   "· Sales unavailable" without taking the plan list down. "New plan" opens the
   creation workspace in the active family.
 - **ADMIN_2 Plan creation workspace** — a dedicated `/admin2/plans/create`
-  flow to build a platform-owned plan: a product-family selector (Generic or
-  Premium Level 1), a 4-step wizard (basic info, program structure, marketplace,
+  flow to build a platform-owned plan: a product-family selector (Generic,
+  Premium Level 1 or Premium Level 2), a 4-step wizard (basic info, program structure, marketplace,
   review & publish) with a live RYZE marketplace card preview and a two-pane
   exercise library picker. Weeks contain training days; a day holds structured
   exercise assignments — each assignment references one catalog exercise (never
@@ -1569,8 +1598,11 @@ Pages implemented in the current cycle:
   (Gain muscle / Lose fat / Strength & conditioning) and a nutrition mode. The
   curated mode opens the curated nutrition editor for the package summary,
   hydration guidance, cautions, meals, foods and macros. Objective and mode are
-  fixed after creation; the selector is disabled in edit mode. The Publish &
-  Save action talks to the family API: it maps the local draft to the create
+  fixed after creation; the selector is disabled in edit mode. A Premium Level
+  2 offer skips the structure step and the audience fields, accepts only the
+  `premium` pricing category and shows "Trainer delivered after purchase" in
+  the preview: the service has no weeks and no nutrition content at the package
+  level. The Publish & Save action talks to the family API: it maps the local draft to the create
   payload, disables the button until a change is dirty and while a request is in
   flight (`Saving…`), and surfaces the outcome as an inline notice — green on
   success, and per-code friendly errors (e.g. missing catalog exercise, duplicate
@@ -1579,6 +1611,13 @@ Pages implemented in the current cycle:
   mode at `/admin2/plans/create?edit=<id>&family=<family>`, loads the existing
   program into the draft and saves changes transactionally through the update
   endpoint.
+- **ADMIN_2 Premium L2 requests** — `/admin2/premium-level-2` is the request
+  queue for the trainer-delivered service. Search (client name/email/offer),
+  status filter and pagination come from the real API; the detail view shows the
+  offer, client, status, allocated trainer, intake answers rendered with the
+  shared staff catalog, delivery state and request history. ADMIN_2 allocates
+  or changes an active trainer from the same view. The queue never shows intake
+  answers.
 - **ADMIN_2 Plan detail** — `/admin2/plans/:programId?family=<family>` opens a
   platform-owned plan from the real family detail endpoint and renders the
   complete structure in-tree (weeks → training days → exercises → sets with
@@ -2075,14 +2114,65 @@ fixed package content for a curated package.
 Program Access renders the same nutrition panel below the training structure for
 Premium entitlements, with the same state, readiness and resilience rules.
 
-## My Programs and Program Access
+# Premium Level 2 Page
+
+Route: `/services/premium-level-2`, declared before `/services/:serviceSlug`.
+It is a single scrolling detail page, not a wizard. Without a `program` query
+parameter it lists every published Premium Level 2 offer; selecting one adds the
+`program` parameter and shows the product.
+
+## Product presentation
+
+Name, description, price and currency come from the public `premium_level_2`
+catalog and program detail response. The page never hardcodes a product id or
+price. It states plainly that this is a manually prepared service: the client
+buys first, completes a detailed intake, a certified trainer is allocated, and
+the training and nutrition are authored individually before delivery. It states
+that delivery is not immediate and is not an automated package. Test Mode keeps
+the existing zeroed-price treatment without mutating product data.
+
+## Purchase and next step
+
+The page reuses `useProgramCheckout` and the existing payment/Test Mode flow.
+After a completed purchase it resolves the service request and routes to
+`/services/premium-level-2/requests/:requestID`; when the request is not yet
+readable it keeps the purchase confirmation and a link to My Programs. The page
+does not collect intake answers before purchase and does not invent a second
+checkout.
+
+# Premium Level 2 Request Page
+
+Route: `/services/premium-level-2/requests/:requestID`. The owner is always
+taken from the session; the id in the URL is only an address.
+
+- Header shows the offer, status, allocated trainer and delivery date when
+  present.
+- `awaiting_intake` / `awaiting_trainer_assignment`: the catalog-driven intake
+  form, grouped in sections, with required-field validation and a save action.
+  Answers already saved are prefilled. The form explains that editing closes
+  when a trainer is allocated.
+- `in_progress`: read-only answers and a waiting state explaining that the
+  trainer is preparing the programme and nutrition. No fake progress bar.
+- `ready_for_delivery`: read-only answers and a waiting state explaining that
+  the pack is being finalised.
+- `delivered`: read-only answers, a link to the delivered training programme in
+  Program Access and the delivered nutrition plan rendered from the read-only
+  plan API. Draft nutrition is never shown.
+- Errors are mapped from server codes (`PREMIUM_LEVEL_2_NOT_FOUND`,
+  `PREMIUM_LEVEL_2_NOT_EDITABLE`, `NUTRITION_NOT_FOUND`) to client-owned
+  wording. Answers are never written to browser storage.
+
+# My Programs and Program Access
 
 The Premium tier is not given its own account area.
 
 - **My Programs** marks Premium entitlements with a distinct "Premium Level 1"
-  chip, adds a "Training + nutrition" chip and labels the card action "Open
-  package". The empty state links to both the generic marketplace and Premium
-  Level 1.
+  or "Premium Level 2" chip. Premium Level 1 adds a "Training + nutrition" chip
+  and labels the action "Open package". A Premium Level 2 entitlement links
+  directly to its service request page, where intake, status and delivered
+  nutrition live; before the request is available the card falls back to the
+  service page. The empty state links to the generic marketplace, Premium Level
+  1 and Premium Level 2.
 - **Program Access** marks the owned program the same way and renders the nutrition
   panel below the training structure, for Premium entitlements only. A generic
   program never issues the nutrition request at all. The panel keeps its curated

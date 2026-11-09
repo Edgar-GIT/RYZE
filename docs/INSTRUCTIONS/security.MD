@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # SECURITY.MD
 
-Version: 2.102.0
+Version: 2.103.0
 
 ---
 
@@ -3517,3 +3517,78 @@ There is no browser persistence layer, no analytics call and no third-party embe
 inside the intake flow. Field-level rejection reasons are stable codes rendered
 with client-owned wording, so the API never has to carry presentation copy for a
 health-related field. Curated packages never request or display an intake.
+
+---
+
+## Premium Level 2 intake and delivery
+
+Premium Level 2 collects a detailed health, lifestyle and training intake for a
+real person. The intake is at least as sensitive as a Premium Level 1
+questionnaire and follows the same data-minimisation and access rules.
+
+### Purchase gates the intake
+
+The Level 2 intake requires an active entitlement for the purchased offer. The
+purchase service creates the request only after verifying that entitlement, and
+the request service re-checks ownership and entitlement before every client read
+or write. A user who has not bought the service cannot create a request or
+submit health answers. This is deliberately different from the legacy Premium
+Level 1 order, where checkout requires an intake.
+
+### The acting identity always comes from the session
+
+No Level 2 endpoint accepts a client id, user id or trainer id from the request
+body. The client endpoints bind the owner from the authentication context; the
+trainer endpoints bind the allocated trainer from the trainer session; the
+ADMIN_2 endpoints bind the administrator from the admin session. A request id is
+only an address, never an authorization fact.
+
+Not-found and not-owned requests answer the same
+`404 PREMIUM_LEVEL_2_NOT_FOUND`, so a client cannot probe another client's
+request id, and a trainer cannot infer the existence of a request allocated to
+someone else. Nutrition reads answer `404 NUTRITION_NOT_FOUND` both when no plan
+exists and when the caller is not entitled, preserving the same
+indistinguishability used by Premium Level 1.
+
+### Answer validation and retention
+
+Answers are validated and normalized server-side against the server-owned,
+versioned catalog. Unknown keys, wrong types, unsupported options, out-of-range
+numbers and missing required answers are rejected before persistence; raw
+client input is never stored. Every accepted submission is an immutable
+revision attached to the request, so the exact answers that informed a delivered
+plan remain auditable without ever being rewritten in place.
+
+Answers must never be logged, included in list responses, emitted in request
+events or projected into public, commerce or trainer-queue responses. The admin
+and trainer queue views omit answers; only the request detail views include them,
+and only for the owning client, the allocated trainer and ADMIN_2. The shared
+staff catalog is exposed so staff can render the same labels the client saw
+without duplicating the answer vocabulary in the frontend.
+
+### Trainer scope and reassignment
+
+A trainer can only read or modify a request allocated to them. The service
+re-checks allocation on every trainer operation, not only when listing. A
+reassignment clears `training_program_id` before the new trainer can work, so a
+previous trainer's programme cannot be inherited, delivered or misattributed.
+Attaching a programme additionally verifies trainer ownership, draft status and
+at least one exercise; a trainer cannot attach another trainer's programme or a
+published programme.
+
+### Delivery authorization
+
+Delivery requires an authenticated, allocated trainer and a request in
+`ready_for_delivery`. It creates the training entitlement idempotently and
+marks the nutrition plan delivered. Only a `delivered` plan is readable by the
+client; a draft plan is never exposed. A failed delivery never unwinds the
+purchase: the payment and request stay valid and the trainer can retry the same
+request. Delivered content is immutable through the Level 2 endpoints.
+
+### No new upload or payment surface
+
+Premium Level 2 introduces no file upload, no media processing, no payment
+provider and no currency handling. It reuses the existing checkout, Test Mode
+and entitlement flow. The intake is JSON text only; any future attachment must
+go through the existing upload security controls rather than a Level 2-specific
+path.

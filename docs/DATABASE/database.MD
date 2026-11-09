@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # DATABASE.MD
 
-Version: 2.102.0
+Version: 2.103.0
 
 ---
 
@@ -966,10 +966,13 @@ per-client `nutrition_assignment` or `nutrition_plan`.
 
 Premium Level 2:
 
-Not implemented. The product family is deliberately absent from the
-`programs.product_type` constraint in v2.101.0, and a later migration widens that
-constraint when the product actually exists. Trainer-authored nutrition is a
-separate future product and is not documented here as existing behaviour.
+Implemented by migration `000035` as a trainer-delivered service. The offer is a
+platform-owned program with `product_type = 'premium_level_2'`, no training weeks
+and no nutrition metadata. The per-client intake, request lifecycle,
+trainer-authored nutrition and request events are stored in the
+`premium_level_2_*` tables described below. The delivered training programme is
+an ordinary trainer-owned draft program attached to the request and released
+through an entitlement at delivery time; it is not a new program family.
 
 ---
 
@@ -1299,13 +1302,14 @@ The implemented `programs` table contains:
   `CHECK`-constrained. It describes how the program is sold, not what it contains:
   Generic Programs and Premium Level 1 both sell under it.
 - `product_type` — product family (`VARCHAR(32) NOT NULL DEFAULT 'generic'`),
-  `CHECK`-constrained to `('generic', 'premium_level_1')`, added by migration
-  `000025` and indexed by `idx_programs_product_type`. This is the orthogonal
-  dimension that decides which parts of the purchase lifecycle a program
-  participates in: `premium_level_1` delivers nutrition, while `generic` does not.
-  The default means no backfill was required and every pre-existing program kept
-  its behaviour. `premium_level_2` is intentionally not in the constraint because
-  the product does not exist.
+  `CHECK`-constrained to `('generic', 'premium_level_1', 'premium_level_2')`,
+  added by migration `000025`, widened by `000035` and indexed by
+  `idx_programs_product_type`. This is the orthogonal dimension that decides
+  which parts of the purchase lifecycle a program participates in:
+  `premium_level_1` delivers package nutrition, `premium_level_2` is a
+  trainer-delivered service offer and `generic` is a ready-made plan. The default
+  means no backfill was required and every pre-existing program kept its
+  behaviour.
 - `objective` — goal classification (`VARCHAR(32)`, nullable), `CHECK`-constrained
   to (`gain_muscle`, `lose_fat`, `strength_conditioning`) and indexed by
   `idx_programs_objective`. Added by migration `000034`. It is required for a
@@ -2348,6 +2352,117 @@ rows and never project internal deletion markers.
 - Per-client delivery is synthesized at read time from the entitlement and the
   package plan. No per-user curated row is stored, so every buyer of a package
   reads the same plan version.
+
+---
+
+## Premium Level 2 (migration 000035)
+
+Migration `000035_add_premium_level_2` widens `programs.product_type` and
+`chk_programs_product_metadata` to include `premium_level_2`, then creates the
+service-request aggregate. A Premium Level 2 offer has `objective IS NULL` and
+`nutrition_mode IS NULL`; it cannot carry weeks or generic training metadata.
+The migration rewrites no purchase, entitlement, program or nutrition row.
+
+### `premium_level_2_requests`
+
+One active service request per completed purchase. It is created by the purchase
+fulfilment hook, never by the client.
+
+- `id` — UUID primary key.
+- `user_id` — buying client (`users.id`), foreign key, indexed.
+- `program_id` — purchased offer (`programs.id`), foreign key, indexed.
+- `trainer_id` — allocated trainer (`trainers.id`, nullable), indexed.
+- `training_program_id` — trainer-authored programme (`programs.id`, nullable),
+  indexed. It must belong to the allocated trainer and remain a draft.
+- `status` — `awaiting_intake`, `awaiting_trainer_assignment`, `in_progress`,
+  `ready_for_delivery`, `delivered` or `cancelled`, `CHECK`-constrained.
+- `intake_version` — copy of the latest submitted revision, positive or zero.
+- `delivered_at` — delivery timestamp, nullable.
+- `created_at` / `updated_at` / `deleted_at` — standard timestamps and soft
+  delete.
+- `active_request` — stored generated column
+  `IF(deleted_at IS NULL, CONCAT(user_id, ':', program_id), NULL)` with a unique
+  key, so one client cannot hold two live requests for the same offer.
+- Foreign keys: user, offer program, trainer and training programme.
+
+### `premium_level_2_intakes`
+
+Append-only revisions of the client's answers.
+
+- `id` — UUID primary key.
+- `request_id` — owning request, foreign key, indexed.
+- `version` — revision number, unique per request, `CHECK (> 0)`.
+- `answers` — JSON object validated and normalized server-side against the
+  versioned intake catalogue. Raw client input is never stored.
+- `submitted_at` / `created_at` — timestamps.
+
+### `premium_level_2_nutrition_plans`
+
+The trainer-authored per-client nutrition header. It reuses the curated
+nutrition editorial shape but belongs to one request, not to a package. The
+`request_id` column is `VARCHAR(36)` because the active-plan generated column
+uses `IF()`; MariaDB rejects `IF()` over `CHAR` in a generated column.
+
+- `id` — UUID primary key.
+- `request_id` — owning request, foreign key, indexed.
+- `version` — plan revision, `CHECK (> 0)`.
+- `status` — `draft` or `delivered`.
+- `dietary_pattern` / `summary` / `prep_guidance` / `hydration_note` — editorial
+  content with the same caps as curated nutrition.
+- `hydration_litres` — `DECIMAL(4,1)`, `CHECK (> 0 AND <= 20)`.
+- `cautions` — JSON array.
+- `deleted_at` plus `active_plan` generated from `request_id` under a unique key,
+  so one request has at most one live plan.
+- `created_at` / `updated_at`.
+
+### `premium_level_2_nutrition_plan_meals` and `..._meal_items`
+
+The normalized meal and food rows, structurally identical to the curated
+aggregate: ordered by `position` under a unique key per parent, cascading on
+parent deletion, with non-negative macro CHECKs and a positive quantity CHECK.
+
+### `premium_level_2_request_events`
+
+Append-only audit trail for submission, allocation, reassignment, attachment and
+delivery.
+
+- `id` — UUID primary key.
+- `request_id` — owning request, foreign key, indexed.
+- `actor_kind` — `client`, `trainer`, `admin` or `system`.
+- `actor_id` — actor identifier.
+- `event_type` — controlled event name.
+- `from_status` / `to_status` — nullable status transition.
+- `created_at`.
+- It never stores intake answers.
+
+### Views
+
+- `v_premium_level_2_request` — request state plus offer, client, trainer,
+  training-programme and nutrition metadata, filtered by request `deleted_at`.
+- `v_premium_level_2_intake` — intake revisions joined to live requests. It
+  projects `answers`; only the owner, allocated trainer and authorised admin read
+  paths use it.
+- `v_premium_level_2_nutrition_plan`, `..._meal`, `..._meal_item` — the safe plan
+  read surface.
+
+### Lifecycle
+
+- Purchase fulfilment inserts the request in `awaiting_intake` only after
+  verifying an active entitlement; duplicate fulfilment is a no-op.
+- The first intake submission moves the request to
+  `awaiting_trainer_assignment`. Further submissions replace the active revision
+  while the request is in either pre-allocation state.
+- Allocation records the trainer and moves the request to `in_progress`.
+  Reassignment clears `training_program_id` so the new trainer cannot inherit
+  prior work, and records an event.
+- Attaching a programme requires it to belong to the allocated trainer, be a
+  draft, and contain at least one exercise. Saving nutrition replaces the meal
+  and food rows and increments the plan version.
+- `ready_for_delivery` is derived from an attached programme plus a saved
+  nutrition plan. Delivery requires that state, inserts the training entitlement
+  idempotently, marks the plan `delivered` and stamps `delivered_at`.
+- Delivered and cancelled requests reject further attachment, nutrition or
+  intake writes.
 
 ---
 

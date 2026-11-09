@@ -1,7 +1,7 @@
 # RYZE
 # How to Run
 
-Version: 2.102.0
+Version: 2.103.0
 
 ---
 
@@ -1167,8 +1167,9 @@ routed, and always fails closed.
 
 ## Premium Level 1 (Local Walkthrough)
 
-Premium Level 1 needs migrations `000025`, `000026` and `000034` and a published
-Premium Level 1 program before the page has anything to show. Package creation
+Premium Level 1 needs migrations `000025`, `000026` and `000034` (and the later
+`000035`, which widens the product-family constraint) plus a published Premium
+Level 1 program before the page has anything to show. Package creation
 now chooses the nutrition delivery model: `curated` (predefined package plan) or
 `questionnaire_generated` (legacy intake-derived plan).
 
@@ -1179,7 +1180,7 @@ cd main/src/backend
 go run . migrate up
 ```
 
-Verify the schema version afterwards. The expected result is version `34` with
+Verify the schema version afterwards. The expected result is version `35` with
 `dirty = false`:
 
 ```text
@@ -1265,6 +1266,91 @@ attempt returns `404 PROGRAM_NOT_FOUND` without writing anything.
 Checkout against a legacy questionnaire-generated Premium Level 1 program without
 a submitted intake answers `409 PURCHASE_PREREQUISITE_NOT_MET`. A curated package
 has no such prerequisite.
+
+---
+
+## Premium Level 2 (Local Walkthrough)
+
+Premium Level 2 needs migration `000035` and at least one published
+`premium_level_2` offer. It is a trainer-delivered service, so the walkthrough
+uses three identities: a client, ADMIN_2 and an approved trainer.
+
+### Apply the migration and create the offer
+
+```text
+cd main/src/backend
+go run . migrate up
+go run . migrate status
+```
+
+The expected schema version is `35` with `dirty = false`. Then, as ADMIN_2,
+open **Plans** (Programs → Plans), switch to the **Premium · Level 2** tab and
+select **New plan**. A Level 2 offer has no weeks, no level, no training type,
+no duration, no frequency and no nutrition content; it accepts only the Premium
+pricing category. Publish it.
+
+### Walk the service
+
+1. Open `/services/premium-level-2` as a client, select the offer and complete a
+   Test Mode purchase. Purchase fulfilment creates the service request; no
+   intake is requested before payment.
+2. Open the request from the confirmation or from **My Programs**. The page shows
+   `awaiting_intake` and the intake form loaded from
+   `GET /api/v1/me/premium-level-2/catalog`.
+3. Submit a complete intake. The request moves to
+   `awaiting_trainer_assignment`. Submit it again to confirm the revision number
+   increases and the answers are replaced while allocation has not happened.
+4. As ADMIN_2, open `/admin2/premium-level-2`, select the request and allocate an
+   active trainer. The request moves to `in_progress` and the client form becomes
+   read-only.
+5. As that trainer, open `/trainer/premium-level-2`, select the request and:
+   attach one of the trainer's own draft programmes that contains at least one
+   exercise, then author and save the nutrition plan (3–8 meals). The request
+   moves to `ready_for_delivery`.
+6. Select **Deliver**. The request becomes `delivered`, the training entitlement
+   is created and the nutrition plan is released.
+7. Back as the client, refresh the request page: answers are read-only, the
+   delivered nutrition renders and the training programme is available through
+   Program Access / My Programs.
+
+### Verify without the UI
+
+With a client session:
+
+```text
+GET /api/v1/me/premium-level-2/catalog
+GET /api/v1/me/premium-level-2
+GET /api/v1/me/premium-level-2/{requestID}
+PUT /api/v1/me/premium-level-2/{requestID}/intake
+GET /api/v1/me/premium-level-2/{requestID}/nutrition
+```
+
+With an ADMIN_2 session:
+
+```text
+GET  /api/v1/admin/premium-level-2/catalog
+GET  /api/v1/admin/premium-level-2/requests?status=awaiting_trainer_assignment&q=<name>
+GET  /api/v1/admin/premium-level-2/requests/{requestID}
+POST /api/v1/admin/premium-level-2/requests/{requestID}/trainer
+```
+
+With the allocated trainer session:
+
+```text
+GET  /api/v1/trainer/premium-level-2/requests
+GET  /api/v1/trainer/premium-level-2/requests/{requestID}
+PUT  /api/v1/trainer/premium-level-2/requests/{requestID}/training-program
+PUT  /api/v1/trainer/premium-level-2/requests/{requestID}/nutrition
+POST /api/v1/trainer/premium-level-2/requests/{requestID}/deliver
+```
+
+Expected refusals: submitting an intake after allocation, saving nutrition after
+delivery and delivering before readiness answer `409
+PREMIUM_LEVEL_2_NOT_EDITABLE`; another client's request id, another trainer's
+request id and a missing id all answer `404 PREMIUM_LEVEL_2_NOT_FOUND`; reading
+nutrition before delivery answers `404 NUTRITION_NOT_FOUND`. Test Mode purchase
+is provider-free; a real payment still requires the provider configuration
+described above.
 
 ### Provider-dependent steps
 
