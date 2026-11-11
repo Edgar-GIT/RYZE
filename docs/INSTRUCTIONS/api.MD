@@ -2305,6 +2305,8 @@ Permissions include:
 - Commerce management (admin sales view over purchases, `commerce` permission —
   see the [ADMIN COMMERCE](#admin-commerce) section)
 - Marketing (promotions)
+- Member feedback review (`feedback.read` / `feedback.manage`, exclusive to
+  this role — see [Member Feedback](#member-feedback-migration-000036))
 
 ---
 
@@ -2472,13 +2474,80 @@ Less restrictive.
 
 Authenticated users may receive higher limits than anonymous visitors.
 
+## Member Feedback (migration 000036)
+
+Members leave a 1–5 star rating and a short message on the public Feedback
+page. Submissions are published only after the Management Administrator
+approves them.
+
+Eligibility (server-side): an active account that holds or held any plan — an
+entitlement (every paid product, including Premium Level 2) or a Free
+activation. Expired access counts; revoked (soft-deleted) access does not. A
+member can have at most one pending submission (enforced by a unique index).
+
+### `GET /api/v1/feedback` (public)
+
+Approved feedback from active accounts, newest first. Query: `page` (default 1),
+`limit` (default 12, max 50).
+
+```json
+{
+  "success": true,
+  "message": "Feedback retrieved successfully.",
+  "data": {
+    "feedback": [
+      { "id": "uuid", "display_name": "Alex D.", "rating": 5, "message": "…", "published_at": "2026-11-11T10:00:00Z" }
+    ],
+    "pagination": { "page": 1, "limit": 12, "total": 1, "total_pages": 1 }
+  }
+}
+```
+
+Only the public name ("First L.", snapshotted at submission) is exposed — never
+the user id, email or full surname.
+
+### `GET /api/v1/me/feedback/eligibility` (authenticated)
+
+```json
+{ "success": true, "data": { "eligible": true, "pending": null } }
+```
+
+`pending` is the member's own submission awaiting review (`id`, `rating`,
+`message`, `status`, `created_at`) or `null`.
+
+### `POST /api/v1/me/feedback` (authenticated, rate limited)
+
+Body: `{ "rating": 1-5, "message": "10-1000 characters" }`. The message is
+trimmed and stripped of control characters (line breaks are kept). Identity
+always comes from the access token; a user id in the body is ignored. Returns
+`201` with the member's own submission (`status: "pending"`).
+
+Errors: `400 VALIDATION_ERROR`, `401 AUTHENTICATION_REQUIRED`,
+`403 FEEDBACK_NOT_ELIGIBLE` (no plan), `409 FEEDBACK_ALREADY_PENDING`,
+`429 RATE_LIMITED` (10 requests per hour per client IP).
+
+### `GET /api/v1/admin/feedback` (`feedback.read`)
+
+The review queue. Query: `status` (`pending`, `approved`, `rejected`; empty for
+all), `page`, `limit`. Items add `user_id`, `status`, `reviewed_by` (the
+configured admin identity) and `reviewed_at`.
+
+### `POST /api/v1/admin/feedback/:id/approve` and `/reject` (`feedback.manage`)
+
+Moves a pending submission to `approved` (published) or `rejected` and records
+the reviewer. Errors: `400 VALIDATION_ERROR`, `404 FEEDBACK_NOT_FOUND`,
+`409 FEEDBACK_STATE_CONFLICT` (already reviewed).
+
+---
+
 ## Authentication and contact rate limiting (v2.90.0, contact v2.98.0)
 
 Rate limiting is applied to the credential and account endpoints
 (`POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
 `POST /api/v1/admin/auth/login`, `POST /api/v1/admin/auth/verify`,
 `POST /api/v1/auth/change-password`, `POST /api/v1/auth/delete-account`) and
-to `POST /api/v1/contact`. Each endpoint is limited independently by client IP;
+to `POST /api/v1/contact` and `POST /api/v1/me/feedback` (10 requests per hour
+per client IP). Each endpoint is limited independently by client IP;
 credential endpoints with an account identifier additionally limit the
 normalised (trimmed, lowercased) `email` (user endpoints) or `username` (admin
 login). The contact form is limited to 10 requests per hour per client IP.

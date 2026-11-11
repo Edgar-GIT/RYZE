@@ -1,0 +1,130 @@
+.section {
+  overflow: hidden;
+}
+
+.layout {
+  display: grid;
+  gap: 2.75rem;
+}
+
+.intro {
+  display: grid;
+  gap: 1.25rem;
+  justify-items: start;
+}
+
+.actions {
+  gap: 0.5rem 1.5rem;
+}
+
+.note {
+  max-width: 60ch;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--tone-line);
+}
+
+.steps {
+  position: relative;
+  display: grid;
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The rail runs through the step nodes: cyan to white. */
+.steps::before {
+  position: absolute;
+  top: 1.6rem;
+  bottom: 1.6rem;
+  left: calc(1.6rem - 1px);
+  width: 2px;
+  content: "";
+  background: linear-gradient(180deg, var(--r-cyan), rgba(0, 203, 255, 0.08));
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.node {
+  display: grid;
+  width: 3.2rem;
+  height: 3.2rem;
+  place-items: center;
+  border-radius: 1rem;
+  color: var(--r-ink);
+  background: linear-gradient(180deg, #7aebff, var(--r-cyan));
+  box-shadow: 0 12px 28px -14px rgba(0, 203, 255, 0.9);
+}
+
+.node svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.index {
+  margin: 0.15rem 0 0.2rem;
+  color: var(--hl);
+  font-size: 0.75rem;
+  font-stretch: 115%;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: var(--tone-text);
+  font-size: 1.2rem;
+  font-stretch: 112%;
+  font-weight: 760;
+  line-height: 1.2;
+}
+
+.text {
+  margin: 0.35rem 0 0;
+  color: var(--tone-text-2);
+  font-size: 0.975rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    gap: 4rem;
+  }
+
+  .intro {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .intro > p:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .steps {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  .steps::before {
+    top: calc(1.6rem - 1px);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 2px;
+    background: linear-gradient(90deg, var(--r-cyan), rgba(0, 203, 255, 0.08));
+  }
+
+  .step {
+    grid-template-columns: 1fr;
+    align-content: start;
+    gap: 1.1rem;
+  }
+}

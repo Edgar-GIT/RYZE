@@ -1,15 +1,16 @@
-import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
-import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
-import type { FormEvent, ReactNode } from "react";
+import { motion, type Variants } from "framer-motion";
+import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import type { FormEvent, ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
 
 import { BrandMark } from "@/components/brand_mark/brand_mark";
-import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { PublicAction, Waves } from "@/components/public_ui/public_ui";
+import ui from "@/components/public_ui/public_ui.module.css";
+import { BRAND_ASSETS } from "@/constants/brand_assets";
+import { joinClassNames } from "@utils/class_names";
 import { ApiError, apiPost } from "@utils/http_client";
-import loginBackground from "@resources/img/login_create/background.png";
 
 import styles from "./login_page.module.css";
 
@@ -18,8 +19,6 @@ type AuthMode = "login" | "register";
 interface LoginPageProps {
   initialMode?: AuthMode;
 }
-
-const LOADING_DURATION_MS = 1000;
 
 const containerVariants: Variants = {
   hidden: {},
@@ -57,6 +56,7 @@ const GoogleButton = () => (
         d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
       />
     </svg>
+    <span>Google</span>
   </button>
 );
 
@@ -97,6 +97,7 @@ const PasswordField = ({
 
 interface AuthFormProps {
   onSwitch: () => void;
+  headingRef: RefObject<HTMLHeadingElement | null>;
 }
 
 const errorMessageFor = (error: unknown): string => {
@@ -112,7 +113,7 @@ const errorMessageFor = (error: unknown): string => {
   return "Something went wrong. Please try again.";
 };
 
-const LoginForm = ({ onSwitch }: AuthFormProps) => {
+const LoginForm = ({ onSwitch, headingRef }: AuthFormProps) => {
   const history = useHistory();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -154,7 +155,9 @@ const LoginForm = ({ onSwitch }: AuthFormProps) => {
       noValidate
     >
       <FadeItem className={styles.header}>
-        <h2>Welcome back</h2>
+        <h1 ref={headingRef} tabIndex={-1}>
+          Welcome <span className={ui.hl}>back.</span>
+        </h1>
         <p>Log in to continue your journey.</p>
       </FadeItem>
 
@@ -169,8 +172,6 @@ const LoginForm = ({ onSwitch }: AuthFormProps) => {
             aria-label="Email or username"
           />
         </div>
-      </FadeItem>
-      <FadeItem>
         <PasswordField id="login-password" placeholder="Password" autoComplete="current-password" />
       </FadeItem>
 
@@ -193,9 +194,9 @@ const LoginForm = ({ onSwitch }: AuthFormProps) => {
       ) : null}
 
       <FadeItem>
-        <Button type="submit" size="large" className={styles.submit} disabled={submitting}>
+        <PublicAction type="submit" className={styles.submit} disabled={submitting} icon={<ArrowRight />}>
           Log in
-        </Button>
+        </PublicAction>
       </FadeItem>
 
       <FadeItem className={styles.divider}>
@@ -218,7 +219,7 @@ const LoginForm = ({ onSwitch }: AuthFormProps) => {
   );
 };
 
-const RegisterForm = ({ onSwitch }: AuthFormProps) => {
+const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
   const history = useHistory();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -273,43 +274,41 @@ const RegisterForm = ({ onSwitch }: AuthFormProps) => {
       noValidate
     >
       <FadeItem className={styles.header}>
-        <h2>Create account</h2>
+        <h1 ref={headingRef} tabIndex={-1}>
+          Create <span className={ui.hl}>account.</span>
+        </h1>
         <p>Join RYZE and start your evolution.</p>
       </FadeItem>
 
       <FadeItem className={styles.fields}>
-        <div className={styles.field}>
-          <User className={styles.fieldIcon} aria-hidden="true" />
-          <input
-            type="text"
-            name="first_name"
-            placeholder="First name"
-            autoComplete="given-name"
-            aria-label="First name"
-          />
-        </div>
-        <div className={styles.field}>
-          <User className={styles.fieldIcon} aria-hidden="true" />
-          <input
-            type="text"
-            name="last_name"
-            placeholder="Last name"
-            autoComplete="family-name"
-            aria-label="Last name"
-          />
+        <div className={styles.nameRow}>
+          <div className={styles.field}>
+            <User className={styles.fieldIcon} aria-hidden="true" />
+            <input
+              type="text"
+              name="first_name"
+              placeholder="First name"
+              autoComplete="given-name"
+              aria-label="First name"
+            />
+          </div>
+          <div className={styles.field}>
+            <User className={styles.fieldIcon} aria-hidden="true" />
+            <input
+              type="text"
+              name="last_name"
+              placeholder="Last name"
+              autoComplete="family-name"
+              aria-label="Last name"
+            />
+          </div>
         </div>
         <div className={styles.field}>
           <Mail className={styles.fieldIcon} aria-hidden="true" />
           <input type="email" name="email" placeholder="Email" autoComplete="email" aria-label="Email" />
         </div>
-      </FadeItem>
-      <FadeItem className={styles.fields}>
         <PasswordField id="register-password" placeholder="Password" autoComplete="new-password" />
-        <PasswordField
-          id="register-confirm"
-          placeholder="Confirm password"
-          autoComplete="new-password"
-        />
+        <PasswordField id="register-confirm" placeholder="Confirm password" autoComplete="new-password" />
       </FadeItem>
 
       <FadeItem>
@@ -342,9 +341,9 @@ const RegisterForm = ({ onSwitch }: AuthFormProps) => {
       ) : null}
 
       <FadeItem>
-        <Button type="submit" size="large" className={styles.submit} disabled={submitting}>
+        <PublicAction type="submit" className={styles.submit} disabled={submitting} icon={<ArrowRight />}>
           Create account
-        </Button>
+        </PublicAction>
       </FadeItem>
 
       <FadeItem className={styles.divider}>
@@ -367,58 +366,98 @@ const RegisterForm = ({ onSwitch }: AuthFormProps) => {
   );
 };
 
+// Copy of the light-blue panel for each mode: it invites to the *other* mode.
+const PANEL_COPY: Record<AuthMode, { kicker: string; title: string; text: string; action: string; target: AuthMode }> = {
+  login: {
+    kicker: "New to RYZE?",
+    title: "Start your evolution.",
+    text: "Create a free account to follow your programmes, log every session and see your progress.",
+    action: "Create account",
+    target: "register"
+  },
+  register: {
+    kicker: "Already a member?",
+    title: "Welcome back.",
+    text: "Log in to continue with your programmes, nutrition plans and workout history.",
+    action: "Log in",
+    target: "login"
+  }
+};
+
+// Login and registration share one card: the form takes one half and the
+// light-blue wave panel the other. Switching mode slides the panel across and
+// the other form takes its place. The inactive form is inert and hidden from
+// assistive technology; focus moves to the new form's heading.
 export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
   const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [loading, setLoading] = useState(false);
-  const timerRef = useRef<number | null>(null);
-  const reduceMotion = useReducedMotion();
+  const switched = useRef(false);
+  const loginHeading = useRef<HTMLHeadingElement>(null);
+  const registerHeading = useRef<HTMLHeadingElement>(null);
 
-  useEffect(
-    () => () => {
-      if (timerRef.current !== null) {
-        window.clearTimeout(timerRef.current);
-      }
-    },
-    []
-  );
+  useEffect(() => {
+    if (!switched.current) {
+      return;
+    }
+    (mode === "login" ? loginHeading : registerHeading).current?.focus({ preventScroll: true });
+  }, [mode]);
 
   const switchMode = (nextMode: AuthMode) => {
-    if (loading) {
-      return;
-    }
-
-    if (reduceMotion) {
-      setMode(nextMode);
-      return;
-    }
-
-    setLoading(true);
-    timerRef.current = window.setTimeout(() => {
-      setMode(nextMode);
-      setLoading(false);
-      timerRef.current = null;
-    }, LOADING_DURATION_MS);
+    switched.current = true;
+    setMode(nextMode);
   };
 
   return (
-    <PageWrapper>
-      <section
-        className={styles.section}
-        style={{ backgroundImage: `url(${loginBackground})` }}
-      >
+    <PageWrapper className={joinClassNames(ui.page, styles.page)}>
+      <section className={joinClassNames(ui.toneNavy, styles.section)}>
         <Link className={styles.brand} to="/" aria-label="RYZE home">
           <BrandMark size="navigation" />
           <span>RYZE</span>
         </Link>
 
-        <div className={styles.scrim} aria-hidden="true" />
+        <div className={styles.shell} data-mode={mode}>
+          <div
+            className={joinClassNames(styles.pane, styles.paneLogin)}
+            data-active={mode === "login"}
+            inert={mode !== "login"}
+            aria-hidden={mode !== "login"}
+          >
+            <LoginForm onSwitch={() => switchMode("register")} headingRef={loginHeading} />
+          </div>
+          <div
+            className={joinClassNames(styles.pane, styles.paneRegister)}
+            data-active={mode === "register"}
+            inert={mode !== "register"}
+            aria-hidden={mode !== "register"}
+          >
+            <RegisterForm onSwitch={() => switchMode("login")} headingRef={registerHeading} />
+          </div>
 
-        <div className={styles.card}>
-          {mode === "login" ? (
-            <LoginForm onSwitch={() => switchMode("register")} />
-          ) : (
-            <RegisterForm onSwitch={() => switchMode("login")} />
-          )}
+          <aside className={joinClassNames(ui.toneLight, styles.panel)} aria-label="RYZE account">
+            <Waves />
+            <img className={styles.panelMark} src={BRAND_ASSETS.icon} alt="" width="600" height="658" />
+            {(["login", "register"] as const).map((panelMode) => {
+              const copy = PANEL_COPY[panelMode];
+              const active = panelMode === mode;
+
+              return (
+                <div
+                  key={panelMode}
+                  className={styles.panelCopy}
+                  data-panel={panelMode}
+                  data-active={active}
+                  inert={!active}
+                  aria-hidden={!active}
+                >
+                  <p className={styles.panelKicker}>{copy.kicker}</p>
+                  <p className={styles.panelTitle}>{copy.title}</p>
+                  <p className={styles.panelText}>{copy.text}</p>
+                  <PublicAction variant="ink" icon={<ArrowRight />} onClick={() => switchMode(copy.target)}>
+                    {copy.action}
+                  </PublicAction>
+                </div>
+              );
+            })}
+          </aside>
         </div>
 
         <p className={styles.legal}>
@@ -432,8 +471,6 @@ export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
           </a>
         </p>
       </section>
-
-      <AnimatePresence>{loading ? <LoadingScreen /> : null}</AnimatePresence>
     </PageWrapper>
   );
 };

@@ -1,5 +1,22 @@
+/* Colours follow the public design (navy surfaces, blue light, Archivo
+   headings) by overriding the shared tokens for this page only; the layout and
+   every component rule are unchanged. */
 .page {
+  --bg-primary: #02041f;
+  --bg-secondary: #050c30;
+  --surface: #0a1645;
+  --surface-elevated: #0e1c52;
+  --surface-hover: #11225e;
+  --card: #0e1c52;
+  --card-hover: #11225e;
+  --border-color: rgba(124, 200, 255, 0.15);
+  --border: 1px solid rgba(124, 200, 255, 0.15);
+  --text-secondary: #c9d5ec;
+  --text-muted: #93a4c8;
   min-height: 100%;
+  background:
+    radial-gradient(56rem 30rem at 85% 0%, rgba(4, 129, 220, 0.18), transparent 65%),
+    #02041f;
 }
 
 .detail {

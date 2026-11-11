@@ -601,7 +601,9 @@ Granted permissions:
 - Shared by both roles: users, trainers, statistics.
 - Technical Administrator only: system, infrastructure, technical
   configuration, security, development.
-- Management Administrator only: plans, finance, marketing.
+- Management Administrator only: plans, finance, marketing, member feedback
+  review (`feedback.read` to list submissions, `feedback.manage` to approve or
+  reject them).
 
 The coarse `users` permission is split into finer-grained permissions:
 
@@ -648,6 +650,18 @@ User management authorization model:
 - There is no permanent-deletion endpoint. Disabling is always a soft delete
   and admin responses never expose password hashes, session versions or
   deletion markers.
+
+Member feedback authorization model (migration 000036):
+
+- The author is always resolved from the authenticated session on
+  `POST /me/feedback`; a client-provided user id is ignored.
+- Eligibility (holds or held a plan) and the one-pending-submission rule are
+  checked by the server; the frontend checks are presentation only.
+- Nothing is public until an administrator with `feedback.manage` approves it.
+  The public list exposes only the "First L." name snapshot, rating, message
+  and publication date; feedback from deleted accounts is hidden.
+- Messages are stored as plain text and rendered as text (never as HTML).
+- Submissions are rate limited (10 per hour per client IP).
 
 Trainer application authorization model:
 

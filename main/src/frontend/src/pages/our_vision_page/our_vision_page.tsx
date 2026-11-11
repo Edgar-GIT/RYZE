@@ -1,12 +1,11 @@
-import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
+  ArrowDown,
   ArrowRight,
   BarChart3,
   Brain,
   ChartNoAxesCombined,
-  ChevronRight,
-  Crosshair,
+  Check,
   Dumbbell,
   Globe2,
   Heart,
@@ -15,521 +14,339 @@ import {
   Rocket,
   Sprout,
   User,
-  UserPlus,
   Users,
+  X,
   Zap
 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
-import { Button } from "@/components/button/button";
-import { Container } from "@/components/container/container";
+import { Reveal } from "@/components/reveal/reveal";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { BrandStop, PublicAction, Waves } from "@/components/public_ui/public_ui";
+import ui from "@/components/public_ui/public_ui.module.css";
+import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { CONTACT_WHATSAPP_URL } from "@/constants/contact";
-import continuousEvolutionBackground from "@resources/img/hero/conti_bg.png";
+import { joinClassNames } from "@utils/class_names";
 import ryzeIconBanner from "@resources/img/logo/ryze_icon2.png";
-import joinBackground from "@resources/img/hero/join_bg.png";
-import ourVisionBackground from "@resources/img/hero/our_view.png";
 
 import styles from "./our_vision_page.module.css";
+import { StandoutVisual } from "./standout_visual";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 34 },
-  visible: { opacity: 1, y: 0 }
-};
-
-const howItWorksSteps = [
-  {
-    number: "01",
-    icon: UserPlus,
-    title: "Sign up",
-    text: "Create your account in seconds."
-  },
-  {
-    number: "02",
-    icon: Crosshair,
-    title: "Tell us your goals",
-    text: "Share your goals and preferences."
-  },
-  {
-    number: "03",
-    icon: Brain,
-    title: "AI builds your program",
-    text: "We create a training and nutrition program just for you."
-  },
-  {
-    number: "04",
-    icon: BarChart3,
-    title: "Track progress",
-    text: "Monitor your performance in real time."
-  },
-  {
-    number: "05",
-    icon: Rocket,
-    title: "Get better every week",
-    text: "Smart adjustments keep you moving forward."
-  }
-] as const;
-
-const roadmap = [
-  { icon: Rocket, label: "Today", title: "Platform Launch" },
-  { icon: Brain, label: "Next", title: "AI Training" },
-  { icon: Sprout, label: "Next", title: "AI Nutrition" },
-  { icon: Activity, label: "Soon", title: "Recovery Intelligence" },
-  { icon: User, label: "Later", title: "Coach Marketplace" },
-  { icon: Globe2, label: "Later", title: "Worldwide Trainers" },
-  { icon: Network, label: "Horizon", title: "Complete Fitness Ecosystem" }
-] as const;
-
-const leftEvolution = [
-  {
-    icon: Brain,
-    title: "New AI capabilities",
-    text: "Smarter models, deeper insights, endless potential."
-  },
-  {
-    icon: Zap,
-    title: "Performance improvements",
-    text: "Faster, lighter, stronger. Built for what's next."
-  },
-  {
-    icon: User,
-    title: "Better personalization",
-    text: "Tailored experiences that adapt to you."
-  }
-] as const;
-
-const rightEvolution = [
-  {
-    icon: BarChart3,
-    title: "Better analytics",
-    text: "More data, clearer insights, smarter decisions."
-  },
-  {
-    icon: Dumbbell,
-    title: "New trainer tools",
-    text: "Powerful tools to train smarter and scale faster."
-  },
-  {
-    icon: Link2,
-    title: "New integrations",
-    text: "Seamless connections with the tools you love."
-  }
-] as const;
-
-const joinFeatures = [
-  {
-    icon: Users,
-    title: "Strong community",
-    text: "Together we go further."
-  },
-  {
-    icon: Dumbbell,
-    title: "Smarter training",
-    text: "Train with purpose."
-  },
-  {
-    icon: Heart,
-    title: "Built with passion",
-    text: "For people who never stop."
-  },
-  {
-    icon: ChartNoAxesCombined,
-    title: "Continuous evolution",
-    text: "Always improving."
-  },
-  {
-    icon: Zap,
-    title: "Your journey",
-    text: "Your goals, our mission."
-  }
-] as const;
-
-interface RevealProps {
-  children: ReactNode;
-  className?: string;
-  delay?: number;
+interface IconItem {
+  icon: LucideIcon;
+  title: string;
+  text: string;
 }
 
-const Reveal = ({ children, className, delay = 0 }: RevealProps) => {
-  const reduceMotion = useReducedMotion();
+const pageSections = [
+  { href: "#why-ryze", label: "Why RYZE is different" },
+  { href: "#how-it-works", label: "How RYZE works" },
+  { href: "#vision-roadmap", label: "Where RYZE is going" },
+  { href: "#vision-evolution", label: "Continuous evolution" }
+] as const;
 
-  return (
-    <motion.div
-      className={className}
-      initial={reduceMotion ? false : "hidden"}
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.24 }}
-      variants={fadeUp}
-      transition={{ duration: 0.62, ease: "easeOut", delay }}
-    >
-      {children}
-    </motion.div>
-  );
-};
+// How most fitness apps work, against what RYZE does today (and next).
+const TYPICAL = [
+  "One template for everyone",
+  "Training or nutrition, rarely both",
+  "A plan you follow on your own",
+  "No record of what you actually did"
+] as const;
 
-const mulberry32 = (seed: number) => {
-  let state = seed;
+const RYZE_WAY: Array<{ text: string; next?: boolean }> = [
+  { text: "Programs filtered by goal, level, duration and weekly frequency" },
+  { text: "Training and nutrition together in Premium plans" },
+  { text: "Premium Level 2 plans prepared for you by a RYZE trainer" },
+  { text: "Every session logged, with your history and progress" },
+  { text: "AI-generated programs", next: true }
+];
 
-  return () => {
-    state |= 0;
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
+// Existing Our Vision copy, rendered as numbered steps.
+const howItWorksSteps: Array<{ title: string; text: string }> = [
+  { title: "Sign up", text: "Create your account in seconds." },
+  { title: "Tell us your goals", text: "Share your goals and preferences." },
+  { title: "AI builds your program", text: "We create a training and nutrition program just for you." },
+  { title: "Track progress", text: "Monitor your performance in real time." },
+  { title: "Get better every week", text: "Smart adjustments keep you moving forward." }
+];
 
-interface StarPoint {
-  top: number;
-  left: number;
-  size: number;
-  delay: number;
-  duration: number;
-  glow: string;
-}
+const roadmapPhases: Array<{ phase: string; milestones: Array<{ icon: LucideIcon; title: string }> }> = [
+  { phase: "Today", milestones: [{ icon: Rocket, title: "Platform Launch" }] },
+  { phase: "Next", milestones: [{ icon: Brain, title: "AI Training" }, { icon: Sprout, title: "AI Nutrition" }] },
+  { phase: "Soon", milestones: [{ icon: Activity, title: "Recovery Intelligence" }] },
+  { phase: "Later", milestones: [{ icon: User, title: "Coach Marketplace" }, { icon: Globe2, title: "Worldwide Trainers" }] },
+  { phase: "Horizon", milestones: [{ icon: Network, title: "Complete Fitness Ecosystem" }] }
+];
 
-const starRandom = mulberry32(20260920);
+const evolutionItems: IconItem[] = [
+  { icon: Brain, title: "New AI capabilities", text: "Smarter models, deeper insights, endless potential." },
+  { icon: Zap, title: "Performance improvements", text: "Faster, lighter, stronger. Built for what's next." },
+  { icon: User, title: "Better personalization", text: "Tailored experiences that adapt to you." },
+  { icon: BarChart3, title: "Better analytics", text: "More data, clearer insights, smarter decisions." },
+  { icon: Dumbbell, title: "New trainer tools", text: "Powerful tools to train smarter and scale faster." },
+  { icon: Link2, title: "New integrations", text: "Seamless connections with the tools you love." }
+];
 
-const starPoints: StarPoint[] = Array.from({ length: 150 }, () => {
-  const size = [1, 1.4, 1.8, 2.4][Math.floor(starRandom() * 4)];
+const joinFeatures: IconItem[] = [
+  { icon: Users, title: "Strong community", text: "Together we go further." },
+  { icon: Dumbbell, title: "Smarter training", text: "Train with purpose." },
+  { icon: Heart, title: "Built with passion", text: "For people who never stop." },
+  { icon: ChartNoAxesCombined, title: "Continuous evolution", text: "Always improving." },
+  { icon: Zap, title: "Your journey", text: "Your goals, our mission." }
+];
 
-  return {
-    top: +(starRandom() * 100).toFixed(2),
-    left: +(starRandom() * 100).toFixed(2),
-    size,
-    delay: +(starRandom() * 3).toFixed(2),
-    duration: 4.5 + Math.floor(starRandom() * 4),
-    glow:
-      size >= 1.8
-        ? "0 0 8px rgba(24, 216, 255, 0.85)"
-        : "0 0 4px rgba(24, 216, 255, 0.45)"
-  };
-});
-
-const StarField = () => (
-  <div className={styles.starField} aria-hidden="true">
-    {starPoints.map((star, index) => (
-      <span
-        key={index}
-        style={{
-          top: `${star.top}%`,
-          left: `${star.left}%`,
-          width: `${star.size}px`,
-          height: `${star.size}px`,
-          boxShadow: star.glow,
-          animationDelay: `${star.delay}s`,
-          animationDuration: `${star.duration}s`
-        }}
-      />
-    ))}
-  </div>
+const IconTile = ({ icon: Icon }: { icon: LucideIcon }) => (
+  <span className={styles.iconTile} aria-hidden="true">
+    <Icon strokeWidth={1.9} />
+  </span>
 );
 
-const HowWorksPanel = () => {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <motion.div
-      className={styles.howWorks}
-      initial={reduceMotion ? false : { opacity: 0, y: 28 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.35 }}
-      transition={{ duration: 0.65, ease: "easeOut", delay: 0.1 }}
-    >
-      <motion.div
-        className={styles.howWorksTitle}
-        initial={reduceMotion ? false : { opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.5, ease: "easeOut", delay: 0.22 }}
-      >
-        <span className={styles.howWorksLine} aria-hidden="true" />
-        <h3>How RYZE works</h3>
-        <span className={styles.howWorksLine} aria-hidden="true" />
-      </motion.div>
-
-      <ol className={styles.howWorksSteps}>
-        {howItWorksSteps.map((step, index) => {
-          const Icon = step.icon;
-
-          return (
-            <motion.li
-              key={step.number}
-              className={styles.howWorksStep}
-              initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.92 }}
-              whileInView={{ opacity: 1, y: 0, scale: 1 }}
-              viewport={{ once: true, amount: 0.4 }}
-              transition={{
-                duration: 0.48,
-                ease: "easeOut",
-                delay: 0.28 + index * 0.09
-              }}
-            >
-              <span className={styles.howWorksNumber}>{step.number}</span>
-              <span className={styles.howWorksIcon}>
-                <Icon aria-hidden="true" strokeWidth={1.6} />
-              </span>
-              <h4>{step.title}</h4>
-              <p>{step.text}</p>
-            </motion.li>
-          );
-        })}
-      </ol>
-    </motion.div>
-  );
-};
-
 export const OurVisionPage = () => (
-  <PageWrapper className={styles.page}>
-    <section className={styles.hero}>
-      <img
-        className={styles.heroBackground}
-        src={ourVisionBackground}
-        alt=""
-        aria-hidden="true"
-      />
-
-      <Container className={styles.heroLayout}>
-        <Reveal className={styles.heroCopy}>
-          <p className={styles.eyebrow}>The future of fitness</p>
-          <h1>
-            Fitness deserves better{" "}
-            <span className={styles.accentPhrase}>software.</span>
+  <PageWrapper className={ui.page}>
+    <section className={joinClassNames(ui.toneNavy, styles.hero)} aria-labelledby="vision-hero-heading">
+      <div className={joinClassNames(ui.container, styles.heroLayout)}>
+        <div className={styles.heroCopy}>
+          <p className={ui.label}>Our vision</p>
+          <h1 id="vision-hero-heading" className={ui.display}>
+            Thousands of fitness apps. All the same. <span className={ui.hl}>RYZE isn&apos;t.</span>
           </h1>
-          <p className={styles.lead}>
-            Modern training should adapt to you, not force you to adapt to static programs.
+          <p className={ui.lead}>
+            Most fitness platforms sell the same static plans and stop there. RYZE brings training,
+            nutrition and real trainers into one platform — and keeps evolving, with AI-generated
+            programs next on our roadmap.
           </p>
-        </Reveal>
-      </Container>
+          <nav aria-label="On this page">
+            <ul className={styles.pageNav}>
+              {pageSections.map((section) => (
+                <li key={section.href}>
+                  <a className={joinClassNames(styles.pageNavLink, ui.focusRing)} href={section.href}>
+                    {section.label}
+                    <ArrowDown aria-hidden="true" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+        <StandoutVisual className={styles.heroVisual} />
+      </div>
     </section>
 
-    <section className={`${styles.section} ${styles.sectionMission}`}>
-      <StarField />
-
-      <Container className={styles.missionLayout}>
-        <Reveal className={styles.missionIntro}>
-          <p className={styles.missionEyebrow}>Get started</p>
-          <h2>
-            Start your journey in <span className={styles.accentPhrase}>minutes.</span>
-            <br />
-            Transform for life.
+    <section
+      id="why-ryze"
+      className={joinClassNames(ui.section, ui.toneNavy, ui.anchorTarget)}
+      aria-labelledby="why-ryze-heading"
+    >
+      <div className={joinClassNames(ui.container, styles.stack)}>
+        <div className={styles.intro}>
+          <p className={ui.label}>Why RYZE</p>
+          <h2 id="why-ryze-heading" className={ui.heading}>
+            Others stop at a plan. <span className={ui.hl}>RYZE keeps going.</span>
           </h2>
-          <p className={styles.sectionLead}>
+        </div>
+
+        <div className={styles.compare}>
+          <div className={joinClassNames(styles.compareColumn, styles.compareOthers)}>
+            <h3>Typical fitness apps</h3>
+            <ul>
+              {TYPICAL.map((item) => (
+                <li key={item}>
+                  <X aria-hidden="true" strokeWidth={2.2} />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className={joinClassNames(ui.surface, styles.compareColumn, styles.compareRyze)}>
+            <h3>
+              <img src={BRAND_ASSETS.icon} alt="" width="600" height="658" />
+              RYZE
+            </h3>
+            <ul>
+              {RYZE_WAY.map((item) => (
+                <li key={item.text}>
+                  <Check aria-hidden="true" strokeWidth={2.6} />
+                  <span>
+                    {item.text}
+                    {item.next ? <em className={styles.nextTag}>Next</em> : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="how-it-works"
+      className={joinClassNames(ui.section, ui.toneNavy, ui.anchorTarget)}
+      aria-labelledby="how-it-works-heading"
+    >
+      <div className={joinClassNames(ui.container, styles.stack)}>
+        <div className={styles.intro}>
+          <p className={ui.label}>Get started</p>
+          <h2 id="how-it-works-heading" className={ui.heading}>
+            Start your journey in <span className={ui.hl}>minutes.</span> Transform for life
+            <BrandStop />
+          </h2>
+          <p className={ui.lead}>
             RYZE makes it easy to start. Set your goals, follow your program and let technology handle
             the rest.
           </p>
-        </Reveal>
+        </div>
 
-        <HowWorksPanel />
-      </Container>
+        <ol className={styles.steps} aria-label="How RYZE works">
+          {howItWorksSteps.map((step, index) => (
+            <li key={step.title}>
+              <Reveal className={joinClassNames(ui.surface, styles.step)} delay={index * 0.06} y={20}>
+                <span className={styles.stepNumber} aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
+              </Reveal>
+            </li>
+          ))}
+        </ol>
+      </div>
     </section>
 
-    <section className={`${styles.section} ${styles.sectionRoadmap}`} id="vision-roadmap">
-      <StarField />
-
-      <Container className={styles.roadmapLayout}>
-        <Reveal className={styles.roadmapIntro}>
-          <p className={styles.eyebrow}>Our vision</p>
-          <h2>
-            Where <span className={styles.accentPhrase}>RYZE</span> is going.
+    <section
+      id="vision-roadmap"
+      className={joinClassNames(ui.section, ui.toneNavy, ui.anchorTarget)}
+      aria-labelledby="roadmap-heading"
+    >
+      <div className={joinClassNames(ui.container, styles.stack)}>
+        <div className={styles.intro}>
+          <p className={ui.label}>Roadmap</p>
+          <h2 id="roadmap-heading" className={ui.heading}>
+            Where <span className={ui.hl}>RYZE</span> is going.
           </h2>
-          <p className={styles.sectionLead}>
+          <p className={ui.lead}>
             The roadmap is the story. Each step expands the ecosystem without abandoning the core.
           </p>
-          <ul className={styles.roadmapPhases}>
-            {["Today", "Next", "Soon", "Later", "Horizon"].map((phase) => (
-              <li key={phase}>{phase}</li>
-            ))}
-          </ul>
-        </Reveal>
+        </div>
 
-        <ol className={styles.roadmap}>
-          {roadmap.map((item, index) => {
-            const Icon = item.icon;
+        <ol className={styles.roadmap} aria-label="RYZE roadmap">
+          {roadmapPhases.map((phase, index) => (
+            <li key={phase.phase} className={joinClassNames(styles.phase, index === 0 && styles.phaseCurrent)}>
+              <span className={styles.phaseNode} aria-hidden="true" />
+              <h3 className={styles.phaseName}>{phase.phase}</h3>
+              <ul className={styles.milestones}>
+                {phase.milestones.map((milestone) => {
+                  const Icon = milestone.icon;
 
-            return (
-              <li key={item.title} className={styles.roadmapEntry}>
-                <span className={styles.roadmapNode} aria-hidden="true" />
-                <Reveal delay={index * 0.05} className={styles.roadmapCardReveal}>
-                  <article className={styles.roadmapItem}>
-                    <span className={styles.roadmapIcon}>
-                      <Icon aria-hidden="true" />
-                    </span>
-                    <span className={styles.roadmapIndex}>
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <div className={styles.roadmapCopy}>
-                      <p>{item.label}</p>
-                      <strong>{item.title}</strong>
-                    </div>
-                    <ChevronRight className={styles.roadmapChevron} aria-hidden="true" />
-                  </article>
-                </Reveal>
-              </li>
-            );
-          })}
+                  return (
+                    <li key={milestone.title} className={styles.milestone}>
+                      <span className={styles.milestoneIcon} aria-hidden="true">
+                        <Icon strokeWidth={1.9} />
+                      </span>
+                      {milestone.title}
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          ))}
         </ol>
-      </Container>
+      </div>
     </section>
 
-    <section className={`${styles.section} ${styles.sectionEvolution}`}>
-      <img
-        className={styles.evolutionBackground}
-        src={continuousEvolutionBackground}
-        alt=""
-        aria-hidden="true"
-      />
-
-      <Container className={styles.evolutionLayout}>
-        <Reveal className={styles.evolutionIntro}>
-          <p className={styles.evolutionEyebrow}>
-            <span className={styles.evolutionEyebrowLine} aria-hidden="true" />
-            Continuous evolution
-          </p>
-          <h2>
-            <span className={styles.evolutionLine}>Software is</span>
-            <span className={`${styles.evolutionLine} ${styles.accentPhrase}`}>
-              never finished.
-            </span>
+    <section
+      id="vision-evolution"
+      className={joinClassNames(ui.section, ui.toneNavy, ui.anchorTarget)}
+      aria-labelledby="evolution-heading"
+    >
+      <div className={joinClassNames(ui.container, styles.stack)}>
+        <div className={styles.intro}>
+          <p className={ui.label}>Continuous evolution</p>
+          <h2 id="evolution-heading" className={ui.heading}>
+            Software is <span className={ui.hl}>never finished.</span>
           </h2>
-          <p className={styles.evolutionLead}>
-            RYZE keeps receiving new capabilities while the product stays one coherent system.
-          </p>
-          <a className={styles.evolutionCta} href="#vision-roadmap">
-            See what's next
-            <ArrowRight aria-hidden="true" />
-          </a>
-        </Reveal>
-
-        <div className={styles.evolutionSystem}>
-          <div className={styles.evolutionSide} data-side="left">
-            {leftEvolution.map((card, index) => {
-              const Icon = card.icon;
-
-              return (
-                <Reveal key={card.title} delay={index * 0.06}>
-                  <article className={styles.evolutionItem}>
-                    <span className={styles.evolutionIcon}>
-                      <Icon aria-hidden="true" strokeWidth={1.6} />
-                    </span>
-                    <div className={styles.evolutionCopy}>
-                      <h3>{card.title}</h3>
-                      <p>{card.text}</p>
-                    </div>
-                  </article>
-                </Reveal>
-              );
-            })}
-          </div>
-
-          <div className={styles.evolutionCenter} aria-hidden="true" />
-
-          <div className={styles.evolutionSide} data-side="right">
-            {rightEvolution.map((card, index) => {
-              const Icon = card.icon;
-
-              return (
-                <Reveal key={card.title} delay={index * 0.06}>
-                  <article className={styles.evolutionItem}>
-                    <span className={styles.evolutionIcon}>
-                      <Icon aria-hidden="true" strokeWidth={1.6} />
-                    </span>
-                    <div className={styles.evolutionCopy}>
-                      <h3>{card.title}</h3>
-                      <p>{card.text}</p>
-                    </div>
-                  </article>
-                </Reveal>
-              );
-            })}
+          <div className={styles.introAside}>
+            <p className={ui.lead}>
+              RYZE keeps receiving new capabilities while the product stays one coherent system.
+            </p>
+            <PublicAction href="#vision-roadmap" variant="quiet">
+              See what&apos;s next
+            </PublicAction>
           </div>
         </div>
 
-        <Reveal className={styles.evolutionBanner}>
+        <ul className={styles.featureGrid}>
+          {evolutionItems.map((item, index) => (
+            <li key={item.title}>
+              <Reveal className={joinClassNames(ui.surface, styles.feature)} delay={(index % 3) * 0.06} y={20}>
+                <IconTile icon={item.icon} />
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </Reveal>
+            </li>
+          ))}
+        </ul>
+
+        <div className={joinClassNames(ui.toneLight, ui.lightPanel, styles.banner)}>
+          <Waves />
           <img
-            className={styles.evolutionBannerMark}
+            className={styles.bannerMark}
             src={ryzeIconBanner}
             alt=""
-            aria-hidden="true"
+            width="96"
+            height="100"
+            loading="lazy"
+            decoding="async"
           />
-          <div className={styles.evolutionBannerCopy}>
+          <div className={styles.bannerCopy}>
             <h3>
-              The Future of Fitness is{" "}
-              <span className={styles.accentPhrase}>Adaptive</span>
+              The future of fitness is <span className={ui.hl}>adaptive.</span>
             </h3>
-            <p>We're building more than a platform - We're building the Future.</p>
+            <p>We&apos;re building more than a platform — we&apos;re building the future.</p>
           </div>
-          <a className={styles.evolutionBannerCta} href="#vision-roadmap">
-            Join the Journey
-          </a>
-        </Reveal>
-      </Container>
+          <PublicAction href="#vision-roadmap" variant="ink" icon={<ArrowRight />}>
+            Join the journey
+          </PublicAction>
+        </div>
+      </div>
     </section>
 
-    <section className={`${styles.section} ${styles.sectionJoin}`}>
-      <img
-        className={styles.joinBackground}
-        src={joinBackground}
-        alt=""
-        aria-hidden="true"
-      />
-
-      <Container className={styles.joinLayout}>
-        <div className={styles.joinContent}>
-          <Reveal className={styles.joinIntro}>
-            <p className={styles.joinEyebrow}>The journey continues</p>
-            <h2 className={styles.joinTitle}>
-              Grow together
-              <br />
-              with RYZE, <span className={styles.joinAccent}>join us now.</span>
-            </h2>
-            <p className={styles.joinLead}>
-              We're building the future of fitness, education and technology.
-              <br />
-              Be part of a community that evolves every day.
+    <section className={joinClassNames(ui.section, ui.toneNavy)} aria-labelledby="join-heading">
+      <div className={joinClassNames(ui.container, styles.stack)}>
+        <div className={styles.intro}>
+          <p className={ui.label}>The journey continues</p>
+          <h2 id="join-heading" className={ui.heading}>
+            Grow together with RYZE, <span className={ui.hl}>join us now.</span>
+          </h2>
+          <div className={styles.introAside}>
+            <p className={ui.lead}>
+              We&apos;re building the future of fitness, education and technology. Be part of a
+              community that evolves every day.
             </p>
-
-            <Button
-              className={styles.joinCta}
-              href={CONTACT_WHATSAPP_URL}
-              variant="secondary"
-              size="medium"
-              icon={<ArrowRight aria-hidden="true" />}
-            >
-              JOIN RYZE
-            </Button>
-          </Reveal>
-
-          <Reveal className={styles.joinFeaturesPanel} delay={0.12}>
-            <ol className={styles.joinFeatures}>
-              {joinFeatures.map((feature) => {
-                const Icon = feature.icon;
-
-                return (
-                  <li key={feature.title} className={styles.joinFeature}>
-                    <span className={styles.joinFeatureIcon}>
-                      <Icon aria-hidden="true" />
-                    </span>
-                    <span className={styles.joinFeatureCopy}>
-                      <strong>{feature.title}</strong>
-                      <p>{feature.text}</p>
-                    </span>
-                  </li>
-                );
-              })}
-            </ol>
-          </Reveal>
-
-          <div className={styles.joinFooter}>
-            <p className={styles.joinStatement}>
-              <span className={styles.joinStatementLine} aria-hidden="true" />
-              RYZE is more than a platform.
-              <span className={styles.joinStatementLine} aria-hidden="true" />
-            </p>
-            <p className={styles.joinMovement}>It's a movement.</p>
+            <div className={styles.joinAction}>
+              <PublicAction href={CONTACT_WHATSAPP_URL} icon={<ArrowRight />}>
+                Join RYZE
+              </PublicAction>
+              <p className={ui.caption}>Opens the RYZE community on WhatsApp.</p>
+            </div>
           </div>
         </div>
-      </Container>
+
+        <ul className={styles.joinList}>
+          {joinFeatures.map((feature) => (
+            <li key={feature.title} className={styles.joinItem}>
+              <IconTile icon={feature.icon} />
+              <div>
+                <h3>{feature.title}</h3>
+                <p>{feature.text}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        <p className={styles.statement}>
+          RYZE is more than a platform. <span className={ui.hl}>It&apos;s a movement.</span>
+        </p>
+      </div>
     </section>
   </PageWrapper>
 );

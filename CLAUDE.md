@@ -44,8 +44,9 @@ application roots are:
 
 - `main/src/frontend/src/` — pages, components, stores, API clients and styles.
 - `main/src/backend/` — Go API, services, repositories, models and database.
-- `main/src/backend/database/migrations/` — embedded SQL migrations (000035 is
-  the verified current migration).
+- `main/src/backend/database/migrations/` — embedded SQL migrations (000036,
+  member feedback, is the latest file; apply pending migrations with
+  `go run . migrate up` from `main/src/backend/`).
 - `docs/` — product, architecture, database, design, procedure and registry
   documentation.
 
@@ -61,24 +62,36 @@ The owner has approved a major redesign, but it is 100% mobile-first: begin at
 360–430px, support narrower screens, then adapt to tablet and desktop. The
 experience should be distinctive, premium, straightforward and fast to
 navigate. The official RYZE logo and documented brand palette are protected
-(`docs/INSTRUCTIONS/design.MD` is authoritative; current accents are
-`#18D8FF` and `#2A8CFF`); the visual system may be substantially redesigned
-around those colors with
-compatible neutrals and accessible semantic tokens.
+(`docs/INSTRUCTIONS/design.MD` is authoritative; global accents are `#18D8FF`
+and `#2A8CFF`, and the public layer uses the colours sampled from the logo: navy
+`#02041F`, royal `#072A77`, ring blue `#0481DC`, cyan `#00CBFF`); the visual
+system may be redesigned around those colors with compatible neutrals and
+accessible semantic tokens.
+
+Public pages follow one design principle (`docs/INSTRUCTIONS/design.MD`, "Public
+Website Layer"): one continuous logo-navy page with soft blue light, app-style
+glass cards, cyan as the light and the light-blue wave panel as the only bright
+surface. Do not reintroduce paper, white, cyan or royal section bands; the owner
+rejected them as making parts of the site look unrelated.
 
 Static background images are forbidden everywhere except login and registration.
 Functional imagery (exercise media, avatars and useful product imagery) is
-allowed. Three.js is functional technology only: preserve useful demonstrations,
-load it lazily when appropriate, support WebGL fallback and reduced motion, and
-consider mobile GPU/battery cost. Do not add R3F or other dependencies merely
-because an installed skill contains examples.
+allowed. Three.js serves useful demonstrations and the owner-approved desktop
+Home scroll story (the Earth, phone and laptop; desktop only, phones get the
+SVG/CSS equivalents). Load it lazily with WebGL fallback and reduced motion, and
+consider GPU/battery cost. Do not add R3F or other dependencies merely because
+an installed skill contains examples.
 
-Strictly protected frontend areas must remain unchanged, including indirect
-shared-component effects: the entire footer; the Exercise Library and details;
-the Services page; and Home's “Find Your Next Program” section. Before any
-frontend work, read `docs/AI/frontend-revamp.md` and inspect the protected-area
-inventory. Isolate redesigned variants instead of globally restyling shared
-dependencies used by protected areas.
+Protected frontend parts must remain unchanged, including indirect
+shared-component effects. Since the owner's 2026-11-10/11 revisions these are:
+the footer's layout, link columns, slogan image and copy; the Exercise Library
+and details layout, components, behaviour and 3D viewer (colours may follow the
+public design); the Services cards (`components/service_card/`, including the
+owner-added "Personalized" tag); the Home program cards' background images; and
+the login/registration fields, validation, messages, API calls and redirects.
+Before any frontend work, read `docs/AI/frontend-revamp.md` and its
+protected-area inventory. Isolate redesigned variants instead of globally
+restyling shared dependencies used by protected parts.
 
 Preserve product behavior, API contracts, authentication, permissions,
 purchase/entitlement rules and workout execution. Validate actual mobile

@@ -1,0 +1,169 @@
+/* Hero, programs and the chapter track flow over one pinned 3D stage. The
+   stage's negative bottom margin lets the content that follows overlap it. */
+.story {
+  position: relative;
+}
+
+.stage {
+  position: sticky;
+  top: 0;
+  z-index: 0;
+  height: 100vh;
+  height: 100svh;
+  margin-bottom: -100vh;
+  margin-bottom: -100svh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  align-items: center;
+  padding-top: var(--r-nav-clearance);
+}
+
+.heroInner {
+  width: min(100% - (var(--r-gutter) * 2), var(--r-max));
+  margin-inline: auto;
+}
+
+.heroCopy {
+  display: grid;
+  gap: 1.75rem;
+  width: min(44%, 36rem);
+}
+
+/* The opening headline's long words ("everywhere.") stay inside the copy column. */
+.hero h1 {
+  font-size: clamp(3.25rem, 4.9vw, 5.25rem);
+}
+
+.programs {
+  position: relative;
+  z-index: 1;
+}
+
+/* Scroll room for the four device chapters. */
+.track {
+  height: 500vh;
+  height: 500svh;
+}
+
+/* The backdrop dissolves into the page at its base, so the page's own light
+   continues under the next section without an edge. */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: linear-gradient(160deg, #02041f 0%, #061447 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
+}
+
+/* The stars fade out with the backdrop; the devices stay above the fade. */
+.canvasHost {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  mask-image: linear-gradient(180deg, #000 0%, #000 93%, transparent 100%);
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+.stageReady .canvas {
+  opacity: 1;
+}
+
+/* SVG globe shown while the scene module loads, at the Earth's position. */
+.placeholder {
+  position: absolute;
+  top: 50%;
+  left: 68.5%;
+  z-index: -1;
+  width: min(40vw, 60vh);
+  transform: translate(-50%, -50%);
+}
+
+.chapters {
+  position: absolute;
+  inset: 0;
+  width: min(100% - (var(--r-gutter) * 2), var(--r-max));
+  margin-inline: auto;
+}
+
+/* Each chapter keeps its tone's text colours but sits on the shared backdrop. */
+.chapter.chapter {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: grid;
+  gap: 1.75rem;
+  width: min(44%, 36rem);
+  margin-top: calc(var(--r-nav-clearance) / 2);
+  background: none;
+  translate: 0 -50%;
+  will-change: opacity, transform;
+}
+
+.chapterStart.chapterStart {
+  width: min(46%, 38rem);
+}
+
+.sampleNote {
+  margin: 0;
+  color: var(--tone-text-3);
+  font-size: 0.8125rem;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- Scroll cue --- */
+
+.scrollCue {
+  position: absolute;
+  bottom: 1.75rem;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-family: var(--r-font);
+  font-size: 0.75rem;
+  font-stretch: 115%;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  translate: -50% 0;
+}
+
+.scrollCue svg {
+  width: 1rem;
+  height: 1rem;
+  animation: cue 1.8s ease-in-out infinite;
+}
+
+@keyframes cue {
+  50% {
+    transform: translateY(4px);
+  }
+}

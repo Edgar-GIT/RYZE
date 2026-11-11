@@ -1,0 +1,38 @@
+.copy {
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+}
+
+.points {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.points li {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  color: var(--tone-text);
+  font-size: 1rem;
+  font-weight: 560;
+  line-height: 1.35;
+}
+
+.start {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.actions {
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 639px) {
+  .actions > a {
+    width: 100%;
+  }
+}

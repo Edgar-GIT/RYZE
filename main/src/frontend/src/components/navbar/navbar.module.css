@@ -21,11 +21,11 @@
   border: 1px solid rgba(24, 216, 255, calc(0.16 + var(--nav-scroll) * 0.18));
   border-radius: 1.15rem;
   background:
-    linear-gradient(180deg, rgba(18, 28, 42, calc(0.55 + var(--nav-scroll) * 0.28)), rgba(8, 12, 18, calc(0.62 + var(--nav-scroll) * 0.3)));
+    linear-gradient(180deg, rgba(10, 22, 66, calc(0.55 + var(--nav-scroll) * 0.28)), rgba(3, 7, 34, calc(0.62 + var(--nav-scroll) * 0.3)));
   box-shadow:
     0 0 0 1px rgba(24, 216, 255, calc(0.04 + var(--nav-scroll) * 0.06)) inset,
     0 0 28px rgba(24, 216, 255, calc(0.08 + var(--nav-scroll) * 0.12)),
-    0 12px 36px rgba(5, 7, 11, calc(0.2 + var(--nav-scroll) * 0.35));
+    0 12px 36px rgba(1, 3, 20, calc(0.2 + var(--nav-scroll) * 0.35));
   backdrop-filter: blur(calc(16px + var(--nav-scroll) * 6px));
   -webkit-backdrop-filter: blur(calc(16px + var(--nav-scroll) * 6px));
   pointer-events: auto;
@@ -255,6 +255,7 @@
 }
 
 .menuButton {
+  position: relative;
   display: none;
   width: 36px;
   height: 36px;
@@ -282,6 +283,13 @@
 .menuButton svg {
   width: 1.05rem;
   height: 1.05rem;
+}
+
+/* Invisible 44px touch target around the 36px visual button. */
+.menuButton::before {
+  position: absolute;
+  inset: -4px;
+  content: "";
 }
 
 .mobilePanel {
@@ -350,21 +358,26 @@
     overflow: hidden;
     border: 1px solid rgba(24, 216, 255, 0.16);
     border-radius: 1rem;
-    background: rgba(8, 12, 18, 0.96);
+    background: rgba(3, 7, 34, 0.97);
     opacity: 0;
+    visibility: hidden;
     pointer-events: auto;
     backdrop-filter: blur(20px);
     box-shadow: 0 0 24px rgba(24, 216, 255, 0.08);
     transition:
       max-height 280ms ease,
       padding 280ms ease,
-      opacity 280ms ease;
+      opacity 280ms ease,
+      visibility 0s linear 280ms;
   }
 
+  /* Visibility keeps the collapsed links out of the keyboard tab order. */
   .mobilePanelOpen {
     max-height: 460px;
     padding-block: 0.45rem;
     opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
   }
 
   .mobileLink {

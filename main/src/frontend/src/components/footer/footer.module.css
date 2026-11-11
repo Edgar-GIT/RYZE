@@ -1,13 +1,28 @@
+/* Same layout, columns and wordmark as before; the surface, lines and type
+   now follow the public design (logo navy, blue light, Archivo). */
 .footer {
   position: relative;
   z-index: 1;
   overflow: hidden;
   padding: 5.5rem 0 2.3rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid rgba(124, 200, 255, 0.14);
   background:
-    radial-gradient(circle at 36% 16%, rgba(16, 87, 115, 0.18), transparent 30rem),
-    linear-gradient(180deg, rgba(4, 14, 20, 0.98), rgba(3, 12, 17, 0.98));
+    radial-gradient(circle at 30% 0%, rgba(4, 129, 220, 0.2), transparent 32rem),
+    linear-gradient(180deg, #02041f 0%, #010213 100%);
   color: var(--color-white);
+  font-family: "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif;
+}
+
+/* A thin line of cyan light along the top edge. */
+.footer::after {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: min(60rem, 80%);
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(0, 203, 255, 0.7), transparent);
+  transform: translateX(-50%);
 }
 
 .footer::before {
@@ -16,8 +31,8 @@
   z-index: -1;
   content: "";
   background:
-    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+    linear-gradient(rgba(124, 200, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 200, 255, 0.028) 1px, transparent 1px);
   background-size: 92px 92px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 78%);
 }
@@ -53,12 +68,12 @@
   filter:
     saturate(1.08)
     contrast(1.05)
-    drop-shadow(0 18px 46px rgba(18, 170, 220, 0.12));
+    drop-shadow(0 18px 46px rgba(0, 170, 240, 0.2));
 }
 
 .brandArea p {
   margin: 0;
-  color: rgba(222, 222, 222, 0.68);
+  color: #b4c2de;
   font-size: 0.98rem;
   line-height: 1.65;
 }
@@ -76,8 +91,9 @@
 
 .column h2 {
   margin: 0;
-  color: rgba(222, 222, 222, 0.66);
+  color: #00cbff;
   font-size: 0.72rem;
+  font-stretch: 115%;
   font-weight: 800;
   letter-spacing: 0.42em;
   line-height: 1.4;
@@ -93,7 +109,7 @@
 }
 
 .column a {
-  color: rgba(222, 222, 222, 0.66);
+  color: #b4c2de;
   font-size: 0.96rem;
   transition:
     color var(--transition-fast),
@@ -111,13 +127,12 @@
   justify-content: space-between;
   gap: 1.5rem;
   padding-top: 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(124, 200, 255, 0.14);
 }
 
 .copyright {
   margin: 0;
-  color: rgba(222, 222, 222, 0.62);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  color: #93a4c8;
   font-size: 0.76rem;
   letter-spacing: 0.12em;
   line-height: 1.7;
@@ -131,7 +146,7 @@
 }
 
 .utilities a {
-  color: rgba(222, 222, 222, 0.68);
+  color: #b4c2de;
   font-size: 0.9rem;
   transition: color var(--transition-fast);
 }

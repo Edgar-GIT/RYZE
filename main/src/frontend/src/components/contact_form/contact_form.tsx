@@ -2,7 +2,8 @@ import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { Paperclip, SendHorizontal, Upload } from "lucide-react";
 
-import { Button } from "@/components/button/button";
+import { PublicAction } from "@/components/public_ui/public_ui";
+import ui from "@/components/public_ui/public_ui.module.css";
 import {
   CONTACT_ATTACHMENT_MAX_BYTES,
   contactErrorMessage,
@@ -26,6 +27,9 @@ export const ContactForm = () => {
   const [status, setStatus] = useState<SubmitStatus>("idle");
   const [feedback, setFeedback] = useState("");
   const uploadInputId = useId();
+  const uploadHintId = useId();
+  const uploadLabelId = useId();
+  const uploadButtonId = useId();
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -74,7 +78,7 @@ export const ContactForm = () => {
 
   return (
     <form
-      className={styles.form}
+      className={joinClassNames(ui.toneNavy, ui.surface, styles.form)}
       onSubmit={(event) => void handleSubmit(event)}
       aria-busy={status === "submitting"}
     >
@@ -138,11 +142,14 @@ export const ContactForm = () => {
           <div className={styles.uploadCopy}>
             <Paperclip aria-hidden="true" />
             <div>
-              <span>Attachment</span>
+              <span id={uploadLabelId}>Attachment (optional)</span>
               <small>{selectedFileName}</small>
+              <small id={uploadHintId} className={styles.uploadHint}>
+                PNG, JPEG, WebP or PDF, up to 1 MB.
+              </small>
             </div>
           </div>
-          <label className={styles.uploadButton} htmlFor={uploadInputId}>
+          <label id={uploadButtonId} className={styles.uploadButton} htmlFor={uploadInputId}>
             <Upload aria-hidden="true" />
             <span>Choose file</span>
           </label>
@@ -150,6 +157,8 @@ export const ContactForm = () => {
             id={uploadInputId}
             type="file"
             name="attachment"
+            aria-labelledby={`${uploadLabelId} ${uploadButtonId}`}
+            aria-describedby={uploadHintId}
             accept="image/png,image/jpeg,image/webp,application/pdf"
             onChange={(event) => {
               const fileName = event.target.files?.[0]?.name;
@@ -160,27 +169,25 @@ export const ContactForm = () => {
       </div>
 
       <div className={styles.footer}>
-        {feedback ? (
-          <p
-            className={joinClassNames(
-              styles.feedback,
-              status === "success" ? styles.feedbackSuccess : styles.feedbackError
-            )}
-            role="status"
-            aria-live="polite"
-          >
-            {feedback}
-          </p>
-        ) : null}
-        <Button
+        {/* The live region stays mounted so screen readers announce text changes. */}
+        <p
+          className={joinClassNames(
+            styles.feedback,
+            feedback && (status === "success" ? styles.feedbackSuccess : styles.feedbackError)
+          )}
+          role="status"
+          aria-live="polite"
+        >
+          {feedback}
+        </p>
+        <PublicAction
           type="submit"
-          size="large"
           className={styles.submit}
           icon={<SendHorizontal />}
           disabled={status === "submitting"}
         >
           {status === "submitting" ? "Sending…" : "Send Message"}
-        </Button>
+        </PublicAction>
         <p className={styles.note}>We usually reply within 24 hours.</p>
       </div>
     </form>

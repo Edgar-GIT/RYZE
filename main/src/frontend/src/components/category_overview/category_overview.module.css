@@ -1,0 +1,197 @@
+.layout {
+  display: grid;
+  gap: 2.75rem;
+}
+
+.intro {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.levels {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Same glass surface for every level; more personalization means more light. */
+.level {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 1rem;
+  overflow: hidden;
+  padding: 1.6rem 1.4rem 1.4rem;
+  border-radius: var(--r-radius-xl);
+  transition:
+    transform 260ms var(--r-ease),
+    box-shadow 260ms var(--r-ease),
+    border-color 260ms var(--r-ease);
+}
+
+.level:hover {
+  border-color: var(--r-line-strong);
+  transform: translateY(-4px);
+}
+
+.level2 {
+  border-color: rgba(4, 129, 220, 0.45);
+  background:
+    radial-gradient(28rem 16rem at 100% 0%, rgba(4, 129, 220, 0.28), transparent 70%),
+    var(--r-surface);
+  box-shadow: 0 30px 70px -40px rgba(4, 129, 220, 0.7);
+}
+
+.level3 {
+  border-color: rgba(0, 203, 255, 0.55);
+  background:
+    radial-gradient(30rem 18rem at 100% 0%, rgba(0, 203, 255, 0.26), transparent 70%),
+    linear-gradient(180deg, rgba(10, 60, 150, 0.6) 0%, rgba(9, 22, 66, 0.6) 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 203, 255, 0.12),
+    0 34px 80px -36px rgba(0, 203, 255, 0.6);
+}
+
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--tone-text-2);
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.meterBars {
+  display: inline-flex;
+  height: 1.15rem;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.meterBars i {
+  display: block;
+  width: 6px;
+  border-radius: 2px;
+  background: var(--tone-line);
+}
+
+.meterBars i:nth-child(1) {
+  height: 40%;
+}
+
+.meterBars i:nth-child(2) {
+  height: 70%;
+}
+
+.meterBars i:nth-child(3) {
+  height: 100%;
+}
+
+.meterBars .barOn {
+  background: var(--hl);
+}
+
+.description {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--tone-text-2);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.included {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.included li {
+  display: flex;
+  gap: 0.55rem;
+  color: var(--tone-text);
+  font-size: 0.9375rem;
+  font-weight: 560;
+  line-height: 1.4;
+}
+
+.included svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 0.12rem;
+  color: var(--hl);
+}
+
+.footer {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--tone-line);
+}
+
+.price {
+  margin: 0;
+  color: var(--tone-text);
+  font-size: 1.5rem;
+  font-stretch: 112%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.cta {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .levels {
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    align-items: end;
+  }
+
+  /* Rising tops: each level stands taller than the one before it. */
+  .level[data-personalization="1"] {
+    min-height: 27rem;
+  }
+
+  .level[data-personalization="2"] {
+    min-height: 30.5rem;
+  }
+
+  .level[data-personalization="3"] {
+    min-height: 34rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    gap: 3.75rem;
+  }
+
+  .intro {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: clamp(2rem, 6vw, 6rem);
+    align-items: end;
+  }
+
+  .intro > p:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .level {
+    padding: 2rem 1.75rem 1.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level,
+  .level:hover {
+    transform: none;
+    transition: none;
+  }
+}

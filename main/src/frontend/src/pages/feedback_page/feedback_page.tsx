@@ -1,15 +1,15 @@
+import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { ArrowRight } from "lucide-react";
 
-import { Button } from "@/components/button/button";
-import { Container } from "@/components/container/container";
-import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
-import { Reveal } from "@/components/reveal/reveal";
-import { BRAND_ASSETS } from "@/constants/brand_assets";
-import feedbackBackground from "@resources/img/feedbacks/feedback_bg.png";
+import { BrandStop, PublicAction, Waves } from "@/components/public_ui/public_ui";
+import ui from "@/components/public_ui/public_ui.module.css";
+import { useMediaQuery } from "@/hooks/use_media_query";
+import { joinClassNames } from "@utils/class_names";
 import feedbackOne from "@resources/img/feedbacks/f1.jpeg";
 import feedbackTwo from "@resources/img/feedbacks/f2.jpeg";
 import feedbackThree from "@resources/img/feedbacks/f3.jpeg";
 
+import { CommunityFeedback } from "./community_feedback";
 import styles from "./feedback_page.module.css";
 
 interface Testimonial {
@@ -39,88 +39,79 @@ const testimonials: Testimonial[] = [
   }
 ];
 
-const Stars = () => (
-  <span className={styles.stars} role="img" aria-label="Rated 5 out of 5 stars">
-    ★★★★★
-  </span>
-);
+// Below 768px the stories are a horizontal scroller (see the stylesheet), which
+// must be keyboard-focusable; from 768px they are a static grid.
+const STORIES_SCROLL_QUERY = "(max-width: 767px)";
 
-export const FeedbackPage = () => (
-  <PageWrapper>
-    <section
-      className={styles.hero}
-      style={{ backgroundImage: `url(${feedbackBackground})` }}
-      aria-label="Feedback"
-    >
-      <Container className={styles.inner}>
-        <div className={styles.topRow}>
-          <div className={styles.copy}>
-            <Reveal y={18}>
-              <p className={styles.eyebrow}>Feedback</p>
-            </Reveal>
+export const FeedbackPage = () => {
+  const storiesScroll = useMediaQuery(STORIES_SCROLL_QUERY);
 
-            <Reveal y={18} delay={0.08}>
-              <h1 className={styles.title}>
-                Real people.
-                <br />
-                <span className={styles.accent}>Real results.</span>
-              </h1>
-            </Reveal>
-
-            <Reveal y={18} delay={0.16}>
-              <p className={styles.description}>
-                Thousands of people are already transforming their lives with
-                RYZE. Here are some of their stories.
-              </p>
-            </Reveal>
+  return (
+    <PageWrapper className={ui.page}>
+      <section className={joinClassNames(ui.toneNavy, styles.header)} aria-labelledby="feedback-heading">
+        <div className={joinClassNames(ui.container, styles.headerLayout)}>
+          <div className={styles.headerCopy}>
+            <p className={ui.label}>Feedback</p>
+            <h1 id="feedback-heading" className={ui.display}>
+              <span className={styles.titleLine}>Real people.</span>{" "}
+              <span className={joinClassNames(styles.titleLine, ui.hl)}>Real results.</span>
+            </h1>
+            <p className={ui.lead}>
+              Thousands of people are already transforming their lives with RYZE. Here are some of
+              their stories.
+            </p>
           </div>
-
-          <Reveal className={styles.visual} y={18} delay={0.12}>
-            <img src={BRAND_ASSETS.slogan} alt="RYZE" className={styles.visualLogo} />
-          </Reveal>
         </div>
+      </section>
 
-        <div className={styles.grid}>
-          {testimonials.map((testimonial, index) => (
-            <Reveal
-              className={styles.gridItem}
-              y={26}
-              delay={0.15 + index * 0.12}
-              key={testimonial.alt}
-            >
-              <article className={styles.card}>
-                <div className={styles.media}>
-                  <img src={testimonial.image} alt={testimonial.alt} loading="lazy" />
-                </div>
-                <div className={styles.body}>
-                  <div className={styles.starsRow}>
-                    <span className={styles.quoteMark} aria-hidden="true">
-                      “
-                    </span>
-                    <Stars />
-                  </div>
-                  <p className={styles.name}>Anonymous</p>
-                  <p className={styles.quote}>{testimonial.quote}</p>
-                </div>
-              </article>
-            </Reveal>
-          ))}
+      <section className={joinClassNames(ui.toneNavy, styles.stories)} aria-label="Member stories">
+        <div className={ui.container}>
+          <ul
+            className={styles.track}
+            tabIndex={storiesScroll ? 0 : undefined}
+            aria-label="Member stories"
+          >
+            {testimonials.map((testimonial) => (
+              <li className={joinClassNames(ui.surface, styles.card)} key={testimonial.alt}>
+                <img
+                  className={styles.media}
+                  src={testimonial.image}
+                  alt={testimonial.alt}
+                  width="1080"
+                  height="1350"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figure className={styles.body}>
+                  <p className={styles.stars} role="img" aria-label="Rated 5 out of 5 stars">
+                    ★★★★★
+                  </p>
+                  <blockquote className={styles.quote}>
+                    <p>{testimonial.quote}</p>
+                  </blockquote>
+                  <figcaption className={styles.author}>Anonymous</figcaption>
+                </figure>
+              </li>
+            ))}
+          </ul>
+          <p className={joinClassNames(ui.caption, styles.swipeHint)}>Swipe to read more stories.</p>
         </div>
+      </section>
 
-        <Reveal className={styles.ctaReveal} y={18} delay={0.22}>
-          <div className={styles.cta}>
-            <Button
-              to="/register"
-              size="large"
-              variant="secondary"
-              className={styles.ctaButton}
-              icon={<ArrowRight />}
-            >
-              START YOUR TRANSFORMATION
-            </Button>
-          </div>
-        </Reveal>
-      </Container>
-    </section>
-  </PageWrapper>
-);
+      <CommunityFeedback />
+
+      <section className={joinClassNames(ui.toneNavy, styles.cta)} aria-labelledby="feedback-cta-heading">
+        <div className={joinClassNames(ui.container, ui.toneLight, ui.lightPanel, styles.ctaLayout)}>
+          <Waves />
+          <h2 id="feedback-cta-heading" className={ui.heading}>
+            Your story starts with <span className={ui.hl}>one session</span>
+            <BrandStop />
+          </h2>
+          <PublicAction to="/register" variant="ink" icon={<ArrowRight />} className={styles.ctaAction}>
+            Start your transformation
+          </PublicAction>
+        </div>
+      </section>
+    </PageWrapper>
+  );
+};

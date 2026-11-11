@@ -176,14 +176,24 @@ The owner has approved a major redesign, beginning mobile-first at 360–430px.
 The official RYZE logo and documented brand colors remain protected foundations;
 the layout, typography and component system may change around them. Static
 background images are forbidden outside login and registration, while purposeful
-functional imagery remains allowed. Three.js is functional only and must not be
-used for decorative backgrounds.
+functional imagery remains allowed. Three.js serves useful demonstrations and the
+owner-approved desktop Home scroll story; it is lazy, with WebGL fallback and
+reduced motion (the Home story is desktop only), and must not be used for
+decorative backgrounds elsewhere.
 
-The entire footer, Exercise Library/details, Services page, and Home's
-“Find Your Next Program” section are strictly protected. Do not alter them or
-their shared styling indirectly. Read `docs/AI/frontend-revamp.md` before any
-frontend work and use isolated variants when a shared component is also used by
-a protected area.
+Public pages follow one design principle (`docs/INSTRUCTIONS/design.MD`, "Public
+Website Layer"): one continuous logo-navy page, app-style glass cards, cyan as
+the light and the light-blue wave panel as the only bright surface.
+
+Protected parts (owner revisions of 2026-11-10/11; full inventory in
+`docs/AI/frontend-revamp.md`): the footer's layout, link columns, slogan image
+and copy; the Exercise Library/details layout, components, behaviour and 3D
+viewer (colours may follow the public design); the Services cards
+(`components/service_card/`); the Home program cards' background images; and the
+login/registration fields, validation, messages, API calls and redirects. Do not
+alter them or their shared styling indirectly. Read `docs/AI/frontend-revamp.md`
+before any frontend work and use isolated variants when a shared component is
+also used by a protected part.
 
 ---
 

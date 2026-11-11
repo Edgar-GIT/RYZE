@@ -7,5 +7,7 @@ tools: Read, Grep, Glob
 Review only; do not edit files or run commands. Read the relevant diff and
 `docs/AI/frontend-revamp.md`. Return concise findings with severity and exact
 file paths. Check 360–430px-first behavior, keyboard/focus, reduced motion,
-loading/error states, static-background restrictions, protected-area impact,
-shared CSS leakage, API-flow preservation and unnecessary 3D/bundle cost.
+loading/error states, static-background restrictions, protected-part impact
+(inventory in `docs/AI/frontend-revamp.md`), consistency with the one public
+design principle in `docs/INSTRUCTIONS/design.MD`, shared CSS leakage, API-flow
+preservation and unnecessary 3D/bundle cost.

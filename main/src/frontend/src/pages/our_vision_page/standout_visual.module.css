@@ -1,0 +1,183 @@
+/* Our Vision hero: many identical apps, one RYZE. */
+
+.wall {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  font-family: var(--r-font);
+  mask-image: radial-gradient(120% 95% at 50% 50%, #000 55%, transparent 100%);
+}
+
+/* The sameness: one template, repeated. */
+.same {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+  padding: 0.8rem;
+  border: 1px solid rgba(147, 164, 200, 0.16);
+  border-radius: 0.9rem;
+  color: rgba(147, 164, 200, 0.55);
+  background: rgba(147, 164, 200, 0.05);
+  animation: fadeIn 600ms ease both;
+  animation-delay: calc(var(--i) * 45ms);
+}
+
+.same svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.same i {
+  display: block;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(147, 164, 200, 0.18);
+}
+
+.same i + i {
+  width: 60%;
+}
+
+.same small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* On phones: three tiles, RYZE across the full width, three tiles. */
+.same:nth-child(n + 4):nth-child(-n + 9),
+.same:nth-child(n + 10) {
+  display: none;
+}
+
+.ryze {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  gap: 0.9rem;
+  margin-block: 0.4rem;
+  padding: 1.25rem 1.3rem;
+  border: 1.5px solid rgba(0, 203, 255, 0.6);
+  border-radius: 1.25rem;
+  background: linear-gradient(160deg, rgba(14, 50, 128, 0.95), rgba(4, 12, 46, 0.97));
+  box-shadow:
+    0 0 0 6px rgba(0, 203, 255, 0.06),
+    0 0 60px rgba(0, 203, 255, 0.35),
+    0 30px 60px -30px rgba(0, 0, 0, 0.9);
+  animation: rise 700ms var(--r-ease) both 450ms;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.brand img {
+  width: 2rem;
+  height: auto;
+}
+
+.brand span {
+  color: var(--r-white);
+  font-size: 1.15rem;
+  font-stretch: 125%;
+  font-weight: 820;
+  letter-spacing: 0.08em;
+}
+
+.ryze ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ryze li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--r-white);
+  font-size: 0.95rem;
+  font-weight: 620;
+  line-height: 1.3;
+}
+
+.ryze li svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  color: var(--r-cyan);
+}
+
+.next {
+  color: var(--r-on-dark-2);
+}
+
+.next em {
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  color: var(--r-ink);
+  background: var(--r-cyan);
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+
+/* From tablets: a 4 × 4 wall with RYZE across the middle 2 × 2. */
+@media (min-width: 768px) {
+  .wall {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(4, auto);
+  }
+
+  .same:nth-child(n + 4):nth-child(-n + 9),
+  .same:nth-child(n + 10) {
+    display: grid;
+  }
+
+  .ryze {
+    grid-column: 2 / 4;
+    grid-row: 2 / 4;
+    margin: 0;
+    transform: scale(1.06);
+    animation-name: riseWide;
+  }
+
+  @keyframes riseWide {
+    from {
+      opacity: 0;
+      transform: translateY(16px) scale(0.96);
+    }
+
+    to {
+      transform: scale(1.06);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .same,
+  .ryze {
+    animation: none;
+  }
+}

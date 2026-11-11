@@ -20,6 +20,7 @@ const (
 	scopeAuthChangePassword = "auth-change-password"
 	scopeAuthDeleteAccount  = "auth-delete-account"
 	scopeContact            = "contact"
+	scopeFeedback           = "feedback"
 )
 
 // authRateLimitScope is one endpoint's policy. The IP limiter always applies.
@@ -53,6 +54,7 @@ var authRateLimitScopes = []authRateLimitScope{
 	{name: scopeAuthChangePassword, ipLimit: 20, ipWindow: 15 * time.Minute},
 	{name: scopeAuthDeleteAccount, ipLimit: 10, ipWindow: time.Hour},
 	{name: scopeContact, ipLimit: 10, ipWindow: time.Hour},
+	{name: scopeFeedback, ipLimit: 10, ipWindow: time.Hour},
 }
 
 // authRateLimiters owns the limiters for every authentication scope.

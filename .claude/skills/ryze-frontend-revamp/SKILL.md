@@ -21,10 +21,16 @@ Mandatory constraints:
   neutrals and semantic tokens may improve hierarchy and contrast.
 - No static background images outside login and registration. Functional images
   are permitted when they convey content.
-- Never modify the footer, Exercise Library/details, Services page, or Home's
-  “Find Your Next Program” section, directly or through shared styling.
-- Treat Three.js as functional, lazy, fallback-capable and mobile-conscious;
-  never add decorative 3D backgrounds or dependencies by implication.
+- Never modify the protected parts listed in `docs/AI/frontend-revamp.md`
+  (footer layout, columns, slogan image and copy; Exercise Library/details
+  layout, behaviour and 3D viewer; the Services cards; the Home program cards'
+  background images; login/registration fields, validation and API flow),
+  directly or through shared styling.
+- Follow the one public design principle in `docs/INSTRUCTIONS/design.MD`
+  (continuous navy page, glass cards, cyan light, light-blue wave panel).
+- Treat Three.js as functional, lazy, fallback-capable and mobile-conscious; the
+  desktop Home scroll story is owner-approved, but never add decorative 3D
+  backgrounds elsewhere or dependencies by implication.
 - Preserve API contracts, auth, permissions, entitlements and workflows.
 
 Implement in a small page group, reuse existing utilities, then verify keyboard,

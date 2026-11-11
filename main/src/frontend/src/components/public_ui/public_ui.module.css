@@ -1,0 +1,469 @@
+/*
+ * RYZE public website design layer.
+ *
+ * One principle: the website is built from the same materials as the app.
+ * Every section sits on the logo navy, cards are the app's blue glass surfaces,
+ * cyan is the light, and the only bright surface is the light-blue wave panel.
+ * Sections are transparent: the page itself carries one continuous navy with a
+ * repeating rhythm of soft blue light, so there is no seam between sections.
+ *
+ * Colours are sampled from the official logo artwork (main/src/resources/img/logo):
+ *   navy #02041F (outline), royal #072A77 (ring shade), ring blue #0481DC,
+ *   Z cyan #00CBFF (bright #50E2FE), chrome #E4E9F1 (R and wordmark).
+ *
+ * `.page` declares custom properties and the navy surface only (nothing that
+ * inherits), so components that keep their own styling inside a public page
+ * (for example the Home program cards) are not affected. Typography and colour
+ * come from the tone classes.
+ */
+@font-face {
+  font-family: "RYZE Archivo";
+  src: url("../../../../resources/fonts/archivo/archivo_variable_latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-style: normal;
+  font-display: swap;
+}
+
+.page {
+  --r-navy: #02041f;
+  --r-navy-2: #061447;
+  --r-royal: #072a77;
+  --r-ring: #0481dc;
+  --r-cyan: #00cbff;
+  --r-cyan-bright: #50e2fe;
+  --r-ice: #7cebff;
+  --r-chrome: #e4e9f1;
+  --r-white: #ffffff;
+  --r-ink: #02041f;
+  --r-on-dark: #ffffff;
+  --r-on-dark-2: #c9d5ec;
+  --r-on-dark-3: #93a4c8;
+  --r-line: rgba(124, 200, 255, 0.15);
+  --r-line-strong: rgba(124, 200, 255, 0.3);
+  --r-surface: linear-gradient(180deg, rgba(22, 48, 112, 0.5) 0%, rgba(9, 22, 66, 0.5) 100%);
+  --r-surface-solid: #0a1846;
+  --r-font: "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif;
+  --r-max: 1240px;
+  --r-gutter: max(1.15rem, var(--space-page-x));
+  --r-nav-clearance: 5.75rem;
+  --r-section-y: clamp(4.5rem, 11vw, 8rem);
+  --r-radius-xl: 2rem;
+  --r-radius-lg: 1.375rem;
+  --r-radius: 1rem;
+  --r-radius-sm: 0.75rem;
+  --r-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Each glow stays inside its 125rem tile, so the repeat never shows an edge. */
+  background:
+    radial-gradient(52rem 28rem at 92% 30rem, rgba(4, 129, 220, 0.17), transparent 70%) 0 0 / 100% 125rem repeat-y,
+    radial-gradient(48rem 26rem at 6% 92rem, rgba(4, 129, 220, 0.12), transparent 70%) 0 0 / 100% 125rem repeat-y,
+    var(--r-navy);
+}
+
+/* --- Tones: typography, text colours, highlight and focus colour --- */
+
+.toneNavy,
+.toneLight {
+  font-family: var(--r-font);
+  font-stretch: 100%;
+}
+
+/* Text on the navy page. No background: the page's light shows through. */
+.toneNavy {
+  --tone-text: var(--r-on-dark);
+  --tone-text-2: var(--r-on-dark-2);
+  --tone-text-3: var(--r-on-dark-3);
+  --tone-line: var(--r-line);
+  --tone-card: rgba(12, 28, 78, 0.55);
+  --hl: var(--r-cyan);
+  --hl-text: var(--r-cyan);
+  --focus: var(--r-cyan);
+  color: var(--tone-text);
+}
+
+/* The light-blue wave panel: the one bright surface, used for calls to action. */
+.toneLight {
+  --tone-text: var(--r-ink);
+  --tone-text-2: #0b2350;
+  --tone-text-3: #12305f;
+  --tone-line: rgba(2, 4, 31, 0.16);
+  --tone-card: rgba(255, 255, 255, 0.42);
+  --hl: var(--r-royal);
+  --hl-text: #06307f;
+  --focus: var(--r-navy);
+  color: var(--tone-text);
+  background: linear-gradient(135deg, #8cefff 0%, #36d6ff 45%, #0aa8f2 100%);
+}
+
+/* --- Layout --- */
+
+.container {
+  width: min(100% - (var(--r-gutter) * 2), var(--r-max));
+  margin-inline: auto;
+}
+
+.section {
+  position: relative;
+  padding-block: var(--r-section-y);
+}
+
+.anchorTarget {
+  scroll-margin-top: var(--r-nav-clearance);
+}
+
+/* App-style glass surface for cards. */
+.surface {
+  border: 1px solid var(--tone-line);
+  border-radius: var(--r-radius-lg);
+  background: var(--r-surface);
+}
+
+/* Contained light-blue panel with waves along its base. */
+.lightPanel {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: var(--r-radius-xl);
+  box-shadow: 0 30px 80px -40px rgba(0, 203, 255, 0.7);
+}
+
+/* --- Waves --- */
+
+.waves {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: -1;
+  height: min(62%, 16rem);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.waves svg {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+}
+
+.waveBack {
+  animation: drift 34s linear infinite;
+}
+
+.waveMid {
+  animation: drift 24s linear infinite reverse;
+}
+
+.waveFront {
+  animation: drift 17s linear infinite;
+}
+
+@keyframes drift {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* --- Typography: Archivo, expanded for display to echo the RYZE wordmark --- */
+
+.display,
+.heading,
+.title {
+  margin: 0;
+  color: var(--tone-text);
+  text-wrap: balance;
+}
+
+.display {
+  font-size: clamp(2.2rem, 11.2vw, 6.25rem);
+  font-stretch: 125%;
+  font-weight: 820;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+}
+
+.heading {
+  font-size: clamp(2.05rem, 7.6vw, 4.25rem);
+  font-stretch: 120%;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.title {
+  font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.6rem);
+  font-stretch: 112%;
+  font-weight: 760;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+/* Brand-coloured continuation of a headline (restored from the original site). */
+.hl {
+  color: var(--hl);
+}
+
+/* The cyan full stop of the official "TRAIN. FUEL. EVOLVE." slogan. */
+.stop {
+  color: var(--hl);
+}
+
+.lead {
+  max-width: 38ch;
+  margin: 0;
+  color: var(--tone-text-2);
+  font-size: clamp(1.0625rem, 0.98rem + 0.42vw, 1.3rem);
+  font-weight: 430;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.body {
+  margin: 0;
+  color: var(--tone-text-2);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.caption {
+  margin: 0;
+  color: var(--tone-text-3);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  color: var(--hl-text, var(--hl));
+  font-size: 0.78rem;
+  font-stretch: 115%;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.label::before {
+  width: 1.75rem;
+  height: 2px;
+  border-radius: 2px;
+  content: "";
+  background: currentColor;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- Actions --- */
+
+.actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.action {
+  display: inline-flex;
+  min-height: 3.35rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0 1.5rem;
+  border: 1.5px solid transparent;
+  border-radius: 0.9rem;
+  font-family: var(--r-font);
+  font-size: 1rem;
+  font-stretch: 108%;
+  font-weight: 720;
+  line-height: 1.15;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 180ms var(--r-ease),
+    border-color 180ms var(--r-ease),
+    box-shadow 200ms var(--r-ease),
+    color 180ms var(--r-ease),
+    transform 200ms var(--r-ease);
+}
+
+.action svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+  transition: transform 200ms var(--r-ease);
+}
+
+.action:hover svg {
+  transform: translateX(3px);
+}
+
+.action:focus-visible,
+.focusRing:focus-visible {
+  outline: 2.5px solid var(--focus, var(--r-ring));
+  outline-offset: 3px;
+}
+
+.action:active {
+  transform: translateY(1px);
+}
+
+.primary {
+  color: var(--r-ink);
+  background: linear-gradient(180deg, #4fe3ff 0%, var(--r-cyan) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 10px 28px -10px rgba(0, 203, 255, 0.75);
+}
+
+.primary:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 14px 34px -10px rgba(0, 203, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+.ink {
+  color: var(--r-white);
+  background: var(--r-navy);
+  box-shadow: 0 12px 28px -14px rgba(2, 4, 31, 0.8);
+}
+
+.ink:hover {
+  background: var(--r-royal);
+  transform: translateY(-1px);
+}
+
+.ghostOnDark {
+  border-color: var(--r-line-strong);
+  color: var(--r-white);
+  background: rgba(124, 200, 255, 0.05);
+}
+
+.ghostOnDark:hover {
+  border-color: var(--r-cyan);
+  background: rgba(0, 203, 255, 0.12);
+}
+
+.ghostOnLight {
+  border-color: rgba(2, 4, 31, 0.32);
+  color: var(--r-ink);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.ghostOnLight:hover {
+  border-color: var(--r-navy);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.quiet {
+  min-height: 2.75rem;
+  justify-content: flex-start;
+  padding: 0;
+  border: 0;
+  color: var(--hl-text, var(--hl));
+}
+
+.quiet:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+
+.action[disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* --- Small shared pieces --- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--tone-line);
+  border-radius: 999px;
+  color: var(--tone-text);
+  background: var(--tone-card);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.chip svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--hl);
+}
+
+/* Icon tile used by feature lists across the public pages. */
+.iconTile {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid rgba(0, 203, 255, 0.32);
+  border-radius: 0.8rem;
+  color: var(--r-cyan);
+  background: linear-gradient(180deg, rgba(0, 203, 255, 0.16), rgba(4, 129, 220, 0.1));
+}
+
+.iconTile svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+@media (min-width: 1024px) {
+  .display {
+    font-size: clamp(3.5rem, 5.6vw, 5.75rem);
+  }
+
+  .heading {
+    font-size: clamp(2.4rem, 4.2vw, 3.9rem);
+  }
+}
+
+@media (min-width: 640px) {
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action,
+  .action:active,
+  .action:hover,
+  .action svg {
+    transform: none !important;
+    transition: none;
+  }
+
+  .waveBack,
+  .waveMid,
+  .waveFront {
+    animation: none;
+  }
+}

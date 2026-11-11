@@ -33,6 +33,7 @@ import (
 	"ryze/backend/services/free_programs"
 	"ryze/backend/services/generic_programs"
 	"ryze/backend/services/login"
+	"ryze/backend/services/member_feedback"
 	"ryze/backend/services/nutrition_assignment"
 	"ryze/backend/services/password"
 	"ryze/backend/services/payments"
@@ -198,6 +199,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	contactService := contact.NewService(contact.NewSMTPNotifier(contactCfg))
 	contactHandler := auth.NewContactHandler(contactService)
 
+	memberFeedbackService := member_feedback.NewService(repositories.NewMemberFeedbackRepository(db), userRepository)
+	memberFeedbackHandler := auth.NewMemberFeedbackHandler(memberFeedbackService)
+	adminMemberFeedbackHandler := auth.NewAdminMemberFeedbackHandler(memberFeedbackService)
+
 	freeActivationRepository := repositories.NewFreeProgramActivationRepository(db)
 	freeProgramService := free_programs.NewService(trainerProgramRepository, freeActivationRepository)
 	freeProgramHandler := auth.NewFreeProgramsHandler(freeProgramService)
@@ -341,6 +346,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/programs", publicProgramHandler.ListPublishedPrograms)
 	v1.GET("/programs/:programID", publicProgramHandler.GetPublishedProgram)
 	v1.POST("/contact", append(limits.chain(scopeContact), contactHandler.Submit)...)
+	v1.GET("/feedback", memberFeedbackHandler.ListPublished)
+	v1.GET("/me/feedback/eligibility", middleware.Authenticate(tokenService, userRepository), memberFeedbackHandler.GetEligibility)
+	v1.POST("/me/feedback", append(limits.chain(scopeFeedback), middleware.Authenticate(tokenService, userRepository), memberFeedbackHandler.Submit)...)
 	v1.GET("/payments/methods", paymentMethodsHandler.List)
 	v1.POST("/auth/change-password", append(limits.chain(scopeAuthChangePassword), middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)...)
 	v1.POST("/auth/delete-account", append(limits.chain(scopeAuthDeleteAccount), middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)...)
@@ -533,6 +541,16 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminApplicationMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsManage))
 	adminApplicationMutate.POST("/trainer-applications/:id/approve", adminTrainerApplicationHandler.ApproveApplication)
 	adminApplicationMutate.POST("/trainer-applications/:id/reject", adminTrainerApplicationHandler.RejectApplication)
+
+	// Member feedback is published only after an administrator approves it.
+	adminFeedbackRead := admin.Group("")
+	adminFeedbackRead.Use(middleware.RequireAdminPermission(adminroles.PermissionFeedbackRead))
+	adminFeedbackRead.GET("/feedback", adminMemberFeedbackHandler.List)
+
+	adminFeedbackMutate := admin.Group("")
+	adminFeedbackMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionFeedbackManage))
+	adminFeedbackMutate.POST("/feedback/:id/approve", adminMemberFeedbackHandler.Approve)
+	adminFeedbackMutate.POST("/feedback/:id/reject", adminMemberFeedbackHandler.Reject)
 
 	// The global exercise catalogue is curated by the Management Administrator.
 	// Reads and lifecycle writes are split so a read-only holder can browse the

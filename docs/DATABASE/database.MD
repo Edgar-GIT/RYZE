@@ -1080,13 +1080,32 @@ Messages use soft deletion.
 
 ## Feedback
 
-Stores:
+### `member_feedback` (migration 000036)
 
-- Ratings
-- Reviews
-- Images
-- Likes
-- Comments
+A 1–5 star rating and a short message from a member who holds or held a plan,
+published on the Feedback page only after administrator approval.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | VARCHAR(36) | UUID primary key |
+| `user_id` | VARCHAR(36) | FK `users(id)` |
+| `rating` | TINYINT UNSIGNED | `CHECK (rating BETWEEN 1 AND 5)` |
+| `message` | TEXT | 10–1000 characters, validated by the service |
+| `display_name` | VARCHAR(120) | Public name snapshot ("First L.") |
+| `status` | VARCHAR(16) | `pending`, `approved`, `rejected` (`CHECK`) |
+| `reviewed_by` | VARCHAR(40) NULL | Configured admin identity (ADMIN_1/ADMIN_2) |
+| `reviewed_at` | DATETIME(6) NULL | Review time |
+| `created_at`, `updated_at`, `deleted_at` | DATETIME(6) | Soft delete |
+| `pending_user_id` | VARCHAR(36), generated, stored | `user_id` while pending and not deleted |
+
+Indexes: unique `uq_member_feedback_pending_user_id` (at most one pending
+submission per member), `idx_member_feedback_status_created_at`,
+`idx_member_feedback_user_id`. The public list joins `users` and hides feedback
+from deleted accounts. Eligibility reads `entitlements` and
+`free_program_activations` (non-deleted rows, expired included); no column is
+added to them.
+
+Future social features (images, likes, comments) are not implemented.
 
 ---
 

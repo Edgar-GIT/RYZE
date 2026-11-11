@@ -20,7 +20,11 @@ export const ServiceCard = ({ service }: ServiceCardProps) => (
     />
     <span className={styles.overlay} aria-hidden="true" />
 
-    {service.featured && <span className={styles.featuredBadge}>Featured</span>}
+    {service.tag ? (
+      <span className={joinClassNames(styles.featuredBadge, styles.personalizedBadge)}>{service.tag.label}</span>
+    ) : service.featured ? (
+      <span className={styles.featuredBadge}>Featured</span>
+    ) : null}
 
     <div className={styles.footer}>
       <p className={styles.price}>{service.price}</p>

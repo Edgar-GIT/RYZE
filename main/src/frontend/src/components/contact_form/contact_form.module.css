@@ -1,84 +1,81 @@
+/* The form is an app-style glass card with dark fields (as on the auth page). */
 .form {
   display: grid;
-  gap: 1.35rem;
-  padding: 1.5rem 1.45rem 1.4rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  background:
-    radial-gradient(ellipse 80% 55% at 12% 0%, var(--accent-glow-soft), transparent 55%),
-    linear-gradient(160deg, rgba(16, 24, 38, 0.94), rgba(10, 16, 24, 0.92));
-  box-shadow:
-    0 28px 70px rgba(5, 7, 11, 0.45),
-    0 0 40px var(--accent-glow-soft),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(18px);
+  gap: 1.5rem;
+  padding: 1.6rem 1.3rem;
+  border-radius: var(--r-radius-xl);
+  box-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.7);
 }
 
 .header h2 {
   margin: 0;
-  color: var(--text-primary);
-  font-size: 1.35rem;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  color: var(--tone-text);
+  font-size: 1.6rem;
+  font-stretch: 118%;
+  font-weight: 800;
+  line-height: 1.1;
 }
 
 .fields {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 .fields label {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .fields label span,
 .uploadCopy span {
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--tone-text);
+  font-size: 0.875rem;
+  font-weight: 680;
 }
 
-.fields input,
-.fields textarea {
+/* Field controls sit inside labels; the honeypot and file input do not. */
+.fields label > input,
+.fields label > textarea {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-secondary) 55%, transparent);
+  /* ≈3.5:1 against the field fill, so the input boundary meets non-text contrast. */
+  border: 1px solid #4d6fa6;
+  border-radius: var(--r-radius-sm);
+  color: var(--r-white);
+  background: rgba(2, 6, 28, 0.7);
   font: inherit;
-  outline: none;
+  font-size: 1rem;
+  outline: 2px solid transparent;
   transition:
-    border-color 200ms ease,
-    box-shadow 200ms ease,
-    background 200ms ease;
+    border-color 180ms var(--r-ease),
+    box-shadow 180ms var(--r-ease);
 }
 
-.fields input {
-  min-height: 46px;
+.fields label > input {
+  min-height: 3rem;
   padding: 0 0.9rem;
 }
 
-.fields textarea {
-  min-height: 120px;
-  resize: vertical;
+.fields label > textarea {
+  min-height: 8.5rem;
   padding: 0.8rem 0.9rem;
   line-height: 1.6;
+  resize: vertical;
 }
 
-.fields input::placeholder,
-.fields textarea::placeholder {
-  color: rgba(135, 148, 168, 0.75);
+.fields label > input::placeholder,
+.fields label > textarea::placeholder {
+  color: var(--r-on-dark-3);
 }
 
-.fields input:focus,
-.fields textarea:focus {
-  border-color: rgba(24, 216, 255, 0.5);
-  background: rgba(8, 12, 18, 0.72);
-  box-shadow: 0 0 0 3px rgba(24, 216, 255, 0.12);
+.fields label > input:focus-visible,
+.fields label > textarea:focus-visible {
+  border-color: var(--r-cyan);
+  box-shadow: 0 0 0 3px rgba(0, 203, 255, 0.22);
+}
+
+.fields label > input:user-invalid,
+.fields label > textarea:user-invalid {
+  border-color: #ff8a80;
 }
 
 .fullWidth,
@@ -87,15 +84,12 @@
 }
 
 .uploadArea {
-  display: flex;
-  min-height: 56px;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
   gap: 0.85rem;
-  padding: 0.7rem 0.8rem;
-  border: 1px dashed rgba(24, 216, 255, 0.28);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 0.9rem;
+  border: 1.5px dashed rgba(0, 203, 255, 0.4);
+  border-radius: var(--r-radius);
+  background: rgba(2, 6, 28, 0.45);
 }
 
 .uploadArea input {
@@ -103,14 +97,14 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
 .uploadCopy {
   display: flex;
   min-width: 0;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.7rem;
 }
 
@@ -118,46 +112,67 @@
   width: 1.15rem;
   height: 1.15rem;
   flex: 0 0 auto;
-  color: var(--color-accent-300);
+  margin-top: 0.1rem;
+  color: var(--r-cyan);
 }
 
 .uploadCopy div {
   display: grid;
   min-width: 0;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .uploadCopy small {
   overflow: hidden;
-  color: var(--text-muted);
-  font-size: 0.82rem;
+  color: var(--tone-text-2);
+  font-size: 0.8125rem;
+  line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.uploadButton {
+.uploadCopy .uploadHint {
+  overflow: visible;
+  white-space: normal;
+}
+
+/* `.fields label` targets field labels; the file picker label keeps its own layout. */
+.uploadArea .uploadButton {
   display: inline-flex;
-  min-height: 40px;
+}
+
+.uploadButton {
+  min-height: 2.75rem;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  flex: 0 0 auto;
-  padding: 0.55rem 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  gap: 0.45rem;
+  padding: 0 1rem;
+  border: 1.5px solid var(--r-line-strong);
+  border-radius: var(--r-radius-sm);
+  color: var(--r-white);
+  background: rgba(124, 200, 255, 0.06);
   cursor: pointer;
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 680;
   transition:
-    border-color 200ms ease,
-    background 200ms ease;
+    border-color 180ms var(--r-ease),
+    background-color 180ms var(--r-ease);
+}
+
+.uploadArea .uploadButton span {
+  color: var(--r-white);
+  font-size: 0.9375rem;
 }
 
 .uploadButton:hover {
-  border-color: rgba(24, 216, 255, 0.4);
-  background: rgba(24, 216, 255, 0.1);
+  border-color: var(--r-cyan);
+  background: rgba(0, 203, 255, 0.12);
+}
+
+/* The native input is visually hidden; show its keyboard focus on the label. */
+.uploadArea:has(input:focus-visible) .uploadButton {
+  outline: 2.5px solid var(--r-cyan);
+  outline-offset: 3px;
 }
 
 .uploadButton svg {
@@ -167,7 +182,7 @@
 
 .footer {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.75rem;
 }
 
 .submit {
@@ -176,31 +191,40 @@
 
 .note {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.86rem;
+  color: var(--tone-text-3);
+  font-size: 0.875rem;
   text-align: center;
 }
 
 .feedback {
   margin: 0;
-  padding: 0.7rem 0.85rem;
+  padding: 0.75rem 0.9rem;
   border: 1px solid transparent;
-  border-radius: 10px;
-  font-size: 0.86rem;
+  border-radius: var(--r-radius-sm);
+  font-size: 0.9375rem;
   line-height: 1.45;
-  text-align: center;
+}
+
+/* The live region stays mounted; it takes no space while empty. */
+.feedback:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
 .feedbackSuccess {
-  border-color: rgba(63, 220, 150, 0.35);
-  color: #9df3c8;
-  background: rgba(63, 220, 150, 0.08);
+  border-color: rgba(98, 214, 160, 0.55);
+  color: #9af0c8;
+  background: rgba(47, 143, 105, 0.16);
 }
 
 .feedbackError {
-  border-color: rgba(255, 107, 107, 0.35);
-  color: #ffb3b3;
-  background: rgba(255, 107, 107, 0.08);
+  border-color: rgba(255, 138, 128, 0.55);
+  color: #ffb4ab;
+  background: rgba(224, 100, 90, 0.14);
 }
 
 .honeypot {
@@ -208,25 +232,21 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
-@media (max-width: 640px) {
+@media (min-width: 640px) {
   .form {
-    padding: 1.25rem 1.1rem 1.2rem;
+    padding: 2.25rem;
   }
 
   .fields {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .uploadArea {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .uploadButton {
-    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
   }
 }

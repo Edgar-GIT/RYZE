@@ -33,19 +33,20 @@ proposing token changes.
 
 ## Protected-area inventory
 
-These areas must not change, including indirect effects from shared components,
-global tokens or CSS:
+On 2026-11-10 the owner narrowed the original protection so these areas could
+follow the new public design. What remains protected must not change, including
+indirect effects from shared components, global tokens or CSS:
 
-| Protected area | Verified source locations and dependencies |
-| --- | --- |
-| Entire website footer | `main/src/frontend/src/components/footer/footer.tsx`, `footer.module.css`; consumed by `components/layout/layout.tsx` |
-| Exercise Library and exercise details | `pages/exercise_library_page/`, `pages/exercise_detail_page/`, and `components/exercise_library/` including the existing Three.js demo/viewer/media styles and tests; routes `/exercises` and `/exercises/:exerciseId` |
-| Services page | `pages/services_page/services_page.tsx`, `services_page.module.css`; route `/services` and its service presentation/assets |
-| Home “Find Your Next Program” section | `components/programs_overview_section/programs_overview_section.tsx`, `.module.css`, imported by `pages/home_page/home_page.tsx` |
+| Area | Still protected | May follow the public design (owner-approved 2026-11-10) |
+| --- | --- | --- |
+| Website footer — `components/footer/` (consumed by `components/layout/layout.tsx`) | Layout, link columns and their links, the slogan image, copy | Surface colour, lines, link/heading colours, typeface |
+| Exercise Library and details — `pages/exercise_library_page/`, `pages/exercise_detail_page/`, `components/exercise_library/` (including the Three.js demo/viewer and tests) | Layout, components, behaviour, media and the 3D viewer | Colours only, through page-scoped token overrides in each page's `.page` rule, plus the library title typeface |
+| Services page — `pages/services_page/` | The service cards: `components/service_card/` markup and styles, and the card grid (the owner added a purple "Personalized" tag variant for Premium Level 2 on 2026-11-11) | Page background (the former static background image is removed), intro, loading state, benefits row; the original showcase cards appear while nothing is published |
+| Home “Find Your Next Program” — `components/programs_overview_section/` | The card background images (`advert1–3`), until the owner replaces them | Everything else: redesigned on 2026-11-11 as the Home's main call to action and moved right after the hero |
+| Login and registration — `pages/login_page/` | Form fields, validation, messages, API calls and redirects | Everything visual (fully redesigned; no background image now) |
 
-The Services page currently contains an existing static background asset. That
-protected implementation wins over the general background-image rule: do not
-modify it as part of the revamp. Other pages must follow the no-static-
+Verify the protected parts against a pristine copy (see the verification
+methods below) after any change near them. Other pages follow the no-static-
 background rule. Before editing shared layout, navigation, global styles or
 tokens, inspect all protected consumers. Use isolated variants when necessary.
 
@@ -85,6 +86,55 @@ Check small mobile, standard mobile, large mobile, tablet and desktop in a real
 browser. Verify screenshots, keyboard/focus, contrast, touch targets, reduced
 motion, no horizontal overflow, loading/error/empty states and preserved API
 flows. Compare protected-area baselines after every significant milestone.
+
+## Progress
+
+- 2026-11-10 (owner revision) — The owner asked for one consistent site: no
+  more switching between navy, paper, cyan and royal sections. The public layer
+  now has a single principle — the website is built from the app's materials:
+  one continuous logo-navy page with a repeating rhythm of soft blue light
+  (sections are transparent, so they cannot show seams), the app's blue glass
+  cards, cyan as the light, and one recurring bright element, the light-blue
+  wave panel (`Waves` in `components/public_ui/`). The footer, Services,
+  Exercise Library, "Find Your Next Program" and login/registration were
+  aligned within the limits in the table above. The desktop 3D story was
+  rebuilt: a real-continent Earth (Natural Earth land mask) with RYZE routes
+  leaving Lisbon, a modelled phone and laptop, and illustrative app screens in
+  the style of the owner's phone reference. Phones get an SVG globe with the
+  same routes (`components/brand_globe/`). The globe assets are produced by
+  `scripts/generate_globe_assets.py` from Natural Earth's public-domain
+  `ne_50m_land` and `ne_110m_land` GeoJSON files.
+
+- 2026-11-10 — Group 1 (public pages other than protected Services) is
+  implemented: Home (except "Find Your Next Program"), Our Vision, Contact,
+  Feedback and the public `UnderDevelopmentPage`. A first, mostly dark and
+  minimal pass was rejected by the owner and replaced. The accepted direction:
+  verified logo colours with alternating navy, royal, cyan, paper and white
+  sections; self-hosted Archivo (expanded) typography; brand-coloured headline
+  continuations restored from the original site; real app screens captured
+  with sample data; and, on desktop Home only, a scroll-driven Three.js story
+  approved by the owner as product storytelling (not a background). The navbar
+  received invisible accessibility fixes only. Authentication,
+  marketplace/purchase, client, trainer and ADMIN_2 groups are not started.
+
+Verification methods used for Group 1 (reuse for later groups):
+
+- Protected areas: serve a pristine `git archive HEAD` copy beside the working
+  tree with the same API mocks; compare every descendant's computed style
+  (including `::before`/`::after`) and relative geometry for protected
+  elements (for example each service card and each Home program card). Force a
+  fresh layout before reading styles. Element screenshots alone are unreliable
+  when a section's page offset changes (sub-pixel anti-aliasing, fixed navbar).
+- 3D: run headless Chromium with `--use-angle=swiftshader
+  --enable-unsafe-swiftshader`; count `drawElements`/`drawArrays` calls to prove
+  the loop renders while visible, stops off screen and stops after navigation;
+  confirm no Three.js request below 1024px, with reduced motion or without
+  WebGL.
+- Each scene instance must own its canvas: React StrictMode mounts effects
+  twice in development, and disposing a shared canvas (`forceContextLoss`)
+  kills the live instance.
+- Very tall full-page screenshots can show compositing repeats in headless
+  Chromium; review long pages with viewport-sized captures.
 
 ## Before implementation
 

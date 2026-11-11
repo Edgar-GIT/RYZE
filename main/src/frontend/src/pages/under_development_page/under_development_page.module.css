@@ -1,97 +1,78 @@
 .section {
-  min-height: 68vh;
   display: grid;
+  min-height: min(48rem, 86svh);
   align-items: center;
-  padding: 9rem 0 5rem;
+  overflow: hidden;
+  padding-block: calc(var(--r-nav-clearance) + 1.5rem) var(--r-section-y);
 }
 
-.inner {
+.layout {
   display: grid;
-  justify-items: center;
-  gap: 1.4rem;
-  padding: 3rem 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: var(--radius-md);
-  text-align: center;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(24, 216, 255, 0.16), transparent 22rem),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    color-mix(in srgb, var(--card) 88%, transparent);
-  box-shadow:
-    0 26px 90px rgba(5, 7, 11, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(24px);
-}
-
-.iconWrap {
-  display: grid;
-  width: 68px;
-  height: 68px;
-  place-items: center;
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.18), transparent 42%),
-    linear-gradient(135deg, var(--surface-elevated), var(--accent-secondary));
-  box-shadow: 0 0 36px rgba(24, 216, 255, 0.18);
-}
-
-.iconWrap svg {
-  width: 1.8rem;
-  height: 1.8rem;
+  gap: 2.5rem;
 }
 
 .copy {
   display: grid;
-  gap: 0.75rem;
-}
-
-.copy p,
-.copy h1,
-.copy span {
-  margin: 0;
-}
-
-.copy p {
-  color: var(--color-accent-300);
-  font-weight: 900;
-  text-transform: uppercase;
+  justify-items: start;
+  gap: 1.25rem;
 }
 
 .copy h1 {
-  color: var(--text-primary);
-  font-size: 2.55rem;
-  line-height: 1.08;
+  max-width: 18ch;
 }
 
-.copy span {
-  max-width: 62ch;
-  color: var(--text-muted);
-  line-height: 1.7;
+.status {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  color: var(--r-ink);
+  background: var(--r-cyan);
+  font-size: 0.8125rem;
+  font-stretch: 112%;
+  font-weight: 760;
+}
+
+.status svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.5rem;
 }
 
-@media (max-width: 560px) {
-  .section {
-    padding: 7.2rem 0 4rem;
-  }
+.orb {
+  order: -1;
+  width: min(52vw, 14rem);
+}
 
-  .inner {
-    padding: 2rem 1rem;
-  }
-
-  .copy h1 {
-    font-size: 2rem;
-  }
-
-  .actions {
-    display: grid;
+@media (max-width: 639px) {
+  .actions > a {
     width: 100%;
+  }
+}
+
+@media (min-width: 640px) {
+  .actions {
+    width: auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: clamp(3rem, 6vw, 6rem);
+    align-items: center;
+  }
+
+  .orb {
+    order: 0;
+    width: min(100%, 26rem);
+    justify-self: center;
   }
 }

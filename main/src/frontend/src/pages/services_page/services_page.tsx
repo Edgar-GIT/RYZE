@@ -1,13 +1,14 @@
 import { Dumbbell, Heart, Trophy, Zap } from "lucide-react";
 
-import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { Reveal } from "@/components/reveal/reveal";
 import { ServiceCard } from "@/components/service_card/service_card";
+import ui from "@/components/public_ui/public_ui.module.css";
+import { SERVICE_SHOWCASE } from "@/constants/services";
 import { useServiceCatalog } from "@/hooks/use_service_catalog";
 import { buildServiceCategoryCards } from "@/services/service_catalog";
-import servicesBackground from "@resources/img/hero/bg_services.png";
+import { joinClassNames } from "@utils/class_names";
 
 import styles from "./services_page.module.css";
 
@@ -42,60 +43,44 @@ export const ServicesPage = () => {
       : [];
 
   return (
-    <PageWrapper className={styles.page}>
+    <PageWrapper className={joinClassNames(ui.page, styles.page)}>
+      {/* The section sets no inherited font or colour, so the service cards keep
+          their own styling; only the intro, states and benefits use the public tones. */}
       <section className={styles.catalog}>
-        <img
-          className={styles.catalogBackground}
-          src={servicesBackground}
-          alt=""
-          aria-hidden="true"
-        />
-
         <Container className={styles.catalogInner}>
-          <Reveal className={styles.intro}>
-            <h1>
-              Choose how you want to <span className={styles.accent}>RYZE</span>
+          <Reveal className={joinClassNames(ui.toneNavy, styles.intro)}>
+            <p className={ui.label}>Services</p>
+            <h1 className={ui.heading}>
+              Choose how you want to <span className={ui.hl}>RYZE</span>
+              <span className={ui.stop}>.</span>
             </h1>
-            <p className={styles.lead}>
+            <p className={joinClassNames(ui.lead, styles.lead)}>
               Compare the published RYZE offers and choose the route that fits the guidance and
               personalization you need.
             </p>
           </Reveal>
 
           {catalog.status === "loading" ? (
-            <div className={styles.state}>
+            <div className={joinClassNames(ui.toneNavy, ui.surface, styles.state)}>
               <p className={styles.stateText}>Loading the published offers…</p>
             </div>
-          ) : catalog.status === "error" ? (
-            <div className={styles.state}>
-              <p className={styles.stateText}>Unable to load the services right now.</p>
-              <Button variant="secondary" size="small" onClick={catalog.retry}>
-                Try again
-              </Button>
-            </div>
-          ) : services.length === 0 ? (
-            <div className={styles.state}>
-              <p className={styles.stateText}>No offers have been published yet.</p>
-              <Button variant="secondary" size="small" to="/services/generic-program">
-                Browse training plans
-              </Button>
-            </div>
           ) : (
+            // Live offers when published; otherwise the original showcase cards.
             <div className={styles.grid}>
-              {services.map((service) => (
+              {(services.length > 0 ? services : SERVICE_SHOWCASE).map((service) => (
                 <ServiceCard key={service.title} service={service} />
               ))}
             </div>
           )}
 
-          <Reveal className={styles.evolution} delay={0.18}>
+          <Reveal className={joinClassNames(ui.toneNavy, ui.surface, styles.evolution)} delay={0.18}>
             {evolutionItems.map((item, index) => {
               const Icon = item.icon;
 
               return (
                 <article key={item.title} className={styles.evolutionItem}>
-                  <span className={styles.evolutionIcon}>
-                    <Icon aria-hidden="true" strokeWidth={1.7} />
+                  <span className={ui.iconTile}>
+                    <Icon aria-hidden="true" strokeWidth={1.9} />
                   </span>
                   <div className={styles.evolutionCopy}>
                     <strong>{item.title}</strong>

@@ -1,7 +1,7 @@
 # RYZE
 # Design Specification
 
-Version: 2.103.0
+Version: 2.104.0
 
 ---
 
@@ -228,8 +228,14 @@ Secondary
 - Featured program (`Premium Level 1`) is taller (different aspect ratio),
   keeps the stronger cyan glow, and shows a floating "Featured" mini
   rectangle above the top edge
+- Premium Level 2 carries a purple "Personalized" tag in the same place: Premium
+  Level 1 is the most chosen route, Premium Level 2 the most personalized one
+  (owner decision, 2026-11-11)
 - Hover: lift + cyan border glow
-- Same card language on homepage preview and `/services`
+- Used on `/services` only; Home presents the same categories with the
+  image-free category overview described under Home
+- Protected: the cards' markup and styles stay unchanged when the page around
+  them is redesigned
 
 ## Inputs
 
@@ -255,6 +261,16 @@ Secondary
 
 # Section Backgrounds
 
+Public website pages (Home, Our Vision, Contact, Feedback, Services,
+login/registration and the public under-development placeholders) use the
+public website layer defined in `docs/INSTRUCTIONS/design.MD` ("Public Website
+Layer"): one continuous logo-navy page with a repeating rhythm of soft blue
+light, transparent sections (no seams or colour jumps), the app's blue glass
+cards, and the light-blue wave panel as the only bright surface. No background
+images and no reliance on the animated global background. The Exercise Library
+and detail pages apply the same navy surfaces through page-scoped token
+overrides. The rules below still describe the remaining chrome pages.
+
 Alternate between:
 
 - Very dark background (`#05070B` / `#0A1018`)
@@ -273,10 +289,10 @@ Spacing and tone shifts should define sections.
 
 # Footer
 
-The current footer visual treatment is intentionally preserved.
-
-Do not redesign the footer as part of general palette updates unless explicitly
-requested.
+The footer layout, link columns, slogan image and copy are preserved. Since the
+owner's 2026-11-10 revision its colours and type follow the public design
+(logo navy with blue light, a thin cyan top line, cyan column headings,
+Archivo). Do not change its layout or content unless explicitly requested.
 
 ---
 
@@ -296,6 +312,11 @@ icon-only links remain centred; the auth actions stay right-aligned.
 
 The logo always redirects to the Home page.
 Log in routes to `/login`. Start free routes to `/register`.
+
+Mobile navigation accessibility (no visual change): the 36px menu button has an
+invisible 44px touch target, the collapsed panel uses `visibility: hidden` so
+its links are not reachable with Tab while closed, and Escape closes the open
+panel and returns focus to the menu button.
 
 Navbar behaviour is defined in the Components section above and must be followed.
 
@@ -325,121 +346,142 @@ Purpose
 
 Present the platform by showing the product and encouraging users to begin.
 
-The homepage should feel like a guided product tour, not a marketing brochure.
-
 Sections
 
-1. Hero
-2. Find your next program (API-backed highlights)
-3. Platform ecosystem
-4. Available RYZE program categories (API-backed preview)
-5. Contact preview
-6. Footer
+1. Hero — the opening chapter of the Home story
+2. Find your next program — right after the hero, so visitors reach the
+   programs first (owner decision, 2026-11-11)
+3. The other story chapters (Train, Fuel, Evolve, Get started; desktop
+   Three.js, stacked on mobile)
+4. Category overview (API-backed)
+5. Purchase journey ("From discovery to your first session")
+6. Contact preview
+7. Footer (layout protected; colours follow the public design)
 
-The current Home route mounts `Hero`, `ProgramsOverviewSection`,
-`PlatformSection`, the API-backed category preview and `ContactPreview`. The
-Training, Nutrition and Progress showcase components remain available as design
-building blocks but are not mounted on Home in this version.
+The Home route mounts `HomeStory` (which places the `ProgramsOverviewSection`
+it receives right after the opening chapter), `CategoryOverview`,
+`PurchaseJourney` and `ContactPreview` inside a `PageWrapper` carrying the
+public website layer class. The Training, Nutrition
+and Progress showcase components remain available as design building blocks but
+are not mounted.
 
-### Hero
+### Home story
 
-Simple full-bleed layout:
+`components/home_story/` tells RYZE in five chapters whose copy lives in
+`story_content.ts`:
 
-- Hero image covers the full hero width and height (`object-fit: cover`)
-- Text content overlays the left side
-- Soft bottom fade into the following page sections
-- Headline, description, CTAs and trust indicators
+1. Identity — label "Training & nutrition platform", headline "Train
+   anywhere. Progress everywhere." with "anywhere." and "everywhere." in cyan
+   (owner revision 2026-11-10: the headline matches the globe), the line "Free
+   training plans, premium programs and personalized coaching in one platform
+   that goes wherever you train. Follow every session and track your progress
+   from your phone or your computer.", CTAs "Start
+   training free" → `/services/generic-program` and "Explore plans" →
+   `/services`, and the three entry chips (Free programs, Premium plans,
+   Personalized coaching).
+2. Train — "Every session, already planned.": weeks and days, sets,
+   reps, load, rest and tempo, the live session timer with set logging,
+   workout history and progress.
+3. Fuel — "Nutrition that fits the plan.": calorie and macro targets,
+   meals with foods and portions, Premium Level 1 delivered after purchase,
+   Premium Level 2 prepared by a RYZE trainer.
+4. Evolve — "One platform, every screen.": catalogue search and
+   filters, Exercise Library demonstrations, My Programs with history and
+   progress.
+5. Get started — "Your next level starts here." with the same two CTAs.
 
-The artwork asset (`main/src/resources/img/hero/hero.png`) already contains the
-left empty space and right visual composition, so no special masking or
-split-column image tricks are required.
+Every chapter sits on the same navy. In Train and Fuel, three cards lifted out
+of the phone screen are set out on its left, one per feature point (set
+logging, rest timer, week schedule; protein, a meal with foods, the daily
+target), joined to the phone by a clean right-angled tree (a stub from the
+phone, a trunk, one branch per card, nodes at the joints); phones show two of
+them overlapping the phone edges. In Evolve the laptop and phone stand side by
+side under the badge "Synced · phone & laptop" (no connecting line), and the
+Earth leaves the frame. The laptop and the Evolve phone use large-type screens
+designed for the size at which they appear. Product visuals are illustrative RYZE
+screens designed in the app's style after the owner's phone reference, with
+sample data and existing features only (`main/src/resources/img/showcase/`:
+today's training session, the day's nutrition plan, the programme page), and
+labelled "Illustrative RYZE screens with sample data."
 
-### Product showcase sections
+Desktop (≥1024px wide, ≥680px tall, fine pointer, WebGL2, no reduced-motion
+preference) pins one 3D stage behind the hero, the programs and a 500svh
+chapter track: the hero scrolls away normally, the programs pass over the
+turning Earth, then the chapters play. Scroll progress drives one Three.js
+scene (`story_scene.ts`, dynamically imported):
+the Earth with real continents and an atmosphere, RYZE routes leaving Lisbon
+(light pulses travel each route) and the official icon on a badge above
+Lisbon — the brand travelling the world; a modelled phone (titanium frame,
+glass, island, buttons, camera module, blue edge light) that flies in with the
+training screen and spins, showing the logo on its back, to reveal the
+nutrition screen; a laptop (black keys with backlit legends, Touch ID and arrow
+keys, glass trackpad, opening scoop, hinge, display notch) that rises with the
+logo on its closed lid and opens square-on to the viewer on the programme
+screen, with the phone standing beside it; then the Earth returns for
+the call to action. The stage backdrop stays in the navy family (only the
+blue light moves) and fades into the page at its base, the
+chapter copy fades in its scroll window (every chapter stays in the
+accessibility tree; keyboard focus inside a faded chapter scrolls it into view).
+The former right-edge chapter navigation was removed to give the devices room.
+Device screens are sampled one mip level sharper than default to keep small
+text crisp.
+An SVG globe is shown until the scene is ready. Rendering runs only while the story is on screen and stops on
+navigation; any scene failure switches to the stacked layout.
 
-The Platform section is a dedicated visual moment after the hero.
-
-It uses:
-
-- Full-width section near `100vh`
-- Left column with eyebrow, multi-line heading (`without waiting.` in accent
-  gradient), short supporting paragraph, primary CTA and secondary link
-- Horizontal four-step process under the CTAs with glowing circular icons
-  (deliberately compact, 3.4rem) and thin connectors
-- The `start_sec_bg.png` artwork rendered as a compact right-anchored visual:
-  enlarged again (≤ 30rem wide) and further inset from the right edge of the
-  section, vertically centered, instead of a full-bleed cover
-- Atmosphere aligned with the Hero: deep black / navy background
-- No floating marketing cards around the artwork
-- No random decorative blobs or abstract shapes
-
-Other major sections after Platform should:
-
-- Use a small title
-- Use a strong headline
-- Use a very short description
-- Prefer full-bleed section backgrounds when artwork assets exist
-  (e.g. Training uses `training_sec_bg.png`)
-
-The Training section uses:
-
-- Full-bleed background image (`main/src/resources/img/hero/training_sec_bg.png`)
-- Left copy: eyebrow, heading with accent on `follow.`, short description
-- Vertical feature badges (icon tile + title + subtitle)
-- Reveal animations on copy and badges
-
-The Nutrition section uses:
-
-- Atmospheric dark background (nebula / faint grid / particles)
-- Left copy matching Training hierarchy with accent on `program.`
-- Vertical nutrition feature badges
-- Right column: glass nutrition card (kcal ring, macros, recommendation)
-- Reveal + subtle floating card motion
-
-The Progress section uses:
-
-- Same atmospheric treatment as Nutrition
-- Left copy with accent on `see.` and vertical progress feature badges
-- Right glass analytics card: strength chart, summary stats, metric tiles
-- Reveal + subtle floating card motion
-
-Preferred demo surfaces for remaining showcase sections include:
-
-- Weekly activity charts
-- Workout calendars
-- Nutrition rings and macros
-- Progress trend charts
-- Floating UI windows
-
-Do not use generic multi-card "Why RYZE" feature grids.
-Do not use generic admin-dashboard placeholder layouts for Platform.
+Mobile, tablet, reduced motion and browsers without WebGL2 get the stacked
+layout: each chapter is a normal section with the SVG globe (identity: the same
+continents and routes, animated pulses) or phone and laptop frames showing the
+same screens. Three.js is never downloaded there.
 
 ### Programs
 
 The program highlights are read from the published catalogue through
-`useServiceCatalog`; no price, offer or program title is hardcoded. The section
+`useServiceCatalog`. While no program is published (empty catalogue or an
+unavailable API), the section shows the original goal cards instead of an
+empty state — Build Muscle → Premium Level 1, Lose Fat → Premium Level 2, Train
+for Free → the training-plan marketplace — so Home always invites people in
+(owner decision, 2026-11-10). With published programs, nothing is hardcoded: The section
 shows at most three cards: one Premium Level 2 service first, then one Premium
 Level 1 package, then published generic programs, then additional Premium
-packages when needed. Each card uses
-the API name and description, links to its own package, and has explicit
-loading, error and empty states.
+packages when needed. Each card uses the API name and description and links to
+its own package; a loading state shows while the catalogue loads.
 
-The category preview below the Platform section is also API-backed. It is hidden
-until the catalogue is ready and at least one category card exists.
+Presentation (owner revision, 2026-11-11): the Home's main call to action. Label
+"Start training today", heading "Find your next program." and "See all plans" →
+`/services`; tall full-photo cards (the current `advert1–3` images) with an icon,
+a level tag in the Services colours (Free cyan, Premium Level 1 blue, Premium
+Level 2 purple), the title, three lines of description and a primary CTA on
+every card; lift, glow and photo zoom on hover. Below 768px the cards form a
+swipeable row (keyboard tab stop only at those widths). On desktop the section
+passes over the pinned 3D Earth through a dimmed navy band.
+
+### Category overview
+
+API-backed through `useServiceCatalog` and `describeCatalogPrice`; hidden while
+the catalogue is loading, failed or empty. Heading "Pick how much guidance you
+want." One glass card per family with at least one published offer; more
+personalization means more blue light: training plans (plain), Premium Level 1
+(ring-blue glow) and Premium Level 2 (cyan edge and glow). Each shows a personalization meter (1–3 rising bars), the
+category name, a one-line description and three "included" items summarising
+`project.MD`, the catalogue-derived price and the existing CTA label and
+destination. From 768px the cards stand in one row with rising heights.
+
+### Purchase journey
+
+"From discovery to your first session." with "See all training
+plans" → `/services/generic-program` and "See how RYZE works" → `/our-vision`,
+and five steps on a cyan rail for training plans and Premium Level 1: choose a
+plan, check the details (level, duration, weekly frequency), activate (free)
+or check out (paid), open My Programs, train and log. A note explains that
+Premium Level 2 adds an intake after purchase and a trainer prepares the
+programme and nutrition before they appear in My Programs.
 
 ### Contact preview
 
-Contact channels plus two CTAs side by side: Contact us and Join for Free.
-Preview sits directly on the plain website background (`--bg-primary`); its
-decorative radial glow is suppressed so it blends into the page like the
-sections around it.
-
-### Footer
-
-Contains:
-
-- RYZE slogan logo
-- Circular icon links for email, Instagram and WhatsApp
-- Copyright
+A light-blue wave panel on the navy page: "Questions, partnerships, or ready to
+start?", the existing supporting line, CTAs "Join for Free" →
+`/services/generic-program` and "Contact us" → `/contact`, and light channel
+cards (Email, Instagram, WhatsApp) with their address or handle.
 
 ---
 
@@ -449,17 +491,23 @@ Displays every available product offered by the platform.
 
 Catalog landing
 
-- Full-bleed `bg_services.png` background
-- Headline "Choose how you want to RYZE" with accent on "RYZE"
-- Four evolution items in a glass panel with vertical dividers: Train Smarter
+- The public navy page with blue light behind the cards (the former
+  `bg_services.png` background image is no longer used)
+- Label "Services" and headline "Choose how you want to RYZE." in Archivo,
+  "RYZE" in cyan; the headline wraps on phones so the cards fit the screen
+- Four evolution items in an app-style glass panel with dividers and cyan
+  icon tiles: Train Smarter
   (Dumbbell), Reach your Goals (Heart), Progress Faster (Zap), Get Stronger
   (Trophy), each with a short descriptive phrase
 - One image-backed category card per available product family, using
   `rcc1.png` for the generic training-plan marketplace and `rcc2.png` for
   Premium Level 1 and Premium Level 2, each animating in with a staggered
   fade-up on page load
-- Explicit loading, error and empty states; no card is rendered until the
-  published catalogue is known
+- A loading state while the catalogue loads; when no offer is published (empty
+  catalogue or unavailable API) the original showcase cards are shown — Generic
+  Program "FREE", Premium Level 1 "14,49€" and Premium Level 2 "19,49€" with
+  `rcc1/2/3.png` — as before the catalogue became API-driven (owner decision,
+  2026-11-10)
 
 Each card contains:
 
@@ -473,12 +521,14 @@ Each card contains:
 
 The generic card opens the training-plan marketplace, the Premium Level 1 card
 opens the Premium package catalogue and the Premium Level 2 card opens the
-trainer-delivered service page. No product price or offer copy is hardcoded;
-each card is rendered only when its family has at least one published offer.
+trainer-delivered service page. With published offers, no product price or
+offer copy is hardcoded and each card is rendered only when its family has at
+least one published offer; the showcase prices above appear only while nothing
+is published.
 
-The same `ServiceCard` language is used on the homepage programs preview,
-which now sits on a plain dark background; only the Services page keeps the
-full-bleed `bg_services.png` background.
+`ServiceCard` is used only by the Services page; the cards are protected and
+unchanged. Home no longer renders
+`ServiceCard`; it uses the image-free category overview described under Home.
 
 ### Free
 
@@ -948,36 +998,54 @@ Acts as the platform's social / complaints area.
 
 Digital Complaints Book and related feedback flows live here.
 
+Member feedback (migration 000036): below the stories, a "We would love to
+hear your feedback!" card with "Leave feedback". Opening it checks the account
+(only then, so anonymous visitors make no authenticated request): signed out →
+"Log in" / "Create account"; no plan → "Feedback opens once you have a plan.
+Free training plans count too." with "Find a plan"; a submission awaiting
+review → a thank-you note; otherwise a 1–5 star picker (radio inputs, keyboard
+accessible) and a message box (10–1000 characters, counter, "Shown with your
+first name and last initial."). After sending: "Thank you! Your feedback will
+appear here after a quick review." Beside it (stacked on phones), "Other
+feedback from our athletes" lists approved feedback (initial avatar, public
+name, date, stars, message) with "Show more", and an empty state inviting the
+first feedback. The Management Administrator reviews submissions on
+`/admin2/feedback` (Pending / Approved / Rejected tabs, Approve and Reject).
+
 ---
 
 ## Feed
 
 Public activity feed for RYZE community updates.
 
-Currently routes to an under-development placeholder (`/feed`).
+Currently routes to an under-development placeholder (`/feed`). The shared
+`UnderDevelopmentPage` placeholder (also used by the `/services/:serviceSlug`
+fallback and the catch-all route) is a navy section with a cyan status label,
+heading, description, "Back Home" → `/`, "View Services" → `/services` and the
+SVG globe.
 
 ---
 
 ## Contact
 
-The Contact page is a single elegant two-column experience.
+A navy page on the public website layer (no background image). Copy column:
+label "Contact", display heading "Talk to RYZE." ("RYZE." in cyan), the
+supporting description and channel cards (Email, Instagram, WhatsApp) with an
+icon tile, the address or handle and an outward arrow; external cards announce
+that they open in a new tab. On desktop the copy column is sticky beside the
+form.
 
-Left column:
-
-- Large heading (`Talk to RYZE.`)
-- Short supporting description
-- Compact interactive contact rows (Email, Instagram, WhatsApp)
 - Email opens the mail client
 - Instagram opens the official profile
 - WhatsApp opens the official community invite
 
-Right column:
-
-- Embedded contact form inside a premium dark glass panel
-- Title: `Write to RYZE`
-- Fields: Name, Email, Subject, Message, Attachment
-- Primary CTA: `Send Message`
-- Helper text: `We usually reply within 24 hours.`
+Form column: an app-style glass card with dark fields titled `Write to RYZE` with Name, Email, Subject,
+Message and Attachment (optional, hint "PNG, JPEG, WebP or PDF, up to 1 MB.");
+primary CTA `Send Message`; helper text `We usually reply within 24 hours.`.
+Input borders meet 3:1 non-text contrast; the hidden file input is named
+"Attachment (optional) Choose file" and shows its focus on the "Choose file"
+label; the `role="status"` result message stays mounted (visually hidden while
+empty) so success and error text is announced.
 
 There is no modal, popup or background blur overlay for contact.
 
@@ -989,8 +1057,8 @@ shows the server's unavailable message instead of a false success. The
 attachment is never stored by RYZE.
 
 The Home page must not duplicate the full Contact page. It uses a compact
-`Get in touch` preview with short copy, three compact channel buttons and two
-CTAs side by side: `Contact us` → `/contact` and `Join for Free` → free program.
+preview with short copy, three channel buttons and two CTAs: `Join for Free` →
+`/services/generic-program` and `Contact us` → `/contact`.
 
 ---
 
@@ -1000,45 +1068,41 @@ Route: `/our-vision`
 
 Purpose: sell the RYZE platform vision — not founder biographies.
 
-The page must feel like a modern technology vision surface (Apple / Linear /
-Vercel style): minimal copy, strong hierarchy, generous whitespace, premium
-motion and dark futuristic atmosphere.
-
-Legacy `/about-us` redirects to `/our-vision`.
+Legacy `/about-us` redirects to `/our-vision`. No background images.
 
 Sections:
 
-1. The future of fitness — large left-aligned hero over `our_view.png`
-   background (same full-bleed image pattern as Training / Start Faster):
-   eyebrow, thesis headline with accent on “software.”, short lead, horizontal
-   capability chips (AI / Training / Nutrition / Recovery / Progress), and an
-   Our Vision jump link. No stock gym photography.
-2. Get started — solid dark background populated with a sparse field of tiny
-   glowing star points (animated twinkle, deterministic spread, disabled under
-   `prefers-reduced-motion`) behind a left intro (eyebrow “Get started”,
-   headline with accent on “minutes.”, short lead) and a bottom “How RYZE
-   works” panel: five numbered steps connected by a glowing rail (Sign up →
-   goals → AI program → track → weekly improvement).
-3. Our vision — solid dark background with the same star-point field behind a
-   two-column roadmap: left intro with phase tags (Today / Next / Soon /
-   Later / Horizon), right vertical timeline with numbered milestone cards.
-4. Continuous evolution — full-bleed `conti_bg.png` background (large
-   centered planet). Left intro: eyebrow ("Continuous evolution"), two-line
-   headline with accent on "never finished.", one-line lead and a cyan-outline
-   "See what's next" CTA. Around the planet, three left feature items and
-   three right feature items (icon ring + title + description) frame the
-   planet across its vertical span, connected by a faint radial nebula glow
-   and thin connector stubs. Bottom: an integrated glass CTA panel with the
-   RYZE icon, "The Future of Fitness is Adaptive" headline and a filled cyan
-   "Join the Journey" button.
-5. Join the movement — full-bleed `join_bg.png` background. Fully centered
-   composition on the central vertical axis: eyebrow ("The journey
-   continues"), two-line headline with accent on "join us now.", short
-   description, neon outline CTA ("JOIN RYZE →" to `/register`), a wide
-   single glass panel with five numbered feature items (community / training
-   / passion / evolution / journey), and a bottom statement ("RYZE is more
-   than a platform." with side lines, then "It's a movement."). No left or
-   right columns, no extra cards, no navigation.
+1. Hero — "Thousands of fitness apps. All the same. RYZE isn't." ("RYZE
+   isn't." in cyan); lead "Most fitness platforms sell the same static plans
+   and stop there. RYZE brings training, nutrition and real trainers into one
+   platform — and keeps evolving, with AI-generated programs next on our
+   roadmap."; "On this page" links (`#why-ryze`, `#how-it-works`,
+   `#vision-roadmap`, `#vision-evolution`); and a wall of identical greyed-out
+   "12-week plan" apps with RYZE lit up in the middle, listing training and
+   nutrition in one plan, plans prepared by real trainers, every set logged and
+   every week tracked, and AI-generated programs marked "Next" (owner revision,
+   2026-11-11; AI generation is on the roadmap, not live — see
+   `docs/INSTRUCTIONS/project.MD`).
+1b. Why RYZE (`#why-ryze`) — "Others stop at a plan. RYZE keeps going.": a
+   dashed "Typical fitness apps" column (one template for everyone; training
+   or nutrition, rarely both; a plan you follow on your own; no record of what
+   you actually did) against a RYZE column (programs filtered by goal, level,
+   duration and weekly frequency; training and nutrition together in Premium
+   plans; Premium Level 2 plans prepared by a RYZE trainer; every session
+   logged with history and progress; AI-generated programs, "Next").
+2. How RYZE works — "Start your journey in minutes. Transform for
+   life." and five numbered glass step cards.
+3. Roadmap — "Where RYZE is going." with the milestones grouped by
+   phase (Today, Next, Soon, Later, Horizon) on a rail; Today is highlighted.
+   Milestones are not links.
+4. Continuous evolution — "Software is never finished.", "See what's
+   next" → `#vision-roadmap`, six glass capability cards with cyan icon tiles,
+   and a light-blue wave panel with the official `ryze_icon2.png` mark on a navy tile, "The
+   future of fitness is adaptive." and "Join the journey" → `#vision-roadmap`.
+5. Join — "Grow together with RYZE, join us now.", lead, "Join RYZE" →
+   the official WhatsApp community (note "Opens the RYZE community on
+   WhatsApp."), five community cards and the statement "RYZE is more than a
+   platform. It's a movement."
 
 Do not use long paragraphs, huge founder photos, or traditional “About Us”
 brochure layouts. Founder/people content is deferred for a later release.
@@ -1057,9 +1121,10 @@ forms redirect to `/profile`, the authenticated profile page. Backend and
 network errors are shown inside the card as a compact inline alert above the
 submit button.
 
-Single page component (`LoginPage`) with two interchangeable forms — LOGIN and
-CREATE ACCOUNT — on the same compact floating card. The background must never
-change during the transition; only the card content swaps.
+Single page component (`LoginPage`) rendering both forms — LOGIN and CREATE
+ACCOUNT — in one card on the public navy page (no background image since the
+owner's 2026-11-10 revision). The fields, validation messages, API calls and
+redirects are unchanged.
 
 The auth page is rendered **without** the site chrome: no navbar, no footer
 and no animated background. The `Layout` receives `showChrome={false}` for
@@ -1067,59 +1132,48 @@ and no animated background. The `Layout` receives `showChrome={false}` for
 
 Page structure
 
-- Full-viewport background. The image
-  `main/src/resources/img/login_create/background.png` is applied as a CSS
-  `background-image` (never an `<img>` element) with `background-size: cover`,
-  `background-position: center center` and `background-repeat: no-repeat`. The
-  original aspect ratio is always preserved; the viewport crops the image
-  naturally at its edges, never stretched or deformed.
-- Small RYZE logo (brand mark + wordmark) fixed in the top-left corner,
-  linking home.
-- A discreet legal line pinned to the bottom center:
+- The navy page with soft blue light; small RYZE logo (brand mark + wordmark)
+  in the top-left corner, linking home.
+- A discreet legal line below the card:
   `© 2026 RYZE · Privacy Policy · Terms of Service`.
 
-Card
+Card (from 900px)
 
-- Compact, content-sized floating card, ~380–440px wide
-- Dark/translucent background, thin cyan/blue border, `border-radius: 20px`
-- Very subtle blue glow; `backdrop-filter: blur`
-- Centered horizontally, slightly above the vertical center
-- The space background stays clearly visible around the card
-- No traditional footer inside or below the card
+- Two halves: one form and the light-blue wave panel (official icon on a navy
+  tile, an invitation to the other mode and an ink button). Login mode: login
+  form left, panel right ("New to RYZE? Start your evolution." → "Create
+  account"). Register mode: panel left ("Already a member? Welcome back." →
+  "Log in"), register form right.
+- Switching slides the panel across (~0.75s ease), the outgoing form fades
+  and shifts, the incoming form takes the other half, and the panel copy
+  crossfades. The in-form switch link is hidden at these widths.
 
-Login form
+Phones and tablets (below 900px)
 
-- Title "Welcome back" (white, bold, centered)
-- Subtitle "Log in to continue your journey."
-- Email field with envelope icon (placeholder "Email or username")
-- Password field with lock icon and show/hide eye toggle (placeholder
-  "Password")
-- Options row: "Remember me" checkbox left, "Forgot your password?" cyan
-  link right
-- Primary button "Log in" (full width, cyan gradient, `border-radius: 8px`)
-- Divider "or continue with" with side lines + white circle with the official
-  Google G
-- Footer link "Don't have an account? Create one here" (cyan)
+- A compact light-blue wave header with the icon above the active form; the
+  inactive form is not rendered visibly. The form's own switch link changes
+  mode and the new form fades up.
 
-Register form
+Forms
 
-- Title "Create account", subtitle "Join RYZE and start your evolution."
-- Fields: First name, Last name, Email, Password, Confirm password (all
-  identical size/style; password fields have eye toggles)
-- Terms checkbox: "I agree to the Terms of Service and the Privacy Policy"
-  (cyan links)
-- Primary button "Create account", same Google divider, footer "Already have
-  an account? Log in" (cyan)
+- Login: "Welcome back." (continuation in cyan), "Log in to continue your
+  journey.", Email or username, Password with show/hide, "Remember me" and
+  "Forgot your password?", primary "Log in", divider "or continue with",
+  Google button, "Don't have an account? Create one here".
+- Register: "Create account.", "Join RYZE and start your evolution.", First
+  and Last name (side by side from 420px), Email, Password and Confirm
+  password with show/hide, the terms checkbox with Terms of Service and
+  Privacy Policy links, primary "Create account", the Google button and
+  "Already have an account? Log in".
+- Fields: dark fill, `#4D6FA6` border (≈3.5:1), icon, cyan focus ring; errors in
+  a compact inline alert above the submit button.
 
-Login ⇄ Register transition
+Accessibility
 
-The swap is not a page change nor a `display: none` swap. It shows the shared
-RYZE `LoadingScreen` overlay for ~1 second and then swaps the form content,
-which staggers in (each block fades up ~8px, ~50ms apart — title, subtitle,
-fields, terms, button, Google, footer link). The card and background never
-move.
-
-Respects `prefers-reduced-motion` (direct swap, no loading overlay).
+- The inactive form and the inactive panel copy are `inert` and hidden from
+  assistive technology; after a switch, focus moves to the new form's heading.
+- The previous one-second loading overlay between modes is gone; with
+  `prefers-reduced-motion` the switch is immediate.
 
 ---
 
@@ -1188,35 +1242,19 @@ live on their own account pages reached from the hub.
 
 ## Feedback page hero
 
-Route: `/feedback`.
+Route: `/feedback`. No background image.
 
-The Feedback page currently contains only the hero section (testimonial
-preview). It sits directly below the navbar.
-
-Background
-
-- Solid near-black (`#000001`) fallback behind `feedback_bg.png`
-  (`main/src/resources/img/feedbacks/feedback_bg.png`), applied as a full
-  `background-image` with `cover`/center
-
-Composition
-
-- Top row: two columns. Left column holds the copy (blue uppercase eyebrow
-  "FEEDBACK", large bold headline "Real people. / Real results." with
-  "Real results." in bright RYZE blue and a subtle glow, soft gray
-  description) anchored to the bottom. Right column shows the RYZE slogan
-  logo (`BRAND_ASSETS.slogan`), bottom-aligned.
-- Below: three testimonial cards in a single row (stack on small screens)
-- Bottom: centered CTA
-
-Testimonial cards
-
-- Equal width/height, rounded corners (`18px`), very dark translucent surface,
-  thin blue border (`rgba(42, 140, 255, 0.28)`) and a subtle blue edge glow
-- Image occupying the upper portion (aspect ratio 4:5, `object-fit: cover`,
-  rounded top corners, no filters)
-- Body: five individual blue stars (`★★★★★`), white "Anonymous" label, muted
-  testimonial copy with a blue quotation mark
+- Header: label "Feedback", "Real people. Real results." with "Real results."
+  in cyan and the existing description, centred from 768px. The slogan image
+  beside the headline and the result chips were removed (owner revisions).
+- Stories: app-style glass cards on the same navy, below the header (no
+  overlap). Below 768px they form a swipeable, scroll-snapped row (keyboard tab stop only
+  at these widths, inset focus ring, "Swipe to read more stories." hint); from
+  768px a three-column grid. Each card: photo at 4:5 (lazy, intrinsic size),
+  five stars ("Rated 5 out of 5 stars"), the quote in a `blockquote` and
+  "Anonymous".
+- CTA (light-blue wave panel): "Your story starts with one session." and
+  "Start your transformation" → `/register`.
 
 Card copy (from the supplied assets `main/src/resources/img/feedbacks/f1.jpeg`,
 `f2.jpeg`, `f3.jpeg`):
@@ -1227,12 +1265,6 @@ Card copy (from the supplied assets `main/src/resources/img/feedbacks/f1.jpeg`,
   purpose and eat better. I feel stronger both inside and out."
 - "RYZE helped me rebuild my confidence and feel better in my own body. The
   results came consistently and in a healthy, sustainable way."
-
-CTA
-
-- Centered below the cards: "START MY TRANSFORMATION" with an arrow icon,
-  linking to `/register`
-- Blue/cyan outline style, rounded, subtle glow — must not dominate the cards
 
 ---
 

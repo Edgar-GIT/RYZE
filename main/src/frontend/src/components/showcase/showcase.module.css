@@ -1,0 +1,142 @@
+/* Device frames that match the desktop 3D devices: titanium edges, black glass,
+   and a blue edge light. */
+
+/* --- Phone --- */
+
+.phone {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 3.4%;
+  border-radius: 16% / 7.6%;
+  background: linear-gradient(135deg, #8c9cc0 0%, #34446a 16%, #1c2741 48%, #2f3d5c 80%, #8c9cc0 100%);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(214, 228, 255, 0.4),
+    inset 0 0 0 3px #0b1226,
+    0 0 0 1px rgba(4, 129, 220, 0.55),
+    0 0 44px 4px rgba(4, 150, 255, 0.42),
+    0 40px 80px -30px rgba(0, 0, 0, 0.85);
+}
+
+/* Volume (left) and power (right) buttons. */
+.phone::before,
+.phone::after {
+  position: absolute;
+  width: 3px;
+  content: "";
+  background: linear-gradient(180deg, #8c9cc0, #34446a);
+}
+
+.phone::before {
+  top: 21%;
+  left: -3px;
+  height: 14%;
+  border-radius: 2px 0 0 2px;
+}
+
+.phone::after {
+  top: 27%;
+  right: -3px;
+  height: 11%;
+  border-radius: 0 2px 2px 0;
+}
+
+.phoneScreen {
+  position: relative;
+  overflow: hidden;
+  border: 0.32rem solid #010206;
+  border-radius: 13% / 6.1%;
+  background: #010206;
+}
+
+/* Glass reflection. */
+.phoneScreen::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(118deg, transparent 32%, rgba(255, 255, 255, 0.07) 40%, transparent 54%);
+  pointer-events: none;
+}
+
+.phoneScreen img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 780 / 1688;
+}
+
+.island {
+  position: absolute;
+  top: 1.4%;
+  left: 50%;
+  width: 31%;
+  height: 4%;
+  border-radius: 999px;
+  background: #000;
+  transform: translateX(-50%);
+}
+
+/* --- Laptop --- */
+
+.laptop {
+  position: relative;
+  width: 100%;
+  margin: 0;
+}
+
+.lid {
+  position: relative;
+  padding: 2.6% 2.6% 3.4%;
+  border-radius: 3.4% / 5.4%;
+  background: #03050c;
+  box-shadow:
+    inset 0 0 0 1.5px #3a4868,
+    0 0 0 1px rgba(4, 129, 220, 0.4),
+    0 0 52px 2px rgba(4, 150, 255, 0.3);
+}
+
+/* Camera notch. */
+.lid::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 11%;
+  height: 2.6%;
+  border-radius: 0 0 0.4rem 0.4rem;
+  content: "";
+  background: #03050c;
+  transform: translateX(-50%);
+}
+
+.lid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  border-radius: 0.25rem;
+}
+
+.base {
+  position: relative;
+  width: 114%;
+  height: clamp(0.7rem, 2vw, 1.1rem);
+  margin-left: -7%;
+  border-radius: 0.2rem 0.2rem 1.2rem 1.2rem / 0.2rem 0.2rem 100% 100%;
+  background: linear-gradient(180deg, #6a7aa0 0%, #2c3852 42%, #121a2e 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(214, 228, 255, 0.5),
+    0 26px 40px -20px rgba(0, 0, 0, 0.85);
+}
+
+/* Opening groove. */
+.base::after {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 14%;
+  height: 42%;
+  border-radius: 0 0 0.5rem 0.5rem;
+  content: "";
+  background: rgba(0, 0, 0, 0.4);
+  transform: translateX(-50%);
+}

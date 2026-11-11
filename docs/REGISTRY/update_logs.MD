@@ -1,3 +1,243 @@
+# Version 2.105.0
+
+Title: Member feedback with administrator review
+
+Date: 2026-11-11
+
+Summary:
+
+Members can rate RYZE (1–5 stars) and leave a short message from the public
+Feedback page; submissions are published under "Other feedback from our
+athletes" only after the Management Administrator approves them in the admin
+console. Eligibility is checked by the server: an active account that holds or
+held any plan, free ones included (an entitlement or a Free activation; expired
+access counts, revoked access does not). One pending submission per member, the
+public list shows only a "First L." name snapshot, and submissions are rate
+limited.
+
+Main changes:
+
+- Migration `000036_create_member_feedback` (table `member_feedback`, CHECK
+  constraints on rating and status, a generated `pending_user_id` with a unique
+  index for the one-pending rule).
+- Backend: `models/member_feedback.go`, `repositories/member_feedback_repository.go`,
+  `services/member_feedback/` (validation, eligibility, public name, review),
+  `api/auth/member_feedback_handler.go`; routes `GET /api/v1/feedback`,
+  `GET /api/v1/me/feedback/eligibility`, `POST /api/v1/me/feedback` (new
+  `feedback` rate-limit scope: 10/hour/IP), `GET /api/v1/admin/feedback`,
+  `POST /api/v1/admin/feedback/:id/approve|reject`; new admin permissions
+  `feedback.read` and `feedback.manage` (Management Administrator only).
+- Frontend: `services/member_feedback_api.ts`, the Feedback page's
+  `community_feedback` section, and the real review queue on
+  `/admin2/feedback` (`services/admin2_api.ts`).
+
+Reason:
+
+The owner asked for a way for athletes to leave feedback and for a public
+comments area, restricted to accounts with a plan and moderated before
+publication.
+
+Modified files:
+
+- `main/src/backend/database/migrations/000036_create_member_feedback.{up,down}.sql` (new)
+- `main/src/backend/models/member_feedback.go`, `repositories/member_feedback_repository.go`,
+  `services/member_feedback/` , `api/auth/member_feedback_handler.go` (+ tests) (new)
+- `main/src/backend/routes/routes.go`, `routes/ratelimit.go`,
+  `middleware/adminroles/adminroles.go`
+- `main/src/frontend/src/services/member_feedback_api.ts` (new),
+  `services/admin2_api.ts`, `pages/feedback_page/` , `pages/admin2/admin2_feedback_page/`
+- `docs/INSTRUCTIONS/api.MD`, `docs/INSTRUCTIONS/security.MD`,
+  `docs/DATABASE/database.MD`, `docs/PAGES/design.MD`, `docs/REGISTRY/update_logs.MD`
+- Agent instructions aligned with the owner's 2026-11-10/11 decisions (with the
+  owner's permission): `CLAUDE.md`, `AGENTS.md`, `.claude/rules/frontend.md`,
+  `.claude/skills/ryze-frontend-revamp/SKILL.md`,
+  `.claude/agents/frontend-reviewer.md` — the narrowed protected parts, the one
+  public design principle, the approved desktop 3D story and migration 000036.
+
+Verification:
+
+- `go build ./...` and `go vet` passed; `go test ./services/member_feedback/`
+  (9 tests), `go test ./api/auth/ -run Feedback` (5 tests) and
+  `go test ./middleware/...` passed. Database-backed suites were not run: they
+  connect to the configured (owner's) database.
+- The migration has not been applied to any database and was not executed
+  against MariaDB in this session; apply it with `go run . migrate up` from
+  `main/src/backend/`.
+- Browser checks with a mocked API: 13 public-flow checks (signed out, no plan,
+  pending, form and keyboard rating, submission, empty list, pagination, no
+  overflow at 390px) and 5 admin review checks.
+
+# Version 2.104.0
+
+Title: Public website redesign — one consistent RYZE world and desktop 3D story
+
+Date: 2026-11-10
+
+Summary:
+
+Redesigned the public website around one principle: it is built from the same
+materials as the app. Every page is one continuous logo-navy surface (navy
+`#02041F`; the logo's royal `#072A77`, ring blue `#0481DC`, Z cyan `#00CBFF`
+and chrome `#E4E9F1` were sampled from the official artwork) with a repeating
+rhythm of soft blue light; sections are transparent, so they no longer jump
+between unrelated colours; cards are the app's blue glass surfaces; cyan is the
+light; and the only bright element is a light-blue wave panel. Archivo (OFL,
+self-hosted) gives expanded display type that echoes the wordmark; headlines
+keep the original brand-coloured continuations.
+
+Pages: Home, Our Vision (`/our-vision`; `/about-us` redirects), Contact,
+Feedback, the public under-development placeholder, and — after the owner
+narrowed the protected areas on 2026-11-10 — Services (cards unchanged),
+login/registration (complete rework), the Home "Find Your Next Program" section
+(cards unchanged), the Exercise Library and detail (colours only) and the
+footer (layout, columns and slogan image unchanged).
+
+Home tells RYZE in five chapters. On desktop they are a scroll-driven Three.js
+story: the Earth with real continents and RYZE routes leaving Lisbon (the brand
+travelling the world) under the headline "Train anywhere. Progress
+everywhere.", a modelled phone and laptop showing illustrative app screens
+designed after the owner's phone reference, then the Earth again for the call
+to action. Phones, tablets, reduced motion and no-WebGL get an SVG
+globe with the same routes and CSS device frames, and never download Three.js.
+
+Two earlier passes (a dark, minimal one, then a multi-colour one with paper,
+cyan and royal sections and a dotted planet) were rejected by the owner and
+replaced before release.
+
+Main changes:
+
+- `components/public_ui/`: the layer (`page` tokens and continuous light;
+  `toneNavy`, `toneLight`; `surface`, `lightPanel`, `iconTile`; type scale;
+  `PublicAction`; `BrandStop`; `Waves`) and the "RYZE Archivo" `@font-face`.
+- `components/home_story/` (new): chapter content, shared copy parts, the
+  immersive desktop stage, the dynamically imported scene (`story_scene.ts`:
+  Earth shader with land mask, merged route tubes with travelling pulses, city
+  points, Lisbon badge; extruded phone and laptop with physical materials,
+  instanced keys, edge glow) and the stacked layout;
+  `hooks/use_immersive_story.ts` and `hooks/use_media_query.ts` (new).
+- `components/brand_globe/` (new): SVG globe and its generated data;
+  `components/showcase/` (new): phone and laptop frames.
+- `components/category_overview/` and `components/purchase_journey/` (new);
+  redesigned `contact_preview/`, `contact_section/`, `contact_form/` (same
+  fields, messages, honeypot, limits and API; persistent status live region;
+  dark fields with 3:1 borders).
+- `pages/login_page/`: one card with both forms and a light-blue wave panel that
+  slides across when switching mode (the form swaps sides); phones get a wave
+  header. Field names, validation messages, API calls and redirects are
+  unchanged; the one-second loading overlay between modes was removed; the
+  inactive form is inert and hidden from assistive technology and focus moves
+  to the new heading. The login background image is no longer used here (the
+  admin login still uses it).
+- `pages/services_page/`: background image removed; new intro, states and
+  benefits panel around the unchanged `ServiceCard`s. The heading now wraps on
+  phones; previously it forced the cards to 445–528px inside a 360–430px screen,
+  where they were cut off.
+- `components/programs_overview_section/`: section surface and heading only.
+- `pages/exercise_library_page/`, `pages/exercise_detail_page/`: page-scoped
+  colour token overrides and the library title typeface; layout unchanged.
+- `components/footer/`: navy surface, cyan top line, cyan column headings and
+  Archivo; layout and content unchanged.
+- `pages/feedback_page/`: hero restored to the original composition (slogan
+  level with the headline), stories as glass cards on navy, wave-panel CTA.
+- Owner follow-up (same day): the story backdrop now dissolves into the page,
+  removing the edge before "Find Your Next Program"; display and heading line
+  heights opened slightly; the laptop screen was redesigned at a larger scale
+  (2560×1600) with maximum texture filtering and a square-on view, and the
+  keyboard gained backlit legends, Touch ID and arrow keys, a chamfered glass
+  trackpad, an opening scoop and a display notch; the Our Vision hero globe was
+  replaced by a platform visual (the RYZE core wired to its modules and the
+  roadmap's next ones); the Feedback slogan is centred on the headline block.
+- Owner follow-up (second pass): the Services cards and the Home goal cards
+  are back as a showcase whenever no offer is published (the original static
+  content from before the catalogue became API-driven; live data still wins);
+  Train and Fuel gained cards lifted out of the phone screen (3D on desktop,
+  overlapping the phone on mobile); Evolve now shows laptop and phone side by
+  side joined by a sync stream; the hero Earth moved slightly right; the
+  Feedback hero is centred with the members' own results as links to their
+  stories; the Our Vision hero shows an adaptive-versus-static training-load
+  illustration.
+- Owner follow-up (third pass, 2026-11-11): Home now runs hero → Find your
+  next program → device chapters, with one 3D stage pinned behind all three;
+  the programs section was redesigned as the main call to action (tall photo
+  cards, level tags, CTA on every card, swipeable on phones); the chapter
+  navigation was removed; Train and Fuel cards hang from a right-angled tree;
+  Evolve lost its connecting line and uses large-type screens; device screens
+  are sampled one mip level sharper; Services' Premium Level 2 card carries a
+  purple "Personalized" tag; the Feedback result chips were removed; Our
+  Vision opens with "Thousands of fitness apps. All the same. RYZE isn't."
+  and a new "Why RYZE" comparison section.
+- `pages/our_vision_page/`, `pages/contact_page/`,
+  `pages/under_development_page/`, `pages/home_page/home_page.tsx`: moved to
+  the single navy system.
+- Navbar: glass tinted to the brand navy; earlier invisible accessibility fixes
+  kept (44px menu hit area, hidden links out of the tab order, Escape closes).
+- Removed `components/hero/`, `components/platform_section/platform_section.*`,
+  `components/section_title/` and `pages/home_page/home_page.module.css`.
+- Assets: `main/src/resources/img/showcase/` (three illustrative screens,
+  208 KB), `main/src/resources/img/globe/earth_land_mask.webp` (47 KB),
+  `main/src/resources/fonts/archivo/` (90 KB + OFL). `scripts/generate_globe_assets.py`
+  regenerates the globe assets from Natural Earth (public domain).
+- Bundle: main JS 884.0 → 915.6 kB (gzip 240.7 → 253.2 kB); CSS 264.8 →
+  260.3 kB. Three.js is a shared lazy chunk (590 kB) used by the Exercise
+  Library viewer (8 kB chunk; previously one 544 kB chunk) and the Home scene
+  (25 kB chunk).
+
+Reason:
+
+The owner asked for one coherent site ("is this the same site?" between
+sections and against the footer), a clean design that speaks for itself, a
+realistic phone and laptop matching their reference, a globe that conveys RYZE
+travelling the world, a fixed Feedback page and a complete login/registration
+rework, while keeping the Services and program cards, the Library layout and
+the footer design.
+
+Modified files:
+
+- `main/src/frontend/src/components/public_ui/`, `home_story/`,
+  `brand_globe/`, `showcase/`, `category_overview/`, `purchase_journey/` (new
+  or rewritten), `contact_preview/`, `contact_section/`, `contact_form/`,
+  `navbar/navbar.module.css`, `navbar/navbar.tsx`, `footer/footer.module.css`,
+  `programs_overview_section/programs_overview_section.module.css`
+- `main/src/frontend/src/hooks/use_immersive_story.ts`,
+  `hooks/use_media_query.ts` (new)
+- `main/src/frontend/src/pages/home_page/`, `our_vision_page/`,
+  `feedback_page/`, `contact_page/`, `under_development_page/`, `login_page/`,
+  `services_page/`, `exercise_library_page/exercise_library_page.module.css`,
+  `exercise_detail_page/exercise_detail_page.module.css`
+- Removed `components/hero/`, `components/platform_section/platform_section.*`,
+  `components/section_title/`, `pages/home_page/home_page.module.css`
+- `main/src/resources/img/showcase/`, `main/src/resources/img/globe/`,
+  `main/src/resources/fonts/archivo/` (new); `scripts/generate_globe_assets.py`
+  (new)
+- `docs/PAGES/design.MD`, `docs/INSTRUCTIONS/design.MD`,
+  `docs/AI/frontend-revamp.md`, `docs/REGISTRY/update_logs.MD`
+
+Verification:
+
+- `npm run typecheck` passed; `npm run test` 21 files / 148 tests passed;
+  `npm run build` passed (the >500 kB chunk warning predates this change);
+  `npm run test:e2e` 8/8 passed.
+- Browser QA with a mocked API (headless Chromium, SwiftShader WebGL): no
+  horizontal overflow and no page errors on 10 public routes at 320, 360, 390,
+  430, 768, 1024, 1280 and 1440px; 35 interaction checks (every CTA lands on its
+  documented route, anchors, mobile menu, focus, contact validation, touch
+  targets, stories carousel, catalogue error/empty states); 29 authentication
+  checks at 1440 and 390px (hidden form unreachable by keyboard, focus after a
+  switch, every validation and API error message, unchanged request bodies,
+  redirect to `/profile`, reduced motion).
+- 3D (22 checks): renders on desktop, draws stop off screen and after leaving
+  Home (scene disposed, canvas removed), chapter navigation, chapters stay in
+  the accessibility tree, keyboard focus reveals its chapter; reduced motion,
+  no WebGL and 360–768px never request Three.js.
+- Protected parts compared with a pristine `HEAD` build (computed styles of
+  every descendant plus geometry): the Home program cards are identical at 360,
+  390, 430, 768, 1024 and 1440px; the Services cards are identical at 768, 1024
+  and 1440px and differ at 360–430px only in width/height-derived values (they
+  now fit the screen). Exercise detail layout is identical; the library list and
+  footer keep their structure, moved only by the new typeface's line heights
+  (2–4px and 6–16px). The loading screen appears and dismisses on every route in
+  both builds.
+
 # Version 2.103.0
 
 Title: Claude Code engineering environment preparation

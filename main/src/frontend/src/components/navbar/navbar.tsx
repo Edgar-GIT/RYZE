@@ -38,10 +38,27 @@ export const Navbar = () => {
   const [isScrolling, setIsScrolling] = useState(false);
   const location = useLocation();
   const scrollIdleTimeout = useRef<number | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setIsMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isMenuOpen]);
 
   useEffect(() => {
     const clearIdleTimer = () => {
@@ -125,6 +142,7 @@ export const Navbar = () => {
         </div>
 
         <button
+          ref={menuButtonRef}
           className={styles.menuButton}
           type="button"
           aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}

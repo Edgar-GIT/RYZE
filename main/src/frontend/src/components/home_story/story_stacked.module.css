@@ -1,0 +1,132 @@
+.chapter {
+  overflow: hidden;
+}
+
+.layout {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.text {
+  display: grid;
+  gap: 1.5rem;
+  align-content: start;
+}
+
+.visual {
+  display: grid;
+  order: 2;
+  justify-items: center;
+}
+
+.identity .visual {
+  order: 0;
+}
+
+.start .visual {
+  display: none;
+}
+
+/* Opening chapter: the globe first so the brand is the first thing seen on a phone. */
+.identity {
+  padding-top: calc(var(--r-nav-clearance) + 0.75rem);
+}
+
+.identity .layout {
+  gap: 1.75rem;
+}
+
+.orb {
+  width: min(78vw, 20rem);
+}
+
+.phoneVisual {
+  position: relative;
+  width: min(66vw, 18rem);
+}
+
+/* Cards lifted out of the phone screen (the images carry their own glow). */
+.callout {
+  position: absolute;
+  width: 76%;
+  height: auto;
+  pointer-events: none;
+}
+
+.calloutTop {
+  top: 13%;
+  left: -28%;
+}
+
+.calloutBottom {
+  right: -28%;
+  bottom: 15%;
+}
+
+.syncBadge {
+  position: absolute;
+  top: -7%;
+  right: 4%;
+  width: 52%;
+  height: auto;
+  pointer-events: none;
+}
+
+.platformVisual {
+  position: relative;
+  width: 100%;
+  max-width: 34rem;
+  padding: 0 4% 18% 0;
+}
+
+.platformPhone {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 30%;
+}
+
+.platformPhone > div {
+  border-width: 0.18rem;
+}
+
+/* Chapters alternate the visual side from tablet up. */
+@media (min-width: 768px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(2.5rem, 6vw, 5.5rem);
+    align-items: center;
+  }
+
+  .fuel .visual {
+    order: 0;
+  }
+
+  .identity .layout {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  }
+
+  .identity .visual {
+    order: 2;
+  }
+
+  .start .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .orb {
+    width: min(100%, 30rem);
+  }
+
+  .phoneVisual {
+    width: min(100%, 20rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .identity {
+    display: grid;
+    min-height: min(56rem, 100svh);
+    align-items: center;
+  }
+}

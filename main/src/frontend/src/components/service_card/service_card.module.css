@@ -94,6 +94,16 @@
   white-space: nowrap;
 }
 
+/* Purple tag for the most personalized route (Premium Level 2). */
+.personalizedBadge {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  background: linear-gradient(135deg, #6d28d9 0%, #9333ea 55%, #a855f7 100%);
+  box-shadow:
+    0 0 22px rgba(168, 85, 247, 0.6),
+    0 10px 24px rgba(5, 7, 11, 0.45);
+}
+
 .footer {
   position: relative;
   z-index: 2;

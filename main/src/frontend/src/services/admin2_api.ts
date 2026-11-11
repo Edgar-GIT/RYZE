@@ -354,19 +354,24 @@ export const fetchAdminSalesByProgramIds = (program_ids: string[]): Promise<Admi
     (result) => result.sales
   );
 
+export type AdminFeedbackStatus = "pending" | "approved" | "rejected";
+
+// One member feedback submission in the review queue (GET /admin/feedback).
 export interface AdminFeedback {
   id: string;
   user_id: string;
-  user_name: string;
+  display_name: string;
   rating: number;
   message: string;
+  status: AdminFeedbackStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
 }
 
 export interface AdminFeedbackListResult {
-  available: boolean;
   feedback: AdminFeedback[];
-  reason: string;
+  pagination: { page: number; limit: number; total: number; total_pages: number };
 }
 
 // programTypeLabel names the commercial pricing category (programs.type). It is
@@ -744,18 +749,24 @@ export const deleteGenericProgram = (family: ProgramProductTypeValue, id: string
   apiDelete<never>(`/programs/${programFamilyPath(family)}/${encodePathSegment(id)}`);
 
 /**
- * Resolves the admin feedback list. Feedback is not part of the product yet,
- * so this always reports the data as unavailable. Keep `AdminFeedback`
- * aligned with the future GET /admin/feedback response when the feature
- * ships.
+ * One page of member feedback for review, optionally filtered by status.
+ * Submissions are published on the Feedback page only after approval.
  */
-export async function fetchAdminFeedback(): Promise<AdminFeedbackListResult> {
-  return {
-    available: false,
-    feedback: [],
-    reason: "Feedback is not part of the community scope yet."
-  };
-}
+export const fetchAdminFeedback = (params: { status?: AdminFeedbackStatus; page?: number; limit?: number } = {}) => {
+  const query = new URLSearchParams();
+  if (params.status) {
+    query.set("status", params.status);
+  }
+  query.set("page", String(params.page ?? 1));
+  query.set("limit", String(params.limit ?? 20));
+  return apiGet<AdminFeedbackListResult>(`/admin/feedback?${query.toString()}`);
+};
+
+export const approveAdminFeedback = (id: string) =>
+  apiPost<AdminFeedback>(`/admin/feedback/${encodePathSegment(id)}/approve`, {});
+
+export const rejectAdminFeedback = (id: string) =>
+  apiPost<AdminFeedback>(`/admin/feedback/${encodePathSegment(id)}/reject`, {});
 
 // --- Exercise catalogue administration ---
 

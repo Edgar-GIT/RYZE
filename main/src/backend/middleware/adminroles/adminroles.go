@@ -62,7 +62,13 @@ const (
 	// PermissionCommerce controls the platform commerce surface: the sales
 	// dashboard, purchase records and income analytics. It is a business
 	// responsibility granted exclusively to the Management Administrator.
-	PermissionCommerce               Permission = "commerce"
+	PermissionCommerce Permission = "commerce"
+	// PermissionFeedbackRead and PermissionFeedbackManage cover the member
+	// feedback review queue (reading submissions; approving or rejecting
+	// them). Member feedback is a marketing concern, granted exclusively to
+	// the Management Administrator.
+	PermissionFeedbackRead           Permission = "feedback.read"
+	PermissionFeedbackManage         Permission = "feedback.manage"
 	PermissionFinance                Permission = "finance"
 	PermissionMarketing              Permission = "marketing"
 	PermissionSystem                 Permission = "system"
@@ -121,6 +127,8 @@ var rolePermissions = map[Role][]Permission{
 		PermissionCommerce,
 		PermissionFinance,
 		PermissionMarketing,
+		PermissionFeedbackRead,
+		PermissionFeedbackManage,
 		PermissionExercises,
 		PermissionExercisesRead,
 		PermissionExercisesManage,

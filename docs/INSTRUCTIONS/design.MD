@@ -1,7 +1,7 @@
 # RYZE
 # Design System
 
-Version: 2.2.20
+Version: 2.104.0
 
 ---
 
@@ -110,6 +110,12 @@ Do not add:
 
 # Platform Phone Mockup
 
+Since v2.104.0 the public Home presents illustrative app screens, designed after
+the owner's phone reference (`main/src/resources/img/hero/start_sec_bg.png`), on
+a 3D phone and laptop (desktop) or CSS device frames (mobile); see "Public
+Website Layer". The rules below describe the earlier illustrated phone and apply
+only if it is reintroduced.
+
 The Start Faster phone is a premium product mockup, not a stretched screenshot.
 
 Requirements:
@@ -139,7 +145,125 @@ If yes to 3, fix it before merge.
 
 ---
 
+# Public Website Layer
+
+The public pages in the main navigation (Home, Our Vision, Contact, Feedback,
+Services, login/registration and the public under-development placeholders) use
+an opt-in layer in `main/src/frontend/src/components/public_ui/`. The global
+tokens above are unchanged; the footer, the Exercise Library and the Home program
+section follow the same look within the owner's limits (see
+`docs/AI/frontend-revamp.md`).
+
+## One principle
+
+The website is built from the same materials as the app:
+
+- one continuous logo-navy page; sections are transparent, and the page carries
+  a repeating rhythm of soft blue light, so there are no seams or colour jumps
+  between sections;
+- cards are the app's blue glass surfaces (`surface`: a translucent royal-to-navy
+  gradient with a thin light-blue border);
+- cyan is the light: headline continuations, primary buttons, icons, focus;
+- one bright element only: the light-blue wave panel (`toneLight` + `lightPanel`
+  + `Waves`), used for calls to action and the authentication side panel.
+
+## Verified logo colours
+
+Sampled from the official artwork in `main/src/resources/img/logo/` (the logo
+is authoritative; the layer uses these values):
+
+| Role | Value | Where in the logo |
+|---|---|---|
+| Navy | `#02041F` | Outlines |
+| Royal blue | `#072A77` | Ring shading |
+| Ring blue | `#0481DC` | The broken ring |
+| Z cyan | `#00CBFF` (bright `#50E2FE`) | The Z and slogan dots |
+| Chrome | `#E4E9F1` | The R and the wordmark |
+
+The global `#18D8FF` is close to the Z cyan; the global `#2A8CFF` and the
+charcoal `#05070B` do not appear in the logo.
+
+## Scope rules
+
+- A page opts in by passing `public_ui.module.css`'s `page` class to
+  `PageWrapper`. It declares the `--r-*` custom properties and paints the navy
+  page with its light rhythm, never inherited colour, font or descendant rules,
+  because pages render protected cards (Services, Home programs) inside it.
+- Typography and colour come from two tone classes placed on public elements
+  only, never on an ancestor of a protected card: `toneNavy` (text on the navy
+  page; no background) and `toneLight` (ink text on the light-blue panel, royal
+  continuations, ≥4.5:1 for small text across the gradient).
+- Do not introduce other section colours (paper, white, cyan or royal bands):
+  the owner rejected them as making parts of the site look unrelated.
+- No background images, textures or decorative background video. Gradients
+  built from the logo colours are allowed.
+- `PublicAction` (primary cyan, ink navy, ghostOnDark, ghostOnLight, quiet) is
+  separate from the shared `Button`, which protected pages use.
+- Form fields on navy: dark fill, `#4D6FA6` border (≈3.5:1), cyan focus ring;
+  the same treatment on the contact form and the authentication page.
+
+## Typography
+
+Archivo (variable, SIL Open Font License, self-hosted in
+`main/src/resources/fonts/archivo/` as "RYZE Archivo"; the CSP allows
+`font-src 'self'`). Expanded widths echo the RYZE wordmark:
+
+- Display: width 125%, weight 820, line height 1.02, `clamp(2.2rem, 11.2vw, 6.25rem)`, from
+  1024px `clamp(3.5rem, 5.6vw, 5.75rem)`
+- Heading: width 120%, weight 800, line height 1.05, `clamp(2.05rem, 7.6vw, 4.25rem)`, from
+  1024px `clamp(2.4rem, 4.2vw, 3.9rem)`
+- Title, lead (≤38ch), body and caption at width 100–112%
+- Labels: small uppercase, wide tracking, with a short rule, in the tone's
+  highlight colour
+- Headlines carry a brand-coloured continuation (`hl`), restored from the
+  original site ("Train smarter. Progress further.", "Real results.")
+
+## 3D and product visuals
+
+- Desktop Home only: one Three.js scene (`components/home_story/story_scene.ts`)
+  driven by scroll, loaded with a dynamic import after a capability check
+  (`hooks/use_immersive_story.ts`: ≥1024×680, fine pointer, WebGL2, no
+  reduced-motion preference). Procedural geometry only; default GPU preference;
+  pixel ratio capped at 1.5 and no MSAA on high-DPI screens; shaders compiled
+  before the first frame; full frame rate only while scroll or pointer moves
+  (about 30 fps for the idle motion); rendering only while on screen; full
+  disposal on unmount and on any creation failure, which falls back to the
+  stacked layout. Objects scale with the stage aspect ratio.
+- Scene content: the Earth with real continents (Natural Earth land mask,
+  `main/src/resources/img/globe/`) and RYZE routes leaving Lisbon with light
+  pulses and the official icon on a badge at home; a modelled phone (titanium
+  frame, glass, island, buttons, camera module, the logo on the back, blue edge
+  light as in the owner's reference) and laptop (black keys with backlit
+  legends, glass trackpad, hinge, display notch, the logo on the lid). The
+  laptop screen is a 2560×1600 image of a 1024×640 layout with large type, and
+  horizontal parts barely reflect the studio environment (seen at a grazing
+  angle they would mirror white). Train and Fuel show three cards lifted out of
+  the phone screen (`callout_*.webp`, shared with the mobile layout); Evolve
+  places laptop and phone side by side under a "Synced" badge. The Train and
+  Fuel cards hang from a right-angled tree of thin lines and nodes leading
+  back to the phone. Screens and cards are sampled one mip level sharper (map
+  LOD bias) and the laptop/Evolve-phone screens use large type for the size at
+  which they appear. The stage backdrop and the star field fade
+  out at the stage's base so the page's light continues under the next section. The backdrop stays in the navy family through every chapter.
+- Mobile, tablet, reduced motion and no-WebGL use lightweight equivalents
+  (`components/brand_globe/`: an SVG globe with the same routes;
+  `components/showcase/`: phone and laptop frames). They never download Three.js.
+- Device screens are illustrative RYZE screens designed in the app's style with
+  sample data (`main/src/resources/img/showcase/`) and are labelled as such.
+  They only show existing features. Do not show sample prices.
+
+## Motion
+
+Scroll-driven chapter transitions on the desktop Home story; subtle reveals
+elsewhere through the shared `Reveal`; hover lifts on cards. Everything
+respects `prefers-reduced-motion` (the 3D story is replaced by the stacked
+layout).
+
+---
+
 # Footer
 
-The current footer visual treatment is intentionally preserved unless an
-explicit redesign is requested.
+The footer keeps its layout, link columns, slogan image and copy. Since the
+owner's 2026-11-10 revision its surface, lines and type follow the public
+design: logo navy with blue light, a thin cyan line along the top, cyan column
+headings and Archivo.

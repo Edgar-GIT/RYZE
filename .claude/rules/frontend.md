@@ -18,11 +18,19 @@ paths:
   redesign distribution and hierarchy freely, but do not replace the brand.
 - Do not use static background images outside login and registration. Functional
   content imagery is allowed when it communicates real information.
-- Three.js is for useful interaction only. Preserve existing exercise demos,
-  lazy-load heavy code, provide WebGL fallback, and check the installed version.
-- Do not globally restyle shared components until protected-area consumers are
-  mapped. These are immutable: footer; Exercise Library/details; Services; and
-  Home's “Find Your Next Program” section. Use isolated variants when needed.
+- Public pages follow the one design principle in `docs/INSTRUCTIONS/design.MD`
+  (continuous navy page, glass cards, cyan light, light-blue wave panel); do not
+  reintroduce paper, white, cyan or royal section bands.
+- Three.js is for useful interaction and the owner-approved desktop Home scroll
+  story. Preserve existing exercise demos, lazy-load heavy code, keep the Home
+  story desktop only, provide WebGL fallback and reduced motion, and check the
+  installed version.
+- Do not globally restyle shared components until protected-part consumers are
+  mapped. Protected parts (see `docs/AI/frontend-revamp.md`): footer layout,
+  columns, slogan image and copy; Exercise Library/details layout, behaviour and
+  3D viewer; the Services cards; the Home program cards' background images;
+  login/registration fields, validation, messages and API flow. Use isolated
+  variants when needed.
 - Prefer existing components and API utilities. Do not duplicate state or add a
   new state/data-fetching library without explicit approval.
 - Use CSS Modules and the existing CSS architecture. Avoid broad global changes

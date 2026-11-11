@@ -1,0 +1,57 @@
+.globe {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.globe svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* A light pulse travels each route, then rests. */
+.pulse {
+  stroke-dasharray: 14 100;
+  stroke-dashoffset: 14;
+  animation: travel 6s linear infinite;
+}
+
+@keyframes travel {
+  0% {
+    stroke-dashoffset: 14;
+  }
+
+  60%,
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
+
+.homeRing {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: beacon 2.4s ease-out infinite;
+}
+
+@keyframes beacon {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(3.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    display: none;
+  }
+
+  .homeRing {
+    animation: none;
+  }
+}
