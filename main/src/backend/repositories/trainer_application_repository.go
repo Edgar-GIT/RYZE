@@ -53,7 +53,7 @@ func NewTrainerApplicationRepository(db *gorm.DB) TrainerApplicationRepository {
 }
 
 func (r *trainerApplicationRepository) Create(ctx context.Context, application *models.TrainerApplication) error {
-	if err := r.db.WithContext(ctx).Create(application).Error; err != nil {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(application).Error }); err != nil {
 		if isDuplicateEntry(err) {
 			return ErrApplicationAlreadyActive
 		}

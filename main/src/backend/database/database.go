@@ -1,14 +1,18 @@
 package database
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"log"
-	"net"
 	"os"
+	"strings"
 	"time"
 
-	gomysql "github.com/go-sql-driver/mysql"
-	"gorm.io/driver/mysql"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/stdlib"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -27,34 +31,57 @@ const (
 	slowQueryThreshold = 200 * time.Millisecond
 )
 
-// mysqlConfig builds the go-sql-driver connection configuration. The DSN is
-// never exposed to keep credentials out of errors and logs. MultiStatements is
-// enabled because the migration runner executes every migration file as a
-// single multi-statement batch (golang-migrate requires the connection to have
-// multiStatements=true); GORM itself never uses multi-statement batches.
-func mysqlConfig(cfg config.DatabaseConfig) *gomysql.Config {
-	return &gomysql.Config{
-		User:                 cfg.User,
-		Passwd:               cfg.Password,
-		Net:                  "tcp",
-		Addr:                 net.JoinHostPort(cfg.Host, cfg.Port),
-		DBName:               cfg.Name,
-		ParseTime:            true,
-		Loc:                  time.UTC,
-		Timeout:              connectTimeout,
-		ReadTimeout:          connectTimeout,
-		WriteTimeout:         connectTimeout,
-		AllowNativePasswords: true,
-		MultiStatements:      true,
+// quoteDSNValue quotes a value for a libpq keyword/value connection string,
+// so passwords and names containing spaces or quotes stay intact.
+func quoteDSNValue(value string) string {
+	escaped := strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(value)
+	return "'" + escaped + "'"
+}
+
+// connConfig builds the pgx connection configuration. The DSN is never exposed
+// to keep credentials out of errors and logs. Sessions run in UTC.
+func connConfig(cfg config.DatabaseConfig) (*pgx.ConnConfig, error) {
+	parts := []string{
+		"host=" + quoteDSNValue(cfg.Host),
+		"port=" + quoteDSNValue(cfg.Port),
+		"dbname=" + quoteDSNValue(cfg.Name),
+		"user=" + quoteDSNValue(cfg.User),
+		"password=" + quoteDSNValue(cfg.Password),
+		"sslmode=" + quoteDSNValue(cfg.SSLMode),
+		fmt.Sprintf("connect_timeout=%d", int(connectTimeout.Seconds())),
+		"timezone=UTC",
 	}
+	parsed, err := pgx.ParseConfig(strings.Join(parts, " "))
+	if err != nil {
+		// pgx errors can echo the connection string; never wrap them.
+		return nil, fmt.Errorf("invalid database configuration for %q at %s:%s", cfg.Name, cfg.Host, cfg.Port)
+	}
+	return parsed, nil
 }
 
-// DSN returns the MySQL DSN for the given configuration.
-func DSN(cfg config.DatabaseConfig) string {
-	return mysqlConfig(cfg).FormatDSN()
+// scanTimestamptzInUTC makes every scanned TIMESTAMPTZ value a UTC time.Time,
+// as the previous MariaDB driver did. The instant is unchanged; only the
+// location of the returned value is fixed, so JSON output keeps its "Z" form
+// whatever the host time zone is.
+func scanTimestamptzInUTC(_ context.Context, conn *pgx.Conn) error {
+	conn.TypeMap().RegisterType(&pgtype.Type{
+		Name:  "timestamptz",
+		OID:   pgtype.TimestamptzOID,
+		Codec: &pgtype.TimestamptzCodec{ScanLocation: time.UTC},
+	})
+	return nil
 }
 
-// Connect establishes a MySQL/MariaDB connection from the given configuration.
+// openSQL opens a database/sql handle backed by pgx for the configuration.
+func openSQL(cfg config.DatabaseConfig) (*sql.DB, error) {
+	parsed, err := connConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return stdlib.OpenDB(*parsed, stdlib.OptionAfterConnect(scanTimestamptzInUTC)), nil
+}
+
+// Connect establishes a PostgreSQL connection from the given configuration.
 // The connection is verified with a ping so an unavailable database fails
 // immediately with a meaningful error.
 func Connect(cfg config.DatabaseConfig) (*gorm.DB, error) {
@@ -70,14 +97,15 @@ func Connect(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		},
 	)
 
-	db, err := gorm.Open(mysql.Open(DSN(cfg)), &gorm.Config{Logger: dbLogger})
+	sqlDB, err := openSQL(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database connection: %w", err)
+		return nil, err
 	}
 
-	sqlDB, err := db.DB()
+	db, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{Logger: dbLogger})
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve database handle: %w", err)
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
 
 	sqlDB.SetMaxOpenConns(maxOpenConns)
@@ -86,6 +114,7 @@ func Connect(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	sqlDB.SetConnMaxLifetime(connMaxLifetime)
 
 	if err := sqlDB.Ping(); err != nil {
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("database %q at %s:%s is unreachable: %w", cfg.Name, cfg.Host, cfg.Port, err)
 	}
 

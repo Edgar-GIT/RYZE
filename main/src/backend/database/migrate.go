@@ -1,13 +1,12 @@
 package database
 
 import (
-	"database/sql"
 	"embed"
 	"errors"
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
-	migrate_mysql "github.com/golang-migrate/migrate/v4/database/mysql"
+	migrate_pgx "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 
 	"ryze/backend/config"
@@ -23,15 +22,18 @@ var migrationsFS embed.FS
 // newMigrator creates a golang-migrate instance bound to the configured
 // database and the embedded migrations. The returned close function must be
 // called when the migrator is no longer needed.
+// Each migration file is executed as one simple-protocol batch, which
+// PostgreSQL runs as a single implicit transaction: a failing file leaves no
+// partial schema behind.
 func newMigrator(cfg config.DatabaseConfig) (*migrate.Migrate, func(), error) {
-	sqlDB, err := sql.Open("mysql", DSN(cfg))
+	sqlDB, err := openSQL(cfg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open database connection: %w", err)
+		return nil, nil, err
 	}
 
 	close := func() { _ = sqlDB.Close() }
 
-	driver, err := migrate_mysql.WithInstance(sqlDB, &migrate_mysql.Config{})
+	driver, err := migrate_pgx.WithInstance(sqlDB, &migrate_pgx.Config{})
 	if err != nil {
 		close()
 		return nil, nil, fmt.Errorf("failed to create migration driver: %w", err)
@@ -43,7 +45,7 @@ func newMigrator(cfg config.DatabaseConfig) (*migrate.Migrate, func(), error) {
 		return nil, nil, fmt.Errorf("failed to create migration source: %w", err)
 	}
 
-	m, err := migrate.NewWithInstance("iofs", source, "mysql", driver)
+	m, err := migrate.NewWithInstance("iofs", source, "pgx5", driver)
 	if err != nil {
 		_ = source.Close()
 		close()

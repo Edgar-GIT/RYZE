@@ -1,2 +1,2 @@
 ALTER TABLE users
-    ADD COLUMN session_version INT NOT NULL DEFAULT 0 AFTER updated_at;
+    ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0;

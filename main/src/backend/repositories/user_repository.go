@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	gomysql "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
 	"ryze/backend/models"
@@ -16,8 +15,6 @@ var (
 	ErrUserNotFound   = errors.New("user not found")
 	ErrDuplicateEmail = errors.New("email already in use")
 )
-
-const mysqlDuplicateEntry = 1062
 
 // UserRepository defines the data-access operations for users.
 type UserRepository interface {
@@ -46,7 +43,7 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 }
 
 func (r *userRepository) Create(ctx context.Context, user *models.User) error {
-	if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(user).Error }); err != nil {
 		if isDuplicateEntry(err) {
 			return ErrDuplicateEmail
 		}
@@ -171,10 +168,11 @@ func (r *userRepository) GetSessionVersion(ctx context.Context, id string) (int,
 }
 
 func (r *userRepository) Update(ctx context.Context, user *models.User) error {
-	if err := r.db.WithContext(ctx).
-		Model(user).
-		Select("first_name", "last_name", "email").
-		Updates(user).Error; err != nil {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		return tx.Model(user).
+			Select("first_name", "last_name", "email").
+			Updates(user).Error
+	}); err != nil {
 		if isDuplicateEntry(err) {
 			return ErrDuplicateEmail
 		}
@@ -209,23 +207,27 @@ func (r *userRepository) ChangePassword(ctx context.Context, id string, newHash 
 // replacing the account data (names and password hash) with the provided
 // values. The UUID, created_at and email are preserved.
 func (r *userRepository) Reactivate(ctx context.Context, user *models.User) error {
-	result := r.db.WithContext(ctx).
-		Unscoped().
-		Model(user).
-		Select("first_name", "last_name", "password_hash", "deleted_at").
-		Updates(map[string]any{
-			"first_name":    user.FirstName,
-			"last_name":     user.LastName,
-			"password_hash": user.PasswordHash,
-			"deleted_at":    nil,
-		})
-	if result.Error != nil {
-		if isDuplicateEntry(result.Error) {
+	var affected int64
+	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		result := tx.Unscoped().
+			Model(user).
+			Select("first_name", "last_name", "password_hash", "deleted_at").
+			Updates(map[string]any{
+				"first_name":    user.FirstName,
+				"last_name":     user.LastName,
+				"password_hash": user.PasswordHash,
+				"deleted_at":    nil,
+			})
+		affected = result.RowsAffected
+		return result.Error
+	})
+	if err != nil {
+		if isDuplicateEntry(err) {
 			return ErrDuplicateEmail
 		}
-		return fmt.Errorf("failed to reactivate user: %w", result.Error)
+		return fmt.Errorf("failed to reactivate user: %w", err)
 	}
-	if result.RowsAffected == 0 {
+	if affected == 0 {
 		return ErrUserNotFound
 	}
 	return nil
@@ -287,9 +289,4 @@ func (r *userRepository) DeleteAccount(ctx context.Context, id string) error {
 		return ErrUserNotFound
 	}
 	return nil
-}
-
-func isDuplicateEntry(err error) bool {
-	var mysqlErr *gomysql.MySQLError
-	return errors.As(err, &mysqlErr) && mysqlErr.Number == mysqlDuplicateEntry
 }

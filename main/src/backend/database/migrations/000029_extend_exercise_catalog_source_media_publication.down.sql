@@ -1,14 +1,13 @@
-ALTER TABLE exercises
-    DROP FOREIGN KEY fk_exercises_owner_trainer,
-    DROP CONSTRAINT chk_exercises_status,
-    DROP CONSTRAINT chk_exercises_body_part;
+DROP INDEX IF EXISTS idx_exercises_owner_trainer_id;
+DROP INDEX IF EXISTS idx_exercises_source;
+DROP INDEX IF EXISTS idx_exercises_status;
+DROP INDEX IF EXISTS idx_exercises_body_part;
 
 ALTER TABLE exercises
-    DROP INDEX uq_exercises_active_source,
-    DROP INDEX idx_exercises_owner_trainer_id,
-    DROP INDEX idx_exercises_source,
-    DROP INDEX idx_exercises_status,
-    DROP INDEX idx_exercises_body_part;
+    DROP CONSTRAINT fk_exercises_owner_trainer,
+    DROP CONSTRAINT chk_exercises_status,
+    DROP CONSTRAINT chk_exercises_body_part,
+    DROP CONSTRAINT uq_exercises_active_source;
 
 ALTER TABLE exercises
     DROP COLUMN active_source,

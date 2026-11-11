@@ -1,5 +1,5 @@
-DROP INDEX idx_programs_currency ON programs;
+DROP INDEX IF EXISTS idx_programs_currency;
 
 ALTER TABLE programs
-DROP COLUMN currency,
-DROP COLUMN price_minor_units;
+    DROP COLUMN currency,
+    DROP COLUMN price_minor_units;

@@ -17,7 +17,8 @@ import (
 
 const (
 	defaultHost                             = "127.0.0.1"
-	defaultPort                             = "3306"
+	defaultPort                             = "5432"
+	defaultSSLMode                          = "disable"
 	defaultTokenTTL                         = 15 * time.Minute
 	minJWTSecretLength                      = 32
 	maxTokenTTL                             = 24 * time.Hour
@@ -66,8 +67,19 @@ func LoadEnvFile() {
 	}
 }
 
-// Load reads the database configuration from environment variables.
-// DB_HOST and DB_PORT have defaults; DB_NAME and DB_USER are required.
+// validSSLModes are the libpq sslmode values the PostgreSQL driver accepts.
+var validSSLModes = map[string]bool{
+	"disable":     true,
+	"allow":       true,
+	"prefer":      true,
+	"require":     true,
+	"verify-ca":   true,
+	"verify-full": true,
+}
+
+// Load reads the PostgreSQL configuration from environment variables.
+// DB_HOST, DB_PORT and DB_SSLMODE have defaults; DB_NAME and DB_USER are
+// required.
 func Load() (DatabaseConfig, error) {
 	cfg := DatabaseConfig{
 		Host:     valueOr("DB_HOST", defaultHost),
@@ -75,6 +87,7 @@ func Load() (DatabaseConfig, error) {
 		Name:     os.Getenv("DB_NAME"),
 		User:     os.Getenv("DB_USER"),
 		Password: os.Getenv("DB_PASSWORD"),
+		SSLMode:  valueOr("DB_SSLMODE", defaultSSLMode),
 	}
 
 	if cfg.Name == "" {
@@ -85,6 +98,9 @@ func Load() (DatabaseConfig, error) {
 	}
 	if port, err := strconv.Atoi(cfg.Port); err != nil || port < 1 || port > 65535 {
 		return DatabaseConfig{}, fmt.Errorf("DB_PORT must be a valid port number, got %q", cfg.Port)
+	}
+	if !validSSLModes[cfg.SSLMode] {
+		return DatabaseConfig{}, fmt.Errorf("DB_SSLMODE must be one of disable, allow, prefer, require, verify-ca or verify-full, got %q", cfg.SSLMode)
 	}
 
 	return cfg, nil

@@ -6,21 +6,27 @@
 CREATE TABLE member_feedback (
     id VARCHAR(36) NOT NULL,
     user_id VARCHAR(36) NOT NULL,
-    rating TINYINT UNSIGNED NOT NULL,
+    rating SMALLINT NOT NULL,
     message TEXT NOT NULL,
     display_name VARCHAR(120) NOT NULL,
     status VARCHAR(16) NOT NULL,
-    reviewed_by VARCHAR(40) NULL DEFAULT NULL,
-    reviewed_at DATETIME(6) NULL DEFAULT NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at DATETIME(6) NULL DEFAULT NULL,
-    pending_user_id VARCHAR(36) GENERATED ALWAYS AS (IF(deleted_at IS NULL AND status = 'pending', user_id, NULL)) STORED,
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_member_feedback_pending_user_id (pending_user_id),
-    KEY idx_member_feedback_status_created_at (status, created_at),
-    KEY idx_member_feedback_user_id (user_id),
+    reviewed_by VARCHAR(40),
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    pending_user_id VARCHAR(36) GENERATED ALWAYS AS (
+        CASE WHEN deleted_at IS NULL AND status = 'pending' THEN user_id END
+    ) STORED,
+    CONSTRAINT member_feedback_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_member_feedback_pending_user_id UNIQUE (pending_user_id),
     CONSTRAINT fk_member_feedback_user FOREIGN KEY (user_id) REFERENCES users (id),
     CONSTRAINT chk_member_feedback_rating CHECK (rating BETWEEN 1 AND 5),
     CONSTRAINT chk_member_feedback_status CHECK (status IN ('pending', 'approved', 'rejected'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+CREATE INDEX idx_member_feedback_status_created_at ON member_feedback (status, created_at);
+CREATE INDEX idx_member_feedback_user_id ON member_feedback (user_id);
+
+CREATE TRIGGER trg_member_feedback_touch_updated_at BEFORE UPDATE ON member_feedback
+    FOR EACH ROW EXECUTE FUNCTION ryze_touch_updated_at();

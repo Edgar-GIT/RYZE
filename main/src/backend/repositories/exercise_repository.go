@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
 	"ryze/backend/models"
@@ -18,21 +17,13 @@ import (
 var ErrExerciseNotFound = errors.New("exercise not found")
 
 // ErrExerciseNameTaken indicates another active catalogue entry already uses
-// the requested name. The comparison follows the database collation, so names
-// that differ only in case collide too.
+// the requested name. Names that differ only in letter case collide too (the
+// unique active_name column stores the lower-cased name).
 var ErrExerciseNameTaken = errors.New("exercise name already taken")
 
 // ErrExerciseSourceTaken indicates another active catalogue entry is already
 // linked to the requested (source, source_id) pair.
 var ErrExerciseSourceTaken = errors.New("exercise source already linked")
-
-// isDuplicateEntryError reports whether an error is a MySQL duplicate-key
-// violation, which for the exercise catalogue can only be the active name or
-// the active source linkage.
-func isDuplicateEntryError(err error) bool {
-	var mysqlErr *mysql.MySQLError
-	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
-}
 
 // ExerciseSearchFilter groups the optional criteria the exercise library can be
 // browsed by. Empty fields are ignored. The vocabulary of the fields is
@@ -142,7 +133,7 @@ func NewExerciseRepository(db *gorm.DB) ExerciseRepository {
 // restricted by the optional filter criteria, plus the total number of matches.
 // The Muscle criterion matches either the primary muscle group or any of the
 // comma-separated secondary groups; Equipment and Query are case-insensitive
-// substring matches over free-text columns. LIKE wildcards twice escaped so a
+// substring matches (ILIKE) over free-text columns. LIKE wildcards are escaped so a
 // term can never widen into a full scan. The caller guarantees page >= 1,
 // limit >= 1 and that the filter uses validated vocabulary.
 func (r *exerciseRepository) Library(ctx context.Context, filter ExerciseSearchFilter, page, limit int) ([]models.Exercise, int64, error) {
@@ -219,24 +210,24 @@ func applyExerciseFilters(query *gorm.DB, filter ExerciseSearchFilter) *gorm.DB 
 	query = query.Where("status = ?", models.ExerciseStatusPublished)
 	if filter.Query != "" {
 		pattern := "%" + escapeLikePattern(filter.Query) + "%"
-		query = query.Where("name LIKE ?", pattern)
+		query = query.Where("name ILIKE ?", pattern)
 	}
 	if filter.Muscle != "" {
 		musclePattern := "%" + escapeLikePattern(filter.Muscle) + "%"
 		query = query.Where(
-			"(primary_muscle_group = ? OR secondary_muscle_groups LIKE ? OR target_muscles LIKE ?)",
+			"(lower(primary_muscle_group) = lower(?) OR secondary_muscle_groups ILIKE ? OR target_muscles ILIKE ?)",
 			filter.Muscle, musclePattern, musclePattern,
 		)
 	}
 	if filter.Equipment != "" {
 		pattern := "%" + escapeLikePattern(filter.Equipment) + "%"
-		query = query.Where("equipment LIKE ?", pattern)
+		query = query.Where("equipment ILIKE ?", pattern)
 	}
 	if filter.Difficulty != "" {
-		query = query.Where("difficulty = ?", filter.Difficulty)
+		query = query.Where("lower(difficulty) = lower(?)", filter.Difficulty)
 	}
 	if filter.Category != "" {
-		query = query.Where("movement_category = ?", filter.Category)
+		query = query.Where("lower(movement_category) = lower(?)", filter.Category)
 	}
 	if filter.BodyPart != "" {
 		query = query.Where("body_part = ?", filter.BodyPart)
@@ -295,13 +286,13 @@ func (r *exerciseRepository) FindAnyByID(ctx context.Context, exerciseID string)
 	return &exercise, nil
 }
 
-// FindByName returns the non-deleted entry with the given name, using the
-// database collation for the comparison. An unknown name is reported as
+// FindByName returns the non-deleted entry with the given name, ignoring
+// letter case as the unique active name does. An unknown name is reported as
 // ErrExerciseNotFound.
 func (r *exerciseRepository) FindByName(ctx context.Context, name string) (*models.Exercise, error) {
 	var exercise models.Exercise
 	if err := r.db.WithContext(ctx).
-		First(&exercise, "name = ?", name).Error; err != nil {
+		First(&exercise, "lower(name) = lower(?)", name).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrExerciseNotFound
 		}
@@ -314,9 +305,9 @@ func (r *exerciseRepository) FindByName(ctx context.Context, name string) (*mode
 // active entry is reported as ErrExerciseNameTaken, while a duplicate source
 // linkage is reported as ErrExerciseSourceTaken.
 func (r *exerciseRepository) Create(ctx context.Context, exercise *models.Exercise) error {
-	if err := r.db.WithContext(ctx).Create(exercise).Error; err != nil {
-		if isDuplicateEntryError(err) {
-			if strings.Contains(err.Error(), "uq_exercises_active_source") {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(exercise).Error }); err != nil {
+		if isDuplicateEntry(err) {
+			if violatedConstraint(err) == "uq_exercises_active_source" {
 				return ErrExerciseSourceTaken
 			}
 			return ErrExerciseNameTaken
@@ -355,7 +346,7 @@ func (r *exerciseRepository) AdminList(ctx context.Context, filter AdminExercise
 	query := r.db.WithContext(ctx).Model(&models.Exercise{})
 	if filter.Query != "" {
 		pattern := "%" + escapeLikePattern(filter.Query) + "%"
-		query = query.Where("name LIKE ?", pattern)
+		query = query.Where("name ILIKE ?", pattern)
 	}
 	if filter.Status != "" {
 		query = query.Where("status = ?", filter.Status)

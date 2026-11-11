@@ -49,7 +49,7 @@ func NewEntitlementRepository(db *gorm.DB) EntitlementRepository {
 func (r *entitlementRepository) Create(ctx context.Context, userID, programID string, entitlement *models.Entitlement) error {
 	entitlement.UserID = userID
 	entitlement.ProgramID = programID
-	if err := r.db.WithContext(ctx).Create(entitlement).Error; err != nil {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(entitlement).Error }); err != nil {
 		if isDuplicateEntry(err) {
 			return ErrEntitlementAlreadyExists
 		}
@@ -64,7 +64,7 @@ func (r *entitlementRepository) Create(ctx context.Context, userID, programID st
 func (r *entitlementRepository) ListByUser(ctx context.Context, userID string) ([]models.Entitlement, error) {
 	var entitlements []models.Entitlement
 	if err := r.db.WithContext(ctx).
-		Where("user_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID).
+		Where("user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", userID).
 		Preload("Program").
 		Order("created_at ASC, id ASC").
 		Find(&entitlements).Error; err != nil {
@@ -79,7 +79,7 @@ func (r *entitlementRepository) ListByUser(ctx context.Context, userID string) (
 func (r *entitlementRepository) FindByIDAndUser(ctx context.Context, userID, entitlementID string) (*models.Entitlement, error) {
 	var entitlement models.Entitlement
 	if err := r.db.WithContext(ctx).
-		Where("id = ? AND user_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", entitlementID, userID).
+		Where("id = ? AND user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", entitlementID, userID).
 		Preload("Program").
 		First(&entitlement).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -95,7 +95,7 @@ func (r *entitlementRepository) FindByIDAndUser(ctx context.Context, userID, ent
 func (r *entitlementRepository) FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.Entitlement, error) {
 	var entitlement models.Entitlement
 	if err := r.db.WithContext(ctx).
-		Where("user_id = ? AND program_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID, programID).
+		Where("user_id = ? AND program_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", userID, programID).
 		First(&entitlement).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrEntitlementNotFound
@@ -113,7 +113,7 @@ func (r *entitlementRepository) FindActiveByUserAndProgram(ctx context.Context, 
 func (r *entitlementRepository) RestoreByUserAndProgram(ctx context.Context, userID, programID string) error {
 	result := r.db.WithContext(ctx).
 		Unscoped().
-		Where("user_id = ? AND program_id = ? AND (deleted_at IS NOT NULL OR expires_at <= UTC_TIMESTAMP(6))", userID, programID).
+		Where("user_id = ? AND program_id = ? AND (deleted_at IS NOT NULL OR expires_at <= CURRENT_TIMESTAMP)", userID, programID).
 		Model(&models.Entitlement{}).
 		Updates(map[string]any{
 			"deleted_at": nil,

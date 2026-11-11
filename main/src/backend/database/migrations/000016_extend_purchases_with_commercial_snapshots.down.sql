@@ -1,4 +1,5 @@
 ALTER TABLE purchases
+    DROP CONSTRAINT chk_purchases_commission_bps,
     DROP COLUMN price_minor_units,
     DROP COLUMN currency,
     DROP COLUMN commission_bps,

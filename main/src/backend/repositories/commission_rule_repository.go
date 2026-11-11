@@ -69,7 +69,7 @@ func (r *commissionRuleRepository) UpsertOverride(ctx context.Context, rule *mod
 		if err := tx.
 			Model(&models.CommissionRule{}).
 			Where("trainer_id = ? AND deleted_at IS NULL", rule.TrainerID).
-			Update("deleted_at", gorm.Expr("NOW(6)")).Error; err != nil {
+			Update("deleted_at", gorm.Expr("CURRENT_TIMESTAMP")).Error; err != nil {
 			return fmt.Errorf("failed to soft-delete previous commission rule: %w", err)
 		}
 		if err := tx.Create(rule).Error; err != nil {

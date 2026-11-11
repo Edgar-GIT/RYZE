@@ -22,20 +22,19 @@
 -- administrators are configuration-only identities, so the applicant can never
 -- be the reviewer and no decision can be self-issued.
 CREATE TABLE trainer_application_documents (
-    id CHAR(36) NOT NULL,
-    application_id CHAR(36) NOT NULL,
+    id VARCHAR(36) NOT NULL,
+    application_id VARCHAR(36) NOT NULL,
     kind VARCHAR(40) NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
     storage_key VARCHAR(255) NOT NULL,
     content_type VARCHAR(100) NOT NULL,
-    byte_size BIGINT UNSIGNED NOT NULL,
-    sha256 CHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted_at DATETIME(6) NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_trainer_application_documents_storage_key (storage_key),
-    KEY idx_trainer_application_documents_application (application_id),
+    byte_size BIGINT NOT NULL,
+    sha256 VARCHAR(64) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT trainer_application_documents_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_trainer_application_documents_storage_key UNIQUE (storage_key),
     CONSTRAINT fk_trainer_application_documents_application
         FOREIGN KEY (application_id) REFERENCES trainer_applications (id),
     CONSTRAINT chk_trainer_application_documents_kind
@@ -44,22 +43,25 @@ CREATE TABLE trainer_application_documents (
         CHECK (content_type IN ('application/pdf', 'image/jpeg', 'image/png')),
     CONSTRAINT chk_trainer_application_documents_byte_size
         CHECK (byte_size > 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+CREATE INDEX idx_trainer_application_documents_application ON trainer_application_documents (application_id);
 
 CREATE TABLE trainer_application_decisions (
-    id CHAR(36) NOT NULL,
-    application_id CHAR(36) NOT NULL,
+    id VARCHAR(36) NOT NULL,
+    application_id VARCHAR(36) NOT NULL,
     admin_id VARCHAR(40) NOT NULL,
     from_status VARCHAR(20) NOT NULL,
     to_status VARCHAR(20) NOT NULL,
-    reason VARCHAR(500) NULL,
-    created_at DATETIME(6) NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_trainer_application_decisions_application (application_id, created_at),
+    reason VARCHAR(500),
+    created_at TIMESTAMPTZ NOT NULL,
+    CONSTRAINT trainer_application_decisions_pkey PRIMARY KEY (id),
     CONSTRAINT fk_trainer_application_decisions_application
         FOREIGN KEY (application_id) REFERENCES trainer_applications (id),
     CONSTRAINT chk_trainer_application_decisions_from_status
         CHECK (from_status IN ('PENDING', 'APPROVED', 'REJECTED')),
     CONSTRAINT chk_trainer_application_decisions_to_status
         CHECK (to_status IN ('PENDING', 'APPROVED', 'REJECTED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+CREATE INDEX idx_trainer_application_decisions_application ON trainer_application_decisions (application_id, created_at);

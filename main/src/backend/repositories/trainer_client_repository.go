@@ -48,7 +48,7 @@ func NewTrainerClientRepository(db *gorm.DB) TrainerClientRepository {
 // active relationship for the same (trainer_id, user_id) pair through the
 // unique index on the active relation identifier.
 func (r *trainerClientRepository) Create(ctx context.Context, relation *models.TrainerClient) error {
-	if err := r.db.WithContext(ctx).Create(relation).Error; err != nil {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(relation).Error }); err != nil {
 		if isDuplicateEntry(err) {
 			return ErrClientRelationAlreadyActive
 		}
@@ -141,21 +141,25 @@ func (r *trainerClientRepository) SoftDelete(ctx context.Context, trainerID, use
 // and the unique index on the active relation identifier enforces the
 // one-active-relation rule at the database level.
 func (r *trainerClientRepository) Reactivate(ctx context.Context, trainerID, userID string) error {
-	result := r.db.WithContext(ctx).
-		Unscoped().
-		Model(&models.TrainerClient{}).
-		Where("trainer_id = ? AND user_id = ? AND deleted_at IS NOT NULL", trainerID, userID).
-		Updates(map[string]any{
-			"deleted_at": nil,
-			"updated_at": time.Now(),
-		})
-	if result.Error != nil {
-		if isDuplicateEntry(result.Error) {
+	var affected int64
+	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		result := tx.Unscoped().
+			Model(&models.TrainerClient{}).
+			Where("trainer_id = ? AND user_id = ? AND deleted_at IS NOT NULL", trainerID, userID).
+			Updates(map[string]any{
+				"deleted_at": nil,
+				"updated_at": time.Now(),
+			})
+		affected = result.RowsAffected
+		return result.Error
+	})
+	if err != nil {
+		if isDuplicateEntry(err) {
 			return ErrClientRelationAlreadyActive
 		}
-		return fmt.Errorf("failed to reactivate trainer-client relationship: %w", result.Error)
+		return fmt.Errorf("failed to reactivate trainer-client relationship: %w", err)
 	}
-	if result.RowsAffected == 0 {
+	if affected == 0 {
 		return ErrClientRelationNotFound
 	}
 	return nil

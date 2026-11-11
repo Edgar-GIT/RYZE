@@ -1,1 +1,3 @@
 DROP TABLE IF EXISTS users;
+DROP FUNCTION IF EXISTS ryze_touch_updated_at();
+DROP EXTENSION IF EXISTS citext;

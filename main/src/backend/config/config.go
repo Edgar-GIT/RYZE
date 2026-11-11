@@ -8,6 +8,9 @@ type DatabaseConfig struct {
 	Name     string
 	User     string
 	Password string
+	// SSLMode is the libpq sslmode (disable, prefer, require, verify-ca,
+	// verify-full).
+	SSLMode string
 }
 
 type JWTConfig struct {

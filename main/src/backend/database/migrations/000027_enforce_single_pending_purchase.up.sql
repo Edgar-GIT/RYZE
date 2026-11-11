@@ -12,6 +12,6 @@
 -- lost update.
 ALTER TABLE purchases
     ADD COLUMN pending_purchase VARCHAR(73) GENERATED ALWAYS AS (
-        IF(deleted_at IS NULL AND status = 'pending', CONCAT(user_id, ':', program_id), NULL)
+        CASE WHEN deleted_at IS NULL AND status = 'pending' THEN user_id || ':' || program_id END
     ) STORED,
-    ADD UNIQUE KEY uq_purchases_pending_purchase (pending_purchase);
+    ADD CONSTRAINT uq_purchases_pending_purchase UNIQUE (pending_purchase);

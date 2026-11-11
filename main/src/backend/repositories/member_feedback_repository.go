@@ -52,7 +52,7 @@ func NewMemberFeedbackRepository(db *gorm.DB) MemberFeedbackRepository {
 }
 
 func (r *memberFeedbackRepository) Create(ctx context.Context, feedback *models.MemberFeedback) error {
-	if err := r.db.WithContext(ctx).Create(feedback).Error; err != nil {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(feedback).Error }); err != nil {
 		if isDuplicateEntry(err) {
 			return ErrMemberFeedbackAlreadyPending
 		}

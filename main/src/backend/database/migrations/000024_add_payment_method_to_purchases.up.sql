@@ -6,7 +6,7 @@
 -- purchases created before this column existed (legacy pending purchases) and
 -- Test Mode purchases, which never contact a payment provider.
 ALTER TABLE purchases
-    ADD COLUMN payment_method VARCHAR(20) NULL,
+    ADD COLUMN payment_method VARCHAR(20),
     ADD CONSTRAINT chk_purchases_payment_method CHECK (
         payment_method IN ('card', 'mbway', 'paypal')
     );

@@ -13,7 +13,7 @@
 -- (source 0043) are imported dataset rows. Source identity, not row id, keeps
 -- the attachment stable across catalogues.
 ALTER TABLE exercises
-    ADD COLUMN three_d_key VARCHAR(64) NULL DEFAULT NULL AFTER animation_url,
+    ADD COLUMN three_d_key VARCHAR(64),
     ADD CONSTRAINT chk_exercises_three_d_key CHECK (three_d_key IS NULL OR three_d_key IN ('squat', 'push_up', 'biceps_curl', 'lunge'));
 
 UPDATE exercises SET three_d_key = 'squat' WHERE source = 'gymvisual' AND source_id = '0043';

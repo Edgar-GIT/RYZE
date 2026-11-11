@@ -2,15 +2,21 @@ CREATE TABLE trainer_clients (
     id VARCHAR(36) NOT NULL,
     trainer_id VARCHAR(36) NOT NULL,
     user_id VARCHAR(36) NOT NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at DATETIME(6) NULL DEFAULT NULL,
-    active_relation VARCHAR(80) GENERATED ALWAYS AS (IF(deleted_at IS NULL, CONCAT(trainer_id, ':', user_id), NULL)) STORED,
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_trainer_clients_active_relation (active_relation),
-    KEY idx_trainer_clients_trainer_id (trainer_id),
-    KEY idx_trainer_clients_user_id (user_id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    active_relation VARCHAR(80) GENERATED ALWAYS AS (
+        CASE WHEN deleted_at IS NULL THEN trainer_id || ':' || user_id END
+    ) STORED,
+    CONSTRAINT trainer_clients_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_trainer_clients_active_relation UNIQUE (active_relation),
     CONSTRAINT fk_trainer_clients_trainer FOREIGN KEY (trainer_id) REFERENCES trainers (id),
     CONSTRAINT fk_trainer_clients_user FOREIGN KEY (user_id) REFERENCES users (id),
     CONSTRAINT chk_trainer_clients_not_self CHECK (trainer_id <> user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+CREATE INDEX idx_trainer_clients_trainer_id ON trainer_clients (trainer_id);
+CREATE INDEX idx_trainer_clients_user_id ON trainer_clients (user_id);
+
+CREATE TRIGGER trg_trainer_clients_touch_updated_at BEFORE UPDATE ON trainer_clients
+    FOR EACH ROW EXECUTE FUNCTION ryze_touch_updated_at();

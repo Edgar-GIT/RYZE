@@ -12,7 +12,9 @@
 -- an account that predates this migration is never retroactively trusted as a
 -- persona. It must be reviewed and provisioned explicitly instead.
 ALTER TABLE users
-    ADD COLUMN test_persona VARCHAR(16) NULL DEFAULT NULL AFTER session_version,
-    ADD COLUMN active_test_persona VARCHAR(16) GENERATED ALWAYS AS (IF(deleted_at IS NULL, test_persona, NULL)) STORED,
+    ADD COLUMN test_persona VARCHAR(16),
+    ADD COLUMN active_test_persona VARCHAR(16) GENERATED ALWAYS AS (
+        CASE WHEN deleted_at IS NULL THEN test_persona END
+    ) STORED,
     ADD CONSTRAINT chk_users_test_persona CHECK (test_persona IS NULL OR test_persona IN ('client', 'trainer')),
-    ADD UNIQUE KEY uq_users_active_test_persona (active_test_persona);
+    ADD CONSTRAINT uq_users_active_test_persona UNIQUE (active_test_persona);

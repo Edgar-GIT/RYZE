@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 #
-# Restores the RYZE database from a snapshot produced by scripts/backup_db.sh.
+# Restores the RYZE PostgreSQL database from a snapshot produced by
+# scripts/backup_db.sh.
 #
-# This is destructive: it overwrites the existing objects in DB_NAME. The
-# restore therefore requires an explicit --yes flag.
+# This is destructive: the dump drops and recreates the existing objects in
+# DB_NAME. The restore therefore requires an explicit --yes flag. It runs in a
+# single transaction and stops at the first error, so a failed restore leaves
+# the database as it was.
 #
 # Usage:
 #   scripts/restore_db.sh <backup-file> --yes
@@ -40,23 +43,29 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # shellcheck source=env_loader.sh
 . "${ROOT_DIR}/scripts/env_loader.sh"
-load_project_env "${ROOT_DIR}" DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD
+load_project_env "${ROOT_DIR}" DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD DB_SSLMODE
 
 : "${DB_HOST:=127.0.0.1}"
-: "${DB_PORT:=3306}"
+: "${DB_PORT:=5432}"
 : "${DB_NAME:?DB_NAME must be set}"
 : "${DB_USER:?DB_USER must be set}"
 : "${DB_PASSWORD:=}"
+: "${DB_SSLMODE:=disable}"
 
-client_bin="$(command -v mariadb || command -v mysql || true)"
-if [[ -z "${client_bin}" ]]; then
-  echo "error: mariadb or mysql client is required" >&2
+if ! command -v psql >/dev/null 2>&1; then
+  echo "error: psql is required" >&2
   exit 1
 fi
 
 echo "restoring ${backup_file} into ${DB_HOST}:${DB_PORT}/${DB_NAME}"
 
-export MYSQL_PWD="${DB_PASSWORD}"
+export PGPASSWORD="${DB_PASSWORD}"
+export PGSSLMODE="${DB_SSLMODE}"
+
+restore() {
+  psql --quiet --no-psqlrc -v ON_ERROR_STOP=1 --single-transaction \
+    --host="${DB_HOST}" --port="${DB_PORT}" --username="${DB_USER}" --dbname="${DB_NAME}"
+}
 
 case "${backup_file}" in
   *.gpg)
@@ -64,19 +73,16 @@ case "${backup_file}" in
       echo "error: gpg is required to decrypt ${backup_file}" >&2
       exit 1
     fi
-    gpg --quiet --decrypt "${backup_file}" | gzip -dc | "${client_bin}" \
-      --host="${DB_HOST}" --port="${DB_PORT}" --user="${DB_USER}" "${DB_NAME}"
+    gpg --quiet --decrypt "${backup_file}" | gzip -dc | restore
     ;;
   *.gz)
-    gzip -dc "${backup_file}" | "${client_bin}" \
-      --host="${DB_HOST}" --port="${DB_PORT}" --user="${DB_USER}" "${DB_NAME}"
+    gzip -dc "${backup_file}" | restore
     ;;
   *)
-    "${client_bin}" \
-      --host="${DB_HOST}" --port="${DB_PORT}" --user="${DB_USER}" "${DB_NAME}" < "${backup_file}"
+    restore < "${backup_file}"
     ;;
 esac
 
-unset MYSQL_PWD
+unset PGPASSWORD PGSSLMODE
 
 echo "restore complete"

@@ -2,7 +2,6 @@
 #
 # Prerequisites:
 #   cp .env.example .env    # then fill in every required value
-#   # add DB_ROOT_PASSWORD (only the containerised database uses it)
 #
 # Start:
 #   docker compose up -d --build
@@ -15,17 +14,19 @@ name: ryze
 
 services:
   db:
-    image: mariadb:11
+    image: postgres:17
     restart: unless-stopped
     environment:
-      MARIADB_DATABASE: ${DB_NAME:-ryze}
-      MARIADB_USER: ${DB_USER:-ryze_admin}
-      MARIADB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD in .env}
+      # The application role owns the database, so it can create the trusted
+      # citext extension the migrations use.
+      POSTGRES_DB: ${DB_NAME:-ryze}
+      POSTGRES_USER: ${DB_USER:-ryze_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --auth-host=scram-sha-256"
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -47,7 +48,8 @@ services:
     environment:
       # Override the local .env host so the API reaches the compose database.
       DB_HOST: db
-      DB_PORT: "3306"
+      DB_PORT: "5432"
+      DB_SSLMODE: disable
       PORT: "8080"
       # nginx forwards the real client address; the backend must trust only the
       # compose network or every rate limiter would see the proxy's IP.

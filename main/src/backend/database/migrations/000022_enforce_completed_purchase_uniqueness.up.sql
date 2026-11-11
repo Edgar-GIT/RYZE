@@ -6,6 +6,6 @@
 -- state (completed) is locked at the database level.
 ALTER TABLE purchases
     ADD COLUMN completed_purchase VARCHAR(73) GENERATED ALWAYS AS (
-        IF(deleted_at IS NULL AND status = 'completed', CONCAT(user_id, ':', program_id), NULL)
+        CASE WHEN deleted_at IS NULL AND status = 'completed' THEN user_id || ':' || program_id END
     ) STORED,
-    ADD UNIQUE KEY uq_purchases_completed_purchase (completed_purchase);
+    ADD CONSTRAINT uq_purchases_completed_purchase UNIQUE (completed_purchase);

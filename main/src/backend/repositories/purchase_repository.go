@@ -147,7 +147,7 @@ func NewPurchaseRepository(db *gorm.DB) PurchaseRepository {
 // so the caller can re-evaluate the resolved ownership state instead of leaking
 // a raw driver error.
 func (r *purchaseRepository) Create(ctx context.Context, purchase *models.Purchase) error {
-	if err := r.db.WithContext(ctx).Create(purchase).Error; err != nil {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(purchase).Error }); err != nil {
 		if isDuplicateEntry(err) {
 			return ErrPurchaseAlreadyExists
 		}
@@ -493,11 +493,11 @@ func (r *purchaseRepository) AdminPurchaseSummary(ctx context.Context, filter Ad
 	db := scopedAdminPurchases(r.db.WithContext(ctx), filter)
 	if err := db.Select(`
 		COUNT(*) AS total,
-		COALESCE(SUM(status = '` + models.PurchaseStatusCompleted + `'), 0) AS completed,
-		COALESCE(SUM(status = '` + models.PurchaseStatusPending + `'), 0) AS pending,
-		COALESCE(SUM(status = '` + models.PurchaseStatusFailed + `'), 0) AS failed,
-		COALESCE(SUM(test), 0) AS test_count,
-		COALESCE(SUM(CASE WHEN status = '` + models.PurchaseStatusCompleted + `' AND test = 0 THEN price_minor_units END), 0) AS real_revenue_minor_units
+		COUNT(*) FILTER (WHERE status = '` + models.PurchaseStatusCompleted + `') AS completed,
+		COUNT(*) FILTER (WHERE status = '` + models.PurchaseStatusPending + `') AS pending,
+		COUNT(*) FILTER (WHERE status = '` + models.PurchaseStatusFailed + `') AS failed,
+		COUNT(*) FILTER (WHERE test) AS test_count,
+		COALESCE(SUM(price_minor_units) FILTER (WHERE status = '` + models.PurchaseStatusCompleted + `' AND NOT test), 0)::bigint AS real_revenue_minor_units
 	`).Scan(&summary).Error; err != nil {
 		return AdminPurchaseSummary{}, fmt.Errorf("failed to aggregate purchase summary: %w", err)
 	}
@@ -540,12 +540,12 @@ func (r *purchaseRepository) ListAdminProgramSales(ctx context.Context, filter A
 		Select(
 			"program_id",
 			"COUNT(*) AS total",
-			"COALESCE(SUM(status = '"+models.PurchaseStatusCompleted+"'), 0) AS completed",
-			"COALESCE(SUM(CASE WHEN status = '"+models.PurchaseStatusCompleted+"' AND test = 0 THEN 1 ELSE 0 END), 0) AS real_sales",
-			"COALESCE(SUM(status = '"+models.PurchaseStatusPending+"'), 0) AS pending",
-			"COALESCE(SUM(status = '"+models.PurchaseStatusFailed+"'), 0) AS failed",
-			"COALESCE(SUM(test), 0) AS test_count",
-			"COALESCE(SUM(CASE WHEN status = '"+models.PurchaseStatusCompleted+"' AND test = 0 THEN price_minor_units END), 0) AS revenue_minor_units",
+			"COUNT(*) FILTER (WHERE status = '"+models.PurchaseStatusCompleted+"') AS completed",
+			"COUNT(*) FILTER (WHERE status = '"+models.PurchaseStatusCompleted+"' AND NOT test) AS real_sales",
+			"COUNT(*) FILTER (WHERE status = '"+models.PurchaseStatusPending+"') AS pending",
+			"COUNT(*) FILTER (WHERE status = '"+models.PurchaseStatusFailed+"') AS failed",
+			"COUNT(*) FILTER (WHERE test) AS test_count",
+			"COALESCE(SUM(price_minor_units) FILTER (WHERE status = '"+models.PurchaseStatusCompleted+"' AND NOT test), 0)::bigint AS revenue_minor_units",
 		).
 		Group("program_id").
 		Order("completed DESC, revenue_minor_units DESC, program_id ASC")

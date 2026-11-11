@@ -86,7 +86,7 @@ func (r *nutritionQuestionnaireRepository) UpsertForUserAndProgram(ctx context.C
 				Version:   1,
 				Answers:   answers,
 			}
-			if createErr := db.Create(created).Error; createErr != nil {
+			if createErr := inSavepoint(db, func(tx *gorm.DB) error { return tx.Create(created).Error }); createErr != nil {
 				if isDuplicateEntry(createErr) {
 					// A concurrent submission won the race; fall through to
 					// the update path on the next attempt.

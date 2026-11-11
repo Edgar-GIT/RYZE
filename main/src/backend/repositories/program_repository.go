@@ -350,7 +350,7 @@ func (r *programRepository) SearchPublished(ctx context.Context, filter PublicCa
 
 	if filter.Query != "" {
 		escaped := escapeSQLLike(filter.Query)
-		db = db.Where("name LIKE ?", "%"+escaped+"%")
+		db = db.Where("name ILIKE ?", "%"+escaped+"%")
 	}
 
 	if filter.ProgramType != "" {

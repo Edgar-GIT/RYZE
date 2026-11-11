@@ -25,15 +25,16 @@
 -- exactly as written, so the soft-delete convention intentionally does not
 -- apply here.
 CREATE TABLE purchase_reconciliation_events (
-    id CHAR(36) NOT NULL,
-    purchase_id CHAR(36) NOT NULL,
+    id VARCHAR(36) NOT NULL,
+    purchase_id VARCHAR(36) NOT NULL,
     provider VARCHAR(16) NOT NULL,
     event_id VARCHAR(128) NOT NULL,
     outcome VARCHAR(32) NOT NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_purchase_reconciliation_events_delivery (provider, event_id),
-    KEY idx_purchase_reconciliation_events_purchase (purchase_id, created_at),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT purchase_reconciliation_events_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_purchase_reconciliation_events_delivery UNIQUE (provider, event_id),
     CONSTRAINT fk_purchase_reconciliation_events_purchase
         FOREIGN KEY (purchase_id) REFERENCES purchases (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+CREATE INDEX idx_purchase_reconciliation_events_purchase ON purchase_reconciliation_events (purchase_id, created_at);

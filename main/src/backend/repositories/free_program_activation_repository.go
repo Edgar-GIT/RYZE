@@ -76,7 +76,7 @@ func (r *freeProgramActivationRepository) Activate(ctx context.Context, userID, 
 func (r *freeProgramActivationRepository) FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.FreeProgramActivation, error) {
 	var activation models.FreeProgramActivation
 	if err := r.db.WithContext(ctx).
-		Where("user_id = ? AND program_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID, programID).
+		Where("user_id = ? AND program_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", userID, programID).
 		First(&activation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrFreeActivationNotFound
@@ -91,7 +91,7 @@ func (r *freeProgramActivationRepository) FindActiveByUserAndProgram(ctx context
 func (r *freeProgramActivationRepository) ListActiveByUser(ctx context.Context, userID string) ([]models.FreeProgramActivation, error) {
 	var activations []models.FreeProgramActivation
 	if err := r.db.WithContext(ctx).
-		Where("user_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID).
+		Where("user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", userID).
 		Preload("Program").
 		Order("activated_at DESC, id DESC").
 		Find(&activations).Error; err != nil {

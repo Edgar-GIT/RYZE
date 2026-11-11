@@ -7,7 +7,8 @@ DROP VIEW IF EXISTS v_nutrition_questionnaire_summary;
 DROP TABLE IF EXISTS nutrition_assignments;
 DROP TABLE IF EXISTS nutrition_questionnaires;
 
+DROP INDEX IF EXISTS idx_programs_product_type;
+
 ALTER TABLE programs
-    DROP INDEX idx_programs_product_type,
     DROP CONSTRAINT chk_programs_product_type,
     DROP COLUMN product_type;

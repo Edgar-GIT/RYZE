@@ -249,7 +249,7 @@ func (r *genericProgramRepository) Search(ctx context.Context, productType strin
 
 	if strings.TrimSpace(filter.Query) != "" {
 		escaped := escapeSQLLike(strings.TrimSpace(filter.Query))
-		query = query.Where("(name LIKE ? OR description LIKE ?)", "%"+escaped+"%", "%"+escaped+"%")
+		query = query.Where("(name ILIKE ? OR description ILIKE ?)", "%"+escaped+"%", "%"+escaped+"%")
 	}
 	if filter.Type != "" {
 		query = query.Where("type = ?", filter.Type)

@@ -75,7 +75,7 @@ func (r *trainerClientInsightRepository) ListActiveAssignmentsByUser(ctx context
 func (r *trainerClientInsightRepository) ListActiveEntitlementsByUser(ctx context.Context, userID string) ([]models.Entitlement, error) {
 	var entitlements []models.Entitlement
 	if err := r.db.WithContext(ctx).
-		Where("user_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID).
+		Where("user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", userID).
 		Preload("Program", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
 		Order("created_at ASC, id ASC").
 		Find(&entitlements).Error; err != nil {
@@ -87,7 +87,7 @@ func (r *trainerClientInsightRepository) ListActiveEntitlementsByUser(ctx contex
 func (r *trainerClientInsightRepository) ListActiveFreeActivationsByUser(ctx context.Context, userID string) ([]models.FreeProgramActivation, error) {
 	var activations []models.FreeProgramActivation
 	if err := r.db.WithContext(ctx).
-		Where("user_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID).
+		Where("user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", userID).
 		Preload("Program", func(db *gorm.DB) *gorm.DB { return db.Unscoped() }).
 		Order("activated_at DESC, id DESC").
 		Find(&activations).Error; err != nil {

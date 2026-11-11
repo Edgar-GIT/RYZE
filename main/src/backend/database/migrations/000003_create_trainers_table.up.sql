@@ -1,11 +1,14 @@
 CREATE TABLE trainers (
     id VARCHAR(36) NOT NULL,
     user_id VARCHAR(36) NOT NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at DATETIME(6) NULL DEFAULT NULL,
-    active_user_id VARCHAR(36) GENERATED ALWAYS AS (IF(deleted_at IS NULL, user_id, NULL)) STORED,
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_trainers_active_user_id (active_user_id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    active_user_id VARCHAR(36) GENERATED ALWAYS AS (CASE WHEN deleted_at IS NULL THEN user_id END) STORED,
+    CONSTRAINT trainers_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_trainers_active_user_id UNIQUE (active_user_id),
     CONSTRAINT fk_trainers_user FOREIGN KEY (user_id) REFERENCES users (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+CREATE TRIGGER trg_trainers_touch_updated_at BEFORE UPDATE ON trainers
+    FOR EACH ROW EXECUTE FUNCTION ryze_touch_updated_at();

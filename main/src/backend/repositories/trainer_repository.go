@@ -44,7 +44,7 @@ func NewTrainerRepository(db *gorm.DB) TrainerRepository {
 }
 
 func (r *trainerRepository) Create(ctx context.Context, trainer *models.Trainer) error {
-	if err := r.db.WithContext(ctx).Create(trainer).Error; err != nil {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(trainer).Error }); err != nil {
 		if isDuplicateEntry(err) {
 			return ErrTrainerAlreadyLinked
 		}
@@ -183,21 +183,25 @@ func (r *trainerRepository) SoftDelete(ctx context.Context, id string) error {
 // impossible. Reactivation fails with ErrTrainerAlreadyLinked when the user
 // already owns another active trainer profile.
 func (r *trainerRepository) Reactivate(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).
-		Unscoped().
-		Model(&models.Trainer{}).
-		Where("id = ? AND deleted_at IS NOT NULL", id).
-		Updates(map[string]any{
-			"deleted_at": nil,
-			"updated_at": time.Now(),
-		})
-	if result.Error != nil {
-		if isDuplicateEntry(result.Error) {
+	var affected int64
+	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		result := tx.Unscoped().
+			Model(&models.Trainer{}).
+			Where("id = ? AND deleted_at IS NOT NULL", id).
+			Updates(map[string]any{
+				"deleted_at": nil,
+				"updated_at": time.Now(),
+			})
+		affected = result.RowsAffected
+		return result.Error
+	})
+	if err != nil {
+		if isDuplicateEntry(err) {
 			return ErrTrainerAlreadyLinked
 		}
-		return fmt.Errorf("failed to reactivate trainer: %w", result.Error)
+		return fmt.Errorf("failed to reactivate trainer: %w", err)
 	}
-	if result.RowsAffected == 0 {
+	if affected == 0 {
 		return ErrTrainerNotFound
 	}
 	return nil

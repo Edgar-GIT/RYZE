@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
-# Creates a compressed snapshot of the RYZE database.
+# Creates a compressed snapshot of the RYZE PostgreSQL database.
 #
-# The dump is transactionally consistent (--single-transaction) and includes
-# routines, triggers and events, so a restore reproduces the full schema and the
-# platform-owned data, not just the tables.
+# pg_dump takes a transactionally consistent snapshot and includes the schema
+# (tables, generated columns, views, functions, triggers and the citext
+# extension) and the platform-owned data. The plain SQL dump is written with
+# --clean --if-exists so restore_db.sh replaces existing objects.
 #
 # Configuration is read from the repository .env file (or the environment when
 # the variables are already exported). Optional:
@@ -25,22 +26,22 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=env_loader.sh
 . "${ROOT_DIR}/scripts/env_loader.sh"
 load_project_env "${ROOT_DIR}" \
-  DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
+  DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD DB_SSLMODE \
   BACKUP_DIR BACKUP_GPG_RECIPIENT BACKUP_RETENTION_DAYS
 
 : "${DB_HOST:=127.0.0.1}"
-: "${DB_PORT:=3306}"
+: "${DB_PORT:=5432}"
 : "${DB_NAME:?DB_NAME must be set}"
 : "${DB_USER:?DB_USER must be set}"
 : "${DB_PASSWORD:=}"
+: "${DB_SSLMODE:=disable}"
 
 BACKUP_DIR="${BACKUP_DIR:-${ROOT_DIR}/backups}"
 GPG_RECIPIENT="${BACKUP_GPG_RECIPIENT:-}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-0}"
 
-dump_bin="$(command -v mariadb-dump || command -v mysqldump || true)"
-if [[ -z "${dump_bin}" ]]; then
-  echo "error: mariadb-dump or mysqldump is required" >&2
+if ! command -v pg_dump >/dev/null 2>&1; then
+  echo "error: pg_dump is required" >&2
   exit 1
 fi
 
@@ -55,22 +56,23 @@ chmod 700 "${BACKUP_DIR}"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 target="${BACKUP_DIR}/${DB_NAME}-${timestamp}.sql.gz"
 
-# MYSQL_PWD keeps the password out of the process list.
-export MYSQL_PWD="${DB_PASSWORD}"
+# PGPASSWORD keeps the password out of the process list.
+export PGPASSWORD="${DB_PASSWORD}"
+export PGSSLMODE="${DB_SSLMODE}"
 
-"${dump_bin}" \
+pg_dump \
   --host="${DB_HOST}" \
   --port="${DB_PORT}" \
-  --user="${DB_USER}" \
-  --single-transaction \
-  --quick \
-  --routines \
-  --triggers \
-  --events \
-  --default-character-set=utf8mb4 \
-  "${DB_NAME}" | gzip -9 > "${target}"
+  --username="${DB_USER}" \
+  --dbname="${DB_NAME}" \
+  --format=plain \
+  --clean \
+  --if-exists \
+  --no-owner \
+  --no-privileges \
+  --encoding=UTF8 | gzip -9 > "${target}"
 
-unset MYSQL_PWD
+unset PGPASSWORD PGSSLMODE
 
 if [[ -n "${GPG_RECIPIENT}" ]]; then
   if ! gpg --yes --encrypt --recipient "${GPG_RECIPIENT}" "${target}"; then

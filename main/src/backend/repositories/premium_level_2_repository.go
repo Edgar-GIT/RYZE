@@ -125,7 +125,7 @@ func (r *premiumLevel2Repository) List(ctx context.Context, filter PremiumLevel2
 	}
 	if strings.TrimSpace(filter.Query) != "" {
 		escaped := escapeSQLLike(strings.TrimSpace(filter.Query))
-		query = query.Where("id LIKE ? OR user_id LIKE ? OR program_id LIKE ? OR offer_name LIKE ? OR client_email LIKE ? OR client_first_name LIKE ? OR client_last_name LIKE ?",
+		query = query.Where("id ILIKE ? OR user_id ILIKE ? OR program_id ILIKE ? OR offer_name ILIKE ? OR client_email ILIKE ? OR client_first_name ILIKE ? OR client_last_name ILIKE ?",
 			"%"+escaped+"%", "%"+escaped+"%", "%"+escaped+"%", "%"+escaped+"%", "%"+escaped+"%", "%"+escaped+"%", "%"+escaped+"%")
 	}
 	var total int64
@@ -439,7 +439,9 @@ func (r *premiumLevel2Repository) Deliver(ctx context.Context, requestID, traine
 				}
 			case errors.Is(err, gorm.ErrRecordNotFound):
 				entitlement := &models.Entitlement{UserID: request.UserID, ProgramID: *request.TrainingProgramID}
-				if err := tx.Create(entitlement).Error; err != nil && !isDuplicateEntry(err) {
+				// A concurrent delivery may have created the entitlement already;
+				// the savepoint keeps this transaction usable after that duplicate.
+				if err := inSavepoint(tx, func(sp *gorm.DB) error { return sp.Create(entitlement).Error }); err != nil && !isDuplicateEntry(err) {
 					return fmt.Errorf("failed to create delivered entitlement: %w", err)
 				}
 			default:

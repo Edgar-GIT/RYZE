@@ -74,7 +74,7 @@ func (r *nutritionAssignmentRepository) EnsurePendingForUserAndProgram(ctx conte
 		QuestionnaireVersion: questionnaireVersion,
 		Status:               models.NutritionAssignmentStatusPending,
 	}
-	if err := r.db.WithContext(ctx).Create(created).Error; err != nil {
+	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(created).Error }); err != nil {
 		if isDuplicateEntry(err) {
 			// A concurrent purchase delivery won the race. The single active
 			// assignment is the correct outcome either way.

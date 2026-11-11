@@ -126,7 +126,7 @@ func (r *statisticsRepository) currentProgramCandidates(ctx context.Context, use
 
 	var entitlement models.Entitlement
 	err = r.db.WithContext(ctx).
-		Where("user_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID).
+		Where("user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", userID).
 		Order("created_at DESC, id DESC").
 		First(&entitlement).Error
 	switch {
@@ -139,7 +139,7 @@ func (r *statisticsRepository) currentProgramCandidates(ctx context.Context, use
 
 	var activation models.FreeProgramActivation
 	err = r.db.WithContext(ctx).
-		Where("user_id = ? AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(6))", userID).
+		Where("user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", userID).
 		Order("activated_at DESC, id DESC").
 		First(&activation).Error
 	switch {

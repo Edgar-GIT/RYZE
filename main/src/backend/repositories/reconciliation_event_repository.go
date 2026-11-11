@@ -102,13 +102,13 @@ func (r *reconciliationEventRepository) Upsert(ctx context.Context, event *model
 		args = append(args, outcome)
 	}
 
-	sql := `INSERT INTO purchase_reconciliation_events
+	sql := `INSERT INTO purchase_reconciliation_events AS existing
     (id, purchase_id, provider, event_id, outcome, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
+    ON CONFLICT (provider, event_id) DO UPDATE SET
         outcome = CASE
-            WHEN outcome IN (` + strings.Join(placeholders, ", ") + `) THEN VALUES(outcome)
-            ELSE outcome
+            WHEN existing.outcome IN (` + strings.Join(placeholders, ", ") + `) THEN EXCLUDED.outcome
+            ELSE existing.outcome
         END`
 
 	args = append([]any{event.ID, event.PurchaseID, event.Provider, event.EventID, event.Outcome, event.CreatedAt}, args...)

@@ -10,17 +10,18 @@
 -- Existing Premium Level 1 rows are backfilled as legacy. No questionnaire,
 -- generated plan, purchase or entitlement is rewritten.
 ALTER TABLE programs
-    ADD COLUMN objective VARCHAR(32) NULL AFTER product_type,
-    ADD COLUMN nutrition_mode VARCHAR(24) NULL AFTER objective,
-    ADD COLUMN content_version INT NOT NULL DEFAULT 1 AFTER nutrition_mode;
+    ADD COLUMN objective VARCHAR(32),
+    ADD COLUMN nutrition_mode VARCHAR(24),
+    ADD COLUMN content_version INTEGER NOT NULL DEFAULT 1;
 
 UPDATE programs
 SET nutrition_mode = 'questionnaire_generated'
 WHERE product_type = 'premium_level_1';
 
+CREATE INDEX idx_programs_objective ON programs (objective);
+CREATE INDEX idx_programs_nutrition_mode ON programs (nutrition_mode);
+
 ALTER TABLE programs
-    ADD KEY idx_programs_objective (objective),
-    ADD KEY idx_programs_nutrition_mode (nutrition_mode),
     ADD CONSTRAINT chk_programs_objective CHECK (
         objective IS NULL OR objective IN ('gain_muscle', 'lose_fat', 'strength_conditioning')
     ),
@@ -43,68 +44,71 @@ ALTER TABLE programs
 -- the daily hydration guidance; meal energy and macros are derived from the
 -- items so those totals can never disagree with the foods shown.
 CREATE TABLE IF NOT EXISTS curated_nutrition_plans (
-    id CHAR(36) PRIMARY KEY,
-    program_id CHAR(36) NOT NULL,
-    version INT NOT NULL DEFAULT 1,
+    id VARCHAR(36) PRIMARY KEY,
+    program_id VARCHAR(36) NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
     dietary_pattern VARCHAR(32) NOT NULL DEFAULT 'balanced',
     summary VARCHAR(255) NOT NULL,
     prep_guidance VARCHAR(255) NOT NULL,
-    hydration_litres DECIMAL(4,1) NOT NULL,
+    hydration_litres NUMERIC(4,1) NOT NULL,
     hydration_note VARCHAR(255) NOT NULL,
-    cautions JSON NOT NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at DATETIME(6) NULL,
-    UNIQUE KEY uq_curated_nutrition_plans_program (program_id),
-    CONSTRAINT fk_curated_nutrition_plans_program FOREIGN KEY (program_id) REFERENCES programs(id),
+    cautions JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT uq_curated_nutrition_plans_program UNIQUE (program_id),
+    CONSTRAINT fk_curated_nutrition_plans_program FOREIGN KEY (program_id) REFERENCES programs (id),
     CONSTRAINT chk_curated_nutrition_plans_version CHECK (version > 0),
     CONSTRAINT chk_curated_nutrition_plans_hydration CHECK (
         hydration_litres > 0 AND hydration_litres <= 20
     )
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+CREATE TRIGGER trg_curated_nutrition_plans_touch_updated_at BEFORE UPDATE ON curated_nutrition_plans
+    FOR EACH ROW EXECUTE FUNCTION ryze_touch_updated_at();
 
 CREATE TABLE IF NOT EXISTS curated_nutrition_plan_meals (
-    id CHAR(36) PRIMARY KEY,
-    plan_id CHAR(36) NOT NULL,
-    position INT NOT NULL,
+    id VARCHAR(36) PRIMARY KEY,
+    plan_id VARCHAR(36) NOT NULL,
+    position INTEGER NOT NULL,
     label VARCHAR(48) NOT NULL,
     kind VARCHAR(16) NOT NULL DEFAULT 'meal',
-    notes VARCHAR(255) NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    CONSTRAINT fk_curated_nutrition_plan_meals_plan FOREIGN KEY (plan_id) REFERENCES curated_nutrition_plans(id) ON DELETE CASCADE,
-    UNIQUE KEY uq_curated_nutrition_plan_meals_position (plan_id, position),
+    notes VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_curated_nutrition_plan_meals_plan FOREIGN KEY (plan_id) REFERENCES curated_nutrition_plans (id) ON DELETE CASCADE,
+    CONSTRAINT uq_curated_nutrition_plan_meals_position UNIQUE (plan_id, position),
     CONSTRAINT chk_curated_nutrition_plan_meals_kind CHECK (kind IN ('meal', 'snack')),
     CONSTRAINT chk_curated_nutrition_plan_meals_position CHECK (position > 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 CREATE INDEX idx_curated_nutrition_plan_meals_plan_id ON curated_nutrition_plan_meals (plan_id);
 
 CREATE TABLE IF NOT EXISTS curated_nutrition_plan_meal_items (
-    id CHAR(36) PRIMARY KEY,
-    plan_id CHAR(36) NOT NULL,
-    meal_id CHAR(36) NOT NULL,
-    position INT NOT NULL,
+    id VARCHAR(36) PRIMARY KEY,
+    plan_id VARCHAR(36) NOT NULL,
+    meal_id VARCHAR(36) NOT NULL,
+    position INTEGER NOT NULL,
     food_name VARCHAR(120) NOT NULL,
     category VARCHAR(32) NOT NULL,
-    quantity DECIMAL(7,2) NOT NULL,
+    quantity NUMERIC(7,2) NOT NULL,
     unit VARCHAR(24) NOT NULL,
-    calories INT NOT NULL,
-    protein_grams INT NOT NULL,
-    carbohydrate_grams INT NOT NULL,
-    fat_grams INT NOT NULL,
-    fiber_grams INT NOT NULL,
-    substitution_note VARCHAR(255) NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    CONSTRAINT fk_curated_nutrition_plan_meal_items_plan FOREIGN KEY (plan_id) REFERENCES curated_nutrition_plans(id) ON DELETE CASCADE,
-    CONSTRAINT fk_curated_nutrition_plan_meal_items_meal FOREIGN KEY (meal_id) REFERENCES curated_nutrition_plan_meals(id) ON DELETE CASCADE,
-    UNIQUE KEY uq_curated_nutrition_plan_meal_items_position (meal_id, position),
+    calories INTEGER NOT NULL,
+    protein_grams INTEGER NOT NULL,
+    carbohydrate_grams INTEGER NOT NULL,
+    fat_grams INTEGER NOT NULL,
+    fiber_grams INTEGER NOT NULL,
+    substitution_note VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_curated_nutrition_plan_meal_items_plan FOREIGN KEY (plan_id) REFERENCES curated_nutrition_plans (id) ON DELETE CASCADE,
+    CONSTRAINT fk_curated_nutrition_plan_meal_items_meal FOREIGN KEY (meal_id) REFERENCES curated_nutrition_plan_meals (id) ON DELETE CASCADE,
+    CONSTRAINT uq_curated_nutrition_plan_meal_items_position UNIQUE (meal_id, position),
     CONSTRAINT chk_curated_nutrition_plan_meal_items_position CHECK (position > 0),
     CONSTRAINT chk_curated_nutrition_plan_meal_items_quantity CHECK (quantity > 0),
     CONSTRAINT chk_curated_nutrition_plan_meal_items_macros CHECK (
         calories >= 0 AND protein_grams >= 0 AND carbohydrate_grams >= 0
         AND fat_grams >= 0 AND fiber_grams >= 0
     )
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 CREATE INDEX idx_curated_nutrition_plan_meal_items_plan_id ON curated_nutrition_plan_meal_items (plan_id);
 CREATE INDEX idx_curated_nutrition_plan_meal_items_meal_id ON curated_nutrition_plan_meal_items (meal_id);
