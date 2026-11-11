@@ -123,9 +123,10 @@ JSON
 
 Primary database:
 
-MySQL
-
-SQLite may be used during local development when appropriate.
+PostgreSQL (migrated from MariaDB on 2026-11-11), accessed through GORM with
+the pgx driver; schema changes go through the embedded golang-migrate
+migrations. Local development and the integration tests use a local
+PostgreSQL server (the tests use an isolated `<DB_NAME>_test` database).
 
 Database documentation is maintained separately inside:
 

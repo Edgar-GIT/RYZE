@@ -2810,7 +2810,12 @@ database without editing production configuration. `scripts/restore_db.sh`
 refuses to run without `--yes`, supports plain, gzip and GPG files, and was
 exercised in v2.99.0 against disposable plain and encrypted restores. The
 drill matched all 33 tables, migration version 32 and every source row count;
-it does not replace periodic encrypted off-host verification.
+it does not replace periodic encrypted off-host verification. Since v2.108.0
+both scripts use PostgreSQL tooling (`pg_dump` / `psql`); the password travels
+in `PGPASSWORD`, never on a command line, and a restore runs in one
+transaction that stops at the first error. `scripts/postgres_setup.sh` and
+`scripts/migrate_mysql_to_postgres.sh` follow the same rule: credentials come
+from `.env` through `env_loader.sh` and are never printed.
 
 ---
 

@@ -38,9 +38,9 @@ checks and entitlement rules are server-owned and must not be weakened.
 RYZE is a React 19 + TypeScript + Vite 8 frontend with React Router, CSS
 Modules, Framer Motion, Lucide and Three.js, and a Go 1.26 backend using Gin,
 GORM and REST APIs. The verified root package does not currently list Zustand;
-do not assume it is available. The backend is configured for MariaDB through
-the MySQL driver; the future PostgreSQL migration is preparation only. Main
-application roots are:
+do not assume it is available. The backend runs on PostgreSQL through GORM and
+the pgx driver (migrated from MariaDB on 2026-11-11; conventions in
+`docs/DATABASE/database.MD`, "ENGINE"). Main application roots are:
 
 - `main/src/frontend/src/` — pages, components, stores, API clients and styles.
 - `main/src/backend/` — Go API, services, repositories, models and database.

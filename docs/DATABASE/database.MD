@@ -1,7 +1,7 @@
 # RYZE FITNESS
 # DATABASE.MD
 
-Version: 2.103.0
+Version: 2.108.0
 
 ---
 
@@ -17,6 +17,45 @@ No table should be created without following this document.
 The database is expected to evolve during development.
 
 Whenever a better design is identified, this document should be updated before implementation.
+
+# ENGINE
+
+RYZE runs on **PostgreSQL** (migrated from MariaDB on 2026-11-11; verified
+locally on PostgreSQL 18, `postgres:17` in Compose). The backend connects with
+pgx (`gorm.io/driver/postgres` and `github.com/jackc/pgx/v5`) and applies the
+embedded migrations with golang-migrate's pgx driver (`go run . migrate up`
+from `main/src/backend/`). Conventions:
+
+- IDs are application-generated UUID strings in `VARCHAR(36)` columns (not
+  the native `uuid` type, so an invalid id in a request stays a "not found").
+- Timestamps are `TIMESTAMPTZ` (microsecond precision). Sessions run in UTC
+  and the driver returns UTC values, so API output keeps its `Z` form. GORM
+  rounds the timestamps it writes to the microsecond.
+- `updated_at` is maintained by the trigger function `ryze_touch_updated_at()`
+  (one `BEFORE UPDATE` trigger per table that had MariaDB's
+  `ON UPDATE CURRENT_TIMESTAMP`): an update that does not set `updated_at`
+  itself receives the current time.
+- JSON documents are `JSONB`; decimals are `NUMERIC(p,s)`; former unsigned
+  integers keep their range with `CHECK (... >= 0)` constraints.
+- `users.email` is `CITEXT` (extension created by migration `000001`), so
+  email lookups and the active-email uniqueness ignore letter case as they did
+  under MariaDB's case-insensitive collation. Exercise names are unique
+  without regard to case through `active_name = lower(name)`. Searches use
+  `ILIKE`.
+- Databases are created with the ICU root collation (`LOCALE_PROVIDER icu,
+  ICU_LOCALE 'und'`, see `scripts/postgres_setup.sh`): text sorts
+  case-insensitively first and spaces count, like `utf8mb4_unicode_ci`.
+  Accent-insensitive equality was not carried over.
+- The "one active row" rules are stored generated columns
+  (`CASE WHEN ... THEN ... END`, concatenated with `||`) under a unique
+  constraint. NULLs never collide, so soft-deleted rows keep their history.
+- PostgreSQL aborts a whole transaction after a failed statement. Repository
+  statements whose unique violation (SQLSTATE `23505`) is mapped to a domain
+  error therefore run in a savepoint (`inSavepoint`), so a caller's
+  transaction stays usable, as it was under MariaDB.
+- Tooling: `scripts/postgres_setup.sh` (role, application and isolated test
+  databases), `scripts/backup_db.sh` / `scripts/restore_db.sh` (`pg_dump` /
+  `psql`), and the one-off copy `scripts/migrate_mysql_to_postgres.sh`.
 
 # DATABASE PHILOSOPHY
 
@@ -331,7 +370,7 @@ persona accounts (`client` / `trainer`), restricted by
 `chk_users_test_persona`. It is written only by Test Mode provisioning; public
 registration refuses the reserved persona addresses and never sets it.
 `active_test_persona` is the generated column
-`IF(deleted_at IS NULL, test_persona, NULL)` with a unique key, so at most one
+`CASE WHEN deleted_at IS NULL THEN test_persona END` with a unique key, so at most one
 active account can own a persona while a soft-deleted persona identity can be
 replaced. Existing rows were deliberately left `NULL` by migration `000032`;
 an account is never retroactively trusted as a persona.
@@ -481,15 +520,13 @@ The implemented `purchases` table contains:
   drops the index and the column. Schema version is `27`.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `completed_purchase` — MariaDB generated column `IF(deleted_at IS NULL AND
-  status = 'completed', CONCAT(user_id, ':', program_id), NULL)`, unique. Added
+- `completed_purchase` — stored generated column `CASE WHEN deleted_at IS NULL AND status = 'completed' THEN user_id || ':' || program_id END`, unique. Added
   by migration `000022`. The database itself guarantees at most one active
   **completed** purchase per `(user, program)` pair; pending and failed rows
   keep a `NULL` value so payment retries remain possible. This is the last-line
   duplicate-completion protection on top of the service-level duplicate
   purchase check.
-- `pending_purchase` — MariaDB generated column `IF(deleted_at IS NULL AND
-  status = 'pending', CONCAT(user_id, ':', program_id), NULL)`, unique. Added by
+- `pending_purchase` — stored generated column `CASE WHEN deleted_at IS NULL AND status = 'pending' THEN user_id || ':' || program_id END`, unique. Added by
   migration `000027`. The database itself guarantees at most one active
   **pending** purchase per `(user, program)` pair, closing the concurrency
   window between two clients creating intents for the same pair at the same
@@ -583,8 +620,9 @@ State rules:
   provisional: a later redelivery of the same (provider, event_id) overwrites
   them. Every other outcome is resolved and immutable: an idempotent duplicate
   delivery leaves a resolved outcome untouched. The upsert implements this with
-  `ON DUPLICATE KEY UPDATE outcome = CASE WHEN outcome IN (transient_failure,
-  provider_uncertain) THEN VALUES(outcome) ELSE outcome END`.
+  `ON CONFLICT (provider, event_id) DO UPDATE SET outcome = CASE WHEN
+  existing.outcome IN (transient_failure, provider_uncertain) THEN
+  EXCLUDED.outcome ELSE existing.outcome END`.
 - **Write-only for providers.** The webhook layer is the only writer. No admin,
   client or route edits a row.
 - **Best-effort.** A persistence failure never changes the webhook HTTP verdict
@@ -623,14 +661,13 @@ The implemented `entitlements` table contains:
 - `id` — UUID primary key (generated by the backend).
 - `user_id` — the entitled user account (`users.id`), foreign key.
 - `program_id` — the entitled program (`programs.id`), foreign key.
-- `expires_at` — optional server-owned access expiry (`DATETIME(6)`), nullable.
+- `expires_at` — optional server-owned access expiry (`TIMESTAMPTZ`), nullable.
   `NULL` means the entitlement never expires; existing rows migrated to `NULL`
   and keep their previous behaviour. The access queries ignore
   `expires_at <= UTC_TIMESTAMP(6)`.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_entitlement` — MariaDB generated column `IF(deleted_at IS NULL,
-  CONCAT(user_id, ':', program_id), NULL)`, unique. The database itself
+- `active_entitlement` — stored generated column `CASE WHEN deleted_at IS NULL THEN user_id || ':' || program_id END`, unique. The database itself
   guarantees at most one **active** entitlement per `(user, program)` pair;
   historical and soft-deleted entitlements are preserved.
 
@@ -704,15 +741,14 @@ The table contains:
 - `user_id` — the activating client (`users.id`), foreign key. Always taken from
   the authentication context.
 - `program_id` — the activated programme (`programs.id`), foreign key.
-- `activated_at` — server-side activation timestamp (`DATETIME(6)`).
-- `expires_at` — nullable expiry (`DATETIME(6)`). It is nullable because the
+- `activated_at` — server-side activation timestamp (`TIMESTAMPTZ`).
+- `expires_at` — nullable expiry (`TIMESTAMPTZ`). It is nullable because the
   product does not define a Free access duration yet. A set value must be after
   `activated_at`; the read paths ignore an expired row, which allows a new
   activation to replace it.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_free_activation` — generated column `IF(deleted_at IS NULL, user_id,
-  NULL)`, unique. The database guarantees at most one active Free activation per
+- `active_free_activation` — generated column `CASE WHEN deleted_at IS NULL THEN user_id END`, unique. The database guarantees at most one active Free activation per
   user, including across concurrent requests.
 
 Indexes cover `user_id`, `program_id` and `expires_at`. No cascade is defined:
@@ -782,14 +818,13 @@ The implemented `commission_rules` table contains:
 - `commission_bps` — platform commission in basis points (`INT UNSIGNED NOT
   NULL`). Maximum 10000 (100%). A value of 0 means the trainer keeps the full
   price.
-- `valid_from` — timestamp from which the rule is effective (`DATETIME(6) NOT
+- `valid_from` — timestamp from which the rule is effective (`TIMESTAMPTZ NOT
   NULL`, defaults to `CURRENT_TIMESTAMP(6)`). Enables future temporal validity.
-- `valid_until` — optional expiry timestamp (`DATETIME(6) NULL`). Reserved for
+- `valid_until` — optional expiry timestamp (`TIMESTAMPTZ NULL`). Reserved for
   future temporal validity. When NULL the rule has no upper time bound.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_commission_rule` — MariaDB generated column
-  `IF(deleted_at IS NULL, trainer_id, NULL)`, unique. The database itself
+- `active_commission_rule` — stored generated column `CASE WHEN deleted_at IS NULL THEN trainer_id END`, unique. The database itself
   guarantees at most one **active** override per trainer; historical and
   soft-deleted rules are preserved.
 
@@ -879,12 +914,10 @@ The implemented `exercises` table contains:
   is platform-owned (`NULL`).
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_name` — MariaDB generated column `IF(deleted_at IS NULL, name,
-  NULL)`, unique. The database itself guarantees every **active** exercise
+- `active_name` — stored generated column `CASE WHEN deleted_at IS NULL THEN name END`, unique. The database itself guarantees every **active** exercise
   exists only once; soft-deleting an exercise frees its name for a new catalog
   entry.
-- `active_source` — MariaDB generated column
-  `IF(deleted_at IS NULL AND source_id IS NOT NULL, CONCAT(source, ':', source_id), NULL)`,
+- `active_source` — stored generated column `CASE WHEN deleted_at IS NULL AND source_id IS NOT NULL THEN source || ':' || source_id END`,
   `STORED`, unique. It makes the dataset import idempotent at the database
   level: one active row per source record.
 
@@ -911,15 +944,13 @@ exercises:
   foreign key. The alternative must be an active catalog entry to be returned
   by the API; soft-deleted targets are skipped and their links can be
   repurposed by a future validator.
-- `position` — the 1-based display order inside the source exercise,
-  `CHECK (position > 0)`.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_alternative` — MariaDB generated column `IF(deleted_at IS NULL,
-  CONCAT(exercise_id, ':', alternative_exercise_id, ':', position), NULL)`,
-  unique. A pair `(exercise_id, alternative_exercise_id)` can be linked at
-  most once **per position**, so the same exercise may still appear as an
-  alternative of multiple others. A self-link is blocked by
+- `active_alternative` — stored generated column `CASE WHEN deleted_at IS NULL
+  THEN exercise_id || ':' || alternative_exercise_id END`, unique. A pair
+  `(exercise_id, alternative_exercise_id)` can be linked at most once while
+  active, and the same exercise may still appear as an alternative of multiple
+  others. A self-link is blocked by
   `chk_exercise_alternatives_distinct (exercise_id <> alternative_exercise_id)`.
 
 The exercise catalog is a **platform-owned, persisted** entity: it is the same
@@ -1094,8 +1125,8 @@ published on the Feedback page only after administrator approval.
 | `display_name` | VARCHAR(120) | Public name snapshot ("First L.") |
 | `status` | VARCHAR(16) | `pending`, `approved`, `rejected` (`CHECK`) |
 | `reviewed_by` | VARCHAR(40) NULL | Configured admin identity (ADMIN_1/ADMIN_2) |
-| `reviewed_at` | DATETIME(6) NULL | Review time |
-| `created_at`, `updated_at`, `deleted_at` | DATETIME(6) | Soft delete |
+| `reviewed_at` | TIMESTAMPTZ NULL | Review time |
+| `created_at`, `updated_at`, `deleted_at` | TIMESTAMPTZ | Soft delete |
 | `pending_user_id` | VARCHAR(36), generated, stored | `user_id` while pending and not deleted |
 
 Indexes: unique `uq_member_feedback_pending_user_id` (at most one pending
@@ -1121,8 +1152,7 @@ The implemented table contains:
 - `user_id` — the linked user account (`users.id`), foreign key.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_user_id` — MariaDB generated column `IF(deleted_at IS NULL,
-  user_id, NULL)`, unique. It is a **real stored database constraint**, not an
+- `active_user_id` — stored generated column `CASE WHEN deleted_at IS NULL THEN user_id END`, unique. It is a **real stored database constraint**, not an
   application rule: the database itself guarantees a user can own at most one
   **active** trainer profile, while historical soft-deleted trainer rows are
   preserved.
@@ -1164,8 +1194,7 @@ The implemented `trainer_applications` table contains:
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker (kept for consistency with the platform
   soft-delete philosophy; applications are never deleted by the API).
-- `active_user_id` — MariaDB generated column `IF(deleted_at IS NULL,
-  user_id, NULL)`, unique. It is a **real stored database constraint**, not an
+- `active_user_id` — stored generated column `CASE WHEN deleted_at IS NULL THEN user_id END`, unique. It is a **real stored database constraint**, not an
   application rule: the database itself guarantees a user can hold at most one
   **active** (PENDING or APPROVED) application, while rejected and historical
   rows are preserved.
@@ -1257,8 +1286,7 @@ The implemented table contains:
 - `user_id` — the client user account (`users.id`), foreign key.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_relation` — MariaDB generated column `IF(deleted_at IS NULL,
-  CONCAT(trainer_id, ':', user_id), NULL)`, unique. It is a **real stored
+- `active_relation` — stored generated column `CASE WHEN deleted_at IS NULL THEN trainer_id || ':' || user_id END`, unique. It is a **real stored
   database constraint**, not an application rule: the database itself
   guarantees a trainer can have at most one **active** relationship with a
   given user, while removed and historical relationships are preserved.
@@ -1382,8 +1410,7 @@ The implemented `program_weeks` table contains:
   `CHECK (week_number > 0)`.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_week` — MariaDB generated column `IF(deleted_at IS NULL,
-  CONCAT(program_id, ':', week_number), NULL)`, unique. It is a **real stored
+- `active_week` — stored generated column `CASE WHEN deleted_at IS NULL THEN program_id || ':' || week_number END`, unique. It is a **real stored
   database constraint**, not an application rule: the database itself
   guarantees a program can have at most one **active** week with a given
   `week_number`.
@@ -1396,8 +1423,7 @@ The implemented `program_workouts` table contains:
   `CHECK (position > 0)`.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_workout` — MariaDB generated column `IF(deleted_at IS NULL,
-  CONCAT(program_week_id, ':', position), NULL)`, unique. The database itself
+- `active_workout` — stored generated column `CASE WHEN deleted_at IS NULL THEN program_week_id || ':' || position END`, unique. The database itself
   guarantees a week can have at most one **active** workout with a given
   `position`.
 
@@ -1423,8 +1449,7 @@ contains:
   that is not training instructions.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_workout_exercise` — MariaDB generated column `IF(deleted_at IS NULL,
-  CONCAT(program_workout_id, ':', position), NULL)`, unique. The database
+- `active_workout_exercise` — stored generated column `CASE WHEN deleted_at IS NULL THEN program_workout_id || ':' || position END`, unique. The database
   itself guarantees a workout can have at most one **active** exercise with a
   given `position`.
 
@@ -1513,8 +1538,7 @@ every workout exercise assignment:
   newly written sets always carry a valid type.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_set` — MariaDB generated column `IF(deleted_at IS NULL,
-  CONCAT(workout_exercise_id, ':', set_number), NULL)`, unique. The database
+- `active_set` — stored generated column `CASE WHEN deleted_at IS NULL THEN workout_exercise_id || ':' || set_number END`, unique. The database
   itself guarantees an assignment can have at most one **active** set with a
   given `set_number`; removed and historical sets are preserved.
 - Value guards — `chk_workout_exercise_sets_number` (`set_number > 0`),
@@ -1585,8 +1609,7 @@ The implemented table contains:
 - `user_id` — the client user account (`users.id`), foreign key.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker.
-- `active_assignment` — MariaDB generated column `IF(deleted_at IS NULL,
-  CONCAT(trainer_id, ':', user_id), NULL)`, unique. The database itself
+- `active_assignment` — stored generated column `CASE WHEN deleted_at IS NULL THEN trainer_id || ':' || user_id END`, unique. The database itself
   guarantees a trainer can have at most one **active** assigned program per
   client, while removed and historical assignments are preserved.
 
@@ -1740,7 +1763,7 @@ snapshotted so later trainer edits never rewrite history.
   segments; never client-supplied.
 - `created_at`, `updated_at`, `deleted_at` — standard lifecycle.
 - `active_session_user` — generated column
-  `IF(status IN ('in_progress','paused') AND deleted_at IS NULL, user_id, NULL)`,
+  `CASE WHEN status IN ('in_progress','paused') AND deleted_at IS NULL THEN user_id END`,
   unique. The database enforces at most one live session per user, including
   concurrent starts.
 - CHECK constraints keep status, week/position, and seconds non-negative.
@@ -2054,11 +2077,11 @@ program_id)`. Curated packages never create an intake.
   always records the exact revision it was generated from.
 - `answers` — normalized, validated answers as `JSON`, required. Raw client input
   is never persisted: the service validates and normalizes first.
-- `submitted_at` — first submission time (`DATETIME(6)`), required.
+- `submitted_at` — first submission time (`TIMESTAMPTZ`), required.
 - `created_at` / `updated_at` / `deleted_at` — standard soft-delete and audit
   columns.
 - `active_questionnaire` — `STORED` generated column,
-  `IF(deleted_at IS NULL, CONCAT(user_id, ':', program_id), NULL)`, uniquely
+  `CASE WHEN deleted_at IS NULL THEN user_id || ':' || program_id END`, uniquely
   indexed by `uq_nutrition_questionnaires_active`. This is what enforces "one
   active intake per client per program" while still allowing a deleted history
   row to exist.
@@ -2097,7 +2120,7 @@ entitlement check.
   no code path reads it as the plan.
 - `failure_reason` — internal diagnostics only. It is never returned to the client
   and never logged together with questionnaire content.
-- `generated_at` — completion time (`DATETIME(6)`, nullable).
+- `generated_at` — completion time (`TIMESTAMPTZ`, nullable).
 - `active_assignment` — `STORED` generated column mirroring the questionnaire
   pattern, uniquely indexed by `uq_nutrition_assignments_active`.
 - Indexes: `idx_nutrition_assignments_user_id`,
@@ -2156,12 +2179,10 @@ drift against.
 One row per generated plan version. It carries the daily contract and the
 provenance of the intake it was derived from.
 
-- `id` — UUID primary key, `CHAR(36)`, generated by the backend.
+- `id` — UUID primary key, `VARCHAR(36)`, generated by the backend.
 - `assignment_id` — owning assignment (`nutrition_assignments.id`), foreign key,
-  required. It is deliberately `VARCHAR(36)` rather than `CHAR(36)`: MariaDB
-  refuses to reference a `CHAR` column inside a generated-column expression, and
-  this column must be referenced by the `active_plan` generated column below to
-  get a database-enforced "one active plan per assignment" guarantee.
+  required. It is referenced by the `active_plan` generated column below, which
+  gives the database-enforced "one active plan per assignment" guarantee.
 - `user_id` / `program_id` — denormalised ownership (`users.id` / `programs.id`),
   foreign keys, required. An owner-scoped plan read never has to join before it
   can filter by owner.
@@ -2189,7 +2210,7 @@ provenance of the intake it was derived from.
 - `generated_at`, `created_at`, `updated_at`, `deleted_at` — audit and soft
   delete.
 - `active_plan` — `STORED` generated column,
-  `IF(deleted_at IS NULL AND status = 'active', assignment_id, NULL)`, uniquely
+  `CASE WHEN deleted_at IS NULL AND status = 'active' THEN assignment_id END`, uniquely
   indexed by `uq_nutrition_plans_active`. This is what makes "at most one active
   plan per assignment" a storage-engine guarantee rather than an application
   hope.
@@ -2400,7 +2421,7 @@ fulfilment hook, never by the client.
 - `created_at` / `updated_at` / `deleted_at` — standard timestamps and soft
   delete.
 - `active_request` — stored generated column
-  `IF(deleted_at IS NULL, CONCAT(user_id, ':', program_id), NULL)` with a unique
+  `CASE WHEN deleted_at IS NULL THEN user_id || ':' || program_id END` with a unique
   key, so one client cannot hold two live requests for the same offer.
 - Foreign keys: user, offer program, trainer and training programme.
 
@@ -2419,8 +2440,7 @@ Append-only revisions of the client's answers.
 
 The trainer-authored per-client nutrition header. It reuses the curated
 nutrition editorial shape but belongs to one request, not to a package. The
-`request_id` column is `VARCHAR(36)` because the active-plan generated column
-uses `IF()`; MariaDB rejects `IF()` over `CHAR` in a generated column.
+active-plan generated column keeps one live plan per request.
 
 - `id` — UUID primary key.
 - `request_id` — owning request, foreign key, indexed.
@@ -2490,8 +2510,7 @@ delivery.
 Migration `000027_enforce_single_pending_purchase` hardens the purchases table
 against concurrent intent creation. It mirrors the `completed_purchase` pattern:
 
-- `pending_purchase` — MariaDB `VIRTUAL` generated column
-  `IF(deleted_at IS NULL AND status = 'pending', CONCAT(user_id, ':', program_id), NULL)`.
+- `pending_purchase` — stored generated column `CASE WHEN deleted_at IS NULL AND status = 'pending' THEN user_id || ':' || program_id END`.
 - `uq_purchases_pending_purchase` — unique index on the generated column.
 
 The storage engine now guarantees at most one active *pending* purchase per
@@ -2541,9 +2560,8 @@ Events](#purchase-reconciliation-events) section (v2.86.0):
 - `idx_purchase_reconciliation_purchase` — index on `purchase_id`.
 - `idx_purchase_reconciliation_created_at` — index on `created_at`.
 
-The `down` migration drops the table. Note: the pre-existing `000025` `down`
-migration fails on MariaDB (SQL error 1064 on its multi-table statement); that
-limitation is documented and unrelated to this migration's reversible design.
+The `down` migration drops the table. Every PostgreSQL `down` migration was
+verified by a full down/up round trip on 2026-11-11.
 
 ## Secure programme access (migration 000033)
 

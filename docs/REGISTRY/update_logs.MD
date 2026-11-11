@@ -1,3 +1,91 @@
+# Version 2.108.0
+
+Title: Backend database migrated from MariaDB to PostgreSQL
+
+Date: 2026-11-11
+
+Summary:
+
+The backend now runs on PostgreSQL (owner request). The 36 migrations were
+converted to PostgreSQL with the same numbers, the connection and migration
+runner use pgx, the MySQL-specific SQL in the repositories was ported, and the
+complete MariaDB data set was copied into PostgreSQL with verified row counts.
+The backend was restarted on PostgreSQL and `go run . migrate up` applied the
+schema (version 36). MariaDB was left intact for rollback.
+
+Main changes:
+
+- Migrations `000001`–`000036` rewritten for PostgreSQL: `TIMESTAMPTZ`,
+  `JSONB`, `NUMERIC`, `VARCHAR(36)` ids, stored generated columns with
+  `CASE`/`||`, `CHECK (>= 0)` for former unsigned columns, the
+  `ryze_touch_updated_at()` trigger (28 tables) replacing
+  `ON UPDATE CURRENT_TIMESTAMP`, `CITEXT` for `users.email` and
+  `active_name = lower(name)` for exercises. Every `down` migration was
+  verified by a full down/up round trip.
+- `database/database.go` (pgx, UTC sessions, UTC `timestamptz` scanning,
+  microsecond `NowFunc`), `database/migrate.go` (golang-migrate pgx driver),
+  `config` (`DB_PORT` default 5432, new `DB_SSLMODE`).
+- Repositories: `UTC_TIMESTAMP(6)`/`NOW(6)` → `CURRENT_TIMESTAMP`;
+  `ON DUPLICATE KEY UPDATE` → `ON CONFLICT`; boolean `SUM`s → `COUNT(*)
+  FILTER`; `LIKE` → `ILIKE` (case-insensitive searches as before); MySQL error
+  1062 → SQLSTATE 23505 (`repositories/pg_errors.go`); statements whose
+  duplicate error is mapped to a domain error run in a savepoint, because
+  PostgreSQL aborts a transaction after a failed statement (the Premium Level
+  2 delivery relied on continuing after a tolerated duplicate).
+- Tests: statements expected to fail inside a test transaction run in a
+  savepoint (`repositories/savepoint_helpers_test.go`).
+- Scripts: `scripts/postgres_setup.sh` (role, `DB_NAME` and an isolated
+  `<DB_NAME>_test`, ICU `und` collation), `scripts/migrate_mysql_to_postgres.sh`
+  + module `scripts/mysql_to_postgres/` (one-off data copy), `backup_db.sh` /
+  `restore_db.sh` on `pg_dump` / `psql`; `docker-compose.yml` uses
+  `postgres:17`; `.env.example` (port 5432, `DB_SSLMODE`, no
+  `DB_ROOT_PASSWORD`).
+
+Reason:
+
+The owner asked for a complete migration of the backend from MySQL/MariaDB to
+PostgreSQL, including the data, a backend restart and the golang-migrate run.
+
+Modified files:
+
+- `main/src/backend/database/` (`database.go`, `migrate.go`, all 72 migration
+  files), `main/src/backend/config/config.go`, `config/env.go`,
+  `main/src/backend/go.mod`, `go.sum`
+- `main/src/backend/repositories/` (`pg_errors.go` new; user, exercise,
+  trainer, trainer_client, trainer_application, member_feedback, entitlement,
+  purchase, reconciliation_event, nutrition_questionnaire,
+  nutrition_assignment, premium_level_2, program, generic_program,
+  free_program_activation, statistics, trainer_client_insight,
+  commission_rule repositories; tests and `savepoint_helpers_test.go`)
+- `scripts/postgres_setup.sh`, `scripts/migrate_mysql_to_postgres.sh`,
+  `scripts/mysql_to_postgres/` (new); `scripts/backup_db.sh`,
+  `scripts/restore_db.sh`; `docker-compose.yml`; `.env.example`
+- `docs/DATABASE/database.MD`, `docs/INSTRUCTIONS/arquitecture.MD`,
+  `docs/INSTRUCTIONS/api.MD`, `docs/INSTRUCTIONS/security.MD`,
+  `docs/how_to_run.MD`, `docs/AI/database-migration-inventory.md`,
+  `docs/AI/README.md`, `docs/REGISTRY/update_logs.MD`, `CLAUDE.md`,
+  `.claude/rules/database.md`, `.claude/rules/backend.md`,
+  `.claude/skills/ryze-postgresql-migration/SKILL.md`,
+  `.claude/skills/ryze-verification/SKILL.md`,
+  `.claude/agents/database-migration-reviewer.md`
+
+Verification:
+
+- `go build ./...`, `go vet ./...`; `DB_NAME=ryze_test go test ./... -p 1`
+  against PostgreSQL 18.6: 48 packages pass (none fail).
+- Migrations: up to 36, full down and up again on `ryze_test`; up on `ryze`.
+- Data: dry run, then copies into `ryze_test` and `ryze`: 3791 rows in 40
+  tables, all counts equal to MariaDB; value aggregates (users, exercises with
+  JSONB and microsecond timestamps, programs, trainers) equal.
+- API on PostgreSQL: public endpoints 200 with `Z` timestamps; on a second
+  instance against `ryze_test`: register, case-different duplicate (409),
+  login with a lower-cased email, `/me`, feedback eligibility, account
+  deletion.
+- Backup/restore round trip on `ryze_test` (counts, version 36, 28 triggers,
+  `citext`).
+- MariaDB safety dumps: `backups/ryze-mariadb-final-*.sql.gz` (local,
+  unencrypted, gitignored).
+
 # Version 2.107.0
 
 Title: Home story steps restored, Earth to the corner, Contact in the login look

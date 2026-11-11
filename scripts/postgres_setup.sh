@@ -36,9 +36,12 @@ literal() {
   printf "'%s'" "${value//\'/\'\'}"
 }
 
+# Databases use the ICU root collation ("und"): text sorts case-insensitively
+# first and spaces count, as it did under MariaDB's utf8mb4_unicode_ci (the
+# libc locales ignore spaces when sorting).
 create_database_sql() {
   local name="$1"
-  printf "SELECT format('CREATE DATABASE %%I OWNER %%I ENCODING %%L TEMPLATE template0', %s, %s, 'UTF8')\n" \
+  printf "SELECT format('CREATE DATABASE %%I OWNER %%I ENCODING %%L LOCALE_PROVIDER icu ICU_LOCALE %%L TEMPLATE template0', %s, %s, 'UTF8', 'und')\n" \
     "$(literal "${name}")" "$(literal "${DB_USER}")"
   printf "WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = %s) \\gexec\n" "$(literal "${name}")"
 }

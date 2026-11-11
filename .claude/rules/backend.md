@@ -18,5 +18,5 @@ paths:
   credentials in logs or public responses.
 - Add or update focused tests for confirmed backend changes. Do not silently
   change payment, authorization or product-family behavior.
-- Keep the current MariaDB/MySQL implementation unchanged until the dedicated
-  PostgreSQL migration is explicitly started.
+- The database is PostgreSQL (see `.claude/rules/database.md`); do not
+  reintroduce MySQL/MariaDB syntax or drivers.

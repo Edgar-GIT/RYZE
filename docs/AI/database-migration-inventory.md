@@ -1,61 +1,88 @@
-# Database migration inventory
+# Database migration record: MariaDB -> PostgreSQL
 
-This is a read-only preparation record, verified on 2026-11-09. No database,
-schema, migration, dependency or connection configuration was changed.
+The owner approved the migration on 2026-11-11 and it was completed the same
+day (v2.108.0). This file records what changed, why, and how it was verified.
+The earlier read-only inventory (2026-11-09, MariaDB 11, migrations up to
+000035) is in Git history.
 
-## Current runtime
+## Runtime now
 
-- Product baseline: v2.103.0; latest verified migration: 000035.
-- Compose database image: `mariadb:11`, service port 3306, persistent
-  `/var/lib/mysql` volume.
-- Go backend: `main/src/backend/`; Go 1.26.5.
-- Driver/GORM: `github.com/go-sql-driver/mysql` v1.8.1,
-  `gorm.io/driver/mysql` v1.6.0, `gorm.io/gorm` v1.31.2.
-- Migration library: `github.com/golang-migrate/migrate/v4` v4.19.1.
-- Connection setup: `database/database.go` opens a MySQL GORM connection with
-  `ParseTime`, UTC location and `MultiStatements`; it configures pooling and
-  pings the database. `database/migrate.go` embeds `database/migrations/*.sql`
-  and uses the MySQL migrate driver.
-- Environment defaults: host `127.0.0.1`, port `3306`; secrets are read from
-  environment and were not inspected or printed.
-- Backups: `scripts/backup_db.sh` and `restore_db.sh` use MariaDB/MySQL dump and
-  client tooling.
-- There is no PostgreSQL driver, connection configuration or migration path in
-  the verified backend.
+- PostgreSQL 18.6 locally (Arch `postgresql` package, systemd service on
+  5432); `postgres:17` in `docker-compose.yml`.
+- Backend: `gorm.io/driver/postgres` v1.6.0 over `github.com/jackc/pgx/v5`
+  v5.7.6 (`database/database.go`); golang-migrate v4.19.1 with its
+  `database/pgx/v5` driver (`database/migrate.go`). The MySQL drivers were
+  removed from the backend module.
+- Configuration: `DB_HOST`, `DB_PORT` (default 5432), `DB_NAME`, `DB_USER`,
+  `DB_PASSWORD`, `DB_SSLMODE` (default `disable`). Sessions run in UTC and a
+  registered `timestamptz` codec returns UTC values. GORM's `NowFunc` rounds
+  to the microsecond.
+- Databases `ryze` and `ryze_test` are owned by the application role and use
+  the ICU root collation (`und`).
 
-## Schema and query inventory
+## Conversion decisions
 
-There are 35 up/down migration pairs under
-`main/src/backend/database/migrations/`. The SQL uses MariaDB/MySQL-specific
-features including InnoDB/utf8mb4/collation declarations, `DATETIME(6)`,
-`CURRENT_TIMESTAMP(6) ON UPDATE`, `AFTER`, `UNSIGNED`, JSON, ENUM values,
-generated columns and MySQL foreign-key/index syntax. Recent migrations include
-nutrition and Premium Level 2 JSON data and generated/unique keys.
+| MariaDB | PostgreSQL | Why |
+| --- | --- | --- |
+| `CHAR(36)` / `VARCHAR(36)` ids | `VARCHAR(36)` | Keeps string ids; a native `uuid` would turn an invalid id in a URL into a database error instead of "not found". |
+| `DATETIME(6)` | `TIMESTAMPTZ` | Stores instants; UTC sessions keep API output identical. |
+| `ON UPDATE CURRENT_TIMESTAMP(6)` | `ryze_touch_updated_at()` + one `BEFORE UPDATE` trigger per table (28) | No column-level equivalent. |
+| `JSON` | `JSONB` | Both normalise documents. |
+| `DECIMAL` | `NUMERIC` | Same precision. |
+| `INT/BIGINT/TINYINT UNSIGNED` | `INTEGER`/`BIGINT`/`SMALLINT` + `CHECK (>= 0)` | No unsigned types. |
+| `BOOLEAN` (tinyint) | `BOOLEAN` | Raw SQL `test = 0` became `NOT test`. |
+| Generated `IF(cond, CONCAT(...), NULL)` | `CASE WHEN cond THEN a \|\| ':' \|\| b END` (stored) | `IF`/`CONCAT` are not usable; `\|\|` is immutable. |
+| `utf8mb4_unicode_ci` (case-insensitive) | `CITEXT` for `users.email`; `active_name = lower(name)` for exercises; `ILIKE` for searches; ICU `und` collation for sorting | Keeps case-insensitive login, uniqueness, search and ordering. Accent-insensitive equality was not carried over. |
+| `KEY`/`UNIQUE KEY` inside `CREATE TABLE` | `CREATE INDEX` / `CONSTRAINT ... UNIQUE` | Same names (index names are schema-wide in PostgreSQL; none collided). |
+| `UTC_TIMESTAMP(6)`, `NOW(6)` in code | `CURRENT_TIMESTAMP` | — |
+| `ON DUPLICATE KEY UPDATE` | `ON CONFLICT (provider, event_id) DO UPDATE` | Reconciliation upsert. |
+| `SUM(status = 'x')` | `COUNT(*) FILTER (WHERE ...)` | Boolean sums are not valid. |
+| MySQL error 1062 | SQLSTATE `23505` (`isDuplicateEntry`, `violatedConstraint`) | — |
 
-Models use application-generated UUID strings, GORM timestamps and soft-delete
-fields where documented. Repositories include GORM row-locking clauses and raw
-SQL. A reconciliation repository uses `ON DUPLICATE KEY UPDATE`; user and
-exercise repositories recognize MySQL duplicate-key error code 1062. These are
-explicit compatibility-review items, not conversion instructions.
+The 36 migration files keep their numbers, so the migration history (and the
+`schema_migrations` version) is unchanged.
 
-Tests currently use the configured MariaDB environment and transactional cleanup
-patterns in places; this is not proof of a fully isolated database. A future
-migration must establish isolated databases and safe fixtures before destructive
-or parity testing.
+Transaction semantics: PostgreSQL aborts a transaction after any failed
+statement, while MariaDB let it continue. Repository statements whose unique
+violation is mapped to a domain error now run in a savepoint (`inSavepoint`).
+One production path depended on continuing: the Premium Level 2 delivery
+tolerates a concurrent entitlement insert. Tests that provoke a database error
+and keep using their transaction wrap that statement in a savepoint as well.
 
-## Required future stages
+## Tooling
 
-1. Inventory all schema objects, models, views, raw SQL, GORM clauses, jobs,
-   scripts, deployment variables, tests and operational tooling without writes.
-2. Build a reviewed compatibility matrix for UUIDs, JSON, ENUM/checks,
-   generated columns, indexes, collations, timestamps, locking and transactions.
-3. Rehearse schema/data conversion in isolated environments, validating counts,
-   keys, constraints, nullability, relationships and representative content.
-4. Adapt application code only in a dedicated milestone, with both-engine tests,
-   performance checks and query-plan review.
-5. Rehearse backup/restore, cutover, monitoring, rollback and recovery before
-   any production decision. Keep schema conversion, application conversion and
-   cutover separately reviewable.
+- `scripts/postgres_setup.sh` — creates or updates the login role from `.env`
+  and the databases `DB_NAME` and `<DB_NAME>_test` (ICU `und`), through
+  `sudo -u postgres psql` with the values on standard input.
+- `scripts/migrate_mysql_to_postgres.sh` (module `scripts/mysql_to_postgres/`)
+  — copies every row: consistent source snapshot, one target transaction,
+  `TRUNCATE` and refill in foreign-key order, generated columns recomputed,
+  per-table row counts compared before `COMMIT`; `--dry-run` rolls back.
+- `scripts/backup_db.sh` / `scripts/restore_db.sh` — `pg_dump` plain SQL with
+  `--clean --if-exists` / `psql --single-transaction -v ON_ERROR_STOP=1`.
 
-Until that milestone is explicitly approved, keep the MariaDB/MySQL driver,
-configuration, migrations and runtime unchanged.
+## Verification (2026-11-11)
+
+- Migrations: `migrate up` to version 36, a full `migrate down` and `up` again
+  on `ryze_test`, then `migrate up` on `ryze`.
+- Data: dry run, then copies into `ryze_test` and `ryze`: 3791 rows in 40
+  tables, every count equal to MariaDB (version 36 on both sides). Value-level
+  aggregates matched for users, exercises (including JSONB step counts and
+  microsecond timestamps), programs and trainers.
+- Tests: `DB_NAME=ryze_test go test ./... -p 1` — 48 packages pass, including
+  the purchase concurrency test. `go vet ./...` passes.
+- API: backend restarted on PostgreSQL; public endpoints return 200 with
+  `Z` timestamps; on a second instance against `ryze_test`, register, a
+  case-different duplicate registration (409), login with a lower-cased
+  email, `/me`, feedback eligibility and account deletion behaved as before.
+- Backup: backup of `ryze_test` restored into it with equal counts, version
+  36, 28 triggers and `citext`.
+
+## Rollback
+
+MariaDB was left intact (no writes after the cutover) and two dumps were taken
+before the copy in `backups/ryze-mariadb-final-*.sql.gz` (data and triggers;
+the stored-routine dump fails until `mariadb-upgrade` is run, and RYZE has no
+routines). Returning to MariaDB means checking out the backend code before
+v2.108.0, setting `DB_PORT=3306` and restarting; data written to PostgreSQL
+after the cutover would have to be copied back by hand.

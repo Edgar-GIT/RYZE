@@ -5263,7 +5263,7 @@ Admin Verify (access code)
     ↓
 RequireAdminPermission(trainer_applications.read | trainer_applications.manage)
     ↓
-AdminTrainerApplicationHandler → TrainerApplicationsService → Repository → MariaDB
+AdminTrainerApplicationHandler → TrainerApplicationsService → Repository → PostgreSQL
 ```
 
 Applications are never deleted: rejected rows stay in history so the applicant
@@ -5757,7 +5757,7 @@ Admin Verify (access code)
     ↓
 RequireAdminPermission(plans.commission.manage)
     ↓
-AdminCommissionHandler → CommissionRulesService → CommissionRuleRepository → MariaDB
+AdminCommissionHandler → CommissionRulesService → CommissionRuleRepository → PostgreSQL
 ```
 
 The endpoints are:
@@ -6094,7 +6094,7 @@ Admin Verify (access code)
     ↓
 RequireAdminPermission(users.read | users.manage)
     ↓
-AdminUserHandler → AdminUserService → UserRepository → MariaDB
+AdminUserHandler → AdminUserService → UserRepository → PostgreSQL
 ```
 
 There is intentionally **no permanent-deletion endpoint**. Account removal is
@@ -6338,7 +6338,7 @@ Admin Verify (access code)
     ↓
 RequireAdminPermission(trainers.read | trainers.manage)
     ↓
-AdminTrainerHandler → AdminTrainerService → TrainerRepository → MariaDB
+AdminTrainerHandler → AdminTrainerService → TrainerRepository → PostgreSQL
 ```
 
 Trainer and user lifecycles are fully independent:

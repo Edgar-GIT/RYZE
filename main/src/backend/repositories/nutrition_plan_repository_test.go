@@ -475,7 +475,7 @@ func TestNutritionPlanRepository(t *testing.T) {
 	duplicate.ID = ""
 	duplicate.Version = versions[0].Version + 1
 	duplicate.Status = models.NutritionPlanStatusActive
-	if err := h.tx.Create(&duplicate).Error; err == nil {
+	if err := inSavepoint(h.tx, func(sp *gorm.DB) error { return sp.Create(&duplicate).Error }); err == nil {
 		t.Fatal("two active plans: expected the unique active_plan index to reject the row")
 	}
 

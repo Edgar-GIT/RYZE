@@ -16,9 +16,10 @@ isolated database tests for persistence. Use `webapp-testing` only with the
 existing Playwright setup; inspect the rendered page at 360–430px and larger
 viewports for UI work.
 
-Never reset shared or production databases. Existing DB integration tests may
-depend on configured MariaDB and transactions; confirm isolation before running
-them. For migration work, validate schema/data parity, constraints, timestamps,
+Never reset shared or production databases. DB integration tests run against
+PostgreSQL inside transactions; point them at the isolated `<DB_NAME>_test`
+database (`DB_NAME=ryze_test go test ./... -p 1`) rather than the development
+database. For migration work, validate schema/data parity, constraints, timestamps,
 UUIDs, JSON, indexes, transactions, performance and backup/restore separately.
 
 Report exact commands, environment assumptions, pass/fail results and unrelated

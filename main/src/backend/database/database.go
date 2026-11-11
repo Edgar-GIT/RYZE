@@ -102,7 +102,14 @@ func Connect(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	db, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{Logger: dbLogger})
+	db, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{
+		Logger: dbLogger,
+		// GORM-managed timestamps are rounded to the microsecond precision of
+		// TIMESTAMPTZ, so a value held in memory after a write equals the value
+		// read back from the database (the MySQL dialector rounded to the
+		// millisecond for the same reason).
+		NowFunc: func() time.Time { return time.Now().Round(time.Microsecond) },
+	})
 	if err != nil {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("failed to open database connection: %w", err)

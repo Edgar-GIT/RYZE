@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"ryze/backend/config"
 	"ryze/backend/database"
@@ -209,21 +210,25 @@ func TestProgramRepository(t *testing.T) {
 	}
 
 	// 11. The database rejects an invalid program type (CHECK constraint).
-	if err := programRepo.Create(ctx, &models.Program{
-		TrainerID: trainer.ID,
-		Name:      "Bad Type",
-		Type:      "random",
-		Status:    models.ProgramStatusDraft,
+	if err := inSavepoint(tx, func(sp *gorm.DB) error {
+		return repositories.NewProgramRepository(sp).Create(ctx, &models.Program{
+			TrainerID: trainer.ID,
+			Name:      "Bad Type",
+			Type:      "random",
+			Status:    models.ProgramStatusDraft,
+		})
 	}); err == nil {
 		t.Fatal("invalid program type: expected a database error")
 	}
 
 	// 12. The database rejects an invalid program status (CHECK constraint).
-	if err := programRepo.Create(ctx, &models.Program{
-		TrainerID: trainer.ID,
-		Name:      "Bad Status",
-		Type:      models.ProgramTypeFree,
-		Status:    "archived",
+	if err := inSavepoint(tx, func(sp *gorm.DB) error {
+		return repositories.NewProgramRepository(sp).Create(ctx, &models.Program{
+			TrainerID: trainer.ID,
+			Name:      "Bad Status",
+			Type:      models.ProgramTypeFree,
+			Status:    "archived",
+		})
 	}); err == nil {
 		t.Fatal("invalid program status: expected a database error")
 	}
@@ -239,7 +244,9 @@ func TestProgramRepository(t *testing.T) {
 	if err := programRepo.Create(ctx, &blank); err != nil {
 		t.Fatalf("seed blank-name program: %v", err)
 	}
-	if err := tx.Exec("UPDATE programs SET name = NULL WHERE id = ?", blank.ID).Error; err == nil {
+	if err := inSavepoint(tx, func(sp *gorm.DB) error {
+		return sp.Exec("UPDATE programs SET name = NULL WHERE id = ?", blank.ID).Error
+	}); err == nil {
 		t.Fatal("NULL program name: expected a database error")
 	}
 	if err := programRepo.SoftDelete(ctx, trainer.ID, blank.ID); err != nil {
@@ -247,11 +254,13 @@ func TestProgramRepository(t *testing.T) {
 	}
 
 	// 14. The database rejects a program referencing an unknown trainer (FK).
-	if err := programRepo.Create(ctx, &models.Program{
-		TrainerID: "00000000-0000-0000-0000-000000000000",
-		Name:      "Orphan",
-		Type:      models.ProgramTypeFree,
-		Status:    models.ProgramStatusDraft,
+	if err := inSavepoint(tx, func(sp *gorm.DB) error {
+		return repositories.NewProgramRepository(sp).Create(ctx, &models.Program{
+			TrainerID: "00000000-0000-0000-0000-000000000000",
+			Name:      "Orphan",
+			Type:      models.ProgramTypeFree,
+			Status:    models.ProgramStatusDraft,
+		})
 	}); err == nil {
 		t.Fatal("program with unknown trainer: expected a database error")
 	}

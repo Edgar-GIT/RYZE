@@ -1,14 +1,16 @@
 ---
 name: ryze-postgresql-migration
-description: Use only for the explicitly approved future migration of RYZE from its verified MariaDB/MySQL runtime to PostgreSQL; begin with read-only inventory and staged compatibility planning.
+description: Reference for the completed MariaDB -> PostgreSQL migration of RYZE (2026-11-11) - use when repeating the data copy on another environment or reviewing PostgreSQL compatibility of database code.
 ---
 
 # RYZE PostgreSQL migration
 
-This skill prepares and guides a dedicated migration milestone; it does not
-authorize migration work by itself. Start with the factual inventory in
-`docs/AI/database-migration-inventory.md`, then read database, architecture,
-security and procedure documentation.
+The migration was approved by the owner and completed on 2026-11-11; the
+runtime is now PostgreSQL. `docs/AI/database-migration-inventory.md` records
+what was converted, the tooling (`scripts/postgres_setup.sh`,
+`scripts/migrate_mysql_to_postgres.sh`) and how it was verified. Use the stages
+below when repeating the copy on another environment (for example production)
+or when reviewing database code for PostgreSQL compatibility.
 
 Required stages:
 

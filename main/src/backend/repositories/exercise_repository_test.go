@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"gorm.io/gorm"
+
 	"ryze/backend/config"
 	"ryze/backend/database"
 	"ryze/backend/models"
@@ -223,7 +225,9 @@ func TestExerciseRepository(t *testing.T) {
 	if len(links) != 0 {
 		t.Fatalf("soft-deleted alternative link must not be returned, got %d", len(links))
 	}
-	if err := tx.Create(&models.ExerciseAlternative{ExerciseID: squat.ID, AlternativeExerciseID: squat.ID}).Error; err == nil {
+	if err := inSavepoint(tx, func(sp *gorm.DB) error {
+		return sp.Create(&models.ExerciseAlternative{ExerciseID: squat.ID, AlternativeExerciseID: squat.ID}).Error
+	}); err == nil {
 		t.Fatal("self-referencing alternative link: expected a database error")
 	}
 
@@ -235,7 +239,9 @@ func TestExerciseRepository(t *testing.T) {
 	if err := tx.Create(&blank).Error; err != nil {
 		t.Fatalf("seed blank-name exercise: %v", err)
 	}
-	if err := tx.Exec("UPDATE exercises SET name = NULL WHERE id = ?", blank.ID).Error; err == nil {
+	if err := inSavepoint(tx, func(sp *gorm.DB) error {
+		return sp.Exec("UPDATE exercises SET name = NULL WHERE id = ?", blank.ID).Error
+	}); err == nil {
 		t.Fatal("NULL exercise name: expected a database error")
 	}
 	if err := tx.Delete(&models.Exercise{}, "id = ?", blank.ID).Error; err != nil {
@@ -244,7 +250,7 @@ func TestExerciseRepository(t *testing.T) {
 
 	// 12. Every exercise exists only once: an active name is unique.
 	duplicate := &models.Exercise{Name: "RYZE-Test-A"}
-	if err := tx.Create(duplicate).Error; err == nil {
+	if err := inSavepoint(tx, func(sp *gorm.DB) error { return sp.Create(duplicate).Error }); err == nil {
 		t.Fatal("duplicate active exercise name: expected a database error")
 	}
 

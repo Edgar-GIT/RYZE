@@ -252,51 +252,53 @@ It uses Go with the documented GORM stack.
 ## Prerequisites
 
 - Go 1.26 or newer
-- A running MariaDB/MySQL server
+- A running PostgreSQL server (13 or newer; verified on 18)
 
 ## Database Configuration
 
 The backend reads its database configuration from environment variables:
 
 - `DB_HOST` (default `127.0.0.1`)
-- `DB_PORT` (default `3306`)
+- `DB_PORT` (default `5432`)
 - `DB_NAME` (required)
 - `DB_USER` (required)
 - `DB_PASSWORD`
+- `DB_SSLMODE` (default `disable`; `disable`, `allow`, `prefer`, `require`,
+  `verify-ca` or `verify-full` — use `require` or stricter for a remote server)
 
-Local development uses the system MariaDB instance on port `3306`. The
-project uses a dedicated development administrator user with full privileges
-only on the `ryze` database.
-
-Create the database and user with root privileges:
+Local development uses the system PostgreSQL instance on port `5432`. On Arch
+Linux:
 
 ```bash
-sudo mariadb
+sudo pacman -S --needed postgresql
+sudo -iu postgres initdb -D /var/lib/postgres/data --locale=pt_PT.UTF-8 \
+  --encoding=UTF8 --auth-local=peer --auth-host=scram-sha-256
+sudo systemctl enable --now postgresql
 ```
-
-Then run:
-
-```sql
-CREATE DATABASE IF NOT EXISTS ryze CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'ryze_admin'@'127.0.0.1' IDENTIFIED BY 'your_password';
-CREATE USER IF NOT EXISTS 'ryze_admin'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON ryze.* TO 'ryze_admin'@'127.0.0.1';
-GRANT ALL PRIVILEGES ON ryze.* TO 'ryze_admin'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-The `ryze_admin` user receives full privileges only on `ryze.*` and no
-privileges over unrelated databases.
 
 Add the variables to the repository root `.env` file (already ignored by Git):
 
 ```text
 DB_HOST=127.0.0.1
-DB_PORT=3306
+DB_PORT=5432
 DB_NAME=ryze
 DB_USER=ryze_admin
 DB_PASSWORD=your_password
+DB_SSLMODE=disable
 ```
+
+Then create the login role, the application database and an isolated test
+database (`<DB_NAME>_test`) from those values:
+
+```bash
+scripts/postgres_setup.sh
+```
+
+The script runs `psql` as the `postgres` superuser through `sudo`, passes the
+values on standard input (never on a command line) and is safe to re-run. The
+role owns only its two databases, which are created with the ICU root
+collation so text sorts as it did under MariaDB. Apply the schema with
+`go run . migrate up` from `main/src/backend/` (see Database Migrations).
 
 A template without secrets is available at `.env.example`.
 
@@ -745,7 +747,7 @@ go run .
 A successful connection prints:
 
 ```text
-database connection established successfully (host=127.0.0.1 port=3306 db=ryze)
+database connection established successfully (host=127.0.0.1 port=5432 db=ryze)
 ```
 
 If the database is unreachable, misconfigured, or the credentials are
@@ -882,7 +884,31 @@ Migrations are versioned files inside:
 main/src/backend/database/migrations/
 ```
 
-Each migration has an `.up.sql` and a `.down.sql` file.
+Each migration has an `.up.sql` and a `.down.sql` file. They are PostgreSQL
+SQL (converted from the original MariaDB files on 2026-11-11 with the same
+numbering, `000001`–`000036`) and run through golang-migrate's pgx driver;
+each file runs as one implicit transaction.
+
+### Moving data from MariaDB (one-off)
+
+`scripts/migrate_mysql_to_postgres.sh` copies every row from the former
+MariaDB database into PostgreSQL. Stop the backend, apply the migrations to
+the PostgreSQL database, then run it (`--dry-run` copies, verifies and rolls
+back):
+
+```bash
+cd main/src/backend && go run . migrate up && cd ../../..
+scripts/migrate_mysql_to_postgres.sh --source-port 3306 --target-port 5432
+```
+
+It reads the source inside one consistent snapshot and writes the target in
+one transaction: the application tables are emptied and refilled in
+foreign-key order (generated columns are recomputed by PostgreSQL), and every
+table's row count is compared with the source before the commit. Host,
+database, user and password come from `.env`; `SOURCE_DB_*` / `TARGET_DB_*`
+override one side. The tool is its own Go module
+(`scripts/mysql_to_postgres/`), so the backend no longer depends on a MySQL
+driver.
 
 Run all pending migrations:
 
@@ -932,13 +958,14 @@ licensing gate.
 ## Deployment
 
 A production-like stack is defined in `docker-compose.yml` at the repository
-root. It runs three services: `db` (MariaDB, never published to the host),
+root. It runs three services: `db` (PostgreSQL 17, never published to the host),
 `backend` (the API image) and `frontend` (nginx serving the built client and
 proxying `/api/` to the backend on the same origin, so the session cookie stays
 first-party).
 
 1. Create the environment file from the template and fill in every required
-   value. The containerised database additionally needs `DB_ROOT_PASSWORD`:
+   value. The containerised database creates `DB_USER` with `DB_PASSWORD` as
+   the owner of `DB_NAME` on its first start:
 
    ```bash
    cp .env.example .env
@@ -1003,8 +1030,9 @@ docker build --build-arg VERSION=2.99.0 -t ryze-api ./main/src/backend
 
 ### Backups
 
-`scripts/backup_db.sh` writes a consistent, compressed snapshot to `backups/`
-(override with `BACKUP_DIR`) using the connection settings from `.env`. It
+`scripts/backup_db.sh` writes a consistent, compressed `pg_dump` snapshot
+(plain SQL with `--clean --if-exists`) to `backups/` (override with
+`BACKUP_DIR`) using the connection settings from `.env`. It
 supports optional GPG encryption via `BACKUP_GPG_RECIPIENT` and local retention
 via `BACKUP_RETENTION_DAYS`. Explicitly exported connection or GPG variables
 take precedence over `.env`, so a recovery run can target a disposable database
@@ -1013,18 +1041,18 @@ are `0600`; an encryption failure removes the plaintext and partial ciphertext
 instead of leaving an unprotected artefact.
 
 Because the compose database is not published to the host, dump it through the
-container instead. The container already holds its MariaDB credentials:
+container instead. The container already holds its PostgreSQL credentials:
 
 ```bash
 mkdir -p backups
 docker compose exec -T db sh -c '
-  MYSQL_PWD="$MARIADB_PASSWORD" exec mariadb-dump \
-    --user="$MARIADB_USER" \
-    --single-transaction --routines --triggers --events "$MARIADB_DATABASE"
+  exec pg_dump --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" \
+    --clean --if-exists --no-owner --no-privileges
 ' | gzip -9 > "backups/ryze-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
 ```
 
-Restore (destructive, refuses to run without `--yes`):
+Restore (destructive, refuses to run without `--yes`; it runs in one
+transaction and stops at the first error):
 
 ```bash
 scripts/restore_db.sh backups/ryze-20260101T000000Z.sql.gz --yes
@@ -1040,7 +1068,9 @@ production host, and validated by periodic restoration tests. A v2.99.0 drill
 restored both a plain and a GPG-encrypted snapshot into disposable databases:
 all 33 tables, migration version 32, and every table row count matched the
 source. That drill is local evidence, not a substitute for encrypted off-host
-storage.
+storage. After the PostgreSQL migration (v2.108.0) a backup of the isolated
+test database was restored into it and reproduced the row counts, migration
+version 36, the 28 `updated_at` triggers and the `citext` extension.
 
 ---
 
@@ -1060,15 +1090,21 @@ go test ./services/... ./repositories/... -count=1
 
 ## Run All Tests Including Integration Tests
 
-Integration tests require a running MariaDB instance and a valid `.env` file:
+Integration tests require a running PostgreSQL instance and a valid `.env`
+file. Point them at the isolated test database created by
+`scripts/postgres_setup.sh` (an exported variable wins over `.env`), and apply
+the migrations there first:
 
 ```bash
 cd main/src/backend
-go test ./... -count=1
+DB_NAME=ryze_test go run . migrate up
+DB_NAME=ryze_test go test ./... -count=1 -p 1
 ```
 
 Integration tests use database transactions that roll back automatically — no
-manual cleanup is needed.
+manual cleanup is needed. Statements a test expects the database to reject run
+inside a savepoint (`inSavepoint` in `repositories/savepoint_helpers_test.go`),
+because PostgreSQL aborts a transaction after any failed statement.
 
 ## Run a Specific Test
 

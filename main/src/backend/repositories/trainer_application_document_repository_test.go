@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"ryze/backend/config"
 	"ryze/backend/database"
 	"ryze/backend/models"
@@ -113,7 +115,9 @@ func TestTrainerApplicationDocumentRepository(t *testing.T) {
 		ByteSize:         1,
 		SHA256:           fmt.Sprintf("%064d", 2),
 	}
-	if err := documentRepo.Create(ctx, duplicate); err == nil {
+	if err := inSavepoint(tx, func(sp *gorm.DB) error {
+		return repositories.NewTrainerApplicationDocumentRepository(sp).Create(ctx, duplicate)
+	}); err == nil {
 		t.Fatal("duplicate storage key: expected a uniqueness error")
 	}
 
