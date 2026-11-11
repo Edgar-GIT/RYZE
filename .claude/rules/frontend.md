@@ -19,7 +19,8 @@ paths:
 - Do not use static background images outside login and registration. Functional
   content imagery is allowed when it communicates real information.
 - Public pages follow the one design principle in `docs/INSTRUCTIONS/design.MD`
-  (continuous navy page, glass cards, cyan light, light-blue wave panel); do not
+  (continuous navy page, glass cards, cyan light, light-blue wave panel); use
+  the login page's split panel for moments that should draw attention; do not
   reintroduce paper, white, cyan or royal section bands.
 - Three.js is for useful interaction and the owner-approved desktop Home scroll
   story. Preserve existing exercise demos, lazy-load heavy code, keep the Home

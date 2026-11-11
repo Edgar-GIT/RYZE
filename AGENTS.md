@@ -183,7 +183,9 @@ decorative backgrounds elsewhere.
 
 Public pages follow one design principle (`docs/INSTRUCTIONS/design.MD`, "Public
 Website Layer"): one continuous logo-navy page, app-style glass cards, cyan as
-the light and the light-blue wave panel as the only bright surface.
+the light and the light-blue wave panel as the only bright surface. The login
+page's look (navy half + light-blue wave half, the `split` panel in
+`public_ui`) is the owner's model for moments that should draw attention.
 
 Protected parts (owner revisions of 2026-11-10/11; full inventory in
 `docs/AI/frontend-revamp.md`): the footer's layout, link columns, slogan image

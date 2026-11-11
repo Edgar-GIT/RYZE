@@ -41,8 +41,8 @@ indirect effects from shared components, global tokens or CSS:
 | --- | --- | --- |
 | Website footer — `components/footer/` (consumed by `components/layout/layout.tsx`) | Layout, link columns and their links, the slogan image, copy | Surface colour, lines, link/heading colours, typeface |
 | Exercise Library and details — `pages/exercise_library_page/`, `pages/exercise_detail_page/`, `components/exercise_library/` (including the Three.js demo/viewer and tests) | Layout, components, behaviour, media and the 3D viewer | Colours only, through page-scoped token overrides in each page's `.page` rule, plus the library title typeface |
-| Services page — `pages/services_page/` | The service cards: `components/service_card/` markup and styles, and the card grid (the owner added a purple "Personalized" tag variant for Premium Level 2 on 2026-11-11) | Page background (the former static background image is removed), intro, loading state, benefits row; the original showcase cards appear while nothing is published |
-| Home “Find Your Next Program” — `components/programs_overview_section/` | The card background images (`advert1–3`), until the owner replaces them | Everything else: redesigned on 2026-11-11 as the Home's main call to action and moved right after the hero |
+| Services page — `pages/services_page/` | The service cards: `components/service_card/` markup and styles, and the card grid (the owner added a purple "Personalized" tag variant for Premium Level 2 on 2026-11-11) | Page background (the former static background image is removed), intro, loading state, benefits row, the route guide split panel (2026-11-11); the original showcase cards appear while nothing is published |
+| Home “Find Your Next Program” — `components/programs_overview_section/` | The card background images (`advert1–3`), until the owner replaces them | Everything else: redesigned on 2026-11-11 as the Home's main call to action and moved right after the hero; only free programs carry a tag (the Premium Level tags were removed the same day) |
 | Login and registration — `pages/login_page/` | Form fields, validation, messages, API calls and redirects | Everything visual (fully redesigned; no background image now) |
 
 Verify the protected parts against a pristine copy (see the verification
@@ -88,6 +88,17 @@ motion, no horizontal overflow, loading/error/empty states and preserved API
 flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
+
+- 2026-11-11 (owner feedback) — The owner singled out the login page and the
+  Home "Get in touch" panel as the look to repeat where RYZE wants attention.
+  The split panel (`split`, `splitPane`, `splitLight` in `public_ui`) now
+  carries that look on Services; Our Vision's hero tile uses the light-blue
+  wave panel's colours. The free training-plan marketplace (part of the
+  marketplace group) received the public colours through page-scoped tokens
+  and its own components only, with its layout and behaviour unchanged; the
+  other marketplace/purchase pages are not started. The desktop Home story was
+  restructured into two pinned stages around the programs (see
+  `docs/PAGES/design.MD`, Home story).
 
 - 2026-11-10 (owner revision) — The owner asked for one consistent site: no
   more switching between navy, paper, cyan and royal sections. The public layer

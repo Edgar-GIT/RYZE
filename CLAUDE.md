@@ -71,8 +71,11 @@ accessible semantic tokens.
 Public pages follow one design principle (`docs/INSTRUCTIONS/design.MD`, "Public
 Website Layer"): one continuous logo-navy page with soft blue light, app-style
 glass cards, cyan as the light and the light-blue wave panel as the only bright
-surface. Do not reintroduce paper, white, cyan or royal section bands; the owner
-rejected them as making parts of the site look unrelated.
+surface. The login page's look (a navy half joined to the light-blue wave half,
+the `split` panel in `public_ui`) is the owner's model for moments that should
+draw attention, such as Services. Do not reintroduce paper, white, cyan or royal
+section bands; the owner rejected them as making parts of the site look
+unrelated.
 
 Static background images are forbidden everywhere except login and registration.
 Functional imagery (exercise media, avatars and useful product imagery) is

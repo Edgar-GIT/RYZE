@@ -391,13 +391,16 @@ are not mounted.
 5. Get started — "Your next level starts here." with the same two CTAs.
 
 Every chapter sits on the same navy. In Train and Fuel, three cards lifted out
-of the phone screen are set out on its left, one per feature point (set
-logging, rest timer, week schedule; protein, a meal with foods, the daily
-target), joined to the phone by a clean right-angled tree (a stub from the
-phone, a trunk, one branch per card, nodes at the joints); phones show two of
-them overlapping the phone edges. In Evolve the laptop and phone stand side by
-side under the badge "Synced · phone & laptop" (no connecting line), and the
-Earth leaves the frame. The laptop and the Evolve phone use large-type screens
+of the phone screen are set out on its left, one per feature point (week
+schedule, set logging, rest timer; daily target, protein, a meal with foods).
+Each card is joined to the screen element it shows (owner revision,
+2026-11-11): the element is outlined on the phone screen, a rounded leader runs
+from the phone's edge at that element's height to the card, and a light pulse
+travels along it once drawn. Cards are ordered like their elements, so the
+leaders never cross. Phones show two of them (set and rest timer; protein and
+meal) overlapping the phone edges. In Evolve the laptop and phone stand side by
+side under the badge "Synced · phone & laptop" (no connecting line), centred
+over the pair with a soft breathing light, and the Earth leaves the frame. The laptop and the Evolve phone use large-type screens
 designed for the size at which they appear. Product visuals are illustrative RYZE
 screens designed in the app's style after the owner's phone reference, with
 sample data and existing features only (`main/src/resources/img/showcase/`:
@@ -405,10 +408,22 @@ today's training session, the day's nutrition plan, the programme page), and
 labelled "Illustrative RYZE screens with sample data."
 
 Desktop (≥1024px wide, ≥680px tall, fine pointer, WebGL2, no reduced-motion
-preference) pins one 3D stage behind the hero, the programs and a 500svh
-chapter track: the hero scrolls away normally, the programs pass over the
-turning Earth, then the chapters play. Scroll progress drives one Three.js
-scene (`story_scene.ts`, dynamically imported):
+preference) uses two pinned stages that share one canvas (owner revision,
+2026-11-11, after the hero lost its scroll animation, the Earth showed through
+the program cards, an empty stretch followed them and the last chapter stayed
+pinned under the next section):
+
+1. The opening stage stays pinned for 55vh of scroll while the hero copy fades
+   and lifts and the Earth turns to the centre; then it scrolls away with the
+   page.
+2. The programs follow in normal page flow (at least one viewport tall), with
+   no 3D behind them; rendering pauses while only they are on screen.
+3. The chapter stage (a 500svh track) scrolls into view with the phone and the
+   Train copy already in place, plays the chapters, and scrolls away after
+   "Get started" before the next section begins.
+
+Scroll progress drives one Three.js scene (`story_scene.ts`, dynamically
+imported); the canvas moves to whichever stage is on screen:
 the Earth with real continents and an atmosphere, RYZE routes leaving Lisbon
 (light pulses travel each route) and the official icon on a badge above
 Lisbon — the brand travelling the world; a modelled phone (titanium frame,
@@ -418,8 +433,8 @@ nutrition screen; a laptop (black keys with backlit legends, Touch ID and arrow
 keys, glass trackpad, opening scoop, hinge, display notch) that rises with the
 logo on its closed lid and opens square-on to the viewer on the programme
 screen, with the phone standing beside it; then the Earth returns for
-the call to action. The stage backdrop stays in the navy family (only the
-blue light moves) and fades into the page at its base, the
+the call to action. The stage backdrops stay in the navy family (only the
+blue light moves) and dissolve into the page where each stage meets it, the
 chapter copy fades in its scroll window (every chapter stays in the
 accessibility tree; keyboard focus inside a faded chapter scrolls it into view).
 The former right-edge chapter navigation was removed to give the devices room.
@@ -449,11 +464,14 @@ its own package; a loading state shows while the catalogue loads.
 Presentation (owner revision, 2026-11-11): the Home's main call to action. Label
 "Start training today", heading "Find your next program." and "See all plans" →
 `/services`; tall full-photo cards (the current `advert1–3` images) with an icon,
-a level tag in the Services colours (Free cyan, Premium Level 1 blue, Premium
-Level 2 purple), the title, three lines of description and a primary CTA on
-every card; lift, glow and photo zoom on hover. Below 768px the cards form a
-swipeable row (keyboard tab stop only at those widths). On desktop the section
-passes over the pinned 3D Earth through a dimmed navy band.
+the title, three lines of description and a primary CTA on every card; lift,
+glow and photo zoom on hover. Only free programs carry a tag ("Free"): the
+owner removed the Premium Level 1/2 tags because the goal cards and their
+images do not describe the levels (Premium Level 1 is a hypertrophy training
+plan with nutrition, not personalized; Premium Level 2 is personalized). Below
+768px the cards form a swipeable row (keyboard tab stop only at those widths).
+The section is transparent with a soft blue light behind the cards; on desktop
+it sits between the two 3D stages, never over them.
 
 ### Category overview
 
@@ -495,10 +513,26 @@ Catalog landing
   `bg_services.png` background image is no longer used)
 - Label "Services" and headline "Choose how you want to RYZE." in Archivo,
   "RYZE" in cyan; the headline wraps on phones so the cards fit the screen
-- Four evolution items in an app-style glass panel with dividers and cyan
-  icon tiles: Train Smarter
-  (Dumbbell), Reach your Goals (Heart), Progress Faster (Zap), Get Stronger
-  (Trophy), each with a short descriptive phrase
+- "RYZE" in the headline carries a light gradient (ice → cyan → ring blue)
+- Four items in an app-style glass panel with dividers and cyan icon tiles,
+  describing what the product does today (owner revision 2026-11-11 replaced
+  the former "AI-powered programs that adapt to you" and "Smart analytics"
+  claims): Planned for you (weeks and training days in order), Every detail
+  set (sets, reps, load, rest and tempo per exercise), Log as you go (live
+  session timer with set-by-set logging), See your progress (workout history
+  after every session)
+- A route guide in the login page's split panel (owner request, 2026-11-11:
+  "apply the login look where we want attention"): on the navy half, "Which
+  one is for you?" with three linked rows — Just training ("Ready-made
+  training plans, including free ones." → `/services/generic-program`),
+  Training and nutrition ("Premium Level 1: a hypertrophy programme with a
+  nutrition plan, delivered right after purchase." →
+  `/services/premium-level-1`), Built around you ("Premium Level 2: a RYZE
+  trainer prepares your programme and nutrition plan after an intake." →
+  `/services/premium-level-2`); on the light-blue wave half, "New to RYZE?",
+  "Start free today.", a line inviting a free account and a first session, and
+  "Create free account" → `/register` and "Log in" → `/login`. The halves
+  stack on phones.
 - One image-backed category card per available product family, using
   `rcc1.png` for the generic training-plan marketplace and `rcc2.png` for
   Premium Level 1 and Premium Level 2, each animating in with a staggered
@@ -644,9 +678,9 @@ FILTER RESULTS COUNT (when filters active)
 (Calendar icon + `N weeks`, Repeat icon + `M days/week`) and the category
    (`training_type · level`, falling back to the audience level when the training
    type is unset). A price line communicates the current sale price: "Free" in
-   muted type for free programs, the EUR amount in prominent type for paid ones
-   (formatted from integer minor units). No downloads, no ratings, no CTAs, no
-   badges. Each card links to the program detail page. Hover: gentle lift, subtle image
+   cyan for free programs, the EUR amount in prominent type for paid ones
+   (formatted from integer minor units). No downloads, no ratings and no CTAs;
+   the only badge is the decorative "Free" on a free program's cover. Each card links to the program detail page. Hover: gentle lift, subtle image
    scale, brighter border and faint cyan shadow — restrained, not glowy. Cards
    are sized purely by the CSS grid (no JavaScript measurement); all cards in a
    row share an equal height. Inside an active Test Mode session every
@@ -668,8 +702,15 @@ FILTER RESULTS COUNT (when filters active)
   empty scroll space below it.
 - **Infinity scroll concept** — the marketplace is structured as endless
   vertical page scrolling; no numbered pagination and no load-more button.
-- **Background** — near-black with very subtle radial blue glows at the top
-  corners. Deliberately less noisy than the homepage.
+- **Colour (owner request, 2026-11-11: "more life, same layout")** — the
+  public design's colours through page-scoped tokens: logo navy with blue
+  light around the page, glass filter panel and arrows, a navy search pill
+  with a cyan edge, cyan filter headings and checkboxes, the "Training plans."
+  title and row titles in Archivo (row titles with a short cyan light bar),
+  and a cyan "Free" price. Card covers are brand gradients (a cyan horizon
+  under a blue sky, in four tones chosen from the program id) with a glowing
+  logo and, for free programs, a cyan "Free" badge on the cover. The layout,
+  rows, carousels and behaviour are unchanged.
 - **Responsive** — desktop: three large cards per row with arrows on both sides,
   vertically centered against the card column, beside the sticky, scrollable,
   collapsible filter rail in the wide (1500px) program area. Tablet: sidebar
@@ -1078,7 +1119,8 @@ Sections:
    platform — and keeps evolving, with AI-generated programs next on our
    roadmap."; "On this page" links (`#why-ryze`, `#how-it-works`,
    `#vision-roadmap`, `#vision-evolution`); and a wall of identical greyed-out
-   "12-week plan" apps with RYZE lit up in the middle, listing training and
+   "12-week plan" apps with RYZE in the middle as a light-blue wave tile (the
+   login page's bright panel, its icon on a navy tile), listing training and
    nutrition in one plan, plans prepared by real trainers, every set logged and
    every week tracked, and AI-generated programs marked "Next" (owner revision,
    2026-11-11; AI generation is on the roadmap, not live — see
@@ -1089,11 +1131,13 @@ Sections:
    you actually did) against a RYZE column (programs filtered by goal, level,
    duration and weekly frequency; training and nutrition together in Premium
    plans; Premium Level 2 plans prepared by a RYZE trainer; every session
-   logged with history and progress; AI-generated programs, "Next").
+   logged with history and progress; AI-generated programs, "Next"). The RYZE
+   column has a cyan top edge, a cyan glow and filled cyan check marks.
 2. How RYZE works — "Start your journey in minutes. Transform for
-   life." and five numbered glass step cards.
+   life." and five numbered glass step cards with gradient numbers.
 3. Roadmap — "Where RYZE is going." with the milestones grouped by
-   phase (Today, Next, Soon, Later, Horizon) on a rail; Today is highlighted.
+   phase (Today, Next, Soon, Later, Horizon) on a rail; Today is highlighted
+   and sends out a slow ring of light (static with reduced motion).
    Milestones are not links.
 4. Continuous evolution — "Software is never finished.", "See what's
    next" → `#vision-roadmap`, six glass capability cards with cyan icon tiles,

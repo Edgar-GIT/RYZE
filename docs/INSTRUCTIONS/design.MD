@@ -166,6 +166,12 @@ The website is built from the same materials as the app:
 - cyan is the light: headline continuations, primary buttons, icons, focus;
 - one bright element only: the light-blue wave panel (`toneLight` + `lightPanel`
   + `Waves`), used for calls to action and the authentication side panel.
+- the login page's look is the model for moments that should draw attention
+  (owner, 2026-11-11): the split panel (`split` + `splitPane` + `splitLight`
+  in `public_ui`) joins a navy glass half to the light-blue wave half in one
+  card. It is used on Services (route guide and "Start free today"), and the
+  wave panel's colours light the RYZE tile in the Our Vision hero. Use it for
+  conversion and comparison moments, not as a section background.
 
 ## Verified logo colours
 
@@ -221,7 +227,13 @@ Archivo (variable, SIL Open Font License, self-hosted in
 ## 3D and product visuals
 
 - Desktop Home only: one Three.js scene (`components/home_story/story_scene.ts`)
-  driven by scroll, loaded with a dynamic import after a capability check
+  driven by scroll, shown on two pinned stages that share one canvas (it moves
+  to whichever stage is on screen): the opening (the copy fades while the
+  Earth turns to the centre, then the stage scrolls away with the page) and the
+  device chapters (the stage scrolls into view with the phone already in place
+  and scrolls away after "Get started"). The programs sit between the stages in
+  normal page flow, at least one viewport tall, so no 3D is ever behind them.
+  The scene is loaded with a dynamic import after a capability check
   (`hooks/use_immersive_story.ts`: ≥1024×680, fine pointer, WebGL2, no
   reduced-motion preference). Procedural geometry only; default GPU preference;
   pixel ratio capped at 1.5 and no MSAA on high-DPI screens; shaders compiled
@@ -239,12 +251,18 @@ Archivo (variable, SIL Open Font License, self-hosted in
   horizontal parts barely reflect the studio environment (seen at a grazing
   angle they would mirror white). Train and Fuel show three cards lifted out of
   the phone screen (`callout_*.webp`, shared with the mobile layout); Evolve
-  places laptop and phone side by side under a "Synced" badge. The Train and
-  Fuel cards hang from a right-angled tree of thin lines and nodes leading
-  back to the phone. Screens and cards are sampled one mip level sharper (map
+  places laptop and phone side by side under a "Synced" badge with a soft
+  breathing light (no line between the devices). Each Train and Fuel card is
+  joined to the screen element it shows: the element is outlined on the phone
+  screen, and a rounded leader runs from the phone's edge at that element's
+  height to the card; outline, leader and card arrive in that order, and a
+  light pulse then travels along each leader. Cards are ordered like their
+  elements, so leaders never cross. Screens and cards are sampled one mip level sharper (map
   LOD bias) and the laptop/Evolve-phone screens use large type for the size at
-  which they appear. The stage backdrop and the star field fade
-  out at the stage's base so the page's light continues under the next section. The backdrop stays in the navy family through every chapter.
+  which they appear. Each stage's backdrop dissolves into the page where the
+  stage meets it, so the page's light continues without an edge. The backdrop
+  stays in the navy family through every chapter. All materials, including the
+  hidden diagram and badge ones, are compiled before the first frame.
 - Mobile, tablet, reduced motion and no-WebGL use lightweight equivalents
   (`components/brand_globe/`: an SVG globe with the same routes;
   `components/showcase/`: phone and laptop frames). They never download Three.js.

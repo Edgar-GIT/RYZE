@@ -1,3 +1,85 @@
+# Version 2.106.0
+
+Title: Home story fixes, linked diagrams and the login look on Services
+
+Date: 2026-11-11
+
+Summary:
+
+The desktop Home story now uses two pinned stages that share one WebGL canvas:
+the opening (the hero copy fades while the Earth turns to the centre, then the
+stage scrolls away), the programs in normal flow with nothing behind them, and
+the device chapters, whose stage scrolls in with the phone already in place
+and scrolls away after "Get started". This fixes four reported bugs: the lost
+hero scroll animation, the Earth behind the program cards, the empty stretch
+after them, and the last chapter staying pinned under the next section. Each
+Train/Fuel card is now joined to the screen element it shows (outline on the
+screen, rounded leader, travelling light pulse); the "Synced" badge sits over
+both devices. The program cards lose their Premium Level tags. The login
+page's split panel becomes a public primitive and gives Services a route guide
+with a "Start free today" panel; the free training-plan marketplace and Our
+Vision get the public colours and more light without layout changes.
+
+Main changes:
+
+- `components/home_story/story_immersive.tsx` + CSS (two stages, canvas moves
+  between them, opening fade, release after the track), `story_scene.ts`
+  (`setProgress(progress, immediate)`, new opening/track keyframes, leader-line
+  diagram with outlines and pulses, badge light, all materials precompiled),
+  `story_content.ts` (callouts ordered like their screen elements),
+  `story_stacked.tsx` (keeps the set/rest and protein/meal cards).
+- `components/programs_overview_section/` — only free programs carry a tag;
+  transparent section with a soft blue light.
+- `components/public_ui/public_ui.module.css` — `split`, `splitPane`,
+  `splitLight`.
+- `pages/services_page/` — route guide split panel, gradient "RYZE", benefits
+  rewritten to existing features (the former AI and analytics claims removed).
+- `pages/generic_plan_marketplace_page/`, `components/program_card/`,
+  `program_row/`, `filter_sidebar/`, `search_bar/`, `carousel_arrow/` (all used
+  only by the marketplace) — public colours, brand-gradient covers, "Free"
+  badge, Archivo titles.
+- `pages/our_vision_page/` — light-blue RYZE tile in the hero wall, gradient
+  step numbers, a light ring on "Today", a brighter RYZE comparison column.
+
+Reason:
+
+Owner feedback on the Home story bugs and diagrams, the wrong impression given
+by the level tags, and the request to apply the login page's colours where
+RYZE wants attention (especially Services) and to give the marketplace and Our
+Vision more life without changing their layout.
+
+Modified files:
+
+- `main/src/frontend/src/components/home_story/` (`story_immersive.tsx`,
+  `story_immersive.module.css`, `story_scene.ts`, `story_content.ts`,
+  `story_stacked.tsx`)
+- `main/src/frontend/src/components/programs_overview_section/`
+- `main/src/frontend/src/components/public_ui/public_ui.module.css`
+- `main/src/frontend/src/pages/services_page/`
+- `main/src/frontend/src/pages/generic_plan_marketplace_page/`,
+  `components/program_card/`, `components/program_row/program_row.module.css`,
+  `components/filter_sidebar/filter_sidebar.module.css`,
+  `components/search_bar/search_bar.module.css`,
+  `components/carousel_arrow/carousel_arrow.module.css`
+- `main/src/frontend/src/pages/our_vision_page/`
+- `docs/INSTRUCTIONS/design.MD`, `docs/PAGES/design.MD`,
+  `docs/AI/frontend-revamp.md`, `docs/REGISTRY/update_logs.MD`, `CLAUDE.md`,
+  `AGENTS.md`, `.claude/rules/frontend.md`,
+  `.claude/skills/ryze-frontend-revamp/SKILL.md` (the split panel as the look
+  for attention moments)
+
+Verification:
+
+- `npm run typecheck`, `npm run test` (148/148), `npm run build` and
+  `npm run test:e2e` (8/8) passed.
+- Browser checks (headless Chromium, SwiftShader WebGL): 29 story checks —
+  opening fade while pinned, no stage behind the program cards, canvas moving
+  between stages, Train visible on arrival, the chapter stage released before
+  the next section, rendering paused off screen and between the stages,
+  disposal on navigation, reduced-motion/no-WebGL/mobile fallbacks without
+  Three.js; interaction checks; no horizontal overflow on 10 routes × 8 widths;
+  screenshots at 1024×768, 1280×720, 1440×900, 1920×1080 and 390×844.
+
 # Version 2.105.0
 
 Title: Member feedback with administrator review

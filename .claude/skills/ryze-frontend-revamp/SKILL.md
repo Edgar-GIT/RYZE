@@ -27,7 +27,8 @@ Mandatory constraints:
   background images; login/registration fields, validation and API flow),
   directly or through shared styling.
 - Follow the one public design principle in `docs/INSTRUCTIONS/design.MD`
-  (continuous navy page, glass cards, cyan light, light-blue wave panel).
+  (continuous navy page, glass cards, cyan light, light-blue wave panel; the
+  login page's split panel for moments that should draw attention).
 - Treat Three.js as functional, lazy, fallback-capable and mobile-conscious; the
   desktop Home scroll story is owner-approved, but never add decorative 3D
   backgrounds elsewhere or dependencies by implication.
