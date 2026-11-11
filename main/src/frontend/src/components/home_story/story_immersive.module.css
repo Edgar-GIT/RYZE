@@ -1,27 +1,28 @@
-/* Hero, programs and the chapter track flow over one pinned 3D stage. The
-   stage's negative bottom margin lets the content that follows overlap it. */
+/* Two pinned stages share one WebGL canvas: the opening (with the Earth) and
+   the device chapters. The programs sit between them in normal page flow. */
 .story {
   position: relative;
+}
+
+/* The opening stays pinned for this much scroll before it scrolls away. */
+.intro {
+  --hero-pin: 55vh;
+  position: relative;
+  height: calc(100vh + var(--hero-pin));
+  height: calc(100svh + var(--hero-pin));
 }
 
 .stage {
   position: sticky;
   top: 0;
-  z-index: 0;
   height: 100vh;
   height: 100svh;
-  margin-bottom: -100vh;
-  margin-bottom: -100svh;
   overflow: hidden;
   isolation: isolate;
 }
 
-.hero {
-  position: relative;
-  z-index: 1;
+.heroStage {
   display: grid;
-  min-height: 100vh;
-  min-height: 100svh;
   align-items: center;
   padding-top: var(--r-nav-clearance);
 }
@@ -35,40 +36,62 @@
   display: grid;
   gap: 1.75rem;
   width: min(44%, 36rem);
+  will-change: opacity, transform;
 }
 
 /* The opening headline's long words ("everywhere.") stay inside the copy column. */
-.hero h1 {
+.heroCopy h1 {
   font-size: clamp(3.25rem, 4.9vw, 5.25rem);
 }
 
+/* At least one viewport tall, so the two stages are never on screen together. */
 .programs {
   position: relative;
-  z-index: 1;
+  display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  align-content: center;
 }
 
 /* Scroll room for the four device chapters. */
 .track {
+  position: relative;
   height: 500vh;
   height: 500svh;
 }
 
-/* The backdrop dissolves into the page at its base, so the page's own light
-   continues under the next section without an edge. */
+/* The backdrops dissolve into the page where their stage meets the page, so
+   the page's own light continues without an edge. */
 .backdrop {
   position: absolute;
   inset: 0;
   z-index: -2;
   background: linear-gradient(160deg, #02041f 0%, #061447 100%);
+}
+
+.heroBackdrop {
+  background:
+    radial-gradient(70rem 46rem at 78% 30%, rgba(4, 129, 220, 0.34), transparent 66%),
+    linear-gradient(160deg, #02041f 0%, #050e3a 100%);
   mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
 }
 
-/* The stars fade out with the backdrop; the devices stay above the fade. */
+.trackBackdrop {
+  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 62%, transparent 100%);
+}
+
 .canvasHost {
   position: absolute;
   inset: 0;
   z-index: -1;
+}
+
+.heroHost {
   mask-image: linear-gradient(180deg, #000 0%, #000 93%, transparent 100%);
+}
+
+.trackHost {
+  mask-image: linear-gradient(180deg, transparent 0%, #000 6%, #000 93%, transparent 100%);
 }
 
 .canvas {
@@ -82,7 +105,7 @@
   transition: opacity 600ms ease;
 }
 
-.stageReady .canvas {
+.storyReady .canvas {
   opacity: 1;
 }
 

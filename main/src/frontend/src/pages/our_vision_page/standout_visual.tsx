@@ -1,6 +1,7 @@
 import { Check, Dumbbell, Sparkles } from "lucide-react";
 import type { CSSProperties } from "react";
 
+import { Waves } from "@/components/public_ui/public_ui";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { joinClassNames } from "@utils/class_names";
 
@@ -15,9 +16,10 @@ const DIFFERENCES = [
 
 const SAME_TILES = 12;
 
-// StandoutVisual: a wall of identical, greyed-out fitness apps with RYZE lit up
-// in the middle, listing what it does differently. Decorative (the copy and the
-// comparison section below say the same in text).
+// StandoutVisual: a wall of identical, greyed-out fitness apps with RYZE in the
+// middle as the light-blue wave panel (the login page's bright half), listing
+// what it does differently. Decorative (the copy and the comparison section
+// below say the same in text).
 export const StandoutVisual = ({ className }: { className?: string }) => (
   <div className={joinClassNames(styles.wall, className)} aria-hidden="true">
     {Array.from({ length: SAME_TILES }, (_, index) => (
@@ -47,6 +49,7 @@ export const StandoutVisual = ({ className }: { className?: string }) => (
           <em>Next</em>
         </li>
       </ul>
+      <Waves className={styles.waves} />
     </div>
   </div>
 );

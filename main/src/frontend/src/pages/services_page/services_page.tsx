@@ -1,7 +1,9 @@
-import { Dumbbell, Heart, Trophy, Zap } from "lucide-react";
+import { ArrowRight, CalendarDays, Dumbbell, History, ListChecks, UserCheck, UtensilsCrossed } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { PublicAction, Waves } from "@/components/public_ui/public_ui";
 import { Reveal } from "@/components/reveal/reveal";
 import { ServiceCard } from "@/components/service_card/service_card";
 import ui from "@/components/public_ui/public_ui.module.css";
@@ -12,26 +14,49 @@ import { joinClassNames } from "@utils/class_names";
 
 import styles from "./services_page.module.css";
 
+// What every route includes, in the product's own terms.
 const evolutionItems = [
   {
+    icon: CalendarDays,
+    title: "Planned for you",
+    text: "Weeks and training days, laid out in order."
+  },
+  {
+    icon: ListChecks,
+    title: "Every detail set",
+    text: "Sets, reps, load, rest and tempo per exercise."
+  },
+  {
     icon: Dumbbell,
-    title: "Train Smarter",
-    text: "AI-powered programs that adapt to you."
+    title: "Log as you go",
+    text: "A live session timer with set-by-set logging."
   },
   {
-    icon: Heart,
-    title: "Reach your Goals",
-    text: "Track every milestone along the way."
+    icon: History,
+    title: "See your progress",
+    text: "Workout history after every session."
+  }
+] as const;
+
+// Helps a visitor pick a route by what they want, not by level names.
+const ROUTES = [
+  {
+    icon: Dumbbell,
+    title: "Just training",
+    text: "Ready-made training plans, including free ones.",
+    to: "/services/generic-program"
   },
   {
-    icon: Zap,
-    title: "Progress Faster",
-    text: "Smart analytics to keep you ahead."
+    icon: UtensilsCrossed,
+    title: "Training and nutrition",
+    text: "Premium Level 1: a hypertrophy programme with a nutrition plan, delivered right after purchase.",
+    to: "/services/premium-level-1"
   },
   {
-    icon: Trophy,
-    title: "Get Stronger",
-    text: "Build lasting strength and endurance."
+    icon: UserCheck,
+    title: "Built around you",
+    text: "Premium Level 2: a RYZE trainer prepares your programme and nutrition plan after an intake.",
+    to: "/services/premium-level-2"
   }
 ] as const;
 
@@ -92,6 +117,53 @@ export const ServicesPage = () => {
                 </article>
               );
             })}
+          </Reveal>
+
+          <Reveal className={joinClassNames(ui.split, styles.guide)} delay={0.1}>
+            <div className={joinClassNames(ui.toneNavy, ui.splitPane)}>
+              <h2 className={ui.title}>
+                Which one is <span className={ui.hl}>for you?</span>
+              </h2>
+              <ul className={styles.routes}>
+                {ROUTES.map((route) => {
+                  const Icon = route.icon;
+                  return (
+                    <li key={route.to}>
+                      <Link className={styles.route} to={route.to}>
+                        <span className={ui.iconTile} aria-hidden="true">
+                          <Icon strokeWidth={1.9} />
+                        </span>
+                        <span className={styles.routeCopy}>
+                          <strong>{route.title}</strong>
+                          <span>{route.text}</span>
+                        </span>
+                        <ArrowRight className={styles.routeArrow} aria-hidden="true" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <div className={joinClassNames(ui.toneLight, ui.splitPane, ui.splitLight)}>
+              <p className={styles.kicker}>New to RYZE?</p>
+              <h2 className={joinClassNames(ui.heading, styles.lightTitle)}>
+                Start free <span className={ui.hl}>today.</span>
+              </h2>
+              <p className={ui.body}>
+                Create a free account, pick a free training plan and log your first session. Upgrade whenever you&apos;re
+                ready.
+              </p>
+              <div className={ui.actions}>
+                <PublicAction to="/register" variant="ink" icon={<ArrowRight />}>
+                  Create free account
+                </PublicAction>
+                <PublicAction to="/login" variant="ghostOnLight">
+                  Log in
+                </PublicAction>
+              </div>
+              <Waves />
+            </div>
           </Reveal>
         </Container>
       </section>

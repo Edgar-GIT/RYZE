@@ -176,7 +176,9 @@ export const GenericPlanMarketplacePage = () => {
 
           <div className={styles.contentArea}>
             <header className={styles.heading}>
-              <h1 className={styles.title}>Training plans</h1>
+              <h1 className={styles.title}>
+                Training plans<span className={styles.stop}>.</span>
+              </h1>
               <p className={styles.subtitle}>
                 Find a program built around your goals, schedule and experience.
               </p>

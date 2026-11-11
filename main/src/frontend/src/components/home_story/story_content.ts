@@ -76,11 +76,12 @@ export const SCREENS = {
   }
 } as const satisfies Record<string, StoryScreen>;
 
-// Pieces of the phone screens lifted out beside the devices, one per feature
-// point of their chapter. Decorative: the chapter copy lists the same features.
+// Pieces of the phone screens lifted out beside the devices, ordered top to
+// bottom like the screen elements they come from (the 3D scene joins each card
+// to its element). Decorative: the chapter copy lists the same features.
 export const CALLOUTS = {
-  train: [calloutSet, calloutRest, calloutWeek],
-  fuel: [calloutProtein, calloutMeal, calloutTarget],
+  train: [calloutWeek, calloutSet, calloutRest],
+  fuel: [calloutTarget, calloutProtein, calloutMeal],
   sync: calloutSync
 } as const;
 

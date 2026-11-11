@@ -1,4 +1,4 @@
-import { ArrowRight, Dumbbell, Flame, Gift, Sparkles, UserCheck } from "lucide-react";
+import { ArrowRight, Dumbbell, Flame, Gift, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { PublicAction } from "@/components/public_ui/public_ui";
@@ -16,13 +16,9 @@ import styles from "./programs_overview_section.module.css";
 
 const images = [advert1, advert2, advert3];
 
-// Same level colours as the Services page: free cyan, Premium Level 1 blue,
-// Premium Level 2 (the most personalized) purple.
-const TAGS: Record<ProgramHighlightCategory, { label: string; tone: "free" | "premium" | "personalized"; icon: LucideIcon }> = {
-  generic: { label: "Free", tone: "free", icon: Gift },
-  premium: { label: "Premium Level 1", tone: "premium", icon: Sparkles },
-  premiumLevel2: { label: "Premium Level 2", tone: "personalized", icon: UserCheck }
-};
+// Only free programs carry a tag. Level names are left to the Services page:
+// the goal cards ("Build muscle", "Lose fat") do not describe the levels.
+const FREE_TAG = "Free";
 
 interface ProgramCard {
   key: string;
@@ -119,17 +115,16 @@ export const ProgramsOverviewSection = ({ catalog }: ProgramsOverviewSectionProp
           <ul className={styles.cards} tabIndex={scroller ? 0 : undefined} aria-label="Programs">
             {cards.map((program, index) => {
               const Icon = program.Icon;
-              const tag = TAGS[program.category];
 
               return (
-                <li key={program.key} className={joinClassNames(styles.card, styles[tag.tone])}>
+                <li key={program.key} className={styles.card}>
                   <img className={styles.image} src={images[index % images.length]} alt="" loading="lazy" decoding="async" />
                   <span className={styles.shade} aria-hidden="true" />
                   <div className={styles.top}>
                     <span className={styles.icon} aria-hidden="true">
                       <Icon strokeWidth={1.9} />
                     </span>
-                    <span className={styles.tag}>{tag.label}</span>
+                    {program.category === "generic" ? <span className={styles.tag}>{FREE_TAG}</span> : null}
                   </div>
                   <div className={styles.body}>
                     <h3 className={styles.title}>{program.title}</h3>

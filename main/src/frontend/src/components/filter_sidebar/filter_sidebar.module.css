@@ -8,7 +8,7 @@
   margin: 0;
   padding: 0 0 1.05rem;
   border: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(124, 200, 255, 0.12);
 }
 
 .group:last-of-type {
@@ -19,7 +19,7 @@
 .groupTitle {
   padding: 0;
   margin-bottom: 0.55rem;
-  color: var(--text-muted);
+  color: #7cebff;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.11em;
@@ -53,8 +53,8 @@
   width: 1rem;
   height: 1rem;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 3px;
+  border: 1px solid rgba(124, 200, 255, 0.4);
+  border-radius: 4px;
   color: var(--bg-primary);
   transition:
     border-color 180ms ease,
@@ -68,9 +68,9 @@
 }
 
 .checkboxChecked {
-  border-color: var(--accent);
-  background: var(--accent);
-  box-shadow: 0 0 10px rgba(24, 216, 255, 0.26);
+  border-color: #00cbff;
+  background: linear-gradient(180deg, #4fe3ff 0%, #00cbff 100%);
+  box-shadow: 0 0 12px rgba(0, 203, 255, 0.45);
 }
 
 .label {

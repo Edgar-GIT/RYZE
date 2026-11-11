@@ -4,10 +4,10 @@
   width: 3.15rem;
   height: 3.15rem;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(124, 200, 255, 0.28);
   border-radius: 999px;
   color: var(--text-secondary);
-  background: rgba(16, 24, 38, 0.55);
+  background: rgba(10, 22, 69, 0.65);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   cursor: pointer;

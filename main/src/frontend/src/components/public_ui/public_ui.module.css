@@ -128,6 +128,49 @@
   box-shadow: 0 30px 80px -40px rgba(0, 203, 255, 0.7);
 }
 
+/* --- Split panel ---
+   The look of the login page, for the moments that should draw attention: a
+   navy glass half joined to a light-blue wave half in one card. On phones the
+   halves stack and the bright half follows. */
+.split {
+  display: grid;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--r-line);
+  border-radius: var(--r-radius-xl);
+  background: linear-gradient(180deg, rgba(14, 32, 86, 0.72) 0%, rgba(6, 15, 48, 0.82) 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 203, 255, 0.05),
+    0 60px 120px -60px rgba(0, 0, 0, 0.95),
+    0 50px 120px -70px rgba(0, 203, 255, 0.55);
+}
+
+.splitPane {
+  display: grid;
+  align-content: center;
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 5vw, 3rem);
+}
+
+.splitLight {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  align-content: start;
+  padding-bottom: clamp(8.5rem, 24vw, 11rem);
+}
+
+@media (min-width: 900px) {
+  .split {
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  }
+
+  .splitLight {
+    align-content: center;
+    padding-bottom: clamp(7rem, 12vw, 9rem);
+  }
+}
+
 /* --- Waves --- */
 
 .waves {

@@ -10,13 +10,29 @@
   gap: 0.2rem;
 }
 
+/* Row titles carry the RYZE display face and a short cyan light. */
 .title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   margin: 0;
   color: var(--text-primary);
+  font-family: "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif;
   font-size: clamp(1.15rem, 1.5vw, 1.4rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-stretch: 112%;
+  font-weight: 760;
+  letter-spacing: -0.01em;
   line-height: 1.25;
+}
+
+.title::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.3rem;
+  height: 1.05em;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #7cebff 0%, #00cbff 50%, #0481dc 100%);
+  box-shadow: 0 0 12px rgba(0, 203, 255, 0.6);
 }
 
 .description {
@@ -119,9 +135,9 @@
   align-self: flex-start;
   width: 100%;
   aspect-ratio: 4 / 5;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(124, 200, 255, 0.12);
   border-radius: var(--radius-md);
-  background: rgba(16, 24, 38, 0.2);
+  background: rgba(10, 22, 69, 0.25);
 }
 
 @media (prefers-reduced-motion: reduce) {

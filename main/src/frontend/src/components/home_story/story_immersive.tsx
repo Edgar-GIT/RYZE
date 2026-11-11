@@ -13,31 +13,36 @@ import type { StoryScene } from "./story_scene";
 import styles from "./story_immersive.module.css";
 
 /*
- * Desktop Home, top to bottom: the hero (normal flow), the programs section and
- * then the device chapters. One 3D stage stays pinned behind all of it: the
- * Earth sits beside the hero, keeps turning behind the programs, and the phone
- * and laptop take over in the chapters. Scroll position maps to scene progress:
- *   hero scrolling away        0    → 0.1
- *   programs passing over      0.1  → 0.14
- *   chapter track              0.14 → 1
+ * Desktop Home, top to bottom:
+ *   1. The opening: a pinned stage with the Earth. Scrolling fades the copy
+ *      while the Earth turns to the centre, then the stage scrolls away.
+ *   2. The programs, in normal page flow (nothing pinned behind them).
+ *   3. The device chapters: a second pinned stage that scrolls into view with
+ *      the phone already in place, and scrolls away after "Get started".
+ * Both stages share one WebGL canvas, which moves to whichever stage is on
+ * screen (the programs are at least a viewport tall, so both are never visible
+ * together). Scene progress:
+ *   opening   0    → 0.1
+ *   chapters  0.14 → 1
  */
 const HERO_END = 0.1;
 const TRACK_START = 0.14;
 
 const [IDENTITY, ...CHAPTERS] = STORY_CHAPTERS;
 
-// Progress windows in which each chapter's copy is visible: fade in, hold, fade out.
+// Progress windows in which each chapter's copy is visible: fade in, hold, fade
+// out. The first chapter is already visible when its stage arrives.
 const WINDOWS: Partial<Record<StoryChapterId, [number, number, number, number]>> = {
-  train: [0.23, 0.28, 0.42, 0.47],
-  fuel: [0.51, 0.56, 0.63, 0.68],
+  train: [TRACK_START, TRACK_START, 0.37, 0.42],
+  fuel: [0.45, 0.5, 0.63, 0.68],
   platform: [0.74, 0.79, 0.87, 0.91],
   start: [0.93, 0.97, 2, 2]
 };
 
 // The middle of each chapter's hold (keyboard focus scrolls there).
 const ANCHORS: Partial<Record<StoryChapterId, number>> = {
-  train: 0.35,
-  fuel: 0.595,
+  train: 0.28,
+  fuel: 0.57,
   platform: 0.83,
   start: 1
 };
@@ -55,10 +60,9 @@ const PALETTES: Record<Light, [Rgba, Rgba, Rgba]> = {
 };
 
 const STOPS: Array<[number, Light]> = [
-  [0.14, "hero"],
-  [0.25, "train"],
-  [0.46, "train"],
-  [0.56, "fuel"],
+  [TRACK_START, "train"],
+  [0.4, "train"],
+  [0.5, "fuel"],
   [0.66, "fuel"],
   [0.74, "platform"],
   [0.89, "platform"],
@@ -68,6 +72,9 @@ const STOPS: Array<[number, Light]> = [
 const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
 
 const smoothstep = (edge0: number, edge1: number, value: number) => {
+  if (edge1 <= edge0) {
+    return value >= edge1 ? 1 : 0;
+  }
   const t = clamp01((value - edge0) / (edge1 - edge0));
   return t * t * (3 - 2 * t);
 };
@@ -105,31 +112,30 @@ const chapterVisibility = (id: StoryChapterId, progress: number) => {
   return { opacity: Math.min(rise, fall), shift: (1 - rise) * 28 - (1 - fall) * 28 };
 };
 
+type Slot = "hero" | "track";
+
 interface Layout {
-  root: HTMLElement;
-  hero: HTMLElement;
+  intro: HTMLElement;
   track: HTMLElement;
 }
 
-// Piecewise map from scroll to scene progress (see the comment at the top).
-const progressFor = ({ root, hero, track }: Layout) => {
-  const y = -root.getBoundingClientRect().top;
-  const heroLength = Math.max(hero.offsetHeight, 1);
-  const trackStart = track.offsetTop;
-  if (y <= trackStart) {
-    const heroPart = clamp01(y / heroLength);
-    const programsPart = clamp01((y - heroLength) / Math.max(trackStart - heroLength, 1));
-    return heroPart * HERO_END + programsPart * (TRACK_START - HERO_END);
+// Which stage is on screen, and the scene progress there.
+const positionFor = ({ intro, track }: Layout): { slot: Slot; progress: number } => {
+  const viewport = window.innerHeight;
+  const trackTop = track.getBoundingClientRect().top;
+  if (trackTop < viewport) {
+    const travel = Math.max(track.offsetHeight - viewport, 1);
+    return { slot: "track", progress: TRACK_START + clamp01(-trackTop / travel) * (1 - TRACK_START) };
   }
-  const travel = Math.max(track.offsetHeight - window.innerHeight, 1);
-  return TRACK_START + clamp01((y - trackStart) / travel) * (1 - TRACK_START);
+  const pin = Math.max(intro.offsetHeight - viewport, 1);
+  return { slot: "hero", progress: clamp01(-intro.getBoundingClientRect().top / pin) * HERO_END };
 };
 
-// Inverse for the chapter track only.
-const scrollTopFor = ({ root, track }: Layout, progress: number) => {
+// Inverse for the chapter track.
+const scrollTopFor = ({ track }: Layout, progress: number) => {
   const travel = Math.max(track.offsetHeight - window.innerHeight, 1);
-  const rootTop = root.getBoundingClientRect().top + window.scrollY;
-  return rootTop + track.offsetTop + ((progress - TRACK_START) / (1 - TRACK_START)) * travel;
+  const trackTop = track.getBoundingClientRect().top + window.scrollY;
+  return trackTop + ((progress - TRACK_START) / (1 - TRACK_START)) * travel;
 };
 
 interface StoryImmersiveProps {
@@ -138,25 +144,30 @@ interface StoryImmersiveProps {
 }
 
 export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const heroRef = useRef<HTMLElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLElement>(null);
-  const canvasHostRef = useRef<HTMLDivElement>(null);
+  const introRef = useRef<HTMLElement>(null);
+  const heroStageRef = useRef<HTMLDivElement>(null);
+  const heroHostRef = useRef<HTMLDivElement>(null);
+  const heroCopyRef = useRef<HTMLDivElement>(null);
+  const cueRef = useRef<HTMLParagraphElement>(null);
+  const trackRef = useRef<HTMLElement>(null);
+  const trackStageRef = useRef<HTMLDivElement>(null);
+  const trackHostRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const chapterRefs = useRef<Partial<Record<StoryChapterId, HTMLDivElement | null>>>({});
   const sceneRef = useRef<StoryScene | null>(null);
-  const visibleRef = useRef(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const slotRef = useRef<Slot>("hero");
   const [ready, setReady] = useState(false);
 
   const layout = (): Layout | null => {
-    const root = rootRef.current;
-    const hero = heroRef.current;
+    const intro = introRef.current;
     const track = trackRef.current;
-    return root && hero && track ? { root, hero, track } : null;
+    return intro && track ? { intro, track } : null;
   };
 
-  // Scroll → progress → chapter copy, backdrop and scene state.
+  const hostFor = (slot: Slot) => (slot === "hero" ? heroHostRef.current : trackHostRef.current);
+
+  // Scroll → stage, progress, copy and backdrop.
   useEffect(() => {
     let frame = 0;
 
@@ -166,8 +177,29 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
       if (!current) {
         return;
       }
-      const progress = progressFor(current);
-      sceneRef.current?.setProgress(progress);
+      const { slot, progress } = positionFor(current);
+
+      // Move the canvas to the stage on screen and jump the scene there.
+      const moved = slot !== slotRef.current;
+      slotRef.current = slot;
+      const canvas = canvasRef.current;
+      const host = hostFor(slot);
+      if (canvas && host && canvas.parentElement !== host) {
+        host.appendChild(canvas);
+      }
+      sceneRef.current?.setProgress(progress, moved);
+
+      // Opening: the copy fades and lifts while the Earth comes to the centre.
+      const opening = slot === "hero" ? progress / HERO_END : 1;
+      const fade = smoothstep(0.08, 0.75, opening);
+      if (heroCopyRef.current) {
+        heroCopyRef.current.style.opacity = (1 - fade).toFixed(3);
+        heroCopyRef.current.style.transform = `translate3d(0, ${(-56 * smoothstep(0.08, 0.9, opening)).toFixed(1)}px, 0)`;
+        heroCopyRef.current.style.pointerEvents = fade > 0.4 ? "none" : "auto";
+      }
+      if (cueRef.current) {
+        cueRef.current.style.opacity = (1 - smoothstep(0, 0.2, opening)).toFixed(3);
+      }
 
       const [a, b, glow] = paletteAt(progress);
       if (backdropRef.current) {
@@ -176,7 +208,7 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
 
       for (const chapter of CHAPTERS) {
         const element = chapterRefs.current[chapter.id];
-        const { opacity, shift } = chapterVisibility(chapter.id, progress);
+        const { opacity, shift } = chapterVisibility(chapter.id, slot === "track" ? progress : 0);
         if (element) {
           // Opacity only: every chapter stays in the accessibility tree.
           element.style.opacity = opacity.toFixed(3);
@@ -204,12 +236,12 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
     };
   }, []);
 
-  // Scene lifecycle: dynamic import, render only while the story is on screen.
+  // Scene lifecycle: dynamic import, render only while a stage is on screen.
   useEffect(() => {
-    const host = canvasHostRef.current;
-    const stage = stageRef.current;
-    const root = rootRef.current;
-    if (!host || !stage || !root) {
+    const heroStage = heroStageRef.current;
+    const trackStage = trackStageRef.current;
+    const host = hostFor(slotRef.current);
+    if (!heroStage || !trackStage || !host) {
       return;
     }
     // Each scene instance owns its canvas, so a disposed instance (for example
@@ -218,6 +250,7 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
     canvas.className = styles.canvas;
     canvas.setAttribute("aria-hidden", "true");
     host.appendChild(canvas);
+    canvasRef.current = canvas;
     let disposed = false;
     let scene: StoryScene | null = null;
     const handleContextLost = (event: Event) => {
@@ -226,20 +259,26 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
     };
     canvas.addEventListener("webglcontextlost", handleContextLost);
 
-    const observer = new IntersectionObserver(([entry]) => {
-      visibleRef.current = entry.isIntersecting;
-      if (entry.isIntersecting) {
+    const onScreen = new Map<Element, boolean>();
+    const isVisible = () => [...onScreen.values()].some(Boolean);
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        onScreen.set(entry.target, entry.isIntersecting);
+      }
+      if (isVisible()) {
         sceneRef.current?.start();
       } else {
         sceneRef.current?.stop();
       }
     });
-    observer.observe(root);
+    observer.observe(heroStage);
+    observer.observe(trackStage);
 
+    // Both stages fill the viewport, so either one gives the canvas size.
     const resizeObserver = new ResizeObserver(([entry]) => {
       sceneRef.current?.resize(entry.contentRect.width, entry.contentRect.height);
     });
-    resizeObserver.observe(stage);
+    resizeObserver.observe(heroStage);
 
     import("./story_scene")
       .then(({ createStoryScene }) => {
@@ -267,9 +306,15 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
         sceneRef.current = created;
         const current = layout();
         if (current) {
-          created.setProgress(progressFor(current));
+          const { slot, progress } = positionFor(current);
+          slotRef.current = slot;
+          const target = hostFor(slot);
+          if (target && canvas.parentElement !== target) {
+            target.appendChild(canvas);
+          }
+          created.setProgress(progress, true);
         }
-        if (visibleRef.current) {
+        if (isVisible()) {
           created.start();
         }
         setReady(true);
@@ -289,16 +334,26 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
       if (sceneRef.current === scene) {
         sceneRef.current = null;
       }
+      if (canvasRef.current === canvas) {
+        canvasRef.current = null;
+      }
       canvas.remove();
     };
   }, [onFailure]);
 
-  // The stage fills the viewport, so the pointer is read against the window.
+  // The stages fill the viewport, so the pointer is read against the window.
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     sceneRef.current?.setPointer((event.clientX / window.innerWidth) * 2 - 1, -((event.clientY / window.innerHeight) * 2 - 1));
   };
 
-  // Keyboard focus inside a faded chapter brings that chapter on screen.
+  // Keyboard focus inside faded copy brings that copy back on screen.
+  const revealHero = () => {
+    const intro = introRef.current;
+    if (intro && Number(heroCopyRef.current?.style.opacity || "1") < 0.6) {
+      window.scrollTo({ top: intro.getBoundingClientRect().top + window.scrollY, behavior: "auto" });
+    }
+  };
+
   const revealFocusedChapter = (id: StoryChapterId) => {
     const element = chapterRefs.current[id];
     const current = layout();
@@ -309,53 +364,58 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
   };
 
   return (
-    <div ref={rootRef} className={styles.story} onPointerMove={handlePointerMove}>
-      <section ref={stageRef} className={joinClassNames(styles.stage, ready && styles.stageReady)} aria-label="Discover RYZE">
-        <div ref={backdropRef} className={styles.backdrop} aria-hidden="true" />
-        {ready ? null : (
-          <div className={styles.placeholder} aria-hidden="true">
-            <BrandGlobe />
-          </div>
-        )}
-        <div ref={canvasHostRef} className={styles.canvasHost} />
-
-        <div className={styles.chapters}>
-          {CHAPTERS.map((chapter) => (
-            <div
-              key={chapter.id}
-              ref={(element) => {
-                chapterRefs.current[chapter.id] = element;
-              }}
-              className={joinClassNames(styles.chapter, TONE_CLASS[chapter.tone], chapter.id === "start" && styles.chapterStart)}
-              style={{ opacity: 0 }}
-              onFocus={() => revealFocusedChapter(chapter.id)}
-            >
-              <ChapterCopy chapter={chapter} headingId={`story-${chapter.id}`} />
-              {chapter.id === "start" ? <StartActions /> : null}
-              {chapter.screen ? <p className={styles.sampleNote}>{SAMPLE_DATA_NOTE}</p> : null}
-              {/* The device screens are drawn in WebGL; describe them for assistive technology. */}
-              {chapter.screen ? <p className={styles.srOnly}>{chapter.screen.alt}</p> : null}
+    <div className={joinClassNames(styles.story, ready && styles.storyReady)} onPointerMove={handlePointerMove}>
+      <section ref={introRef} className={joinClassNames(styles.intro, TONE_CLASS[IDENTITY.tone])} aria-labelledby="story-identity">
+        <div ref={heroStageRef} className={joinClassNames(styles.stage, styles.heroStage)}>
+          <div className={joinClassNames(styles.backdrop, styles.heroBackdrop)} aria-hidden="true" />
+          {ready ? null : (
+            <div className={styles.placeholder} aria-hidden="true">
+              <BrandGlobe />
             </div>
-          ))}
-        </div>
-      </section>
+          )}
+          <div ref={heroHostRef} className={joinClassNames(styles.canvasHost, styles.heroHost)} />
 
-      <section ref={heroRef} className={joinClassNames(styles.hero, TONE_CLASS[IDENTITY.tone])} aria-labelledby="story-identity">
-        <div className={styles.heroInner}>
-          <div className={styles.heroCopy}>
-            <ChapterCopy chapter={IDENTITY} headingId="story-identity" as="h1" />
-            <StartActions withEntryPoints />
+          <div className={styles.heroInner}>
+            <div ref={heroCopyRef} className={styles.heroCopy} onFocus={revealHero}>
+              <ChapterCopy chapter={IDENTITY} headingId="story-identity" as="h1" />
+              <StartActions withEntryPoints />
+            </div>
           </div>
+          <p ref={cueRef} className={styles.scrollCue} aria-hidden="true">
+            <ChevronsDown />
+            Scroll to explore
+          </p>
         </div>
-        <p className={styles.scrollCue} aria-hidden="true">
-          <ChevronsDown />
-          Scroll to explore
-        </p>
       </section>
 
       <div className={styles.programs}>{programs}</div>
 
-      <div ref={trackRef} className={styles.track} aria-hidden="true" />
+      <section ref={trackRef} className={styles.track} aria-label="Discover RYZE">
+        <div ref={trackStageRef} className={joinClassNames(styles.stage, styles.trackStage)}>
+          <div ref={backdropRef} className={joinClassNames(styles.backdrop, styles.trackBackdrop)} aria-hidden="true" />
+          <div ref={trackHostRef} className={joinClassNames(styles.canvasHost, styles.trackHost)} />
+
+          <div className={styles.chapters}>
+            {CHAPTERS.map((chapter) => (
+              <div
+                key={chapter.id}
+                ref={(element) => {
+                  chapterRefs.current[chapter.id] = element;
+                }}
+                className={joinClassNames(styles.chapter, TONE_CLASS[chapter.tone], chapter.id === "start" && styles.chapterStart)}
+                style={{ opacity: chapter.id === "train" ? 1 : 0 }}
+                onFocus={() => revealFocusedChapter(chapter.id)}
+              >
+                <ChapterCopy chapter={chapter} headingId={`story-${chapter.id}`} />
+                {chapter.id === "start" ? <StartActions /> : null}
+                {chapter.screen ? <p className={styles.sampleNote}>{SAMPLE_DATA_NOTE}</p> : null}
+                {/* The device screens are drawn in WebGL; describe them for assistive technology. */}
+                {chapter.screen ? <p className={styles.srOnly}>{chapter.screen.alt}</p> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

@@ -6,9 +6,9 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.55rem 0.6rem 0.55rem 1rem;
-  border: 1px solid rgba(24, 216, 255, 0.22);
+  border: 1px solid rgba(0, 203, 255, 0.32);
   border-radius: 999px;
-  background: rgba(13, 20, 31, 0.85);
+  background: rgba(8, 20, 66, 0.86);
   box-shadow:
     0 12px 36px rgba(5, 7, 11, 0.34),
     0 0 24px rgba(24, 216, 255, 0.1),
@@ -22,8 +22,8 @@
 }
 
 .searchScrolled {
-  border-color: rgba(24, 216, 255, 0.1);
-  background: rgba(9, 14, 22, 0.5);
+  border-color: rgba(0, 203, 255, 0.18);
+  background: rgba(5, 12, 48, 0.6);
   box-shadow:
     0 6px 22px rgba(5, 7, 11, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -130,9 +130,9 @@
   overscroll-behavior: contain;
   display: grid;
   padding: 0.4rem;
-  border: 1px solid rgba(24, 216, 255, 0.14);
+  border: 1px solid rgba(0, 203, 255, 0.22);
   border-radius: var(--radius-md);
-  background: rgba(9, 14, 22, 0.98);
+  background: rgba(6, 16, 56, 0.98);
   box-shadow:
     0 18px 48px rgba(5, 7, 11, 0.5),
     0 0 28px rgba(24, 216, 255, 0.08);

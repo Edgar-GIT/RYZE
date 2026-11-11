@@ -26,7 +26,8 @@ const ChapterVisual = ({ chapter }: { chapter: StoryChapter }) => {
   }
   if (chapter.screen) {
     // Two pieces of the screen lifted out beside the phone, as on desktop.
-    const [first, second] = chapter.id === "fuel" ? CALLOUTS.fuel : CALLOUTS.train;
+    // The last two cards of each chapter: the logged set and rest timer, the protein and meal.
+    const [, first, second] = chapter.id === "fuel" ? CALLOUTS.fuel : CALLOUTS.train;
     return (
       <Reveal className={styles.phoneVisual} y={24}>
         <PhoneMockup src={chapter.screen.src} alt={chapter.screen.alt} />

@@ -23,7 +23,9 @@ export interface StorySceneAssets {
 }
 
 export interface StoryScene {
-  setProgress: (progress: number) => void;
+  // `immediate` jumps straight to the state instead of easing towards it (used
+  // when the canvas moves to the other stage).
+  setProgress: (progress: number, immediate?: boolean) => void;
   setPointer: (x: number, y: number) => void;
   start: () => void;
   stop: () => void;
@@ -111,13 +113,17 @@ const phoneBesideLaptop = {
   laptopX: 0.27
 };
 
+// 0 → 0.1 is the opening (the copy fades while the Earth turns and comes to the
+// centre); the device chapters start at 0.14, already in place, because their
+// stage scrolls into view with the page. The stretch between is never shown.
 const KEYS: Array<{ at: number; state: SceneState }> = [
   { at: 0, state: base },
-  { at: 0.12, state: { ...base, cameraZ: 9.6, globeSpin: 0.25 } },
+  { at: 0.1, state: { ...base, globeX: 0, globeScale: 0.96, globeSpin: 0.42, cameraZ: 9.3 } },
+  { at: 0.14, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.55 } },
   { at: 0.27, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.42 } },
-  { at: 0.42, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.16 } },
-  { at: 0.46, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.16 } },
-  { at: 0.56, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: TAU - 0.16 } },
+  { at: 0.36, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.16 } },
+  { at: 0.4, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.16 } },
+  { at: 0.5, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: TAU - 0.16 } },
   { at: 0.64, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: TAU - 0.3 } },
   { at: 0.72, state: { ...base, ...globeAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.42, laptopY: -0.9 } },
   { at: 0.79, state: { ...base, ...globeAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.38, laptopY: -0.9, lid: LID_OPEN } },
@@ -132,7 +138,28 @@ const KEYS: Array<{ at: number; state: SceneState }> = [
 // at its smaller size there.
 type PhoneScreen = "training" | "nutrition" | "synced";
 const screenFor = (progress: number): PhoneScreen =>
-  progress >= 0.51 && progress < 0.68 ? "nutrition" : progress >= 0.68 ? "synced" : "training";
+  progress >= 0.45 && progress < 0.68 ? "nutrition" : progress >= 0.68 ? "synced" : "training";
+
+// Where each lifted card comes from on its phone screen, in screen fractions
+// (left, top, right, bottom), the height of its card and where its leader turns.
+// Cards are ordered top to bottom like their elements, so leaders never cross.
+interface CalloutTarget {
+  rect: readonly [number, number, number, number];
+  row: number;
+  elbow: number;
+}
+const CALLOUT_TARGETS: Record<"train" | "fuel", readonly CalloutTarget[]> = {
+  train: [
+    { rect: [0.035, 0.494, 0.965, 0.551], row: 0.68, elbow: -0.64 }, // week days → "Week 4 of 6"
+    { rect: [0.07, 0.619, 0.93, 0.657], row: 0, elbow: -0.78 }, // bench press → logged set
+    { rect: [0.35, 0.773, 0.65, 0.855], row: -0.66, elbow: -0.72 } // rest → rest timer
+  ],
+  fuel: [
+    { rect: [0.04, 0.128, 0.96, 0.252], row: 0.68, elbow: -0.72 }, // daily target → target card
+    { rect: [0.042, 0.4, 0.347, 0.495], row: 0, elbow: -0.72 }, // protein → protein card
+    { rect: [0.04, 0.645, 0.96, 0.757], row: -0.66, elbow: -0.72 } // lunch → meal card
+  ]
+};
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
 
@@ -274,6 +301,78 @@ const radialTexture = (inner: string, outer: string) => {
   const texture = new THREE.CanvasTexture(element);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
+};
+
+type Point2 = [number, number];
+
+// Points along a path whose corners are rounded with quadratic curves (radius
+// limited to half of each neighbouring segment). Open paths keep their ends.
+const roundedPath = (corners: Point2[], radius: number, closed = false): Point2[] => {
+  const points: Point2[] = [];
+  const count = corners.length;
+  for (let index = 0; index < count; index += 1) {
+    const current = corners[index];
+    if (!closed && (index === 0 || index === count - 1)) {
+      points.push(current);
+      continue;
+    }
+    const previous = corners[(index - 1 + count) % count];
+    const next = corners[(index + 1) % count];
+    const inLength = Math.hypot(current[0] - previous[0], current[1] - previous[1]);
+    const outLength = Math.hypot(next[0] - current[0], next[1] - current[1]);
+    const r = Math.min(radius, inLength / 2, outLength / 2);
+    if (r < 1e-4) {
+      points.push(current);
+      continue;
+    }
+    const from: Point2 = [current[0] + ((previous[0] - current[0]) / inLength) * r, current[1] + ((previous[1] - current[1]) / inLength) * r];
+    const to: Point2 = [current[0] + ((next[0] - current[0]) / outLength) * r, current[1] + ((next[1] - current[1]) / outLength) * r];
+    for (let step = 0; step <= 10; step += 1) {
+      const t = step / 10;
+      const a = (1 - t) * (1 - t);
+      const b = 2 * (1 - t) * t;
+      const c = t * t;
+      points.push([a * from[0] + b * current[0] + c * to[0], a * from[1] + b * current[1] + c * to[1]]);
+    }
+  }
+  if (closed) {
+    points.push(points[0]);
+  }
+  return points.filter((point, index) => index === 0 || Math.hypot(point[0] - points[index - 1][0], point[1] - points[index - 1][1]) > 1e-5);
+};
+
+// A flat strip along a 2D path. `along` runs 0..1 from the first point to the
+// last (for drawing it in), `across` −1..1 over its width (for soft edges).
+const ribbonGeometry = (points: Point2[], width: number): THREE.BufferGeometry => {
+  const lengths = [0];
+  for (let index = 1; index < points.length; index += 1) {
+    lengths.push(lengths[index - 1] + Math.hypot(points[index][0] - points[index - 1][0], points[index][1] - points[index - 1][1]));
+  }
+  const total = lengths[lengths.length - 1] || 1;
+  const positions: number[] = [];
+  const along: number[] = [];
+  const across: number[] = [];
+  const indices: number[] = [];
+  points.forEach((point, index) => {
+    const previous = points[Math.max(index - 1, 0)];
+    const next = points[Math.min(index + 1, points.length - 1)];
+    const length = Math.hypot(next[0] - previous[0], next[1] - previous[1]) || 1;
+    const nx = (-(next[1] - previous[1]) / length) * (width / 2);
+    const ny = ((next[0] - previous[0]) / length) * (width / 2);
+    positions.push(point[0] + nx, point[1] + ny, 0, point[0] - nx, point[1] - ny, 0);
+    along.push(lengths[index] / total, lengths[index] / total);
+    across.push(1, -1);
+    if (index > 0) {
+      const a = (index - 1) * 2;
+      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("along", new THREE.Float32BufferAttribute(along, 1));
+  geometry.setAttribute("across", new THREE.Float32BufferAttribute(across, 1));
+  geometry.setIndex(indices);
+  return geometry;
 };
 
 // Diagonal reflection on the screen glass.
@@ -934,13 +1033,63 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     phone.add(phonePivot);
     scene.add(phone);
 
-    // Cards lifted out of the phone screen, set out on its left and joined to it
-    // by a right-angled tree: a stub from the phone's edge, a vertical trunk and
-    // one branch per card, with nodes at the joints. Everything sits in one
-    // plane in the phone group (not the spinning pivot), so the lines stay exact.
-    const TREE = { plane: 0.3, phoneEdge: -0.5, trunk: -0.7, cardEdge: -0.9, rows: [0.64, 0, -0.64], line: 0.011 };
+    // Cards lifted out of the phone screen. Each one is joined to the part of
+    // the screen it shows: that element is outlined on the screen (so it turns
+    // with the phone), and a rounded leader runs from the phone's edge at the
+    // element's height to the card. Outline, leader and card arrive in that
+    // order; once drawn, a light pulse travels along each leader.
+    const DIAGRAM = { plane: 0.1, phoneEdge: -0.52, cardEdge: -0.95, line: 0.014, outline: 0.009, radius: 0.08 };
     const cardWidth = 1.06;
-    const lineMaterialFor = () =>
+    const leaderColor = new THREE.Color().setHex(COLORS.ice, THREE.LinearSRGBColorSpace);
+    const leaderMaterial = (pulse: number) =>
+      track(
+        new THREE.ShaderMaterial({
+          uniforms: {
+            uColor: { value: leaderColor },
+            uDraw: { value: 0 },
+            uOpacity: { value: 1 },
+            uTime: { value: 0 },
+            uPulse: { value: pulse }
+          },
+          vertexShader: /* glsl */ `
+            attribute float along;
+            attribute float across;
+            varying float vAlong;
+            varying float vAcross;
+            void main() {
+              vAlong = along;
+              vAcross = across;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: /* glsl */ `
+            uniform vec3 uColor;
+            uniform float uDraw;
+            uniform float uOpacity;
+            uniform float uTime;
+            uniform float uPulse;
+            varying float vAlong;
+            varying float vAcross;
+            void main() {
+              float drawn = 1.0 - smoothstep(uDraw - 0.012, uDraw, vAlong);
+              float edge = 1.0 - smoothstep(0.3, 1.0, abs(vAcross));
+              float tip = exp(-pow((vAlong - uDraw) * 24.0, 2.0)) * (1.0 - step(0.999, uDraw));
+              float travel = fract(uTime * 0.3 + uPulse);
+              float pulse = exp(-pow((vAlong - travel) * 14.0, 2.0)) * step(0.999, uDraw);
+              float body = mix(0.95, 0.55, vAlong);
+              float alpha = (body + tip * 1.4 + pulse) * drawn * edge * uOpacity;
+              gl_FragColor = vec4(uColor * (1.0 + tip * 0.5 + pulse * 0.6), alpha);
+            }
+          `,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide
+        })
+      );
+    const nodeGeometry = track(new THREE.CircleGeometry(1, 32));
+    const ringGeometry = track(new THREE.RingGeometry(0.72, 1, 40));
+    const nodeMaterial = () =>
       track(
         new THREE.MeshBasicMaterial({
           color: COLORS.ice,
@@ -951,34 +1100,80 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
           toneMapped: false
         })
       );
-    const segmentGeometry = track(new THREE.PlaneGeometry(1, 1));
-    const nodeGeometry = track(new THREE.CircleGeometry(1, 32));
-    const makeTree = (images: HTMLImageElement[]) => {
+    // Screen fractions (left, top, right, bottom) → coordinates on the screen.
+    const screenX = (fraction: number) => (fraction - 0.5) * screenWidth;
+    const screenY = (fraction: number) => (0.5 - fraction) * screenHeight;
+    const makeDiagram = (images: HTMLImageElement[], targets: readonly CalloutTarget[]) => {
       const group = new THREE.Group();
       group.visible = false;
-      const lines = lineMaterialFor();
-      const nodes = lineMaterialFor();
-      const segment = (x1: number, y1: number, x2: number, y2: number) => {
-        const mesh = new THREE.Mesh(segmentGeometry, lines);
-        mesh.position.set((x1 + x2) / 2, (y1 + y2) / 2, 0);
-        mesh.scale.set(Math.max(Math.abs(x2 - x1), TREE.line), Math.max(Math.abs(y2 - y1), TREE.line), 1);
-        group.add(mesh);
-      };
-      const node = (x: number, y: number, radius: number) => {
-        const mesh = new THREE.Mesh(nodeGeometry, nodes);
-        mesh.position.set(x, y, 0.001);
-        mesh.scale.setScalar(radius);
-        group.add(mesh);
-      };
-      const [top, , bottom] = TREE.rows;
-      segment(TREE.phoneEdge, 0, TREE.trunk, 0);
-      segment(TREE.trunk, top, TREE.trunk, bottom);
-      node(TREE.phoneEdge, 0, 0.028);
-      node(TREE.trunk, 0, 0.02);
-      const cards = images.map((image, index) => {
-        const y = TREE.rows[index % TREE.rows.length];
-        segment(TREE.trunk, y, TREE.cardEdge, y);
-        node(TREE.cardEdge, y, 0.02);
+      group.position.z = DIAGRAM.plane;
+      const outlines = new THREE.Group();
+      outlines.position.z = 0.0016;
+      outlines.visible = false;
+      const callouts = targets.map((target, index) => {
+        const [left, top, right, bottom] = target.rect;
+        const x0 = screenX(left);
+        const x1 = screenX(right);
+        const y0 = screenY(top);
+        const y1 = screenY(bottom);
+        const middle = (y0 + y1) / 2;
+        // The outline starts at the element's left middle, where the leader leaves.
+        const outlineMaterial = leaderMaterial(index * 0.33);
+        const outline = new THREE.Mesh(
+          track(
+            ribbonGeometry(
+              roundedPath(
+                [
+                  [x0, middle],
+                  [x0, y0],
+                  [x1, y0],
+                  [x1, y1],
+                  [x0, y1]
+                ],
+                0.035,
+                true
+              ),
+              DIAGRAM.outline
+            )
+          ),
+          outlineMaterial
+        );
+        outlines.add(outline);
+
+        const leaderMaterialInstance = leaderMaterial(index * 0.33);
+        const leader = new THREE.Mesh(
+          track(
+            ribbonGeometry(
+              roundedPath(
+                [
+                  [DIAGRAM.phoneEdge, middle],
+                  [target.elbow, middle],
+                  [target.elbow, target.row],
+                  [DIAGRAM.cardEdge, target.row]
+                ],
+                DIAGRAM.radius
+              ),
+              DIAGRAM.line
+            )
+          ),
+          leaderMaterialInstance
+        );
+        group.add(leader);
+
+        const startMaterial = nodeMaterial();
+        const start = new THREE.Mesh(nodeGeometry, startMaterial);
+        start.position.set(DIAGRAM.phoneEdge, middle, 0.001);
+        start.scale.setScalar(0.019);
+        const halo = new THREE.Mesh(ringGeometry, startMaterial);
+        halo.position.copy(start.position);
+        halo.scale.setScalar(0.038);
+        const endMaterial = nodeMaterial();
+        const end = new THREE.Mesh(nodeGeometry, endMaterial);
+        end.position.set(DIAGRAM.cardEdge, target.row, 0.001);
+        end.scale.setScalar(0.018);
+        group.add(start, halo, end);
+
+        const image = images[index];
         const material = track(
           sharpen(
             new THREE.MeshBasicMaterial({
@@ -992,19 +1187,19 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
         );
         const card = new THREE.Mesh(track(new THREE.PlaneGeometry(cardWidth, (cardWidth * image.height) / image.width)), material);
         // The image has a transparent margin around the card; its visible right
-        // edge (85% of the plane) meets the branch.
-        const x = TREE.cardEdge - (cardWidth * 0.85) / 2;
-        card.position.set(x, y, 0.002);
+        // edge (85% of the plane) meets the leader.
+        const x = DIAGRAM.cardEdge - (cardWidth * 0.85) / 2;
+        card.position.set(x, target.row, 0.002);
         card.renderOrder = 3;
         group.add(card);
-        return { card, material, x, y };
+        return { outlineMaterial, leaderMaterial: leaderMaterialInstance, startMaterial, endMaterial, halo, card, material, x };
       });
-      group.position.z = TREE.plane;
       phone.add(group);
-      return { group, lines, nodes, cards };
+      screen.add(outlines);
+      return { group, outlines, callouts };
     };
-    const trainTree = makeTree(trainCallouts);
-    const fuelTree = makeTree(fuelCallouts);
+    const trainTree = makeDiagram(trainCallouts, CALLOUT_TARGETS.train);
+    const fuelTree = makeDiagram(fuelCallouts, CALLOUT_TARGETS.fuel);
 
     // Evolve: one badge between the two screens.
     const syncBadge = new THREE.Sprite(
@@ -1022,7 +1217,24 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     );
     syncBadge.scale.set(1.25, (1.25 * syncImage.height) / syncImage.width, 1);
     syncBadge.visible = false;
-    scene.add(syncBadge);
+    syncBadge.renderOrder = 4;
+    // A soft light behind the badge that breathes while both screens are in sync.
+    const syncHalo = new THREE.Sprite(
+      track(
+        new THREE.SpriteMaterial({
+          map: track(radialTexture("rgba(0,203,255,0.7)", "rgba(0,203,255,0)")),
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          toneMapped: false
+        })
+      )
+    );
+    syncHalo.scale.set(2.1, 0.9, 1);
+    syncHalo.renderOrder = 3;
+    syncHalo.visible = false;
+    scene.add(syncBadge, syncHalo);
 
     // Laptop -----------------------------------------------------------------------------
     const laptop = new THREE.Group();
@@ -1182,21 +1394,31 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const badgeFrom = new THREE.Vector3();
     const badgeTo = new THREE.Vector3();
 
-    // The tree draws in first, then each card arrives along its branch.
+    // Per callout: the screen element is outlined, then the leader draws out to
+    // the card's place, then the card slides in. Scrolling back reverses it.
     const showTree = (tree: typeof trainTree, amount: number, elapsed: number) => {
-      tree.group.visible = amount > 0.01;
-      if (!tree.group.visible) {
+      const visible = amount > 0.005;
+      tree.group.visible = visible;
+      tree.outlines.visible = visible;
+      if (!visible) {
         return;
       }
-      const lineIn = smooth(THREE.MathUtils.clamp(amount * 2, 0, 1));
-      tree.lines.opacity = lineIn * 0.75;
-      tree.nodes.opacity = lineIn;
-      tree.group.position.y = Math.sin(elapsed * 0.8) * 0.02;
-      tree.cards.forEach(({ card, material, x, y }, index) => {
-        const eased = smooth(THREE.MathUtils.clamp(amount * 1.8 - 0.3 - index * 0.25, 0, 1));
-        material.opacity = eased;
-        card.visible = eased > 0.01;
-        card.position.set(x + (1 - eased) * 0.25, y, 0.002);
+      tree.callouts.forEach((callout, index) => {
+        const t = THREE.MathUtils.clamp(amount * 1.7 - index * 0.22, 0, 1) * 3;
+        const outlineDraw = smooth(THREE.MathUtils.clamp(t, 0, 1));
+        const leaderDraw = smooth(THREE.MathUtils.clamp(t - 0.7, 0, 1));
+        const cardIn = smooth(THREE.MathUtils.clamp(t - 1.6, 0, 1));
+        callout.outlineMaterial.uniforms.uDraw.value = outlineDraw;
+        callout.outlineMaterial.uniforms.uOpacity.value = 0.85;
+        callout.outlineMaterial.uniforms.uTime.value = elapsed;
+        callout.leaderMaterial.uniforms.uDraw.value = leaderDraw;
+        callout.leaderMaterial.uniforms.uTime.value = elapsed;
+        callout.startMaterial.opacity = smooth(THREE.MathUtils.clamp(leaderDraw * 6, 0, 1));
+        callout.halo.scale.setScalar(0.038 + Math.sin(elapsed * 2.2 + index) * 0.005);
+        callout.endMaterial.opacity = smooth(THREE.MathUtils.clamp((leaderDraw - 0.94) * 16, 0, 1));
+        callout.material.opacity = cardIn;
+        callout.card.visible = cardIn > 0.01;
+        callout.card.position.x = callout.x + (1 - cardIn) * 0.2;
       });
     };
 
@@ -1233,20 +1455,23 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       lidPivot.rotation.x = state.lid;
       laptop.visible = state.laptopY > -6.5;
 
-      showTree(trainTree, windowed(currentProgress, 0.25, 0.31, 0.41, 0.45), elapsed);
-      showTree(fuelTree, windowed(currentProgress, 0.555, 0.6, 0.63, 0.67), elapsed);
+      showTree(trainTree, windowed(currentProgress, 0.16, 0.24, 0.35, 0.39), elapsed);
+      showTree(fuelTree, windowed(currentProgress, 0.5, 0.56, 0.63, 0.67), elapsed);
 
-      // The sync badge floats above the gap between laptop and phone.
+      // The sync badge sits over the pair: between the laptop display and the phone.
       const sync = windowed(currentProgress, 0.79, 0.83, 0.87, 0.9);
       syncBadge.visible = sync > 0.01;
       if (syncBadge.visible) {
         phone.updateMatrixWorld(true);
         laptop.updateMatrixWorld(true);
         screen.localToWorld(badgeFrom.set(0, 0.95, 0.01));
-        display.localToWorld(badgeTo.set(displayWidth * 0.5, displayHeight * 0.5, 0.01));
-        syncBadge.position.set((badgeFrom.x + badgeTo.x) / 2, Math.max(badgeFrom.y, badgeTo.y) + 0.38, (badgeFrom.z + badgeTo.z) / 2 + 0.3);
+        display.localToWorld(badgeTo.set(displayWidth * 0.2, displayHeight * 0.5, 0.01));
+        syncBadge.position.set((badgeFrom.x + badgeTo.x) / 2, Math.max(badgeFrom.y, badgeTo.y) + 0.2, (badgeFrom.z + badgeTo.z) / 2 + 0.3);
         syncBadge.material.opacity = sync;
+        syncHalo.position.copy(syncBadge.position).setZ(syncBadge.position.z - 0.05);
+        syncHalo.material.opacity = sync * (0.7 + Math.sin(elapsed * 2) * 0.3);
       }
+      syncHalo.visible = syncBadge.visible;
 
       camera.position.set(pointer.x * 0.15, pointer.y * 0.1, state.cameraZ);
       camera.lookAt(0, 0, 0);
@@ -1287,13 +1512,30 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
 
     const rect = canvas.getBoundingClientRect();
     resize(rect.width, rect.height);
-    apply(0);
+    // Compile every material up front (compileAsync skips hidden objects), so
+    // the diagrams and badge never stall the first frame they appear in.
+    for (const object of [phone, laptop, trainTree.group, trainTree.outlines, fuelTree.group, fuelTree.outlines, syncBadge, syncHalo]) {
+      object.visible = true;
+    }
+    for (const { card } of [...trainTree.callouts, ...fuelTree.callouts]) {
+      card.visible = true;
+    }
     await renderer.compileAsync(scene, camera);
+    apply(0);
     renderer.render(scene, camera);
 
     return {
-      setProgress: (progress) => {
+      setProgress: (progress, immediate = false) => {
         targetProgress = progress;
+        if (immediate) {
+          currentProgress = progress;
+          // Draw the new state now, even when the loop is idle.
+          sinceRender = IDLE_FRAME;
+          if (!running) {
+            apply(timer.getElapsed());
+            renderer.render(scene, camera);
+          }
+        }
       },
       setPointer: (x, y) => {
         pointerTarget.set(x, y);

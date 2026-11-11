@@ -37,6 +37,14 @@
   font-size: clamp(2.1rem, 7vw, 3.6rem);
 }
 
+/* "RYZE" in the title catches the cyan light. */
+.intro h1 > span:first-of-type {
+  background: linear-gradient(100deg, var(--r-ice) 0%, var(--r-cyan) 45%, var(--r-ring) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .lead {
   max-width: 48ch;
 }
@@ -96,6 +104,89 @@
 
 .evolutionItem:last-child .evolutionDivider {
   display: none;
+}
+
+/* --- Route guide: the login page's split panel --- */
+
+.guide {
+  margin-top: clamp(1rem, 4vw, 2.5rem);
+}
+
+.routes {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.route {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  min-height: 4.5rem;
+  padding: 0.95rem 1.1rem;
+  border: 1px solid var(--r-line);
+  border-radius: var(--r-radius);
+  color: var(--tone-text);
+  background: rgba(12, 28, 78, 0.5);
+  text-decoration: none;
+  transition:
+    border-color 200ms var(--r-ease),
+    background 200ms var(--r-ease),
+    transform 200ms var(--r-ease);
+}
+
+.route:hover {
+  border-color: rgba(0, 203, 255, 0.55);
+  background: rgba(0, 203, 255, 0.1);
+  transform: translateX(4px);
+}
+
+.route:focus-visible {
+  outline: 2.5px solid var(--r-cyan);
+  outline-offset: 3px;
+}
+
+.routeCopy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.routeCopy strong {
+  font-size: 1.02rem;
+  font-stretch: 112%;
+  font-weight: 760;
+}
+
+.routeCopy span {
+  color: var(--tone-text-2);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.routeArrow {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--r-cyan);
+  transition: transform 200ms var(--r-ease);
+}
+
+.route:hover .routeArrow {
+  transform: translateX(3px);
+}
+
+.kicker {
+  margin: 0;
+  color: var(--tone-text-2);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.lightTitle {
+  margin: 0;
 }
 
 .grid {
@@ -208,5 +299,13 @@
 @media (prefers-reduced-motion: reduce) {
   .grid > * {
     animation: none;
+  }
+
+  .route,
+  .route:hover,
+  .routeArrow,
+  .route:hover .routeArrow {
+    transform: none;
+    transition: none;
   }
 }

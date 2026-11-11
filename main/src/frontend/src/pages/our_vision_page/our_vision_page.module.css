@@ -117,13 +117,36 @@
 }
 
 .compareRyze {
-  border-color: rgba(0, 203, 255, 0.5);
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(0, 203, 255, 0.55);
   color: var(--r-white);
-  box-shadow: 0 40px 90px -50px rgba(0, 203, 255, 0.6);
+  background:
+    radial-gradient(40rem 18rem at 100% 0%, rgba(0, 203, 255, 0.22), transparent 70%),
+    var(--r-surface);
+  box-shadow:
+    0 0 0 1px rgba(0, 203, 255, 0.08),
+    0 40px 90px -50px rgba(0, 203, 255, 0.75);
+}
+
+/* A cyan light along the top edge of the RYZE column. */
+.compareRyze::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--r-ring), var(--r-cyan), var(--r-ice));
+  content: "";
 }
 
 .compareRyze li svg {
-  color: var(--r-cyan);
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-top: 0.05rem;
+  padding: 0.2rem;
+  border-radius: 50%;
+  color: var(--r-ink);
+  background: var(--r-cyan);
+  box-shadow: 0 0 12px rgba(0, 203, 255, 0.5);
 }
 
 .nextTag {
@@ -204,7 +227,12 @@
 }
 
 .stepNumber {
-  color: var(--r-cyan);
+  width: fit-content;
+  background: linear-gradient(120deg, var(--r-ice) 0%, var(--r-cyan) 45%, var(--r-ring) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 14px rgba(0, 203, 255, 0.35));
   font-size: 2.25rem;
   font-stretch: 125%;
   font-weight: 820;
@@ -277,6 +305,22 @@
   border-color: var(--r-cyan-bright);
   background: var(--r-cyan-bright);
   box-shadow: 0 0 0 6px rgba(80, 226, 254, 0.25);
+  animation: beacon 2.4s ease-out infinite;
+}
+
+/* "Today" sends out a slow ring of light. */
+@keyframes beacon {
+  0% {
+    box-shadow:
+      0 0 0 6px rgba(80, 226, 254, 0.25),
+      0 0 0 0 rgba(80, 226, 254, 0.5);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 6px rgba(80, 226, 254, 0.25),
+      0 0 0 18px rgba(80, 226, 254, 0);
+  }
 }
 
 .phaseName {
@@ -516,5 +560,11 @@
     align-items: center;
     gap: 2rem;
     padding: 2.25rem 2.5rem 4.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phaseCurrent .phaseNode {
+    animation: none;
   }
 }

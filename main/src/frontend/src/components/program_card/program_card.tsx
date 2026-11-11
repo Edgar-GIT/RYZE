@@ -17,6 +17,11 @@ interface ProgramCardProps {
 
 const part = (value: string | null): string => value ?? "";
 
+// Each card gets one of four brand gradients, chosen from its id so a card
+// keeps its colour wherever it appears.
+const TONES = ["royal", "ring", "cyan", "deep"] as const;
+const toneFor = (id: string) => TONES[[...id].reduce((sum, character) => sum + character.charCodeAt(0), 0) % TONES.length];
+
 // Combines non-null generic metadata into a single muted line, e.g.
 // "12 weeks · 4 days/week". Empty lines are omitted.
 const buildMetaLine = (items: string[]): string => items.filter(Boolean).join(" · ");
@@ -41,8 +46,9 @@ export const ProgramCard = ({ program, forceFree = false, owned = false }: Progr
         className={styles.link}
         aria-label={owned ? `Open ${program.name}` : `View ${program.name}`}
       >
-        <div className={styles.image} aria-hidden="true">
+        <div className={styles.image} data-tone={toneFor(program.id)} aria-hidden="true">
           <img className={styles.logo} src={BRAND_ASSETS.icon} alt="" />
+          {isFree && !owned ? <span className={styles.freeBadge}>Free</span> : null}
         </div>
         <div className={styles.body}>
           <h3 className={styles.title}>{program.name}</h3>
