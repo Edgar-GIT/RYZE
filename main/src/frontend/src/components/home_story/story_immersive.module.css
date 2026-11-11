@@ -1,30 +1,33 @@
-/* Two pinned stages share one WebGL canvas: the opening (with the Earth) and
-   the device chapters. The programs sit between them in normal page flow. */
+/* One 3D stage stays pinned behind the hero, the programs and the chapter
+   track. It keeps its full height in the flow (the hero pulls itself up over
+   it), so it is released and scrolls away exactly when the track ends. */
 .story {
   position: relative;
-}
-
-/* The opening stays pinned for this much scroll before it scrolls away. */
-.intro {
-  --hero-pin: 55vh;
-  position: relative;
-  height: calc(100vh + var(--hero-pin));
-  height: calc(100svh + var(--hero-pin));
 }
 
 .stage {
   position: sticky;
   top: 0;
+  z-index: 0;
   height: 100vh;
   height: 100svh;
   overflow: hidden;
   isolation: isolate;
 }
 
-.heroStage {
+.hero {
+  position: relative;
+  z-index: 1;
   display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  margin-top: -100vh;
+  margin-top: -100svh;
   align-items: center;
   padding-top: var(--r-nav-clearance);
+  /* The hero covers the pinned stage; only its copy takes the pointer, so the
+     story steps underneath stay clickable. */
+  pointer-events: none;
 }
 
 .heroInner {
@@ -36,7 +39,8 @@
   display: grid;
   gap: 1.75rem;
   width: min(44%, 36rem);
-  will-change: opacity, transform;
+  pointer-events: auto;
+  will-change: opacity;
 }
 
 /* The opening headline's long words ("everywhere.") stay inside the copy column. */
@@ -44,54 +48,33 @@
   font-size: clamp(3.25rem, 4.9vw, 5.25rem);
 }
 
-/* At least one viewport tall, so the two stages are never on screen together. */
 .programs {
   position: relative;
-  display: grid;
-  min-height: 100vh;
-  min-height: 100svh;
-  align-content: center;
+  z-index: 1;
 }
 
 /* Scroll room for the four device chapters. */
 .track {
-  position: relative;
   height: 500vh;
   height: 500svh;
 }
 
-/* The backdrops dissolve into the page where their stage meets the page, so
-   the page's own light continues without an edge. */
+/* The backdrop dissolves into the page at its base, so the page's own light
+   continues under the next section without an edge. */
 .backdrop {
   position: absolute;
   inset: 0;
   z-index: -2;
   background: linear-gradient(160deg, #02041f 0%, #061447 100%);
-}
-
-.heroBackdrop {
-  background:
-    radial-gradient(70rem 46rem at 78% 30%, rgba(4, 129, 220, 0.34), transparent 66%),
-    linear-gradient(160deg, #02041f 0%, #050e3a 100%);
   mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
 }
 
-.trackBackdrop {
-  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 62%, transparent 100%);
-}
-
+/* The stars fade out with the backdrop; the devices stay above the fade. */
 .canvasHost {
   position: absolute;
   inset: 0;
   z-index: -1;
-}
-
-.heroHost {
   mask-image: linear-gradient(180deg, #000 0%, #000 93%, transparent 100%);
-}
-
-.trackHost {
-  mask-image: linear-gradient(180deg, transparent 0%, #000 6%, #000 93%, transparent 100%);
 }
 
 .canvas {
@@ -157,6 +140,110 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* --- Story steps (right edge) --- */
+
+.steps {
+  position: absolute;
+  top: 50%;
+  right: clamp(1rem, 2.4vw, 2.5rem);
+  z-index: 2;
+  translate: 0 -50%;
+  transition:
+    opacity 300ms ease,
+    visibility 0s linear 0s;
+}
+
+/* While the programs fill the screen the steps step aside (and leave the tab order). */
+.stepsHidden {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 300ms ease,
+    visibility 0s linear 300ms;
+}
+
+.steps ol {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0 0.25rem;
+  border: 0;
+  color: rgba(255, 255, 255, 0.62);
+  background: none;
+  font-family: var(--r-font);
+  font-size: 0.75rem;
+  font-stretch: 115%;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+
+.stepName {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: nowrap;
+  transition:
+    max-width 300ms ease,
+    opacity 300ms ease;
+}
+
+.stepIndex {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stepIndex::after {
+  width: 1.1rem;
+  height: 2px;
+  border-radius: 2px;
+  content: "";
+  background: currentColor;
+  transition: width 300ms ease;
+}
+
+.step:hover,
+.step[aria-current="step"] {
+  color: #ffffff;
+}
+
+.step[aria-current="step"] {
+  color: var(--r-cyan);
+}
+
+.step[aria-current="step"] .stepIndex::after {
+  width: 2.25rem;
+  box-shadow: 0 0 10px rgba(0, 203, 255, 0.7);
+}
+
+.step:hover .stepName,
+.step:focus-visible .stepName,
+.step[aria-current="step"] .stepName {
+  max-width: 8rem;
+  opacity: 1;
+}
+
+.step:focus-visible {
+  outline: 2px solid var(--r-cyan);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
 }
 
 /* --- Scroll cue --- */

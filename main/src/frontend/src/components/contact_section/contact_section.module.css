@@ -1,17 +1,22 @@
+/* Contact: the login page's split card. The light-blue wave half carries the
+   title and the official channels; the navy half carries the form. */
 .section {
   overflow: hidden;
   padding-block: calc(var(--r-nav-clearance) + 1.5rem) var(--r-section-y);
+  background: radial-gradient(56rem 34rem at 30% 40%, rgba(0, 203, 255, 0.14), transparent 70%);
 }
 
-.layout {
-  display: grid;
-  gap: 2.5rem;
+.layout.layout {
+  align-items: stretch;
 }
 
-.copy {
-  display: grid;
+.copy.copy {
   gap: 1.35rem;
   align-content: start;
+}
+
+.copy h1 {
+  margin: 0;
 }
 
 .channels {
@@ -22,6 +27,7 @@
   list-style: none;
 }
 
+/* Light channel cards, as on the Home contact panel. */
 .row {
   display: grid;
   grid-template-columns: 3rem minmax(0, 1fr) auto;
@@ -29,18 +35,18 @@
   align-items: center;
   gap: 0.95rem;
   padding: 0.8rem 1.05rem;
-  border: 1px solid var(--tone-line);
   border-radius: var(--r-radius-lg);
-  color: var(--tone-text);
-  background: var(--tone-card);
+  color: var(--r-ink);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 20px 40px -30px rgba(2, 4, 31, 0.6);
   transition:
-    border-color 200ms var(--r-ease),
-    background-color 200ms var(--r-ease);
+    background-color 200ms var(--r-ease),
+    transform 200ms var(--r-ease);
 }
 
 .row:hover {
-  border-color: var(--r-cyan);
-  background: rgba(0, 203, 255, 0.1);
+  background: var(--r-white);
+  transform: translateY(-2px);
 }
 
 .rowIcon {
@@ -49,7 +55,7 @@
   height: 3rem;
   place-items: center;
   border-radius: 0.9rem;
-  background: var(--r-white);
+  background: #eaf4fd;
 }
 
 .rowIcon svg {
@@ -80,7 +86,7 @@
 .rowArrow {
   width: 1.2rem;
   height: 1.2rem;
-  color: var(--hl);
+  color: var(--r-royal);
   transition: transform 200ms var(--r-ease);
 }
 
@@ -92,21 +98,30 @@
   min-width: 0;
 }
 
-@media (min-width: 1024px) {
-  .layout {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-    gap: clamp(3rem, 6vw, 6rem);
-    align-items: start;
+/* Inside the split card the form drops its own card frame. */
+.formColumn > form {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+@media (min-width: 900px) {
+  .layout.layout {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   }
 
-  .copy {
-    position: sticky;
-    top: var(--r-nav-clearance);
+  .copy.copy {
+    align-content: center;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .row,
+  .row:hover,
   .row:hover .rowArrow {
     transform: none;
+    transition: none;
   }
 }

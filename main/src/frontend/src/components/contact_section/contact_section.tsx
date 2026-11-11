@@ -2,6 +2,7 @@ import { ArrowUpRight } from "lucide-react";
 
 import { BrandIcon } from "@/components/brand_icon/brand_icon";
 import { ContactForm } from "@/components/contact_form/contact_form";
+import { Waves } from "@/components/public_ui/public_ui";
 import ui from "@/components/public_ui/public_ui.module.css";
 import {
   CONTACT_EMAIL,
@@ -20,10 +21,13 @@ const channels = [
   { icon: "whatsapp", name: "WhatsApp", detail: CONTACT_WHATSAPP_LABEL, href: CONTACT_WHATSAPP_URL }
 ] as const;
 
+// The contact page in the login page's look: one card with the light-blue wave
+// half (title and official channels) beside the navy half with the form. On
+// phones the bright half comes first.
 export const ContactSection = () => (
   <section className={joinClassNames(ui.toneNavy, styles.section)} id="contact" aria-labelledby="contact-heading">
-    <div className={joinClassNames(ui.container, styles.layout)}>
-      <div className={styles.copy}>
+    <div className={joinClassNames(ui.container, ui.split, styles.layout)}>
+      <div className={joinClassNames(ui.toneLight, ui.splitPane, ui.splitLight, styles.copy)}>
         <p className={ui.label}>Contact</p>
         <h1 id="contact-heading" className={ui.display}>
           Talk to <span className={ui.hl}>RYZE.</span>
@@ -59,9 +63,10 @@ export const ContactSection = () => (
             );
           })}
         </ul>
+        <Waves />
       </div>
 
-      <div className={styles.formColumn}>
+      <div className={joinClassNames(ui.splitPane, styles.formColumn)}>
         <ContactForm />
       </div>
     </div>

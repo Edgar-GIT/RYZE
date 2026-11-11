@@ -96,8 +96,10 @@ flows. Compare protected-area baselines after every significant milestone.
   wave panel's colours. The free training-plan marketplace (part of the
   marketplace group) received the public colours through page-scoped tokens
   and its own components only, with its layout and behaviour unchanged; the
-  other marketplace/purchase pages are not started. The desktop Home story was
-  restructured into two pinned stages around the programs (see
+  other marketplace/purchase pages are not started. The Contact page uses the
+  split card too. The desktop Home story keeps the owner's order (hero →
+  programs → chapters) on one pinned stage with the five story steps restored;
+  the Earth goes to the corner as the programs arrive (see
   `docs/PAGES/design.MD`, Home story).
 
 - 2026-11-10 (owner revision) — The owner asked for one consistent site: no

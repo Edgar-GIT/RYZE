@@ -169,8 +169,9 @@ The website is built from the same materials as the app:
 - the login page's look is the model for moments that should draw attention
   (owner, 2026-11-11): the split panel (`split` + `splitPane` + `splitLight`
   in `public_ui`) joins a navy glass half to the light-blue wave half in one
-  card. It is used on Services (route guide and "Start free today"), and the
-  wave panel's colours light the RYZE tile in the Our Vision hero. Use it for
+  card. It is used on Services (route guide and "Start free today") and on the
+  Contact page (title and channels beside the form), and the wave panel's
+  colours light the RYZE tile in the Our Vision hero. Use it for
   conversion and comparison moments, not as a section background.
 
 ## Verified logo colours
@@ -227,12 +228,11 @@ Archivo (variable, SIL Open Font License, self-hosted in
 ## 3D and product visuals
 
 - Desktop Home only: one Three.js scene (`components/home_story/story_scene.ts`)
-  driven by scroll, shown on two pinned stages that share one canvas (it moves
-  to whichever stage is on screen): the opening (the copy fades while the
-  Earth turns to the centre, then the stage scrolls away with the page) and the
-  device chapters (the stage scrolls into view with the phone already in place
-  and scrolls away after "Get started"). The programs sit between the stages in
-  normal page flow, at least one viewport tall, so no 3D is ever behind them.
+  driven by scroll on one pinned stage behind the hero, the programs and the
+  chapter track, with the five story steps on its right edge. The Earth
+  travels to the upper right corner as the hero scrolls away and waits there
+  while the programs pass; the phone flies in as they leave. The stage is
+  released when the track ends, so nothing that follows overlaps it.
   The scene is loaded with a dynamic import after a capability check
   (`hooks/use_immersive_story.ts`: ≥1024×680, fine pointer, WebGL2, no
   reduced-motion preference). Procedural geometry only; default GPU preference;
@@ -260,8 +260,8 @@ Archivo (variable, SIL Open Font License, self-hosted in
   elements, so leaders never cross. Screens and cards are sampled one mip level sharper (map
   LOD bias) and the laptop/Evolve-phone screens use large type for the size at
   which they appear. Each stage's backdrop dissolves into the page where the
-  stage meets it, so the page's light continues without an edge. The backdrop
-  stays in the navy family through every chapter. All materials, including the
+  stage meets the page, so the page's light continues without an edge. The
+  backdrop stays in the navy family through every chapter. All materials, including the
   hidden diagram and badge ones, are compiled before the first frame.
 - Mobile, tablet, reduced motion and no-WebGL use lightweight equivalents
   (`components/brand_globe/`: an SVG globe with the same routes;

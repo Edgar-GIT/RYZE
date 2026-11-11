@@ -408,22 +408,26 @@ today's training session, the day's nutrition plan, the programme page), and
 labelled "Illustrative RYZE screens with sample data."
 
 Desktop (≥1024px wide, ≥680px tall, fine pointer, WebGL2, no reduced-motion
-preference) uses two pinned stages that share one canvas (owner revision,
-2026-11-11, after the hero lost its scroll animation, the Earth showed through
-the program cards, an empty stretch followed them and the last chapter stayed
-pinned under the next section):
+preference) pins one 3D stage behind the hero, the programs and a 500svh
+chapter track, with the five story steps on its right edge (owner revision,
+2026-11-11; the order hero → programs → chapters is the owner's and stays):
 
-1. The opening stage stays pinned for 55vh of scroll while the hero copy fades
-   and lifts and the Earth turns to the centre; then it scrolls away with the
-   page.
-2. The programs follow in normal page flow (at least one viewport tall), with
-   no 3D behind them; rendering pauses while only they are on screen.
-3. The chapter stage (a 500svh track) scrolls into view with the phone and the
-   Train copy already in place, plays the chapters, and scrolls away after
-   "Get started" before the next section begins.
+1. Hero — the story steps (01 RYZE, 02 Train, 03 Fuel, 04 Evolve, 05 Start)
+   are visible and clickable; step 1 is current. As the hero scrolls away its
+   copy fades and the Earth travels to the upper right corner — part of the
+   journey, with no moment where the Earth stands alone.
+2. Programs — they pass over the stage while the Earth waits in the corner
+   (tucked a little further in, clear of the section header); the steps step
+   aside (hidden and out of the tab order) while the programs fill the screen.
+3. Chapters — the track starts while the programs are still leaving (its top
+   at 55% of the viewport), so the phone flies in and the Train copy appears
+   right behind them; the current step follows the chapter on screen and each
+   step scrolls to its chapter. The stage keeps its height in the flow (the
+   hero pulls itself up over it), so it is released and scrolls away exactly
+   when the track ends, before the next section.
 
 Scroll progress drives one Three.js scene (`story_scene.ts`, dynamically
-imported); the canvas moves to whichever stage is on screen:
+imported):
 the Earth with real continents and an atmosphere, RYZE routes leaving Lisbon
 (light pulses travel each route) and the official icon on a badge above
 Lisbon — the brand travelling the world; a modelled phone (titanium frame,
@@ -433,11 +437,10 @@ nutrition screen; a laptop (black keys with backlit legends, Touch ID and arrow
 keys, glass trackpad, opening scoop, hinge, display notch) that rises with the
 logo on its closed lid and opens square-on to the viewer on the programme
 screen, with the phone standing beside it; then the Earth returns for
-the call to action. The stage backdrops stay in the navy family (only the
-blue light moves) and dissolve into the page where each stage meets it, the
-chapter copy fades in its scroll window (every chapter stays in the
-accessibility tree; keyboard focus inside a faded chapter scrolls it into view).
-The former right-edge chapter navigation was removed to give the devices room.
+the call to action. The stage backdrop stays in the navy family (only the
+blue light moves) and fades into the page at its base, the chapter copy fades
+in its scroll window (every chapter stays in the accessibility tree; keyboard
+focus inside a faded chapter jumps it into view).
 Device screens are sampled one mip level sharper than default to keep small
 text crisp.
 An SVG globe is shown until the scene is ready. Rendering runs only while the story is on screen and stops on
@@ -1069,18 +1072,19 @@ SVG globe.
 
 ## Contact
 
-A navy page on the public website layer (no background image). Copy column:
-label "Contact", display heading "Talk to RYZE." ("RYZE." in cyan), the
-supporting description and channel cards (Email, Instagram, WhatsApp) with an
-icon tile, the address or handle and an outward arrow; external cards announce
-that they open in a new tab. On desktop the copy column is sticky beside the
-form.
+A navy page on the public website layer (no background image), in the login
+page's look (owner request, 2026-11-11: "more life"): one split card. The
+light-blue wave half carries the label "Contact", the display heading "Talk to
+RYZE." ("RYZE." in royal), the supporting description and light channel cards
+(Email, Instagram, WhatsApp) with an icon tile, the address or handle and an
+outward arrow; external cards announce that they open in a new tab. The navy
+half carries the form. On phones the bright half comes first.
 
 - Email opens the mail client
 - Instagram opens the official profile
 - WhatsApp opens the official community invite
 
-Form column: an app-style glass card with dark fields titled `Write to RYZE` with Name, Email, Subject,
+Form column: the navy half of the card, with dark fields, titled `Write to RYZE` with Name, Email, Subject,
 Message and Attachment (optional, hint "PNG, JPEG, WebP or PDF, up to 1 MB.");
 primary CTA `Send Message`; helper text `We usually reply within 24 hours.`.
 Input borders meet 3:1 non-text contrast; the hidden file input is named

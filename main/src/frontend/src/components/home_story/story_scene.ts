@@ -100,6 +100,8 @@ const base: SceneState = {
 const phoneHero = { phoneX: 0.56, phoneY: -0.1, phoneZ: 0.5, phoneRotX: 0.05, phoneRotZ: 0.03, phoneScale: 1.5 };
 // The Earth drifts far back to the upper right while the devices are on stage.
 const globeAway = { globeX: 1.2, globeY: 2.3, globeZ: -7, globeScale: 0.62, globeSpin: 1.4, stars: 0.35 };
+// Further into the corner while the programs pass, clear of their header.
+const globeTucked = { globeX: 1.32, globeY: 2.65 };
 // Laptop and phone side by side, both turned slightly towards the copy; the
 // Earth leaves the frame so the two screens carry the chapter.
 const phoneBesideLaptop = {
@@ -113,17 +115,17 @@ const phoneBesideLaptop = {
   laptopX: 0.27
 };
 
-// 0 → 0.1 is the opening (the copy fades while the Earth turns and comes to the
-// centre); the device chapters start at 0.14, already in place, because their
-// stage scrolls into view with the page. The stretch between is never shown.
+// While the hero scrolls away (0 → 0.1) the Earth travels to the upper right
+// corner, where it waits while the programs pass (0.1 → 0.14). The chapters
+// then fly the phone in (0.14 → 0.25) as the programs leave.
 const KEYS: Array<{ at: number; state: SceneState }> = [
   { at: 0, state: base },
-  { at: 0.1, state: { ...base, globeX: 0, globeScale: 0.96, globeSpin: 0.42, cameraZ: 9.3 } },
-  { at: 0.14, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.55 } },
-  { at: 0.27, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.42 } },
+  { at: 0.1, state: { ...base, ...globeAway, ...globeTucked, globeSpin: 1.1 } },
+  { at: 0.14, state: { ...base, ...globeAway, ...globeTucked } },
+  { at: 0.25, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.42 } },
   { at: 0.36, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.16 } },
-  { at: 0.4, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.16 } },
-  { at: 0.5, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: TAU - 0.16 } },
+  { at: 0.42, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.16 } },
+  { at: 0.51, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: TAU - 0.16 } },
   { at: 0.64, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: TAU - 0.3 } },
   { at: 0.72, state: { ...base, ...globeAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.42, laptopY: -0.9 } },
   { at: 0.79, state: { ...base, ...globeAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.38, laptopY: -0.9, lid: LID_OPEN } },
@@ -138,7 +140,7 @@ const KEYS: Array<{ at: number; state: SceneState }> = [
 // at its smaller size there.
 type PhoneScreen = "training" | "nutrition" | "synced";
 const screenFor = (progress: number): PhoneScreen =>
-  progress >= 0.45 && progress < 0.68 ? "nutrition" : progress >= 0.68 ? "synced" : "training";
+  progress >= 0.465 && progress < 0.68 ? "nutrition" : progress >= 0.68 ? "synced" : "training";
 
 // Where each lifted card comes from on its phone screen, in screen fractions
 // (left, top, right, bottom), the height of its card and where its leader turns.
@@ -1455,8 +1457,8 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       lidPivot.rotation.x = state.lid;
       laptop.visible = state.laptopY > -6.5;
 
-      showTree(trainTree, windowed(currentProgress, 0.16, 0.24, 0.35, 0.39), elapsed);
-      showTree(fuelTree, windowed(currentProgress, 0.5, 0.56, 0.63, 0.67), elapsed);
+      showTree(trainTree, windowed(currentProgress, 0.25, 0.31, 0.38, 0.42), elapsed);
+      showTree(fuelTree, windowed(currentProgress, 0.52, 0.56, 0.63, 0.67), elapsed);
 
       // The sync badge sits over the pair: between the laptop display and the phone.
       const sync = windowed(currentProgress, 0.79, 0.83, 0.87, 0.9);

@@ -1,3 +1,61 @@
+# Version 2.107.0
+
+Title: Home story steps restored, Earth to the corner, Contact in the login look
+
+Date: 2026-11-11
+
+Summary:
+
+The owner kept the order hero → programs → chapters but rejected the opening
+that left the Earth alone on screen and asked for the earlier story scheme. The
+desktop Home is again one pinned 3D stage with the five story steps on its right
+edge (current step follows the chapter; each step scrolls to its chapter). As
+the hero scrolls away the Earth travels to the upper right corner and waits
+there while the programs pass; the steps step aside over the programs; the phone
+flies in as the programs leave, so there is no empty stretch. The stage keeps
+its height in the flow and is released when the track ends, so the next section
+never runs over a pinned "Get started" (the bug fixed in 2.106.0 stays fixed).
+The Contact page now uses the login page's split card: the light-blue wave half
+with the title and channels, the navy half with the form.
+
+Main changes:
+
+- `components/home_story/story_immersive.tsx` + CSS — one stage again, story
+  steps (`nav` "Story steps"), hero copy fade, programs hide the steps, track
+  starting at 55% of the viewport, instant jump for keyboard focus.
+- `components/home_story/story_scene.ts` — keyframes: Earth to the corner
+  during the hero, tucked during the programs, phone fly-in 0.14 → 0.25;
+  diagram windows retimed.
+- `components/contact_section/` — split card with `Waves` and light channel
+  cards; the form drops its own card frame inside it.
+
+Reason:
+
+Owner feedback on the Home opening and the request to give the Contact page
+more life.
+
+Modified files:
+
+- `main/src/frontend/src/components/home_story/story_immersive.tsx`,
+  `story_immersive.module.css`, `story_scene.ts`
+- `main/src/frontend/src/components/contact_section/contact_section.tsx`,
+  `contact_section.module.css`
+- `docs/INSTRUCTIONS/design.MD`, `docs/PAGES/design.MD`,
+  `docs/AI/frontend-revamp.md`, `docs/REGISTRY/update_logs.MD`
+
+Verification:
+
+- `npm run typecheck`, `npm run test` (148/148), `npm run build` and
+  `npm run test:e2e` (8/8) passed.
+- Browser checks (headless Chromium, SwiftShader WebGL): 29 story checks —
+  five steps on the hero with step 1 current and clickable, steps hidden over
+  the programs, program CTAs clickable, step 2/3 reaching Train/Fuel, Train
+  copy on screen as soon as the programs have left, keyboard focus revealing a
+  faded chapter, the stage released before the next section, rendering paused
+  off screen, disposal on navigation, reduced-motion/no-WebGL/mobile fallbacks
+  without Three.js; interaction checks; no horizontal overflow on 10 routes × 8
+  widths; screenshots of Home (1440×900) and Contact (1440×900, 390×844).
+
 # Version 2.106.0
 
 Title: Home story fixes, linked diagrams and the login look on Services
