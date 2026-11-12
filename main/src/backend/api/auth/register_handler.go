@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -20,6 +22,9 @@ type registerRequest struct {
 	Password  string `json:"password"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+	// Language is the interface language at sign-up ("en" or "pt"); it
+	// becomes the language of the account's emails. Optional.
+	Language string `json:"language"`
 }
 
 // userResponse only exposes safe public user information.
@@ -32,13 +37,38 @@ type userResponse struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// accountResponse is the owner's own view of the account (/me and
+// registration): the public fields plus the account settings only the owner
+// sees.
+type accountResponse struct {
+	userResponse
+	// EmailVerified reports whether the owner confirmed the address.
+	EmailVerified bool `json:"email_verified"`
+	// PreferredLanguage is the language of the account's emails, when set.
+	PreferredLanguage *string `json:"preferred_language"`
+	// PasswordSet is false for an account created through Google until the
+	// owner sets a password.
+	PasswordSet bool `json:"password_set"`
+}
+
+// AfterRegister runs after a successful registration (store the language,
+// send the verification email). It never fails the registration.
+type AfterRegister func(ctx context.Context, userID, language string)
+
 // RegisterHandler exposes the registration service over HTTP.
 type RegisterHandler struct {
-	registration registration.RegistrationService
+	registration  registration.RegistrationService
+	afterRegister AfterRegister
 }
 
 func NewRegisterHandler(svc registration.RegistrationService) *RegisterHandler {
 	return &RegisterHandler{registration: svc}
+}
+
+// WithAfterRegister installs the post-registration hook.
+func (h *RegisterHandler) WithAfterRegister(hook AfterRegister) *RegisterHandler {
+	h.afterRegister = hook
+	return h
 }
 
 func (h *RegisterHandler) Register(c *gin.Context) {
@@ -66,10 +96,21 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 		return
 	}
 
+	if h.afterRegister != nil {
+		func() {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					slog.Error("post-registration hook panicked", slog.String("user_id", user.ID))
+				}
+			}()
+			h.afterRegister(c.Request.Context(), user.ID, req.Language)
+		}()
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"message": "Account created successfully.",
-		"data":    newUserResponse(user),
+		"data":    newAccountResponse(user),
 	})
 }
 
@@ -81,6 +122,15 @@ func newUserResponse(user *models.User) userResponse {
 		LastName:  user.LastName,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
+	}
+}
+
+func newAccountResponse(user *models.User) accountResponse {
+	return accountResponse{
+		userResponse:      newUserResponse(user),
+		EmailVerified:     user.EmailVerifiedAt != nil,
+		PreferredLanguage: user.PreferredLanguage,
+		PasswordSet:       user.PasswordSet,
 	}
 }
 

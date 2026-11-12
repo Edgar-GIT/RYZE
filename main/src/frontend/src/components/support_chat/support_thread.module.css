@@ -1,0 +1,203 @@
+/* One support conversation: a scrolling message list over a composer.
+   Mobile first; the list fills the space the page gives the thread. */
+
+.thread {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 14rem;
+  padding: 0.9rem 0.25rem 0.9rem 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.older {
+  align-self: center;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(42, 140, 255, 0.35);
+  border-radius: 999px;
+  color: #c9d5ec;
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.empty {
+  margin: auto 0;
+  color: #93a4c8;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.message {
+  display: grid;
+  gap: 0.25rem;
+  max-width: min(36rem, 88%);
+  padding: 0.65rem 0.85rem;
+  border-radius: 14px;
+}
+
+.theirs {
+  align-self: flex-start;
+  border: 1px solid rgba(42, 140, 255, 0.25);
+  border-bottom-left-radius: 4px;
+  color: #e6edf9;
+  background: rgba(10, 24, 70, 0.85);
+}
+
+.mine {
+  align-self: flex-end;
+  border: 1px solid rgba(0, 203, 255, 0.35);
+  border-bottom-right-radius: 4px;
+  color: #ffffff;
+  background: rgba(0, 203, 255, 0.14);
+}
+
+.pending {
+  opacity: 0.75;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  color: #93a4c8;
+  font-size: 0.72rem;
+}
+
+.author {
+  color: #c9d5ec;
+  font-weight: 700;
+}
+
+.body {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.retry {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-self: end;
+  gap: 0.35rem;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(255, 138, 128, 0.6);
+  border-radius: 999px;
+  color: #ffb4ab;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.retry svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.composer {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(42, 140, 255, 0.2);
+}
+
+.input {
+  width: 100%;
+  min-height: 3.25rem;
+  max-height: 12rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #4d6fa6;
+  border-radius: 12px;
+  color: #ffffff;
+  background: rgba(2, 6, 28, 0.7);
+  font: inherit;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.input:focus-visible {
+  border-color: #00cbff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 203, 255, 0.22);
+}
+
+.composerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.counter {
+  color: #93a4c8;
+  font-size: 0.75rem;
+}
+
+.send {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  color: #02041f;
+  background: linear-gradient(180deg, #4fe3ff 0%, #00cbff 100%);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.send svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.send:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.older:focus-visible,
+.retry:focus-visible,
+.send:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}
+
+.closedNote,
+.closedBanner {
+  margin: 0;
+  color: #ffd9a3;
+  font-size: 0.82rem;
+}
+
+.closedBanner {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(255, 200, 120, 0.4);
+  border-radius: 12px;
+  background: rgba(255, 180, 80, 0.08);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -32,6 +32,12 @@ const API_BASE_URL =
  */
 export const encodePathSegment = (value: string): string => encodeURIComponent(value);
 
+/**
+ * Absolute URL of an API path, for browser navigations that cannot use fetch
+ * (for example the Google sign-in redirect).
+ */
+export const apiUrl = (path: string): string => `${API_BASE_URL}${path}`;
+
 export async function apiGet<T>(path: string): Promise<T> {
   let response: Response;
 

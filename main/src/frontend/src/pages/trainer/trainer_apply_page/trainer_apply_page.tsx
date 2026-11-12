@@ -17,12 +17,14 @@ import { ApiError } from "@utils/http_client";
 import { TrainerApplicationDocuments } from "./trainer_application_documents";
 
 import styles from "./trainer_apply_page.module.css";
+import { useI18n } from "@/i18n/i18n";
 
 // The application form intentionally collects nothing beyond the request
 // itself: the backend accepts no applicant-supplied fields, and the platform
 // has not defined any screening document workflow, so the page must not invent
 // one. The flow is a single explicit request, reviewed by an administrator.
 export const TrainerApplyPage = () => {
+  const { t } = useI18n();
   const { access, unauthenticated, loaded, refresh } = useTrainerSession();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -42,10 +44,10 @@ export const TrainerApplyPage = () => {
         } else if (reason.status === 401) {
           refresh();
         } else {
-          setError(reason.message || "Unable to submit the application.");
+          setError(t("account.trainerApply.submitError"));
         }
       } else {
-        setError("Unable to submit the application.");
+        setError(t("account.trainerApply.submitError"));
       }
     } finally {
       setSubmitting(false);
@@ -81,14 +83,11 @@ export const TrainerApplyPage = () => {
             <span className={styles.icon}>
               <ShieldCheck size={26} aria-hidden="true" />
             </span>
-            <h1 className={styles.title}>You are a trainer</h1>
-            <p className={styles.text}>
-              Your trainer access is active. Open your dashboard to manage clients and your training
-              programs.
-            </p>
+            <h1 className={styles.title}>{t("account.trainerApply.trainerTitle")}</h1>
+            <p className={styles.text}>{t("account.trainerApply.trainerText")}</p>
             <div className={styles.actions}>
               <Button to="/trainer/dashboard" variant="primary" size="small">
-                Open trainer dashboard
+                {t("account.trainerApply.openDashboard")}
               </Button>
             </div>
           </section>
@@ -99,12 +98,8 @@ export const TrainerApplyPage = () => {
             <span className={styles.icon}>
               <Clock3 size={26} aria-hidden="true" />
             </span>
-            <h1 className={styles.title}>Application under review</h1>
-            <p className={styles.text}>
-              Your request to become a trainer has been submitted and is waiting for an
-              administrator to review it. You will be able to open the trainer dashboard once it is
-              approved.
-            </p>
+            <h1 className={styles.title}>{t("account.trainerApply.pendingTitle")}</h1>
+            <p className={styles.text}>{t("account.trainerApply.pendingText")}</p>
             <TrainerApplicationDocuments />
           </section>
         ) : null}
@@ -114,10 +109,8 @@ export const TrainerApplyPage = () => {
             <span className={styles.icon}>
               <ClipboardCheck size={26} aria-hidden="true" />
             </span>
-            <h1 className={styles.title}>Application not approved</h1>
-            <p className={styles.text}>
-              Your previous request was not approved. You can submit a new request at any time.
-            </p>
+            <h1 className={styles.title}>{t("account.trainerApply.rejectedTitle")}</h1>
+            <p className={styles.text}>{t("account.trainerApply.rejectedText")}</p>
             {error ? <p className={styles.error}>{error}</p> : null}
             <div className={styles.actions}>
               <Button
@@ -127,7 +120,7 @@ export const TrainerApplyPage = () => {
                 disabled={submitting}
                 onClick={() => void submit()}
               >
-                {submitting ? "Submitting…" : "Request trainer access again"}
+                {submitting ? t("account.trainerApply.submitting") : t("account.trainerApply.requestAgain")}
               </Button>
             </div>
           </section>
@@ -138,16 +131,12 @@ export const TrainerApplyPage = () => {
             <span className={styles.icon}>
               <Send size={26} aria-hidden="true" />
             </span>
-            <h1 className={styles.title}>Become a RYZE trainer</h1>
-            <p className={styles.text}>
-              Trainers create their own training programs and manage their clients directly in
-              RYZE. If you want to publish programs under your name, request trainer access and an
-              administrator will review it.
-            </p>
+            <h1 className={styles.title}>{t("account.trainerApply.title")}</h1>
+            <p className={styles.text}>{t("account.trainerApply.text")}</p>
             <ul className={styles.points}>
-              <li>Create and publish your own training programs.</li>
-              <li>Manage the clients you train in one place.</li>
-              <li>Your personal control over your content and client list.</li>
+              <li>{t("account.trainerApply.point1")}</li>
+              <li>{t("account.trainerApply.point2")}</li>
+              <li>{t("account.trainerApply.point3")}</li>
             </ul>
             {error ? <p className={styles.error}>{error}</p> : null}
             <div className={styles.actions}>
@@ -158,10 +147,10 @@ export const TrainerApplyPage = () => {
                 disabled={submitting}
                 onClick={() => void submit()}
               >
-                {submitting ? "Submitting…" : "Request trainer access"}
+                {submitting ? t("account.trainerApply.submitting") : t("account.trainerApply.request")}
               </Button>
               <Button to="/" variant="secondary" size="small">
-                Back to RYZE
+                {t("account.trainerApply.back")}
               </Button>
             </div>
           </section>

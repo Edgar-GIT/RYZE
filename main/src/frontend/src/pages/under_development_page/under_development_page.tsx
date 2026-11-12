@@ -1,4 +1,4 @@
-import { ArrowRight, Construction } from "lucide-react";
+import { ArrowRight, Construction, SearchX } from "lucide-react";
 
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PublicAction } from "@/components/public_ui/public_ui";
@@ -12,19 +12,23 @@ interface UnderDevelopmentPageProps {
   title: string;
   description: string;
   eyebrow?: string;
+  // "notFound" marks an address RYZE does not have (a missing page), as
+  // opposed to a feature that is planned but not built yet.
+  kind?: "inProgress" | "notFound";
 }
 
 export const UnderDevelopmentPage = ({
   title,
   description,
-  eyebrow = "In progress"
+  eyebrow = "In progress",
+  kind = "inProgress"
 }: UnderDevelopmentPageProps) => (
   <PageWrapper className={ui.page}>
     <section className={joinClassNames(ui.toneNavy, styles.section)} aria-labelledby="under-development-heading">
       <div className={joinClassNames(ui.container, styles.layout)}>
         <div className={styles.copy}>
           <p className={styles.status}>
-            <Construction aria-hidden="true" />
+            {kind === "notFound" ? <SearchX aria-hidden="true" /> : <Construction aria-hidden="true" />}
             {eyebrow}
           </p>
           <h1 id="under-development-heading" className={ui.heading}>

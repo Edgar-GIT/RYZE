@@ -331,6 +331,10 @@ func (failingRepo) Update(_ context.Context, _ *models.User) error {
 func (failingRepo) ChangePassword(_ context.Context, _ string, _ string) error {
 	return errRepositoryFailure
 }
+
+func (failingRepo) SetPreferredLanguage(_ context.Context, _ string, _ string) error {
+	return nil
+}
 func (failingRepo) Reactivate(_ context.Context, _ *models.User) error {
 	return errRepositoryFailure
 }
@@ -374,6 +378,10 @@ func (reactivationFailRepo) GetSessionVersion(_ context.Context, _ string) (int,
 }
 func (reactivationFailRepo) Update(_ context.Context, _ *models.User) error {
 	return errRepositoryFailure
+}
+
+func (reactivationFailRepo) SetPreferredLanguage(_ context.Context, _ string, _ string) error {
+	return nil
 }
 func (reactivationFailRepo) ChangePassword(_ context.Context, _ string, _ string) error {
 	return errRepositoryFailure

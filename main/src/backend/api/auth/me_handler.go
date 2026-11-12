@@ -41,6 +41,6 @@ func (h *MeHandler) GetMe(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "User retrieved successfully.",
-		"data":    newUserResponse(user),
+		"data":    newAccountResponse(user),
 	})
 }

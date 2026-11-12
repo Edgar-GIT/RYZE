@@ -7,6 +7,7 @@ import { AnimatedBackground } from "@/components/animated_background/animated_ba
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { useI18n } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 import { ApiError } from "@utils/http_client";
 import {
@@ -30,11 +31,11 @@ const formatClock = (totalSeconds: number): string => {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
-const statusLabel: Record<WorkoutSetStatus, string> = {
-  pending: "Not logged",
-  completed: "Completed",
-  skipped: "Skipped"
-};
+const SET_STATUS_KEY = {
+  pending: "account.training.setPending",
+  completed: "account.training.setCompleted",
+  skipped: "account.training.setSkipped"
+} as const satisfies Record<WorkoutSetStatus, string>;
 
 interface SetRowProps {
   set: WorkoutSessionSet;
@@ -47,6 +48,7 @@ interface SetRowProps {
 }
 
 const SetRow = ({ set, disabled, onSave }: SetRowProps) => {
+  const { t } = useI18n();
   const [reps, setReps] = useState(set.actual_reps == null ? "" : String(set.actual_reps));
   const [weight, setWeight] = useState(
     set.actual_weight_kg == null ? "" : String(set.actual_weight_kg)
@@ -61,7 +63,7 @@ const SetRow = ({ set, disabled, onSave }: SetRowProps) => {
 
   const save = async (status: WorkoutSetStatus) => {
     if (status === "completed" && reps.trim() === "") {
-      setErrorMessage("Enter the reps you completed.");
+      setErrorMessage(t("account.training.enterReps"));
       return;
     }
     setSaving(true);
@@ -73,7 +75,7 @@ const SetRow = ({ set, disabled, onSave }: SetRowProps) => {
         actual_weight_kg: weight.trim() === "" ? null : Number(weight)
       });
     } catch {
-      setErrorMessage("Unable to save this set. Please try again.");
+      setErrorMessage(t("account.training.saveSetError"));
     } finally {
       setSaving(false);
     }
@@ -88,32 +90,32 @@ const SetRow = ({ set, disabled, onSave }: SetRowProps) => {
       )}
     >
       <div className={styles.setIdentity}>
-        <span className={styles.setNumber}>Set {set.set_number}</span>
+        <span className={styles.setNumber}>{t("account.training.setNumber", { set: set.set_number })}</span>
         <span className={styles.setType}>{set.set_type}</span>
-        <span className={styles.setStatus}>{statusLabel[set.status]}</span>
+        <span className={styles.setStatus}>{t(SET_STATUS_KEY[set.status])}</span>
       </div>
 
       <div className={styles.prescription}>
-        <span>
-          Target <strong>{set.prescribed_reps ?? "—"}</strong> reps
-        </span>
+        <span>{t("account.training.target", { reps: set.prescribed_reps ?? "—" })}</span>
         <span>
           <strong>{set.prescribed_weight_kg ?? "—"}</strong> kg
         </span>
         {set.prescribed_rest_seconds != null ? (
-          <span>
-            Rest <strong>{set.prescribed_rest_seconds}</strong>s
-          </span>
+          <span>{t("account.training.restSeconds", { seconds: set.prescribed_rest_seconds })}</span>
         ) : null}
         {set.prescribed_rir != null ? <span>RIR {set.prescribed_rir}</span> : null}
         {set.prescribed_rpe != null ? <span>RPE {set.prescribed_rpe}</span> : null}
-        {set.prescribed_tempo ? <span>Tempo {set.prescribed_tempo}</span> : null}
+        {set.prescribed_tempo ? (
+          <span>
+            {t("account.training.colTempo")} {set.prescribed_tempo}
+          </span>
+        ) : null}
       </div>
 
       {!disabled ? (
         <div className={styles.setInputs}>
           <label className={styles.setField}>
-            <span>Reps</span>
+            <span>{t("account.training.reps")}</span>
             <input
               type="number"
               min="0"
@@ -121,11 +123,11 @@ const SetRow = ({ set, disabled, onSave }: SetRowProps) => {
               value={reps}
               disabled={saving}
               onChange={(event) => setReps(event.target.value)}
-              aria-label={`Actual reps for set ${set.set_number}`}
+              aria-label={t("account.training.actualReps", { set: set.set_number })}
             />
           </label>
           <label className={styles.setField}>
-            <span>Weight (kg)</span>
+            <span>{t("account.training.weightKg")}</span>
             <input
               type="number"
               min="0"
@@ -134,7 +136,7 @@ const SetRow = ({ set, disabled, onSave }: SetRowProps) => {
               value={weight}
               disabled={saving}
               onChange={(event) => setWeight(event.target.value)}
-              aria-label={`Actual weight for set ${set.set_number}`}
+              aria-label={t("account.training.actualWeight", { set: set.set_number })}
             />
           </label>
         </div>
@@ -151,15 +153,15 @@ const SetRow = ({ set, disabled, onSave }: SetRowProps) => {
           {set.status === "pending" ? (
             <>
               <Button size="small" variant="primary" disabled={saving} onClick={() => void save("completed")}>
-                Complete set
+                {t("account.training.completeSet")}
               </Button>
               <Button size="small" variant="ghost" disabled={saving} onClick={() => void save("skipped")}>
-                Skip
+                {t("account.training.skip")}
               </Button>
             </>
           ) : (
             <Button size="small" variant="secondary" disabled={saving} onClick={() => void save("pending")}>
-              Undo
+              {t("account.training.undo")}
             </Button>
           )}
         </div>
@@ -169,6 +171,7 @@ const SetRow = ({ set, disabled, onSave }: SetRowProps) => {
 };
 
 export const WorkoutSessionPage = () => {
+  const { t } = useI18n();
   const { sessionId } = useParams<{ sessionId: string }>();
   const history = useHistory();
   const [session, setSession] = useState<WorkoutSession | null>(null);
@@ -194,8 +197,8 @@ export const WorkoutSessionPage = () => {
       setSession(null);
       setErrorMessage(
         error instanceof ApiError && error.status === 404
-          ? "This workout session is no longer available."
-          : "Unable to load this workout session."
+          ? t("account.training.sessionUnavailable")
+          : t("account.training.sessionError")
       );
     } finally {
       setLoading(false);
@@ -251,7 +254,7 @@ export const WorkoutSessionPage = () => {
     try {
       replaceSession(await action());
     } catch {
-      setActionError("That action could not be completed. Please refresh and try again.");
+      setActionError(t("account.training.actionError"));
     } finally {
       setBusy(false);
     }
@@ -272,7 +275,7 @@ export const WorkoutSessionPage = () => {
 
   const handleAbandon = () => {
     if (!session) return;
-    if (!window.confirm("Abandon this workout? Logged sets stay in your history.")) return;
+    if (!window.confirm(t("account.training.abandonConfirm"))) return;
     void runAction(() => abandonWorkoutSession(session.id));
   };
 
@@ -292,10 +295,10 @@ export const WorkoutSessionPage = () => {
             <p>{errorMessage}</p>
             <div className={styles.stateActions}>
               <Button variant="secondary" size="small" onClick={() => void load()} icon={<RefreshCw size={15} />}>
-                Try again
+                {t("common.retry")}
               </Button>
               <Button to="/services/my-programs" variant="ghost" size="small">
-                My Programs
+                {t("account.training.myPrograms")}
               </Button>
             </div>
           </section>
@@ -311,22 +314,22 @@ export const WorkoutSessionPage = () => {
                 icon={<ArrowLeft size={15} />}
                 iconPosition="left"
               >
-                Back to program
+                {t("account.training.backToProgram")}
               </Button>
               <span className={joinClassNames(styles.statusPill, finished && styles.statusFinished)}>
                 {session.status === "in_progress"
-                  ? "In progress"
+                  ? t("account.training.inProgress")
                   : session.status === "paused"
-                    ? "Paused"
+                    ? t("account.training.paused")
                     : session.status === "completed"
-                      ? "Completed"
-                      : "Abandoned"}
+                      ? t("account.training.completed")
+                      : t("account.training.abandoned")}
               </span>
             </div>
 
             <header className={styles.heading}>
               <p className={styles.eyebrow}>
-                Week {session.week_number} · Day {session.workout_position}
+                {t("account.training.weekDay", { week: session.week_number, day: session.workout_position })}
               </p>
               <h1 className={styles.title}>{session.program_name}</h1>
               <div className={styles.meta}>
@@ -334,17 +337,15 @@ export const WorkoutSessionPage = () => {
                   <Timer size={16} aria-hidden="true" />
                   {formatClock(clock)}
                 </span>
-                <span>
-                  {session.completed_sets}/{session.total_sets} sets completed
-                </span>
-                {session.skipped_sets > 0 ? <span>{session.skipped_sets} skipped</span> : null}
+                <span>{t("account.training.setsCompleted", { done: session.completed_sets, total: session.total_sets })}</span>
+                {session.skipped_sets > 0 ? <span>{t("account.training.skipped", { count: session.skipped_sets })}</span> : null}
               </div>
             </header>
 
             {rest ? (
               <aside className={styles.restBanner} aria-live="polite">
                 <span>
-                  Rest after set {rest.setNumber}: <strong>{formatClock(rest.remaining)}</strong>
+                  {t("account.training.restAfter", { set: rest.setNumber })} <strong>{formatClock(rest.remaining)}</strong>
                 </span>
               </aside>
             ) : null}
@@ -387,20 +388,27 @@ export const WorkoutSessionPage = () => {
               <section className={styles.finishCard}>
                 <CheckCircle2 size={22} aria-hidden="true" />
                 <div>
-                  <h2>Workout {session.status === "completed" ? "complete" : "abandoned"}</h2>
+                  <h2>
+                    {session.status === "completed"
+                      ? t("account.training.finishedComplete")
+                      : t("account.training.finishedAbandoned")}
+                  </h2>
                   <p>
-                    {session.completed_sets} of {session.total_sets} sets logged in{" "}
-                    {formatClock(session.elapsed_seconds)}.
+                    {t("account.training.finishedSummary", {
+                      done: session.completed_sets,
+                      total: session.total_sets,
+                      time: formatClock(session.elapsed_seconds)
+                    })}
                   </p>
                   <div className={styles.stateActions}>
                     <Button to="/services/progress" variant="primary" size="small">
-                      View progress
+                      {t("account.training.viewProgress")}
                     </Button>
                     <Button to="/services/workout-history" variant="secondary" size="small">
-                      Workout history
+                      {t("account.training.history")}
                     </Button>
                     <Button to={`/services/my-programs/${session.program_id}`} variant="ghost" size="small">
-                      Back to program
+                      {t("account.training.backToProgram")}
                     </Button>
                   </div>
                 </div>
@@ -416,7 +424,7 @@ export const WorkoutSessionPage = () => {
                     icon={<Pause size={15} />}
                     iconPosition="left"
                   >
-                    Pause
+                    {t("account.training.pause")}
                   </Button>
                 ) : (
                   <Button
@@ -427,14 +435,14 @@ export const WorkoutSessionPage = () => {
                     icon={<Play size={15} />}
                     iconPosition="left"
                   >
-                    Resume
+                    {t("account.training.resume")}
                   </Button>
                 )}
                 <Button variant="primary" size="small" disabled={busy} onClick={handleComplete} icon={<CheckCircle2 size={15} />} iconPosition="left">
-                  Complete workout
+                  {t("account.training.completeWorkout")}
                 </Button>
                 <Button variant="ghost" size="small" disabled={busy} onClick={handleAbandon} icon={<Square size={14} />} iconPosition="left">
-                  Abandon
+                  {t("account.training.abandon")}
                 </Button>
               </footer>
             )}

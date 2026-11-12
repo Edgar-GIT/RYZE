@@ -12,8 +12,16 @@ import (
 	"ryze/backend/database"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	"ryze/backend/services/notifications"
 	"ryze/backend/services/premium_level_2"
 )
+
+// recordingNotifier keeps the events the service reports.
+type recordingNotifier struct{ events []notifications.Event }
+
+func (r *recordingNotifier) Notify(_ context.Context, event notifications.Event) {
+	r.events = append(r.events, event)
+}
 
 func TestServiceRequiresOwnershipAndActivePurchase(t *testing.T) {
 	config.LoadEnvFile()
@@ -33,7 +41,8 @@ func TestServiceRequiresOwnershipAndActivePurchase(t *testing.T) {
 	programRepo := repositories.NewProgramRepository(tx)
 	entitlementRepo := repositories.NewEntitlementRepository(tx)
 	requestRepo := repositories.NewPremiumLevel2Repository(tx)
-	svc := premium_level_2.NewService(requestRepo, programRepo, entitlementRepo)
+	notifier := &recordingNotifier{}
+	svc := premium_level_2.NewService(requestRepo, programRepo, entitlementRepo, premium_level_2.WithNotifier(notifier))
 
 	seedUser := func(label string) *models.User {
 		user := &models.User{Email: fmt.Sprintf("premium-l2-svc-%s-%d@ryze.local", label, time.Now().UnixNano()), PasswordHash: "hash", FirstName: "Service", LastName: label}
@@ -73,6 +82,16 @@ func TestServiceRequiresOwnershipAndActivePurchase(t *testing.T) {
 	}
 	if received.IntakeVersion != 1 || intake.Version != 1 {
 		t.Fatalf("expected intake version 1, got request=%d intake=%d", received.IntakeVersion, intake.Version)
+	}
+	// Only the accepted submission is reported, to the owner, with the offer
+	// name and a link to the request.
+	if len(notifier.events) != 1 {
+		t.Fatalf("expected one intake notification, got %+v", notifier.events)
+	}
+	event := notifier.events[0]
+	if event.UserID != owner.ID || event.Kind != models.NotificationPL2IntakeReceived || event.Program != offer.Name ||
+		event.Link != "/services/premium-level-2/requests/"+request.ID || event.DedupeKey != "pl2_intake:"+intake.ID {
+		t.Fatalf("unexpected intake notification %+v", event)
 	}
 	requests, err := svc.ListClientRequests(ctx, owner.ID)
 	if err != nil || len(requests) != 1 {

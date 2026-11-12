@@ -21,6 +21,7 @@ import {
 import { ApiError } from "@utils/http_client";
 
 import { TrainerApplicationDocuments } from "./trainer_application_documents";
+import { I18nProvider } from "@/i18n/i18n";
 
 const mockedFetch = vi.mocked(fetchTrainerApplicationDocuments);
 const mockedUpload = vi.mocked(uploadTrainerApplicationDocument);
@@ -47,7 +48,11 @@ afterEach(cleanup);
 
 describe("TrainerApplicationDocuments", () => {
   it("lists the fetched documents with their kind and size", async () => {
-    render(<TrainerApplicationDocuments />);
+    render(
+      <I18nProvider initialLocale="en">
+        <TrainerApplicationDocuments />
+      </I18nProvider>
+    );
 
     expect(await screen.findByText("certification.pdf")).toBeTruthy();
     expect(screen.getByText(/Certification · 2 KB/)).toBeTruthy();
@@ -56,13 +61,21 @@ describe("TrainerApplicationDocuments", () => {
   it("shows an empty state when nothing is attached", async () => {
     mockedFetch.mockResolvedValue({ documents: [] });
 
-    render(<TrainerApplicationDocuments />);
+    render(
+      <I18nProvider initialLocale="en">
+        <TrainerApplicationDocuments />
+      </I18nProvider>
+    );
 
     expect(await screen.findByText("No supporting documents attached.")).toBeTruthy();
   });
 
   it("uploads the chosen file with the selected kind and reloads the list", async () => {
-    render(<TrainerApplicationDocuments />);
+    render(
+      <I18nProvider initialLocale="en">
+        <TrainerApplicationDocuments />
+      </I18nProvider>
+    );
     await screen.findByText("certification.pdf");
 
     const file = new File(["abc"], "id.png", { type: "image/png" });
@@ -79,7 +92,11 @@ describe("TrainerApplicationDocuments", () => {
   });
 
   it("removes a document only after the confirmation step", async () => {
-    render(<TrainerApplicationDocuments />);
+    render(
+      <I18nProvider initialLocale="en">
+        <TrainerApplicationDocuments />
+      </I18nProvider>
+    );
     await screen.findByText("certification.pdf");
 
     fireEvent.click(screen.getByRole("button", { name: "Remove certification.pdf" }));
@@ -92,7 +109,11 @@ describe("TrainerApplicationDocuments", () => {
 
   it("maps a server document error code to plain wording", async () => {
     mockedUpload.mockRejectedValue(new ApiError(415, "DOCUMENT_TYPE_NOT_ALLOWED", "document_type_not_allowed"));
-    render(<TrainerApplicationDocuments />);
+    render(
+      <I18nProvider initialLocale="en">
+        <TrainerApplicationDocuments />
+      </I18nProvider>
+    );
     await screen.findByText("certification.pdf");
 
     const file = new File(["abc"], "notes.txt", { type: "text/plain" });
@@ -105,7 +126,11 @@ describe("TrainerApplicationDocuments", () => {
   });
 
   it("downloads a document through the download endpoint", async () => {
-    render(<TrainerApplicationDocuments />);
+    render(
+      <I18nProvider initialLocale="en">
+        <TrainerApplicationDocuments />
+      </I18nProvider>
+    );
     await screen.findByText("certification.pdf");
 
     fireEvent.click(screen.getByRole("button", { name: "Download certification.pdf" }));

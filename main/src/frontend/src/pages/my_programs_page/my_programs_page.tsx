@@ -3,6 +3,7 @@ import { AnimatedBackground } from "@/components/animated_background/animated_ba
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { useI18n } from "@/i18n/i18n";
 import { ApiError } from "@utils/http_client";
 import { fetchEntitlements } from "@/services/purchases_api";
 import { fetchFreeActivations } from "@/services/free_programs_api";
@@ -41,6 +42,7 @@ type State =
   | { status: "ready"; programs: ProgramCard[] };
 
 export const MyProgramsPage = () => {
+  const { t } = useI18n();
   const history = useHistory();
   const [state, setState] = useState<State>({ status: "loading" });
   const [retryCount, setRetryCount] = useState(0);
@@ -115,7 +117,7 @@ export const MyProgramsPage = () => {
 
         {state.status === "error" ? (
           <section className={styles.stateCard}>
-            <p>Unable to load your programs.</p>
+            <p>{t("account.myPrograms.loadError")}</p>
             <div className={styles.retry}>
               <Button
                 variant="secondary"
@@ -123,7 +125,7 @@ export const MyProgramsPage = () => {
                 onClick={() => setRetryCount((count) => count + 1)}
                 icon={<RefreshCw size={15} />}
               >
-                Try again
+                {t("common.retry")}
               </Button>
             </div>
           </section>
@@ -131,20 +133,17 @@ export const MyProgramsPage = () => {
 
         {state.status === "empty" ? (
           <section className={styles.stateCard}>
-            <h1 className={styles.stateTitle}>My Programs</h1>
-            <p className={styles.stateText}>
-              You have no programs yet. Browse the marketplace to find your first training plan, or look at
-              Premium Level 1 for training and nutrition in one package.
-            </p>
+            <h1 className={styles.stateTitle}>{t("account.myPrograms.title")}</h1>
+            <p className={styles.stateText}>{t("account.myPrograms.empty")}</p>
             <div className={styles.retry}>
               <Button to="/services/generic-program" variant="primary" size="small">
-                Browse training plans
+                {t("account.myPrograms.browse")}
               </Button>
               <Button to="/services/premium-level-1" variant="secondary" size="small">
-                Explore Premium Level 1
+                {t("account.myPrograms.explorePl1")}
               </Button>
               <Button to="/services/premium-level-2" variant="secondary" size="small">
-                Explore Premium Level 2
+                {t("account.myPrograms.explorePl2")}
               </Button>
             </div>
           </section>
@@ -153,10 +152,8 @@ export const MyProgramsPage = () => {
         {state.status === "ready" ? (
           <section className={styles.content}>
             <header className={styles.heading}>
-              <h1 className={styles.title}>My Programs</h1>
-              <p className={styles.subtitle}>
-                The training plans and packages you have purchased or activated.
-              </p>
+              <h1 className={styles.title}>{t("account.myPrograms.title")}</h1>
+              <p className={styles.subtitle}>{t("account.myPrograms.subtitle")}</p>
             </header>
 
             <div className={styles.grid}>
@@ -171,39 +168,43 @@ export const MyProgramsPage = () => {
                     ) : null}
 
                     <span className={styles.chips}>
-                      {program.free ? <span className={styles.chipFree}>Free</span> : null}
+                      {program.free ? <span className={styles.chipFree}>{t("account.myPrograms.free")}</span> : null}
                       {premiumLevel1 ? (
-                        <span className={styles.chipPremium}>Premium Level 1</span>
+                        <span className={styles.chipPremium}>{t("account.myPrograms.pl1")}</span>
                       ) : null}
                       {premiumLevel1 ? (
-                        <span className={styles.chip}>Training + nutrition</span>
+                        <span className={styles.chip}>{t("account.myPrograms.pl1Chip")}</span>
                       ) : null}
                       {premiumLevel2 ? (
-                        <span className={styles.chipPremium}>Premium Level 2</span>
+                        <span className={styles.chipPremium}>{t("account.myPrograms.pl2")}</span>
                       ) : null}
                       {premiumLevel2 ? (
-                        <span className={styles.chip}>Trainer authored</span>
+                        <span className={styles.chip}>{t("account.myPrograms.pl2Chip")}</span>
                       ) : null}
                       {program.trainingType ? <span className={styles.chip}>{program.trainingType}</span> : null}
                       {program.level ? <span className={styles.chip}>{program.level}</span> : null}
                       {program.durationWeeks ? (
                         <span className={styles.chip}>
-                          {program.durationWeeks} week{program.durationWeeks === 1 ? "" : "s"}
+                          {program.durationWeeks === 1
+                            ? t("account.myPrograms.week")
+                            : t("account.myPrograms.weeks", { count: program.durationWeeks })}
                         </span>
                       ) : null}
                       {program.frequencyPerWeek ? (
                         <span className={styles.chip}>
-                          {program.frequencyPerWeek} day{program.frequencyPerWeek === 1 ? "" : "s"}/week
+                          {program.frequencyPerWeek === 1
+                            ? t("account.myPrograms.dayPerWeek")
+                            : t("account.myPrograms.daysPerWeek", { count: program.frequencyPerWeek })}
                         </span>
                       ) : null}
                     </span>
 
                     <span className={styles.cardAction}>
                       {premiumLevel2
-                        ? "Open service"
+                        ? t("account.myPrograms.openService")
                         : premiumLevel1
-                          ? "Open package"
-                          : "Open program"}
+                          ? t("account.myPrograms.openPackage")
+                          : t("account.myPrograms.openProgram")}
                       <ChevronRight size={15} aria-hidden="true" />
                     </span>
                   </Link>

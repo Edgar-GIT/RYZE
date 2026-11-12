@@ -15,12 +15,14 @@ import { GenericPlanMarketplacePage } from "@/pages/generic_plan_marketplace_pag
 import { GenericProgramDetailPage } from "@/pages/generic_program_detail_page/generic_program_detail_page";
 import { HomePage } from "@/pages/home_page/home_page";
 import { LoginPage } from "@/pages/login_page/login_page";
+import { ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from "@/pages/account_recovery_page/account_recovery_pages";
 import { MyProgramsPage } from "@/pages/my_programs_page/my_programs_page";
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
 import { PremiumLevel1Page } from "@/pages/premium_level1_page/premium_level1_page";
 import { PremiumLevel2Page } from "@/pages/premium_level2_page/premium_level2_page";
 import { PremiumLevel2RequestPage } from "@/pages/premium_level2_request_page/premium_level2_request_page";
 import { ProfilePage } from "@/pages/profile_page/profile_page";
+import { SupportPage } from "@/pages/support_page/support_page";
 import { ProgressPage } from "@/pages/progress_page/progress_page";
 import { ProgramAccessPage } from "@/pages/program_access_page/program_access_page";
 import { WorkoutHistoryPage } from "@/pages/workout_history_page/workout_history_page";
@@ -48,6 +50,7 @@ import Admin2ClientsPage from "@/pages/admin2/admin2_clients_page/admin2_clients
 import Admin2SalesPage from "@/pages/admin2/admin2_sales_page/admin2_sales_page";
 import Admin2AnalyticsPage from "@/pages/admin2/admin2_analytics_page/admin2_analytics_page";
 import Admin2FeedbackPage from "@/pages/admin2/admin2_feedback_page/admin2_feedback_page";
+import Admin2SupportPage from "@/pages/admin2/admin2_support_page/admin2_support_page";
 import Admin2ExercisesPage from "@/pages/admin2/admin2_exercises_page/admin2_exercises_page";
 import Admin2SettingsPage from "@/pages/admin2/admin2_settings_page/admin2_settings_page";
 import { TrainerApplyPage } from "@/pages/trainer/trainer_apply_page/trainer_apply_page";
@@ -92,9 +95,10 @@ export const AppRoutes = () => {
           path="/services/:serviceSlug"
           render={() => (
             <UnderDevelopmentPage
-              eyebrow="Service details"
-              title="This program page is under development."
-              description="The visual route is ready. Product details, pricing and backend-backed purchase flows will be connected in a later implementation."
+              kind="notFound"
+              eyebrow="Page not found"
+              title="We could not find this service."
+              description="Check the address, or open Services to see every RYZE plan and package."
             />
           )}
         />
@@ -113,12 +117,16 @@ export const AppRoutes = () => {
           )}
         />
         <Route exact path="/login" component={LoginPage} />
+        <Route exact path="/forgot-password" component={ForgotPasswordPage} />
+        <Route exact path="/reset-password" component={ResetPasswordPage} />
+        <Route exact path="/verify-email" component={VerifyEmailPage} />
         <Route exact path="/admin/login" component={AdminLoginPage} />
         <Route
           path="/register"
           render={() => <LoginPage initialMode="register" />}
         />
         <Route exact path="/profile" component={ProfilePage} />
+        <Route exact path="/support" component={SupportPage} />
         <Route exact path="/account/purchases" component={AccountPurchaseHistoryPage} />
         {/* /trainer/apply must stay declared before the /trainer shell route:
             it is reachable by any authenticated user (including applicants),
@@ -172,6 +180,7 @@ export const AppRoutes = () => {
                   <Route exact path="/admin2/sales" component={Admin2SalesPage} />
                   <Route exact path="/admin2/analytics" component={Admin2AnalyticsPage} />
                   <Route exact path="/admin2/feedback" component={Admin2FeedbackPage} />
+                  <Route exact path="/admin2/support" component={Admin2SupportPage} />
                   <Route exact path="/admin2/settings" component={Admin2SettingsPage} />
                   <Redirect to="/admin2/dashboard" />
                 </Switch>
@@ -202,8 +211,10 @@ export const AppRoutes = () => {
         <Route
           render={() => (
             <UnderDevelopmentPage
-              title="This page is under development."
-              description="The route is handled by RYZE and will receive its final screen when the corresponding feature is implemented."
+              kind="notFound"
+              eyebrow="Page not found"
+              title="We could not find this page."
+              description="The address may be mistyped or the page may have moved. Go back home or open Services."
             />
           )}
         />

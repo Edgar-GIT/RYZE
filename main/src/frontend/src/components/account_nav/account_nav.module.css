@@ -101,23 +101,61 @@
   height: 20px;
 }
 
-@media (max-width: 720px) {
+/* Phones and tablets: brand and account controls on the first row, the
+   section links on a second row that scrolls sideways when it does not fit,
+   so no link is ever pushed off screen or under the account controls. */
+@media (max-width: 1024px) {
+  .navbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand user"
+      "nav nav";
+    row-gap: 0.6rem;
+    height: auto;
+    padding-block: 0.75rem;
+  }
+
+  .brand {
+    grid-area: brand;
+  }
+
+  .userArea {
+    grid-area: user;
+  }
+
   .centerNav {
-    gap: 0.25rem;
+    grid-area: nav;
+    justify-self: stretch;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+    scrollbar-width: none;
+  }
+
+  .centerNav::-webkit-scrollbar {
+    display: none;
   }
 
   .navLink {
-    padding: 0.4rem 0.65rem;
-    font-size: 0.78rem;
+    flex: none;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
   }
 }
 
 @media (max-width: 560px) {
   .navbar {
-    padding: 0 1.25rem;
+    padding-inline: 1.25rem;
   }
 
   .userName {
     max-width: 7rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .userName {
+    display: none;
   }
 }

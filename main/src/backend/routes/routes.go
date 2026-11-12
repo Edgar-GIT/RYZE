@@ -3,6 +3,9 @@ package routes
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"net/url"
+	"path"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -13,11 +16,13 @@ import (
 	"ryze/backend/api/auth"
 	"ryze/backend/api/webhooks"
 	"ryze/backend/config"
+	"ryze/backend/email"
 	"ryze/backend/middleware"
 	"ryze/backend/middleware/adminroles"
 	"ryze/backend/middleware/trainerroles"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	"ryze/backend/services/account_recovery"
 	"ryze/backend/services/admin_commerce"
 	"ryze/backend/services/admin_login"
 	"ryze/backend/services/admin_program_pricing"
@@ -32,8 +37,10 @@ import (
 	"ryze/backend/services/exercises"
 	"ryze/backend/services/free_programs"
 	"ryze/backend/services/generic_programs"
+	"ryze/backend/services/google_auth"
 	"ryze/backend/services/login"
 	"ryze/backend/services/member_feedback"
+	"ryze/backend/services/notifications"
 	"ryze/backend/services/nutrition_assignment"
 	"ryze/backend/services/password"
 	"ryze/backend/services/payments"
@@ -48,6 +55,7 @@ import (
 	"ryze/backend/services/questionnaires"
 	"ryze/backend/services/registration"
 	"ryze/backend/services/statistics"
+	"ryze/backend/services/support"
 	"ryze/backend/services/test_mode"
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
@@ -77,7 +85,7 @@ const contactUploadPath = "/api/v1/contact"
 const contactUploadOverhead = 64 << 10
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig, evidenceCfg config.EvidenceConfig, contactCfg config.ContactConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig, evidenceCfg config.EvidenceConfig, contactCfg config.ContactConfig, mailCfg config.MailConfig, googleCfg config.GoogleConfig) *gin.Engine {
 	router := gin.Default()
 	// Only the configured proxies may set the client address from forwarded
 	// headers; with the default (no trusted proxies) ClientIP is the socket
@@ -111,7 +119,19 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	userRepository := repositories.NewUserRepository(db)
 
 	registrationService := registration.NewRegistrationService(userRepository, password.Hasher{})
-	registerHandler := auth.NewRegisterHandler(registrationService)
+	mailer := email.NewMailer(mailCfg, repositories.NewEmailOutboxRepository(db))
+	accountService := account_recovery.New(userRepository, repositories.NewUserTokenRepository(db), mailer)
+	accountHandler := auth.NewAccountHandler(accountService)
+	registerHandler := auth.NewRegisterHandler(registrationService).WithAfterRegister(func(ctx context.Context, userID, language string) {
+		if language == email.LocaleEnglish || language == email.LocalePortuguese {
+			if err := accountService.SetLanguage(ctx, userID, language); err != nil {
+				slog.Error("registration language not stored", slog.String("user_id", userID), slog.String("error", err.Error()))
+			}
+		}
+		if err := accountService.SendVerification(ctx, userID); err != nil {
+			slog.Error("verification email not recorded", slog.String("user_id", userID), slog.String("error", err.Error()))
+		}
+	})
 	tokenService := token.NewService([]byte(jwtCfg.Secret), jwtCfg.AccessTokenTTL)
 	// Bind admin tokens to the credentials configured for each administrator so
 	// that rotating a password or access code revokes outstanding admin
@@ -121,6 +141,14 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	}
 	loginService := login.NewLoginService(userRepository, password.Verifier{})
 	loginHandler := auth.NewLoginHandler(loginService, tokenService, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
+	googleService := google_auth.New(google_auth.Config{
+		ClientID:     googleCfg.ClientID,
+		ClientSecret: googleCfg.ClientSecret,
+		RedirectURL:  googleCfg.RedirectURL,
+		StateSecret:  []byte(jwtCfg.Secret),
+	}, userRepository, repositories.NewUserIdentityRepository(db), password.Hasher{})
+	googleHandler := auth.NewGoogleHandler(googleService, tokenService, userRepository, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure,
+		googleCfg.PublicAppURL, googleStateCookiePath(googleCfg.RedirectURL))
 
 	adminLoginService := admin_login.NewService(adminCredentials(adminCfg))
 	adminLoginHandler := auth.NewAdminLoginHandler(adminLoginService, tokenService, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
@@ -190,7 +218,12 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
 
 	premiumLevel2Repository := repositories.NewPremiumLevel2Repository(db)
-	premiumLevel2Service := premium_level_2.NewService(premiumLevel2Repository, trainerProgramRepository, entitlementRepository)
+	notificationService := notifications.New(repositories.NewNotificationRepository(db), userRepository, trainerProgramRepository, mailer)
+	notificationsHandler := auth.NewNotificationsHandler(notificationService)
+	supportHandler := auth.NewSupportHandler(support.New(repositories.NewSupportRepository(db), notificationService)).
+		WithSessions(tokenService, userRepository)
+	premiumLevel2Service := premium_level_2.NewService(premiumLevel2Repository, trainerProgramRepository, entitlementRepository,
+		premium_level_2.WithNotifier(notificationService))
 	premiumLevel2Handler := auth.NewPremiumLevel2Handler(premiumLevel2Service)
 
 	publicProgramService := public_programs.NewService(trainerProgramRepository)
@@ -276,7 +309,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 		// Completing a purchase delivers what the product owes. Nutrition is the
 		// first such artifact: the hook runs after the entitlement is committed and
 		// its failure never fails the purchase.
-		purchases.WithFulfillment(purchase_fulfillment.New(nutritionAssignmentService, premiumLevel2Service)),
+		purchases.WithFulfillment(purchase_fulfillment.New(nutritionAssignmentService, premiumLevel2Service, notificationService)),
 	)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)
@@ -335,7 +368,13 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/health", healthHandler.Status)
 	v1.GET("/version", healthHandler.Version)
 	v1.POST("/auth/register", append(limits.chain(scopeAuthRegister), registerHandler.Register)...)
+	v1.POST("/auth/password/forgot", append(limits.chain(scopePasswordForgot), accountHandler.ForgotPassword)...)
+	v1.POST("/auth/password/reset", append(limits.chain(scopePasswordReset), accountHandler.ResetPassword)...)
+	v1.POST("/auth/email/verify", append(limits.chain(scopeEmailVerify), accountHandler.VerifyEmail)...)
 	v1.POST("/auth/login", append(limits.chain(scopeAuthLogin), loginHandler.Login)...)
+	v1.GET("/auth/providers", googleHandler.Providers)
+	v1.GET("/auth/google/start", append(limits.chain(scopeGoogleStart), googleHandler.Start)...)
+	v1.GET("/auth/google/callback", append(limits.chain(scopeGoogleCallback), googleHandler.Callback)...)
 	v1.POST("/auth/logout", logoutHandler.Logout)
 	v1.POST("/admin/auth/login", append(limits.chain(scopeAdminLogin), adminLoginHandler.Login)...)
 	v1.POST("/admin/auth/verify", append(limits.chain(scopeAdminVerify), adminLoginHandler.Verify)...)
@@ -353,6 +392,20 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/auth/change-password", append(limits.chain(scopeAuthChangePassword), middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)...)
 	v1.POST("/auth/delete-account", append(limits.chain(scopeAuthDeleteAccount), middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)...)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
+	v1.POST("/me/email/verification", append(limits.chain(scopeEmailResend), middleware.Authenticate(tokenService, userRepository), accountHandler.ResendVerification)...)
+	v1.PATCH("/me/preferences", middleware.Authenticate(tokenService, userRepository), accountHandler.UpdatePreferences)
+	v1.GET("/me/identities", middleware.Authenticate(tokenService, userRepository), googleHandler.ListIdentities)
+	v1.GET("/me/notifications", middleware.Authenticate(tokenService, userRepository), notificationsHandler.List)
+	v1.POST("/me/notifications/read-all", middleware.Authenticate(tokenService, userRepository), notificationsHandler.MarkAllRead)
+	v1.POST("/me/notifications/:notificationID/read", middleware.Authenticate(tokenService, userRepository), notificationsHandler.MarkRead)
+	v1.GET("/me/support/eligibility", middleware.Authenticate(tokenService, userRepository), supportHandler.Eligibility)
+	v1.GET("/me/support/conversations", middleware.Authenticate(tokenService, userRepository), supportHandler.ListMine)
+	v1.POST("/me/support/conversations", append(limits.chain(scopeSupportOpen), middleware.Authenticate(tokenService, userRepository), supportHandler.Open)...)
+	v1.GET("/me/support/conversations/:conversationID", middleware.Authenticate(tokenService, userRepository), supportHandler.GetMine)
+	v1.POST("/me/support/conversations/:conversationID/messages", append(limits.chain(scopeSupportMessage), middleware.Authenticate(tokenService, userRepository), supportHandler.SendMine)...)
+	v1.POST("/me/support/conversations/:conversationID/read", middleware.Authenticate(tokenService, userRepository), supportHandler.MarkMineRead)
+	v1.GET("/me/support/stream", append(limits.chain(scopeSupportStream), middleware.Authenticate(tokenService, userRepository), supportHandler.StreamMine)...)
+	v1.DELETE("/me/identities/google", middleware.Authenticate(tokenService, userRepository), googleHandler.UnlinkGoogle)
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
 	v1.GET("/me/entitlements", middleware.Authenticate(tokenService, userRepository), entitlementHandler.ListEntitlements)
 	v1.GET("/me/programs/:programID", middleware.Authenticate(tokenService, userRepository), programAccessHandler.GetProgramAccess)
@@ -546,6 +599,20 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminFeedbackRead := admin.Group("")
 	adminFeedbackRead.Use(middleware.RequireAdminPermission(adminroles.PermissionFeedbackRead))
 	adminFeedbackRead.GET("/feedback", adminMemberFeedbackHandler.List)
+
+	// Support chat, answered by the Management Administrator.
+	adminSupportRead := admin.Group("")
+	adminSupportRead.Use(middleware.RequireAdminPermission(adminroles.PermissionSupportRead))
+	adminSupportRead.GET("/support/conversations", supportHandler.ListStaff)
+	adminSupportRead.GET("/support/conversations/:conversationID", supportHandler.GetStaff)
+	adminSupportRead.GET("/support/stream", supportHandler.StreamStaff)
+
+	adminSupportMutate := admin.Group("")
+	adminSupportMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionSupportManage))
+	adminSupportMutate.POST("/support/conversations/:conversationID/messages", supportHandler.Reply)
+	adminSupportMutate.POST("/support/conversations/:conversationID/read", supportHandler.MarkStaffRead)
+	adminSupportMutate.POST("/support/conversations/:conversationID/close", supportHandler.Close)
+	adminSupportMutate.POST("/support/conversations/:conversationID/reopen", supportHandler.Reopen)
 
 	adminFeedbackMutate := admin.Group("")
 	adminFeedbackMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionFeedbackManage))
@@ -754,4 +821,19 @@ func (a *commissionAdapter) CalculateCommissionSplit(priceMinorUnits int64, reso
 		PlatformAmount: calc.PlatformAmount,
 		TrainerAmount:  calc.TrainerAmount,
 	}
+}
+
+// googleStateCookiePath scopes the Google state cookie to the directory of the
+// callback URL (for example /api/v1/auth/google), so the browser sends it only
+// to the start and callback endpoints.
+func googleStateCookiePath(redirectURL string) string {
+	parsed, err := url.Parse(redirectURL)
+	if err != nil || parsed.Path == "" {
+		return "/"
+	}
+	dir := path.Dir(parsed.Path)
+	if dir == "." || dir == "" {
+		return "/"
+	}
+	return dir
 }

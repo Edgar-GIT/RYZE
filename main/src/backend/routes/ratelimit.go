@@ -21,6 +21,15 @@ const (
 	scopeAuthDeleteAccount  = "auth-delete-account"
 	scopeContact            = "contact"
 	scopeFeedback           = "feedback"
+	scopePasswordForgot     = "password-forgot"
+	scopePasswordReset      = "password-reset"
+	scopeEmailVerify        = "email-verify"
+	scopeEmailResend        = "email-resend"
+	scopeGoogleStart        = "google-start"
+	scopeGoogleCallback     = "google-callback"
+	scopeSupportOpen        = "support-open"
+	scopeSupportMessage     = "support-message"
+	scopeSupportStream      = "support-stream"
 )
 
 // authRateLimitScope is one endpoint's policy. The IP limiter always applies.
@@ -55,6 +64,22 @@ var authRateLimitScopes = []authRateLimitScope{
 	{name: scopeAuthDeleteAccount, ipLimit: 10, ipWindow: time.Hour},
 	{name: scopeContact, ipLimit: 10, ipWindow: time.Hour},
 	{name: scopeFeedback, ipLimit: 10, ipWindow: time.Hour},
+	// Recovery requests are limited per address as well as per IP, so the
+	// endpoint cannot flood one inbox; the service adds its own per-account
+	// issue throttle on top.
+	{name: scopePasswordForgot, ipLimit: 10, ipWindow: time.Hour, accountLimit: 5, accountWindow: time.Hour, accountField: "email"},
+	{name: scopePasswordReset, ipLimit: 20, ipWindow: 15 * time.Minute},
+	{name: scopeEmailVerify, ipLimit: 20, ipWindow: 15 * time.Minute},
+	{name: scopeEmailResend, ipLimit: 10, ipWindow: time.Hour},
+	// Google Sign-In: each start and callback costs a round trip to Google.
+	{name: scopeGoogleStart, ipLimit: 30, ipWindow: 15 * time.Minute},
+	{name: scopeGoogleCallback, ipLimit: 30, ipWindow: 15 * time.Minute},
+	// Support chat: opening conversations is rare, messages are bounded so a
+	// script cannot flood the support queue, and stream reconnections are
+	// bounded so a broken client cannot hold the server in a reconnect loop.
+	{name: scopeSupportOpen, ipLimit: 10, ipWindow: time.Hour},
+	{name: scopeSupportMessage, ipLimit: 60, ipWindow: 10 * time.Minute},
+	{name: scopeSupportStream, ipLimit: 120, ipWindow: 10 * time.Minute},
 }
 
 // authRateLimiters owns the limiters for every authentication scope.

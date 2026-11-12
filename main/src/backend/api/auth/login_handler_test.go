@@ -362,6 +362,10 @@ func (failingLoginRepository) Update(_ context.Context, _ *models.User) error {
 func (failingLoginRepository) ChangePassword(_ context.Context, _ string, _ string) error {
 	return errLoginRepoFailure
 }
+
+func (failingLoginRepository) SetPreferredLanguage(_ context.Context, _ string, _ string) error {
+	return nil
+}
 func (failingLoginRepository) Reactivate(_ context.Context, _ *models.User) error {
 	return errLoginRepoFailure
 }

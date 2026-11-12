@@ -1478,7 +1478,7 @@ commercial constraints:
   no side effects.
 - Deleting a commission rule soft-deletes the active override; the trainer
   falls back to the global default commission (`DEFAULT_PLATFORM_COMMISSION_BPS`
-  env var, default 2000 = 20%).
+  env var, default 3000 = 30%).
 - No refund logic, revenue tracking or payout logic exists yet. The commission
   rules are a foundation for future payout processing. (Purchase creation and
   commission application are covered in Client Purchase Security above.)
@@ -2929,6 +2929,69 @@ Sensitive actions requiring email confirmation include:
 
 Email links should always expire.
 
+Implemented (v2.109.0):
+
+- Delivery uses SMTP with mandatory STARTTLS (Resend: `smtp.resend.com:587`);
+  the From domain must be verified in the provider (SPF/DKIM/DMARC are set in
+  DNS, outside the application). Credentials come only from the environment.
+- Password-reset links live 60 minutes and verification links 48 hours; both
+  are single use, carried in the URL fragment (never sent to servers, proxies
+  or Referer headers, and removed from the address bar on read) and stored
+  only as SHA-256. Requests never reveal whether an address has an account;
+  issuing is throttled per account (2 minutes apart, 5 per hour) on top of IP
+  rate limits. A reset revokes every session and emails a "password changed"
+  notice.
+- Emails go through an outbox with a unique dedupe key per event, so a
+  repeated event never sends twice. The stored payload holds only template
+  values and is cleared once delivered, failed or expired. Accepted risk: until
+  then a pending reset email's payload contains the live link (at most 60
+  minutes, longer only while the relay is down), so database and backup access
+  must be restricted. Delivery outcomes apply only to the row a worker still
+  holds in `sending`, so a stale retry can never overwrite a sent email.
+  Errors are logged without addresses or bodies. Test Mode personas never
+  receive email.
+- Emails greet the account by name only after its address is confirmed:
+  anyone can register any address with a name of their choosing, so emails to
+  unconfirmed addresses carry no text written by someone else.
+- Recovery closes every other door: a password reset revokes sessions and, when
+  the account already had a password, removes linked Google accounts (someone
+  who knew the password may have linked one). A password change retires
+  outstanding reset links. An administrator email change clears
+  `email_verified_at` and invalidates every unused link sent to the old
+  address. Re-registering a deleted account removes its old Google links.
+- Residual enumeration (accepted, documented): registration still answers
+  `409` for a used address, and a known address takes slightly longer on
+  "forgot password" than an unknown one.
+
+## Google Sign-In (v2.109.0)
+
+- OpenID Connect authorization code flow with PKCE (S256), a random `state`
+  and `nonce` per attempt, bound to the browser by an HttpOnly, signed,
+  10-minute `ryze_google_state` cookie (HS256 with a key derived from
+  `JWT_SECRET`, separate audience) that is cleared on every callback.
+- ID tokens are verified against Google's published keys (RS256 only, key id
+  required, keys cached per `Cache-Control`, unknown-key refetch at most every
+  30 seconds): issuer, a single audience equal to the client id, expiry, issue
+  time, nonce and `email_verified`.
+- An existing active account is never linked automatically by email: the
+  owner signs in with the password and connects Google from the profile
+  (`mode=link` requires the same current session at start and at callback, and
+  a confirmed email, so whoever registered an address they do not own cannot
+  attach their Google account and keep a way in after the real owner
+  recovers it). A Google account links to one RYZE account; Test Mode
+  personas cannot link.
+- Owner decision pending: a Google sign-in restores a soft-deleted account,
+  including one an administrator disabled — the same behaviour public
+  re-registration already has. A separate "disabled" state would be needed to
+  keep an account closed.
+- Accounts created by Google store an unusable random Argon2id hash (password
+  sign-in fails with normal timing) and `password_set = false`; Google cannot
+  be disconnected while it is the only sign-in method.
+- The callback only redirects to `PUBLIC_APP_URL` plus an in-app path; the
+  `return` parameter accepts absolute in-app paths only (no scheme, `//` or
+  backslash). Token responses are never logged; only Google's short error
+  code is.
+
 ---
 
 # WEBSOCKET SECURITY
@@ -2943,6 +3006,18 @@ Connections should automatically close after prolonged inactivity.
 
 Rate limiting should also apply to WebSocket traffic.
 
+Implemented real-time channel (v2.109.0): the support chat uses Server-Sent
+Events, not WebSockets. A stream is authenticated by the session cookie like
+any REST call, re-checks support eligibility on every connection, carries only
+messages the reader may see (each wake-up re-reads the database with the
+reader's scope; the in-process hub carries no data), never includes staff
+identities, re-checks the session version and support eligibility every 15
+seconds (a password reset, deletion or lost programme ends it), and ends after
+25 minutes. Connections are rate limited per IP and capped at 3 live streams
+per account (10 for staff) and 500 per instance (`429 TOO_MANY_STREAMS`). A
+stored message wakes only its account's streams and the staff streams. Writes go through the REST
+endpoints with the same validation, ownership checks and rate limits.
+
 ---
 
 # CACHE SECURITY
@@ -2954,6 +3029,27 @@ Authentication tokens should never be cached publicly.
 Private information should only be cached in secure server-side storage when necessary.
 
 Expired cache entries should be removed automatically.
+
+Service worker (PWA, v2.109.0): `public/sw.js` caches only content-hashed
+build assets (`/assets/`) and the app icons (cache first, at most 120
+entries) and the last page shell for offline start (network first). It never handles `/api/`, other origins or non-GET requests, so
+account data, sessions, payments and support messages are never stored on the
+device. Old caches are deleted when a new worker activates; the page asks the
+user before switching to a new version. Serve `/sw.js` and
+`/manifest.webmanifest` with `Cache-Control: no-cache` in production.
+API responses with account data (`/me/notifications`, support threads) are
+sent with `Cache-Control: no-store`.
+
+## Support chat (v2.109.0)
+
+Eligibility (trainer, or active entitlement / Free activation) is checked on
+every account operation, so losing the programme closes access to support.
+Conversation ids of other accounts answer `404`. Bodies are cleaned of control
+characters and limited to 4000 characters; at most 5 open conversations per
+account. Only the Management Administrator (`support.read` /
+`support.manage`) reads and answers conversations; replies are signed "RYZE
+support" and the administrator identity is stored for audit but never shown
+to the account. Support never links a client with a trainer.
 
 ---
 

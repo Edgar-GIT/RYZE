@@ -6,6 +6,7 @@ import { App } from "@/app";
 import { TestModeBanner } from "@/components/test_mode/test_mode_banner";
 import { TestModeProvider } from "@/components/test_mode/test_mode_context";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
+import { I18nProvider } from "@/i18n/i18n";
 import "@/styles/global.css";
 
 const setFavicon = () => {
@@ -26,10 +27,12 @@ setFavicon();
 createRoot(document.getElementById("root") as HTMLElement).render(
   <StrictMode>
     <BrowserRouter>
-      <TestModeProvider>
-        <App />
-        <TestModeBanner />
-      </TestModeProvider>
+      <I18nProvider>
+        <TestModeProvider>
+          <App />
+          <TestModeBanner />
+        </TestModeProvider>
+      </I18nProvider>
     </BrowserRouter>
   </StrictMode>
 );

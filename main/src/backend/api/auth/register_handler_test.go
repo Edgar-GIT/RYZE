@@ -99,6 +99,10 @@ func (failingRepository) Update(_ context.Context, _ *models.User) error {
 func (failingRepository) ChangePassword(_ context.Context, _ string, _ string) error {
 	return nil
 }
+
+func (failingRepository) SetPreferredLanguage(_ context.Context, _ string, _ string) error {
+	return nil
+}
 func (failingRepository) Reactivate(_ context.Context, _ *models.User) error {
 	return nil
 }

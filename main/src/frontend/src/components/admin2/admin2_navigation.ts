@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Dumbbell, LayoutDashboard, Package, Users, BarChart3, MessageSquare, Settings } from "lucide-react";
+import { Dumbbell, LayoutDashboard, LifeBuoy, Package, Users, BarChart3, MessageSquare, Settings } from "lucide-react";
 
 export interface Admin2NavItem {
   label: string;
@@ -25,6 +25,7 @@ export const ADMIN2_PATHS = {
   SALES: "/admin2/sales",
   ANALYTICS: "/admin2/analytics",
   FEEDBACK: "/admin2/feedback",
+  SUPPORT: "/admin2/support",
   SETTINGS: "/admin2/settings"
 } as const;
 
@@ -58,7 +59,10 @@ export const admin2NavGroups: Admin2NavGroup[] = [
   },
   {
     label: "Engagement",
-    items: [{ label: "Feedback", path: ADMIN2_PATHS.FEEDBACK, icon: MessageSquare }]
+    items: [
+      { label: "Support", path: ADMIN2_PATHS.SUPPORT, icon: LifeBuoy },
+      { label: "Feedback", path: ADMIN2_PATHS.FEEDBACK, icon: MessageSquare }
+    ]
   },
   {
     label: "Configuration",

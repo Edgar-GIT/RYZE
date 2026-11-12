@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/mail"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,7 +30,7 @@ const (
 	defaultRateLimitEnabled                 = true
 	defaultRateLimitMaxKeys                 = 10000
 	defaultMinProgramPriceMinorUnits        = 100
-	defaultPlatformCommissionBPS     uint32 = 2000
+	defaultPlatformCommissionBPS     uint32 = 3000
 	defaultReadHeaderTimeout                = 10 * time.Second
 	defaultReadTimeout                      = 30 * time.Second
 	defaultWriteTimeout                     = 60 * time.Second
@@ -230,7 +232,8 @@ func LoadPricing() (PricingConfig, error) {
 
 // LoadCommission reads the commission configuration from environment variables.
 // DEFAULT_PLATFORM_COMMISSION_BPS sets the global platform commission in basis
-// points (1 bps = 0.01%). When unset it defaults to 2000 (20%). Values above
+// points (1 bps = 0.01%). When unset it defaults to 3000 (30%, the RYZE
+// marketplace publication commission set by the owner on 2026-11-11). Values above
 // 10000 (100%) are rejected because a platform commission cannot exceed the
 // full price.
 func LoadCommission() (CommissionConfig, error) {
@@ -335,6 +338,95 @@ func LoadContact() (ContactConfig, error) {
 		return ContactConfig{}, fmt.Errorf("CONTACT_SMTP_HOST, CONTACT_FROM and CONTACT_RECIPIENT must be set together")
 	}
 	return cfg, nil
+}
+
+// LoadMail reads the transactional email configuration. Delivery is disabled
+// unless MAIL_SMTP_HOST, MAIL_FROM and PUBLIC_APP_URL are all set; a partial
+// configuration, an invalid port, a username without a password, an invalid
+// sender or a PUBLIC_APP_URL that is not an absolute http(s) origin fails at
+// startup. With delivery disabled, emails are recorded as skipped and the
+// flows that need them (for example password recovery) still answer the same
+// way, so the API never reveals whether an address exists.
+func LoadMail() (MailConfig, error) {
+	cfg := MailConfig{
+		SMTPHost:     strings.TrimSpace(os.Getenv("MAIL_SMTP_HOST")),
+		SMTPPort:     valueOr("MAIL_SMTP_PORT", defaultContactSMTPPort),
+		SMTPUsername: strings.TrimSpace(os.Getenv("MAIL_SMTP_USERNAME")),
+		SMTPPassword: os.Getenv("MAIL_SMTP_PASSWORD"),
+		From:         strings.TrimSpace(os.Getenv("MAIL_FROM")),
+		PublicAppURL: strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_APP_URL")), "/"),
+	}
+
+	if port, err := strconv.Atoi(cfg.SMTPPort); err != nil || port < 1 || port > 65535 {
+		return MailConfig{}, fmt.Errorf("MAIL_SMTP_PORT must be a valid port number, got %q", cfg.SMTPPort)
+	}
+	if (cfg.SMTPUsername == "") != (cfg.SMTPPassword == "") {
+		return MailConfig{}, fmt.Errorf("MAIL_SMTP_USERNAME and MAIL_SMTP_PASSWORD must be set together")
+	}
+	configured := cfg.SMTPHost != "" || cfg.From != ""
+	if configured && !cfg.Enabled() {
+		return MailConfig{}, fmt.Errorf("MAIL_SMTP_HOST, MAIL_FROM and PUBLIC_APP_URL must be set together")
+	}
+	if cfg.From != "" {
+		if _, err := mail.ParseAddress(cfg.From); err != nil {
+			return MailConfig{}, fmt.Errorf("MAIL_FROM must be a valid address, got %q", cfg.From)
+		}
+	}
+	if err := validatePublicAppURL(cfg.PublicAppURL); err != nil {
+		return MailConfig{}, err
+	}
+	return cfg, nil
+}
+
+// validatePublicAppURL accepts an empty value or an absolute http(s) origin.
+func validatePublicAppURL(value string) error {
+	if value == "" {
+		return nil
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" ||
+		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
+		return fmt.Errorf("PUBLIC_APP_URL must be an absolute http(s) origin such as https://ryze.example, got %q", value)
+	}
+	return nil
+}
+
+// LoadGoogle reads the Google Sign-In configuration. GOOGLE_CLIENT_ID,
+// GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URL must be set together, and need
+// PUBLIC_APP_URL; when none is set Google Sign-In stays off. The redirect URL
+// must be an absolute http(s) URL (https outside localhost).
+func LoadGoogle() (GoogleConfig, error) {
+	cfg := GoogleConfig{
+		ClientID:     strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID")),
+		ClientSecret: strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_SECRET")),
+		RedirectURL:  strings.TrimSpace(os.Getenv("GOOGLE_REDIRECT_URL")),
+		PublicAppURL: strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_APP_URL")), "/"),
+	}
+	if err := validatePublicAppURL(cfg.PublicAppURL); err != nil {
+		return GoogleConfig{}, err
+	}
+	configured := cfg.ClientID != "" || cfg.ClientSecret != "" || cfg.RedirectURL != ""
+	if !configured {
+		return GoogleConfig{PublicAppURL: cfg.PublicAppURL}, nil
+	}
+	if !cfg.Enabled() {
+		return GoogleConfig{}, fmt.Errorf("GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URL and PUBLIC_APP_URL must be set together")
+	}
+	parsed, err := url.Parse(cfg.RedirectURL)
+	if err != nil || parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil ||
+		(parsed.Scheme != "https" && !(parsed.Scheme == "http" && isLoopbackHost(parsed.Hostname()))) {
+		return GoogleConfig{}, fmt.Errorf("GOOGLE_REDIRECT_URL must be an absolute https URL (http only on localhost), got %q", cfg.RedirectURL)
+	}
+	return cfg, nil
+}
+
+// isLoopbackHost reports whether host names the local machine.
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // LoadExerciseMedia reads the exercise-media exposure configuration from

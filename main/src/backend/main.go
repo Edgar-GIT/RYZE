@@ -96,6 +96,15 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
+	mailCfg, err := config.LoadMail()
+	if err != nil {
+		fail("configuration error: %v", err)
+	}
+	googleCfg, err := config.LoadGoogle()
+	if err != nil {
+		fail("configuration error: %v", err)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		runMigrateCommand(cfg, os.Args[2:])
 		return
@@ -124,7 +133,12 @@ func main() {
 		port = "8080"
 	}
 
-	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg, mediaCfg, evidenceCfg, contactCfg)
+	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg, mediaCfg, evidenceCfg, contactCfg, mailCfg, googleCfg)
+
+	// Background jobs (email delivery, retention) stop with the server.
+	jobsCtx, stopJobs := context.WithCancel(context.Background())
+	defer stopJobs()
+	startBackgroundJobs(jobsCtx, db, mailCfg)
 
 	server := &http.Server{
 		Addr:              ":" + port,

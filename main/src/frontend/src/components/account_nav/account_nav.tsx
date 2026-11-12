@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { UserRound } from "lucide-react";
 
 import { BrandMark } from "@/components/brand_mark/brand_mark";
+import { useI18n } from "@/i18n/i18n";
+import { NotificationBell } from "@/components/notification_bell/notification_bell";
 
 import styles from "./account_nav.module.css";
 
@@ -14,6 +16,7 @@ interface AccountNavProps {
 }
 
 export const AccountNav = ({ userName }: AccountNavProps) => {
+  const { t } = useI18n();
   return (
     <header className={styles.navbar}>
       <Link className={styles.brand} to="/" aria-label="RYZE home">
@@ -21,31 +24,35 @@ export const AccountNav = ({ userName }: AccountNavProps) => {
         <span>RYZE</span>
       </Link>
 
-      <nav className={styles.centerNav} aria-label="Account">
+      <nav className={styles.centerNav} aria-label={t("account.nav.label")}>
         <Link className={styles.navLink} to="/profile">
-          Profile
+          {t("account.nav.profile")}
         </Link>
         <Link className={styles.navLink} to="/services/my-programs">
-          My Programs
+          {t("account.nav.myPrograms")}
         </Link>
         <Link className={styles.navLink} to="/services/progress">
-          Progress
+          {t("account.nav.progress")}
         </Link>
         <Link className={styles.navLink} to="/account/purchases">
-          Purchase History
+          {t("account.nav.purchases")}
+        </Link>
+        <Link className={styles.navLink} to="/support">
+          {t("account.nav.support")}
         </Link>
       </nav>
 
-      {userName ? (
-        <div className={styles.userArea}>
-          <span className={styles.userName}>{userName}</span>
-          <span className={styles.avatar} aria-hidden="true">
-            <UserRound strokeWidth={1.6} />
-          </span>
-        </div>
-      ) : (
-        <div className={styles.spacer} aria-hidden="true" />
-      )}
+      <div className={styles.userArea}>
+        {userName ? (
+          <>
+            <span className={styles.userName}>{userName}</span>
+            <span className={styles.avatar} aria-hidden="true">
+              <UserRound strokeWidth={1.6} />
+            </span>
+          </>
+        ) : null}
+        <NotificationBell />
+      </div>
     </header>
   );
 };

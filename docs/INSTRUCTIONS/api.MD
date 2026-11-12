@@ -2440,19 +2440,17 @@ Temporary files should be removed automatically.
 
 # WEBSOCKETS
 
-Real-time communication uses Gorilla WebSocket.
+No WebSocket library is installed. Real-time support messages use
+Server-Sent Events (`text/event-stream`, standard library only): the server
+pushes, the browser reconnects by itself and resumes with `Last-Event-ID`, and
+every write goes through the REST endpoints. See "Support chat" below.
 
-WebSockets are reserved for events requiring immediate updates.
+Real-time delivery is reserved for events requiring immediate updates. In-app
+notifications are read with a REST poll (every minute while the page is
+visible); they live for 24 hours and need no socket.
 
-Examples:
-
-- Chat messages
-- Notifications
-- Typing indicators
-- System announcements
-- Live dashboard updates
-
-The API should continue functioning normally if WebSockets are unavailable.
+The API continues functioning normally when a live stream is unavailable:
+pages refresh from REST whenever a stream (re)opens.
 
 ---
 
@@ -2539,6 +2537,121 @@ the reviewer. Errors: `400 VALIDATION_ERROR`, `404 FEEDBACK_NOT_FOUND`,
 `409 FEEDBACK_STATE_CONFLICT` (already reviewed).
 
 ---
+
+## Accounts, Google Sign-In, notifications and support (v2.109.0)
+
+All responses use the standard envelope. Authenticated routes use the
+`ryze_access_token` cookie (`AUTHENTICATION_REQUIRED` when missing or stale).
+
+### Password recovery and email verification (migration 000037)
+
+- `POST /api/v1/auth/password/forgot` `{email, language?}` → `202` for any
+  well-formed address, whether or not it has an account (no enumeration).
+  Issues a 60-minute, single-use link `/reset-password#token=…`; at most one
+  link per 2 minutes and 5 per hour per account. Rate limited (IP + email).
+- `POST /api/v1/auth/password/reset` `{token, password}` → `200`; password
+  policy as registration. Revokes every session (session version + 1), retires
+  other reset links, marks `password_set` true and records a
+  `password_changed` email. Invalid, used or expired → `400
+  INVALID_OR_EXPIRED_LINK`.
+- `POST /api/v1/auth/email/verify` `{token}` → `200`; 48-hour single-use link
+  sent at registration. Verification is informational and never gates sign-in.
+- `POST /api/v1/me/email/verification` → `202` (new link) or `409
+  EMAIL_ALREADY_VERIFIED`.
+- `PATCH /api/v1/me/preferences` `{language: "en"|"pt"}` → language of the
+  account's emails. The web app also sends `language` on registration.
+- `GET /api/v1/me` adds `email_verified`, `preferred_language` and
+  `password_set` (owner-only fields; other user projections do not carry them).
+
+Tokens travel only in the URL fragment and only their SHA-256 is stored.
+
+### Google Sign-In (migration 000038)
+
+- `GET /api/v1/auth/providers` → `{google: bool}`.
+- `GET /api/v1/auth/google/start?mode=login|link&return=/path&lang=en|pt` →
+  `302` to Google (authorization code + PKCE S256, `state`, `nonce`,
+  `prompt=select_account`). Sets the HttpOnly `ryze_google_state` cookie
+  (signed, 10 minutes, `SameSite=Lax`, path = directory of
+  `GOOGLE_REDIRECT_URL`). `mode=link` requires a current session. `return`
+  accepts only an in-app absolute path. When Google is not configured the
+  browser is sent to `/login?oauth=unavailable`.
+- `GET /api/v1/auth/google/callback` → always clears the state cookie,
+  verifies `state`, exchanges the code with the PKCE verifier, verifies the ID
+  token against Google's published keys (RS256, issuer, single audience = client
+  id, expiry, issue time, nonce, `email_verified`) and redirects to the app:
+  - sign-in: the linked account (or a new account, or a restored soft-deleted
+    account) gets a session cookie and `302` to `return` (default `/profile`);
+    otherwise `/login?oauth=cancelled|failed|expired|unverified|link_required`.
+    `link_required`: an active account already uses the Google email; it is
+    never linked automatically.
+  - linking: `/profile?google=linked|in_use|already_linked|cancelled|failed|unverified|verify_email`
+    (`verify_email`: the RYZE account must confirm its email before linking).
+- `GET /api/v1/me/identities` → `{password_set, google_available, identities:
+  [{provider, email, linked_at, last_used_at}]}` (no provider subject).
+- `DELETE /api/v1/me/identities/google` → `200`; `409 PASSWORD_REQUIRED` while
+  Google is the account's only sign-in method; `404 GOOGLE_NOT_CONNECTED`.
+
+### Notifications (migration 000039)
+
+- `GET /api/v1/me/notifications` → `{notifications: [{id, kind, params, link,
+  read_at, created_at, expires_at}], unread}`; only the last 24 hours, newest
+  first, at most 50. `params` holds display values only (`program`).
+- `POST /api/v1/me/notifications/:id/read` → `200`; `404
+  NOTIFICATION_NOT_FOUND` for unknown, foreign or expired ids.
+- `POST /api/v1/me/notifications/read-all` → `200`.
+
+Kinds: `access_granted` (completed purchase, once per purchase),
+`pl2_intake_received`, `pl2_trainer_assigned` (client), `pl2_request_assigned`
+(trainer), `pl2_delivered`, `support_reply`. Each is created once per business
+event (dedupe key) and, except Test Mode personas, records the matching email.
+
+### Support chat (migration 000040)
+
+Eligible accounts: trainers, and clients with an active entitlement or Free
+activation; checked on every account call (`403 SUPPORT_NOT_AVAILABLE`).
+Support never links a client with a trainer and is not coaching.
+
+- `GET /api/v1/me/support/eligibility` → `{eligible, role: "client"|"trainer"|""}`.
+- `GET /api/v1/me/support/conversations` → `{conversations: [{id, subject,
+  status, requester_role, last_message_at, unread, last_message_seq, …}]}`.
+- `POST /api/v1/me/support/conversations` `{subject (3–120), body (1–4000),
+  client_message_id?}` → `201 {conversation, messages, has_older}`; at most 5
+  open conversations (`409 TOO_MANY_OPEN_CONVERSATIONS`). A retried open with
+  the same `client_message_id` returns the conversation already created.
+  Rate limited.
+- `GET /api/v1/me/support/conversations/:id?before=<seq>` → the latest 50
+  messages (oldest first) and `has_older`. Other accounts' ids → `404`.
+- `POST /api/v1/me/support/conversations/:id/messages` `{body,
+  client_message_id?}` → `201` message. A repeated `client_message_id`
+  (`[A-Za-z0-9_-]{8,64}`) returns the stored message instead of a duplicate.
+  Closed conversation → `409 CONVERSATION_CLOSED`. Rate limited.
+- `POST /api/v1/me/support/conversations/:id/read` `{seq}` → read position.
+- `GET /api/v1/me/support/stream` → Server-Sent Events. Each stored message is
+  an `event: message` with `id: <seq>` and the message JSON (`id, seq,
+  conversation_id, author: "user"|"staff", body, created_at`); staff identities
+  are never sent. Resumes after `Last-Event-ID` (or `?after=<seq>`); without
+  either it starts from now. Keep-alive comment every 15 s; the stream ends
+  after 25 minutes and the browser reconnects (session and eligibility are
+  re-checked; the session and eligibility are also re-checked every 15 s).
+  At most 3 live streams per account (`429 TOO_MANY_STREAMS`). Rate limited.
+
+Management Administrator (`support.read` / `support.manage`, ADMIN_2 only):
+
+- `GET /api/v1/admin/support/conversations?status=open|closed&page&limit` →
+  `{conversations (with requester name and email), total, unread}`.
+- `GET /api/v1/admin/support/conversations/:id?before=<seq>` → thread with
+  `requester`.
+- `POST /api/v1/admin/support/conversations/:id/messages` → reply signed as
+  RYZE support (allowed on closed conversations); notifies the account.
+- `POST /api/v1/admin/support/conversations/:id/read`, `/close`, `/reopen`.
+- `GET /api/v1/admin/support/stream` → every conversation's messages (SSE).
+
+### Rate limits added in v2.109.0
+
+Per client IP: password forgot 10/hour (+5/hour per email), reset 20/15 min,
+email verify 20/15 min, verification resend 10/hour, Google start and callback
+30/15 min each, support open 10/hour, support message 60/10 min, support
+stream 120/10 min.
 
 ## Authentication and contact rate limiting (v2.90.0, contact v2.98.0)
 
@@ -5736,8 +5849,8 @@ Management Administrator (ADMIN_2) manages commission rules through the
 
 Every commission rule expresses the platform commission in basis points (1 bps =
 0.01%). When a trainer-specific override is active it replaces the global
-default commission (env var `DEFAULT_PLATFORM_COMMISSION_BPS`, default 2000 =
-20%). The rule resolution is deterministic: trainer-specific active override →
+default commission (env var `DEFAULT_PLATFORM_COMMISSION_BPS`, default 3000 =
+30%). The rule resolution is deterministic: trainer-specific active override →
 global default.
 
 Commission calculation uses floor division so the platform amount is never

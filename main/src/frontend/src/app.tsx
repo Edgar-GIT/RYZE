@@ -3,11 +3,20 @@ import { useLocation } from "react-router-dom";
 
 import { Layout } from "@/components/layout/layout";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { PwaUpdatePrompt } from "@/components/pwa_update_prompt/pwa_update_prompt";
 import { useInitialLoading } from "@/hooks/use_initial_loading";
 import { AppRoutes } from "@/routes/app_routes";
 import { ScrollToTop } from "@/routes/scroll_to_top";
 
-const CHROME_FREE_PATHNAMES = new Set(["/login", "/register", "/profile"]);
+const CHROME_FREE_PATHNAMES = new Set([
+  "/login",
+  "/register",
+  "/profile",
+  "/support",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email"
+]);
 
 export const App = () => {
   const isInitialLoading = useInitialLoading();
@@ -28,6 +37,7 @@ export const App = () => {
       <Layout showChrome={showChrome}>
         <AppRoutes />
       </Layout>
+      <PwaUpdatePrompt />
     </>
   );
 };

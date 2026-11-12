@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { BarChart3, CalendarDays, Dumbbell, Eye, EyeOff, KeyRound, LayoutGrid, Lock, LogOut, Mail, ReceiptText, ShoppingBag, Trash2, UserRound } from "lucide-react";
+import { BadgeCheck, BarChart3, CalendarDays, Dumbbell, Eye, EyeOff, KeyRound, LayoutGrid, LifeBuoy, Lock, LogOut, Mail, ReceiptText, ShoppingBag, Trash2, UserRound } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
@@ -7,13 +7,16 @@ import { Link, useHistory } from "react-router-dom";
 import { AccountNav } from "@/components/account_nav/account_nav";
 import { AnimatedBackground } from "@/components/animated_background/animated_background";
 import { Button } from "@/components/button/button";
+import { LanguageSwitcher } from "@/components/language_switcher/language_switcher";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { useI18n } from "@/i18n/i18n";
 import { fetchTrainerAccess, type TrainerAccessStatus } from "@/services/trainer_api";
 import { joinClassNames } from "@utils/class_names";
 import { ApiError, apiGet, apiPost } from "@utils/http_client";
 
 import styles from "./profile_page.module.css";
+import { SignInMethods } from "./sign_in_methods";
 
 interface ProfileUser {
   id: string;
@@ -22,7 +25,51 @@ interface ProfileUser {
   last_name: string;
   created_at: string;
   updated_at: string;
+  email_verified: boolean;
+  preferred_language: string | null;
+  // False for an account created through Google until a password is set.
+  password_set: boolean;
 }
+
+// EmailVerificationStatus shows whether the address is confirmed and lets the
+// owner ask for a new confirmation link.
+const EmailVerificationStatus = ({ verified }: { verified: boolean }) => {
+  const { t } = useI18n();
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+  if (verified) {
+    return (
+      <p className={styles.verified}>
+        <BadgeCheck aria-hidden="true" />
+        {t("auth.verification.verified")}
+      </p>
+    );
+  }
+
+  const resend = async () => {
+    setState("sending");
+    try {
+      await apiPost("/me/email/verification", {});
+      setState("sent");
+    } catch (error) {
+      setState(error instanceof ApiError && error.code === "EMAIL_ALREADY_VERIFIED" ? "sent" : "error");
+    }
+  };
+
+  return (
+    <div className={styles.unverified} aria-live="polite">
+      <span>{t("auth.verification.unverified")}</span>
+      {state === "sent" ? (
+        <span className={styles.unverifiedNote}>{t("auth.verification.resent")}</span>
+      ) : (
+        <button type="button" className={styles.unverifiedAction} onClick={() => void resend()} disabled={state === "sending"}>
+          {state === "sending" ? t("common.sending") : t("auth.verification.resend")}
+        </button>
+      )}
+      {state === "error" ? <span className={styles.unverifiedNote}>{t("common.genericError")}</span> : null}
+    </div>
+  );
+};
 
 type ProfileState =
   | { status: "loading" }
@@ -45,16 +92,16 @@ const ProfileAvatar = ({ imageUrl }: ProfileAvatarProps) => (
 
 // accountErrorFor maps API errors to clean, user-facing messages. Backend or
 // internal details are never surfaced to the user.
-const accountErrorFor = (error: unknown): string => {
+const accountErrorFor = (error: unknown, t: ReturnType<typeof useI18n>["t"]): string => {
   if (error instanceof ApiError) {
     if (error.code === "INVALID_CREDENTIALS") {
-      return "Your current password is incorrect.";
+      return t("account.profile.wrongPassword");
     }
     if (error.code === "VALIDATION_ERROR") {
-      return "Please check your details and try again.";
+      return t("account.profile.checkDetails");
     }
   }
-  return "Something went wrong. Please try again.";
+  return t("common.genericError");
 };
 
 // PasswordField mirrors the login form's password input (visibility toggle),
@@ -68,6 +115,7 @@ const PasswordField = ({
   placeholder: string;
   autoComplete: string;
 }) => {
+  const { t } = useI18n();
   const [isVisible, setIsVisible] = useState(false);
 
   return (
@@ -84,7 +132,7 @@ const PasswordField = ({
       <button
         className={styles.eyeButton}
         type="button"
-        aria-label={isVisible ? "Hide password" : "Show password"}
+        aria-label={isVisible ? t("account.profile.hidePassword") : t("account.profile.showPassword")}
         onClick={() => setIsVisible((currentValue) => !currentValue)}
       >
         {isVisible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
@@ -102,6 +150,7 @@ interface AccountPanelProps {
 // backend invalidates the session and clears the cookie, so the user is
 // redirected to the login screen and must authenticate with the new password.
 const ChangePasswordPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
+  const { t } = useI18n();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -117,12 +166,12 @@ const ChangePasswordPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
     const confirmPassword = String(form.get("confirm_password") ?? "");
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setErrorMessage("Please fill in all fields.");
+      setErrorMessage(t("account.profile.fillAll"));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setErrorMessage("Passwords do not match.");
+      setErrorMessage(t("account.profile.mismatch"));
       return;
     }
 
@@ -136,21 +185,27 @@ const ChangePasswordPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
       });
       onSuccess();
     } catch (error) {
-      setErrorMessage(accountErrorFor(error));
+      setErrorMessage(accountErrorFor(error, t));
       setSubmitting(false);
     }
   };
 
   return (
     <div className={styles.panel}>
-      <h2>Change password</h2>
-      <p className={styles.panelHint}>
-        Your current session will end after the change. Log in again with your new password.
-      </p>
+      <h2>{t("account.profile.changePassword")}</h2>
+      <p className={styles.panelHint}>{t("account.profile.changePasswordHint")}</p>
       <form className={styles.panelForm} onSubmit={handleSubmit} noValidate>
-        <PasswordField name="current_password" placeholder="Current password" autoComplete="current-password" />
-        <PasswordField name="new_password" placeholder="New password" autoComplete="new-password" />
-        <PasswordField name="confirm_password" placeholder="Confirm new password" autoComplete="new-password" />
+        <PasswordField
+          name="current_password"
+          placeholder={t("account.profile.currentPassword")}
+          autoComplete="current-password"
+        />
+        <PasswordField name="new_password" placeholder={t("account.profile.newPassword")} autoComplete="new-password" />
+        <PasswordField
+          name="confirm_password"
+          placeholder={t("account.profile.confirmPassword")}
+          autoComplete="new-password"
+        />
         {errorMessage ? (
           <p className={styles.formError} role="alert">
             {errorMessage}
@@ -158,10 +213,10 @@ const ChangePasswordPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
         ) : null}
         <div className={styles.panelActions}>
           <Button type="button" variant="secondary" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" disabled={submitting}>
-            Confirm
+            {t("account.profile.confirm")}
           </Button>
         </div>
       </form>
@@ -173,7 +228,8 @@ const ChangePasswordPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
 // before calling the existing delete-account endpoint. The account is never
 // deleted from the first click; the backend performs the soft delete and
 // clears the session.
-const DeleteAccountPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
+const DeleteAccountPanel = ({ onCancel, onSuccess, passwordSet }: AccountPanelProps & { passwordSet: boolean }) => {
+  const { t } = useI18n();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -187,7 +243,7 @@ const DeleteAccountPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
     const password = String(form.get("password") ?? "");
 
     if (!password) {
-      setErrorMessage("Please fill in all fields.");
+      setErrorMessage(t("account.profile.fillAll"));
       return;
     }
 
@@ -198,19 +254,36 @@ const DeleteAccountPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
       await apiPost("/auth/delete-account", { password });
       onSuccess();
     } catch (error) {
-      setErrorMessage(accountErrorFor(error));
+      setErrorMessage(accountErrorFor(error, t));
       setSubmitting(false);
     }
   };
 
+  // Deleting asks for the password; an account created through Google sets
+  // one first.
+  if (!passwordSet) {
+    return (
+      <div className={joinClassNames(styles.panel, styles.dangerPanel)}>
+        <h2>{t("account.profile.deleteAccount")}</h2>
+        <p className={styles.panelHint}>{t("auth.methods.googleOnly")}</p>
+        <div className={styles.panelActions}>
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            {t("common.cancel")}
+          </Button>
+          <Link className={styles.panelLink} to="/forgot-password">
+            {t("auth.methods.setPassword")}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={joinClassNames(styles.panel, styles.dangerPanel)}>
-      <h2>Delete account</h2>
-      <p className={styles.panelHint}>
-        Your account will be closed and your current session will end. Enter your password to confirm.
-      </p>
+      <h2>{t("account.profile.deleteAccount")}</h2>
+      <p className={styles.panelHint}>{t("account.profile.deleteHint")}</p>
       <form className={styles.panelForm} onSubmit={handleSubmit} noValidate>
-        <PasswordField name="password" placeholder="Current password" autoComplete="current-password" />
+        <PasswordField name="password" placeholder={t("account.profile.currentPassword")} autoComplete="current-password" />
         {errorMessage ? (
           <p className={styles.formError} role="alert">
             {errorMessage}
@@ -218,10 +291,10 @@ const DeleteAccountPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
         ) : null}
         <div className={styles.panelActions}>
           <Button type="button" variant="secondary" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" variant="danger" disabled={submitting}>
-            Delete account
+            {t("account.profile.deleteAccount")}
           </Button>
         </div>
       </form>
@@ -232,6 +305,7 @@ const DeleteAccountPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
 type AccountPanel = "change-password" | "delete-account" | null;
 
 export const ProfilePage = () => {
+  const { t, formatDate } = useI18n();
   const history = useHistory();
   const [state, setState] = useState<ProfileState>({ status: "loading" });
   const [retryCount, setRetryCount] = useState(0);
@@ -317,18 +391,12 @@ export const ProfilePage = () => {
       history.replace("/login");
     } catch {
       setLoggingOut(false);
-      setLogoutError("Unable to log out. Please try again.");
+      setLogoutError(t("account.profile.logoutError"));
     }
   };
 
   const fullName = state.status === "ready" ? `${state.user.first_name} ${state.user.last_name}`.trim() : "";
-  const memberSince =
-    state.status === "ready"
-      ? new Date(state.user.created_at).toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "long"
-        })
-      : "";
+  const memberSince = state.status === "ready" ? formatDate(state.user.created_at, { year: "numeric", month: "long" }) : "";
 
   return (
     <PageWrapper className={styles.page}>
@@ -341,9 +409,9 @@ export const ProfilePage = () => {
 
         {state.status === "error" ? (
           <section className={styles.errorCard}>
-            <p>Unable to load your profile.</p>
+            <p>{t("account.profile.loadError")}</p>
             <Button variant="secondary" onClick={() => setRetryCount((count) => count + 1)}>
-              Try again
+              {t("common.retry")}
             </Button>
           </section>
         ) : null}
@@ -364,48 +432,64 @@ export const ProfilePage = () => {
               {state.user.email}
             </p>
 
+            <EmailVerificationStatus verified={state.user.email_verified} />
+
             <p className={styles.meta}>
               <CalendarDays aria-hidden="true" />
-              Member since {memberSince}
+              {t("account.profile.memberSince", { date: memberSince })}
             </p>
+
+            <div className={styles.language}>
+              <span>{t("language.label")}</span>
+              <LanguageSwitcher />
+            </div>
+
+            <SignInMethods />
 
             <span className={styles.divider} aria-hidden="true" />
 
-            <nav className={styles.hub} aria-label="Account">
+            <nav className={styles.hub} aria-label={t("account.profile.hubLabel")}>
               <Link className={styles.hubLink} to="/services/my-programs">
                 <LayoutGrid className={styles.hubIcon} aria-hidden="true" />
                 <span className={styles.hubLabel}>
-                  <span className={styles.hubTitle}>My Programs</span>
-                  <span className={styles.hubHint}>Open your training plans</span>
+                  <span className={styles.hubTitle}>{t("account.profile.myPrograms")}</span>
+                  <span className={styles.hubHint}>{t("account.profile.myProgramsHint")}</span>
                 </span>
               </Link>
               <Link className={styles.hubLink} to="/services/progress">
                 <BarChart3 className={styles.hubIcon} aria-hidden="true" />
                 <span className={styles.hubLabel}>
-                  <span className={styles.hubTitle}>Progress</span>
-                  <span className={styles.hubHint}>Review your training statistics</span>
+                  <span className={styles.hubTitle}>{t("account.profile.progress")}</span>
+                  <span className={styles.hubHint}>{t("account.profile.progressHint")}</span>
                 </span>
               </Link>
               <Link className={styles.hubLink} to="/account/purchases">
                 <ReceiptText className={styles.hubIcon} aria-hidden="true" />
                 <span className={styles.hubLabel}>
-                  <span className={styles.hubTitle}>Purchase History</span>
-                  <span className={styles.hubHint}>Review your orders</span>
+                  <span className={styles.hubTitle}>{t("account.profile.purchases")}</span>
+                  <span className={styles.hubHint}>{t("account.profile.purchasesHint")}</span>
+                </span>
+              </Link>
+              <Link className={styles.hubLink} to="/support">
+                <LifeBuoy className={styles.hubIcon} aria-hidden="true" />
+                <span className={styles.hubLabel}>
+                  <span className={styles.hubTitle}>{t("support.title")}</span>
+                  <span className={styles.hubHint}>{t("support.hubHint")}</span>
                 </span>
               </Link>
               <Link className={styles.hubLink} to="/services/generic-program">
                 <ShoppingBag className={styles.hubIcon} aria-hidden="true" />
                 <span className={styles.hubLabel}>
-                  <span className={styles.hubTitle}>Marketplace</span>
-                  <span className={styles.hubHint}>Discover training plans</span>
+                  <span className={styles.hubTitle}>{t("account.profile.marketplace")}</span>
+                  <span className={styles.hubHint}>{t("account.profile.marketplaceHint")}</span>
                 </span>
               </Link>
               {trainerAccess?.is_trainer ? (
                 <Link className={styles.hubLink} to="/trainer/dashboard">
                   <Dumbbell className={styles.hubIcon} aria-hidden="true" />
                   <span className={styles.hubLabel}>
-                    <span className={styles.hubTitle}>Trainer Dashboard</span>
-                    <span className={styles.hubHint}>Manage your programs and clients</span>
+                    <span className={styles.hubTitle}>{t("account.profile.trainerDashboard")}</span>
+                    <span className={styles.hubHint}>{t("account.profile.trainerDashboardHint")}</span>
                   </span>
                 </Link>
               ) : null}
@@ -413,8 +497,8 @@ export const ProfilePage = () => {
                 <Link className={styles.hubLink} to="/trainer/apply">
                   <Dumbbell className={styles.hubIcon} aria-hidden="true" />
                   <span className={styles.hubLabel}>
-                    <span className={styles.hubTitle}>Become a Trainer</span>
-                    <span className={styles.hubHint}>Create programs and manage clients</span>
+                    <span className={styles.hubTitle}>{t("account.profile.becomeTrainer")}</span>
+                    <span className={styles.hubHint}>{t("account.profile.becomeTrainerHint")}</span>
                   </span>
                 </Link>
               ) : null}
@@ -427,21 +511,23 @@ export const ProfilePage = () => {
             ) : null}
 
             <div className={styles.actions}>
-              <Button
-                variant="secondary"
-                icon={<KeyRound aria-hidden="true" />}
-                iconPosition="left"
-                onClick={() => togglePanel("change-password")}
-              >
-                Change password
-              </Button>
+              {state.user.password_set ? (
+                <Button
+                  variant="secondary"
+                  icon={<KeyRound aria-hidden="true" />}
+                  iconPosition="left"
+                  onClick={() => togglePanel("change-password")}
+                >
+                  {t("account.profile.changePassword")}
+                </Button>
+              ) : null}
               <Button
                 variant="danger"
                 icon={<Trash2 aria-hidden="true" />}
                 iconPosition="left"
                 onClick={() => togglePanel("delete-account")}
               >
-                Delete account
+                {t("account.profile.deleteAccount")}
               </Button>
             </div>
 
@@ -465,7 +551,11 @@ export const ProfilePage = () => {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.25, ease: "easeOut" }}
                 >
-                  <DeleteAccountPanel onCancel={closePanel} onSuccess={handleAccountActionSuccess} />
+                  <DeleteAccountPanel
+                    onCancel={closePanel}
+                    onSuccess={handleAccountActionSuccess}
+                    passwordSet={state.user.password_set}
+                  />
                 </motion.div>
               ) : null}
             </AnimatePresence>
@@ -477,7 +567,7 @@ export const ProfilePage = () => {
               disabled={loggingOut}
               onClick={handleLogout}
             >
-              Log out
+              {t("account.profile.logOut")}
             </Button>
           </motion.section>
         ) : null}

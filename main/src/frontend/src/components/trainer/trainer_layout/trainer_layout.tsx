@@ -5,6 +5,7 @@ import { UserRound } from "lucide-react";
 import { AnimatedBackground } from "@/components/animated_background/animated_background";
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { NotificationBell } from "@/components/notification_bell/notification_bell";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { useTrainerSession } from "@/components/trainer/trainer_session_context";
 import { fetchTrainerProfile } from "@/services/trainer_api";
@@ -111,18 +112,26 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
           >
             Profile
           </NavLink>
+          <NavLink
+            className={styles.navLink}
+            activeClassName={joinClassNames(styles.navLink, styles.navLinkActive)}
+            to="/support"
+          >
+            Support
+          </NavLink>
         </nav>
 
-        {userName ? (
-          <div className={styles.userArea}>
-            <span className={styles.userName}>{userName}</span>
-            <span className={styles.avatar} aria-hidden="true">
-              <UserRound strokeWidth={1.6} />
-            </span>
-          </div>
-        ) : (
-          <div className={styles.spacer} aria-hidden="true" />
-        )}
+        <div className={styles.userArea}>
+          {userName ? (
+            <>
+              <span className={styles.userName}>{userName}</span>
+              <span className={styles.avatar} aria-hidden="true">
+                <UserRound strokeWidth={1.6} />
+              </span>
+            </>
+          ) : null}
+          <NotificationBell />
+        </div>
       </header>
 
       <main className={styles.main}>{children}</main>

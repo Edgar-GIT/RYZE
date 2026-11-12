@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"ryze/backend/models"
 )
@@ -28,6 +30,7 @@ type UserRepository interface {
 	GetSessionVersion(ctx context.Context, id string) (int, error)
 	Update(ctx context.Context, user *models.User) error
 	ChangePassword(ctx context.Context, id string, newHash string) error
+	SetPreferredLanguage(ctx context.Context, id, language string) error
 	Reactivate(ctx context.Context, user *models.User) error
 	ClearDeletedAt(ctx context.Context, id string) error
 	SoftDelete(ctx context.Context, id string) error
@@ -169,9 +172,29 @@ func (r *userRepository) GetSessionVersion(ctx context.Context, id string) (int,
 
 func (r *userRepository) Update(ctx context.Context, user *models.User) error {
 	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		return tx.Model(user).
+		var previous models.User
+		if err := tx.Clauses(clause.Locking{Strength: "NO KEY UPDATE"}).Select("id", "email").
+			Take(&previous, "id = ?", user.ID).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(user).
 			Select("first_name", "last_name", "email").
-			Updates(user).Error
+			Updates(user).Error; err != nil {
+			return err
+		}
+		if strings.EqualFold(strings.TrimSpace(previous.Email), strings.TrimSpace(user.Email)) {
+			return nil
+		}
+		// A new address is unproven, and links already sent to the old one
+		// (reset, verification) must stop working: the old mailbox may be
+		// exactly why the address changed.
+		if err := tx.Model(&models.User{}).Where("id = ?", user.ID).Update("email_verified_at", nil).Error; err != nil {
+			return err
+		}
+		user.EmailVerifiedAt = nil
+		return tx.Model(&models.UserToken{}).
+			Where("user_id = ? AND used_at IS NULL", user.ID).
+			Update("used_at", time.Now()).Error
 	}); err != nil {
 		if isDuplicateEntry(err) {
 			return ErrDuplicateEmail
@@ -186,16 +209,39 @@ func (r *userRepository) Update(ctx context.Context, user *models.User) error {
 // changes happen in the same statement so the new hash can never be stored
 // with a session version that leaves old tokens valid.
 func (r *userRepository) ChangePassword(ctx context.Context, id string, newHash string) error {
-	result := r.db.WithContext(ctx).
-		Model(&models.User{}).
-		Where("id = ?", id).
-		Updates(map[string]any{
-			"password_hash":   newHash,
-			"session_version": gorm.Expr("session_version + 1"),
-			"updated_at":      time.Now(),
-		})
+	var affected int64
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&models.User{}).
+			Where("id = ?", id).
+			Updates(map[string]any{
+				"password_hash":   newHash,
+				"password_set":    true,
+				"session_version": gorm.Expr("session_version + 1"),
+				"updated_at":      time.Now(),
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		affected = result.RowsAffected
+		// A reset link issued before the change must not undo it.
+		return tx.Model(&models.UserToken{}).
+			Where("user_id = ? AND purpose = ? AND used_at IS NULL", id, models.UserTokenPurposePasswordReset).
+			Update("used_at", time.Now()).Error
+	})
+	if err != nil {
+		return fmt.Errorf("failed to change password: %w", err)
+	}
+	if affected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// SetPreferredLanguage stores the language RYZE uses for the account's emails.
+func (r *userRepository) SetPreferredLanguage(ctx context.Context, id, language string) error {
+	result := r.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", id).Update("preferred_language", language)
 	if result.Error != nil {
-		return fmt.Errorf("failed to change password: %w", result.Error)
+		return fmt.Errorf("failed to set preferred language: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return ErrUserNotFound
@@ -211,15 +257,21 @@ func (r *userRepository) Reactivate(ctx context.Context, user *models.User) erro
 	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		result := tx.Unscoped().
 			Model(user).
-			Select("first_name", "last_name", "password_hash", "deleted_at").
+			Select("first_name", "last_name", "password_hash", "password_set", "deleted_at").
 			Updates(map[string]any{
 				"first_name":    user.FirstName,
 				"last_name":     user.LastName,
 				"password_hash": user.PasswordHash,
+				"password_set":  true,
 				"deleted_at":    nil,
 			})
 		affected = result.RowsAffected
-		return result.Error
+		if result.Error != nil || affected == 0 {
+			return result.Error
+		}
+		// Re-registration is a new claim on the address: sign-in links left
+		// from before the deletion are removed.
+		return tx.Where("user_id = ?", user.ID).Delete(&models.UserIdentity{}).Error
 	})
 	if err != nil {
 		if isDuplicateEntry(err) {

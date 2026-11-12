@@ -2,15 +2,16 @@ import { motion, type Variants } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Link, useHistory } from "react-router-dom";
+import { Link, useHistory, useLocation } from "react-router-dom";
 
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PublicAction, Waves } from "@/components/public_ui/public_ui";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
+import { translate, useI18n } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
-import { ApiError, apiPost } from "@utils/http_client";
+import { ApiError, apiGet, apiPost, apiUrl } from "@utils/http_client";
 
 import styles from "./login_page.module.css";
 
@@ -36,29 +37,76 @@ const FadeItem = ({ className, children }: { className?: string; children: React
   </motion.div>
 );
 
-const GoogleButton = () => (
-  <button className={styles.googleButton} type="button" aria-label="Continue with Google">
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-      />
-    </svg>
-    <span>Google</span>
-  </button>
-);
+// Results Google sign-in can report back on this page (?oauth=...).
+const GOOGLE_RESULTS = ["cancelled", "failed", "expired", "unverified", "link_required", "unavailable"] as const;
+type GoogleResult = (typeof GOOGLE_RESULTS)[number];
+
+const isGoogleResult = (value: string | null): value is GoogleResult => GOOGLE_RESULTS.includes(value as GoogleResult);
+
+// The login page copy is a protected area and stays in English until the
+// owner approves its translation, so its Google notices are English too: the
+// page never mixes languages. The chosen locale still travels to the API so a
+// new account gets emails in the reader's language.
+const loginText: typeof translate = (_locale, key, params) => translate("en", key, params);
+
+// GoogleButton starts Google sign-in: the API redirects to Google and back.
+// When the provider is not configured it reports that instead of navigating.
+const GoogleButton = ({ onMessage }: { onMessage: (message: string) => void }) => {
+  const { locale } = useI18n();
+  const t = (key: Parameters<typeof translate>[1]) => loginText(locale, key);
+  const [pending, setPending] = useState(false);
+
+  const handleClick = async () => {
+    if (pending) {
+      return;
+    }
+    setPending(true);
+    onMessage("");
+    try {
+      const providers = await apiGet<{ google: boolean }>("/auth/providers");
+      if (!providers.google) {
+        onMessage(t("auth.google.unavailable"));
+        setPending(false);
+        return;
+      }
+      window.location.assign(apiUrl(`/auth/google/start?mode=login&lang=${locale}`));
+    } catch {
+      onMessage(t("common.genericError"));
+      setPending(false);
+    }
+  };
+
+  return (
+    <button
+      className={styles.googleButton}
+      type="button"
+      aria-label={pending ? t("auth.google.redirecting") : "Continue with Google"}
+      aria-busy={pending}
+      disabled={pending}
+      onClick={() => void handleClick()}
+    >
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path
+          fill="#EA4335"
+          d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+        />
+        <path
+          fill="#4285F4"
+          d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+        />
+        <path
+          fill="#FBBC05"
+          d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+        />
+        <path
+          fill="#34A853"
+          d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+        />
+      </svg>
+      <span>Google</span>
+    </button>
+  );
+};
 
 const PasswordField = ({
   id,
@@ -98,6 +146,8 @@ const PasswordField = ({
 interface AuthFormProps {
   onSwitch: () => void;
   headingRef: RefObject<HTMLHeadingElement | null>;
+  // A notice to show on arrival (for example a Google sign-in result).
+  initialMessage?: string;
 }
 
 const errorMessageFor = (error: unknown): string => {
@@ -113,10 +163,10 @@ const errorMessageFor = (error: unknown): string => {
   return "Something went wrong. Please try again.";
 };
 
-const LoginForm = ({ onSwitch, headingRef }: AuthFormProps) => {
+const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps) => {
   const history = useHistory();
   const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState(initialMessage);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -180,9 +230,9 @@ const LoginForm = ({ onSwitch, headingRef }: AuthFormProps) => {
           <input type="checkbox" name="remember" />
           <span>Remember me</span>
         </label>
-        <a className={styles.link} href="#" onClick={(event) => event.preventDefault()}>
+        <Link className={styles.link} to="/forgot-password">
           Forgot your password?
-        </a>
+        </Link>
       </FadeItem>
 
       {errorMessage ? (
@@ -204,7 +254,7 @@ const LoginForm = ({ onSwitch, headingRef }: AuthFormProps) => {
       </FadeItem>
 
       <FadeItem className={styles.googleRow}>
-        <GoogleButton />
+        <GoogleButton onMessage={setErrorMessage} />
       </FadeItem>
 
       <FadeItem className={styles.formFooter}>
@@ -220,6 +270,8 @@ const LoginForm = ({ onSwitch, headingRef }: AuthFormProps) => {
 };
 
 const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
+  // The interface language at sign-up becomes the language of RYZE emails.
+  const { locale } = useI18n();
   const history = useHistory();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -255,7 +307,8 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
         first_name: firstName,
         last_name: lastName,
         email,
-        password
+        password,
+        language: locale
       });
       history.push("/profile");
     } catch (error) {
@@ -351,7 +404,7 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
       </FadeItem>
 
       <FadeItem className={styles.googleRow}>
-        <GoogleButton />
+        <GoogleButton onMessage={setErrorMessage} />
       </FadeItem>
 
       <FadeItem className={styles.formFooter}>
@@ -389,7 +442,22 @@ const PANEL_COPY: Record<AuthMode, { kicker: string; title: string; text: string
 // the other form takes its place. The inactive form is inert and hidden from
 // assistive technology; focus moves to the new form's heading.
 export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
-  const [mode, setMode] = useState<AuthMode>(initialMode);
+  const history = useHistory();
+  const location = useLocation();
+  // A Google sign-in result arrives as ?oauth=...; it is read once and removed
+  // from the address bar.
+  const [googleResult] = useState(() => {
+    const value = new URLSearchParams(location.search).get("oauth");
+    return isGoogleResult(value) ? value : null;
+  });
+  const [mode, setMode] = useState<AuthMode>(googleResult ? "login" : initialMode);
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).has("oauth")) {
+      history.replace(location.pathname);
+    }
+  }, [history, location.pathname, location.search]);
+
   const switched = useRef(false);
   const loginHeading = useRef<HTMLHeadingElement>(null);
   const registerHeading = useRef<HTMLHeadingElement>(null);
@@ -421,7 +489,11 @@ export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
             inert={mode !== "login"}
             aria-hidden={mode !== "login"}
           >
-            <LoginForm onSwitch={() => switchMode("register")} headingRef={loginHeading} />
+            <LoginForm
+              onSwitch={() => switchMode("register")}
+              headingRef={loginHeading}
+              initialMessage={googleResult ? loginText("en", `auth.google.result.${googleResult}`) : ""}
+            />
           </div>
           <div
             className={joinClassNames(styles.pane, styles.paneRegister)}

@@ -1,3 +1,123 @@
+# Version 2.109.0
+
+Title: Platform completion — account recovery, Google Sign-In, notifications, support chat, PWA and Portuguese
+
+Date: 2026-11-12
+
+Summary:
+
+Completion round from the owner's "RYZE — Final Platform Completion" brief.
+Adds self-service account recovery and transactional email (Resend over SMTP),
+Google Sign-In, 24-hour notifications, a support chat answered by the
+Management Administrator, a PWA, and an English/Portuguese system with the
+account area translated. Owner decisions applied: default platform commission
+30% (3000 bps), support answered by ADMIN_2, first language detected in the
+browser (Portugal → Portuguese, elsewhere English; manual choice wins).
+
+Main changes:
+
+- Migrations `000037`–`000040` (additive; applied to `ryze` and `ryze_test`
+  after a backup each, schema version 40): `users.email_verified_at`,
+  `preferred_language`, `password_set`; `user_tokens`, `email_outbox`,
+  `user_identities`, `notifications`, `support_conversations`,
+  `support_messages`. Each `down` was validated inside a rolled-back
+  transaction.
+- Email: outbox with dedupe keys, retrying worker (`jobs.go`), mandatory
+  STARTTLS, EN/PT templates; disabled delivery records emails as `skipped`.
+- Account recovery: forgot/reset password (60-minute single-use fragment
+  links, session revocation, change notice), email verification (48 hours),
+  language preference; pages `/forgot-password`, `/reset-password`,
+  `/verify-email`; the login page's "Forgot your password?" now opens them.
+- Google Sign-In: OIDC code flow with PKCE, signed state cookie, ID-token
+  verification against Google's keys, no automatic linking of existing
+  accounts, linking/unlinking from Profile → Sign-in methods, Google-only
+  accounts keep an unusable password until they set one. The protected login
+  page only wires its existing Google button (English notices).
+- Notifications: created on purchase completion, Premium Level 2 intake,
+  trainer assignment and delivery, and support replies; visible 24 hours;
+  dedupe tombstones kept 30 days; hourly purge; bell in the account and trainer
+  headers (both headers now wrap to two rows on phones instead of overflowing).
+- Support chat: `/support` for trainers and clients with an active programme,
+  `/admin2/support` for ADMIN_2 (`support.read` / `support.manage`);
+  eligibility on every call, idempotent messages, Server-Sent Events with
+  resume after reconnection and client-side recovery when the browser gives
+  up; staff identities never shown.
+- PWA: manifest, icons generated from the official logo on brand navy,
+  service worker caching only public assets and the page shell (never the
+  API), update prompt.
+- i18n: typed dictionaries without a dependency; translated auth recovery,
+  profile, My Programs, programme access and structure, workout sessions and
+  history, progress, purchases, Premium Level 1 nutrition labels, trainer
+  application, notifications, support and PWA prompts. Dates and money follow
+  the language.
+- Unknown addresses show "Page not found" instead of an "under development"
+  message (the Feed placeholder is unchanged).
+- Commission default 3000 bps; `.env.example` documents `PUBLIC_APP_URL`,
+  `MAIL_*` and `GOOGLE_*`.
+
+Verification:
+
+- `go test ./...` green against `ryze_test`; new unit/integration tests for
+  email, recovery, Google (local fake provider with RSA keys), notifications,
+  support (service + SSE handler).
+- Frontend `tsc --noEmit`, vitest (148 tests) and production build green.
+- Live checks: Google button and profile methods at 390/320 px; notification
+  bell at 390 px and desktop; a two-browser support E2E on an isolated backend
+  instance over `ryze_test` (18 checks, reply pushed in ~0.1 s, message
+  recovered after an offline period, closed/ineligible/cross-account
+  refusals); PWA on a production preview (worker control, cache contents,
+  offline shell). The E2E fixtures were removed from `ryze_test` afterwards.
+
+Independent review (read-only backend, database and frontend reviewers) and
+fixes applied in this version:
+
+- High: linking Google now requires a confirmed email; a password reset
+  removes Google links from accounts that had a password; re-registration
+  removes old links (prevents someone who registered or knew an account from
+  keeping a way in after the owner recovers it).
+- An administrator email change clears the verification and invalidates
+  links sent to the old address; a password change retires reset links.
+- Support: live streams capped (3 per account, 500 per instance), scoped
+  wake-ups, session and eligibility re-checked every 15 s; retried "open" is
+  idempotent; the open limit is counted under the insert lock; another
+  author's client message id is refused.
+- Outbox outcomes apply only to rows still in `sending`; Google identity locks
+  use `FOR NO KEY UPDATE`; fixed advisory-lock key.
+- Emails greet by name only after the address is confirmed; Premium Level 2
+  reassignment notifies again.
+- Frontend: a slow response for one conversation can no longer be shown while
+  replies go to another (stale responses dropped, composer reset per
+  conversation); screen-reader announcements only for new replies; streams
+  stop retrying once the session or support access ends; the bell stops
+  polling after sign-out; the service worker caches only hashed assets and
+  icons; iOS status-bar style fixed; manifest no longer locks orientation;
+  Support keeps trainers one tap from their dashboard; sign-in methods show an
+  error with retry.
+- The MariaDB copy tool refuses to empty PostgreSQL-only tables that hold
+  data.
+- Documented as accepted or pending: live reset links in pending outbox rows,
+  residual enumeration (registration 409, small timing difference), Google
+  sign-in restoring an admin-disabled account (owner decision, same as
+  re-registration), one-way `down` for 000038/000040.
+
+Not verified / pending:
+
+- No live Resend send, no real Google OAuth client and no live payment provider
+  in this environment.
+- Owner input needed: Free "limited access duration" value, Free "PDF
+  export", translating the public site and protected login copy, Premium
+  service pages, trainer area and admin consoles; RYZE Feed.
+
+Files: see `git status` for the full list (backend `email/`,
+`services/{account_recovery,google_auth,notifications,support}/`, new
+repositories/models/handlers, migrations `000037`–`000040`; frontend `i18n/`,
+`components/{language_switcher,notification_bell,support_chat,pwa_update_prompt}/`,
+`pages/{account_recovery_page,support_page,admin2/admin2_support_page}/`,
+`public/`; documentation api, database, security, project, how_to_run,
+product completeness, CLAUDE.md).
+
+Reason: owner request (completion brief) and owner decisions of 2026-11-11.
+
 # Version 2.108.0
 
 Title: Backend database migrated from MariaDB to PostgreSQL

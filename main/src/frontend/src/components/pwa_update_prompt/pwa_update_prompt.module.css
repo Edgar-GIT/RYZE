@@ -1,0 +1,65 @@
+/* New-version notice: a small bar above the bottom edge (and the phone's
+   home indicator). */
+
+.prompt {
+  position: fixed;
+  z-index: 60;
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  left: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(0, 203, 255, 0.4);
+  border-radius: 14px;
+  color: #ffffff;
+  background: rgba(6, 12, 40, 0.97);
+  box-shadow: 0 24px 48px -20px rgba(0, 0, 0, 0.85);
+}
+
+.text {
+  flex: 1 1 12rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.action,
+.dismiss {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action {
+  border: 0;
+  color: #02041f;
+  background: #00cbff;
+}
+
+.action svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.dismiss {
+  border: 1px solid rgba(201, 213, 236, 0.35);
+  color: #c9d5ec;
+  background: transparent;
+}
+
+.action:focus-visible,
+.dismiss:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}

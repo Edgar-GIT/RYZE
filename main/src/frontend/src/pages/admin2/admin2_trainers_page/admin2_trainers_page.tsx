@@ -143,7 +143,7 @@ const TrainerCommissionDialog = ({
               />
             </div>
             <p className={styles.formHint} style={{ marginTop: "0.35rem" }}>
-              1 bps = 0.01%. A value of 2000 means a 20% platform commission.
+              1 bps = 0.01%. A value of 3000 means a 30% platform commission (the platform default).
             </p>
 
             {errorMessage ? (

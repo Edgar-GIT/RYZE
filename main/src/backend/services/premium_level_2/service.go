@@ -9,8 +9,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"ryze/backend/email"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	"ryze/backend/services/notifications"
 )
 
 var (
@@ -102,10 +104,43 @@ type service struct {
 	requests     RequestRepository
 	programs     ProgramRepository
 	entitlements EntitlementRepository
+	notifier     notifications.Notifier
 }
 
-func NewService(requests RequestRepository, programs ProgramRepository, entitlements EntitlementRepository) Service {
-	return &service{requests: requests, programs: programs, entitlements: entitlements}
+// ServiceOption configures an optional collaborator.
+type ServiceOption func(*service)
+
+// WithNotifier reports the request's progress to the client and the trainer
+// (in-app notification and email). Without it nothing is notified.
+func WithNotifier(notifier notifications.Notifier) ServiceOption {
+	return func(s *service) { s.notifier = notifier }
+}
+
+func NewService(requests RequestRepository, programs ProgramRepository, entitlements EntitlementRepository, options ...ServiceOption) Service {
+	svc := &service{requests: requests, programs: programs, entitlements: entitlements}
+	for _, option := range options {
+		option(svc)
+	}
+	return svc
+}
+
+func clientRequestLink(requestID string) string {
+	return "/services/premium-level-2/requests/" + requestID
+}
+
+// notifyTransition reports a committed state change. The request is re-read so
+// the notification carries the offer name and the assigned trainer.
+func (s *service) notifyTransition(ctx context.Context, requestID string, events func(request *models.PremiumLevel2Request) []notifications.Event) {
+	if s.notifier == nil {
+		return
+	}
+	request, err := s.requests.FindRequestByID(ctx, requestID)
+	if err != nil {
+		return
+	}
+	for _, event := range events(request) {
+		s.notifier.Notify(ctx, event)
+	}
 }
 
 func (s *service) Catalog() Catalog { return IntakeCatalog() }
@@ -190,6 +225,16 @@ func (s *service) SubmitIntake(ctx context.Context, userID, requestID string, an
 		}
 		return nil, nil, fmt.Errorf("failed to submit premium level 2 intake: %w", err)
 	}
+	s.notifyTransition(ctx, requestID, func(request *models.PremiumLevel2Request) []notifications.Event {
+		return []notifications.Event{{
+			UserID:        request.UserID,
+			Kind:          models.NotificationPL2IntakeReceived,
+			Program:       request.OfferName,
+			Link:          clientRequestLink(request.ID),
+			DedupeKey:     "pl2_intake:" + intake.ID,
+			EmailTemplate: email.TemplateIntakeReceived,
+		}}
+	})
 	return updated, intake, nil
 }
 
@@ -238,6 +283,29 @@ func (s *service) AssignTrainer(ctx context.Context, requestID, trainerID, admin
 			return nil, fmt.Errorf("failed to assign trainer: %w", err)
 		}
 	}
+	// Each assignment is its own event (identified by the request's update
+	// time), so assigning a request back to an earlier trainer notifies again.
+	s.notifyTransition(ctx, request.ID, func(current *models.PremiumLevel2Request) []notifications.Event {
+		events := []notifications.Event{{
+			UserID:        current.UserID,
+			Kind:          models.NotificationPL2TrainerAssigned,
+			Program:       current.OfferName,
+			Link:          clientRequestLink(current.ID),
+			DedupeKey:     fmt.Sprintf("pl2_assigned:%s:%s:%d", current.ID, trainerID, current.UpdatedAt.UnixMicro()),
+			EmailTemplate: email.TemplateTrainerAssigned,
+		}}
+		if current.TrainerUserID != nil {
+			events = append(events, notifications.Event{
+				UserID:        *current.TrainerUserID,
+				Kind:          models.NotificationPL2RequestAssigned,
+				Program:       current.OfferName,
+				Link:          "/trainer/premium-level-2/" + current.ID,
+				DedupeKey:     fmt.Sprintf("pl2_assigned_trainer:%s:%s:%d", current.ID, trainerID, current.UpdatedAt.UnixMicro()),
+				EmailTemplate: email.TemplateRequestAssigned,
+			})
+		}
+		return events
+	})
 	return request, nil
 }
 
@@ -310,6 +378,16 @@ func (s *service) Deliver(ctx context.Context, trainerID, requestID string) (*mo
 			return nil, fmt.Errorf("failed to deliver premium level 2 request: %w", err)
 		}
 	}
+	s.notifyTransition(ctx, request.ID, func(current *models.PremiumLevel2Request) []notifications.Event {
+		return []notifications.Event{{
+			UserID:        current.UserID,
+			Kind:          models.NotificationPL2Delivered,
+			Program:       current.OfferName,
+			Link:          clientRequestLink(current.ID),
+			DedupeKey:     "pl2_delivered:" + current.ID,
+			EmailTemplate: email.TemplateServiceDelivered,
+		}}
+	})
 	return request, nil
 }
 

@@ -9,6 +9,7 @@ import {
   type WorkoutSession
 } from "@/services/workout_sessions_api";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { useI18n } from "@/i18n/i18n";
 import { ApiError } from "@utils/http_client";
 import { fetchProgramAccess, type ProgramAccessDetail } from "@/services/purchases_api";
 import {
@@ -42,6 +43,7 @@ const nutritionUnavailable: NutritionAssignmentStatus = {
 };
 
 export const ProgramAccessPage = () => {
+  const { t } = useI18n();
   const { programId } = useParams<{ programId: string }>();
   const history = useHistory();
   const [detail, setDetail] = useState<ProgramAccessDetail | null>(null);
@@ -69,11 +71,13 @@ export const ProgramAccessPage = () => {
         history.replace("/login");
         return;
       }
-      setErrorMessage(error instanceof ApiError && error.status === 404 ? "This training plan is no longer available." : "Unable to load this training plan.");
+      setErrorMessage(
+        error instanceof ApiError && error.status === 404 ? t("account.training.accessUnavailable") : t("account.training.accessError")
+      );
     } finally {
       setLoading(false);
     }
-  }, [programId, history]);
+  }, [programId, history, t]);
 
   const loadActiveSession = useCallback(async () => {
     try {
@@ -92,14 +96,12 @@ export const ProgramAccessPage = () => {
         const session = await startWorkoutSession(programId, workoutId);
         history.push(`/services/workout-sessions/${session.id}`);
       } catch {
-        setSessionError(
-          "You already have another workout in progress. Finish or abandon it before starting a new one."
-        );
+        setSessionError(t("account.training.otherSessionActive"));
         await loadActiveSession();
         setStartingWorkoutId(null);
       }
     },
-    [programId, history, loadActiveSession]
+    [programId, history, loadActiveSession, t]
   );
 
   const loadNutrition = useCallback(async () => {
@@ -175,7 +177,7 @@ export const ProgramAccessPage = () => {
                 onClick={() => setRetryCount((count) => count + 1)}
                 icon={<RefreshCw size={15} />}
               >
-                Try again
+                {t("common.retry")}
               </Button>
             </div>
           </section>
@@ -185,17 +187,17 @@ export const ProgramAccessPage = () => {
           <section className={styles.content}>
             <div className={styles.back}>
               <Button to="/services/my-programs" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
-                My Programs
+                {t("account.training.myPrograms")}
               </Button>
             </div>
 
             {activeSession ? (
               <aside className={styles.activeBanner}>
                 <div>
-                  <p className={styles.activeEyebrow}>Workout in progress</p>
+                  <p className={styles.activeEyebrow}>{t("account.training.workoutInProgress")}</p>
                   <p className={styles.activeTitle}>
-                    {activeSession.program_name} · Week {activeSession.week_number} · Day{" "}
-                    {activeSession.workout_position}
+                    {activeSession.program_name} ·{" "}
+                    {t("account.training.weekDay", { week: activeSession.week_number, day: activeSession.workout_position })}
                   </p>
                 </div>
                 <Button
@@ -205,7 +207,7 @@ export const ProgramAccessPage = () => {
                   icon={<Play size={14} />}
                   iconPosition="left"
                 >
-                  {activeSession.status === "paused" ? "Resume workout" : "Continue workout"}
+                  {activeSession.status === "paused" ? t("account.training.resumeWorkout") : t("account.training.continueWorkout")}
                 </Button>
               </aside>
             ) : null}
@@ -215,18 +217,22 @@ export const ProgramAccessPage = () => {
               {detail.description ? <p className={styles.subtitle}>{detail.description}</p> : null}
 
               <div className={styles.chips}>
-                {premium ? <span className={styles.chipPremium}>Premium Level 1</span> : null}
-                {premium ? <span className={styles.chip}>Training + nutrition</span> : null}
+                {premium ? <span className={styles.chipPremium}>{t("account.myPrograms.pl1")}</span> : null}
+                {premium ? <span className={styles.chip}>{t("account.myPrograms.pl1Chip")}</span> : null}
                 {detail.training_type ? <span className={styles.chip}>{detail.training_type}</span> : null}
                 {detail.level ? <span className={styles.chip}>{detail.level}</span> : null}
                 {detail.duration_weeks ? (
                   <span className={styles.chip}>
-                    {detail.duration_weeks} week{detail.duration_weeks === 1 ? "" : "s"}
+                    {detail.duration_weeks === 1
+                      ? t("account.myPrograms.week")
+                      : t("account.myPrograms.weeks", { count: detail.duration_weeks })}
                   </span>
                 ) : null}
                 {detail.frequency_per_week ? (
                   <span className={styles.chip}>
-                    {detail.frequency_per_week} day{detail.frequency_per_week === 1 ? "" : "s"}/week
+                    {detail.frequency_per_week === 1
+                      ? t("account.myPrograms.dayPerWeek")
+                      : t("account.myPrograms.daysPerWeek", { count: detail.frequency_per_week })}
                   </span>
                 ) : null}
               </div>
@@ -240,10 +246,10 @@ export const ProgramAccessPage = () => {
 
             <div className={styles.actions}>
               <Button to="/services/workout-history" variant="secondary" size="small" icon={<History size={15} />} iconPosition="left">
-                Workout history
+                {t("account.training.history")}
               </Button>
               <Button to="/services/progress" variant="secondary" size="small" icon={<BarChart3 size={15} />} iconPosition="left">
-                View progress
+                {t("account.training.viewProgress")}
               </Button>
             </div>
 

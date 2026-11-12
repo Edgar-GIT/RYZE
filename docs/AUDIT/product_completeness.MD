@@ -1,7 +1,7 @@
 # RYZE Product Completeness Audit
 
-Version: v2.103.0
-Date: 2026-11-09
+Version: v2.109.0
+Date: 2026-11-11
 Status: living document — update whenever a backlog item is closed.
 
 This document records the product-completeness audit of the RYZE platform
@@ -36,8 +36,9 @@ its configuration locally, so deployment-only paths remain marked unverified.
 
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
-| Backend API (Go/Gin/GORM/MariaDB) | Complete/Verified | `go test ./...` green (40 packages) |
-| Database migrations | Complete/Verified | schema version 34, `dirty=false`; migrations embedded in the release binary |
+| Backend API (Go/Gin/GORM/PostgreSQL) | Complete/Verified | `go test ./...` green against the isolated `ryze_test` database (v2.109.0) |
+| Database migrations | Complete/Verified | schema version 40, `dirty=false` on `ryze` and `ryze_test`; every new `down` validated inside a rolled-back transaction; migrations embedded in the release binary |
+| PWA (manifest, icons, service worker, update prompt) | Complete/Verified (local) | production preview: manifest served, worker controls the page, caches hold only hashed assets/icons and the page shell (no `/api/`), app opens offline; real install on devices unverified |
 | Frontend SPA (React 19/Vite/TS/CSS Modules) | Complete/Verified | `tsc --noEmit` clean, vitest green |
 | CI (race detector + frontend tests + Playwright) | Implemented (hosted run unverified) | `.github/workflows/ci.yml`; local CI-equivalent checks passed in v2.99.0 |
 | Docker compose stack | Implemented (unverified) | `docker compose config` parsed in v2.99.0; image/build/runtime blocked by unavailable daemon |
@@ -53,8 +54,10 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Change password | Complete/Verified | service + handler tests |
 | Account deletion (soft delete) | Complete/Verified | delete_account service |
 | Profile management | Complete/Verified | profile page + API |
-| Self-service password recovery | Missing | no forgot/reset flow; only admin-triggered `POST /admin/users/:id/password` |
-| Email delivery (verification, receipts, notifications) | Partial | contact SMTP delivery implemented in `services/contact`; verification, receipts and notifications still missing |
+| Self-service password recovery | Complete/Verified | forgot/reset pages, single-use hashed fragment tokens, session revocation; service integration tests |
+| Email verification and language preference | Complete/Verified | 48-hour links, resend, `PATCH /me/preferences`; integration tests |
+| Transactional email (Resend over SMTP) | Implemented (relay unverified) | outbox with dedupe, retries and worker (unit tests); templates EN/PT for verification, recovery, password change, access granted, Premium Level 2 steps and support replies; no live Resend send in this environment (MAIL_* not configured, emails recorded as `skipped`) |
+| Google Sign-In | Implemented (provider unverified) | OIDC + PKCE + JWKS verification, linking from the profile, no auto-linking; unit/integration tests with a local fake provider; no real Google client configured locally |
 
 ### Public marketing and commerce pages
 
@@ -74,16 +77,17 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Premium Level 2 trainer workspace | Implemented (unverified) | allocated-request queue and detail, draft programme attachment, nutrition authoring and confirmed delivery |
 | Purchase history (`/account/purchases`) | Complete/Verified | API-driven |
 | My Programs / Program Access (training + nutrition) | Complete/Verified | unified entitlement/assignment/Free access, Premium Level 1 package routing and Premium Level 2 service-request routing, metadata-only public detail, backend e2e and handler/service tests |
-| RYZE Feed | Missing | route exists as an explicit `UnderDevelopmentPage` placeholder (deferred by product decision) |
+| RYZE Feed | Missing | route exists as an explicit `UnderDevelopmentPage` placeholder (deferred by product decision; needs video hosting and moderation decisions) |
+| Unknown addresses | Complete | unknown `/services/:slug` and other unknown routes show "Page not found" instead of an "under development" message (v2.109.0) |
 
 ### Exercise library and training content
 
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
-| Exercise catalogue backend | Partial | migration 000009/000017 schema + 48-row starter seed (000018); public read API; no source identity, no media fields, no instruction steps, no publication state, no admin write path |
-| Public Exercise Library UI | Missing | no navigation entry, no list/detail pages |
-| Exercise media / demonstrations | Missing | dataset added under `main/src/resources/exercises/`; licensing gate required before any delivery |
-| 3D exercise demonstrations | Missing | milestone scope (in progress) |
+| Exercise catalogue backend | Complete/Verified | catalogue with admin management API and imported dataset (1,353 rows locally); handler tests |
+| Public Exercise Library UI | Complete/Verified | list and detail pages with tests (protected area) |
+| Exercise media / demonstrations | Blocked (licence) | media delivery exists behind `EXERCISE_MEDIA_ENABLED`, which stays off until the dataset licence is confirmed |
+| 3D exercise demonstrations | Implemented | lazy Three.js viewer with fallback in the Exercise Library (protected area) |
 | Trainer program builder — exercise selection | Implemented (unverified) | trainer workout-exercise routes + program detail builder; picker quality limited by catalogue content |
 | ADMIN_2 plan builder — exercise selection | Implemented (unverified) | `plan_exercise_editor.tsx`; same limitation |
 | Workout history (client side) | Complete/Verified | legacy `workout_history` plus session history; service, repository and e2e tests |
@@ -99,7 +103,7 @@ its configuration locally, so deployment-only paths remain marked unverified.
 
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
-| Trainer application (apply) | Partial | always creates a PENDING application; no evidence documents, no reviewer fields |
+| Trainer application (apply) | Complete/Verified | application plus private evidence documents (upload/list/download/remove while pending); tests |
 | Trainer approval / rejection | Partial | transactional approval exists but the final status update is guarded only by `id` (concurrent-review race); no decision history; rejection atomic |
 | Verification lifecycle (more-info, suspend, reinstate, history) | Missing | only PENDING/APPROVED/REJECTED, no stored reviewer decisions |
 | Trainer dashboard | Complete/Verified | data from clients/programs services |
@@ -115,7 +119,8 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | ADMIN_1 dashboard/users/trainers/system/configuration/test-mode/development/audit | Implemented (unverified) | pages + APIs present; audit page backing not independently verified |
 | ADMIN_1 trainer applications review | Partial | approve/reject only; no evidence viewing (no evidence exists) |
 | ADMIN_2 dashboard/plans/marketplace/trainers/clients/sales/analytics/feedback/settings | Implemented (unverified) | pages + APIs present; Generic, Premium Level 1 and Premium Level 2 family tabs, objective/mode/Level 2 offer authoring, curated nutrition editor, Premium Level 2 request queue and trainer allocation, content-lock UX |
-| ADMIN_2 catalogue management (exercises) | Missing | no page, no API |
+| ADMIN_2 catalogue management (exercises) | Complete/Verified | admin2 exercises page and API with tests |
+| Support chat (clients and trainers ↔ RYZE, answered by ADMIN_2) | Complete/Verified (local) | eligibility on every call, idempotent messages, SSE live stream with resume; service + handler tests and a live two-browser E2E on `ryze_test` (reply delivered in ~0.1 s, recovery after an offline period, closed and ineligible paths) |
 | Role/permission model | Complete/Verified | `adminroles.go` grants + middleware; catalogue permission to be added |
 
 ### Cross-cutting
@@ -124,8 +129,8 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | --- | --- | --- |
 | Statistics / analytics | Complete/Verified | programme-aware repository, all-time session/set counters + handler tests |
 | File uploads / media pipeline | Missing | no upload surface exists (v2.93.0 audit); needed for verification evidence |
-| Internationalisation | Missing | English-only UI; dataset provides 10 languages for future use |
-| Notifications (in-app/email/push) | Missing | not part of current product scope |
+| Internationalisation | Partial | EN/PT system with browser detection and a stored manual choice; auth recovery, account area, notifications, support and PWA translated; public site, login/registration copy (protected), Premium service pages, trainer area and admin consoles still English-only |
+| Notifications (in-app + email) | Complete/Verified | 24-hour notifications with dedupe tombstones and hourly purge; created on purchase completion, Premium Level 2 intake/assignment/delivery and support replies; bell in the account and trainer headers; tests; push notifications not implemented |
 
 ## Prioritized backlog
 
@@ -167,9 +172,19 @@ its configuration locally, so deployment-only paths remain marked unverified.
 
 ### P2 — product capability gaps
 
-10. Self-service password recovery and email delivery.
+10. Self-service password recovery and email delivery. **Closed in v2.109.0**
+    (live Resend delivery still unverified).
 11. Contact page submission backend. **Closed in v2.98.0** (live SMTP delivery still unverified).
 12. RYZE Feed (deferred by design; requires a product decision first).
+
+### v2.109.0 additions
+
+- Google Sign-In, notifications, support chat, PWA and the account-area
+  translation. Closed.
+- Pending owner decisions: Free "limited access duration" (no duration value
+  defined; activations support an optional expiry), Free "PDF export" (not
+  implemented), translation of the public website and protected login copy,
+  RYZE Feed.
 
 ### P3 — verification and operations
 

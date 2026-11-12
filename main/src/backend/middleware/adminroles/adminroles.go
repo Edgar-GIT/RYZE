@@ -67,8 +67,15 @@ const (
 	// feedback review queue (reading submissions; approving or rejecting
 	// them). Member feedback is a marketing concern, granted exclusively to
 	// the Management Administrator.
-	PermissionFeedbackRead           Permission = "feedback.read"
-	PermissionFeedbackManage         Permission = "feedback.manage"
+	PermissionFeedbackRead   Permission = "feedback.read"
+	PermissionFeedbackManage Permission = "feedback.manage"
+	// PermissionSupportRead and PermissionSupportManage cover the support
+	// chat (reading conversations; replying, closing and reopening them).
+	// Answering clients and trainers is a business responsibility, granted
+	// exclusively to the Management Administrator (owner decision,
+	// 2026-11-11).
+	PermissionSupportRead            Permission = "support.read"
+	PermissionSupportManage          Permission = "support.manage"
 	PermissionFinance                Permission = "finance"
 	PermissionMarketing              Permission = "marketing"
 	PermissionSystem                 Permission = "system"
@@ -129,6 +136,8 @@ var rolePermissions = map[Role][]Permission{
 		PermissionMarketing,
 		PermissionFeedbackRead,
 		PermissionFeedbackManage,
+		PermissionSupportRead,
+		PermissionSupportManage,
 		PermissionExercises,
 		PermissionExercisesRead,
 		PermissionExercisesManage,

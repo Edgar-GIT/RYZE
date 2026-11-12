@@ -14,6 +14,7 @@ import type {
 } from "@/services/premium_level1_api";
 
 import styles from "./premium_nutrition_plan.module.css";
+import { useI18n } from "@/i18n/i18n";
 
 interface PremiumNutritionPlanProps {
   status: NutritionAssignmentStatus;
@@ -30,18 +31,18 @@ interface PremiumNutritionPlanProps {
 // exclusionLabels maps the server's controlled reason tokens onto wording the
 // client owns. The token is a normalised vocabulary entry, never raw questionnaire
 // text, so it is safe to render here.
-const exclusionLabels: Record<NutritionExclusion["reason_code"], (token: string) => string> = {
-  allergy: (token: string) => `No ${token}`,
-  intolerance: (token: string) => `No ${token}`,
-  diet: (token: string) => `${token} only`,
-  excluded_food: (token: string) => `Excludes ${token}`,
-  disliked_food: (token: string) => `Without ${token}`,
-  insufficient_alternatives: (token: string) => `Limited options with ${token}`,
-};
+const exclusionKeys = {
+  allergy: "account.nutrition.exclusionNo",
+  intolerance: "account.nutrition.exclusionNo",
+  diet: "account.nutrition.exclusionOnly",
+  excluded_food: "account.nutrition.exclusionExcludes",
+  disliked_food: "account.nutrition.exclusionWithout",
+  insufficient_alternatives: "account.nutrition.exclusionLimited"
+} as const satisfies Record<NutritionExclusion["reason_code"], string>;
 
-const exclusionLabel = (exclusion: NutritionExclusion) => {
-  const label = exclusionLabels[exclusion.reason_code];
-  return label ? label(exclusion.token) : exclusion.token;
+const exclusionLabel = (exclusion: NutritionExclusion, t: ReturnType<typeof useI18n>["t"]) => {
+  const key = exclusionKeys[exclusion.reason_code];
+  return key ? t(key, { token: exclusion.token }) : exclusion.token;
 };
 
 const mealItemKey = (item: NutritionMealItem) => `${item.position}-${item.food_name}`;
@@ -57,20 +58,20 @@ export const PremiumNutritionPlan = ({
   onGenerate,
   onRefresh
 }: PremiumNutritionPlanProps) => {
+  const { t } = useI18n();
   if (status.status === "failed") {
     return (
-      <section className={styles.panel} aria-label="Nutrition plan">
+      <section className={styles.panel} aria-label={t("account.nutrition.label")}>
         <p className={styles.heading}>
           <AlertTriangle size={16} aria-hidden="true" />
-          {curated ? "We could not load your nutrition plan yet" : "We could not build your nutrition programme yet"}
+          {curated ? t("account.nutrition.failedCurated") : t("account.nutrition.failedBuilt")}
         </p>
         <p className={styles.body}>
-          {errorMessage ??
-            "Nothing is wrong with your purchase and no action is required from you. You can try again — your package and your access are unchanged."}
+          {errorMessage ?? t("account.nutrition.failedBody")}
         </p>
         <div className={styles.actions}>
           <Button variant="primary" size="small" onClick={onGenerate} disabled={generating}>
-            {generating ? "Loading…" : "Try again"}
+            {generating ? t("account.nutrition.loading") : t("account.nutrition.tryAgain")}
           </Button>
         </div>
       </section>
@@ -79,27 +80,31 @@ export const PremiumNutritionPlan = ({
 
   if (status.status === "pending" || status.status === "processing") {
     return (
-      <section className={styles.panel} aria-label="Nutrition plan">
+      <section className={styles.panel} aria-label={t("account.nutrition.label")}>
         <p className={styles.heading}>
           <RefreshCw size={16} aria-hidden="true" />
-          {curated ? "Preparing your nutrition plan" : "Preparing your nutrition programme"}
+          {curated ? t("account.nutrition.preparingCurated") : t("account.nutrition.preparingBuilt")}
         </p>
         <p className={styles.body}>
           {curated
-            ? "Your package is confirmed. Your curated nutrition plan is being opened now."
+            ? t("account.nutrition.preparingCuratedBody")
             : status.status === "processing"
-              ? "RYZE is building your personalised nutrition programme now. This only takes a moment."
-              : "Your package is confirmed. Your personalised nutrition programme has not been built yet."}
+              ? t("account.nutrition.processingBody")
+              : t("account.nutrition.pendingBody")}
         </p>
         {errorMessage ? <p className={styles.notice}>{errorMessage}</p> : null}
         <div className={styles.actions}>
           {status.status === "pending" ? (
             <Button variant="primary" size="small" onClick={onGenerate} disabled={generating}>
-              {generating ? "Loading…" : curated ? "Open my nutrition plan" : "Build my nutrition programme"}
+              {generating
+                ? t("account.nutrition.loading")
+                : curated
+                  ? t("account.nutrition.openCurated")
+                  : t("account.nutrition.build")}
             </Button>
           ) : null}
           <Button variant="secondary" size="small" onClick={onRefresh}>
-            Refresh status
+            {t("account.nutrition.refreshStatus")}
           </Button>
         </div>
       </section>
@@ -111,18 +116,17 @@ export const PremiumNutritionPlan = ({
     // The backend reported completion but sent no plan. Treating that as
     // anything other than an unavailable plan would be inventing state.
     return (
-      <section className={styles.panel} aria-label="Nutrition plan">
+      <section className={styles.panel} aria-label={t("account.nutrition.label")}>
         <p className={styles.heading}>
           <AlertTriangle size={16} aria-hidden="true" />
-          Nutrition plan unavailable
+          {t("account.nutrition.unavailable")}
         </p>
         <p className={styles.body}>
-          Your training plan is ready. {curated ? "The nutrition plan" : "The nutrition programme"} could not be
-          displayed right now. Please refresh to try again.
+          {curated ? t("account.nutrition.unavailableCurated") : t("account.nutrition.unavailableBuilt")}
         </p>
         <div className={styles.actions}>
           <Button variant="secondary" size="small" onClick={onRefresh}>
-            Refresh
+            {t("account.nutrition.refresh")}
           </Button>
         </div>
       </section>
@@ -130,10 +134,10 @@ export const PremiumNutritionPlan = ({
   }
 
   return (
-    <section className={styles.panel} aria-label="Nutrition plan">
+    <section className={styles.panel} aria-label={t("account.nutrition.label")}>
       <p className={styles.heading}>
         <CheckCircle2 size={16} aria-hidden="true" />
-        {curated ? "Your nutrition plan is ready" : "Your nutrition programme is ready"}
+        {curated ? t("account.nutrition.readyCurated") : t("account.nutrition.readyBuilt")}
       </p>
       <p className={styles.summary}>{plan.summary}</p>
 
@@ -144,13 +148,12 @@ export const PremiumNutritionPlan = ({
         // they may have already started following.
         <div className={styles.stale} role="status">
           <p className={styles.body}>
-            Your answers changed after this plan was built, so it no longer reflects your latest questionnaire.
-            Your current plan stays available below until you update it.
+            {t("account.nutrition.stale")}
           </p>
           {errorMessage ? <p className={styles.notice}>{errorMessage}</p> : null}
           <div className={styles.actions}>
             <Button variant="primary" size="small" onClick={onGenerate} disabled={generating}>
-              {generating ? "Rebuilding…" : "Update to my latest answers"}
+              {generating ? t("account.nutrition.rebuilding") : t("account.nutrition.update")}
             </Button>
           </div>
         </div>
@@ -158,41 +161,41 @@ export const PremiumNutritionPlan = ({
 
       <div className={styles.tiles}>
         <div className={styles.tile}>
-          <span className={styles.tileLabel}>Daily target</span>
+          <span className={styles.tileLabel}>{t("account.nutrition.dailyTarget")}</span>
           <span className={styles.tileValue}>{plan.target_calories} kcal</span>
         </div>
         <div className={styles.tile}>
-          <span className={styles.tileLabel}>Maintenance</span>
+          <span className={styles.tileLabel}>{t("account.nutrition.maintenance")}</span>
           <span className={styles.tileValue}>{plan.maintenance_calories} kcal</span>
         </div>
         <div className={styles.tile}>
-          <span className={styles.tileLabel}>Protein</span>
+          <span className={styles.tileLabel}>{t("account.nutrition.protein")}</span>
           <span className={styles.tileValue}>
             {plan.daily.protein_grams} g
             <span className={styles.tileNote}>{plan.protein_percent}%</span>
           </span>
         </div>
         <div className={styles.tile}>
-          <span className={styles.tileLabel}>Carbohydrates</span>
+          <span className={styles.tileLabel}>{t("account.nutrition.carbs")}</span>
           <span className={styles.tileValue}>
             {plan.daily.carbs_grams} g
             <span className={styles.tileNote}>{plan.carbohydrate_percent}%</span>
           </span>
         </div>
         <div className={styles.tile}>
-          <span className={styles.tileLabel}>Fat</span>
+          <span className={styles.tileLabel}>{t("account.nutrition.fat")}</span>
           <span className={styles.tileValue}>
             {plan.daily.fat_grams} g
             <span className={styles.tileNote}>{plan.fat_percent}%</span>
           </span>
         </div>
         <div className={styles.tile}>
-          <span className={styles.tileLabel}>Fibre</span>
+          <span className={styles.tileLabel}>{t("account.nutrition.fibre")}</span>
           <span className={styles.tileValue}>{plan.daily.fiber_grams} g</span>
         </div>
         <div className={styles.tile}>
           <span className={styles.tileLabel}>
-            <Droplets size={12} aria-hidden="true" /> Fluids
+            <Droplets size={12} aria-hidden="true" /> {t("account.nutrition.fluids")}
           </span>
           <span className={styles.tileValue}>{plan.hydration.daily_litres} L</span>
         </div>
@@ -200,11 +203,12 @@ export const PremiumNutritionPlan = ({
 
       <h3 className={styles.subheading}>
         <UtensilsCrossed size={15} aria-hidden="true" />
-        What to eat today
+        {t("account.nutrition.today")}
       </h3>
       <p className={styles.body}>
-        {plan.meals_per_day} meals and {plan.snacks_per_day} snack
-        {plan.snacks_per_day === 1 ? "" : "s"} per day.
+        {plan.snacks_per_day === 1
+          ? t("account.nutrition.mealsPerDayOneSnack", { meals: plan.meals_per_day })
+          : t("account.nutrition.mealsPerDay", { meals: plan.meals_per_day, snacks: plan.snacks_per_day })}
       </p>
 
       <ul className={styles.meals}>
@@ -212,7 +216,11 @@ export const PremiumNutritionPlan = ({
           <li key={`${meal.position}-${meal.label}`} className={styles.meal}>
             <span className={styles.mealLabel}>{meal.label}</span>
             <span className={styles.mealMeta}>
-              {meal.percent_of_daily}% of day · {meal.macros.calories} kcal · {meal.macros.protein_grams} g protein
+              {t("account.nutrition.mealMeta", {
+                percent: meal.percent_of_daily,
+                kcal: meal.macros.calories,
+                protein: meal.macros.protein_grams
+              })}
             </span>
             <ul className={styles.items}>
               {meal.items.map((item) => (
@@ -242,7 +250,7 @@ export const PremiumNutritionPlan = ({
       {plan.exclusions.length > 0 ? (
         <>
           <h3 className={styles.subheading}>
-            {curated ? "Package nutrition notes" : "Built around your answers"}
+            {curated ? t("account.nutrition.notesCurated") : t("account.nutrition.notesBuilt")}
           </h3>
           <div className={styles.tags}>
             {plan.exclusions.map((exclusion) => (
@@ -250,7 +258,7 @@ export const PremiumNutritionPlan = ({
                 key={`${exclusion.reason_code}-${exclusion.token}`}
                 className={styles.tag}
               >
-                {exclusionLabel(exclusion)}
+                {exclusionLabel(exclusion, t)}
               </span>
             ))}
           </div>
@@ -272,9 +280,7 @@ export const PremiumNutritionPlan = ({
           read-only: the only way a questionnaire-derived plan changes is an
           explicit refresh when the intake moved on, never an edit. */}
       <p className={styles.immutable}>
-        {curated
-          ? "This nutrition plan is part of your package. It is the same expert-defined plan for every buyer and does not change."
-          : "This nutrition programme is part of your package and is built from the answers you submitted before checkout."}
+        {curated ? t("account.nutrition.immutableCurated") : t("account.nutrition.immutableBuilt")}
       </p>
     </section>
   );

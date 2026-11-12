@@ -1,0 +1,223 @@
+/* ADMIN_2 support inbox. Narrow screens show the list or the thread; from
+   1100px they sit side by side. */
+
+.layout {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.layout[data-view="thread"] > :first-child,
+.layout[data-view="list"] > .threadPane {
+  display: none;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 1.15rem 1.15rem 0.5rem;
+}
+
+.tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--surface);
+}
+
+.tab {
+  min-height: 2.25rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 0.55rem;
+  color: var(--text-secondary);
+  background: transparent;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabActive {
+  color: var(--text-primary);
+  background: rgba(24, 216, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(24, 216, 255, 0.35);
+}
+
+.live {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.live[data-state="live"] {
+  color: #9af0c8;
+}
+
+.live[data-state="offline"] {
+  color: #ffd9a3;
+}
+
+.pageState {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  padding: 2rem 1.15rem;
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.error {
+  margin: 0.5rem 0;
+  color: #ff8a80;
+  font-size: 0.9rem;
+}
+
+.list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.5rem 1.15rem 1rem;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  width: 100%;
+  gap: 0.35rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  color: inherit;
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover,
+.itemActive {
+  border-color: rgba(24, 216, 255, 0.45);
+  background: rgba(24, 216, 255, 0.07);
+}
+
+.itemTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.subject {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+}
+
+.unread {
+  flex: none;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  color: #02041f;
+  background: #18d8ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.itemMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.role {
+  text-transform: capitalize;
+}
+
+.threadPane {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 0.75rem;
+  min-width: 0;
+  height: calc(100svh - 10rem);
+  min-height: 28rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+.threadHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.threadTitleBlock {
+  display: grid;
+  flex: 1 1 14rem;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.threadTitle {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.back {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.6rem 0 0.2rem;
+  border: 0;
+  color: var(--accent);
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.back svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.tab:focus-visible,
+.item:focus-visible,
+.back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1100px) {
+  .layout {
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .layout[data-view="thread"] > :first-child,
+  .layout[data-view="list"] > .threadPane {
+    display: grid;
+  }
+
+  .back {
+    display: none;
+  }
+}

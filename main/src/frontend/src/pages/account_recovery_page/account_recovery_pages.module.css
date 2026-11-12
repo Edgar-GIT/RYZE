@@ -1,0 +1,171 @@
+/* Account recovery pages: the login page's look in one centred card (a
+   light-blue wave header over the navy form). Mobile first. */
+
+.page {
+  min-height: 100svh;
+}
+
+.section {
+  position: relative;
+  display: grid;
+  min-height: 100svh;
+  align-content: center;
+  justify-items: center;
+  gap: 1.5rem;
+  padding: 5.5rem var(--r-gutter) 2.5rem;
+  overflow: hidden;
+  background:
+    radial-gradient(50rem 32rem at 78% 12%, rgba(0, 203, 255, 0.14), transparent 70%),
+    radial-gradient(44rem 30rem at 12% 92%, rgba(4, 129, 220, 0.2), transparent 70%);
+}
+
+.top {
+  position: absolute;
+  top: 1.25rem;
+  right: var(--r-gutter);
+  left: var(--r-gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.brand {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--r-white);
+  text-decoration: none;
+}
+
+.brand span {
+  font-size: 1.2rem;
+  font-stretch: 125%;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.brand:focus-visible {
+  outline: 2.5px solid var(--r-cyan);
+  outline-offset: 4px;
+  border-radius: 0.5rem;
+}
+
+.card {
+  display: grid;
+  width: min(100%, 30rem);
+  overflow: hidden;
+  border: 1px solid var(--r-line);
+  border-radius: var(--r-radius-xl);
+  background: linear-gradient(180deg, rgba(14, 32, 86, 0.72) 0%, rgba(6, 15, 48, 0.82) 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 203, 255, 0.05),
+    0 60px 120px -60px rgba(0, 0, 0, 0.95);
+}
+
+.cardHead {
+  position: relative;
+  display: grid;
+  min-height: 7.5rem;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.cardIcon {
+  display: grid;
+  width: 3.5rem;
+  height: 3.5rem;
+  place-items: center;
+  border-radius: 1rem;
+  color: var(--r-cyan);
+  background: var(--r-navy);
+  box-shadow: 0 16px 34px -16px rgba(2, 4, 31, 0.8);
+}
+
+.cardIcon svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.cardBody {
+  display: grid;
+  gap: 1.1rem;
+  padding: 1.75rem 1.5rem 2rem;
+}
+
+.title {
+  margin: 0;
+  color: var(--tone-text);
+  font-size: clamp(1.6rem, 6vw, 2rem);
+  font-stretch: 118%;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.field span {
+  color: var(--tone-text);
+  font-size: 0.875rem;
+  font-weight: 680;
+}
+
+.field input {
+  width: 100%;
+  min-height: 3.1rem;
+  padding: 0 0.95rem;
+  border: 1px solid #4d6fa6;
+  border-radius: var(--r-radius-sm);
+  color: var(--r-white);
+  background: rgba(2, 6, 28, 0.7);
+  font: inherit;
+  font-size: 1rem;
+  outline: 2px solid transparent;
+}
+
+.field input:focus-visible {
+  border-color: var(--r-cyan);
+  box-shadow: 0 0 0 3px rgba(0, 203, 255, 0.22);
+}
+
+.error {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(255, 138, 128, 0.55);
+  border-radius: 0.75rem;
+  color: #ffb4ab;
+  background: rgba(224, 100, 90, 0.14);
+  font-size: 0.92rem;
+}
+
+.quietLink {
+  justify-self: center;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  color: var(--r-cyan);
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.quietLink:focus-visible {
+  outline: 2.5px solid var(--r-cyan);
+  outline-offset: 2px;
+  border-radius: 0.4rem;
+}
+
+@media (min-width: 640px) {
+  .cardBody {
+    padding: 2rem 2.25rem 2.25rem;
+  }
+}

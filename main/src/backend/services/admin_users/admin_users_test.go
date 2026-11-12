@@ -178,6 +178,10 @@ func (s *stubRepo) ChangePassword(_ context.Context, id string, newHash string) 
 	return repositories.ErrUserNotFound
 }
 
+func (*stubRepo) SetPreferredLanguage(_ context.Context, _ string, _ string) error {
+	return nil
+}
+
 func TestListUsersReturnsPageAndTotal(t *testing.T) {
 	repo := &stubRepo{all: []models.User{
 		{ID: uuid.NewString(), Email: "a@ryze.local"},

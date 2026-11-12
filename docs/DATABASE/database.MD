@@ -379,6 +379,47 @@ Soft delete is the only deletion mechanism: rows, UUIDs and `created_at` are
 preserved and `deleted_at` is populated. There is no permanent-deletion
 endpoint; reactivation and re-registration restore the original identity.
 
+Account fields added in v2.109.0:
+
+- `email_verified_at` (migration 000037) — set by an email verification link
+  or by Google Sign-In; informational, never gates sign-in.
+- `preferred_language` (000037) — `en`/`pt` (`chk_users_preferred_language`),
+  the language of the account's emails; `NULL` = English.
+- `password_set` (000038, `NOT NULL DEFAULT TRUE`) — false for an account
+  created through Google until a password is set by the reset link; while
+  false the Google identity cannot be removed. Every password write
+  (registration reactivation, change, reset) sets it true. The GORM field has
+  `default:true`, so an insert with the zero value takes the database default;
+  Google account creation sets `false` explicitly in the same transaction.
+
+### `user_tokens` (migration 000037)
+
+Single-use account links. `purpose` is `password_reset` or
+`email_verification`; only `token_hash` (SHA-256, unique) is stored; a token is
+consumed by a conditional `UPDATE … SET used_at … RETURNING` (single use under
+concurrency) and never deleted, so issuing history stays auditable. Index
+`(user_id, purpose, created_at)` serves the issue throttle.
+
+### `email_outbox` (migration 000037)
+
+Transactional emails recorded by business events and delivered by the
+background worker. `dedupe_key` is unique (`ON CONFLICT DO NOTHING`), so a
+repeated event records one email. Workers claim due rows with
+`FOR UPDATE SKIP LOCKED`; retries after 1, 5, 15, 60 and 240 minutes, at most
+6 attempts; `status` is `pending`, `sending`, `sent`, `failed`, `skipped`
+(delivery disabled) or `expired`. `payload` holds only template values and is
+cleared on a final state, so a link carrying a token never outlives its
+delivery. Rows are kept as the delivery record.
+
+### `user_identities` (migration 000038)
+
+External sign-in identities (Google). `(provider, subject)` is unique (a
+Google account links to one RYZE account) and `(user_id, provider)` is unique
+(one Google account per RYZE account). `subject` is the ID token `sub`;
+`email` is the provider address at the last sign-in, shown only to the owner.
+Rows are kept when an account is soft-deleted; signing in again with the same
+Google account restores the account (as re-registration does).
+
 The repository provides the queries used by the admin user-management
 foundation:
 
@@ -1085,6 +1126,20 @@ Notifications disappear from the interface after 24 hours.
 
 Database records remain available until scheduled cleanup.
 
+Implemented in migration 000039 (`notifications`): `kind`, `params` (JSONB,
+display values only, e.g. a programme name), optional relative `link`
+(`chk_notifications_link`), `read_at`, `created_at`, `expires_at = created_at +
+24 hours` (`chk_notifications_expiry`) and a unique `dedupe_key` per business
+event. Listing reads only unexpired rows (`idx_notifications_user_expires`).
+The hourly job clears `params` and `link` of expired rows (a tombstone keeping
+only the dedupe key, so a webhook redelivered days later cannot notify twice)
+and deletes rows 30 days after expiry (`idx_notifications_expires`). Nothing
+references this table: purchases, entitlements, Premium Level 2 events and
+support messages keep their own permanent records. Implemented kinds:
+`access_granted`, `pl2_intake_received`, `pl2_trainer_assigned`,
+`pl2_request_assigned`, `pl2_delivered`, `support_reply`; the categories below
+without a producing feature (badges, missions) have no rows yet.
+
 Supported categories include:
 
 - Pack
@@ -1106,6 +1161,31 @@ Stores messaging between:
 - Client ↔ Support
 
 Messages use soft deletion.
+
+Implemented in migration 000040: support conversations only (an account —
+client or trainer — with RYZE support, answered by the Management
+Administrator). Client ↔ trainer messaging is not implemented; support never
+creates a coaching relationship.
+
+- `support_conversations` — `user_id`, `requester_role` (`client`/`trainer`),
+  `subject` (3–120), `status` (`open`/`closed`, with `closed_at` set exactly
+  when closed), `user_last_read_seq` / `staff_last_read_seq` (read positions),
+  `last_message_at`, `closed_by` (admin identity), timestamps and the
+  `ryze_touch_updated_at()` trigger.
+- Rollback note: the `down` migrations of 000038 and 000040 are one-way in
+  practice — 000040 down drops the support history, and 000038 down then up
+  marks Google-only accounts as having a password. Take a `pg_dump` first and
+  prefer a new forward migration. A backup taken before 000037 cannot be
+  restored over an upgraded database (the new tables reference `users`);
+  restore it into a fresh database instead.
+- `support_messages` — append-only (no deletion; the conversation is the
+  support history). `seq` is a global identity used as the live-stream event
+  id; inserts are serialized with a transaction advisory lock so sequence
+  order equals commit order and a resumed stream never skips a message.
+  `author_kind` is `user` (with `author_user_id`) or `staff` (with
+  `author_admin_id`), enforced by `chk_support_messages_author`; `body` is
+  1–4000 characters; `(conversation_id, client_message_id)` is unique, which
+  makes a resend after a dropped connection idempotent.
 
 ---
 

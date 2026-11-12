@@ -169,6 +169,23 @@ func run(ctx context.Context, source, target endpoint, dryRun bool) error {
 		return err
 	}
 
+	// Tables that exist only in PostgreSQL (added after the move, e.g. the
+	// support history, sign-in identities, account tokens and the email outbox)
+	// cannot be refilled from MariaDB. Emptying them would destroy data, so a
+	// re-run against a database that already holds such rows is refused.
+	for _, table := range tables {
+		if sourceTables[table] {
+			continue
+		}
+		var hasRows bool
+		if err := dst.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM "+pgx.Identifier{table}.Sanitize()+")").Scan(&hasRows); err != nil {
+			return fmt.Errorf("inspect target table %s: %w", table, err)
+		}
+		if hasRows {
+			return fmt.Errorf("target table %s holds data that does not exist in MariaDB; refusing to empty it (copy into a fresh database instead)", table)
+		}
+	}
+
 	tx, err := dst.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin target transaction: %w", err)

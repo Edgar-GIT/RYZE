@@ -428,6 +428,41 @@ With no complete configuration the endpoint stays mounted and answers
 accepted it. Contact attachments are capped at 1 MiB, validated by content
 bytes (PNG/JPEG/WebP/PDF), and are never stored.
 
+## Transactional Email Configuration (Resend)
+
+Account and product emails (confirmation, password recovery, password
+changed, access granted, Premium Level 2 steps, support replies) are recorded
+in the `email_outbox` table and sent by a background worker that starts with
+the API. Delivery is off unless `MAIL_SMTP_HOST`, `MAIL_FROM` and
+`PUBLIC_APP_URL` are all set; while off, the API prints
+`transactional email delivery disabled` at startup and records every email as
+`skipped`, so flows still work locally without sending anything.
+
+- `PUBLIC_APP_URL` — web app origin used in email links (and by Google
+  Sign-In), e.g. `http://localhost:5173`.
+- `MAIL_SMTP_HOST` / `MAIL_SMTP_PORT` — `smtp.resend.com` / `587` for Resend.
+- `MAIL_SMTP_USERNAME` / `MAIL_SMTP_PASSWORD` — `resend` and the Resend API
+  key (set together; sent only after STARTTLS, which is mandatory).
+- `MAIL_FROM` — sender on a domain verified in Resend, e.g.
+  `RYZE <no-reply@your-domain>`.
+
+Failed sends are retried after 1, 5, 15, 60 and 240 minutes (6 attempts);
+`SELECT status, count(*) FROM email_outbox GROUP BY 1` shows the queue.
+
+## Google Sign-In Configuration (Optional)
+
+1. In Google Cloud, create an OAuth client of type "Web application".
+2. Add the authorised redirect URI, for local development
+   `http://localhost:8080/api/v1/auth/google/callback`.
+3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL` (the
+   same URI) and `PUBLIC_APP_URL`, then restart the API.
+
+The redirect URL must use the same host the web app calls the API on
+(`VITE_API_BASE_URL`), so the short-lived sign-in cookie reaches the callback.
+Without configuration the login page's Google button explains that Google
+sign-in is not available yet. Linking Google to an existing password account
+is done from Profile → Sign-in methods.
+
 ## Admin Authentication Configuration
 
 Platform administrators are configuration-only accounts, never stored in the
@@ -887,7 +922,13 @@ main/src/backend/database/migrations/
 Each migration has an `.up.sql` and a `.down.sql` file. They are PostgreSQL
 SQL (converted from the original MariaDB files on 2026-11-11 with the same
 numbering, `000001`–`000036`) and run through golang-migrate's pgx driver;
-each file runs as one implicit transaction.
+each file runs as one implicit transaction. `000037`–`000040` (v2.109.0) add
+account tokens and the email outbox, Google identities, notifications and the
+support chat; all are additive. Take a backup (`scripts/backup_db.sh`) before
+applying migrations to a database with real data. Rolling back past these
+versions means restoring the earlier backup into a fresh database (an old
+dump cannot be restored over the upgraded schema), not running `down`, which
+deletes support history and identity data.
 
 ### Moving data from MariaDB (one-off)
 

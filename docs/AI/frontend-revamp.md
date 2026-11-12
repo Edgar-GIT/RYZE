@@ -89,6 +89,18 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-12 (completion brief, v2.109.0) — The owner's "Final Platform
+  Completion" brief asked for Google Sign-In and self-service account
+  recovery. On the protected login/registration page only functional wiring
+  was added: the existing Google button now starts Google sign-in (or explains
+  that it is not available), a `?oauth=` result appears in the form's existing
+  error slot, "Forgot your password?" opens `/forgot-password`, and
+  registration also sends the interface language. Fields, validation, the
+  existing English messages, the visual design and the login/register API
+  calls and redirects are unchanged; the page stays English-only until the
+  owner approves translated copy. Account headers (`AccountNav`, trainer
+  layout) now use two rows below 1024px with a scrollable link row and carry
+  the notification bell.
 - 2026-11-11 (owner feedback) — The owner singled out the login page and the
   Home "Get in touch" panel as the look to repeat where RYZE wants attention.
   The split panel (`split`, `splitPane`, `splitLight` in `public_ui`) now

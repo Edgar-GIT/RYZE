@@ -145,6 +145,43 @@ func (c ContactConfig) Enabled() bool {
 	return c.SMTPHost != "" && c.From != "" && c.Recipient != ""
 }
 
+// MailConfig controls transactional email (account verification, password
+// recovery, purchase and service updates). Delivery uses an SMTP relay with
+// mandatory STARTTLS; Resend is used through its SMTP endpoint
+// (smtp.resend.com, user "resend", the API key as password). PublicAppURL is
+// the absolute origin of the RYZE web app used to build links in emails.
+type MailConfig struct {
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUsername string
+	SMTPPassword string
+	From         string
+	PublicAppURL string
+}
+
+// Enabled reports whether transactional email delivery is fully configured.
+func (c MailConfig) Enabled() bool {
+	return c.SMTPHost != "" && c.From != "" && c.PublicAppURL != ""
+}
+
+// GoogleConfig controls Google Sign-In (OpenID Connect, authorization code
+// flow with PKCE). ClientID and ClientSecret come from the Google Cloud OAuth
+// client; RedirectURL is this API's callback URL registered on that client
+// (for example https://api.ryze.example/api/v1/auth/google/callback);
+// PublicAppURL is the web app origin the callback returns the browser to.
+// Google Sign-In is off unless all four are set.
+type GoogleConfig struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+	PublicAppURL string
+}
+
+// Enabled reports whether Google Sign-In is fully configured.
+func (c GoogleConfig) Enabled() bool {
+	return c.ClientID != "" && c.ClientSecret != "" && c.RedirectURL != "" && c.PublicAppURL != ""
+}
+
 // EvidenceConfig controls the private trainer-application evidence store.
 // StorageDir is the store root; it must never be under a web root because the
 // files are only reachable through the authenticated download endpoints.
