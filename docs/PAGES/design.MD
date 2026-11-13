@@ -603,6 +603,27 @@ FILTER RESULTS COUNT (when filters active)
             ── Showing up to 12 programs per section · N match ──
 ```
 
+- **Featured coach programs** (v2.111.0) — when no filter is active and at
+  least one trainer program is published, a highlighted glass zone at the top
+  of the rows ("Featured coach programs", "The most viewed plans from RYZE
+  coaches…") shows up to six trainer programs ranked by views, as the same
+  program cards in the same carousel row. Under each card a pill with the
+  coach's initials avatar and name links to the coach profile. The zone is
+  independent of the filters and stays visible when the platform catalogue is
+  empty (the "No training plans have been published yet." message is then
+  hidden).
+- **Coach profile** (`/coaches/:trainerId`, v2.111.0) — public page: back link
+  to Training plans; a glass hero with a large initials avatar (cyan gradient,
+  ring glow), "Verified RYZE coach" badge, the coach's name, "Coach since
+  <month year>" and two stat pills (programs, views); then "Programs" with
+  every published plan as program cards (2 columns on phones, 3 from 720px, 4
+  from 1100px). Unknown or non-public coaches get "This coach has no public
+  profile." Only the registered name is shown.
+- **Program detail attribution** — a trainer-owned program shows a
+  "Created by" pill (initials avatar + name) under its title, linking to the
+  coach profile. Opening the page records one view (deduplicated by the API).
+  The trainer's own profile page (`/trainer/profile`) has an "Open public
+  profile" button.
 - **Search bar** — sticky pill under the navbar. Stronger at the top of the
   page (more opaque, subtle cyan border + soft RYZE glow); becomes
   translucent/subtle after scrolling so it blends into the page. Contains a
@@ -1129,6 +1150,18 @@ Sections:
    every week tracked, and AI-generated programs marked "Next" (owner revision,
    2026-11-11; AI generation is on the roadmap, not live — see
    `docs/INSTRUCTIONS/project.MD`).
+   From 768px with WebGL and full motion (owner request 2026-11-13, "more WOW,
+   maybe 3D"), the wall becomes a Three.js stage (`vision_hero_visual.tsx` +
+   lazily imported `vision_scene.ts`): an endless tunnel of the same greyed-out
+   "12-week plan" cards streams past the camera (one instanced mesh, speed dust,
+   fog) while the RYZE card stays still in front, circled by two cyan rings
+   with travelling sparks and a pulsing halo; the card floats and tilts with
+   the mouse like a hologram (glare follows the pointer) and the camera
+   parallaxes. The scene pauses off screen and in hidden tabs, caps the pixel
+   ratio, and falls back to the flat wall on context loss. Phones, reduced
+   motion and no-WebGL keep the flat wall, which now has the tiles lighting up
+   in sequence and a glint crossing the RYZE card (CSS only; reduced motion
+   stops both). Phones never download Three.js.
 1b. Why RYZE (`#why-ryze`) — "Others stop at a plan. RYZE keeps going.": a
    dashed "Typical fitness apps" column (one template for everyone; training
    or nutrition, rarely both; a plan you follow on your own; no record of what
@@ -1295,12 +1328,23 @@ Route: `/feedback`. No background image.
 - Header: label "Feedback", "Real people. Real results." with "Real results."
   in cyan and the existing description, centred from 768px. The slogan image
   beside the headline and the result chips were removed (owner revisions).
+  Life on load (owner request 2026-11-13, CSS only, no image): three brand
+  lights drift slowly behind the header; label, title lines and lead rise in
+  sequence; a light sweep crosses "Real results." every few seconds.
+- Highlights band between header and stories: an endless, edge-faded ticker
+  of word-only phrases from the stories ("A whole new level of confidence",
+  "So much more energy", "Training with purpose"… — no figures), hidden from
+  assistive technology because the full stories follow.
 - Stories: app-style glass cards on the same navy, below the header (no
   overlap). Below 768px they form a swipeable, scroll-snapped row (keyboard tab stop only
   at these widths, inset focus ring, "Swipe to read more stories." hint); from
   768px a three-column grid. Each card: photo at 4:5 (lazy, intrinsic size),
   five stars ("Rated 5 out of 5 stars"), the quote in a `blockquote` and
-  "Anonymous".
+  "Anonymous". Around the cards: a breathing cyan light band behind the row,
+  a cyan light travelling round each card's edge (out of step per card), a
+  staggered entrance, and on hover a lift with a cyan glow and a slight photo
+  zoom. Each photo is a before | after split and carries "Before" / "After"
+  labels on its halves. Reduced motion stops every animation.
 - CTA (light-blue wave panel): "Your story starts with one session." and
   "Start your transformation" → `/register`.
 
@@ -1626,8 +1670,16 @@ Pages implemented in the current cycle:
   transition, reviewer note and timestamp, and the reviewer can approve or
   reject with an optional decision note. The quick row actions remain
   reason-less shortcuts.
-- **ADMIN_1 System, Technical configuration, Development, Audit log** —
-  placeholder pages ready for future implementation.
+- **ADMIN_1 System, Technical configuration** — live values (v2.110.0).
+  **Development** — placeholder page.
+- **ADMIN_1 Audit log** (`/admin/audit`, v2.111.0) — newest-first list of
+  every administrative change, evidence download and console sign-in, with
+  "Everyone / ADMIN_1 · Technical / ADMIN_2 · Management" and "Any result /
+  Done / Denied / Failed" filter chips, a readable action name over the
+  method and route template, the administrator badge, date and time, result
+  badge with HTTP status, target id and client address; 50 per page with
+  Previous/Next; stacked cards on phones. Entries cannot be edited or
+  deleted.
 - **ADMIN_1 Test Mode** — the Technical-navigation page for entering/exiting
   Test Mode. Shows the current session state (Test Mode active as Test Client /
   Test Trainer, with an Exit control, or two persona option cards to enter),

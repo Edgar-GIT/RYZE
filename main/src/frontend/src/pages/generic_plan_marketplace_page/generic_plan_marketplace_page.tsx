@@ -14,6 +14,7 @@ import {
   MARKETPLACE_ROWS
 } from "@/constants/marketplace";
 import { useMarketplaceCopy } from "@/constants/marketplace_copy";
+import { fetchFeaturedCoachPrograms, type CoachProgram } from "@/services/coaches_api";
 import {
   fetchMarketplacePrograms,
   type MarketplaceFilters,
@@ -68,6 +69,23 @@ export const GenericPlanMarketplacePage = () => {
     () => new Set()
   );
   const requestId = useRef(0);
+  const [featured, setFeatured] = useState<CoachProgram[]>([]);
+
+  // Featured coach programs: trainer programs ranked by views. Independent of
+  // the filters, so it loads once.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchFeaturedCoachPrograms()
+      .then((programs) => {
+        if (!cancelled) setFeatured(programs);
+      })
+      .catch(() => {
+        // The showcase is optional: the catalogue works without it.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +172,7 @@ export const GenericPlanMarketplacePage = () => {
   );
 
   const resultCount = totalPrograms;
+  const showFeatured = featured.length > 0 && activeFilterCount === 0;
 
   const toggleFilter = (groupId: string, option: string) => {
     setSelected((prev) => {
@@ -239,6 +258,17 @@ export const GenericPlanMarketplacePage = () => {
             </div>
 
             <main className={styles.programs}>
+              {showFeatured ? (
+                <div className={styles.featured}>
+                  <ProgramRow
+                    title={text.featuredTitle}
+                    description={text.featuredDescription}
+                    programs={featured}
+                    forceFree={testModeActive}
+                    ownedProgramIds={ownedProgramIds}
+                  />
+                </div>
+              ) : null}
               {loading ? (
                 <div className={styles.pageState}>
                   <p>{text.loading}</p>
@@ -253,11 +283,13 @@ export const GenericPlanMarketplacePage = () => {
                   </div>
                 </div>
               ) : totalPrograms === 0 ? (
+                showFeatured ? null : (
                 <div className={styles.pageState}>
                   <p>
                     {activeFilterCount > 0 ? text.noMatch : text.noneYet}
                   </p>
                 </div>
+                )
               ) : (
                 <>
                   <div className={styles.rows}>

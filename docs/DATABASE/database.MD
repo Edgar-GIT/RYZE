@@ -1906,6 +1906,49 @@ Examples:
 - Permission changes
 - Trainer approvals
 
+Implemented in migration 000041 (`admin_audit_logs`, v2.111.0):
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `VARCHAR(36)` | UUID primary key |
+| `admin_id` | `VARCHAR(16)` | `ADMIN_1` or `ADMIN_2` (CHECK) |
+| `action` | `VARCHAR(64)` | stable action key, e.g. `user.disable`, `trainer_application.approve`, `admin.sign_in`; unknown routes fall back to `<method> <route>` |
+| `method` | `VARCHAR(8)` | HTTP method |
+| `route` | `VARCHAR(160)` | route template (`/api/v1/admin/users/:id/disable`), never the raw URL |
+| `target_id` | `VARCHAR(64)` NULL | first identifying path parameter (`id`, `programID`, …) |
+| `status_code` | `SMALLINT` | HTTP status (100–599) |
+| `outcome` | `VARCHAR(12)` | `success` (2xx/3xx), `denied` (401/403), `failed` (anything else) |
+| `client_ip` | `VARCHAR(45)` NULL | normalised client address |
+| `created_at` | `TIMESTAMPTZ` | |
+
+- Rows describe the action, never its content: request bodies, notes,
+  passwords, access codes and personal answers are never stored.
+- Immutable: trigger `trg_admin_audit_logs_immutable` (function
+  `ryze_reject_audit_change`) rejects every `UPDATE` and `DELETE`. There is no
+  `updated_at`, no soft delete and no retention job yet.
+- Indexes: `(created_at DESC, id)` for the newest-first listing and
+  `(admin_id, created_at DESC)` for the per-administrator filter.
+- Written by the `AdminAudit` / `AdminSignInAudit` middleware (see
+  `docs/INSTRUCTIONS/security.MD`, "AUDIT LOGS").
+
+---
+
+## Program View Counters
+
+Implemented in migration 000042 (`program_view_stats`, v2.111.0): one row per
+program that has been viewed at least once — `program_id` (PK, FK
+`programs.id`), `view_count BIGINT >= 0`, `last_viewed_at`, `created_at`,
+`updated_at` (touch trigger). The counter decides the "Featured coach
+programs" ranking of the public marketplace.
+
+- The counter lives outside `programs` on purpose: incrementing a column there
+  would fire `trg_programs_touch_updated_at` and turn every view into a
+  content edit.
+- Writes are one `INSERT … ON CONFLICT (program_id) DO UPDATE SET view_count =
+  view_count + 1`. Deduplication (one view per viewer and program every 30
+  minutes) happens in memory in the API before writing; the owning coach's
+  own visits never count. Nothing about the viewer is stored.
+
 ---
 
 ## Scheduler

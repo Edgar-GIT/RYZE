@@ -12,6 +12,16 @@ export const FEEDBACK_PT: Catalog = {
   "RYZE helped me rebuild my confidence and feel better in my own body. The results came consistently and in a healthy, sustainable way.":
     "A RYZE ajudou-me a recuperar a confiança e a sentir-me melhor no meu corpo. Os resultados vieram com consistência, de forma saudável e sustentável.",
   Feedback: "Feedback",
+  Before: "Antes",
+  After: "Depois",
+  "A whole new level of confidence": "Uma confiança completamente nova",
+  "Feeling better in my own body": "Sentir-me melhor no meu corpo",
+  "Consistent results": "Resultados com consistência",
+  "So much more energy": "Muito mais energia",
+  "Training with purpose": "Treinar com propósito",
+  "Eating better": "Comer melhor",
+  "Stronger inside and out": "Mais forte por dentro e por fora",
+  "Healthy and sustainable": "Saudável e sustentável",
   "Real people.": "Pessoas reais.",
   "Real results.": "Resultados reais.",
   "Thousands of people are already transforming their lives with RYZE. Here are some of their stories.":

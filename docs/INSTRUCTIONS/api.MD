@@ -3352,6 +3352,52 @@ Response `data`:
   `workouts`, `exercises` or `sets`. Structure
   is served exclusively by `GET /api/v1/me/programs/:programID`, which enforces
   an active access grant and the exercise-media gate.
+- `coach` (v2.111.0, present only on a trainer-owned program whose coach is
+  public): `{ "id", "name" }` — the trainer id used by the public coach profile
+  and the name the trainer registered with. Never an email or user id. A
+  disabled trainer or a Test Mode persona leaves the program unattributed.
+
+---
+
+### Coach showcase (v2.111.0)
+
+Trainer-owned, published generic programs are discoverable through a
+"Featured coach programs" ranking and public coach profiles. A coach becomes
+public only by publishing; disabled trainers, disabled accounts and Test Mode
+personas are never public. Only the trainer id and the registered name are
+exposed — never contact data.
+
+#### `POST /api/v1/programs/:programID/views`
+
+Counts one view of a published program page. Public; the optional session
+cookie is read only to recognise the owning coach. Answers `204 No Content`
+for any published program whether or not the view was counted, so the
+response reveals nothing about deduplication or ownership.
+
+- Counted at most once per viewer and program every 30 minutes (in-memory
+  dedupe keyed by the signed-in user, or by a digest of the client address).
+- The owning coach's own visits never count.
+- Rate limit `program-view`: 120 requests per 10 minutes per client IP.
+- `400 VALIDATION_ERROR` — malformed id. `404 NOT_FOUND` — unknown, draft or
+  deleted program.
+
+#### `GET /api/v1/coaches/featured-programs`
+
+Published trainer-owned generic programs ranked by views (most viewed first);
+programs with equal views — including new ones with none — follow newest
+first, so a new coach program is discoverable from day one.
+
+- `limit` — default `6`, at most `12` (`400 VALIDATION_ERROR` otherwise).
+- `data.programs[]` — the public program card fields of
+  `GET /api/v1/programs` plus `views` and `coach { id, name }`.
+
+#### `GET /api/v1/coaches/:trainerID`
+
+A public coach profile: `data.coach { id, name, coach_since, total_views }`
+and `data.programs[]` (same shape as the featured list, most viewed first, at
+most 50). `404 NOT_FOUND` for an unknown, disabled or Test Mode coach and for
+a coach with no published generic program; `400 VALIDATION_ERROR` for a
+malformed id.
 
 ---
 
@@ -6650,7 +6696,31 @@ Returns system statistics.
 GET /api/v1/admin/logs
 ```
 
-Returns administrative audit logs.
+Returns administrative audit logs. Implemented in v2.111.0.
+
+Requires an ADMIN_1 session (`security` permission); ADMIN_2 receives
+`403 FORBIDDEN`.
+
+Query parameters: `page` (default 1), `limit` (default 50, at most 100),
+`admin` (`ADMIN_1` or `ADMIN_2`), `outcome` (`success`, `denied`, `failed`).
+Invalid values return `400 VALIDATION_ERROR`.
+
+Response `data.entries[]`, newest first: `id`, `admin_id`, `action`, `method`,
+`route` (template), `target_id` (nullable), `status_code`, `outcome`,
+`client_ip` (nullable), `created_at`; plus `data.pagination`.
+
+What is recorded (by middleware, after the request completes):
+
+- every state-changing request (`POST`, `PUT`, `PATCH`, `DELETE`) made by an
+  authenticated ADMIN_1 or ADMIN_2 session on `/api/v1/admin/*`,
+  `/api/v1/programs/generic|premium-level-1|premium-level-2/*` and Test Mode
+  entry — including attempts the role is not allowed to make (`denied`);
+- every trainer-application evidence download (`GET …/download`);
+- every second-factor sign-in attempt that carries a valid stage cookie
+  (`admin.sign_in`, `success` or `denied`).
+
+Request bodies, notes, passwords, access codes and personal answers are never
+recorded. Records cannot be edited or deleted (database trigger).
 
 ---
 

@@ -4,6 +4,7 @@ import { Redirect, Route, Switch, useLocation } from "react-router-dom";
 
 import { TrainerSessionProvider } from "@/components/trainer/trainer_session_context";
 import { AccountPurchaseHistoryPage } from "@/pages/account_purchase_history_page/account_purchase_history_page";
+import { CoachProfilePage } from "@/pages/coach_profile_page/coach_profile_page";
 import { ContactPage } from "@/pages/contact_page/contact_page";
 import { ExerciseDetailPage } from "@/pages/exercise_detail_page/exercise_detail_page";
 import { ExerciseLibraryPage } from "@/pages/exercise_library_page/exercise_library_page";
@@ -46,6 +47,7 @@ export const AppRoutes = () => {
         <Route exact path="/" component={HomePage} />
         <Route exact path="/services" component={ServicesPage} />
         <Route exact path="/services/generic-program" component={GenericPlanMarketplacePage} />
+        <Route exact path="/coaches/:trainerId" component={CoachProfilePage} />
         {/* Premium Level 1 must be declared before the dynamic /services/:serviceSlug
             route, otherwise the slug route would swallow it. */}
         <Route exact path="/services/premium-level-1" component={PremiumLevel1Page} />

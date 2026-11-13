@@ -1,6 +1,6 @@
 # RYZE Product Completeness Audit
 
-Version: v2.110.0
+Version: v2.111.0
 Date: 2026-11-13
 Status: living document — update whenever a backlog item is closed.
 
@@ -69,6 +69,7 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Our Vision | Complete/Verified | static content page |
 | Feedback | Complete/Verified | form + ADMIN_2 feedback page |
 | Contact | Implemented, real relay unverified | Multipart API, mandatory STARTTLS, validation, rate limit and browser states; positive and failure paths verified against controlled local SMTP sinks |
+| Coach showcase (featured coach programs, coach profiles, view counter) | Complete/Verified (local) | v2.111.0: `program_view_stats`, dedupe + owner exclusion, `GET /coaches/featured-programs`, `GET /coaches/:id`, coach on program detail; service, handler and repository tests; 27-step browser E2E on `ryze_test` (publish → featured → view counted once → coach profile) at 390 and 1440 px |
 | Generic marketplace | Complete/Verified (mocked) | server-side filters, sort and pagination; deterministic rows; browser E2E with mocked API; live positive path unverified because the DB has no published programs |
 | Generic program detail + checkout | Complete/Verified | API-driven detail, `useProgramCheckout`, entitlement states |
 | Premium Level 1 page | Complete/Verified | objective-based catalogue, query-based objective/package selection, curated and legacy questionnaire delivery, shared checkout and status-aware access; mocked browser E2E; live purchase still unverified |
@@ -117,7 +118,8 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
 | ADMIN_1 dashboard/users/trainers/system/configuration/test-mode | Complete/Verified (local) | real data, including `GET /admin/system/status` (v2.110.0); every route opened at 390 and 1440 px |
-| ADMIN_1 Development and Audit log | Missing | explicit placeholder pages; no audit-log service exists |
+| ADMIN_1 Audit log | Complete/Verified (local) | v2.111.0: immutable `admin_audit_logs` (trigger rejects UPDATE/DELETE), middleware records every admin mutation, evidence download and second-factor sign-in (denials included); `GET /admin/logs` (ADMIN_1 only); service, middleware, handler and repository tests; page exercised at 390 and 1440 px on `ryze_test` |
+| ADMIN_1 Development | Missing | explicit placeholder page |
 | ADMIN_1 trainer applications review | Complete/Verified | approve/reject, evidence download, decision history |
 | ADMIN_2 dashboard/plans/marketplace/trainers/clients/sales/analytics/feedback/settings | Implemented (unverified) | pages + APIs present; Generic, Premium Level 1 and Premium Level 2 family tabs, objective/mode/Level 2 offer authoring, curated nutrition editor, Premium Level 2 request queue and trainer allocation, content-lock UX |
 | ADMIN_2 catalogue management (exercises) | Complete/Verified | admin2 exercises page and API with tests |
@@ -177,6 +179,16 @@ its configuration locally, so deployment-only paths remain marked unverified.
     (live Resend delivery still unverified).
 11. Contact page submission backend. **Closed in v2.98.0** (live SMTP delivery still unverified).
 12. RYZE Feed (deferred by design; requires a product decision first).
+
+### v2.111.0 additions
+
+- Administrative audit log, coach showcase, local test stack fixes
+  (`start_test_mode.sh --accounts-only`), Feedback page motion and the 3D Our
+  Vision hero. Closed.
+- Open: trainer-page and admin-console translation; legal pages (Terms,
+  Privacy, Cookies) — owner content required; Feed; audit-log retention
+  policy (owner decision); trainer profile fields (bio, photo) for the coach
+  profile; test-database isolation between Go packages.
 
 ### v2.110.0 additions
 

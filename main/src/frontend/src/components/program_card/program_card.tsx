@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { useMarketplaceCopy } from "@/constants/marketplace_copy";
+import { coachInitials, type PublicCoach } from "@/services/coaches_api";
 import {
   formatMarketplacePrice,
   FREE_PROGRAM_TYPE,
@@ -14,6 +15,9 @@ interface ProgramCardProps {
   program: MarketplaceProgram;
   forceFree?: boolean;
   owned?: boolean;
+  // The coach who created the program (coach showcase). Shown under the card
+  // as a separate link to the coach profile.
+  coach?: PublicCoach | null;
 }
 
 // Each card gets one of four brand gradients, chosen from its id so a card
@@ -25,7 +29,7 @@ const toneFor = (id: string) => TONES[[...id].reduce((sum, character) => sum + c
 // "12 weeks · 4 days/week". Empty lines are omitted.
 const buildMetaLine = (items: string[]): string => items.filter(Boolean).join(" · ");
 
-export const ProgramCard = ({ program, forceFree = false, owned = false }: ProgramCardProps) => {
+export const ProgramCard = ({ program, forceFree = false, owned = false, coach = null }: ProgramCardProps) => {
   const { text, locale, valueLabel } = useMarketplaceCopy();
   const schedule = buildMetaLine([
     program.duration_weeks !== null ? text.weeks(program.duration_weeks) : "",
@@ -66,6 +70,14 @@ export const ProgramCard = ({ program, forceFree = false, owned = false }: Progr
           )}
         </div>
       </Link>
+      {coach ? (
+        <Link to={`/coaches/${encodeURIComponent(coach.id)}`} className={styles.coach} aria-label={text.coachLink(coach.name)}>
+          <span className={styles.coachAvatar} aria-hidden="true">
+            {coachInitials(coach.name)}
+          </span>
+          <span className={styles.coachName}>{coach.name}</span>
+        </Link>
+      ) : null}
     </article>
   );
 };

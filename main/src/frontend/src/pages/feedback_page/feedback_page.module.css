@@ -1,8 +1,150 @@
-/* --- Hero: one centred statement --- */
+/* --- Hero: one centred statement, lit by slowly drifting brand light --- */
 
 .header {
+  position: relative;
+  isolation: isolate;
   overflow: hidden;
-  padding-block: calc(var(--r-nav-clearance) + 1.5rem) clamp(2.5rem, 7vw, 4rem);
+  padding-block: calc(var(--r-nav-clearance) + 1.5rem) clamp(2rem, 5vw, 3rem);
+}
+
+/* Three soft brand-colour lights drifting behind the statement (CSS only, no
+   image). They sit under the copy and never take pointer events. */
+.aurora {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.aurora span {
+  position: absolute;
+  border-radius: 50%;
+  animation: drift 18s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.aurora span:nth-child(1) {
+  top: 8%;
+  left: -6%;
+  width: clamp(18rem, 48vw, 42rem);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(0, 203, 255, 0.28), transparent 64%);
+}
+
+.aurora span:nth-child(2) {
+  top: -12%;
+  right: -8%;
+  width: clamp(16rem, 42vw, 38rem);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(42, 140, 255, 0.3), transparent 64%);
+  animation-duration: 23s;
+  animation-delay: -7s;
+}
+
+.aurora span:nth-child(3) {
+  bottom: -30%;
+  left: 34%;
+  width: clamp(14rem, 34vw, 30rem);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(4, 129, 220, 0.34), transparent 64%);
+  animation-duration: 27s;
+  animation-delay: -12s;
+}
+
+@keyframes drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(7%, 9%, 0) scale(1.14);
+  }
+  100% {
+    transform: translate3d(-6%, -5%, 0) scale(0.94);
+  }
+}
+
+/* Staggered entrance: each element rises into place after the previous one
+   (--d is its step, set inline). */
+.rise {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  animation: rise 720ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--d, 0) * 110ms + 60ms);
+}
+
+@keyframes rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A light sweep across "Real results." every few seconds. */
+.shimmer {
+  padding-bottom: 0.06em;
+  background: linear-gradient(100deg, var(--hl) 0%, var(--hl) 38%, #d6f8ff 50%, var(--hl) 62%, var(--hl) 100%);
+  background-size: 260% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation:
+    rise 720ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    sweep 6s ease-in-out 1.2s infinite;
+  animation-delay: calc(var(--d, 0) * 110ms + 60ms), 1.2s;
+}
+
+@keyframes sweep {
+  0% {
+    background-position: 100% 0;
+  }
+  35%,
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* --- Highlights band between the hero and the stories --- */
+
+.ticker {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: clamp(1.75rem, 4vw, 2.5rem);
+  padding-block: 0.85rem;
+  border-block: 1px solid rgba(124, 200, 255, 0.14);
+  background: linear-gradient(90deg, rgba(0, 203, 255, 0.04), rgba(42, 140, 255, 0.1), rgba(0, 203, 255, 0.04));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.tickerTrack {
+  display: flex;
+  width: max-content;
+  gap: 2.25rem;
+  animation: ticker 42s linear infinite;
+}
+
+.tickerItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--tone-text-2, #c9d5ec);
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.tickerItem svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--r-cyan);
+}
+
+@keyframes ticker {
+  to {
+    transform: translate3d(calc(-50% - 1.125rem), 0, 0);
+  }
 }
 
 .headerLayout {
@@ -24,6 +166,35 @@
 
 .stories {
   padding-bottom: clamp(3.5rem, 9vw, 6rem);
+}
+
+/* A breathing light band behind the cards. */
+.stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.stage::before {
+  content: "";
+  position: absolute;
+  inset: 12% -4% 6%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 203, 255, 0.2), rgba(42, 140, 255, 0.08) 55%, transparent 75%);
+  animation: breathe 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
 }
 
 .track {
@@ -52,13 +223,73 @@
   border-radius: var(--r-radius);
 }
 
+@property --edge-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
 .card {
+  position: relative;
   display: grid;
   grid-template-rows: auto 1fr;
   overflow: hidden;
   border-radius: var(--r-radius-xl);
   box-shadow: 0 34px 60px -36px rgba(0, 0, 0, 0.8);
   scroll-snap-align: start;
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 320ms ease;
+}
+
+/* A cyan light travelling around each card's edge, out of step per card. */
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--edge-angle), transparent 0 62%, rgba(0, 203, 255, 0.95) 76%, rgba(124, 235, 255, 0.6) 80%, transparent 90%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: edge 7s linear infinite;
+  pointer-events: none;
+}
+
+.card:nth-child(2)::after {
+  animation-delay: -2.3s;
+}
+
+.card:nth-child(3)::after {
+  animation-delay: -4.6s;
+}
+
+@keyframes edge {
+  to {
+    --edge-angle: 360deg;
+  }
+}
+
+@media (hover: hover) {
+  .card:hover {
+    transform: translateY(-8px);
+    box-shadow:
+      0 40px 70px -36px rgba(0, 0, 0, 0.85),
+      0 24px 60px -30px rgba(0, 203, 255, 0.55);
+  }
+
+  .card:hover .media {
+    transform: scale(1.04);
+  }
+}
+
+.mediaFrame {
+  position: relative;
+  overflow: hidden;
 }
 
 .media {
@@ -68,6 +299,35 @@
   aspect-ratio: 4 / 5;
   object-fit: cover;
   background: var(--r-surface-solid);
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Every photo is a before | after split: label both halves. */
+.phase {
+  position: absolute;
+  bottom: 0.85rem;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(2, 4, 31, 0.62);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+}
+
+.phaseBefore {
+  left: 25%;
+}
+
+.phaseAfter {
+  left: 75%;
+  border-color: rgba(0, 203, 255, 0.55);
+  color: #7cebff;
 }
 
 .body {
@@ -160,5 +420,37 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora span,
+  .tickerTrack,
+  .stage::before,
+  .card::after {
+    animation: none;
+  }
+
+  .rise,
+  .shimmer {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .tickerTrack {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: auto;
+    padding-inline: var(--r-gutter);
+  }
+
+  .tickerTrack > :nth-child(n + 9) {
+    display: none;
+  }
+
+  .card,
+  .media {
+    transition: none;
   }
 }

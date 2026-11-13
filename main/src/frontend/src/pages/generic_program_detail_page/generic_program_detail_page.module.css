@@ -30,6 +30,65 @@
   line-height: 1.1;
 }
 
+/* The coach who created a trainer-owned program, linking to the profile. */
+.coach {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  justify-self: start;
+  max-width: 100%;
+  min-height: 2.75rem;
+  padding: 0.3rem 1rem 0.3rem 0.3rem;
+  border: 1px solid rgba(124, 200, 255, 0.22);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(10, 22, 69, 0.6);
+  text-decoration: none;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+
+.coach:hover {
+  border-color: rgba(0, 203, 255, 0.6);
+  background: rgba(0, 203, 255, 0.08);
+}
+
+.coach:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}
+
+.coachAvatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  color: #02041f;
+  background: linear-gradient(135deg, #7cebff 0%, #00cbff 55%, #2a8cff 100%);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.coachLabel {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.coachName {
+  display: block;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .subtitle {
   max-width: 46rem;
   margin: 0;

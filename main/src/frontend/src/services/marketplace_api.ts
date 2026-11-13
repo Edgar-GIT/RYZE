@@ -54,8 +54,11 @@ export interface MarketplaceProgram extends MarketplaceProgramProduct {
 }
 
 /** Public catalog detail is metadata-only. The programme structure is only
- *  available through an authenticated access grant. */
-export type MarketplaceProgramDetail = MarketplaceProgram;
+ *  available through an authenticated access grant. A trainer-owned program
+ *  names its public coach (id and registered name) for the coach profile. */
+export type MarketplaceProgramDetail = MarketplaceProgram & {
+  coach?: { id: string; name: string };
+};
 
 export interface MarketplaceListResult {
   programs: MarketplaceProgram[];

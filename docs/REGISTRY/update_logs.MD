@@ -1,3 +1,81 @@
+# Version 2.111.0
+
+Title: Admin audit log, coach showcase, test stack fixes, Feedback and Our Vision motion
+
+Date: 2026-11-13
+
+Summary:
+
+Owner request of 2026-11-13: verify the local test accounts and the one-command
+test stack (with exercise media for local testing only), add life to the
+Feedback page, implement the administrative audit log and a Lyfta-style public
+showcase of trainer programs ("Featured coach programs" ranked by views, with
+clickable coaches), and give the Our Vision hero a 3D "WOW". Two additive
+migrations (000041, 000042). No price, commission, duration, access or
+purchase rule changed.
+
+Main changes:
+
+- Admin audit log: `admin_audit_logs` (migration 000041) is append-only (a
+  trigger rejects UPDATE and DELETE). `middleware.AdminAudit` records every
+  state-changing admin request, every evidence download and denied attempts;
+  `middleware.AdminSignInAudit` records second-factor sign-ins. Records hold
+  the admin identity, action key, method, route template, target id, status,
+  outcome and client address — never request content.
+  `GET /api/v1/admin/logs` (ADMIN_1, `security` permission, filters admin and
+  outcome) and the ADMIN_1 "Audit log" page replace the placeholder.
+- Coach showcase: `program_view_stats` (migration 000042) counts program page
+  views (`POST /api/v1/programs/:id/views`, once per viewer and program every
+  30 minutes, owner visits excluded, `program-view` rate limit 120/10 min).
+  `GET /api/v1/coaches/featured-programs` ranks published trainer generic
+  programs by views (ties newest first); `GET /api/v1/coaches/:trainerID` is
+  the public coach profile; `GET /api/v1/programs/:id` adds `coach {id, name}`
+  for trainer-owned programs. Coaches are public only after publishing;
+  disabled trainers and Test Mode personas never appear; no contact data is
+  exposed. UI: "Featured coach programs" zone at the top of Training plans
+  with the coach under each card, "Created by" on the program detail, the
+  `/coaches/:trainerId` page and "Open public profile" on the trainer profile.
+- Local test stack (`start_test_mode.sh`): account lookups walk every page
+  (the first run stopped because the client was beyond the first 100 users);
+  accounts that already sign in are left untouched; the trainer can be
+  approved through the normal application flow; the API runs as a built
+  binary so Ctrl-C stops it; an existing Vite server is reused; new
+  `--accounts-only` mode. All four test accounts were verified (client,
+  approved trainer, ADMIN_1, ADMIN_2) and the exercise media preview answers
+  locally.
+- Login fixes (owner report "I can't log in"): the member login form invites
+  "Email or username" but member accounts only have emails — a value without
+  "@" now shows "Use the email address of your account. Administrators sign
+  in at /admin/login." instead of "Validation failed."; the admin login trims
+  stray spaces from the username and access code (never the password); in
+  local development the API base follows the page host, so opening the site
+  as `127.0.0.1:5173` keeps the SameSite session cookie; the local `.env`
+  admin usernames were unquoted so a copied value signs in.
+- Feedback page: drifting brand lights, staggered entrance and a light sweep
+  in the header; a word-only highlights ticker; a breathing light band, a
+  travelling edge light, hover lift and Before / After labels around the
+  story cards. CSS only; reduced motion stops everything.
+- Our Vision hero: from 768px with WebGL, a lazily loaded Three.js tunnel of
+  identical app cards streams past the still RYZE card (rings, sparks, halo,
+  pointer tilt and parallax; pauses off screen). Phones keep the flat wall
+  (now animated in CSS) and never download Three.js.
+
+Verification:
+
+- `go test -p 1 ./...` on `ryze_test`: 55 packages ok; `gofmt` and `go vet`
+  clean. New tests: admin_audit and coach_showcase services, AdminAudit /
+  AdminSignInAudit middleware, public coaches handler, coach showcase and
+  audit repositories (including immutability).
+- `npm run typecheck`, `npm run test` (164 tests) and `npm run build` pass.
+- Browser E2E on an isolated stack (`ryze_test`, API :8081, Vite :5175):
+  27/27 — coach creation, publish, featured listing, owner view not counted,
+  client view counted once, "Created by", coach profile, audit page; no
+  horizontal overflow or page errors at 390 and 1440 px. Fixtures removed
+  afterwards.
+- Feedback and Our Vision checked at 320, 390, 820 and 1440 px.
+
+---
+
 # Version 2.110.0
 
 Title: Training app, language toggle, private-area polish, security and architecture fixes

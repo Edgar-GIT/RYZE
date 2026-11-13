@@ -32,7 +32,7 @@ import ryzeIconBanner from "@resources/img/logo/ryze_icon2.png";
 
 import styles from "./our_vision_page.module.css";
 import { OUR_VISION_PT } from "./our_vision_page.pt";
-import { StandoutVisual } from "./standout_visual";
+import { VisionHeroVisual } from "./vision_hero_visual";
 
 interface IconItem {
   icon: LucideIcon;
@@ -132,7 +132,7 @@ export const OurVisionPage = () => {
             </ul>
           </nav>
         </div>
-        <StandoutVisual className={styles.heroVisual} />
+        <VisionHeroVisual className={styles.heroVisual} />
       </div>
     </section>
 

@@ -187,6 +187,13 @@ const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps)
       return;
     }
 
+    // Member accounts sign in with their email; only the configured
+    // administrators have usernames, and they sign in at /admin/login.
+    if (!email.includes("@")) {
+      setErrorMessage("Use the email address of your account. Administrators sign in at /admin/login.");
+      return;
+    }
+
     setSubmitting(true);
     setErrorMessage("");
 

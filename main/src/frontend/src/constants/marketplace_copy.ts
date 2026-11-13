@@ -34,6 +34,9 @@ interface MarketplaceText {
   view: (name: string) => string;
   free: string;
   owned: string;
+  featuredTitle: string;
+  featuredDescription: string;
+  coachLink: (name: string) => string;
   groups: Record<string, string>;
   rows: Record<string, { title: string; description?: string }>;
   values: Record<string, string>;
@@ -72,6 +75,9 @@ const en: MarketplaceText = {
   view: (name) => `View ${name}`,
   free: "Free",
   owned: "Owned",
+  featuredTitle: "Featured coach programs",
+  featuredDescription: "The most viewed plans from RYZE coaches. Tap a coach to see all their programs.",
+  coachLink: (name) => `See ${name}'s coach profile`,
   groups: {},
   rows: {},
   values: {}
@@ -108,6 +114,9 @@ const pt: MarketplaceText = {
   view: (name) => `Ver ${name}`,
   free: "Grátis",
   owned: "Já é teu",
+  featuredTitle: "Programas de treinadores em destaque",
+  featuredDescription: "Os planos mais vistos dos treinadores RYZE. Toca num treinador para ver todos os seus programas.",
+  coachLink: (name) => `Ver o perfil de treinador de ${name}`,
   groups: {
     "training-type": "Tipo de treino",
     frequency: "Frequência de treino",

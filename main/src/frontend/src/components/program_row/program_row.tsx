@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CarouselArrow } from "@/components/carousel_arrow/carousel_arrow";
 import { ProgramCard } from "@/components/program_card/program_card";
 import { useMarketplaceCopy } from "@/constants/marketplace_copy";
+import type { PublicCoach } from "@/services/coaches_api";
 import type { MarketplaceProgram } from "@/services/marketplace_api";
 import { joinClassNames } from "@utils/class_names";
 
@@ -14,7 +15,8 @@ const SLIDE_DURATION_MS = 400;
 interface ProgramRowProps {
   title: string;
   description?: string;
-  programs: MarketplaceProgram[];
+  // Programs from the coach showcase carry their coach, shown under the card.
+  programs: Array<MarketplaceProgram & { coach?: PublicCoach }>;
   forceFree?: boolean;
   ownedProgramIds?: ReadonlySet<string>;
 }
@@ -109,6 +111,7 @@ export const ProgramRow = ({
                     program={program}
                     forceFree={forceFree}
                     owned={ownedProgramIds?.has(program.id) ?? false}
+                    coach={program.coach ?? null}
                   />
                 ) : (
                   <div className={styles.placeholder} aria-hidden="true" />

@@ -229,3 +229,90 @@ export const formatDuration = (seconds: number): string => {
   if (hours > 0) return `${hours}h ${minutes % 60}m`;
   return `${Math.max(minutes, 0)}m`;
 };
+
+// --- Audit log (ADMIN_1) ---
+
+export type AdminAuditOutcome = "success" | "denied" | "failed";
+
+export interface AdminAuditEntry {
+  id: string;
+  admin_id: "ADMIN_1" | "ADMIN_2";
+  action: string;
+  method: string;
+  route: string;
+  target_id: string | null;
+  status_code: number;
+  outcome: AdminAuditOutcome;
+  client_ip: string | null;
+  created_at: string;
+}
+
+export interface AdminAuditList {
+  entries: AdminAuditEntry[];
+  pagination: { page: number; limit: number; total: number; total_pages: number };
+}
+
+export interface AdminAuditFilters {
+  admin?: "ADMIN_1" | "ADMIN_2";
+  outcome?: AdminAuditOutcome;
+}
+
+export const fetchAdminAuditLog = (page: number, limit: number, filters: AdminAuditFilters = {}) => {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (filters.admin) params.set("admin", filters.admin);
+  if (filters.outcome) params.set("outcome", filters.outcome);
+  return apiGet<AdminAuditList>(`/admin/logs?${params.toString()}`);
+};
+
+// Readable names of the recorded actions. Unknown actions (a route added
+// later) fall back to the raw "<method> <route>" the API stores.
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  "admin.sign_in": "Signed in to the console",
+  "test_mode.enter": "Entered Test Mode",
+  "user.create": "Created a user",
+  "user.update": "Edited a user",
+  "user.disable": "Disabled a user",
+  "user.reactivate": "Reactivated a user",
+  "user.password_reset": "Reset a user's password",
+  "trainer.create": "Created a trainer",
+  "trainer.update": "Edited a trainer",
+  "trainer.disable": "Disabled a trainer",
+  "trainer.reactivate": "Reactivated a trainer",
+  "trainer_application.approve": "Approved a trainer application",
+  "trainer_application.reject": "Rejected a trainer application",
+  "trainer_application.document_download": "Downloaded an application document",
+  "feedback.approve": "Approved member feedback",
+  "feedback.reject": "Rejected member feedback",
+  "support.reply": "Replied to a support conversation",
+  "support.mark_read": "Marked a support conversation read",
+  "support.close": "Closed a support conversation",
+  "support.reopen": "Reopened a support conversation",
+  "exercise.create": "Created an exercise",
+  "exercise.update": "Edited an exercise",
+  "premium_level_2.assign_trainer": "Assigned a Premium Level 2 trainer",
+  "program.pricing_update": "Changed a program price",
+  "commission.update": "Set a trainer commission",
+  "commission.delete": "Removed a trainer commission",
+  "generic_program.create": "Created a generic program",
+  "generic_program.update": "Edited a generic program",
+  "generic_program.publish": "Published a generic program",
+  "generic_program.delete": "Deleted a generic program",
+  "premium_level_1_program.create": "Created a Premium Level 1 package",
+  "premium_level_1_program.update": "Edited a Premium Level 1 package",
+  "premium_level_1_program.publish": "Published a Premium Level 1 package",
+  "premium_level_1_program.delete": "Deleted a Premium Level 1 package",
+  "premium_level_2_program.create": "Created a Premium Level 2 offer",
+  "premium_level_2_program.update": "Edited a Premium Level 2 offer",
+  "premium_level_2_program.publish": "Published a Premium Level 2 offer",
+  "premium_level_2_program.delete": "Deleted a Premium Level 2 offer"
+};
+
+export const describeAuditAction = (action: string): string => AUDIT_ACTION_LABELS[action] ?? action;
+
+export const formatAdminDateTime = (iso: string): string => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return date.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+};

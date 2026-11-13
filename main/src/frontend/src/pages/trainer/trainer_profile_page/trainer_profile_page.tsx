@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, UserRound } from "lucide-react";
+import { ExternalLink, RefreshCw, UserRound } from "lucide-react";
 
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
@@ -103,6 +103,27 @@ export const TrainerProfilePage = () => {
           Editing the trainer profile (bio, photo, certifications) is not part of RYZE yet. When
           those fields are defined they will appear here.
         </p>
+      </section>
+
+      <section className={styles.card}>
+        <div className={styles.rowMain}>
+          <span className={styles.statLabel}>Public coach profile</span>
+          <span className={styles.rowTitle}>Clients see your name and every program you publish.</span>
+        </div>
+        <p className={styles.hint}>
+          It goes live with your first published program. Your most viewed programs appear under
+          “Featured coach programs” in Training plans, with your name linking here.
+        </p>
+        <div className={styles.actions}>
+          <Button
+            to={`/coaches/${encodeURIComponent(state.profile.id)}`}
+            variant="secondary"
+            size="small"
+            icon={<ExternalLink size={15} />}
+          >
+            Open public profile
+          </Button>
+        </div>
       </section>
     </>
   );

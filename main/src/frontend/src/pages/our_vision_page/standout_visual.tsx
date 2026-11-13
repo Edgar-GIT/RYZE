@@ -18,24 +18,12 @@ const DIFFERENCES = [
 
 const SAME_TILES = 12;
 
-// StandoutVisual: a wall of identical, greyed-out fitness apps with RYZE in the
-// middle as the light-blue wave panel (the login page's bright half), listing
-// what it does differently. Decorative (the copy and the comparison section
-// below say the same in text).
-export const StandoutVisual = ({ className }: { className?: string }) => {
+// RyzeCard: RYZE as the light-blue wave panel (the login page's bright half),
+// listing what it does differently. Shared by the flat wall and the 3D stage.
+export const RyzeCard = ({ className }: { className?: string }) => {
   const tr = useGettext(OUR_VISION_PT);
   return (
-  <div className={joinClassNames(styles.wall, className)} aria-hidden="true">
-    {Array.from({ length: SAME_TILES }, (_, index) => (
-      <span key={index} className={styles.same} style={{ "--i": index } as CSSProperties}>
-        <Dumbbell strokeWidth={1.8} />
-        <i />
-        <i />
-        <small>{tr("12-week plan")}</small>
-      </span>
-    ))}
-
-    <div className={styles.ryze}>
+    <div className={joinClassNames(styles.ryze, className)}>
       <div className={styles.brand}>
         <img src={BRAND_ASSETS.icon} alt="" width="600" height="658" />
         <span>RYZE</span>
@@ -55,6 +43,27 @@ export const StandoutVisual = ({ className }: { className?: string }) => {
       </ul>
       <Waves className={styles.waves} />
     </div>
+  );
+};
+
+// StandoutVisual: a wall of identical, greyed-out fitness apps with RYZE in the
+// middle. Decorative (the copy and the comparison section below say the same in
+// text). This is the phone, reduced-motion and no-WebGL version of the hero;
+// tablets and desktops get the 3D tunnel (VisionHeroVisual).
+export const StandoutVisual = ({ className }: { className?: string }) => {
+  const tr = useGettext(OUR_VISION_PT);
+  return (
+  <div className={joinClassNames(styles.wall, className)} aria-hidden="true">
+    {Array.from({ length: SAME_TILES }, (_, index) => (
+      <span key={index} className={styles.same} style={{ "--i": index } as CSSProperties}>
+        <Dumbbell strokeWidth={1.8} />
+        <i />
+        <i />
+        <small>{tr("12-week plan")}</small>
+      </span>
+    ))}
+
+    <RyzeCard />
   </div>
   );
 };

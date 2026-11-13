@@ -22,8 +22,18 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:8080/api/v1";
+// Without VITE_API_BASE_URL (local development) the API is on port 8080 of the
+// host the page was opened on. Opening the site as http://127.0.0.1:5173 then
+// calls http://127.0.0.1:8080, so the SameSite session cookie stays same-site;
+// a fixed "localhost" would make the browser drop the session after login.
+const developmentApiBase = (): string => {
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `${window.location.protocol}//${window.location.hostname}:8080/api/v1`;
+  }
+  return "http://localhost:8080/api/v1";
+};
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? developmentApiBase();
 
 /**
  * Encodes a value that is interpolated into a single URL path segment. The

@@ -266,6 +266,17 @@ a per-program detail page. Paid Generic Programs are purchasable end to end from
 page (see Current Status); pricing display, purchases, payments and
 entitlements are implemented and backend-authoritative.
 
+Trainer-owned programs (v2.111.0): a trainer's published generic programs are
+discoverable through the "Featured coach programs" zone at the top of the
+training plans marketplace — trainer programs ranked by views, each card
+showing its coach — and through a public coach profile (`/coaches/:id`) that
+lists every program the coach published. A view is one open of the program
+page, counted at most once per viewer every 30 minutes and never for the
+coach's own visits; programs with equal views follow newest first, so a new
+program is visible from day one. A coach is public only once they publish;
+only the registered name is shown. The platform-owned catalogue below the
+zone is unchanged (`scope=generic`).
+
 Purchased programs appear in the authenticated client "My Programs" area
 (`/services/my-programs`): a chrome-free listing of the user's entitlements
 served by `GET /api/v1/me/entitlements`, with each program opened through the

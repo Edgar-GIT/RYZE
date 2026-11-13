@@ -19,8 +19,23 @@
   border-radius: 0.9rem;
   color: rgba(147, 164, 200, 0.55);
   background: rgba(147, 164, 200, 0.05);
-  animation: fadeIn 600ms ease both;
-  animation-delay: calc(var(--i) * 45ms);
+  /* Fade in, then the identical tiles light up one after another, forever. */
+  animation:
+    fadeIn 600ms ease both,
+    blink 4.8s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 45ms), calc(var(--i) * 400ms + 900ms);
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    border-color: rgba(147, 164, 200, 0.16);
+    background: rgba(147, 164, 200, 0.05);
+  }
+  50% {
+    border-color: rgba(147, 164, 200, 0.4);
+    background: rgba(147, 164, 200, 0.11);
+  }
 }
 
 .same svg {
@@ -75,6 +90,28 @@
 
 .waves {
   height: 24%;
+}
+
+/* A glint of light crossing the RYZE card every few seconds. */
+.ryze::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.5) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: glint 5.5s ease-in-out 1.4s infinite;
+  pointer-events: none;
+}
+
+@keyframes glint {
+  0% {
+    transform: translateX(-120%);
+  }
+  30%,
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 .brand {
@@ -191,5 +228,9 @@
   .same,
   .ryze {
     animation: none;
+  }
+
+  .ryze::after {
+    display: none;
   }
 }

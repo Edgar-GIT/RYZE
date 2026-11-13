@@ -2730,6 +2730,32 @@ Examples:
 
 Audit records should never be editable.
 
+Implemented for administrators in v2.111.0 (`admin_audit_logs`, migration
+000041; listing `GET /api/v1/admin/logs`, ADMIN_1 only, console page
+`/admin/audit`):
+
+- `middleware.AdminAudit` runs right after `AdminAuthenticate` on every
+  administrative route group and before the permission checks, so denied
+  attempts are recorded as well. It records every state-changing request and
+  every evidence-document download; ordinary reads are not recorded.
+- `middleware.AdminSignInAudit` records second-factor attempts that carry a
+  valid stage cookie (completed and refused). First-step failures without a
+  stage cookie are not attributable to an administrator and stay bounded by
+  the `admin-login` rate limit.
+- A record holds the administrator identity (`ADMIN_1`/`ADMIN_2`), a stable
+  action key, the method, the route template, the first identifying path
+  parameter, the HTTP status, the outcome and the client address. Request
+  bodies, notes, passwords, access codes and personal answers are never
+  stored.
+- The write happens after the response on a context detached from the
+  request (3-second bound); a failed write is logged without request data and
+  never changes the response.
+- Records are immutable: a database trigger rejects `UPDATE` and `DELETE`.
+  Retention is unlimited for now (no purge job).
+- Payment completions keep their own permanent trail in
+  `purchase_reconciliation_events`; client and trainer actions are not part of
+  this log.
+
 ---
 
 # PRIVACY

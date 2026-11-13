@@ -1,5 +1,6 @@
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import type { CSSProperties } from "react";
 
 import { BrandStop, PublicAction, Waves } from "@/components/public_ui/public_ui";
 import ui from "@/components/public_ui/public_ui.module.css";
@@ -41,6 +42,23 @@ const testimonials: Testimonial[] = [
   }
 ];
 
+// Short phrases from the stories above, scrolling between the hero and the
+// cards. Words only, no figures (the result chips were removed by the owner).
+// Decorative: the full stories follow, so the band is hidden from assistive
+// technology.
+const STORY_HIGHLIGHTS = [
+  "A whole new level of confidence",
+  "So much more energy",
+  "Training with purpose",
+  "Eating better",
+  "Stronger inside and out",
+  "Feeling better in my own body",
+  "Consistent results",
+  "Healthy and sustainable"
+];
+
+const delay = (step: number) => ({ "--d": step }) as CSSProperties;
+
 // Below 768px the stories are a horizontal scroller (see the stylesheet), which
 // must be keyboard-focusable; from 768px they are a static grid.
 const STORIES_SCROLL_QUERY = "(max-width: 767px)";
@@ -52,38 +70,64 @@ export const FeedbackPage = () => {
   return (
     <PageWrapper className={ui.page}>
       <section className={joinClassNames(ui.toneNavy, styles.header)} aria-labelledby="feedback-heading">
+        <div className={styles.aurora} aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
         <div className={joinClassNames(ui.container, styles.headerLayout)}>
           <div className={styles.headerCopy}>
-            <p className={ui.label}>{tr("Feedback")}</p>
+            <p className={joinClassNames(ui.label, styles.rise)} style={delay(0)}>{tr("Feedback")}</p>
             <h1 id="feedback-heading" className={ui.display}>
-              <span className={styles.titleLine}>{tr("Real people.")}</span>{" "}
-              <span className={joinClassNames(styles.titleLine, ui.hl)}>{tr("Real results.")}</span>
+              <span className={joinClassNames(styles.titleLine, styles.rise)} style={delay(1)}>{tr("Real people.")}</span>{" "}
+              <span className={joinClassNames(styles.titleLine, ui.hl, styles.rise, styles.shimmer)} style={delay(2)}>
+                {tr("Real results.")}
+              </span>
             </h1>
-            <p className={ui.lead}>
+            <p className={joinClassNames(ui.lead, styles.rise)} style={delay(3)}>
               {tr("Thousands of people are already transforming their lives with RYZE. Here are some of their stories.")}
             </p>
           </div>
         </div>
       </section>
 
+      <div className={joinClassNames(styles.ticker, styles.rise)} style={delay(4)} aria-hidden="true">
+        <div className={styles.tickerTrack}>
+          {[...STORY_HIGHLIGHTS, ...STORY_HIGHLIGHTS].map((highlight, index) => (
+            <span className={styles.tickerItem} key={`${highlight}-${index}`}>
+              <Sparkles />
+              {tr(highlight)}
+            </span>
+          ))}
+        </div>
+      </div>
+
       <section className={joinClassNames(ui.toneNavy, styles.stories)} aria-label={tr("Member stories")}>
-        <div className={ui.container}>
+        <div className={joinClassNames(ui.container, styles.stage)}>
           <ul
             className={styles.track}
             tabIndex={storiesScroll ? 0 : undefined}
             aria-label={tr("Member stories")}
           >
-            {testimonials.map((testimonial) => (
-              <li className={joinClassNames(ui.surface, styles.card)} key={testimonial.alt}>
-                <img
-                  className={styles.media}
-                  src={testimonial.image}
-                  alt={tr(testimonial.alt)}
-                  width="1080"
-                  height="1350"
-                  loading="lazy"
-                  decoding="async"
-                />
+            {testimonials.map((testimonial, index) => (
+              <li
+                className={joinClassNames(ui.surface, styles.card, styles.rise)}
+                style={delay(5 + index)}
+                key={testimonial.alt}
+              >
+                <div className={styles.mediaFrame}>
+                  <img
+                    className={styles.media}
+                    src={testimonial.image}
+                    alt={tr(testimonial.alt)}
+                    width="1080"
+                    height="1350"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                  <span className={joinClassNames(styles.phase, styles.phaseBefore)}>{tr("Before")}</span>
+                  <span className={joinClassNames(styles.phase, styles.phaseAfter)}>{tr("After")}</span>
+                </div>
                 <figure className={styles.body}>
                   <p className={styles.stars} role="img" aria-label={tr("Rated 5 out of 5 stars")}>
                     ★★★★★

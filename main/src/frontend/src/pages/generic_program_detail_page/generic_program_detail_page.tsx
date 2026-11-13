@@ -1,6 +1,6 @@
 import { ArrowLeft, BarChart3, CreditCard, Dumbbell, FlaskConical, Lock, LogIn, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { Link, useHistory, useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
@@ -14,6 +14,7 @@ import {
   type MarketplaceProgramDetail
 } from "@/services/marketplace_api";
 import type { PaymentMethodInfo } from "@/services/purchases_api";
+import { coachInitials, recordProgramView } from "@/services/coaches_api";
 import {
   activateFreeProgram,
   fetchFreeActivations,
@@ -27,6 +28,8 @@ import { ApiError } from "@utils/http_client";
 import styles from "./generic_program_detail_page.module.css";
 
 const PAGE_PT: Catalog = {
+  "Created by": "Criado por",
+  "See {name}'s coach profile": "Ver o perfil de treinador de {name}",
   "Free plan": "Plano gratuito",
   "Sign in to activate {name} and unlock the full training structure.":
     "Entra na tua conta para ativar {name} e desbloquear a estrutura de treino completa.",
@@ -448,6 +451,13 @@ export const GenericProgramDetailPage = () => {
     void load();
   }, [load]);
 
+  // One view per opened program feeds the coach showcase ranking; the server
+  // deduplicates repeat visits and ignores the coach's own.
+  const loadedProgramId = detail?.id;
+  useEffect(() => {
+    if (loadedProgramId) void recordProgramView(loadedProgramId);
+  }, [loadedProgramId]);
+
   // The whole purchase lifecycle now lives in a shared hook, so Generic and
   // Premium Level 1 checkout cannot drift apart.
   const checkout = useProgramCheckout({
@@ -500,6 +510,21 @@ export const GenericProgramDetailPage = () => {
             <>
               <header className={styles.heading}>
                 <h1 className={styles.title}>{detail.name}</h1>
+                {detail.coach ? (
+                  <Link
+                    to={`/coaches/${encodeURIComponent(detail.coach.id)}`}
+                    className={styles.coach}
+                    aria-label={tr("See {name}'s coach profile", { name: detail.coach.name })}
+                  >
+                    <span className={styles.coachAvatar} aria-hidden="true">
+                      {coachInitials(detail.coach.name)}
+                    </span>
+                    <span>
+                      <span className={styles.coachLabel}>{tr("Created by")}</span>
+                      <span className={styles.coachName}>{detail.coach.name}</span>
+                    </span>
+                  </Link>
+                ) : null}
                 {detail.description ? (
                   <p className={styles.subtitle}>{detail.description}</p>
                 ) : null}

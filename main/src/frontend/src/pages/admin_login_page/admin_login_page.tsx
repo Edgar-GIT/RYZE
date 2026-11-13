@@ -42,7 +42,9 @@ const AdminLoginPage = () => {
     }
 
     const form = new FormData(event.currentTarget);
-    const username = String(form.get("admin-username") ?? "");
+    // Usernames and access codes never contain spaces: a pasted value often
+    // carries a stray one. The password is sent exactly as typed.
+    const username = String(form.get("admin-username") ?? "").trim();
     const password = String(form.get("admin-password") ?? "");
 
     if (!username || !password) {
@@ -70,7 +72,7 @@ const AdminLoginPage = () => {
     }
 
     const form = new FormData(event.currentTarget);
-    const accessCode = String(form.get("access-code") ?? "");
+    const accessCode = String(form.get("access-code") ?? "").trim();
 
     if (!accessCode) {
       setErrorMessage("Please enter your access code.");

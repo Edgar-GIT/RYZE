@@ -511,6 +511,16 @@ Platform administrators are configuration-only accounts defined entirely in
 is no registration endpoint; the values only take effect after a backend
 restart. See "Admin Authentication Configuration" above.
 
+Where to sign in: members and trainers use `/login` with their **email**
+(there are no member usernames); administrators use `/admin/login` with the
+username, the password and then the access code. Write `.env` values without
+quotes so they can be copied straight into the form. Ten failed attempts in 15
+minutes from one address lock that sign-in step for the rest of the window.
+
+In local development (no `VITE_API_BASE_URL`), the web app calls the API on
+port 8080 of the host it was opened on, so both `http://localhost:5173` and
+`http://127.0.0.1:5173` keep the session after signing in.
+
 ## Admin Test Mode (Optional)
 
 Test Mode lets the Technical Administrator (ADMIN_1) impersonate a predefined
@@ -559,10 +569,32 @@ only accounts from `.env`; the Test Client and Test Trainer personas are
 provisioned by the existing Test Mode service. The launcher never writes
 database tables directly and does not print credentials.
 
+Accounts are checked before anything is changed: an account whose `.env`
+password already signs in is left untouched (its browser sessions stay
+valid). Otherwise the client is registered or has its password reset by
+ADMIN_1, and the trainer is reset, reactivated, approved through the normal
+application flow (when the email belongs to a plain account) or created by
+ADMIN_1. The administrative lookups walk every page of the listings, so a
+database with many accounts is handled.
+
+The API is built once and run as a binary, so Ctrl-C really stops it. When a
+Vite server is already answering on port 5173 it is reused (it reads the same
+`.env`); an API already answering on port 8080 that this script did not start
+stops the launcher with a clear message. Servers left by an interrupted run of
+the launcher are stopped on the next run (their PIDs are kept under
+`.runtime/ryze-test/`).
+
+To only check (and, when needed, repair) the test accounts against an API that
+is already running:
+
+```bash
+./start_test_mode.sh --accounts-only
+```
+
 The bundled exercise media is third-party content and is enabled here only
 for local testing. Do not use this setting for production until its licence
-has been confirmed. Press Ctrl-C to stop the local API and frontend; the
-database service is intentionally left running.
+has been confirmed. Press Ctrl-C to stop the local API (and the frontend when
+the launcher started it); the database service is intentionally left running.
 
 ### DBeaver — PostgreSQL local
 

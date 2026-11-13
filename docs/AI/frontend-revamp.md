@@ -89,6 +89,19 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-13 (v2.111.0) — Owner request: more life on the Feedback page (top
+  and around the cards only) and a 3D "WOW" for the Our Vision hero, plus the
+  coach showcase and the ADMIN_1 audit log. Feedback: CSS-only drifting
+  lights, staggered entrance, a word-only highlights ticker, a travelling edge
+  light and Before / After labels on the story photos (the owner-removed
+  result chips stay removed). Our Vision: a lazily imported Three.js tunnel of
+  identical app cards behind the still RYZE card from 768px with WebGL; phones,
+  reduced motion and no-WebGL keep the flat wall (now CSS-animated) and never
+  download Three.js. Coach showcase: an optional `coach` prop on the shared
+  `ProgramCard` and `ProgramRow` (existing consumers pass no coach, so their
+  markup is unchanged), a "Featured coach programs"
+  zone, "Created by" on the program detail and the `/coaches/:trainerId`
+  page. Protected parts untouched.
 - 2026-11-13 (v2.110.0) — Owner request: a PT | EN toggle that changes the
   whole site. Interpretation applied to protected parts, to be confirmed by
   the owner: their English text is unchanged and Portuguese is added beside

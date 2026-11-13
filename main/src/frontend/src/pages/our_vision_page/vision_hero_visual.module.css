@@ -1,0 +1,87 @@
+/* Our Vision hero: the 3D tunnel of identical apps behind the RYZE card. */
+
+.stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1 / 1.02;
+  isolation: isolate;
+  perspective: 1100px;
+}
+
+.canvasHost {
+  position: absolute;
+  inset: -12% -18%;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 900ms ease;
+  -webkit-mask-image: radial-gradient(closest-side, #000 62%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 62%, transparent 100%);
+  pointer-events: none;
+}
+
+.ready .canvasHost {
+  opacity: 1;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The RYZE card floats in front, tilting with the pointer like a hologram. */
+.cardWrap {
+  --tilt-x: 0;
+  --tilt-y: 0;
+  position: relative;
+  z-index: 1;
+  width: min(23rem, 70%);
+  transform:
+    rotateX(calc(var(--tilt-y) * -9deg))
+    rotateY(calc(var(--tilt-x) * 12deg));
+  transform-style: preserve-3d;
+  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: float 6s ease-in-out infinite;
+}
+
+.card {
+  margin: 0;
+  box-shadow:
+    0 0 0 6px rgba(0, 203, 255, 0.12),
+    0 0 110px rgba(0, 203, 255, 0.6),
+    0 40px 80px -30px rgba(0, 0, 0, 0.95);
+}
+
+/* A moving glare across the card surface, following the pointer. */
+.glare {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 1.25rem;
+  background: radial-gradient(
+    60% 50% at calc(50% + var(--tilt-x) * 40%) calc(30% + var(--tilt-y) * 40%),
+    rgba(255, 255, 255, 0.38),
+    transparent 70%
+  );
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardWrap {
+    animation: none;
+    transition: none;
+  }
+}
