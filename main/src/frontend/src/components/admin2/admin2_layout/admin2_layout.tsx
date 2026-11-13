@@ -84,15 +84,24 @@ export default function Admin2Layout({ children }: { children: React.ReactNode }
 
   return (
     <div className={styles.admin2Layout}>
-      <button
-        type="button"
-        className={styles.mobileMenuToggle}
-        aria-label={sidebarOpen ? "Close admin menu" : "Open admin menu"}
-        aria-expanded={sidebarOpen}
-        onClick={() => setSidebarOpen((open) => !open)}
-      >
-        {sidebarOpen ? <X size={16} aria-hidden="true" /> : <Menu size={16} aria-hidden="true" />}
-      </button>
+      {/* Phones: a top bar with the menu button and the console name. */}
+      <div className={styles.mobileBar}>
+        <button
+          type="button"
+          className={styles.mobileMenuToggle}
+          aria-label={sidebarOpen ? "Close admin menu" : "Open admin menu"}
+          aria-expanded={sidebarOpen}
+          onClick={() => setSidebarOpen((open) => !open)}
+        >
+          {sidebarOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+        </button>
+        <Link to="/admin2/dashboard" className={styles.mobileBrand}>
+          <img src={ryzeIcon} alt="" width="28" height="28" />
+          <span>
+            RYZE <i>Console</i>
+          </span>
+        </Link>
+      </div>
 
       <aside
         className={joinClassNames(styles.sidebar, sidebarOpen && styles.sidebarOpen)}

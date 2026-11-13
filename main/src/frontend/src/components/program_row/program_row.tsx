@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CarouselArrow } from "@/components/carousel_arrow/carousel_arrow";
 import { ProgramCard } from "@/components/program_card/program_card";
+import { useMarketplaceCopy } from "@/constants/marketplace_copy";
 import type { MarketplaceProgram } from "@/services/marketplace_api";
 import { joinClassNames } from "@utils/class_names";
 
@@ -28,6 +29,7 @@ export const ProgramRow = ({
   forceFree = false,
   ownedProgramIds
 }: ProgramRowProps) => {
+  const { text } = useMarketplaceCopy();
   const [page, setPage] = useState(0);
   const [direction, setDirection] = useState<Direction>("forward");
   const [phase, setPhase] = useState<Phase>("idle");
@@ -95,7 +97,7 @@ export const ProgramRow = ({
           direction="back"
           onClick={goBack}
           disabled={atStart}
-          ariaLabel={`Previous ${title} programs`}
+          ariaLabel={text.previous(title)}
         />
 
         <div className={styles.cards}>
@@ -120,7 +122,7 @@ export const ProgramRow = ({
           direction="forward"
           onClick={goNext}
           disabled={atEnd}
-          ariaLabel={`Next ${title} programs`}
+          ariaLabel={text.next(title)}
         />
       </div>
     </section>

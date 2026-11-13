@@ -11,6 +11,9 @@ import {
 
 import { ExerciseMediaPlaceholder } from "./exercise_media_placeholder";
 
+import { useGettext } from "@/i18n/i18n";
+
+import { EXERCISE_LIBRARY_PT } from "./exercise_library.pt";
 import styles from "./exercise_preview_body.module.css";
 
 interface ExercisePreviewBodyProps {
@@ -33,6 +36,7 @@ export const ExercisePreviewBody = ({
   titleAs: TitleTag = "h3",
   layout = "stacked"
 }: ExercisePreviewBodyProps) => {
+  const tr = useGettext(EXERCISE_LIBRARY_PT);
   const media = exerciseMediaView(exercise);
   const [failedURL, setFailedURL] = useState("");
   const mediaFailed = media.url !== "" && media.url === failedURL;
@@ -48,19 +52,19 @@ export const ExercisePreviewBody = ({
           muted
           playsInline
           className={styles.media}
-          aria-label={`${exercise.name} demonstration`}
+          aria-label={tr("{name} demonstration", { name: exercise.name })}
           onError={() => setFailedURL(media.url)}
         />
       ) : !mediaFailed && media.kind === "image" ? (
         <img
           src={media.url}
-          alt={`${exercise.name} demonstration`}
+          alt={tr("{name} demonstration", { name: exercise.name })}
           className={styles.media}
           loading="lazy"
           onError={() => setFailedURL(media.url)}
         />
       ) : (
-        <ExerciseMediaPlaceholder label="Demonstration video" />
+        <ExerciseMediaPlaceholder label={tr("Demonstration video")} />
       )}
       {media.attribution ? <p className={styles.attribution}>{media.attribution}</p> : null}
     </>
@@ -72,8 +76,8 @@ export const ExercisePreviewBody = ({
         <TitleTag className={styles.name}>{exercise.name}</TitleTag>
         <p className={styles.meta}>{exerciseMetaLine(exercise)}</p>
         <div className={styles.badges}>
-          <span className={styles.badge}>{exercise.movement_category || "Exercise"}</span>
-          <span className={styles.badge}>{exercise.difficulty || "Difficulty"}</span>
+          <span className={styles.badge}>{exercise.movement_category || tr("Exercise")}</span>
+          <span className={styles.badge}>{exercise.difficulty || tr("Difficulty")}</span>
         </div>
       </div>
 
@@ -83,7 +87,7 @@ export const ExercisePreviewBody = ({
 
       {steps.length > 0 ? (
         <div className={styles.section}>
-          <h4 className={styles.sectionTitle}>Instructions</h4>
+          <h4 className={styles.sectionTitle}>{tr("Instructions")}</h4>
           <ol className={styles.steps}>
             {steps.map((step, index) => (
               <li key={`${index}-${step.slice(0, 24)}`} className={styles.step}>
@@ -94,14 +98,14 @@ export const ExercisePreviewBody = ({
         </div>
       ) : exercise.instructions ? (
         <div className={styles.section}>
-          <h4 className={styles.sectionTitle}>Instructions</h4>
+          <h4 className={styles.sectionTitle}>{tr("Instructions")}</h4>
           <p className={styles.instructions}>{exercise.instructions}</p>
         </div>
       ) : null}
 
       {alternatives.length > 0 ? (
         <div className={styles.section}>
-          <h4 className={styles.sectionTitle}>Alternatives</h4>
+          <h4 className={styles.sectionTitle}>{tr("Alternatives")}</h4>
           <ul className={styles.alternatives}>
             {alternatives.map((alternative) => (
               <li key={alternative.id} className={styles.alternative}>
@@ -115,7 +119,7 @@ export const ExercisePreviewBody = ({
                     className={styles.alternativeAction}
                     onClick={() => onSelectAlternative(alternative.alternative_exercise_id)}
                   >
-                    {alternativeActionLabel}
+                    {tr(alternativeActionLabel)}
                     <ArrowRight size={14} />
                   </button>
                 ) : null}
@@ -131,7 +135,7 @@ export const ExercisePreviewBody = ({
     return (
       <div className={styles.split}>
         <div className={styles.content}>{details}</div>
-        <aside className={styles.mediaColumn} aria-label="Exercise demonstration">
+        <aside className={styles.mediaColumn} aria-label={tr("Exercise demonstration")}>
           {mediaContent}
         </aside>
       </div>

@@ -390,7 +390,7 @@ export const AdminUsersPage = () => {
       ) : (
         <>
           <div className={styles.tableCard}>
-            <table className={styles.usersTable}>
+            <table className={`${styles.usersTable} app-stack-table`}>
               <thead>
                 <tr>
                   <th scope="col">Name</th>
@@ -403,9 +403,9 @@ export const AdminUsersPage = () => {
                 {filteredUsers.map((user) => (
                   <tr key={user.id}>
                     <td className={styles.nameCell}>{fullName(user)}</td>
-                    <td className={styles.emailCell}>{user.email}</td>
-                    <td>{formatAdminDate(user.created_at)}</td>
-                    <td>
+                    <td className={styles.emailCell} data-wide="">{user.email}</td>
+                    <td data-label="Created">{formatAdminDate(user.created_at)}</td>
+                    <td data-actions="">
                       <div className={styles.actionsCell}>
                         {activeTab === "active" ? (
                           <>

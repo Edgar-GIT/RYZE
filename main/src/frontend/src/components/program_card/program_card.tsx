@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { BRAND_ASSETS } from "@/constants/brand_assets";
+import { useMarketplaceCopy } from "@/constants/marketplace_copy";
 import {
   formatMarketplacePrice,
   FREE_PROGRAM_TYPE,
@@ -15,8 +16,6 @@ interface ProgramCardProps {
   owned?: boolean;
 }
 
-const part = (value: string | null): string => value ?? "";
-
 // Each card gets one of four brand gradients, chosen from its id so a card
 // keeps its colour wherever it appears.
 const TONES = ["royal", "ring", "cyan", "deep"] as const;
@@ -27,16 +26,18 @@ const toneFor = (id: string) => TONES[[...id].reduce((sum, character) => sum + c
 const buildMetaLine = (items: string[]): string => items.filter(Boolean).join(" · ");
 
 export const ProgramCard = ({ program, forceFree = false, owned = false }: ProgramCardProps) => {
+  const { text, locale, valueLabel } = useMarketplaceCopy();
   const schedule = buildMetaLine([
-    program.duration_weeks !== null ? `${program.duration_weeks} weeks` : "",
-    program.frequency_per_week !== null ? `${program.frequency_per_week} days/week` : ""
+    program.duration_weeks !== null ? text.weeks(program.duration_weeks) : "",
+    program.frequency_per_week !== null ? text.daysPerWeek(program.frequency_per_week) : ""
   ]);
-  const category = buildMetaLine([part(program.training_type), part(program.level)]);
+  const category = buildMetaLine([valueLabel(program.training_type), valueLabel(program.level)]);
   const isFree = forceFree || program.type === FREE_PROGRAM_TYPE;
   const price = formatMarketplacePrice(
     forceFree ? 0 : program.price_minor_units,
     program.currency,
-    program.type
+    program.type,
+    locale
   );
 
   return (
@@ -44,11 +45,11 @@ export const ProgramCard = ({ program, forceFree = false, owned = false }: Progr
       <Link
         to={owned ? `/services/my-programs/${program.id}` : `/services/generic-program/${program.id}`}
         className={styles.link}
-        aria-label={owned ? `Open ${program.name}` : `View ${program.name}`}
+        aria-label={owned ? text.open(program.name) : text.view(program.name)}
       >
         <div className={styles.image} data-tone={toneFor(program.id)} aria-hidden="true">
           <img className={styles.logo} src={BRAND_ASSETS.icon} alt="" />
-          {isFree && !owned ? <span className={styles.freeBadge}>Free</span> : null}
+          {isFree && !owned ? <span className={styles.freeBadge}>{text.free}</span> : null}
         </div>
         <div className={styles.body}>
           <h3 className={styles.title}>{program.name}</h3>
@@ -59,7 +60,7 @@ export const ProgramCard = ({ program, forceFree = false, owned = false }: Progr
             </div>
           ) : null}
           {owned ? (
-            <span className={styles.owned}>Owned</span>
+            <span className={styles.owned}>{text.owned}</span>
           ) : (
             <span className={isFree ? styles.priceFree : styles.price}>{price}</span>
           )}

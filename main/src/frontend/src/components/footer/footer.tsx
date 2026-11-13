@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Container } from "@/components/container/container";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { CONTACT_EMAIL, CONTACT_INSTAGRAM_URL, CONTACT_WHATSAPP_URL } from "@/constants/contact";
+import { useI18n } from "@/i18n/i18n";
 
 import styles from "./footer.module.css";
 
@@ -44,24 +45,58 @@ const footerColumns = [
 
 const utilityLinks = ["Privacy", "Terms", "Cookies"] as const;
 
-export const Footer = () => (
+const DESCRIPTION =
+  "Premium fitness technology. Human coaching, adaptive programming and nutrition intelligence in one system.";
+
+// The footer is a protected part: the English copy above stays exactly as the
+// owner set it. Portuguese visitors see the same footer with these labels.
+const PT_LABELS: Record<string, string> = {
+  Platform: "Plataforma",
+  "Training engine": "Motor de treino",
+  Nutrition: "Nutrição",
+  Analytics: "Análise",
+  Coaches: "Treinadores",
+  "Mobile app": "App móvel",
+  Company: "Empresa",
+  "Our Vision": "A nossa visão",
+  Careers: "Carreiras",
+  Press: "Imprensa",
+  Partners: "Parceiros",
+  Contact: "Contacto",
+  Resources: "Recursos",
+  Method: "Método",
+  Science: "Ciência",
+  "Help centre": "Centro de ajuda",
+  Changelog: "Novidades",
+  Privacy: "Privacidade",
+  Terms: "Termos",
+  Cookies: "Cookies",
+  [DESCRIPTION]:
+    "Tecnologia de fitness premium. Acompanhamento humano, programação adaptativa e inteligência nutricional num só sistema.",
+  "RYZE home": "Início RYZE",
+  "Footer navigation": "Navegação do rodapé",
+  "Legal links": "Links legais",
+  "All rights reserved": "Todos os direitos reservados"
+};
+
+export const Footer = () => {
+  const { locale } = useI18n();
+  const l = (text: string) => (locale === "pt" ? (PT_LABELS[text] ?? text) : text);
+  return (
   <footer className={styles.footer}>
     <Container className={styles.inner}>
       <div className={styles.main}>
         <div className={styles.brandArea}>
-          <Link className={styles.brand} to="/" aria-label="RYZE home">
+          <Link className={styles.brand} to="/" aria-label={l("RYZE home")}>
             <img className={styles.footerLogo} src={BRAND_ASSETS.slogan} alt="RYZE" />
           </Link>
-          <p>
-            Premium fitness technology. Human coaching, adaptive programming and
-            nutrition intelligence in one system.
-          </p>
+          <p>{l(DESCRIPTION)}</p>
         </div>
 
-        <nav className={styles.columns} aria-label="Footer navigation">
+        <nav className={styles.columns} aria-label={l("Footer navigation")}>
           {footerColumns.map((column) => (
             <div className={styles.column} key={column.title}>
-              <h2>{column.title}</h2>
+              <h2>{l(column.title)}</h2>
               <ul>
                 {column.links.map((link) => (
                   <li key={link.label}>
@@ -71,10 +106,10 @@ export const Footer = () => (
                         target={link.href.startsWith("http") ? "_blank" : undefined}
                         rel={link.href.startsWith("http") ? "noreferrer" : undefined}
                       >
-                        {link.label}
+                        {l(link.label)}
                       </a>
                     ) : (
-                      <Link to={link.to}>{link.label}</Link>
+                      <Link to={link.to}>{l(link.label)}</Link>
                     )}
                   </li>
                 ))}
@@ -86,13 +121,13 @@ export const Footer = () => (
 
       <div className={styles.footerBottom}>
         <p className={styles.copyright}>
-          © {currentYear} RYZE - All rights reserved
+          © {currentYear} RYZE - {l("All rights reserved")}
         </p>
 
-        <div className={styles.utilities} aria-label="Legal links">
+        <div className={styles.utilities} aria-label={l("Legal links")}>
           {utilityLinks.map((link) => (
             <Link key={link} to="/our-vision">
-              {link}
+              {l(link)}
             </Link>
           ))}
         </div>
@@ -100,3 +135,4 @@ export const Footer = () => (
     </Container>
   </footer>
 );
+};

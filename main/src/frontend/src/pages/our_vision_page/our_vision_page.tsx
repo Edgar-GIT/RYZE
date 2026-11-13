@@ -26,10 +26,12 @@ import { BrandStop, PublicAction, Waves } from "@/components/public_ui/public_ui
 import ui from "@/components/public_ui/public_ui.module.css";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { CONTACT_WHATSAPP_URL } from "@/constants/contact";
+import { useGettext } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 import ryzeIconBanner from "@resources/img/logo/ryze_icon2.png";
 
 import styles from "./our_vision_page.module.css";
+import { OUR_VISION_PT } from "./our_vision_page.pt";
 import { StandoutVisual } from "./standout_visual";
 
 interface IconItem {
@@ -101,26 +103,28 @@ const IconTile = ({ icon: Icon }: { icon: LucideIcon }) => (
   </span>
 );
 
-export const OurVisionPage = () => (
+export const OurVisionPage = () => {
+  const tr = useGettext(OUR_VISION_PT);
+  return (
   <PageWrapper className={ui.page}>
     <section className={joinClassNames(ui.toneNavy, styles.hero)} aria-labelledby="vision-hero-heading">
       <div className={joinClassNames(ui.container, styles.heroLayout)}>
         <div className={styles.heroCopy}>
-          <p className={ui.label}>Our vision</p>
+          <p className={ui.label}>{tr("Our vision")}</p>
           <h1 id="vision-hero-heading" className={ui.display}>
-            Thousands of fitness apps. All the same. <span className={ui.hl}>RYZE isn&apos;t.</span>
+            {tr("Thousands of fitness apps. All the same.")} <span className={ui.hl}>{tr("RYZE isn't.")}</span>
           </h1>
           <p className={ui.lead}>
-            Most fitness platforms sell the same static plans and stop there. RYZE brings training,
-            nutrition and real trainers into one platform — and keeps evolving, with AI-generated
-            programs next on our roadmap.
+            {tr(
+              "Most fitness platforms sell the same static plans and stop there. RYZE brings training, nutrition and real trainers into one platform — and keeps evolving, with AI-generated programs next on our roadmap."
+            )}
           </p>
-          <nav aria-label="On this page">
+          <nav aria-label={tr("On this page")}>
             <ul className={styles.pageNav}>
               {pageSections.map((section) => (
                 <li key={section.href}>
                   <a className={joinClassNames(styles.pageNavLink, ui.focusRing)} href={section.href}>
-                    {section.label}
+                    {tr(section.label)}
                     <ArrowDown aria-hidden="true" />
                   </a>
                 </li>
@@ -139,20 +143,20 @@ export const OurVisionPage = () => (
     >
       <div className={joinClassNames(ui.container, styles.stack)}>
         <div className={styles.intro}>
-          <p className={ui.label}>Why RYZE</p>
+          <p className={ui.label}>{tr("Why RYZE")}</p>
           <h2 id="why-ryze-heading" className={ui.heading}>
-            Others stop at a plan. <span className={ui.hl}>RYZE keeps going.</span>
+            {tr("Others stop at a plan.")} <span className={ui.hl}>{tr("RYZE keeps going.")}</span>
           </h2>
         </div>
 
         <div className={styles.compare}>
           <div className={joinClassNames(styles.compareColumn, styles.compareOthers)}>
-            <h3>Typical fitness apps</h3>
+            <h3>{tr("Typical fitness apps")}</h3>
             <ul>
               {TYPICAL.map((item) => (
                 <li key={item}>
                   <X aria-hidden="true" strokeWidth={2.2} />
-                  {item}
+                  {tr(item)}
                 </li>
               ))}
             </ul>
@@ -167,8 +171,8 @@ export const OurVisionPage = () => (
                 <li key={item.text}>
                   <Check aria-hidden="true" strokeWidth={2.6} />
                   <span>
-                    {item.text}
-                    {item.next ? <em className={styles.nextTag}>Next</em> : null}
+                    {tr(item.text)}
+                    {item.next ? <em className={styles.nextTag}>{tr("Next")}</em> : null}
                   </span>
                 </li>
               ))}
@@ -185,26 +189,25 @@ export const OurVisionPage = () => (
     >
       <div className={joinClassNames(ui.container, styles.stack)}>
         <div className={styles.intro}>
-          <p className={ui.label}>Get started</p>
+          <p className={ui.label}>{tr("Get started")}</p>
           <h2 id="how-it-works-heading" className={ui.heading}>
-            Start your journey in <span className={ui.hl}>minutes.</span> Transform for life
+            {tr("Start your journey in")} <span className={ui.hl}>{tr("minutes.")}</span> {tr("Transform for life")}
             <BrandStop />
           </h2>
           <p className={ui.lead}>
-            RYZE makes it easy to start. Set your goals, follow your program and let technology handle
-            the rest.
+            {tr("RYZE makes it easy to start. Set your goals, follow your program and let technology handle the rest.")}
           </p>
         </div>
 
-        <ol className={styles.steps} aria-label="How RYZE works">
+        <ol className={styles.steps} aria-label={tr("How RYZE works")}>
           {howItWorksSteps.map((step, index) => (
             <li key={step.title}>
               <Reveal className={joinClassNames(ui.surface, styles.step)} delay={index * 0.06} y={20}>
                 <span className={styles.stepNumber} aria-hidden="true">
                   {String(index + 1).padStart(2, "0")}
                 </span>
-                <h3>{step.title}</h3>
-                <p>{step.text}</p>
+                <h3>{tr(step.title)}</h3>
+                <p>{tr(step.text)}</p>
               </Reveal>
             </li>
           ))}
@@ -219,20 +222,20 @@ export const OurVisionPage = () => (
     >
       <div className={joinClassNames(ui.container, styles.stack)}>
         <div className={styles.intro}>
-          <p className={ui.label}>Roadmap</p>
+          <p className={ui.label}>{tr("Roadmap")}</p>
           <h2 id="roadmap-heading" className={ui.heading}>
-            Where <span className={ui.hl}>RYZE</span> is going.
+            {tr("Where")} <span className={ui.hl}>RYZE</span> {tr("is going.")}
           </h2>
           <p className={ui.lead}>
-            The roadmap is the story. Each step expands the ecosystem without abandoning the core.
+            {tr("The roadmap is the story. Each step expands the ecosystem without abandoning the core.")}
           </p>
         </div>
 
-        <ol className={styles.roadmap} aria-label="RYZE roadmap">
+        <ol className={styles.roadmap} aria-label={tr("RYZE roadmap")}>
           {roadmapPhases.map((phase, index) => (
             <li key={phase.phase} className={joinClassNames(styles.phase, index === 0 && styles.phaseCurrent)}>
               <span className={styles.phaseNode} aria-hidden="true" />
-              <h3 className={styles.phaseName}>{phase.phase}</h3>
+              <h3 className={styles.phaseName}>{tr(phase.phase)}</h3>
               <ul className={styles.milestones}>
                 {phase.milestones.map((milestone) => {
                   const Icon = milestone.icon;
@@ -242,7 +245,7 @@ export const OurVisionPage = () => (
                       <span className={styles.milestoneIcon} aria-hidden="true">
                         <Icon strokeWidth={1.9} />
                       </span>
-                      {milestone.title}
+                      {tr(milestone.title)}
                     </li>
                   );
                 })}
@@ -260,16 +263,16 @@ export const OurVisionPage = () => (
     >
       <div className={joinClassNames(ui.container, styles.stack)}>
         <div className={styles.intro}>
-          <p className={ui.label}>Continuous evolution</p>
+          <p className={ui.label}>{tr("Continuous evolution")}</p>
           <h2 id="evolution-heading" className={ui.heading}>
-            Software is <span className={ui.hl}>never finished.</span>
+            {tr("Software is")} <span className={ui.hl}>{tr("never finished.")}</span>
           </h2>
           <div className={styles.introAside}>
             <p className={ui.lead}>
-              RYZE keeps receiving new capabilities while the product stays one coherent system.
+              {tr("RYZE keeps receiving new capabilities while the product stays one coherent system.")}
             </p>
             <PublicAction href="#vision-roadmap" variant="quiet">
-              See what&apos;s next
+              {tr("See what's next")}
             </PublicAction>
           </div>
         </div>
@@ -279,8 +282,8 @@ export const OurVisionPage = () => (
             <li key={item.title}>
               <Reveal className={joinClassNames(ui.surface, styles.feature)} delay={(index % 3) * 0.06} y={20}>
                 <IconTile icon={item.icon} />
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
+                <h3>{tr(item.title)}</h3>
+                <p>{tr(item.text)}</p>
               </Reveal>
             </li>
           ))}
@@ -299,12 +302,12 @@ export const OurVisionPage = () => (
           />
           <div className={styles.bannerCopy}>
             <h3>
-              The future of fitness is <span className={ui.hl}>adaptive.</span>
+              {tr("The future of fitness is")} <span className={ui.hl}>{tr("adaptive.")}</span>
             </h3>
-            <p>We&apos;re building more than a platform — we&apos;re building the future.</p>
+            <p>{tr("We're building more than a platform — we're building the future.")}</p>
           </div>
           <PublicAction href="#vision-roadmap" variant="ink" icon={<ArrowRight />}>
-            Join the journey
+            {tr("Join the journey")}
           </PublicAction>
         </div>
       </div>
@@ -313,20 +316,19 @@ export const OurVisionPage = () => (
     <section className={joinClassNames(ui.section, ui.toneNavy)} aria-labelledby="join-heading">
       <div className={joinClassNames(ui.container, styles.stack)}>
         <div className={styles.intro}>
-          <p className={ui.label}>The journey continues</p>
+          <p className={ui.label}>{tr("The journey continues")}</p>
           <h2 id="join-heading" className={ui.heading}>
-            Grow together with RYZE, <span className={ui.hl}>join us now.</span>
+            {tr("Grow together with RYZE,")} <span className={ui.hl}>{tr("join us now.")}</span>
           </h2>
           <div className={styles.introAside}>
             <p className={ui.lead}>
-              We&apos;re building the future of fitness, education and technology. Be part of a
-              community that evolves every day.
+              {tr("We're building the future of fitness, education and technology. Be part of a community that evolves every day.")}
             </p>
             <div className={styles.joinAction}>
               <PublicAction href={CONTACT_WHATSAPP_URL} icon={<ArrowRight />}>
-                Join RYZE
+                {tr("Join RYZE")}
               </PublicAction>
-              <p className={ui.caption}>Opens the RYZE community on WhatsApp.</p>
+              <p className={ui.caption}>{tr("Opens the RYZE community on WhatsApp.")}</p>
             </div>
           </div>
         </div>
@@ -336,17 +338,18 @@ export const OurVisionPage = () => (
             <li key={feature.title} className={styles.joinItem}>
               <IconTile icon={feature.icon} />
               <div>
-                <h3>{feature.title}</h3>
-                <p>{feature.text}</p>
+                <h3>{tr(feature.title)}</h3>
+                <p>{tr(feature.text)}</p>
               </div>
             </li>
           ))}
         </ul>
 
         <p className={styles.statement}>
-          RYZE is more than a platform. <span className={ui.hl}>It&apos;s a movement.</span>
+          {tr("RYZE is more than a platform.")} <span className={ui.hl}>{tr("It's a movement.")}</span>
         </p>
       </div>
     </section>
   </PageWrapper>
-);
+  );
+};

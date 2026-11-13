@@ -1,10 +1,7 @@
 import { AnimatePresence } from "framer-motion";
+import { lazy, Suspense } from "react";
 import { Redirect, Route, Switch, useLocation } from "react-router-dom";
 
-import { AdminLayout } from "@/components/admin/admin_layout/admin_layout";
-import Admin2Layout from "@/components/admin2/admin2_layout/admin2_layout";
-import { Admin2SessionProvider } from "@/components/admin2/admin2_session_context";
-import { TrainerLayout } from "@/components/trainer/trainer_layout/trainer_layout";
 import { TrainerSessionProvider } from "@/components/trainer/trainer_session_context";
 import { AccountPurchaseHistoryPage } from "@/pages/account_purchase_history_page/account_purchase_history_page";
 import { ContactPage } from "@/pages/contact_page/contact_page";
@@ -29,39 +26,16 @@ import { WorkoutHistoryPage } from "@/pages/workout_history_page/workout_history
 import { WorkoutSessionPage } from "@/pages/workout_session_page/workout_session_page";
 import { ServicesPage } from "@/pages/services_page/services_page";
 import { UnderDevelopmentPage } from "@/pages/under_development_page/under_development_page";
-import { AdminAuditPage } from "@/pages/admin/admin_audit_page/admin_audit_page";
-import { AdminConfigurationPage } from "@/pages/admin/admin_configuration_page/admin_configuration_page";
-import { AdminDashboardPage } from "@/pages/admin/admin_dashboard_page/admin_dashboard_page";
-import { AdminDevelopmentPage } from "@/pages/admin/admin_development_page/admin_development_page";
-import { AdminSystemPage } from "@/pages/admin/admin_system_page/admin_system_page";
-import { AdminTestModePage } from "@/pages/admin/admin_test_mode_page/admin_test_mode_page";
-import { AdminTrainerApplicationsPage } from "@/pages/admin/admin_trainer_applications_page/admin_trainer_applications_page";
-import { AdminTrainersPage } from "@/pages/admin/admin_trainers_page/admin_trainers_page";
-import { AdminUsersPage } from "@/pages/admin/admin_users_page/admin_users_page";
 import AdminLoginPage from "@/pages/admin_login_page/admin_login_page";
-import Admin2DashboardPage from "@/pages/admin2/admin2_dashboard_page/admin2_dashboard_page";
-import Admin2PlansPage from "@/pages/admin2/admin2_plans_page/admin2_plans_page";
-import Admin2PremiumLevel2Page from "@/pages/admin2/admin2_premium_level2_page/admin2_premium_level2_page";
-import Admin2PlanCreatePage from "@/pages/admin2/admin2_plan_create_page/admin2_plan_create_page";
-import Admin2PlanDetailPage from "@/pages/admin2/admin2_plan_detail_page/admin2_plan_detail_page";
-import Admin2MarketplacePage from "@/pages/admin2/admin2_marketplace_page/admin2_marketplace_page";
-import Admin2TrainersPage from "@/pages/admin2/admin2_trainers_page/admin2_trainers_page";
-import Admin2ClientsPage from "@/pages/admin2/admin2_clients_page/admin2_clients_page";
-import Admin2SalesPage from "@/pages/admin2/admin2_sales_page/admin2_sales_page";
-import Admin2AnalyticsPage from "@/pages/admin2/admin2_analytics_page/admin2_analytics_page";
-import Admin2FeedbackPage from "@/pages/admin2/admin2_feedback_page/admin2_feedback_page";
-import Admin2SupportPage from "@/pages/admin2/admin2_support_page/admin2_support_page";
-import Admin2ExercisesPage from "@/pages/admin2/admin2_exercises_page/admin2_exercises_page";
-import Admin2SettingsPage from "@/pages/admin2/admin2_settings_page/admin2_settings_page";
 import { TrainerApplyPage } from "@/pages/trainer/trainer_apply_page/trainer_apply_page";
-import { TrainerClientDetailPage } from "@/pages/trainer/trainer_client_detail_page/trainer_client_detail_page";
-import { TrainerClientsPage } from "@/pages/trainer/trainer_clients_page/trainer_clients_page";
-import { TrainerDashboardPage } from "@/pages/trainer/trainer_dashboard_page/trainer_dashboard_page";
-import { TrainerProfilePage } from "@/pages/trainer/trainer_profile_page/trainer_profile_page";
-import { TrainerProgramDetailPage } from "@/pages/trainer/trainer_program_detail_page/trainer_program_detail_page";
-import { TrainerProgramsPage } from "@/pages/trainer/trainer_programs_page/trainer_programs_page";
-import { TrainerPremiumLevel2Page } from "@/pages/trainer/trainer_premium_level2_page/trainer_premium_level2_page";
-import { TrainerPremiumLevel2DetailPage } from "@/pages/trainer/trainer_premium_level2_detail_page/trainer_premium_level2_detail_page";
+
+// The consoles and the trainer area are separate bundles: a visitor of the
+// public site or the member app never downloads them.
+const AdminRoutes = lazy(() => import("./admin_routes"));
+const Admin2Routes = lazy(() => import("./admin2_routes"));
+const TrainerRoutes = lazy(() => import("./trainer_routes"));
+
+const RouteFallback = () => <div role="status" aria-busy="true" style={{ minHeight: "100svh" }} />;
 
 export const AppRoutes = () => {
   const location = useLocation();
@@ -140,74 +114,21 @@ export const AppRoutes = () => {
             </TrainerSessionProvider>
           )}
         />
-        <Route
-          path="/trainer"
-          render={() => (
-            <TrainerSessionProvider>
-              <TrainerLayout>
-                <Switch>
-                  <Redirect from="/trainer" exact to="/trainer/dashboard" />
-                  <Route exact path="/trainer/dashboard" component={TrainerDashboardPage} />
-                  <Route exact path="/trainer/clients" component={TrainerClientsPage} />
-                  <Route exact path="/trainer/clients/:userID" component={TrainerClientDetailPage} />
-                  <Route exact path="/trainer/premium-level-2" component={TrainerPremiumLevel2Page} />
-                  <Route exact path="/trainer/premium-level-2/:requestID" component={TrainerPremiumLevel2DetailPage} />
-                  <Route exact path="/trainer/programs" component={TrainerProgramsPage} />
-                  <Route exact path="/trainer/programs/:programId" component={TrainerProgramDetailPage} />
-                  <Route exact path="/trainer/profile" component={TrainerProfilePage} />
-                  <Redirect to="/trainer/dashboard" />
-                </Switch>
-              </TrainerLayout>
-            </TrainerSessionProvider>
-          )}
-        />
-        <Route
-          path="/admin2"
-          render={() => (
-            <Admin2SessionProvider>
-              <Admin2Layout>
-                <Switch>
-                  <Redirect from="/admin2" exact to="/admin2/dashboard" />
-                  <Route exact path="/admin2/dashboard" component={Admin2DashboardPage} />
-                  <Route exact path="/admin2/plans" component={Admin2PlansPage} />
-                  <Route exact path="/admin2/premium-level-2" component={Admin2PremiumLevel2Page} />
-                  <Route exact path="/admin2/plans/create" component={Admin2PlanCreatePage} />
-                  <Route exact path="/admin2/plans/:programId" component={Admin2PlanDetailPage} />
-                  <Route exact path="/admin2/exercises" component={Admin2ExercisesPage} />
-                  <Route exact path="/admin2/marketplace" component={Admin2MarketplacePage} />
-                  <Route exact path="/admin2/trainers" component={Admin2TrainersPage} />
-                  <Route exact path="/admin2/clients" component={Admin2ClientsPage} />
-                  <Route exact path="/admin2/sales" component={Admin2SalesPage} />
-                  <Route exact path="/admin2/analytics" component={Admin2AnalyticsPage} />
-                  <Route exact path="/admin2/feedback" component={Admin2FeedbackPage} />
-                  <Route exact path="/admin2/support" component={Admin2SupportPage} />
-                  <Route exact path="/admin2/settings" component={Admin2SettingsPage} />
-                  <Redirect to="/admin2/dashboard" />
-                </Switch>
-              </Admin2Layout>
-            </Admin2SessionProvider>
-          )}
-        />
-        <Route
-          path="/admin"
-          render={() => (
-            <AdminLayout>
-              <Switch>
-                <Redirect from="/admin" exact to="/admin/dashboard" />
-                <Route exact path="/admin/dashboard" component={AdminDashboardPage} />
-                <Route exact path="/admin/users" component={AdminUsersPage} />
-                <Route exact path="/admin/trainers" component={AdminTrainersPage} />
-                <Route exact path="/admin/trainer-applications" component={AdminTrainerApplicationsPage} />
-                <Route exact path="/admin/system" component={AdminSystemPage} />
-                <Route exact path="/admin/configuration" component={AdminConfigurationPage} />
-                <Route exact path="/admin/test-mode" component={AdminTestModePage} />
-                <Route exact path="/admin/development" component={AdminDevelopmentPage} />
-                <Route exact path="/admin/audit" component={AdminAuditPage} />
-                <Redirect to="/admin/dashboard" />
-              </Switch>
-            </AdminLayout>
-          )}
-        />
+        <Route path="/trainer">
+          <Suspense fallback={<RouteFallback />}>
+            <TrainerRoutes />
+          </Suspense>
+        </Route>
+        <Route path="/admin2">
+          <Suspense fallback={<RouteFallback />}>
+            <Admin2Routes />
+          </Suspense>
+        </Route>
+        <Route path="/admin">
+          <Suspense fallback={<RouteFallback />}>
+            <AdminRoutes />
+          </Suspense>
+        </Route>
         <Route
           render={() => (
             <UnderDevelopmentPage

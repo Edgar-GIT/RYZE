@@ -11,6 +11,8 @@ import {
   CONTACT_WHATSAPP_LABEL,
   CONTACT_WHATSAPP_URL
 } from "@/constants/contact";
+import { CONTACT_PT } from "@/i18n/catalogs/contact.pt";
+import { useGettext } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./contact_section.module.css";
@@ -24,20 +26,23 @@ const channels = [
 // The contact page in the login page's look: one card with the light-blue wave
 // half (title and official channels) beside the navy half with the form. On
 // phones the bright half comes first.
-export const ContactSection = () => (
+export const ContactSection = () => {
+  const tr = useGettext(CONTACT_PT);
+  return (
   <section className={joinClassNames(ui.toneNavy, styles.section)} id="contact" aria-labelledby="contact-heading">
     <div className={joinClassNames(ui.container, ui.split, styles.layout)}>
       <div className={joinClassNames(ui.toneLight, ui.splitPane, ui.splitLight, styles.copy)}>
-        <p className={ui.label}>Contact</p>
+        <p className={ui.label}>{tr("Contact")}</p>
         <h1 id="contact-heading" className={ui.display}>
-          Talk to <span className={ui.hl}>RYZE.</span>
+          {tr("Talk to")} <span className={ui.hl}>RYZE.</span>
         </h1>
         <p className={ui.lead}>
-          We&apos;re always available to answer questions, discuss partnerships or help you start
-          your fitness journey with a clear program.
+          {tr(
+            "We're always available to answer questions, discuss partnerships or help you start your fitness journey with a clear program."
+          )}
         </p>
 
-        <ul className={styles.channels} aria-label="Official channels">
+        <ul className={styles.channels} aria-label={tr("Official channels")}>
           {channels.map((channel) => {
             const isExternal = channel.href.startsWith("http");
 
@@ -57,7 +62,7 @@ export const ContactSection = () => (
                     <small>{channel.detail}</small>
                   </span>
                   <ArrowUpRight className={styles.rowArrow} aria-hidden="true" />
-                  {isExternal ? <span className={ui.srOnly}> (opens in a new tab)</span> : null}
+                  {isExternal ? <span className={ui.srOnly}>{tr(" (opens in a new tab)")}</span> : null}
                 </a>
               </li>
             );
@@ -71,4 +76,5 @@ export const ContactSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};

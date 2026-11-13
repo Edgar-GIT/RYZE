@@ -13,10 +13,12 @@ import {
   type FeedbackEligibility,
   type PublishedFeedback
 } from "@/services/member_feedback_api";
+import { useGettext, useI18n } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 import { ApiError } from "@utils/http_client";
 
 import styles from "./community_feedback.module.css";
+import { FEEDBACK_PT } from "./feedback_page.pt";
 
 const PAGE_SIZE = 6;
 const RATINGS = [1, 2, 3, 4, 5] as const;
@@ -31,22 +33,24 @@ type FormState =
   | { kind: "sent" }
   | { kind: "error" };
 
-const formatDate = (value: string) =>
-  new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-
-const Stars = ({ rating }: { rating: number }) => (
-  <span className={styles.stars} role="img" aria-label={`Rated ${rating} out of 5 stars`}>
+const Stars = ({ rating }: { rating: number }) => {
+  const tr = useGettext(FEEDBACK_PT);
+  return (
+  <span className={styles.stars} role="img" aria-label={tr("Rated {rating} out of 5 stars", { rating })}>
     {RATINGS.map((value) => (
       <Star key={value} aria-hidden="true" className={value <= rating ? styles.starOn : styles.starOff} />
     ))}
   </span>
-);
+  );
+};
 
 // CommunityFeedback asks members for their feedback and lists the approved
 // feedback of other members. Submitting requires an account with at least one
 // plan (free plans count); the server checks this and publishes a submission
 // only after an administrator approves it.
 export const CommunityFeedback = () => {
+  const tr = useGettext(FEEDBACK_PT);
+  const { formatDate } = useI18n();
   const [state, setState] = useState<FormState>({ kind: "closed" });
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
@@ -97,7 +101,7 @@ export const CommunityFeedback = () => {
       return;
     }
     if (trimmedLength < FEEDBACK_MESSAGE_MIN) {
-      setFormError(`Write at least ${FEEDBACK_MESSAGE_MIN} characters.`);
+      setFormError(tr("Write at least {count} characters.", { count: FEEDBACK_MESSAGE_MIN }));
       return;
     }
     setSending(true);
@@ -129,26 +133,26 @@ export const CommunityFeedback = () => {
               <MessageSquarePlus strokeWidth={1.9} />
             </span>
             <div>
-              <h2 className={ui.title}>We would love to hear your feedback!</h2>
-              <p className={ui.body}>Tell other athletes how your training with RYZE is going.</p>
+              <h2 className={ui.title}>{tr("We would love to hear your feedback!")}</h2>
+              <p className={ui.body}>{tr("Tell other athletes how your training with RYZE is going.")}</p>
             </div>
             {state.kind === "closed" ? (
               <PublicAction onClick={() => void open()} className={styles.askAction}>
-                Leave feedback
+                {tr("Leave feedback")}
               </PublicAction>
             ) : null}
           </div>
 
           <div aria-live="polite">
-            {state.kind === "loading" ? <p className={ui.caption}>Checking your account…</p> : null}
+            {state.kind === "loading" ? <p className={ui.caption}>{tr("Checking your account…")}</p> : null}
 
             {state.kind === "signed-out" ? (
               <div className={styles.notice}>
-                <p className={ui.body}>Log in to share your feedback. Any plan on your account counts, free ones too.</p>
+                <p className={ui.body}>{tr("Log in to share your feedback. Any plan on your account counts, free ones too.")}</p>
                 <div className={ui.actions}>
-                  <PublicAction to="/login">Log in</PublicAction>
+                  <PublicAction to="/login">{tr("Log in")}</PublicAction>
                   <PublicAction to="/register" variant="ghostOnDark">
-                    Create account
+                    {tr("Create account")}
                   </PublicAction>
                 </div>
               </div>
@@ -156,30 +160,30 @@ export const CommunityFeedback = () => {
 
             {state.kind === "no-plan" ? (
               <div className={styles.notice}>
-                <p className={ui.body}>Feedback opens once you have a plan. Free training plans count too.</p>
+                <p className={ui.body}>{tr("Feedback opens once you have a plan. Free training plans count too.")}</p>
                 <PublicAction to="/services/generic-program" variant="ghostOnDark">
-                  Find a plan
+                  {tr("Find a plan")}
                 </PublicAction>
               </div>
             ) : null}
 
             {state.kind === "pending" ? (
               <p className={joinClassNames(ui.body, styles.notice)}>
-                Thanks! Your feedback is being reviewed. You can send another once it has been reviewed.
+                {tr("Thanks! Your feedback is being reviewed. You can send another once it has been reviewed.")}
               </p>
             ) : null}
 
             {state.kind === "sent" ? (
               <p className={joinClassNames(ui.body, styles.notice, styles.success)}>
-                Thank you! Your feedback will appear here after a quick review.
+                {tr("Thank you! Your feedback will appear here after a quick review.")}
               </p>
             ) : null}
 
             {state.kind === "error" ? (
               <div className={styles.notice}>
-                <p className={ui.body}>We couldn&apos;t check your account right now.</p>
+                <p className={ui.body}>{tr("We couldn't check your account right now.")}</p>
                 <PublicAction onClick={() => void open()} variant="ghostOnDark">
-                  Try again
+                  {tr("Try again")}
                 </PublicAction>
               </div>
             ) : null}
@@ -188,7 +192,7 @@ export const CommunityFeedback = () => {
           {state.kind === "form" ? (
             <form className={styles.form} onSubmit={handleSubmit} noValidate>
               <fieldset className={styles.rating}>
-                <legend className={styles.legend}>Your rating</legend>
+                <legend className={styles.legend}>{tr("Your rating")}</legend>
                 <div className={styles.starPicker} onMouseLeave={() => setHovered(0)}>
                   {RATINGS.map((value) => (
                     <label
@@ -205,43 +209,44 @@ export const CommunityFeedback = () => {
                         className={ui.srOnly}
                       />
                       <Star aria-hidden="true" />
-                      <span className={ui.srOnly}>
-                        {value} {value === 1 ? "star" : "stars"}
-                      </span>
+                      <span className={ui.srOnly}>{tr(value === 1 ? "{count} star" : "{count} stars", { count: value })}</span>
                     </label>
                   ))}
                 </div>
               </fieldset>
 
               <label className={styles.field} htmlFor={messageId}>
-                <span className={styles.legend}>Your feedback</span>
+                <span className={styles.legend}>{tr("Your feedback")}</span>
                 <textarea
                   id={messageId}
                   value={message}
                   maxLength={FEEDBACK_MESSAGE_MAX}
                   rows={5}
-                  placeholder="What changed for you since you started?"
+                  placeholder={tr("What changed for you since you started?")}
                   aria-describedby={counterId}
                   onChange={(event) => setMessage(event.target.value)}
                 />
                 <span id={counterId} className={ui.caption}>
-                  {trimmedLength}/{FEEDBACK_MESSAGE_MAX} · at least {FEEDBACK_MESSAGE_MIN} characters. Shown with your
-                  first name and last initial.
+                  {tr("{length}/{max} · at least {min} characters. Shown with your first name and last initial.", {
+                    length: trimmedLength,
+                    max: FEEDBACK_MESSAGE_MAX,
+                    min: FEEDBACK_MESSAGE_MIN
+                  })}
                 </span>
               </label>
 
               {formError ? (
                 <p className={styles.error} role="alert">
-                  {formError}
+                  {tr(formError)}
                 </p>
               ) : null}
 
               <div className={ui.actions}>
                 <PublicAction type="submit" disabled={!canSend}>
-                  {sending ? "Sending…" : "Send feedback"}
+                  {sending ? tr("Sending…") : tr("Send feedback")}
                 </PublicAction>
                 <PublicAction variant="ghostOnDark" onClick={() => setState({ kind: "closed" })}>
-                  Cancel
+                  {tr("Cancel")}
                 </PublicAction>
               </div>
             </form>
@@ -250,18 +255,18 @@ export const CommunityFeedback = () => {
 
         <div className={styles.community}>
           <h2 id="community-heading" className={ui.heading}>
-            Other feedback from <span className={ui.hl}>our athletes.</span>
+            {tr("Other feedback from")} <span className={ui.hl}>{tr("our athletes.")}</span>
           </h2>
 
           {listState === "error" && items.length === 0 ? (
             <div className={styles.notice}>
-              <p className={ui.body}>Feedback couldn&apos;t be loaded right now.</p>
+              <p className={ui.body}>{tr("Feedback couldn't be loaded right now.")}</p>
               <PublicAction variant="ghostOnDark" onClick={() => void loadPage(1)}>
-                Try again
+                {tr("Try again")}
               </PublicAction>
             </div>
           ) : listState === "ready" && items.length === 0 ? (
-            <p className={ui.body}>No feedback has been published yet. Be the first to share yours.</p>
+            <p className={ui.body}>{tr("No feedback has been published yet. Be the first to share yours.")}</p>
           ) : (
             <ul className={styles.list}>
               {items.map((item) => (
@@ -282,10 +287,10 @@ export const CommunityFeedback = () => {
             </ul>
           )}
 
-          {listState === "loading" ? <p className={ui.caption}>Loading feedback…</p> : null}
+          {listState === "loading" ? <p className={ui.caption}>{tr("Loading feedback…")}</p> : null}
           {listState === "ready" && page < totalPages ? (
             <PublicAction variant="ghostOnDark" onClick={() => void loadPage(page + 1)} className={styles.more}>
-              Show more
+              {tr("Show more")}
             </PublicAction>
           ) : null}
         </div>

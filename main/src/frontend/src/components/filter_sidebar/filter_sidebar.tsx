@@ -2,6 +2,7 @@ import { Check, RotateCcw } from "lucide-react";
 
 import { joinClassNames } from "@utils/class_names";
 import type { FilterGroup } from "@/constants/marketplace";
+import { useMarketplaceCopy } from "@/constants/marketplace_copy";
 
 import styles from "./filter_sidebar.module.css";
 
@@ -20,13 +21,14 @@ export const FilterSidebar = ({
   onClear,
   className
 }: FilterSidebarProps) => {
+  const { text, valueLabel, groupTitle } = useMarketplaceCopy();
   const hasSelection = Object.values(selected).some((options) => options.length > 0);
 
   return (
     <div className={joinClassNames(styles.sidebar, className)}>
       {groups.map((group) => (
         <fieldset key={group.id} className={styles.group}>
-          <legend className={styles.groupTitle}>{group.title}</legend>
+          <legend className={styles.groupTitle}>{groupTitle(group.id, group.title)}</legend>
           <div className={styles.options}>
             {group.options.map((option) => {
               const isChecked = (selected[group.id] ?? []).includes(option);
@@ -46,7 +48,7 @@ export const FilterSidebar = ({
                       <Check strokeWidth={2.6} aria-hidden="true" />
                     ) : null}
                   </span>
-                  <span className={styles.label}>{option}</span>
+                  <span className={styles.label}>{valueLabel(option)}</span>
                 </label>
               );
             })}
@@ -57,7 +59,7 @@ export const FilterSidebar = ({
       {hasSelection ? (
         <button type="button" className={styles.clear} onClick={onClear}>
           <RotateCcw strokeWidth={1.8} aria-hidden="true" />
-          <span>Clear all</span>
+          <span>{text.clearAll}</span>
         </button>
       ) : null}
     </div>

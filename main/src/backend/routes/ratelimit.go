@@ -30,6 +30,10 @@ const (
 	scopeSupportOpen        = "support-open"
 	scopeSupportMessage     = "support-message"
 	scopeSupportStream      = "support-stream"
+	scopePurchase           = "purchase"
+	scopeNutritionGenerate  = "nutrition-generate"
+	scopeClientLookup       = "trainer-client-lookup"
+	scopeDocumentUpload     = "document-upload"
 )
 
 // authRateLimitScope is one endpoint's policy. The IP limiter always applies.
@@ -80,6 +84,16 @@ var authRateLimitScopes = []authRateLimitScope{
 	{name: scopeSupportOpen, ipLimit: 10, ipWindow: time.Hour},
 	{name: scopeSupportMessage, ipLimit: 60, ipWindow: 10 * time.Minute},
 	{name: scopeSupportStream, ipLimit: 120, ipWindow: 10 * time.Minute},
+	// Purchases: each creation or payment start can open a provider checkout
+	// session, so a script cannot spray the payment providers.
+	{name: scopePurchase, ipLimit: 30, ipWindow: 10 * time.Minute},
+	// Nutrition generation runs the plan builder on the server.
+	{name: scopeNutritionGenerate, ipLimit: 20, ipWindow: time.Hour},
+	// A trainer looks clients up by exact email; the bound keeps the lookup
+	// from being used to test many addresses for an account.
+	{name: scopeClientLookup, ipLimit: 60, ipWindow: 15 * time.Minute},
+	// Trainer application documents: each upload is stored on disk.
+	{name: scopeDocumentUpload, ipLimit: 30, ipWindow: time.Hour},
 }
 
 // authRateLimiters owns the limiters for every authentication scope.

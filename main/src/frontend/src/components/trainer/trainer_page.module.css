@@ -47,7 +47,7 @@
   padding: 1.75rem;
   border: 1px solid rgba(24, 216, 255, 0.16);
   border-radius: 18px;
-  background: rgba(7, 11, 18, 0.72);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
 }
 
@@ -92,7 +92,7 @@
   padding: 1.35rem;
   border: 1px solid rgba(24, 216, 255, 0.14);
   border-radius: 16px;
-  background: rgba(7, 11, 18, 0.66);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
 }
 
@@ -156,7 +156,7 @@
   border: 1px solid rgba(24, 216, 255, 0.22);
   border-radius: 12px;
   color: var(--text-primary);
-  background: rgba(7, 11, 18, 0.72);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   font-size: 0.95rem;
   outline: none;
   transition:
@@ -208,7 +208,7 @@
   padding: 1rem 1.15rem;
   border: 1px solid rgba(24, 216, 255, 0.14);
   border-radius: 14px;
-  background: rgba(7, 11, 18, 0.6);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
 }
 
 .rowMain {

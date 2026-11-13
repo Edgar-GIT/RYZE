@@ -1,454 +1,362 @@
-import { ArrowLeft, CheckCircle2, Pause, Play, RefreshCw, Square, Timer } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { ArrowLeft, Info, Pause, Play, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useHistory, useParams } from "react-router-dom";
 
-import { AccountNav } from "@/components/account_nav/account_nav";
-import { AnimatedBackground } from "@/components/animated_background/animated_background";
-import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
-import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { WorkoutReport } from "@/components/training/workout_report";
 import { useI18n } from "@/i18n/i18n";
-import { joinClassNames } from "@utils/class_names";
-import { ApiError } from "@utils/http_client";
+import { formatClock, previousSets } from "@/services/training_insights";
 import {
   abandonWorkoutSession,
   completeWorkoutSession,
+  fetchWorkoutHistory,
   fetchWorkoutSession,
   pauseWorkoutSession,
   resumeWorkoutSession,
   submitWorkoutSet,
   type WorkoutSession,
+  type WorkoutSessionExercise,
   type WorkoutSessionSet,
-  type WorkoutSetStatus
+  type WorkoutSetInput
 } from "@/services/workout_sessions_api";
+import { joinClassNames } from "@utils/class_names";
+import { ApiError } from "@utils/http_client";
 
+import { ExerciseInfoSheet } from "./exercise_info_sheet";
+import { RestBar } from "./rest_bar";
+import { SetRow } from "./set_row";
 import styles from "./workout_session_page.module.css";
 
-const formatClock = (totalSeconds: number): string => {
-  const safe = Math.max(0, Math.floor(totalSeconds));
-  const minutes = Math.floor(safe / 60);
-  const seconds = safe % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-};
+type LoadState = "loading" | "ready" | "error" | "missing";
 
-const SET_STATUS_KEY = {
-  pending: "account.training.setPending",
-  completed: "account.training.setCompleted",
-  skipped: "account.training.setSkipped"
-} as const satisfies Record<WorkoutSetStatus, string>;
-
-interface SetRowProps {
-  set: WorkoutSessionSet;
-  disabled: boolean;
-  onSave: (input: {
-    status: WorkoutSetStatus;
-    actual_reps: number | null;
-    actual_weight_kg: number | null;
-  }) => Promise<void>;
-}
-
-const SetRow = ({ set, disabled, onSave }: SetRowProps) => {
+// A short line describing what the trainer prescribed for an exercise.
+const usePrescription = () => {
   const { t } = useI18n();
-  const [reps, setReps] = useState(set.actual_reps == null ? "" : String(set.actual_reps));
-  const [weight, setWeight] = useState(
-    set.actual_weight_kg == null ? "" : String(set.actual_weight_kg)
-  );
-  const [saving, setSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  useEffect(() => {
-    setReps(set.actual_reps == null ? "" : String(set.actual_reps));
-    setWeight(set.actual_weight_kg == null ? "" : String(set.actual_weight_kg));
-  }, [set.actual_reps, set.actual_weight_kg]);
-
-  const save = async (status: WorkoutSetStatus) => {
-    if (status === "completed" && reps.trim() === "") {
-      setErrorMessage(t("account.training.enterReps"));
-      return;
-    }
-    setSaving(true);
-    setErrorMessage("");
-    try {
-      await onSave({
-        status,
-        actual_reps: reps.trim() === "" ? null : Number(reps),
-        actual_weight_kg: weight.trim() === "" ? null : Number(weight)
-      });
-    } catch {
-      setErrorMessage(t("account.training.saveSetError"));
-    } finally {
-      setSaving(false);
-    }
+  return (exercise: WorkoutSessionExercise): string => {
+    const sets = exercise.sets;
+    const reps = sets.map((set) => set.prescribed_reps).filter((value): value is number => value != null);
+    const min = reps.length ? Math.min(...reps) : null;
+    const max = reps.length ? Math.max(...reps) : null;
+    const repsText = min == null ? null : min === max ? String(min) : `${min}–${max}`;
+    const first = sets[0];
+    return [
+      repsText ? t("training.plan.setsReps", { sets: sets.length, reps: repsText }) : t("training.plan.sets1", { sets: sets.length }),
+      first?.prescribed_rest_seconds != null ? t("training.player.rest", { seconds: first.prescribed_rest_seconds }) : null,
+      first?.prescribed_rir != null ? t("training.player.rir", { value: first.prescribed_rir }) : null,
+      first?.prescribed_rpe != null ? t("training.player.rpe", { value: first.prescribed_rpe }) : null,
+      first?.prescribed_tempo ? t("training.player.tempo", { value: first.prescribed_tempo }) : null
+    ]
+      .filter(Boolean)
+      .join(" · ");
   };
-
-  return (
-    <div
-      className={joinClassNames(
-        styles.setRow,
-        set.status === "completed" && styles.setCompleted,
-        set.status === "skipped" && styles.setSkipped
-      )}
-    >
-      <div className={styles.setIdentity}>
-        <span className={styles.setNumber}>{t("account.training.setNumber", { set: set.set_number })}</span>
-        <span className={styles.setType}>{set.set_type}</span>
-        <span className={styles.setStatus}>{t(SET_STATUS_KEY[set.status])}</span>
-      </div>
-
-      <div className={styles.prescription}>
-        <span>{t("account.training.target", { reps: set.prescribed_reps ?? "—" })}</span>
-        <span>
-          <strong>{set.prescribed_weight_kg ?? "—"}</strong> kg
-        </span>
-        {set.prescribed_rest_seconds != null ? (
-          <span>{t("account.training.restSeconds", { seconds: set.prescribed_rest_seconds })}</span>
-        ) : null}
-        {set.prescribed_rir != null ? <span>RIR {set.prescribed_rir}</span> : null}
-        {set.prescribed_rpe != null ? <span>RPE {set.prescribed_rpe}</span> : null}
-        {set.prescribed_tempo ? (
-          <span>
-            {t("account.training.colTempo")} {set.prescribed_tempo}
-          </span>
-        ) : null}
-      </div>
-
-      {!disabled ? (
-        <div className={styles.setInputs}>
-          <label className={styles.setField}>
-            <span>{t("account.training.reps")}</span>
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              value={reps}
-              disabled={saving}
-              onChange={(event) => setReps(event.target.value)}
-              aria-label={t("account.training.actualReps", { set: set.set_number })}
-            />
-          </label>
-          <label className={styles.setField}>
-            <span>{t("account.training.weightKg")}</span>
-            <input
-              type="number"
-              min="0"
-              step="0.5"
-              inputMode="decimal"
-              value={weight}
-              disabled={saving}
-              onChange={(event) => setWeight(event.target.value)}
-              aria-label={t("account.training.actualWeight", { set: set.set_number })}
-            />
-          </label>
-        </div>
-      ) : null}
-
-      {errorMessage ? (
-        <p className={styles.setError} role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-
-      {!disabled ? (
-        <div className={styles.setActions}>
-          {set.status === "pending" ? (
-            <>
-              <Button size="small" variant="primary" disabled={saving} onClick={() => void save("completed")}>
-                {t("account.training.completeSet")}
-              </Button>
-              <Button size="small" variant="ghost" disabled={saving} onClick={() => void save("skipped")}>
-                {t("account.training.skip")}
-              </Button>
-            </>
-          ) : (
-            <Button size="small" variant="secondary" disabled={saving} onClick={() => void save("pending")}>
-              {t("account.training.undo")}
-            </Button>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
 };
 
+// The set whose rest timer should show: the latest completed set whose rest
+// has not ended more than a few seconds ago.
+const activeRestSet = (session: WorkoutSession, now: number, dismissed: string | null): WorkoutSessionSet | null => {
+  let latest: WorkoutSessionSet | null = null;
+  for (const set of session.exercises.flatMap((exercise) => exercise.sets)) {
+    if (set.status !== "completed" || !set.rest_ends_at || !set.completed_at || set.id === dismissed) continue;
+    if (new Date(set.rest_ends_at).getTime() < now - 5000) continue;
+    if (!latest || (latest.completed_at && set.completed_at > latest.completed_at)) latest = set;
+  }
+  return latest;
+};
+
+// WorkoutSessionPage is the workout player: a full-screen view of today's
+// exercises where every set is logged as it is done, with a running clock,
+// rest timers, the previous performance and an end-of-workout summary.
 export const WorkoutSessionPage = () => {
   const { t } = useI18n();
+  const prescription = usePrescription();
   const { sessionId } = useParams<{ sessionId: string }>();
   const history = useHistory();
   const [session, setSession] = useState<WorkoutSession | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [actionError, setActionError] = useState("");
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [past, setPast] = useState<WorkoutSession[]>([]);
+  const [view, setView] = useState<"workout" | "review">("workout");
   const [busy, setBusy] = useState(false);
-  const [clock, setClock] = useState(0);
+  const [actionError, setActionError] = useState("");
+  const [clockBase, setClockBase] = useState({ elapsed: 0, at: Date.now() });
   const [now, setNow] = useState(() => Date.now());
+  const [dismissedRest, setDismissedRest] = useState<string | null>(null);
+  const [infoFor, setInfoFor] = useState<WorkoutSessionExercise | null>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+
+  const apply = useCallback((next: WorkoutSession) => {
+    setSession(next);
+    setClockBase({ elapsed: next.elapsed_seconds, at: Date.now() });
+  }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setErrorMessage("");
+    setLoadState("loading");
     try {
-      const loaded = await fetchWorkoutSession(sessionId);
-      setSession(loaded);
-      setClock(loaded.elapsed_seconds);
+      apply(await fetchWorkoutSession(sessionId));
+      setLoadState("ready");
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         history.replace("/login");
         return;
       }
-      setSession(null);
-      setErrorMessage(
-        error instanceof ApiError && error.status === 404
-          ? t("account.training.sessionUnavailable")
-          : t("account.training.sessionError")
-      );
-    } finally {
-      setLoading(false);
+      setLoadState(error instanceof ApiError && error.status === 404 ? "missing" : "error");
     }
-  }, [sessionId, history]);
+  }, [apply, history, sessionId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  // Earlier sessions give the "previous" column and the personal records.
+  useEffect(() => {
+    fetchWorkoutHistory(100)
+      .then(setPast)
+      .catch(() => setPast([]));
+  }, []);
+
   const running = session?.status === "in_progress";
+  const finished = session?.status === "completed" || session?.status === "abandoned";
 
   useEffect(() => {
-    if (!session || session.status === "completed" || session.status === "abandoned") return;
-    const interval = window.setInterval(() => {
-      setNow(Date.now());
-      if (running) {
-        setClock((value) => value + 1);
-      }
-    }, 1000);
-    return () => window.clearInterval(interval);
+    if (!running && !session) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
   }, [running, session]);
 
-  const rest = useMemo(() => {
-    if (!session) return null;
-    let latest: { setId: string; setNumber: number; endsAt: number } | null = null;
-    for (const exercise of session.exercises) {
-      for (const set of exercise.sets) {
-        if (set.status !== "completed" || !set.rest_ends_at) continue;
-        const endsAt = new Date(set.rest_ends_at).getTime();
-        if (!latest || endsAt > latest.endsAt) {
-          latest = { setId: set.id, setNumber: set.set_number, endsAt };
-        }
-      }
-    }
-    if (!latest || latest.endsAt <= now) return null;
-    return {
-      setId: latest.setId,
-      setNumber: latest.setNumber,
-      remaining: Math.ceil((latest.endsAt - now) / 1000)
+  // Keep the screen on while training, where the browser allows it.
+  useEffect(() => {
+    if (!running || !("wakeLock" in navigator)) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    const nav = navigator as Navigator & { wakeLock: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> } };
+    nav.wakeLock
+      .request("screen")
+      .then((sentinel) => {
+        lock = sentinel;
+      })
+      .catch(() => undefined);
+    return () => {
+      void lock?.release().catch(() => undefined);
     };
-  }, [session, now]);
+  }, [running]);
 
-  const replaceSession = (updated: WorkoutSession) => {
-    setSession(updated);
-    setClock(updated.elapsed_seconds);
-    setNow(Date.now());
-  };
+  const clock = clockBase.elapsed + (running ? Math.max(0, (now - clockBase.at) / 1000) : 0);
+  const previous = useMemo(() => (session ? previousSets(past, session) : new Map<string, WorkoutSessionSet[]>()), [past, session]);
+  const restSet = session && running ? activeRestSet(session, now, dismissedRest) : null;
+
+  const saveSet = useCallback(
+    async (setId: string, input: WorkoutSetInput) => {
+      const next = await submitWorkoutSet(sessionId, setId, input);
+      apply(next);
+      if (input.status === "completed") setDismissedRest(null);
+    },
+    [apply, sessionId]
+  );
 
   const runAction = async (action: () => Promise<WorkoutSession>) => {
     setBusy(true);
     setActionError("");
     try {
-      replaceSession(await action());
+      apply(await action());
     } catch {
-      setActionError(t("account.training.actionError"));
+      setActionError(t("training.player.actionError"));
     } finally {
       setBusy(false);
     }
   };
 
-  const handleSetSave = async (
-    setId: string,
-    input: { status: WorkoutSetStatus; actual_reps: number | null; actual_weight_kg: number | null }
-  ) => {
-    const updated = await submitWorkoutSet(sessionId, setId, input);
-    replaceSession(updated);
+  const openReview = () => {
+    setView("review");
+    window.scrollTo({ top: 0 });
   };
 
-  const handleComplete = () => {
-    if (!session) return;
-    void runAction(() => completeWorkoutSession(session.id));
-  };
+  if (loadState === "loading" && !session) {
+    return (
+      <main className={styles.page}>
+        <p className={styles.muted}>{t("common.loading")}</p>
+      </main>
+    );
+  }
 
-  const handleAbandon = () => {
-    if (!session) return;
-    if (!window.confirm(t("account.training.abandonConfirm"))) return;
-    void runAction(() => abandonWorkoutSession(session.id));
-  };
+  if (!session) {
+    return (
+      <main className={styles.page}>
+        <div className={styles.stateCard}>
+          <p>{loadState === "missing" ? t("training.player.unavailable") : t("training.player.loadError")}</p>
+          <div className={styles.stateActions}>
+            <button type="button" className={styles.secondaryButton} onClick={() => void load()}>
+              <RefreshCw aria-hidden="true" /> {t("common.retry")}
+            </button>
+            <Link className={styles.secondaryButton} to="/services/my-programs">
+              {t("account.training.myPrograms")}
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
-  const finished = session?.status === "completed" || session?.status === "abandoned";
-  const editable = session?.status === "in_progress" || session?.status === "paused";
+  if (finished) {
+    return (
+      <main className={styles.page}>
+        <WorkoutReport session={session} history={past} mode="saved" />
+      </main>
+    );
+  }
+
+  if (view === "review") {
+    return (
+      <main className={styles.page}>
+        {actionError ? (
+          <p className={styles.actionError} role="alert">
+            {actionError}
+          </p>
+        ) : null}
+        <WorkoutReport
+          session={session}
+          history={past}
+          mode="review"
+          busy={busy}
+          onSave={() => void runAction(() => completeWorkoutSession(session.id))}
+          onKeepGoing={() => setView("workout")}
+          onAbandon={() => void runAction(() => abandonWorkoutSession(session.id))}
+        />
+      </main>
+    );
+  }
+
+  const done = session.completed_sets + session.skipped_sets;
+  const progress = session.total_sets > 0 ? done / session.total_sets : 0;
 
   return (
-    <PageWrapper className={styles.page}>
-      <AnimatedBackground />
-      <AccountNav />
+    <div className={styles.player} ref={topRef}>
+      <header className={styles.topBar}>
+        <div className={styles.topRow}>
+          <Link
+            className={styles.iconButton}
+            to={`/services/my-programs/${encodeURIComponent(session.program_id)}`}
+            aria-label={t("training.player.back")}
+          >
+            <ArrowLeft aria-hidden="true" />
+          </Link>
+          <div className={styles.titleBlock}>
+            <p className={styles.kicker}>{session.program_name}</p>
+            <h1 className={styles.title}>
+              {t("account.training.weekDay", { week: session.week_number, day: session.workout_position })}
+            </h1>
+          </div>
+          <button
+            type="button"
+            className={joinClassNames(styles.clock, !running && styles.clockPaused)}
+            onClick={() => void runAction(() => (running ? pauseWorkoutSession(session.id) : resumeWorkoutSession(session.id)))}
+            disabled={busy}
+            aria-label={running ? t("training.player.pause") : t("training.player.resume")}
+          >
+            {running ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+            <span>{formatClock(clock)}</span>
+          </button>
+          <button type="button" className={styles.finishButton} onClick={openReview} disabled={busy}>
+            {t("training.player.finish")}
+          </button>
+        </div>
+        <div className={styles.progressRow}>
+          <div
+            className={styles.progressTrack}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={session.total_sets}
+            aria-valuenow={done}
+            aria-label={t("training.player.progress", { done, total: session.total_sets })}
+          >
+            <span style={{ transform: `scaleX(${progress})` }} />
+          </div>
+          <span className={styles.progressText}>{t("training.player.progress", { done, total: session.total_sets })}</span>
+        </div>
+      </header>
 
-      <main className={styles.main}>
-        {loading ? <LoadingScreen /> : null}
-
-        {!loading && (errorMessage || !session) ? (
-          <section className={styles.stateCard}>
-            <p>{errorMessage}</p>
-            <div className={styles.stateActions}>
-              <Button variant="secondary" size="small" onClick={() => void load()} icon={<RefreshCw size={15} />}>
-                {t("common.retry")}
-              </Button>
-              <Button to="/services/my-programs" variant="ghost" size="small">
-                {t("account.training.myPrograms")}
-              </Button>
-            </div>
-          </section>
+      <main className={styles.workout}>
+        {!running ? (
+          <div className={styles.pausedBanner}>
+            <span>{t("training.player.paused")}</span>
+            <button type="button" onClick={() => void runAction(() => resumeWorkoutSession(session.id))} disabled={busy}>
+              <Play aria-hidden="true" /> {t("training.player.resume")}
+            </button>
+          </div>
         ) : null}
 
-        {!loading && session ? (
-          <section className={styles.content}>
-            <div className={styles.topBar}>
-              <Button
-                to={`/services/my-programs/${session.program_id}`}
-                variant="ghost"
-                size="small"
-                icon={<ArrowLeft size={15} />}
-                iconPosition="left"
-              >
-                {t("account.training.backToProgram")}
-              </Button>
-              <span className={joinClassNames(styles.statusPill, finished && styles.statusFinished)}>
-                {session.status === "in_progress"
-                  ? t("account.training.inProgress")
-                  : session.status === "paused"
-                    ? t("account.training.paused")
-                    : session.status === "completed"
-                      ? t("account.training.completed")
-                      : t("account.training.abandoned")}
-              </span>
-            </div>
+        {actionError ? (
+          <p className={styles.actionError} role="alert">
+            {actionError}
+          </p>
+        ) : null}
 
-            <header className={styles.heading}>
-              <p className={styles.eyebrow}>
-                {t("account.training.weekDay", { week: session.week_number, day: session.workout_position })}
-              </p>
-              <h1 className={styles.title}>{session.program_name}</h1>
-              <div className={styles.meta}>
-                <span className={styles.clock}>
-                  <Timer size={16} aria-hidden="true" />
-                  {formatClock(clock)}
-                </span>
-                <span>{t("account.training.setsCompleted", { done: session.completed_sets, total: session.total_sets })}</span>
-                {session.skipped_sets > 0 ? <span>{t("account.training.skipped", { count: session.skipped_sets })}</span> : null}
-              </div>
-            </header>
-
-            {rest ? (
-              <aside className={styles.restBanner} aria-live="polite">
-                <span>
-                  {t("account.training.restAfter", { set: rest.setNumber })} <strong>{formatClock(rest.remaining)}</strong>
-                </span>
-              </aside>
-            ) : null}
-
-            {actionError ? (
-              <p className={styles.actionError} role="alert">
-                {actionError}
-              </p>
-            ) : null}
-
-            <div className={styles.exerciseList}>
-              {session.exercises.map((exercise) => (
-                <article key={exercise.id} className={styles.exercise}>
-                  <header className={styles.exerciseHead}>
-                    <span className={styles.exercisePos}>{exercise.position}</span>
-                    <div>
-                      <h2 className={styles.exerciseName}>{exercise.name}</h2>
-                      {exercise.instructions ? (
-                        <p className={styles.exerciseNote}>{exercise.instructions}</p>
-                      ) : null}
-                      {exercise.notes ? <p className={styles.exerciseNote}>{exercise.notes}</p> : null}
-                    </div>
-                  </header>
-
-                  <div className={styles.sets}>
-                    {exercise.sets.map((set) => (
-                      <SetRow
-                        key={set.id}
-                        set={set}
-                        disabled={!editable || busy}
-                        onSave={(input) => handleSetSave(set.id, input)}
-                      />
-                    ))}
-                  </div>
-                </article>
-              ))}
-            </div>
-
-            {finished ? (
-              <section className={styles.finishCard}>
-                <CheckCircle2 size={22} aria-hidden="true" />
-                <div>
+        {session.exercises.map((exercise) => {
+          const last = previous.get(exercise.exercise_id) ?? [];
+          return (
+            <article key={exercise.id} className={styles.exerciseCard}>
+              <header className={styles.exerciseHead}>
+                <span className={styles.exerciseIndex}>{exercise.position}</span>
+                <div className={styles.exerciseTitle}>
                   <h2>
-                    {session.status === "completed"
-                      ? t("account.training.finishedComplete")
-                      : t("account.training.finishedAbandoned")}
+                    <button type="button" onClick={() => setInfoFor(exercise)}>
+                      {exercise.name}
+                    </button>
                   </h2>
-                  <p>
-                    {t("account.training.finishedSummary", {
-                      done: session.completed_sets,
-                      total: session.total_sets,
-                      time: formatClock(session.elapsed_seconds)
-                    })}
-                  </p>
-                  <div className={styles.stateActions}>
-                    <Button to="/services/progress" variant="primary" size="small">
-                      {t("account.training.viewProgress")}
-                    </Button>
-                    <Button to="/services/workout-history" variant="secondary" size="small">
-                      {t("account.training.history")}
-                    </Button>
-                    <Button to={`/services/my-programs/${session.program_id}`} variant="ghost" size="small">
-                      {t("account.training.backToProgram")}
-                    </Button>
-                  </div>
+                  <p>{prescription(exercise)}</p>
                 </div>
-              </section>
-            ) : (
-              <footer className={styles.controls}>
-                {session.status === "in_progress" ? (
-                  <Button
-                    variant="secondary"
-                    size="small"
+                <button
+                  type="button"
+                  className={styles.iconButton}
+                  onClick={() => setInfoFor(exercise)}
+                  aria-label={t("training.player.info", { name: exercise.name })}
+                >
+                  <Info aria-hidden="true" />
+                </button>
+              </header>
+              {exercise.notes ? <p className={styles.exerciseNote}>{exercise.notes}</p> : null}
+
+              <div className={styles.setTable}>
+                <div className={styles.setHeader} aria-hidden="true">
+                  <span>{t("training.player.setCol")}</span>
+                  <span>{t("training.player.previousCol")}</span>
+                  <span>{t("training.player.kgCol")}</span>
+                  <span>{t("training.player.repsCol")}</span>
+                  <span>{t("training.player.doneCol")}</span>
+                </div>
+                {exercise.sets.map((set, index) => (
+                  <SetRow
+                    key={set.id}
+                    set={set}
+                    previous={last[index]}
                     disabled={busy}
-                    onClick={() => void runAction(() => pauseWorkoutSession(session.id))}
-                    icon={<Pause size={15} />}
-                    iconPosition="left"
-                  >
-                    {t("account.training.pause")}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="secondary"
-                    size="small"
-                    disabled={busy}
-                    onClick={() => void runAction(() => resumeWorkoutSession(session.id))}
-                    icon={<Play size={15} />}
-                    iconPosition="left"
-                  >
-                    {t("account.training.resume")}
-                  </Button>
-                )}
-                <Button variant="primary" size="small" disabled={busy} onClick={handleComplete} icon={<CheckCircle2 size={15} />} iconPosition="left">
-                  {t("account.training.completeWorkout")}
-                </Button>
-                <Button variant="ghost" size="small" disabled={busy} onClick={handleAbandon} icon={<Square size={14} />} iconPosition="left">
-                  {t("account.training.abandon")}
-                </Button>
-              </footer>
-            )}
-          </section>
-        ) : null}
+                    onSave={(input) => saveSet(set.id, input)}
+                  />
+                ))}
+              </div>
+            </article>
+          );
+        })}
+
+        <button type="button" className={styles.finishWide} onClick={openReview} disabled={busy}>
+          {t("training.player.finish")}
+        </button>
       </main>
-    </PageWrapper>
+
+      {restSet?.rest_ends_at ? (
+        <RestBar
+          key={restSet.id}
+          endsAt={restSet.rest_ends_at}
+          plannedSeconds={restSet.prescribed_rest_seconds ?? 60}
+          onDismiss={() => setDismissedRest(restSet.id)}
+        />
+      ) : null}
+
+      {infoFor ? (
+        <ExerciseInfoSheet
+          exerciseId={infoFor.exercise_id}
+          name={infoFor.name}
+          instructions={infoFor.instructions}
+          notes={infoFor.notes}
+          onClose={() => setInfoFor(null)}
+        />
+      ) : null}
+    </div>
   );
 };

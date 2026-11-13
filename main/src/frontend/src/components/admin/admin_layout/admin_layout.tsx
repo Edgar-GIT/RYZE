@@ -173,15 +173,24 @@ export const AdminLayout = ({ children }: { children: ReactNode }) => {
 
   return (
     <div className={styles.adminLayout}>
-      <button
-        type="button"
-        className={styles.menuToggle}
-        aria-label={sidebarOpen ? "Close admin menu" : "Open admin menu"}
-        aria-expanded={sidebarOpen}
-        onClick={() => setSidebarOpen((open) => !open)}
-      >
-        {sidebarOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
-      </button>
+      {/* Phones: a top bar with the menu button and the console name. */}
+      <div className={styles.mobileBar}>
+        <button
+          type="button"
+          className={styles.menuToggle}
+          aria-label={sidebarOpen ? "Close admin menu" : "Open admin menu"}
+          aria-expanded={sidebarOpen}
+          onClick={() => setSidebarOpen((open) => !open)}
+        >
+          {sidebarOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+        </button>
+        <Link className={styles.mobileBrand} to="/admin/dashboard">
+          <BrandMark size="navigation" />
+          <span>
+            RYZE <i>Admin</i>
+          </span>
+        </Link>
+      </div>
 
       <aside
         className={joinClassNames(styles.sidebar, sidebarOpen && styles.sidebarOpen)}

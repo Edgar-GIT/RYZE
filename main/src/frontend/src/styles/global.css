@@ -149,3 +149,134 @@ img {
     scroll-behavior: auto !important;
   }
 }
+
+/* Private app theme (account, training, trainer and administration areas).
+   App.tsx adds .ryze-app to <body> on those routes only, so public pages and
+   the protected Exercise Library keep their own look. The legacy tokens are
+   re-pointed to the logo navy so every private page shares one surface
+   system, and --app-* tokens serve the newer private components. */
+body.ryze-app {
+  --bg-primary: #02041f;
+  --bg-secondary: #040a2b;
+  --surface: #0a1645;
+  --surface-elevated: #0e1c52;
+  --surface-hover: #12235f;
+  --card: #0b1848;
+  --card-hover: #102158;
+  --border: 1px solid rgba(124, 200, 255, 0.14);
+  --border-color: rgba(124, 200, 255, 0.14);
+  --border-hover: rgba(0, 203, 255, 0.45);
+  --text-primary: #ffffff;
+  --text-secondary: #c9d5ec;
+  --text-muted: #93a4c8;
+  --accent: #00cbff;
+  --accent-secondary: #0481dc;
+  --accent-gradient: linear-gradient(90deg, #00cbff, #0481dc);
+  --accent-gradient-hover: linear-gradient(90deg, #4fe3ff, #00cbff 45%, #0481dc);
+  --navbar-bg: rgba(2, 4, 31, 0.86);
+
+  --app-bg: #02041f;
+  --app-surface: rgba(10, 22, 69, 0.78);
+  --app-surface-solid: #0a1645;
+  --app-surface-2: rgba(14, 28, 82, 0.9);
+  /* Wells inside a card: inputs, rows, chips. */
+  --app-inset: rgba(2, 8, 38, 0.55);
+  --app-line: rgba(124, 200, 255, 0.14);
+  --app-line-strong: rgba(0, 203, 255, 0.45);
+  --app-text: #ffffff;
+  --app-text-2: #c9d5ec;
+  --app-text-3: #93a4c8;
+  --app-accent: #00cbff;
+  --app-accent-2: #0481dc;
+  --app-accent-soft: rgba(0, 203, 255, 0.12);
+  --app-success: #5ee6a8;
+  --app-success-soft: rgba(94, 230, 168, 0.12);
+  --app-warning: #ffcf7a;
+  --app-danger: #ff8a80;
+  --app-radius: 16px;
+  --app-radius-sm: 10px;
+  background: var(--app-bg);
+}
+
+/* Room for the member area's bottom tab bar on phones (see AccountNav). */
+@media (max-width: 720px) {
+  body.has-tabbar {
+    padding-bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Admin and trainer tables on phones: each row becomes a small card (the
+   first cell as its title, labelled values below, actions on the right)
+   instead of a squeezed table that breaks emails letter by letter. Tables
+   opt in with the app-stack-table class; cells name themselves with
+   data-label. */
+@media (max-width: 640px) {
+  body.ryze-app table.app-stack-table,
+  body.ryze-app table.app-stack-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  body.ryze-app table.app-stack-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  body.ryze-app table.app-stack-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.9rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--app-line);
+  }
+
+  body.ryze-app table.app-stack-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  body.ryze-app table.app-stack-table td {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body.ryze-app table.app-stack-table td:first-child {
+    flex: 1 0 100%;
+    color: var(--app-text);
+    font-weight: 700;
+  }
+
+  body.ryze-app table.app-stack-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--app-text-3);
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  body.ryze-app table.app-stack-table td:first-child[data-label]::before {
+    display: none;
+  }
+
+  body.ryze-app table.app-stack-table td[data-wide] {
+    flex: 1 0 100%;
+  }
+
+  body.ryze-app table.app-stack-table td[data-actions] {
+    margin-left: auto;
+  }
+
+  body.ryze-app table.app-stack-table td[colspan] {
+    flex: 1 0 100%;
+  }
+}

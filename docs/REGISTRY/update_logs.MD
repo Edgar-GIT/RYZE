@@ -1,3 +1,80 @@
+# Version 2.110.0
+
+Title: Training app, language toggle, private-area polish, security and architecture fixes
+
+Date: 2026-11-13
+
+Summary:
+
+Owner request of 2026-11-13: a Lyfta-style training app, a PT | EN block in
+the navigation with a first-visit language prompt, the public site in
+Portuguese, one consistent design for every private area, mobile checks, and a
+complete platform audit with security and architecture fixes. No migration,
+dependency, price, commission or access rule changed.
+
+Main changes:
+
+- Training app: plan screen with week tabs and day cards (exercises, sets,
+  estimated minutes, done/next/in progress), full-screen workout player (clock
+  with pause, SET / PREVIOUS / KG / REPS / ✓ rows prefilled from the
+  prescription or the last session, rest bar, exercise info sheet, screen wake
+  lock), end-of-workout report with personal records, save / keep going /
+  abandon; history grouped by month; progress page with tiles and SVG charts
+  (per week, volume per workout, per exercise best weight / estimated 1RM /
+  volume). Insights are computed client-side from `GET /me/workout-sessions`
+  (`services/training_insights.ts`, unit tests). Phones get a bottom tab bar.
+- Language: compact PT | EN block in the public navigation (desktop and phone,
+  current language highlighted); first-visit prompt in the detected language
+  that confirms or switches it once; `useGettext` catalogues and `Copy<T>`
+  objects. Translated: Home, Services (except the protected cards), training
+  plan catalogue, program detail and checkout, Premium Level 1 and 2 (including
+  the server questionnaires' labels and options), Our Vision, Contact,
+  Feedback, Feed/404, Exercise Library chrome, footer labels and login /
+  registration. Protected parts keep their English text unchanged; Portuguese
+  is added beside it. The Premium Level 1 questionnaire now shows readable
+  option labels instead of raw values.
+- Private areas: every account and trainer surface uses the `body.ryze-app`
+  navy tokens (near-black cards replaced, new `--app-inset`); the trainer area
+  no longer renders the public navbar and footer and uses the member
+  navigation (header links, phone tab bar); admin consoles get a phone top bar
+  and admin tables become stacked cards on phones (`app-stack-table`); the My
+  Programs empty state stacks its buttons on phones.
+- Public navigation: signed-in visitors see "My account" instead of "Log in /
+  Start free"; the phone menu and the narrow-desktop bar no longer overflow at
+  320 px or between 821 and 960 px.
+- Architecture: ADMIN_1, ADMIN_2 and trainer routes are lazy-loaded modules;
+  the main bundle fell from 1,099 KB to 731 KB (303 → 216 KB gzip).
+- Security: API security headers (`nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-site`,
+  `Cache-Control: no-store` on private paths); rate limits on purchase
+  creation, payment start and capture (30/10 min), nutrition generation
+  (20/hour), trainer client lookup (60/15 min) and application document
+  upload (30/hour).
+- Admin: `GET /admin/settings/commerce` (ADMIN_2) and `GET /admin/system/status`
+  (ADMIN_1) back the Settings, System, Configuration and Dashboard pages with
+  real values instead of static copy.
+
+Verification:
+
+- `go test -p 1 ./...` green on `ryze_test` (53 packages). In parallel mode
+  `TestAdminCommerceListPurchasesAndSummary` can fail because packages share
+  `ryze_test` (pre-existing isolation gap, documented in the audit).
+- `npm run typecheck`, `npm run test` (23 files, 164 tests), `npm run build`.
+- Browser checks on the isolated stack (API 8081 on `ryze_test`, Vite 5175):
+  training flow (13 checks), language prompt and toggle (10 checks), public
+  pages in PT at 320/360/1366/1440 px, navigation overlap at 821–1920 px,
+  every client, trainer, ADMIN_1 and ADMIN_2 route at 390 and 1440 px with no
+  horizontal overflow and no page errors.
+
+Not done / open:
+
+- Trainer pages' content and the admin consoles remain in English (the trainer
+  navigation is translated).
+- The Services cards (protected, English text inside their images) are not
+  translated.
+- Terms of Service and Privacy Policy links point nowhere and no legal pages
+  exist; legal text needs the owner.
+
 # Version 2.109.0
 
 Title: Platform completion — account recovery, Google Sign-In, notifications, support chat, PWA and Portuguese

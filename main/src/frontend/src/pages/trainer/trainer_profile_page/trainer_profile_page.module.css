@@ -13,7 +13,7 @@
   border: 1px solid rgba(42, 140, 255, 0.35);
   border-radius: 50%;
   color: var(--text-muted);
-  background: rgba(7, 11, 18, 0.72);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   box-shadow: 0 0 26px rgba(42, 140, 255, 0.18);
 }
 

@@ -2,9 +2,10 @@ import { AccountNav } from "@/components/account_nav/account_nav";
 import { AnimatedBackground } from "@/components/animated_background/animated_background";
 import { Button } from "@/components/button/button";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
-import { ProgramStructure } from "@/components/program_structure/program_structure";
+import { PlanSchedule } from "@/components/training/plan_schedule";
 import {
   fetchActiveWorkoutSession,
+  fetchWorkoutHistory,
   startWorkoutSession,
   type WorkoutSession
 } from "@/services/workout_sessions_api";
@@ -19,9 +20,9 @@ import {
   type NutritionAssignmentStatus
 } from "@/services/premium_level1_api";
 import { PremiumNutritionPlan } from "@/pages/premium_level1_page/premium_nutrition_plan";
-import { ArrowLeft, BarChart3, History, Play, RefreshCw } from "lucide-react";
+import { ArrowLeft, BarChart3, BookOpen, History, Play, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { Link, useHistory, useParams } from "react-router-dom";
 
 import styles from "./program_access_page.module.css";
 
@@ -59,6 +60,20 @@ export const ProgramAccessPage = () => {
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [startingWorkoutId, setStartingWorkoutId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState("");
+  // Finished sessions of this programme: when each day was last done.
+  const [programSessions, setProgramSessions] = useState<WorkoutSession[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchWorkoutHistory(100)
+      .then((sessions) => {
+        if (!cancelled) setProgramSessions(sessions.filter((session) => session.program_id === programId));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [programId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,6 +105,11 @@ export const ProgramAccessPage = () => {
 
   const handleStartWorkout = useCallback(
     async (workoutId: string) => {
+      // The workout already in progress opens where it was left.
+      if (activeSession && activeSession.program_workout_id === workoutId) {
+        history.push(`/services/workout-sessions/${activeSession.id}`);
+        return;
+      }
       setStartingWorkoutId(workoutId);
       setSessionError("");
       try {
@@ -101,7 +121,7 @@ export const ProgramAccessPage = () => {
         setStartingWorkoutId(null);
       }
     },
-    [programId, history, loadActiveSession, t]
+    [programId, history, loadActiveSession, t, activeSession]
   );
 
   const loadNutrition = useCallback(async () => {
@@ -244,24 +264,27 @@ export const ProgramAccessPage = () => {
               </p>
             ) : null}
 
-            <div className={styles.actions}>
-              <Button to="/services/workout-history" variant="secondary" size="small" icon={<History size={15} />} iconPosition="left">
+            <nav className={styles.actions} aria-label={t("training.nav.label")}>
+              <Link className={styles.quickLink} to="/exercises">
+                <BookOpen aria-hidden="true" />
+                {t("training.plan.library")}
+              </Link>
+              <Link className={styles.quickLink} to="/services/workout-history">
+                <History aria-hidden="true" />
                 {t("account.training.history")}
-              </Button>
-              <Button to="/services/progress" variant="secondary" size="small" icon={<BarChart3 size={15} />} iconPosition="left">
-                {t("account.training.viewProgress")}
-              </Button>
-            </div>
+              </Link>
+              <Link className={styles.quickLink} to="/services/progress">
+                <BarChart3 aria-hidden="true" />
+                {t("training.nav.progress")}
+              </Link>
+            </nav>
 
-            <ProgramStructure
+            <PlanSchedule
               weeks={detail.weeks}
-              onStartWorkout={(workoutId) => void handleStartWorkout(workoutId)}
-              activeWorkoutId={
-                activeSession?.program_id === programId
-                  ? activeSession.program_workout_id
-                  : null
-              }
+              sessions={programSessions}
+              activeWorkoutId={activeSession?.program_id === programId ? activeSession.program_workout_id : null}
               startingWorkoutId={startingWorkoutId}
+              onStart={(workoutId) => void handleStartWorkout(workoutId)}
             />
 
             {premium && nutritionLoaded ? (

@@ -19,10 +19,31 @@ import {
   fetchFreeActivations,
   type FreeProgramActivation
 } from "@/services/free_programs_api";
+import { COMMERCE_PT } from "@/i18n/catalogs/commerce.pt";
+import { type Catalog, useGettext, useI18n } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 import { ApiError } from "@utils/http_client";
 
 import styles from "./generic_program_detail_page.module.css";
+
+const PAGE_PT: Catalog = {
+  "Free plan": "Plano gratuito",
+  "Sign in to activate {name} and unlock the full training structure.":
+    "Entra na tua conta para ativar {name} e desbloquear a estrutura de treino completa.",
+  "You have activated {name}.": "Já ativaste {name}.",
+  "Activate {name} to unlock the full training structure and workout player.":
+    "Ativa {name} para desbloquear a estrutura de treino completa e o modo de treino.",
+  "We could not activate this plan. Please try again.": "Não foi possível ativar este plano. Tenta novamente.",
+  "Activating…": "A ativar…",
+  "Activate free plan": "Ativar plano gratuito",
+  "This training plan is not available through the marketplace.": "Este plano de treino não está disponível no catálogo.",
+  "Loading training plan…": "A carregar o plano de treino…",
+  "Full training structure": "Estrutura de treino completa",
+  "Weeks, training days, exercises and prescriptions unlock after activation or purchase. You will then be able to log every set, follow rest timers and track progress.":
+    "Semanas, dias de treino, exercícios e prescrições ficam disponíveis depois da ativação ou da compra. Depois podes registar cada série, seguir os tempos de descanso e acompanhar o progresso.",
+  "Guided workout sessions": "Treinos guiados",
+  "Real progress statistics": "Estatísticas reais de progresso"
+};
 
 interface PurchasePanelProps {
   isFree: boolean;
@@ -39,25 +60,27 @@ interface PurchasePanelProps {
 }
 
 const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, paymentMethods, selectedMethod, onSelectMethod, onBuy, onRetryPurchase, testMode = false }: PurchasePanelProps) => {
+  const tr = useGettext(COMMERCE_PT);
+  const { locale } = useI18n();
   if (state.status === "owned") {
     return (
       <aside className={styles.purchase}>
         <div className={styles.purchaseCard}>
           <p className={styles.purchaseTitle}>
             <CheckCircle2 size={16} aria-hidden="true" />
-            You have access
+            {tr("You have access")}
           </p>
-          <p className={styles.purchaseText}>You already own this training plan.</p>
+          <p className={styles.purchaseText}>{tr("You already own this training plan.")}</p>
           <div className={styles.purchaseActions}>
             <Button
               to={`/services/my-programs/${programId}`}
               variant="primary"
               size="small"
             >
-              Open program
+              {tr("Open program")}
             </Button>
             <Button to="/services/generic-program" variant="secondary" size="small">
-              Back to Training plans
+              {tr("Back to Training plans")}
             </Button>
           </div>
         </div>
@@ -70,7 +93,7 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
       return (
         <aside className={styles.purchase}>
           <div className={styles.purchaseCard}>
-            <p className={styles.purchaseText}>Checking access…</p>
+            <p className={styles.purchaseText}>{tr("Checking access…")}</p>
           </div>
         </aside>
       );
@@ -80,9 +103,9 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
         <aside className={styles.purchase}>
           <div className={styles.purchaseCard}>
             <p className={styles.purchaseTitle}>
-              {formatMarketplacePrice(minorUnits, currency, "premium")}
+              {formatMarketplacePrice(minorUnits, currency, "premium", locale)}
             </p>
-            <p className={styles.purchaseText}>Sign in to purchase this training plan.</p>
+            <p className={styles.purchaseText}>{tr("Sign in to purchase this training plan.")}</p>
             <div className={styles.purchaseActions}>
               <Button
                 to="/login"
@@ -91,7 +114,7 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
                 icon={<LogIn size={15} />}
                 iconPosition="left"
               >
-                Sign in
+                {tr("Sign in")}
               </Button>
             </div>
           </div>
@@ -103,7 +126,7 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
       return (
         <aside className={styles.purchase}>
           <div className={styles.purchaseCard}>
-            <p className={styles.purchaseText}>Preparing secure checkout…</p>
+            <p className={styles.purchaseText}>{tr("Preparing secure checkout…")}</p>
           </div>
         </aside>
       );
@@ -113,7 +136,7 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
         <aside className={styles.purchase}>
           <div className={styles.purchaseCard}>
             <p className={styles.purchaseText}>
-              Redirecting to the secure payment page. Do not close this window…
+              {tr("Redirecting to the secure payment page. Do not close this window…")}
             </p>
           </div>
         </aside>
@@ -124,7 +147,7 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
         <aside className={styles.purchase}>
           <div className={styles.purchaseCard}>
             <p className={styles.purchaseText}>
-              Confirming your payment. This may take a few seconds…
+              {tr("Confirming your payment. This may take a few seconds…")}
             </p>
           </div>
         </aside>
@@ -136,19 +159,19 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
           <div className={`${styles.purchaseCard} ${styles.purchaseSuccess}`}>
             <p className={styles.purchaseTitle}>
               <CheckCircle2 size={16} aria-hidden="true" />
-              Purchase complete
+              {tr("Purchase complete")}
             </p>
-            <p className={styles.purchaseText}>You now have access to this training plan.</p>
+            <p className={styles.purchaseText}>{tr("You now have access to this training plan.")}</p>
             <div className={styles.purchaseActions}>
               <Button
                 to={`/services/my-programs/${programId}`}
                 variant="primary"
                 size="small"
               >
-                Open program
+                {tr("Open program")}
               </Button>
               <Button to="/services/my-programs" variant="ghost" size="small">
-                My Programs
+                {tr("My Programs")}
               </Button>
             </div>
           </div>
@@ -161,10 +184,10 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
           <div className={`${styles.purchaseCard} ${styles.purchaseCancelled}`}>
             <p className={styles.purchaseTitle}>
               <XCircle size={16} aria-hidden="true" />
-              Payment cancelled
+              {tr("Payment cancelled")}
             </p>
             <p className={styles.purchaseText}>
-              No payment was completed. You can try again whenever you are ready.
+              {tr("No payment was completed. You can try again whenever you are ready.")}
             </p>
             <div className={styles.purchaseActions}>
               <Button
@@ -172,10 +195,10 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
                 size="small"
                 onClick={() => onRetryPurchase(state.purchaseId)}
               >
-                Try again
+                {tr("Try again")}
               </Button>
               <Button to="/services/generic-program" variant="ghost" size="small">
-                Back to Training plans
+                {tr("Back to Training plans")}
               </Button>
             </div>
           </div>
@@ -188,9 +211,9 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
           <div className={`${styles.purchaseCard} ${styles.purchaseError}`}>
             <p className={styles.purchaseTitle}>
               <XCircle size={16} aria-hidden="true" />
-              Purchase unavailable
+              {tr("Purchase unavailable")}
             </p>
-            <p className={styles.purchaseText}>{state.message}</p>
+            <p className={styles.purchaseText}>{tr(state.message)}</p>
             <div className={styles.purchaseActions}>
               <Button
                 variant="primary"
@@ -198,10 +221,10 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
                 onClick={onBuy}
                 icon={<RefreshCw size={15} />}
               >
-                Try again
+                {tr("Try again")}
               </Button>
               <Button to="/services/generic-program" variant="ghost" size="small">
-                Back to Training plans
+                {tr("Back to Training plans")}
               </Button>
             </div>
           </div>
@@ -215,11 +238,10 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
           <aside className={styles.purchase}>
             <div className={`${styles.purchaseCard} ${styles.purchaseTestMode}`}>
               <p className={styles.purchaseTitle}>
-                {formatMarketplacePrice(0, currency, "premium")}
+                {formatMarketplacePrice(0, currency, "premium", locale)}
               </p>
               <p className={styles.purchaseText}>
-                Test Mode purchase — this plan is granted instantly at no cost.
-                No real payment is made.
+                {tr("Test Mode purchase — this plan is granted instantly at no cost. No real payment is made.")}
               </p>
               <div className={styles.purchaseActions}>
                 <Button
@@ -229,7 +251,7 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
                   icon={<FlaskConical size={15} />}
                   iconPosition="left"
                 >
-                  Get plan in Test Mode
+                  {tr("Get plan in Test Mode")}
                 </Button>
               </div>
             </div>
@@ -242,14 +264,14 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
             <div className={`${styles.purchaseCard} ${styles.purchaseError}`}>
               <p className={styles.purchaseTitle}>
                 <XCircle size={16} aria-hidden="true" />
-                Checkout unavailable
+                {tr("Checkout unavailable")}
               </p>
               <p className={styles.purchaseText}>
-                No payment provider is currently configured. Please try again later.
+                {tr("No payment provider is currently configured. Please try again later.")}
               </p>
               <div className={styles.purchaseActions}>
                 <Button to="/services/generic-program" variant="ghost" size="small">
-                  Back to Training plans
+                  {tr("Back to Training plans")}
                 </Button>
               </div>
             </div>
@@ -260,12 +282,12 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
         <aside className={styles.purchase}>
           <div className={styles.purchaseCard}>
             <p className={styles.purchaseTitle}>
-              {formatMarketplacePrice(minorUnits, currency, "premium")}
+              {formatMarketplacePrice(minorUnits, currency, "premium", locale)}
             </p>
-            <p className={styles.purchaseText}>One-time purchase. Secure checkout.</p>
+            <p className={styles.purchaseText}>{tr("One-time purchase. Secure checkout.")}</p>
             {paymentMethods.length > 1 ? (
               <fieldset className={styles.methodGroup}>
-                <legend className={styles.methodLegend}>Payment method</legend>
+                <legend className={styles.methodLegend}>{tr("Payment method")}</legend>
                 {paymentMethods.map((method) => (
                   <label
                     key={method.method}
@@ -294,7 +316,7 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
                 icon={<CreditCard size={15} />}
                 iconPosition="left"
               >
-                Buy now
+                {tr("Buy now")}
               </Button>
             </div>
           </div>
@@ -311,6 +333,7 @@ interface FreeAccessPanelProps {
 // Free plans still require an explicit activation. Until that happens the
 // public catalog only supplies metadata, never the programme structure.
 const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
+  const tr = useGettext(PAGE_PT, COMMERCE_PT);
   const history = useHistory();
   const [activation, setActivation] = useState<FreeProgramActivation | null>(null);
   const [checking, setChecking] = useState(true);
@@ -350,7 +373,7 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
         history.push("/login");
         return;
       }
-      setErrorMessage("We could not activate this plan. Please try again.");
+      setErrorMessage(tr("We could not activate this plan. Please try again."));
       setActivating(false);
     }
   };
@@ -360,14 +383,14 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
       <div className={styles.purchaseCard}>
         <p className={styles.purchaseTitle}>
           <CheckCircle2 size={16} aria-hidden="true" />
-          Free plan
+          {tr("Free plan")}
         </p>
         <p className={styles.purchaseText}>
           {guest
-            ? `Sign in to activate ${programName} and unlock the full training structure.`
+            ? tr("Sign in to activate {name} and unlock the full training structure.", { name: programName })
             : activation
-              ? `You have activated ${programName}.`
-              : `Activate ${programName} to unlock the full training structure and workout player.`}
+              ? tr("You have activated {name}.", { name: programName })
+              : tr("Activate {name} to unlock the full training structure and workout player.", { name: programName })}
         </p>
         {errorMessage ? (
           <p className={styles.purchaseErrorText} role="alert">
@@ -377,19 +400,19 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
         <div className={styles.purchaseActions}>
           {guest ? (
             <Button to="/login" variant="primary" size="small" icon={<LogIn size={15} />} iconPosition="left">
-              Sign in
+              {tr("Sign in")}
             </Button>
           ) : activation ? (
             <Button to={`/services/my-programs/${programId}`} variant="primary" size="small">
-              Open program
+              {tr("Open program")}
             </Button>
           ) : (
             <Button variant="primary" size="small" disabled={checking || activating} onClick={() => void handleActivate()}>
-              {activating ? "Activating…" : "Activate free plan"}
+              {activating ? tr("Activating…") : tr("Activate free plan")}
             </Button>
           )}
           <Button to="/services/generic-program" variant="secondary" size="small">
-            Back to Training plans
+            {tr("Back to Training plans")}
           </Button>
         </div>
       </div>
@@ -398,6 +421,8 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
 };
 
 export const GenericProgramDetailPage = () => {
+  const tr = useGettext(PAGE_PT, COMMERCE_PT);
+  const { locale } = useI18n();
   const { programId } = useParams<{ programId: string }>();
   const { isActive: testModeActive } = useTestMode();
   const [detail, setDetail] = useState<MarketplaceProgramDetail | null>(null);
@@ -410,7 +435,7 @@ export const GenericProgramDetailPage = () => {
       setDetail(await fetchMarketplaceProgram(programId));
     } catch {
       setDetail(null);
-      setErrorMessage("This training plan is not available through the marketplace.");
+      setErrorMessage(tr("This training plan is not available through the marketplace."));
     } finally {
       setLoading(false);
     }
@@ -433,8 +458,8 @@ export const GenericProgramDetailPage = () => {
   });
   const priceLabel = detail
     ? isTestModePurchase
-      ? formatMarketplacePrice(0, detail.currency, detail.type)
-      : formatMarketplacePrice(detail.price_minor_units, detail.currency, detail.type)
+      ? formatMarketplacePrice(0, detail.currency, detail.type, locale)
+      : formatMarketplacePrice(detail.price_minor_units, detail.currency, detail.type, locale)
     : "";
 
   return (
@@ -449,13 +474,13 @@ export const GenericProgramDetailPage = () => {
               icon={<ArrowLeft size={15} />}
               iconPosition="left"
             >
-              Back to Training plans
+              {tr("Back to Training plans")}
             </Button>
           </div>
 
           {loading ? (
             <div className={styles.state}>
-              <p>Loading training plan…</p>
+              <p>{tr("Loading training plan…")}</p>
             </div>
           ) : errorMessage || !detail ? (
             <div className={styles.state}>
@@ -467,7 +492,7 @@ export const GenericProgramDetailPage = () => {
                   onClick={() => void load()}
                   icon={<RefreshCw size={15} />}
                 >
-                  Retry
+                  {tr("Retry")}
                 </Button>
               </div>
             </div>
@@ -486,21 +511,21 @@ export const GenericProgramDetailPage = () => {
                   {isTestModePurchase ? (
                     <span className={styles.chipTestMode}>
                       <FlaskConical size={12} aria-hidden="true" />
-                      Test Mode
+                      {tr("Test Mode")}
                     </span>
                   ) : null}
                   {detail.training_type ? (
-                    <span className={styles.chip}>{detail.training_type}</span>
+                    <span className={styles.chip}>{tr(detail.training_type)}</span>
                   ) : null}
-                  {detail.level ? <span className={styles.chip}>{detail.level}</span> : null}
+                  {detail.level ? <span className={styles.chip}>{tr(detail.level)}</span> : null}
                   {detail.duration_weeks !== null ? (
                     <span className={styles.chip}>
-                      {detail.duration_weeks} week{detail.duration_weeks === 1 ? "" : "s"}
+                      {tr(detail.duration_weeks === 1 ? "{count} week" : "{count} weeks", { count: detail.duration_weeks })}
                     </span>
                   ) : null}
                   {detail.frequency_per_week !== null ? (
                     <span className={styles.chip}>
-                      {detail.frequency_per_week} day{detail.frequency_per_week === 1 ? "" : "s"}/week
+                      {tr(detail.frequency_per_week === 1 ? "{count} day/week" : "{count} days/week", { count: detail.frequency_per_week })}
                     </span>
                   ) : null}
                 </div>
@@ -530,18 +555,17 @@ export const GenericProgramDetailPage = () => {
                 </div>
                 <div>
                   <h2 id="plan-contents" className={styles.lockedTitle}>
-                    Full training structure
+                    {tr("Full training structure")}
                   </h2>
                   <p className={styles.lockedText}>
-                    Weeks, training days, exercises and prescriptions unlock after activation or purchase.
-                    You will then be able to log every set, follow rest timers and track progress.
+                    {tr("Weeks, training days, exercises and prescriptions unlock after activation or purchase. You will then be able to log every set, follow rest timers and track progress.")}
                   </p>
                   <ul className={styles.lockedList}>
                     <li>
-                      <Dumbbell size={15} aria-hidden="true" /> Guided workout sessions
+                      <Dumbbell size={15} aria-hidden="true" /> {tr("Guided workout sessions")}
                     </li>
                     <li>
-                      <BarChart3 size={15} aria-hidden="true" /> Real progress statistics
+                      <BarChart3 size={15} aria-hidden="true" /> {tr("Real progress statistics")}
                     </li>
                   </ul>
                 </div>

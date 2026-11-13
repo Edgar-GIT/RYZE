@@ -20,6 +20,10 @@ import {
   isEmptyPremiumLevel2Answer,
   type PremiumLevel2AnswerValue
 } from "@/services/premium_level_2_format";
+import { COMMERCE_PT } from "@/i18n/catalogs/commerce.pt";
+import { PREMIUM_LEVEL2_PT } from "@/i18n/catalogs/premium_level2.pt";
+import { QUESTIONNAIRE_PT } from "@/i18n/catalogs/questionnaire.pt";
+import { useGettext } from "@/i18n/i18n";
 import { ApiError } from "@utils/http_client";
 import { joinClassNames } from "@utils/class_names";
 
@@ -59,20 +63,22 @@ const statusTone = (status: string): string => {
   }
 };
 
-const NutritionPlanView = ({ plan }: { plan: PremiumLevel2NutritionPlan }) => (
+const NutritionPlanView = ({ plan }: { plan: PremiumLevel2NutritionPlan }) => {
+  const tr = useGettext(PREMIUM_LEVEL2_PT);
+  return (
   <section className={styles.panel}>
     <div className={styles.sectionHeading}>
       <Utensils size={18} aria-hidden="true" />
       <div>
-        <h2 className={styles.sectionTitle}>Your nutrition plan</h2>
+        <h2 className={styles.sectionTitle}>{tr("Your nutrition plan")}</h2>
         <p className={styles.sectionText}>
-          Version {plan.version} · {plan.dietary_pattern.replaceAll("_", " ")}
+          {tr("Version {version} · {pattern}", { version: plan.version, pattern: plan.dietary_pattern.replaceAll("_", " ") })}
         </p>
       </div>
     </div>
     <p className={styles.sectionText}>{plan.summary}</p>
     <p className={styles.sectionText}>
-      Hydration: {plan.hydration_litres} litres per day. {plan.hydration_note}
+      {tr("Hydration: {litres} litres per day.", { litres: plan.hydration_litres })} {plan.hydration_note}
     </p>
     <p className={styles.sectionText}>{plan.prep_guidance}</p>
 
@@ -81,7 +87,7 @@ const NutritionPlanView = ({ plan }: { plan: PremiumLevel2NutritionPlan }) => (
         <article key={meal.id} className={styles.meal}>
           <h3 className={styles.mealTitle}>
             {meal.label}
-            {meal.kind === "snack" ? <span className={styles.mealKind}>Snack</span> : null}
+            {meal.kind === "snack" ? <span className={styles.mealKind}>{tr("Snack")}</span> : null}
           </h3>
           {meal.notes ? <p className={styles.sectionText}>{meal.notes}</p> : null}
           <div className={styles.foodList}>
@@ -107,7 +113,7 @@ const NutritionPlanView = ({ plan }: { plan: PremiumLevel2NutritionPlan }) => (
 
     {plan.cautions.length > 0 ? (
       <div className={styles.cautions}>
-        <h3 className={styles.mealTitle}>Cautions</h3>
+        <h3 className={styles.mealTitle}>{tr("Cautions")}</h3>
         <ul>
           {plan.cautions.map((caution) => (
             <li key={caution}>{caution}</li>
@@ -116,7 +122,8 @@ const NutritionPlanView = ({ plan }: { plan: PremiumLevel2NutritionPlan }) => (
       </div>
     ) : null}
   </section>
-);
+  );
+};
 
 const QuestionField = ({
   question,
@@ -131,6 +138,7 @@ const QuestionField = ({
   disabled: boolean;
   onChange: (value: AnswerValue) => void;
 }) => {
+  const tr = useGettext(PREMIUM_LEVEL2_PT, QUESTIONNAIRE_PT);
   const describedBy = error ? `${question.key}-error` : undefined;
 
   if (question.type === "multiselect") {
@@ -138,10 +146,10 @@ const QuestionField = ({
     return (
       <fieldset className={styles.field} aria-describedby={describedBy} aria-invalid={Boolean(error)}>
         <legend className={styles.label}>
-          {question.label}
-          {question.required ? <span className={styles.required}>Required</span> : null}
+          {tr(question.label)}
+          {question.required ? <span className={styles.required}>{tr("Required")}</span> : null}
         </legend>
-        {question.help ? <p className={styles.help}>{question.help}</p> : null}
+        {question.help ? <p className={styles.help}>{tr(question.help)}</p> : null}
         <div className={styles.optionGrid}>
           {question.options?.map((option) => (
             <label key={option.value} className={styles.option}>
@@ -157,13 +165,13 @@ const QuestionField = ({
                   )
                 }
               />
-              <span>{option.label}</span>
+              <span>{tr(option.label)}</span>
             </label>
           ))}
         </div>
         {error ? (
           <p className={styles.fieldError} id={describedBy}>
-            {error}
+            {tr(error)}
           </p>
         ) : null}
       </fieldset>
@@ -180,12 +188,12 @@ const QuestionField = ({
             disabled={disabled}
             onChange={(event) => onChange(event.target.checked)}
           />
-          <span>{question.label}</span>
+          <span>{tr(question.label)}</span>
         </label>
-        {question.help ? <p className={styles.help}>{question.help}</p> : null}
+        {question.help ? <p className={styles.help}>{tr(question.help)}</p> : null}
         {error ? (
           <p className={styles.fieldError} id={describedBy}>
-            {error}
+            {tr(error)}
           </p>
         ) : null}
       </div>
@@ -195,10 +203,10 @@ const QuestionField = ({
   return (
     <div className={styles.field}>
       <label className={styles.label} htmlFor={question.key}>
-        {question.label}
-        {question.required ? <span className={styles.required}>Required</span> : null}
+        {tr(question.label)}
+        {question.required ? <span className={styles.required}>{tr("Required")}</span> : null}
       </label>
-      {question.help ? <p className={styles.help}>{question.help}</p> : null}
+      {question.help ? <p className={styles.help}>{tr(question.help)}</p> : null}
       {question.type === "textarea" ? (
         <textarea
           id={question.key}
@@ -221,10 +229,10 @@ const QuestionField = ({
           aria-describedby={describedBy}
           onChange={(event) => onChange(event.target.value)}
         >
-          <option value="">Choose an option</option>
+          <option value="">{tr("Choose an option")}</option>
           {question.options?.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {tr(option.label)}
             </option>
           ))}
         </select>
@@ -255,7 +263,7 @@ const QuestionField = ({
       )}
       {error ? (
         <p className={styles.fieldError} id={describedBy}>
-          {error}
+          {tr(error)}
         </p>
       ) : null}
     </div>
@@ -263,6 +271,7 @@ const QuestionField = ({
 };
 
 export const PremiumLevel2RequestPage = () => {
+  const tr = useGettext(PREMIUM_LEVEL2_PT, QUESTIONNAIRE_PT, COMMERCE_PT);
   const { requestID } = useParams<{ requestID: string }>();
   const history = useHistory();
 
@@ -384,7 +393,7 @@ export const PremiumLevel2RequestPage = () => {
       <PageWrapper className={styles.page}>
         <section className={styles.detail}>
           <Container size="wide">
-            <p className={styles.sectionText}>Loading your service…</p>
+            <p className={styles.sectionText}>{tr("Loading your service…")}</p>
           </Container>
         </section>
       </PageWrapper>
@@ -406,9 +415,9 @@ export const PremiumLevel2RequestPage = () => {
               Back to Premium Level 2
             </Button>
             <div className={styles.panel}>
-              <p className={styles.errorText}>{loadError || "Your service could not be loaded."}</p>
+              <p className={styles.errorText}>{tr(loadError || "Your service could not be loaded.")}</p>
               <Button variant="secondary" size="small" icon={<RefreshCw size={15} />} onClick={() => void load()}>
-                Try again
+                {tr("Try again")}
               </Button>
             </div>
           </Container>
@@ -435,35 +444,35 @@ export const PremiumLevel2RequestPage = () => {
               Premium Level 2
             </Button>
             <span className={joinClassNames(styles.status, statusTone(request.status))}>
-              {PREMIUM_LEVEL_2_STATUS_LABELS[request.status]}
+              {tr(PREMIUM_LEVEL_2_STATUS_LABELS[request.status])}
             </span>
           </div>
 
           <header className={styles.heading}>
             <p className={styles.eyebrow}>
               <ClipboardList size={14} aria-hidden="true" />
-              Your service
+              {tr("Your service")}
             </p>
-            <h1 className={styles.title}>{request.offer_name || "Premium Level 2"}</h1>
+            <h1 className={styles.title}>{request.offer_name || tr("Premium Level 2")}</h1>
             <p className={styles.subtitle}>
               {editable
-                ? "Complete the intake below. You can keep editing until a trainer is allocated."
-                : "Your intake is locked. Your trainer is now building your individual plan."}
+                ? tr("Complete the intake below. You can keep editing until a trainer is allocated.")
+                : tr("Your intake is locked. Your trainer is now building your individual plan.")}
             </p>
           </header>
 
           <div className={styles.summaryGrid}>
             <div className={styles.summaryCard}>
-              <span className={styles.summaryLabel}>Trainer</span>
-              <strong>{request.trainer_name || "Allocation pending"}</strong>
+              <span className={styles.summaryLabel}>{tr("Trainer")}</span>
+              <strong>{request.trainer_name || tr("Allocation pending")}</strong>
             </div>
             <div className={styles.summaryCard}>
-              <span className={styles.summaryLabel}>Training programme</span>
-              <strong>{request.training_program_name || "Not attached yet"}</strong>
+              <span className={styles.summaryLabel}>{tr("Training programme")}</span>
+              <strong>{request.training_program_name || tr("Not attached yet")}</strong>
             </div>
             <div className={styles.summaryCard}>
-              <span className={styles.summaryLabel}>Nutrition plan</span>
-              <strong>{request.nutrition_plan_status === "delivered" ? "Delivered" : "Not delivered yet"}</strong>
+              <span className={styles.summaryLabel}>{tr("Nutrition plan")}</span>
+              <strong>{request.nutrition_plan_status === "delivered" ? tr("Delivered") : tr("Not delivered yet")}</strong>
             </div>
           </div>
 
@@ -471,7 +480,7 @@ export const PremiumLevel2RequestPage = () => {
             <section className={styles.deliveredPanel}>
               <CheckCircle2 size={18} aria-hidden="true" />
               <div>
-                <h2 className={styles.sectionTitle}>Your service has been delivered</h2>
+                <h2 className={styles.sectionTitle}>{tr("Your service has been delivered")}</h2>
                 <p className={styles.sectionText}>
                   Your individual training programme is available in My Programs. The nutrition plan
                   is shown below.
@@ -484,7 +493,7 @@ export const PremiumLevel2RequestPage = () => {
                     iconPosition="left"
                     to={`/services/my-programs/${request.training_program_id}`}
                   >
-                    Open my training programme
+                    {tr("Open my training programme")}
                   </Button>
                 ) : null}
               </div>
@@ -497,11 +506,11 @@ export const PremiumLevel2RequestPage = () => {
             <div className={styles.sectionHeading}>
               <ClipboardList size={18} aria-hidden="true" />
               <div>
-                <h2 className={styles.sectionTitle}>Your intake</h2>
+                <h2 className={styles.sectionTitle}>{tr("Your intake")}</h2>
                 <p className={styles.sectionText}>
                   {request.intake_version > 0
-                    ? `Revision ${request.intake_version} saved.`
-                    : "Nothing saved yet."}
+                    ? tr("Revision {version} saved.", { version: request.intake_version })
+                    : tr("Nothing saved yet.")}
                   {editable ? " Saving again creates a new revision for your trainer." : ""}
                 </p>
               </div>
@@ -511,8 +520,8 @@ export const PremiumLevel2RequestPage = () => {
               <>
                 {catalog.sections.map((section) => (
                   <fieldset key={section.key} className={styles.formSection}>
-                    <legend className={styles.formSectionTitle}>{section.title}</legend>
-                    <p className={styles.sectionText}>{section.description}</p>
+                    <legend className={styles.formSectionTitle}>{tr(section.title)}</legend>
+                    <p className={styles.sectionText}>{tr(section.description)}</p>
                     <div className={styles.formGrid}>
                       {section.questions.map((question) => (
                         <QuestionField
@@ -528,17 +537,17 @@ export const PremiumLevel2RequestPage = () => {
                   </fieldset>
                 ))}
 
-                {submitError ? <p className={styles.errorText}>{submitError}</p> : null}
+                {submitError ? <p className={styles.errorText}>{tr(submitError)}</p> : null}
                 {saved ? (
                   <p className={styles.successText}>
                     <CheckCircle2 size={16} aria-hidden="true" />
-                    Intake saved.
+                    {tr("Intake saved.")}
                   </p>
                 ) : null}
 
                 <div className={styles.actions}>
                   <Button variant="primary" size="small" disabled={saving} onClick={() => void handleSubmit()}>
-                    {saving ? "Saving…" : request.intake_version > 0 ? "Save new revision" : "Submit intake"}
+                    {saving ? tr("Saving…") : request.intake_version > 0 ? tr("Save new revision") : tr("Submit intake")}
                   </Button>
                 </div>
               </>
@@ -546,7 +555,7 @@ export const PremiumLevel2RequestPage = () => {
               <div className={styles.answerList}>
                 {catalog.sections.map((section) => (
                   <div key={section.key} className={styles.answerSection}>
-                    <h3 className={styles.mealTitle}>{section.title}</h3>
+                    <h3 className={styles.mealTitle}>{tr(section.title)}</h3>
                     <dl className={styles.answerGrid}>
                       {section.questions.map((question) => (
                         <div key={question.key} className={styles.answerRow}>

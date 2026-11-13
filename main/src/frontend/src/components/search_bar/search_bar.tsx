@@ -6,6 +6,7 @@ import {
   searchPrograms,
   type ProgramSearchResult
 } from "@/services/program_search";
+import { useMarketplaceCopy } from "@/constants/marketplace_copy";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./search_bar.module.css";
@@ -21,6 +22,7 @@ interface SearchBarProps {
 type SearchStatus = "idle" | "loading" | "done";
 
 export const SearchBar = ({ onFiltersClick, totalPrograms }: SearchBarProps) => {
+  const { text, valueLabel } = useMarketplaceCopy();
   const [scrolled, setScrolled] = useState(false);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -99,8 +101,8 @@ export const SearchBar = ({ onFiltersClick, totalPrograms }: SearchBarProps) => 
         <input
           type="search"
           className={styles.input}
-          placeholder="Search training plans..."
-          aria-label="Search training plans"
+          placeholder={text.searchPlaceholder}
+          aria-label={text.searchLabel}
           value={query}
           onChange={(event) => handleQueryChange(event.target.value)}
         />
@@ -109,14 +111,14 @@ export const SearchBar = ({ onFiltersClick, totalPrograms }: SearchBarProps) => 
       <div className={styles.actions}>
         {typeof totalPrograms === "number" ? (
           <span className={styles.totalCount}>
-            {totalPrograms} program{totalPrograms !== 1 ? "s" : ""}
+            {text.programCount(totalPrograms)}
           </span>
         ) : null}
 
         {onFiltersClick ? (
           <button type="button" className={styles.filtersButton} onClick={onFiltersClick}>
             <SlidersHorizontal strokeWidth={2} aria-hidden="true" />
-            <span>Filters</span>
+            <span>{text.filters}</span>
           </button>
         ) : null}
       </div>
@@ -124,11 +126,11 @@ export const SearchBar = ({ onFiltersClick, totalPrograms }: SearchBarProps) => 
       {dropdownOpen ? (
         <div className={styles.dropdown} aria-live="polite">
           {status === "loading" ? (
-            <div className={styles.dropdownEmpty}>Searching...</div>
+            <div className={styles.dropdownEmpty}>{text.searching}</div>
           ) : results.length > 0 ? (
             <ul className={styles.resultList}>
               {results.map((item) => {
-                const category = [item.trainingType, item.level].filter(Boolean).join(" · ");
+                const category = [valueLabel(item.trainingType), valueLabel(item.level)].filter(Boolean).join(" · ");
 
                 return (
                   <li key={item.id} className={styles.resultRow}>
@@ -142,13 +144,13 @@ export const SearchBar = ({ onFiltersClick, totalPrograms }: SearchBarProps) => 
                         {item.durationWeeks !== null ? (
                           <span className={styles.resultStat}>
                             <Calendar strokeWidth={2} aria-hidden="true" />
-                            {item.durationWeeks} weeks
+                            {text.weeks(item.durationWeeks)}
                           </span>
                         ) : null}
                         {item.frequencyPerWeek !== null ? (
                           <span className={styles.resultStat}>
                             <Repeat strokeWidth={2} aria-hidden="true" />
-                            {item.frequencyPerWeek}/week
+                            {text.perWeek(item.frequencyPerWeek)}
                           </span>
                         ) : null}
                         {category ? <span>{category}</span> : null}
@@ -159,7 +161,7 @@ export const SearchBar = ({ onFiltersClick, totalPrograms }: SearchBarProps) => 
               })}
             </ul>
           ) : (
-            <div className={styles.dropdownEmpty}>No results found</div>
+            <div className={styles.dropdownEmpty}>{text.noResults}</div>
           )}
         </div>
       ) : null}

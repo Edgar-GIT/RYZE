@@ -7,7 +7,7 @@ import { BRAND_ASSETS } from "@/constants/brand_assets";
 import earthLandMask from "@resources/img/globe/earth_land_mask.webp";
 import { joinClassNames } from "@utils/class_names";
 
-import { CALLOUTS, SAMPLE_DATA_NOTE, SCREENS, STORY_CHAPTERS, type StoryChapterId } from "./story_content";
+import { CALLOUTS, SCREENS, STORY_CHAPTER_IDS, type StoryChapterId, useStory } from "./story_content";
 import { ChapterCopy, StartActions, TONE_CLASS } from "./story_parts";
 import type { StoryScene } from "./story_scene";
 import styles from "./story_immersive.module.css";
@@ -28,7 +28,8 @@ const TRACK_START = 0.14;
 // The track starts when its top edge reaches this fraction of the viewport.
 const TRACK_LEAD = 0.55;
 
-const [IDENTITY, ...CHAPTERS] = STORY_CHAPTERS;
+// Every chapter after the opening one (ids only; the copy comes from useStory).
+const CHAPTER_IDS = STORY_CHAPTER_IDS.slice(1);
 
 // Progress windows in which each chapter's copy is visible: fade in, hold, fade out.
 const TRAIN_IN = 0.19;
@@ -148,6 +149,8 @@ interface StoryImmersiveProps {
 }
 
 export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => {
+  const { text, chapters } = useStory();
+  const [identity, ...laterChapters] = chapters;
   const rootRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLElement>(null);
   const heroCopyRef = useRef<HTMLDivElement>(null);
@@ -198,9 +201,9 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
 
       let strongest: StoryChapterId = "identity";
       let strongestOpacity = 0.5;
-      for (const chapter of CHAPTERS) {
-        const element = chapterRefs.current[chapter.id];
-        const { opacity, shift } = chapterVisibility(chapter.id, progress);
+      for (const chapterId of CHAPTER_IDS) {
+        const element = chapterRefs.current[chapterId];
+        const { opacity, shift } = chapterVisibility(chapterId, progress);
         if (element) {
           // Opacity only: every chapter stays in the accessibility tree.
           element.style.opacity = opacity.toFixed(3);
@@ -209,7 +212,7 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
         }
         if (opacity > strongestOpacity) {
           strongestOpacity = opacity;
-          strongest = chapter.id;
+          strongest = chapterId;
         }
       }
       // Between chapters the last one reached stays current.
@@ -284,10 +287,10 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
           logo: BRAND_ASSETS.icon,
           landMask: earthLandMask,
           screens: {
-            training: SCREENS.training.src,
-            nutrition: SCREENS.nutrition.src,
-            synced: SCREENS.synced.src,
-            platform: SCREENS.platform.src
+            training: SCREENS.training,
+            nutrition: SCREENS.nutrition,
+            synced: SCREENS.synced,
+            platform: SCREENS.platform
           },
           callouts: CALLOUTS
         });
@@ -353,7 +356,7 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
 
   return (
     <div ref={rootRef} className={joinClassNames(styles.story, ready && styles.storyReady)} onPointerMove={handlePointerMove}>
-      <section ref={stageRef} className={styles.stage} aria-label="Discover RYZE">
+      <section ref={stageRef} className={styles.stage} aria-label={text.discover}>
         <div ref={backdropRef} className={styles.backdrop} aria-hidden="true" />
         {ready ? null : (
           <div className={styles.placeholder} aria-hidden="true">
@@ -363,7 +366,7 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
         <div ref={canvasHostRef} className={styles.canvasHost} />
 
         <div className={styles.chapters}>
-          {CHAPTERS.map((chapter) => (
+          {laterChapters.map((chapter) => (
             <div
               key={chapter.id}
               ref={(element) => {
@@ -375,16 +378,16 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
             >
               <ChapterCopy chapter={chapter} headingId={`story-${chapter.id}`} />
               {chapter.id === "start" ? <StartActions /> : null}
-              {chapter.screen ? <p className={styles.sampleNote}>{SAMPLE_DATA_NOTE}</p> : null}
+              {chapter.screen ? <p className={styles.sampleNote}>{text.sampleNote}</p> : null}
               {/* The device screens are drawn in WebGL; describe them for assistive technology. */}
               {chapter.screen ? <p className={styles.srOnly}>{chapter.screen.alt}</p> : null}
             </div>
           ))}
         </div>
 
-        <nav className={joinClassNames(styles.steps, stepsHidden && styles.stepsHidden)} aria-label="Story steps">
+        <nav className={joinClassNames(styles.steps, stepsHidden && styles.stepsHidden)} aria-label={text.steps}>
           <ol>
-            {STORY_CHAPTERS.map((chapter, index) => (
+            {chapters.map((chapter, index) => (
               <li key={chapter.id}>
                 <button
                   type="button"
@@ -401,16 +404,16 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
         </nav>
       </section>
 
-      <section ref={heroRef} className={joinClassNames(styles.hero, TONE_CLASS[IDENTITY.tone])} aria-labelledby="story-identity">
+      <section ref={heroRef} className={joinClassNames(styles.hero, TONE_CLASS[identity.tone])} aria-labelledby="story-identity">
         <div className={styles.heroInner}>
           <div ref={heroCopyRef} className={styles.heroCopy}>
-            <ChapterCopy chapter={IDENTITY} headingId="story-identity" as="h1" />
+            <ChapterCopy chapter={identity} headingId="story-identity" as="h1" />
             <StartActions withEntryPoints />
           </div>
         </div>
         <p className={styles.scrollCue} aria-hidden="true">
           <ChevronsDown />
-          Scroll to explore
+          {text.scrollCue}
         </p>
       </section>
 

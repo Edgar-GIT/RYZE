@@ -2,7 +2,10 @@ import { Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
+import { useGettext } from "@/i18n/i18n";
+
 import styles from "./exercise_3d_viewer.module.css";
+import { EXERCISE_LIBRARY_PT } from "./exercise_library.pt";
 
 // The viewer implements one procedural scene per stored three_d_key. Scenes are
 // built from primitives (no external assets), so the demonstration loads no
@@ -340,6 +343,8 @@ const SPEEDS = [0.5, 1, 1.5] as const;
 // dynamic import by Exercise3DDemo so Three.js is only ever downloaded when a
 // client actually opens a 3D demonstration.
 const Exercise3DViewer = ({ threeDKey, exerciseName }: Exercise3DViewerProps) => {
+  // Labels only: the viewer's layout and behaviour are a protected part.
+  const tr = useGettext(EXERCISE_LIBRARY_PT);
   const sceneDefinition = SCENES[threeDKey] ?? null;
   const mountRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(true);
@@ -529,15 +534,15 @@ const Exercise3DViewer = ({ threeDKey, exerciseName }: Exercise3DViewerProps) =>
         ref={mountRef}
         className={styles.stage}
         role="img"
-        aria-label={`3D demonstration of ${exerciseName}`}
+        aria-label={tr("3D demonstration of {name}", { name: exerciseName })}
       />
       <div className={styles.controls}>
         <button type="button" className={styles.controlButton} onClick={() => setPlaying((value) => !value)}>
           {playing ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
-          {playing ? "Pause" : "Play"}
+          {playing ? tr("Pause") : tr("Play")}
         </button>
         <label className={styles.speedControl}>
-          <span>Speed</span>
+          <span>{tr("Speed")}</span>
           <select
             value={speed}
             onChange={(event) => setSpeed(Number(event.target.value) as (typeof SPEEDS)[number])}
@@ -550,7 +555,7 @@ const Exercise3DViewer = ({ threeDKey, exerciseName }: Exercise3DViewerProps) =>
             ))}
           </select>
         </label>
-        <span className={styles.hint}>Drag to rotate · Scroll to zoom</span>
+        <span className={styles.hint}>{tr("Drag to rotate · Scroll to zoom")}</span>
       </div>
     </div>
   );

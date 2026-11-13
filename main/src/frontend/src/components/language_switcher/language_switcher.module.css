@@ -56,3 +56,18 @@
     transition: none;
   }
 }
+
+/* Navigation-bar block: same control, tighter, no icon. */
+.compact {
+  gap: 0.1rem;
+  padding: 0.16rem;
+  border-color: rgba(24, 216, 255, 0.22);
+}
+
+.compact .option {
+  min-width: 2.35rem;
+  min-height: 2rem;
+  padding: 0 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}

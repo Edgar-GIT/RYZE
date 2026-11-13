@@ -2653,6 +2653,27 @@ email verify 20/15 min, verification resend 10/hour, Google start and callback
 30/15 min each, support open 10/hour, support message 60/10 min, support
 stream 120/10 min.
 
+### Rate limits added in v2.110.0
+
+Per client IP: purchase creation, payment start and payment capture share the
+`purchase` scope (30/10 min); nutrition generation 20/hour; trainer client
+lookup 60/15 min; trainer application document upload 30/hour.
+
+### Admin settings and system status (v2.110.0)
+
+- `GET /api/v1/admin/settings/commerce` (ADMIN_2, `plans`) → `{currency,
+  min_program_price_minor_units, default_platform_commission_bps,
+  max_commission_bps, payment_methods}`; values come from the deployment
+  configuration (read-only).
+- `GET /api/v1/admin/system/status` (ADMIN_1, `system`) → `{version,
+  started_at, uptime_seconds, database: {reachable, schema_version,
+  schema_dirty, open_connections}, email_queue: [{status, count}],
+  visible_notifications, open_support, features: {email_delivery,
+  google_sign_in, payment_methods, exercise_media, rate_limiting, test_mode,
+  contact_delivery, secure_cookies, default_platform_commission_bps,
+  session_lifetime_seconds}}`. It never returns hosts, keys or credentials and
+  answers with `reachable: false` when the database is down.
+
 ## Authentication and contact rate limiting (v2.90.0, contact v2.98.0)
 
 Rate limiting is applied to the credential and account endpoints

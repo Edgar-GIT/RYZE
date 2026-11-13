@@ -16,7 +16,7 @@
   border: 1px solid rgba(42, 140, 255, 0.35);
   border-radius: 50%;
   color: #c9d5ec;
-  background: rgba(7, 11, 18, 0.72);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   cursor: pointer;
   transition:
     color 160ms ease,

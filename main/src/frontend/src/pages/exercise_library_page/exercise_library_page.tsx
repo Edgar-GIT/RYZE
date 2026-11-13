@@ -20,6 +20,9 @@ import {
 } from "@/services/exercise_library";
 import { joinClassNames } from "@utils/class_names";
 
+import { EXERCISE_LIBRARY_PT } from "@/components/exercise_library/exercise_library.pt";
+import { useGettext } from "@/i18n/i18n";
+
 import styles from "./exercise_library_page.module.css";
 
 const PAGE_LIMIT = 10;
@@ -73,6 +76,7 @@ const ExerciseMediaThumb = ({ exercise }: { exercise: ExerciseCatalogEntry }) =>
 };
 
 export const ExerciseLibraryPage = () => {
+  const tr = useGettext(EXERCISE_LIBRARY_PT);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [filters, setFilters] = useState<LibraryFilters>(EMPTY_FILTERS);
@@ -209,11 +213,12 @@ export const ExerciseLibraryPage = () => {
       <section className={styles.library}>
         <Container size="wide" className={styles.container}>
           <header className={styles.heading}>
-            <span className={styles.eyebrow}>Exercise Library</span>
-            <h1 className={styles.title}>Every movement, one catalogue</h1>
+            <span className={styles.eyebrow}>{tr("Exercise Library")}</span>
+            <h1 className={styles.title}>{tr("Every movement, one catalogue")}</h1>
             <p className={styles.subtitle}>
-              Browse the full RYZE exercise catalogue by body part, muscle, equipment and level.
-              Open any exercise for step-by-step instructions and alternatives.
+              {tr(
+                "Browse the full RYZE exercise catalogue by body part, muscle, equipment and level. Open any exercise for step-by-step instructions and alternatives."
+              )}
             </p>
           </header>
 
@@ -227,8 +232,8 @@ export const ExerciseLibraryPage = () => {
                   setQuery(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Search exercises by name…"
-                aria-label="Search exercises"
+                placeholder={tr("Search exercises by name…")}
+                aria-label={tr("Search exercises")}
                 className={styles.searchInput}
               />
               {query ? (
@@ -238,7 +243,7 @@ export const ExerciseLibraryPage = () => {
                     setQuery("");
                     setPage(1);
                   }}
-                  aria-label="Clear search"
+                  aria-label={tr("Clear search")}
                   className={styles.searchClear}
                 >
                   <X size={14} />
@@ -253,9 +258,9 @@ export const ExerciseLibraryPage = () => {
                   value={filters.bodyPart}
                   onChange={(event) => updateFilter("bodyPart", event.target.value)}
                   className={styles.select}
-                  aria-label="Filter by body part"
+                  aria-label={tr("Filter by body part")}
                 >
-                  <option value="">All body parts</option>
+                  <option value="">{tr("All body parts")}</option>
                   {EXERCISE_BODY_PART_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -270,9 +275,9 @@ export const ExerciseLibraryPage = () => {
                   value={filters.muscle}
                   onChange={(event) => updateFilter("muscle", event.target.value)}
                   className={styles.select}
-                  aria-label="Filter by muscle group"
+                  aria-label={tr("Filter by muscle group")}
                 >
-                  <option value="">All muscles</option>
+                  <option value="">{tr("All muscles")}</option>
                   {EXERCISE_MUSCLE_GROUPS.map((group) => (
                     <option key={group} value={group}>
                       {group}
@@ -287,9 +292,9 @@ export const ExerciseLibraryPage = () => {
                   value={filters.equipment}
                   onChange={(event) => updateFilter("equipment", event.target.value)}
                   className={styles.select}
-                  aria-label="Filter by equipment"
+                  aria-label={tr("Filter by equipment")}
                 >
-                  <option value="">All equipment</option>
+                  <option value="">{tr("All equipment")}</option>
                   {EXERCISE_EQUIPMENT_OPTIONS.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -304,9 +309,9 @@ export const ExerciseLibraryPage = () => {
                   value={filters.difficulty}
                   onChange={(event) => updateFilter("difficulty", event.target.value)}
                   className={styles.select}
-                  aria-label="Filter by difficulty"
+                  aria-label={tr("Filter by difficulty")}
                 >
-                  <option value="">All levels</option>
+                  <option value="">{tr("All levels")}</option>
                   {DIFFICULTY_LEVELS.map((level) => (
                     <option key={level} value={level}>
                       {level}
@@ -321,9 +326,9 @@ export const ExerciseLibraryPage = () => {
                   value={filters.category}
                   onChange={(event) => updateFilter("category", event.target.value)}
                   className={styles.select}
-                  aria-label="Filter by movement category"
+                  aria-label={tr("Filter by movement category")}
                 >
-                  <option value="">All categories</option>
+                  <option value="">{tr("All categories")}</option>
                   {MOVEMENT_CATEGORIES.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -343,34 +348,38 @@ export const ExerciseLibraryPage = () => {
 
           <div className={styles.resultBar} aria-live="polite">
             {loading
-              ? "Loading catalogue…"
+              ? tr("Loading catalogue…")
               : error
-                ? "Catalogue unavailable"
+                ? tr("Catalogue unavailable")
                 : total === 0
-                  ? "No exercises match the current search."
-                  : `Showing ${firstResult}–${lastResult} of ${total} exercise${total === 1 ? "" : "s"}`}
+                  ? tr("No exercises match the current search.")
+                  : tr(total === 1 ? "Showing {first}–{last} of {total} exercise" : "Showing {first}–{last} of {total} exercises", {
+                      first: firstResult,
+                      last: lastResult,
+                      total
+                    })}
           </div>
 
           {loading ? (
             <div className={styles.pageState}>
-              <p>Loading exercises…</p>
+              <p>{tr("Loading exercises…")}</p>
             </div>
           ) : error ? (
             <div className={styles.pageState}>
-              <p>{error}</p>
+              <p>{tr(error)}</p>
               <div className={styles.retry}>
                 <Button variant="secondary" size="small" onClick={() => setReloadToken((current) => current + 1)}>
-                  Retry
+                  {tr("Retry")}
                 </Button>
               </div>
             </div>
           ) : exercises.length === 0 ? (
             <div className={styles.pageState}>
-              <p>No exercises match the current search or filters.</p>
+              <p>{tr("No exercises match the current search or filters.")}</p>
               {activeFilterCount > 0 ? (
                 <div className={styles.retry}>
                   <Button variant="secondary" size="small" onClick={clearAll}>
-                    Clear search and filters
+                    {tr("Clear search and filters")}
                   </Button>
                 </div>
               ) : null}
@@ -397,7 +406,7 @@ export const ExerciseLibraryPage = () => {
           {!loading && !error && exercises.length > 0 ? (
             <div ref={sentinelRef} className={styles.loadMore} aria-live="polite">
               {loadingMore ? (
-                <span>Loading more exercises…</span>
+                <span>{tr("Loading more exercises…")}</span>
               ) : loadMoreError ? (
                 <>
                   <span>{loadMoreError}</span>
@@ -406,13 +415,13 @@ export const ExerciseLibraryPage = () => {
                     size="small"
                     onClick={() => setReloadToken((current) => current + 1)}
                   >
-                    Retry
+                    {tr("Retry")}
                   </Button>
                 </>
               ) : hasMore ? (
-                <span>Scroll to load more exercises.</span>
+                <span>{tr("Scroll to load more exercises.")}</span>
               ) : (
-                <span>You have reached the end of the library.</span>
+                <span>{tr("You have reached the end of the library.")}</span>
               )}
             </div>
           ) : null}

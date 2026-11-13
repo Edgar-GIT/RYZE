@@ -9,6 +9,8 @@ import {
   contactErrorMessage,
   submitContact
 } from "@/services/contact_api";
+import { CONTACT_PT } from "@/i18n/catalogs/contact.pt";
+import { useGettext } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./contact_form.module.css";
@@ -23,6 +25,7 @@ const ALLOWED_ATTACHMENT_TYPES = new Set([
 type SubmitStatus = "idle" | "submitting" | "success" | "error";
 
 export const ContactForm = () => {
+  const tr = useGettext(CONTACT_PT);
   const [selectedFileName, setSelectedFileName] = useState("No file selected");
   const [status, setStatus] = useState<SubmitStatus>("idle");
   const [feedback, setFeedback] = useState("");
@@ -83,23 +86,23 @@ export const ContactForm = () => {
       aria-busy={status === "submitting"}
     >
       <header className={styles.header}>
-        <h2>Write to RYZE</h2>
+        <h2>{tr("Write to RYZE")}</h2>
       </header>
 
       <div className={styles.fields}>
         <label>
-          <span>Name</span>
+          <span>{tr("Name")}</span>
           <input
             type="text"
             name="name"
             autoComplete="name"
-            placeholder="Your name"
+            placeholder={tr("Your name")}
             required
             maxLength={100}
           />
         </label>
         <label>
-          <span>Email</span>
+          <span>{tr("Email")}</span>
           <input
             type="email"
             name="email"
@@ -110,21 +113,21 @@ export const ContactForm = () => {
           />
         </label>
         <label className={styles.fullWidth}>
-          <span>Subject</span>
+          <span>{tr("Subject")}</span>
           <input
             type="text"
             name="subject"
-            placeholder="How can we help?"
+            placeholder={tr("How can we help?")}
             required
             maxLength={200}
           />
         </label>
         <label className={styles.fullWidth}>
-          <span>Message</span>
+          <span>{tr("Message")}</span>
           <textarea
             name="message"
             rows={5}
-            placeholder="Tell us a bit more…"
+            placeholder={tr("Tell us a bit more…")}
             required
             maxLength={5000}
           />
@@ -142,16 +145,16 @@ export const ContactForm = () => {
           <div className={styles.uploadCopy}>
             <Paperclip aria-hidden="true" />
             <div>
-              <span id={uploadLabelId}>Attachment (optional)</span>
-              <small>{selectedFileName}</small>
+              <span id={uploadLabelId}>{tr("Attachment (optional)")}</span>
+              <small>{tr(selectedFileName)}</small>
               <small id={uploadHintId} className={styles.uploadHint}>
-                PNG, JPEG, WebP or PDF, up to 1 MB.
+                {tr("PNG, JPEG, WebP or PDF, up to 1 MB.")}
               </small>
             </div>
           </div>
           <label id={uploadButtonId} className={styles.uploadButton} htmlFor={uploadInputId}>
             <Upload aria-hidden="true" />
-            <span>Choose file</span>
+            <span>{tr("Choose file")}</span>
           </label>
           <input
             id={uploadInputId}
@@ -178,7 +181,7 @@ export const ContactForm = () => {
           role="status"
           aria-live="polite"
         >
-          {feedback}
+          {feedback ? tr(feedback) : ""}
         </p>
         <PublicAction
           type="submit"
@@ -186,9 +189,9 @@ export const ContactForm = () => {
           icon={<SendHorizontal />}
           disabled={status === "submitting"}
         >
-          {status === "submitting" ? "Sending…" : "Send Message"}
+          {status === "submitting" ? tr("Sending…") : tr("Send Message")}
         </PublicAction>
-        <p className={styles.note}>We usually reply within 24 hours.</p>
+        <p className={styles.note}>{tr("We usually reply within 24 hours.")}</p>
       </div>
     </form>
   );

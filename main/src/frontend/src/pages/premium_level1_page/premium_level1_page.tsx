@@ -30,11 +30,14 @@ import {
   type QuestionnaireAnswers,
   type QuestionnaireQuestion
 } from "@/services/premium_level1_api";
+import { COMMERCE_PT } from "@/i18n/catalogs/commerce.pt";
+import { useGettext, useI18n } from "@/i18n/i18n";
 import { ApiError } from "@utils/http_client";
 
 import { PremiumNutritionPlan } from "./premium_nutrition_plan";
 import { PremiumQuestionnaireForm } from "./premium_questionnaire_form";
 import styles from "./premium_level1_page.module.css";
+import { PREMIUM_LEVEL1_PT } from "./premium_level1_page.pt";
 
 // The step the client is on. The backend owns every gate that matters — this
 // only decides what is worth rendering.
@@ -99,6 +102,15 @@ const OBJECTIVE_META: Record<
 };
 
 export const PremiumLevel1Page = () => {
+  const tr = useGettext(PREMIUM_LEVEL1_PT, COMMERCE_PT);
+  const { locale } = useI18n();
+  const objectiveLabel = (objective: string) => tr(programObjectiveLabel(objective));
+  const price = (entry: MarketplaceProgram) =>
+    testModeActive
+      ? formatMarketplacePrice(0, entry.currency, entry.type, locale)
+      : formatMarketplacePrice(entry.price_minor_units, entry.currency, entry.type, locale);
+  const weeks = (count: number) => tr(count === 1 ? "{count} week" : "{count} weeks", { count });
+  const days = (count: number) => tr(count === 1 ? "{count} day/week" : "{count} days/week", { count });
   const history = useHistory();
   const location = useLocation();
   const { isActive: testModeActive } = useTestMode();
@@ -346,24 +358,24 @@ export const PremiumLevel1Page = () => {
   }, [owned, step, loadNutrition]);
 
   const renderCheckout = () => (
-    <section className={styles.checkout} aria-label="Checkout">
-      <h2 className={styles.sectionTitle}>Complete your purchase</h2>
+    <section className={styles.checkout} aria-label={tr("Checkout")}>
+      <h2 className={styles.sectionTitle}>{tr("Complete your purchase")}</h2>
       <p className={styles.sectionText}>
         {isCuratedPackage(product)
-          ? "Complete the purchase to unlock your training plan and the nutrition plan bundled with this package."
-          : "Your questionnaire is saved. Complete the purchase to unlock your training plan and your personalised nutrition programme."}
+          ? tr("Complete the purchase to unlock your training plan and the nutrition plan bundled with this package.")
+          : tr("Your questionnaire is saved. Complete the purchase to unlock your training plan and your personalised nutrition programme.")}
       </p>
 
       {checkout.state.status === "success" ? (
         <div className={styles.stateCard}>
           <p className={styles.stateTitle}>
             <CheckCircle2 size={16} aria-hidden="true" />
-            Purchase confirmed
+            {tr("Purchase confirmed")}
           </p>
           <p className={styles.stateText}>
             {isCuratedPackage(product)
-              ? "Your package is active. Your training and nutrition plans are ready."
-              : "Your package is active. We are preparing your nutrition programme now."}
+              ? tr("Your package is active. Your training and nutrition plans are ready.")
+              : tr("Your package is active. We are preparing your nutrition programme now.")}
           </p>
           <div className={styles.actions}>
             <Button
@@ -374,39 +386,39 @@ export const PremiumLevel1Page = () => {
                 void loadNutrition();
               }}
             >
-              Go to my package
+              {tr("Go to my package")}
             </Button>
           </div>
         </div>
       ) : checkout.state.status === "error" ? (
         <div className={styles.stateCardError}>
-          <p className={styles.stateTitle}>{checkout.state.message}</p>
+          <p className={styles.stateTitle}>{tr(checkout.state.message)}</p>
           <div className={styles.actions}>
             <Button variant="secondary" size="small" onClick={() => void checkout.buy()}>
-              Try again
+              {tr("Try again")}
             </Button>
           </div>
         </div>
       ) : cancelled ? (
         <div className={styles.stateCard}>
-          <p className={styles.stateTitle}>Payment cancelled</p>
+          <p className={styles.stateTitle}>{tr("Payment cancelled")}</p>
           <p className={styles.stateText}>
             {isCuratedPackage(product)
-              ? "No money was taken. You can resume whenever you are ready."
-              : "No money was taken. Your questionnaire is still saved, so you can resume whenever you are ready."}
+              ? tr("No money was taken. You can resume whenever you are ready.")
+              : tr("No money was taken. Your questionnaire is still saved, so you can resume whenever you are ready.")}
           </p>
           <div className={styles.actions}>
             <Button variant="primary" size="small" onClick={() => void checkout.retryPurchase(cancelled.purchaseId)}>
-              Resume checkout
+              {tr("Resume checkout")}
             </Button>
           </div>
         </div>
       ) : checkout.state.status === "guest" ? (
         <div className={styles.stateCard}>
-          <p className={styles.stateTitle}>Sign in to continue</p>
+          <p className={styles.stateTitle}>{tr("Sign in to continue")}</p>
           <div className={styles.actions}>
             <Button variant="primary" size="small" to="/login">
-              Sign in
+              {tr("Sign in")}
             </Button>
           </div>
         </div>
@@ -415,13 +427,13 @@ export const PremiumLevel1Page = () => {
           {testModeActive ? (
             <p className={styles.testModeNote}>
               <FlaskConical size={14} aria-hidden="true" />
-              Test Mode is active, so this purchase completes without contacting any payment provider.
+              {tr("Test Mode is active, so this purchase completes without contacting any payment provider.")}
             </p>
           ) : null}
 
           {checkout.paymentMethods.length > 0 ? (
             <fieldset className={styles.methods}>
-              <legend className={styles.label}>Payment method</legend>
+              <legend className={styles.label}>{tr("Payment method")}</legend>
               <div className={styles.methodOptions}>
                 {checkout.paymentMethods.map((method) => (
                   <label
@@ -442,7 +454,7 @@ export const PremiumLevel1Page = () => {
             </fieldset>
           ) : (
             <p className={styles.sectionText}>
-              Checkout is temporarily unavailable. No payment can be started right now.
+              {tr("Checkout is temporarily unavailable. No payment can be started right now.")}
             </p>
           )}
 
@@ -456,7 +468,7 @@ export const PremiumLevel1Page = () => {
               }
               onClick={() => void checkout.buy()}
             >
-              {checkout.state.status === "checking" ? "Checking access…" : "Pay and unlock my package"}
+              {checkout.state.status === "checking" ? tr("Checking access…") : tr("Pay and unlock my package")}
             </Button>
           </div>
         </>
@@ -472,31 +484,23 @@ export const PremiumLevel1Page = () => {
           <p className={styles.productDescription}>{entry.description}</p>
         ) : null}
         <div className={styles.chips}>
-          <span className={styles.chipPrice}>
-            {testModeActive
-              ? formatMarketplacePrice(0, entry.currency, entry.type)
-              : formatMarketplacePrice(entry.price_minor_units, entry.currency, entry.type)}
-          </span>
+          <span className={styles.chipPrice}>{price(entry)}</span>
           {testModeActive ? (
             <span className={styles.chipTestMode}>
               <FlaskConical size={12} aria-hidden="true" />
-              Test Mode
+              {tr("Test Mode")}
             </span>
           ) : null}
           {entry.duration_weeks !== null ? (
-            <span className={styles.chip}>
-              {entry.duration_weeks} week{entry.duration_weeks === 1 ? "" : "s"}
-            </span>
+            <span className={styles.chip}>{weeks(entry.duration_weeks)}</span>
           ) : null}
           {entry.frequency_per_week !== null ? (
-            <span className={styles.chip}>
-              {entry.frequency_per_week} day{entry.frequency_per_week === 1 ? "" : "s"}/week
-            </span>
+            <span className={styles.chip}>{days(entry.frequency_per_week)}</span>
           ) : null}
           {entry.objective ? (
-            <span className={styles.chip}>{programObjectiveLabel(entry.objective)}</span>
+            <span className={styles.chip}>{objectiveLabel(entry.objective)}</span>
           ) : null}
-          {entry.level ? <span className={styles.chip}>{entry.level}</span> : null}
+          {entry.level ? <span className={styles.chip}>{tr(entry.level)}</span> : null}
         </div>
       </div>
       <Button
@@ -506,7 +510,7 @@ export const PremiumLevel1Page = () => {
           selectedObjective ? `&objective=${selectedObjective}` : ""
         }`}
       >
-        View package
+        {tr("View package")}
       </Button>
     </article>
   );
@@ -517,7 +521,7 @@ export const PremiumLevel1Page = () => {
         <Container size="wide" className={styles.container}>
           <div className={styles.back}>
             <Button to="/services" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
-              Back to Services
+              {tr("Back to Services")}
             </Button>
             {product && selectedObjective ? (
               <Button
@@ -525,45 +529,45 @@ export const PremiumLevel1Page = () => {
                 variant="ghost"
                 size="small"
               >
-                Back to {programObjectiveLabel(selectedObjective)}
+                {tr("Back to {objective}", { objective: objectiveLabel(selectedObjective) })}
               </Button>
             ) : products.length > 1 && product ? (
               <Button to="/services/premium-level-1" variant="ghost" size="small">
-                All objectives
+                {tr("All objectives")}
               </Button>
             ) : null}
           </div>
 
           {loading ? (
             <div className={styles.state}>
-              <p>Loading Premium Level 1…</p>
+              <p>{tr("Loading Premium Level 1…")}</p>
             </div>
           ) : !product ? (
             products.length > 0 ? (
-              <section className={styles.catalogue} aria-label="Premium Level 1 packages">
+              <section className={styles.catalogue} aria-label={tr("Premium Level 1 packages")}>
                 <header className={styles.heading}>
                   <p className={styles.eyebrow}>
                     <Sparkles size={14} aria-hidden="true" />
-                    Premium Level 1
+                    {tr("Premium Level 1")}
                   </p>
                   <h1 className={styles.title}>
                     {selectedObjective
-                      ? programObjectiveLabel(selectedObjective)
+                      ? objectiveLabel(selectedObjective)
                       : objectiveCards.length > 0
-                        ? "Choose your objective"
-                        : "Choose your package"}
+                        ? tr("Choose your objective")
+                        : tr("Choose your package")}
                   </h1>
                   <p className={styles.subtitle}>
                     {selectedObjective
-                      ? "These packages match your objective. Each one includes a structured training plan and the nutrition plan curated for this goal."
+                      ? tr("These packages match your objective. Each one includes a structured training plan and the nutrition plan curated for this goal.")
                       : objectiveCards.length > 0
-                        ? "Start with the goal you want to train for. Every package includes a structured training plan and a nutrition plan curated for that objective."
-                        : "Every published Premium Level 1 package is shown below. Choose the one that matches your training and nutrition goals."}
+                        ? tr("Start with the goal you want to train for. Every package includes a structured training plan and a nutrition plan curated for that objective.")
+                        : tr("Every published Premium Level 1 package is shown below. Choose the one that matches your training and nutrition goals.")}
                   </p>
                 </header>
 
                 {errorMessage ? (
-                  <p className={styles.inlineError} role="alert">{errorMessage}</p>
+                  <p className={styles.inlineError} role="alert">{tr(errorMessage)}</p>
                 ) : null}
 
                 {selectedObjective ? (
@@ -571,12 +575,13 @@ export const PremiumLevel1Page = () => {
                     <>
                       <div className={styles.catalogueBar}>
                         <p className={styles.catalogueCount}>
-                          {objectivePackages.length} package
-                          {objectivePackages.length === 1 ? "" : "s"} for{" "}
-                          {programObjectiveLabel(selectedObjective).toLowerCase()}
+                          {tr(objectivePackages.length === 1 ? "{count} package for {objective}" : "{count} packages for {objective}", {
+                            count: objectivePackages.length,
+                            objective: objectiveLabel(selectedObjective).toLowerCase()
+                          })}
                         </p>
                         <Button to="/services/premium-level-1" variant="ghost" size="small">
-                          All objectives
+                          {tr("All objectives")}
                         </Button>
                       </div>
                       <div className={styles.productGrid}>
@@ -585,9 +590,9 @@ export const PremiumLevel1Page = () => {
                     </>
                   ) : (
                     <div className={styles.state}>
-                      <p>No packages are available for this objective right now.</p>
+                      <p>{tr("No packages are available for this objective right now.")}</p>
                       <Button to="/services/premium-level-1" variant="secondary" size="small">
-                        Choose another objective
+                        {tr("Choose another objective")}
                       </Button>
                     </div>
                   )
@@ -604,13 +609,13 @@ export const PremiumLevel1Page = () => {
                               </span>
                               <div className={styles.objectiveBody}>
                                 <h2 className={styles.objectiveName}>
-                                  {programObjectiveLabel(objective)}
+                                  {objectiveLabel(objective)}
                                 </h2>
                                 <p className={styles.objectiveDescription}>
-                                  {OBJECTIVE_META[objective].description}
+                                  {tr(OBJECTIVE_META[objective].description)}
                                 </p>
                                 <p className={styles.objectiveMeta}>
-                                  {packages.length} package{packages.length === 1 ? "" : "s"}
+                                  {tr(packages.length === 1 ? "{count} package" : "{count} packages", { count: packages.length })}
                                 </p>
                               </div>
                               <Button
@@ -618,7 +623,7 @@ export const PremiumLevel1Page = () => {
                                 size="small"
                                 to={`/services/premium-level-1?objective=${objective}`}
                               >
-                                Explore packages
+                                {tr("Explore packages")}
                               </Button>
                             </article>
                           );
@@ -629,7 +634,7 @@ export const PremiumLevel1Page = () => {
                     {unclassifiedPackages.length > 0 ? (
                       <div className={styles.catalogueGroup}>
                         {objectiveCards.length > 0 ? (
-                          <h2 className={styles.groupTitle}>Other packages</h2>
+                          <h2 className={styles.groupTitle}>{tr("Other packages")}</h2>
                         ) : null}
                         <div className={styles.productGrid}>
                           {unclassifiedPackages.map(renderPackageCard)}
@@ -641,20 +646,20 @@ export const PremiumLevel1Page = () => {
               </section>
             ) : (
               <div className={styles.state}>
-                <p>{errorMessage}</p>
+                <p>{tr(errorMessage)}</p>
                 <div className={styles.actions}>
                   <Button variant="secondary" size="small" onClick={() => void load()}>
-                    Retry
+                    {tr("Retry")}
                   </Button>
                 </div>
               </div>
             )
           ) : errorMessage ? (
             <div className={styles.state}>
-              <p>{errorMessage}</p>
+              <p>{tr(errorMessage)}</p>
               <div className={styles.actions}>
                 <Button variant="secondary" size="small" onClick={() => void load()}>
-                  Retry
+                  {tr("Retry")}
                 </Button>
               </div>
             </div>
@@ -663,70 +668,62 @@ export const PremiumLevel1Page = () => {
               <header className={styles.heading}>
                 <p className={styles.eyebrow}>
                   <Sparkles size={14} aria-hidden="true" />
-                  Premium Level 1
+                  {tr("Premium Level 1")}
                 </p>
                 <h1 className={styles.title}>{product.name}</h1>
                 {product.description ? <p className={styles.subtitle}>{product.description}</p> : null}
 
                 <div className={styles.chips}>
-                  <span className={styles.chipPrice}>
-                    {testModeActive
-                      ? formatMarketplacePrice(0, product.currency, product.type)
-                      : formatMarketplacePrice(product.price_minor_units, product.currency, product.type)}
-                  </span>
+                  <span className={styles.chipPrice}>{price(product)}</span>
                   {testModeActive ? (
                     <span className={styles.chipTestMode}>
                       <FlaskConical size={12} aria-hidden="true" />
-                      Test Mode
+                      {tr("Test Mode")}
                     </span>
                   ) : null}
                   <span className={styles.chip}>
                     {isCuratedPackage(product) && product.objective
-                      ? programObjectiveLabel(product.objective)
-                      : "Training + nutrition"}
+                      ? objectiveLabel(product.objective)
+                      : tr("Training + nutrition")}
                   </span>
                   {product.duration_weeks !== null ? (
-                    <span className={styles.chip}>
-                      {product.duration_weeks} week{product.duration_weeks === 1 ? "" : "s"}
-                    </span>
+                    <span className={styles.chip}>{weeks(product.duration_weeks)}</span>
                   ) : null}
-                  {product.level ? <span className={styles.chip}>{product.level}</span> : null}
+                  {product.level ? <span className={styles.chip}>{tr(product.level)}</span> : null}
                   {product.frequency_per_week !== null ? (
-                    <span className={styles.chip}>
-                      {product.frequency_per_week} day{product.frequency_per_week === 1 ? "" : "s"}/week
-                    </span>
+                    <span className={styles.chip}>{days(product.frequency_per_week)}</span>
                   ) : null}
                 </div>
               </header>
 
               <div className={styles.columns}>
                 <div className={styles.main}>
-                  <section className={styles.panel} aria-label="What you receive">
-                    <h2 className={styles.sectionTitle}>One complete package</h2>
+                  <section className={styles.panel} aria-label={tr("What you receive")}>
+                    <h2 className={styles.sectionTitle}>{tr("One complete package")}</h2>
                     <p className={styles.sectionText}>
                       {isCuratedPackage(product)
-                        ? "Premium Level 1 combines your training plan and a complete nutrition plan in a single purchase. The nutrition side is a fixed plan curated for this package, so every buyer receives the same expert-defined content."
-                        : "Premium Level 1 combines your training plan and your nutrition programme in a single purchase. The nutrition side is personalised automatically from the questionnaire you fill in before checkout, so both halves of the package are built around the same answers."}
+                        ? tr("Premium Level 1 combines your training plan and a complete nutrition plan in a single purchase. The nutrition side is a fixed plan curated for this package, so every buyer receives the same expert-defined content.")
+                        : tr("Premium Level 1 combines your training plan and your nutrition programme in a single purchase. The nutrition side is personalised automatically from the questionnaire you fill in before checkout, so both halves of the package are built around the same answers.")}
                     </p>
                     <ul className={styles.includes}>
                       {(isCuratedPackage(product) ? CURATED_PACKAGE_INCLUDES : QUESTIONNAIRE_PACKAGE_INCLUDES).map((item) => (
                         <li key={item} className={styles.includeItem}>
                           <CheckCircle2 size={15} aria-hidden="true" />
-                          <span>{item}</span>
+                          <span>{tr(item)}</span>
                         </li>
                       ))}
                     </ul>
                     <p className={styles.disclaimer}>
                       {isCuratedPackage(product)
-                        ? "This is a predefined training and nutrition package, not personal coaching. It is not a medical or clinical assessment. Speak to a professional before starting if you have a medical condition."
-                        : "This is an automated programme, not personal coaching. No trainer reviews your answers and the plan is not a medical or clinical assessment. Speak to a professional before starting if you have a medical condition."}
+                        ? tr("This is a predefined training and nutrition package, not personal coaching. It is not a medical or clinical assessment. Speak to a professional before starting if you have a medical condition.")
+                        : tr("This is an automated programme, not personal coaching. No trainer reviews your answers and the plan is not a medical or clinical assessment. Speak to a professional before starting if you have a medical condition.")}
                     </p>
                   </section>
 
                   {step === "questionnaire" ? (
                     questionnaireLoading ? (
                       <div className={styles.state}>
-                        <p>Loading questionnaire…</p>
+                        <p>{tr("Loading questionnaire…")}</p>
                       </div>
                     ) : (
                       <PremiumQuestionnaireForm
@@ -748,13 +745,13 @@ export const PremiumLevel1Page = () => {
 
                   {step === "access" ? (
                     <>
-                      <section className={styles.panel} aria-label="Your training plan">
-                        <h2 className={styles.sectionTitle}>Your training plan</h2>
+                      <section className={styles.panel} aria-label={tr("Your training plan")}>
+                        <h2 className={styles.sectionTitle}>{tr("Your training plan")}</h2>
                         <p className={styles.sectionText}>
-                          Your full training structure, workout player, history and progress live in Program Access.
+                          {tr("Your full training structure, workout player, history and progress live in Program Access.")}
                         </p>
                         <Button variant="primary" size="small" to={`/services/my-programs/${programId}`}>
-                          Open Program Access
+                          {tr("Open Program Access")}
                         </Button>
                       </section>
 
@@ -774,40 +771,36 @@ export const PremiumLevel1Page = () => {
 
                 <aside className={styles.aside}>
                   <div className={styles.stickyCard}>
-                    <p className={styles.asideTitle}>Premium Level 1</p>
-                    <p className={styles.asidePrice}>
-                      {testModeActive
-                        ? formatMarketplacePrice(0, product.currency, product.type)
-                        : formatMarketplacePrice(product.price_minor_units, product.currency, product.type)}
-                    </p>
+                    <p className={styles.asideTitle}>{tr("Premium Level 1")}</p>
+                    <p className={styles.asidePrice}>{price(product)}</p>
                     <p className={styles.asideText}>
                       {isCuratedPackage(product)
-                        ? "A complete training and nutrition package with a curated plan for this objective."
-                        : "A complete training and nutrition package, personalised from your questionnaire."}
+                        ? tr("A complete training and nutrition package with a curated plan for this objective.")
+                        : tr("A complete training and nutrition package, personalised from your questionnaire.")}
                     </p>
                     <div className={styles.actions}>
                       {step === "product" ? (
                         <Button variant="primary" size="small" onClick={() => void handleStart()}>
-                          {isCuratedPackage(product) ? "Continue to checkout" : "Start my questionnaire"}
+                          {isCuratedPackage(product) ? tr("Continue to checkout") : tr("Start my questionnaire")}
                         </Button>
                       ) : step === "questionnaire" && requirement?.locked ? (
                         <Button variant="primary" size="small" onClick={() => setStep("checkout")}>
-                          Continue to checkout
+                          {tr("Continue to checkout")}
                         </Button>
                       ) : step === "questionnaire" && requirement?.submitted ? (
                         <Button variant="primary" size="small" onClick={() => setStep("checkout")}>
-                          Continue to checkout
+                          {tr("Continue to checkout")}
                         </Button>
                       ) : null}
                       {step === "access" ? (
                         <Button variant="primary" size="small" to={`/services/my-programs/${programId}`}>
-                          Open Program Access
+                          {tr("Open Program Access")}
                         </Button>
                       ) : null}
                     </div>
                     {step === "questionnaire" && requirement?.locked ? (
                       <p className={styles.asideNote}>
-                        Your questionnaire is locked because your purchase is complete.
+                        {tr("Your questionnaire is locked because your purchase is complete.")}
                       </p>
                     ) : null}
                   </div>

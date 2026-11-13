@@ -1,0 +1,70 @@
+.chart {
+  margin: 0;
+}
+
+.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.axis {
+  stroke: rgba(124, 200, 255, 0.18);
+  stroke-width: 1;
+}
+
+.bar {
+  fill: rgba(0, 203, 255, 0.45);
+}
+
+.barLast {
+  fill: #00cbff;
+}
+
+.barEmpty {
+  fill: rgba(124, 200, 255, 0.14);
+}
+
+.line {
+  fill: none;
+  stroke: #00cbff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.dot {
+  fill: #02041f;
+  stroke: #00cbff;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.dotLast {
+  fill: #00cbff;
+  stroke: #02041f;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.value {
+  fill: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.label {
+  fill: #93a4c8;
+  font-size: 11px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

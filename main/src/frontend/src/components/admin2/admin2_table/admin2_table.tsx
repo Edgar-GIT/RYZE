@@ -27,7 +27,7 @@ export const Admin2Table = <T,>({
   className
 }: Admin2TableProps<T>) => (
   <div className={joinClassNames(styles.wrap, className)}>
-    <table className={styles.table}>
+    <table className={joinClassNames(styles.table, "app-stack-table")}>
       <thead>
         <tr>
           {columns.map((column) => (
@@ -48,7 +48,7 @@ export const Admin2Table = <T,>({
           rows.map((row) => (
             <tr key={rowKey(row)}>
               {columns.map((column) => (
-                <td key={column.key} className={column.className}>
+                <td key={column.key} className={column.className} data-label={column.label || undefined}>
                   {column.render(row)}
                 </td>
               ))}

@@ -53,6 +53,17 @@
     background 200ms ease;
 }
 
+.navLinkActive {
+  color: #02041f;
+  border-color: transparent;
+  background: var(--accent);
+}
+
+.navLinkActive:hover {
+  color: #02041f !important;
+  background: var(--accent) !important;
+}
+
 .navLink:hover {
   color: var(--text-primary);
   border-color: rgba(24, 216, 255, 0.4);
@@ -157,5 +168,61 @@
 @media (max-width: 420px) {
   .userName {
     display: none;
+  }
+}
+/* App-style tab bar: phones only. */
+.tabBar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .centerNav {
+    display: none;
+  }
+
+  .navbar {
+    grid-template-areas: "brand user";
+    row-gap: 0;
+  }
+
+  .tabBar {
+    position: fixed;
+    z-index: 40;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border-color);
+    background: rgba(2, 4, 31, 0.96);
+    backdrop-filter: blur(12px);
+  }
+
+  .tab {
+    display: grid;
+    min-height: 3.1rem;
+    justify-items: center;
+    align-content: center;
+    gap: 0.2rem;
+    border-radius: 12px;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .tab svg {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  .tabActive {
+    color: var(--accent);
+  }
+
+  .tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
 }

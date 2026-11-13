@@ -18,22 +18,24 @@ export interface ProgramHighlight {
 const isFree = (program: MarketplaceProgram): boolean =>
   program.type === "free" || program.price_minor_units === 0;
 
-export const describeCatalogPrice = (programs: MarketplaceProgram[]): string => {
+export const describeCatalogPrice = (programs: MarketplaceProgram[], locale: "en" | "pt" = "en"): string => {
   if (programs.length === 0) {
     return "";
   }
+  const pt = locale === "pt";
   const paid = programs.filter((program) => !isFree(program));
   if (paid.length === 0) {
-    return "Free";
+    return pt ? "Grátis" : "Free";
   }
   if (paid.length < programs.length) {
-    return "Free and paid";
+    return pt ? "Gratuitos e pagos" : "Free and paid";
   }
   const cheapest = paid.reduce((lowest, program) =>
     program.price_minor_units < lowest.price_minor_units ? program : lowest
   );
-  const label = formatMarketplacePrice(cheapest.price_minor_units, cheapest.currency, cheapest.type);
-  return paid.length === 1 ? label : `From ${label}`;
+  const label = formatMarketplacePrice(cheapest.price_minor_units, cheapest.currency, cheapest.type, locale);
+  if (paid.length === 1) return label;
+  return pt ? `Desde ${label}` : `From ${label}`;
 };
 
 export const buildServiceCategoryCards = (

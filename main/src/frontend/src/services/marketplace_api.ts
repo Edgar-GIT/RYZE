@@ -18,12 +18,13 @@ export const FREE_PROGRAM_TYPE = "free";
 export const formatMarketplacePrice = (
   minorUnits: number,
   currency: string,
-  type: string
+  type: string,
+  locale: "en" | "pt" = "en"
 ): string => {
   if (type === FREE_PROGRAM_TYPE || !minorUnits) {
-    return "Free";
+    return locale === "pt" ? "Grátis" : "Free";
   }
-  return new Intl.NumberFormat("en-GB", {
+  return new Intl.NumberFormat(locale === "pt" ? "pt-PT" : "en-GB", {
     style: "currency",
     currency: currency || "EUR"
   }).format(minorUnits / 100);

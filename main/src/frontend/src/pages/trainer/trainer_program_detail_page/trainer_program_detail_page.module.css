@@ -15,7 +15,7 @@
 .weekCard {
   border: 1px solid rgba(24, 216, 255, 0.16);
   border-radius: 16px;
-  background: rgba(7, 11, 18, 0.62);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   overflow: hidden;
 }
 
@@ -45,7 +45,7 @@
 .workoutCard {
   border: 1px solid rgba(24, 216, 255, 0.12);
   border-radius: 12px;
-  background: rgba(7, 11, 18, 0.55);
+  background: var(--app-inset, rgba(2, 8, 38, 0.55));
 }
 
 .workoutHeader {
@@ -90,7 +90,7 @@
   padding: 0.55rem 0.7rem;
   border: 1px solid rgba(24, 216, 255, 0.1);
   border-radius: 10px;
-  background: rgba(7, 11, 18, 0.6);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
 }
 
 .exerciseName {

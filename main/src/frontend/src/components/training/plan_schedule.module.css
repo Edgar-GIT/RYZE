@@ -1,0 +1,259 @@
+/* "My plan": week tabs and training-day cards. Mobile first. */
+
+.schedule {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem;
+  border: 1px dashed var(--app-line, rgba(124, 200, 255, 0.14));
+  border-radius: var(--app-radius, 16px);
+  color: var(--app-text-3, #93a4c8);
+  text-align: center;
+}
+
+.weekTabs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  scrollbar-width: none;
+}
+
+.weekTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.weekTab {
+  flex: none;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
+  border-radius: 999px;
+  color: var(--app-text-2, #c9d5ec);
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.weekTabActive {
+  border-color: transparent;
+  color: #02041f;
+  background: var(--app-accent, #00cbff);
+}
+
+.days {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.9rem;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
+  border-radius: var(--app-radius, 16px);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
+}
+
+.dayHighlight {
+  border-color: var(--app-line-strong, rgba(0, 203, 255, 0.45));
+  box-shadow: 0 0 0 1px rgba(0, 203, 255, 0.12) inset;
+}
+
+.dayHead {
+  position: relative;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0 2rem 0 0;
+  border: 0;
+  color: inherit;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dayTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+}
+
+.dayTitle {
+  color: var(--app-text, #fff);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.badgeActive,
+.badgeNext,
+.badgeDone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.badgeActive {
+  color: #02041f;
+  background: var(--app-warning, #ffcf7a);
+}
+
+.badgeNext {
+  color: #02041f;
+  background: var(--app-accent, #00cbff);
+}
+
+.badgeDone {
+  color: var(--app-success, #5ee6a8);
+  background: var(--app-success-soft, rgba(94, 230, 168, 0.12));
+}
+
+.badgeDone svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.dayMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--app-text-2, #c9d5ec);
+  font-size: 0.85rem;
+}
+
+.dayMeta svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--app-text-3, #93a4c8);
+}
+
+.dayNames {
+  overflow: hidden;
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  position: absolute;
+  top: 0.15rem;
+  right: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--app-text-3, #93a4c8);
+  transition: transform 180ms ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.preview {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.6rem 0 0;
+  border-top: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
+  list-style: none;
+  counter-reset: exercise;
+}
+
+.preview li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  counter-increment: exercise;
+}
+
+.previewName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--app-text, #fff);
+  font-size: 0.9rem;
+}
+
+.previewName::before {
+  margin-right: 0.45rem;
+  color: var(--app-accent, #00cbff);
+  font-weight: 800;
+  content: counter(exercise);
+}
+
+.previewSets {
+  flex: none;
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.previewEmpty {
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.85rem;
+}
+
+.start {
+  display: inline-flex;
+  min-height: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: 999px;
+  color: #02041f;
+  background: linear-gradient(180deg, #4fe3ff 0%, #00cbff 100%);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.startQuiet {
+  border: 1px solid var(--app-line-strong, rgba(0, 203, 255, 0.45));
+  color: var(--app-text, #fff);
+  background: transparent;
+}
+
+.start svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.start:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.weekTab:focus-visible,
+.dayHead:focus-visible,
+.start:focus-visible {
+  outline: 2px solid var(--app-accent, #00cbff);
+  outline-offset: 2px;
+}
+
+@media (min-width: 720px) {
+  .days {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

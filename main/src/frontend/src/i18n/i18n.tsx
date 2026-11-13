@@ -34,6 +34,8 @@ const INTL_LOCALE: Record<Locale, string> = { en: "en-GB", pt: "pt-PT" };
 
 interface StoredLocale {
   locale: Locale;
+  // auto: detected and not yet confirmed by the visitor; manual: chosen or
+  // confirmed (the first-visit language prompt stops showing).
   source: "auto" | "manual";
 }
 
@@ -84,13 +86,13 @@ export const detectLocale = (
   return "en";
 };
 
-const initialLocale = (): Locale => {
+const initialState = (): StoredLocale => {
   const stored = readStored();
   if (stored) {
-    return stored.locale;
+    return stored;
   }
-  const detected = detectLocale();
-  writeStored({ locale: detected, source: "auto" });
+  const detected: StoredLocale = { locale: detectLocale(), source: "auto" };
+  writeStored(detected);
   return detected;
 };
 
@@ -106,18 +108,20 @@ const lookup = (messages: Messages, key: string): string | undefined => {
   return typeof node === "string" ? node : undefined;
 };
 
-export const translate = (locale: Locale, key: TranslationKey, params?: TranslationParams): string => {
-  const template = lookup(DICTIONARIES[locale], key) ?? lookup(en, key) ?? key;
-  if (!params) {
-    return template;
-  }
-  return template.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match));
-};
+const interpolate = (template: string, params?: TranslationParams): string =>
+  params ? template.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match)) : template;
+
+export const translate = (locale: Locale, key: TranslationKey, params?: TranslationParams): string =>
+  interpolate(lookup(DICTIONARIES[locale], key) ?? lookup(en, key) ?? key, params);
 
 interface I18nValue {
   locale: Locale;
+  // True until the visitor confirms or changes the detected language.
+  isAutoDetected: boolean;
   intlLocale: string;
   setLocale: (locale: Locale) => void;
+  // Keeps the detected language and stops the first-visit prompt.
+  confirmLocale: () => void;
   t: (key: TranslationKey, params?: TranslationParams) => string;
   formatDate: (value: string | number | Date, options?: Intl.DateTimeFormatOptions) => string;
   formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
@@ -129,7 +133,10 @@ const I18nContext = createContext<I18nValue | null>(null);
 export const I18nProvider = ({ children, initialLocale: fixedLocale }: { children: ReactNode; initialLocale?: Locale }) => {
   // initialLocale pins the language (tests); otherwise it comes from the
   // stored choice or the browser.
-  const [locale, setLocaleState] = useState<Locale>(() => fixedLocale ?? initialLocale());
+  const [state, setState] = useState<StoredLocale>(() =>
+    fixedLocale ? { locale: fixedLocale, source: "manual" } : initialState()
+  );
+  const locale = state.locale;
 
   useEffect(() => {
     document.documentElement.lang = INTL_LOCALE[locale];
@@ -137,18 +144,28 @@ export const I18nProvider = ({ children, initialLocale: fixedLocale }: { childre
 
   const setLocale = useCallback((next: Locale) => {
     writeStored({ locale: next, source: "manual" });
-    setLocaleState(next);
+    setState({ locale: next, source: "manual" });
     // Saved to the account when signed in; a signed-out visitor keeps the
     // local choice only.
     apiPatch("/me/preferences", { language: next }).catch(() => undefined);
+  }, []);
+
+  const confirmLocale = useCallback(() => {
+    setState((current) => {
+      const confirmed: StoredLocale = { locale: current.locale, source: "manual" };
+      writeStored(confirmed);
+      return confirmed;
+    });
   }, []);
 
   const value = useMemo<I18nValue>(() => {
     const intlLocale = INTL_LOCALE[locale];
     return {
       locale,
+      isAutoDetected: state.source === "auto",
       intlLocale,
       setLocale,
+      confirmLocale,
       t: (key, params) => translate(locale, key, params),
       formatDate: (input, options = { day: "numeric", month: "short", year: "numeric" }) =>
         new Date(input).toLocaleDateString(intlLocale, options),
@@ -156,15 +173,61 @@ export const I18nProvider = ({ children, initialLocale: fixedLocale }: { childre
       formatMoney: (minorUnits, currency) =>
         new Intl.NumberFormat(intlLocale, { style: "currency", currency }).format(minorUnits / 100)
     };
-  }, [locale, setLocale]);
+  }, [locale, state.source, setLocale, confirmLocale]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 };
 
-export const useI18n = (): I18nValue => {
-  const context = useContext(I18nContext);
-  if (!context) {
-    throw new Error("useI18n must be used inside I18nProvider");
+// Outside the provider (isolated component tests) the interface is English.
+const ENGLISH_FALLBACK: I18nValue = {
+  locale: "en",
+  isAutoDetected: false,
+  intlLocale: INTL_LOCALE.en,
+  setLocale: () => undefined,
+  confirmLocale: () => undefined,
+  t: (key, params) => translate("en", key, params),
+  formatDate: (input, options = { day: "numeric", month: "short", year: "numeric" }) =>
+    new Date(input).toLocaleDateString(INTL_LOCALE.en, options),
+  formatNumber: (input, options) => new Intl.NumberFormat(INTL_LOCALE.en, options).format(input),
+  formatMoney: (minorUnits, currency) =>
+    new Intl.NumberFormat(INTL_LOCALE.en, { style: "currency", currency }).format(minorUnits / 100)
+};
+
+export const useI18n = (): I18nValue => useContext(I18nContext) ?? ENGLISH_FALLBACK;
+
+// Copy is page text kept next to the page that shows it: one object per
+// language with the same shape (pt must provide every key en has). Values may
+// be functions for text with numbers or names.
+export interface Copy<T> {
+  en: T;
+  pt: T;
+}
+
+export const useCopy = <T,>(copy: Copy<T>): T => copy[useI18n().locale];
+
+// Catalog is a gettext-style table for pages with a lot of English prose:
+// the English text stays in the page as the key and the Portuguese text sits
+// in a catalogue next to it. A missing entry falls back to English.
+export type Catalog = Readonly<Record<string, string>>;
+
+export type Gettext = (text: string, params?: TranslationParams) => string;
+
+export const gettext = (locale: Locale, catalogs: readonly Catalog[], text: string, params?: TranslationParams): string => {
+  let template = text;
+  if (locale === "pt") {
+    for (const catalog of catalogs) {
+      const found = catalog[text];
+      if (found !== undefined) {
+        template = found;
+        break;
+      }
+    }
   }
-  return context;
+  return interpolate(template, params);
+};
+
+// useGettext returns tr("English text", {params}) for the current language.
+export const useGettext = (...catalogs: Catalog[]): Gettext => {
+  const { locale } = useI18n();
+  return (text, params) => gettext(locale, catalogs, text, params);
 };

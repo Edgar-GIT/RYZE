@@ -55,7 +55,7 @@
   border: 1px solid rgba(24, 216, 255, 0.14);
   border-radius: 16px;
   color: inherit;
-  background: linear-gradient(165deg, rgba(10, 16, 26, 0.78), rgba(5, 8, 14, 0.78));
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   box-shadow: 0 0 0 1px rgba(24, 216, 255, 0.03) inset;
   text-decoration: none;
   transition:
@@ -149,7 +149,7 @@
   padding: 2.5rem 2rem;
   border: 1px solid rgba(42, 140, 255, 0.2);
   border-radius: 18px;
-  background: linear-gradient(165deg, rgba(10, 16, 26, 0.82), rgba(5, 8, 14, 0.82));
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   box-shadow:
     0 0 0 1px rgba(42, 140, 255, 0.04) inset,
     0 24px 60px rgba(5, 7, 11, 0.4);
@@ -180,7 +180,21 @@
 
 .retry {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 0.6rem;
+}
+
+/* Phones: the choices stack as full-width buttons instead of squeezing. */
+@media (max-width: 560px) {
+  .retry {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .retry > * {
+    width: 100%;
+  }
 }
 
 @media (max-width: 560px) {

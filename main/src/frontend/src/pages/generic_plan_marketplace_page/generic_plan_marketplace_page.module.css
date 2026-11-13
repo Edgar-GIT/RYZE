@@ -32,6 +32,9 @@
 
 .container {
   display: grid;
+  /* One column that may shrink below its content: on a 360px phone the
+     sticky search bar must not widen the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.4rem;
 }
 

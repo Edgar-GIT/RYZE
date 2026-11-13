@@ -3,8 +3,10 @@ import type { CSSProperties } from "react";
 
 import { Waves } from "@/components/public_ui/public_ui";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
+import { useGettext } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 
+import { OUR_VISION_PT } from "./our_vision_page.pt";
 import styles from "./standout_visual.module.css";
 
 // What sets RYZE apart today, and the next step on the roadmap.
@@ -20,14 +22,16 @@ const SAME_TILES = 12;
 // middle as the light-blue wave panel (the login page's bright half), listing
 // what it does differently. Decorative (the copy and the comparison section
 // below say the same in text).
-export const StandoutVisual = ({ className }: { className?: string }) => (
+export const StandoutVisual = ({ className }: { className?: string }) => {
+  const tr = useGettext(OUR_VISION_PT);
+  return (
   <div className={joinClassNames(styles.wall, className)} aria-hidden="true">
     {Array.from({ length: SAME_TILES }, (_, index) => (
       <span key={index} className={styles.same} style={{ "--i": index } as CSSProperties}>
         <Dumbbell strokeWidth={1.8} />
         <i />
         <i />
-        <small>12-week plan</small>
+        <small>{tr("12-week plan")}</small>
       </span>
     ))}
 
@@ -40,16 +44,17 @@ export const StandoutVisual = ({ className }: { className?: string }) => (
         {DIFFERENCES.map((item) => (
           <li key={item}>
             <Check strokeWidth={2.6} />
-            {item}
+            {tr(item)}
           </li>
         ))}
         <li className={styles.next}>
           <Sparkles strokeWidth={2.2} />
-          AI-generated programs
-          <em>Next</em>
+          {tr("AI-generated programs")}
+          <em>{tr("Next")}</em>
         </li>
       </ul>
       <Waves className={styles.waves} />
     </div>
   </div>
-);
+  );
+};

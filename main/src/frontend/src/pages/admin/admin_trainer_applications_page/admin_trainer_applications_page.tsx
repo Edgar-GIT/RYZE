@@ -220,7 +220,7 @@ export const AdminTrainerApplicationsPage = () => {
       ) : (
         <>
           <div className={styles.tableCard}>
-            <table className={styles.table}>
+            <table className={`${styles.table} app-stack-table`}>
               <thead>
                 <tr>
                   <th scope="col">Applicant</th>
@@ -236,14 +236,14 @@ export const AdminTrainerApplicationsPage = () => {
                   <Fragment key={application.id}>
                     <tr>
                       <td className={styles.nameCell}>{fullName(application.user)}</td>
-                      <td>{application.user.email}</td>
-                      <td>
+                      <td data-wide="">{application.user.email}</td>
+                      <td data-label="Status">
                         <span className={joinClassNames(styles.statusBadge, statusBadgeClass(application.status))}>
                           {application.status.charAt(0) + application.status.slice(1).toLowerCase()}
                         </span>
                       </td>
-                      <td>{formatAdminDate(application.created_at)}</td>
-                      <td>
+                      <td data-label="Submitted">{formatAdminDate(application.created_at)}</td>
+                      <td data-actions="">
                         {application.status === ApplicationStatus.PENDING ? (
                           <div className={styles.actionsCell}>
                             <button

@@ -195,3 +195,37 @@ export const fullName = (user: { first_name: string; last_name: string }): strin
   const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
   return name || "—";
 };
+// Technical Administrator system status (GET /admin/system/status).
+export interface AdminSystemStatus {
+  version: string;
+  started_at: string;
+  uptime_seconds: number;
+  database: { reachable: boolean; schema_version?: number; schema_dirty?: boolean; open_connections?: number };
+  email_queue: { status: string; count: number }[];
+  visible_notifications: number;
+  open_support: number;
+  features: {
+    email_delivery: boolean;
+    google_sign_in: boolean;
+    payment_methods: string[];
+    exercise_media: boolean;
+    rate_limiting: boolean;
+    test_mode: boolean;
+    contact_delivery: boolean;
+    secure_cookies: boolean;
+    default_platform_commission_bps: number;
+    session_lifetime_seconds: number;
+  };
+}
+
+export const fetchAdminSystemStatus = () => apiGet<AdminSystemStatus>("/admin/system/status");
+
+// formatDuration turns seconds into "3d 4h", "5h 12m" or "8m".
+export const formatDuration = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  return `${Math.max(minutes, 0)}m`;
+};

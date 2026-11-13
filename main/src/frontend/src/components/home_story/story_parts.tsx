@@ -4,7 +4,7 @@ import { PublicAction } from "@/components/public_ui/public_ui";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { joinClassNames } from "@utils/class_names";
 
-import { ENTRY_POINTS, type StoryChapter, type StoryTone } from "./story_content";
+import { type StoryChapter, type StoryTone, useStory } from "./story_content";
 import styles from "./story_parts.module.css";
 
 export const TONE_CLASS: Record<StoryTone, string> = {
@@ -58,19 +58,21 @@ interface StartActionsProps {
 }
 
 // The two existing hero CTAs and, on the opening chapter, the three entry points.
-export const StartActions = ({ withEntryPoints = false }: StartActionsProps) => (
+export const StartActions = ({ withEntryPoints = false }: StartActionsProps) => {
+  const { text, entryPoints } = useStory();
+  return (
   <div className={styles.start}>
     <div className={joinClassNames(ui.actions, styles.actions)}>
       <PublicAction to="/services/generic-program" icon={<ArrowRight />}>
-        Start training free
+        {text.startFree}
       </PublicAction>
       <PublicAction to="/services" variant="ghostOnDark">
-        Explore plans
+        {text.explorePlans}
       </PublicAction>
     </div>
     {withEntryPoints ? (
-      <ul className={ui.chips} aria-label="Ways to train with RYZE">
-        {ENTRY_POINTS.map((entry) => {
+      <ul className={ui.chips} aria-label={text.waysToTrain}>
+        {entryPoints.map((entry) => {
           const Icon = entry.icon;
 
           return (
@@ -84,3 +86,4 @@ export const StartActions = ({ withEntryPoints = false }: StartActionsProps) => 
     ) : null}
   </div>
 );
+};

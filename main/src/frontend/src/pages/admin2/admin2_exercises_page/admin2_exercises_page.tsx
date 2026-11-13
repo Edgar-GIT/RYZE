@@ -587,7 +587,7 @@ export default function Admin2ExercisesPage() {
           <p className={styles.stateText}>No exercises match the current filters.</p>
         ) : (
           <div className={styles.tableWrap}>
-            <table className={styles.table}>
+            <table className={`${styles.table} app-stack-table`}>
               <thead>
                 <tr>
                   <th scope="col">Exercise</th>
@@ -608,16 +608,16 @@ export default function Admin2ExercisesPage() {
                         {exercise.source_id ? ` · ${exercise.source_id}` : ""}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Classification">
                       {exerciseBodyPartLabel(exercise.body_part) || "—"}
                       {exercise.difficulty ? ` · ${exercise.difficulty}` : ""}
                     </td>
-                    <td>{exercise.equipment || "—"}</td>
+                    <td data-label="Equipment">{exercise.equipment || "—"}</td>
                     <td>
                       <Admin2StatusBadge label={statusLabel(exercise.status)} tone={statusTone(exercise.status)} />
                     </td>
-                    <td className={styles.muted}>{formatAdminDate(exercise.updated_at)}</td>
-                    <td>
+                    <td className={styles.muted} data-label="Updated">{formatAdminDate(exercise.updated_at)}</td>
+                    <td data-actions="">
                       <button
                         type="button"
                         className={styles.rowAction}

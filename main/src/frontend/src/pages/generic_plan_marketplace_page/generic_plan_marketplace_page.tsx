@@ -13,6 +13,7 @@ import {
   MARKETPLACE_FILTER_GROUPS,
   MARKETPLACE_ROWS
 } from "@/constants/marketplace";
+import { useMarketplaceCopy } from "@/constants/marketplace_copy";
 import {
   fetchMarketplacePrograms,
   type MarketplaceFilters,
@@ -52,6 +53,7 @@ const filtersFromSelection = (selected: SelectedFilters): MarketplaceFilters => 
 };
 
 export const GenericPlanMarketplacePage = () => {
+  const { text, row: rowCopy } = useMarketplaceCopy();
   const { isActive: testModeActive } = useTestMode();
   const [selected, setSelected] = useState<SelectedFilters>(EMPTY_SELECTION);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -134,7 +136,7 @@ export const GenericPlanMarketplacePage = () => {
       }
       setRows({});
       setTotalPrograms(0);
-      setErrorMessage("Unable to load the training plan catalogue. Please try again.");
+      setErrorMessage("error");
     } finally {
       if (currentRequest === requestId.current) {
         setLoading(false);
@@ -177,21 +179,18 @@ export const GenericPlanMarketplacePage = () => {
           <div className={styles.contentArea}>
             <header className={styles.heading}>
               <h1 className={styles.title}>
-                Training plans<span className={styles.stop}>.</span>
+                {text.title}
+                <span className={styles.stop}>.</span>
               </h1>
-              <p className={styles.subtitle}>
-                Find a program built around your goals, schedule and experience.
-              </p>
+              <p className={styles.subtitle}>{text.subtitle}</p>
             </header>
 
             {activeFilterCount > 0 ? (
               <div className={styles.filterResults}>
                 <Check strokeWidth={2.2} aria-hidden="true" />
                 <span>
-                  {resultCount} result{resultCount !== 1 ? "s" : ""} for your filters
-                  <span className={styles.filterCount}>
-                    ({activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active)
-                  </span>
+                  {text.results(resultCount)}
+                  <span className={styles.filterCount}>{text.activeFilters(activeFilterCount)}</span>
                 </span>
               </div>
             ) : null}
@@ -209,20 +208,20 @@ export const GenericPlanMarketplacePage = () => {
                   type="button"
                   className={styles.collapsedToggle}
                   onClick={() => setSidebarCollapsed(false)}
-                  aria-label="Expand filters"
+                  aria-label={text.expandFilters}
                 >
                   <PanelLeftOpen strokeWidth={2} aria-hidden="true" />
-                  <span>Filters</span>
+                  <span>{text.filters}</span>
                 </button>
               ) : (
-                <aside className={styles.panel} aria-label="Filters">
+                <aside className={styles.panel} aria-label={text.filters}>
                   <div className={styles.panelHeader}>
-                    <span className={styles.panelTitle}>Filters</span>
+                    <span className={styles.panelTitle}>{text.filters}</span>
                     <button
                       type="button"
                       className={styles.collapseButton}
                       onClick={() => setSidebarCollapsed(true)}
-                      aria-label="Collapse filters"
+                      aria-label={text.collapseFilters}
                     >
                       <PanelLeftClose strokeWidth={2} aria-hidden="true" />
                     </button>
@@ -242,23 +241,21 @@ export const GenericPlanMarketplacePage = () => {
             <main className={styles.programs}>
               {loading ? (
                 <div className={styles.pageState}>
-                  <p>Loading training plans…</p>
+                  <p>{text.loading}</p>
                 </div>
               ) : errorMessage ? (
                 <div className={styles.pageState}>
-                  <p>{errorMessage}</p>
+                  <p>{text.loadError}</p>
                   <div className={styles.retry}>
                     <Button variant="secondary" size="small" onClick={() => void load()}>
-                      Retry
+                      {text.retry}
                     </Button>
                   </div>
                 </div>
               ) : totalPrograms === 0 ? (
                 <div className={styles.pageState}>
                   <p>
-                    {activeFilterCount > 0
-                      ? "No training plans match your filters."
-                      : "No training plans have been published yet."}
+                    {activeFilterCount > 0 ? text.noMatch : text.noneYet}
                   </p>
                 </div>
               ) : (
@@ -269,11 +266,12 @@ export const GenericPlanMarketplacePage = () => {
                       if (programsInRow.length === 0) {
                         return null;
                       }
+                      const copy = rowCopy(row.id, row);
                       return (
                         <ProgramRow
                           key={row.id}
-                          title={row.title}
-                          description={row.description}
+                          title={copy.title}
+                          description={copy.description}
                           programs={programsInRow}
                           forceFree={testModeActive}
                           ownedProgramIds={ownedProgramIds}
@@ -284,11 +282,7 @@ export const GenericPlanMarketplacePage = () => {
 
                   <div className={styles.endOfCatalog}>
                     <div className={styles.endDivider} />
-                    <p className={styles.endText}>
-                      Showing up to {ROW_LIMIT} programs per section · {resultCount} program
-                      {resultCount !== 1 ? "s" : ""} match
-                      {activeFilterCount > 0 ? " your filters" : ""}
-                    </p>
+                    <p className={styles.endText}>{text.endOfCatalog(ROW_LIMIT, resultCount, activeFilterCount > 0)}</p>
                   </div>
                 </>
               )}
@@ -304,17 +298,17 @@ export const GenericPlanMarketplacePage = () => {
           />
           <aside
             className={joinClassNames(styles.drawer, filtersOpen && styles.drawerOpen)}
-            aria-label="Filters"
+            aria-label={text.filters}
             aria-hidden={!filtersOpen}
             inert={!filtersOpen}
           >
             <div className={styles.drawerHeader}>
-              <span className={styles.drawerTitle}>Filters</span>
+              <span className={styles.drawerTitle}>{text.filters}</span>
               <button
                 type="button"
                 className={styles.drawerClose}
                 onClick={closeFilters}
-                aria-label="Close filters"
+                aria-label={text.closeFilters}
               >
                 <X strokeWidth={2} aria-hidden="true" />
               </button>

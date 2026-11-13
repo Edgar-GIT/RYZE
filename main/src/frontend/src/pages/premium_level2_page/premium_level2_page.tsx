@@ -14,6 +14,9 @@ import {
   PREMIUM_LEVEL_2_STATUS_LABELS,
   type PremiumLevel2Request
 } from "@/services/premium_level_2_api";
+import { COMMERCE_PT } from "@/i18n/catalogs/commerce.pt";
+import { PREMIUM_LEVEL2_PT } from "@/i18n/catalogs/premium_level2.pt";
+import { useGettext, useI18n } from "@/i18n/i18n";
 import { ApiError } from "@utils/http_client";
 
 import styles from "./premium_level2_page.module.css";
@@ -29,6 +32,8 @@ const editableStatus = (status: PremiumLevel2Request["status"]): boolean =>
   status === "awaiting_intake" || status === "awaiting_trainer_assignment";
 
 export const PremiumLevel2Page = () => {
+  const tr = useGettext(PREMIUM_LEVEL2_PT, COMMERCE_PT);
+  const { locale } = useI18n();
   const history = useHistory();
   const location = useLocation();
   const { isActive: testModeActive } = useTestMode();
@@ -141,7 +146,7 @@ export const PremiumLevel2Page = () => {
       <PageWrapper className={styles.page}>
         <section className={styles.detail}>
           <Container size="wide">
-            <p className={styles.stateText}>Loading Premium Level 2…</p>
+            <p className={styles.stateText}>{tr("Loading Premium Level 2…")}</p>
           </Container>
         </section>
       </PageWrapper>
@@ -155,31 +160,32 @@ export const PremiumLevel2Page = () => {
           <Container size="wide" className={styles.container}>
             <div className={styles.back}>
               <Button to="/services" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
-                Back to Services
+                {tr("Back to Services")}
               </Button>
             </div>
             <header className={styles.heading}>
               <p className={styles.eyebrow}>
                 <UserRound size={14} aria-hidden="true" />
-                Premium Level 2
+                {tr("Premium Level 2")}
               </p>
-              <h1 className={styles.title}>One-to-one training, built around you</h1>
+              <h1 className={styles.title}>{tr("One-to-one training, built around you")}</h1>
               <p className={styles.subtitle}>
-                Buy the service first, complete your intake, and a certified RYZE trainer will
-                author your individual training and nutrition plans.
+                {tr(
+                  "Buy the service first, complete your intake, and a certified RYZE trainer will author your individual training and nutrition plans."
+                )}
               </p>
             </header>
 
             {requests.length > 0 ? (
               <section className={styles.panel}>
-                <h2 className={styles.sectionTitle}>Your Premium Level 2 services</h2>
+                <h2 className={styles.sectionTitle}>{tr("Your Premium Level 2 services")}</h2>
                 <div className={styles.requestList}>
                   {requests.map((request) => (
                     <article key={request.id} className={styles.requestRow}>
                       <div>
                         <p className={styles.requestName}>{request.offer_name}</p>
                         <p className={styles.sectionText}>
-                          {PREMIUM_LEVEL_2_STATUS_LABELS[request.status]}
+                          {tr(PREMIUM_LEVEL_2_STATUS_LABELS[request.status])}
                         </p>
                       </div>
                       <Button
@@ -187,7 +193,7 @@ export const PremiumLevel2Page = () => {
                         size="small"
                         onClick={() => goToRequest(request)}
                       >
-                        {editableStatus(request.status) ? "Continue intake" : "View service"}
+                        {editableStatus(request.status) ? tr("Continue intake") : tr("View service")}
                       </Button>
                     </article>
                   ))}
@@ -195,7 +201,7 @@ export const PremiumLevel2Page = () => {
               </section>
             ) : null}
 
-            {errorMessage ? <p className={styles.errorText}>{errorMessage}</p> : null}
+            {errorMessage ? <p className={styles.errorText}>{tr(errorMessage)}</p> : null}
 
             <div className={styles.offerGrid}>
               {offers.map((offer) => (
@@ -206,16 +212,16 @@ export const PremiumLevel2Page = () => {
                     <div className={styles.chips}>
                       <span className={styles.chipPrice}>
                         {testModeActive
-                          ? formatMarketplacePrice(0, offer.currency, offer.type)
-                          : formatMarketplacePrice(offer.price_minor_units, offer.currency, offer.type)}
+                          ? formatMarketplacePrice(0, offer.currency, offer.type, locale)
+                          : formatMarketplacePrice(offer.price_minor_units, offer.currency, offer.type, locale)}
                       </span>
                       {testModeActive ? (
                         <span className={styles.chipTestMode}>
                           <FlaskConical size={12} aria-hidden="true" />
-                          Test Mode
+                          {tr("Test Mode")}
                         </span>
                       ) : null}
-                      <span className={styles.chip}>Trainer delivered</span>
+                      <span className={styles.chip}>{tr("Trainer delivered")}</span>
                     </div>
                   </div>
                   <Button
@@ -223,7 +229,7 @@ export const PremiumLevel2Page = () => {
                     size="small"
                     to={`/services/premium-level-2?program=${offer.id}`}
                   >
-                    View service
+                    {tr("View service")}
                   </Button>
                 </article>
               ))}
@@ -246,69 +252,70 @@ export const PremiumLevel2Page = () => {
               icon={<ArrowLeft size={15} />}
               iconPosition="left"
             >
-              All Premium Level 2 services
+              {tr("All Premium Level 2 services")}
             </Button>
           </div>
 
           <header className={styles.heading}>
             <p className={styles.eyebrow}>
               <ShieldCheck size={14} aria-hidden="true" />
-              Premium Level 2
+              {tr("Premium Level 2")}
             </p>
             <h1 className={styles.title}>{selectedOffer.name}</h1>
             <p className={styles.subtitle}>{selectedOffer.description}</p>
             <div className={styles.chips}>
               <span className={styles.chipPrice}>
                 {testModeActive
-                  ? formatMarketplacePrice(0, selectedOffer.currency, selectedOffer.type)
+                  ? formatMarketplacePrice(0, selectedOffer.currency, selectedOffer.type, locale)
                   : formatMarketplacePrice(
                       selectedOffer.price_minor_units,
                       selectedOffer.currency,
-                      selectedOffer.type
+                      selectedOffer.type,
+                      locale
                     )}
               </span>
               {testModeActive ? (
                 <span className={styles.chipTestMode}>
                   <FlaskConical size={12} aria-hidden="true" />
-                  Test Mode
+                  {tr("Test Mode")}
                 </span>
               ) : null}
-              <span className={styles.chip}>One-to-one delivery</span>
+              <span className={styles.chip}>{tr("One-to-one delivery")}</span>
             </div>
           </header>
 
           <div className={styles.columns}>
             <div className={styles.main}>
               <section className={styles.panel}>
-                <h2 className={styles.sectionTitle}>What you receive</h2>
+                <h2 className={styles.sectionTitle}>{tr("What you receive")}</h2>
                 <ul className={styles.includes}>
                   {INCLUDES.map((item) => (
                     <li key={item} className={styles.includeItem}>
                       <CheckCircle2 size={16} aria-hidden="true" />
-                      <span>{item}</span>
+                      <span>{tr(item)}</span>
                     </li>
                   ))}
                 </ul>
               </section>
 
               <section className={styles.panel}>
-                <h2 className={styles.sectionTitle}>How it works</h2>
+                <h2 className={styles.sectionTitle}>{tr("How it works")}</h2>
                 <ol className={styles.steps}>
                   <li>
-                    <strong>Purchase the service.</strong> The offer itself contains no training
-                    plan; your programme is created for you afterwards.
+                    <strong>{tr("Purchase the service.")}</strong>{" "}
+                    {tr("The offer itself contains no training plan; your programme is created for you afterwards.")}
                   </li>
                   <li>
-                    <strong>Complete your intake.</strong> Your trainer uses it to build around your
-                    goal, experience, schedule and dietary needs.
+                    <strong>{tr("Complete your intake.")}</strong>{" "}
+                    {tr("Your trainer uses it to build around your goal, experience, schedule and dietary needs.")}
                   </li>
                   <li>
-                    <strong>Your trainer builds both plans.</strong> A RYZE administrator allocates
-                    the trainer after your intake is saved.
+                    <strong>{tr("Your trainer builds both plans.")}</strong>{" "}
+                    {tr("A RYZE administrator allocates the trainer after your intake is saved.")}
                   </li>
                   <li>
-                    <strong>Receive your plan.</strong> Training appears in My Programs and the
-                    nutrition plan is available from your service page.
+                    <strong>{tr("Receive your plan.")}</strong>{" "}
+                    {tr("Training appears in My Programs and the nutrition plan is available from your service page.")}
                   </li>
                 </ol>
               </section>
@@ -316,11 +323,11 @@ export const PremiumLevel2Page = () => {
 
             <aside className={styles.aside}>
               <section className={styles.panel}>
-                <h2 className={styles.sectionTitle}>Your service</h2>
+                <h2 className={styles.sectionTitle}>{tr("Your service")}</h2>
                 {selectedRequest ? (
                   <>
                     <p className={styles.sectionText}>
-                      {PREMIUM_LEVEL_2_STATUS_LABELS[selectedRequest.status]}
+                      {tr(PREMIUM_LEVEL_2_STATUS_LABELS[selectedRequest.status])}
                     </p>
                     <Button
                       variant="primary"
@@ -329,17 +336,17 @@ export const PremiumLevel2Page = () => {
                       iconPosition="left"
                       onClick={() => goToRequest(selectedRequest)}
                     >
-                      {editableStatus(selectedRequest.status) ? "Complete your intake" : "Open service"}
+                      {editableStatus(selectedRequest.status) ? tr("Complete your intake") : tr("Open service")}
                     </Button>
                   </>
                 ) : checkout.state.status === "success" ? (
                   <>
                     <p className={styles.successText}>
                       <CheckCircle2 size={16} aria-hidden="true" />
-                      Payment confirmed
+                      {tr("Payment confirmed")}
                     </p>
                     <p className={styles.sectionText}>
-                      Your service is being prepared. Refresh in a moment if it does not appear.
+                      {tr("Your service is being prepared. Refresh in a moment if it does not appear.")}
                     </p>
                     <Button
                       variant="secondary"
@@ -351,41 +358,40 @@ export const PremiumLevel2Page = () => {
                         });
                       }}
                     >
-                      Check my service
+                      {tr("Check my service")}
                     </Button>
                   </>
                 ) : (
                   <>
                     <p className={styles.sectionText}>
-                      Complete checkout to start your intake. Your trainer is allocated after the
-                      intake is submitted.
+                      {tr("Complete checkout to start your intake. Your trainer is allocated after the intake is submitted.")}
                     </p>
                     {testModeActive ? (
                       <p className={styles.testModeNote}>
                         <FlaskConical size={14} aria-hidden="true" />
-                        Test Mode is active. No payment provider is contacted.
+                        {tr("Test Mode is active. No payment provider is contacted.")}
                       </p>
                     ) : null}
                     {checkout.state.status === "guest" ? (
                       <Button variant="primary" size="small" to="/login">
-                        Sign in to purchase
+                        {tr("Sign in to purchase")}
                       </Button>
                     ) : checkout.state.status === "error" ? (
                       <div className={styles.actions}>
-                        <p className={styles.errorText}>{checkout.state.message}</p>
+                        <p className={styles.errorText}>{tr(checkout.state.message)}</p>
                         <Button variant="secondary" size="small" onClick={() => void checkout.buy()}>
-                          Try again
+                          {tr("Try again")}
                         </Button>
                       </div>
                     ) : checkout.state.status === "owned" ? (
                       <p className={styles.sectionText}>
-                        This service is already active. Open it from the list above.
+                        {tr("This service is already active. Open it from the list above.")}
                       </p>
                     ) : (
                       <>
                         {checkout.paymentMethods.length > 0 ? (
                           <fieldset className={styles.methods}>
-                            <legend className={styles.label}>Payment method</legend>
+                            <legend className={styles.label}>{tr("Payment method")}</legend>
                             <div className={styles.methodOptions}>
                               {checkout.paymentMethods.map((method) => (
                                 <label
@@ -406,7 +412,7 @@ export const PremiumLevel2Page = () => {
                           </fieldset>
                         ) : (
                           <p className={styles.sectionText}>
-                            Checkout is temporarily unavailable. No payment can be started right now.
+                            {tr("Checkout is temporarily unavailable. No payment can be started right now.")}
                           </p>
                         )}
                         <Button
@@ -421,8 +427,8 @@ export const PremiumLevel2Page = () => {
                           onClick={() => void checkout.buy()}
                         >
                           {checkout.state.status === "checking"
-                            ? "Checking access…"
-                            : "Buy Premium Level 2"}
+                            ? tr("Checking access…")
+                            : tr("Buy Premium Level 2")}
                         </Button>
                       </>
                     )}

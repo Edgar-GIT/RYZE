@@ -103,6 +103,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// by a fixed overhead: trainer evidence carries one document up to the
 	// configured evidence bound, and contact carries one optional 1 MiB
 	// attachment plus multipart overhead.
+	router.Use(middleware.SecurityHeaders())
 	router.Use(middleware.CORS(corsCfg.AllowedOrigins))
 	router.Use(middleware.OriginGuard(corsCfg.AllowedOrigins))
 	router.Use(middleware.BodyLimit(serverCfg.MaxBodyBytes,
@@ -313,6 +314,27 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)
+	enabledMethods := func() []string {
+		available := methodMap.AvailableMethods()
+		methods := make([]string, 0, len(available))
+		for _, method := range available {
+			methods = append(methods, string(method))
+		}
+		return methods
+	}
+	adminSystemHandler := auth.NewAdminSystemHandler(db, auth.SystemFeatures{
+		EmailDelivery:     mailCfg.Enabled(),
+		GoogleSignIn:      googleService.Enabled(),
+		PaymentMethods:    enabledMethods(),
+		ExerciseMedia:     mediaCfg.Enabled,
+		RateLimiting:      rateLimitCfg.Enabled,
+		TestMode:          testModeCfg.Enabled,
+		ContactDelivery:   contactCfg.Enabled(),
+		SecureCookies:     jwtCfg.CookieSecure,
+		DefaultCommission: commissionCfg.DefaultPlatformCommissionBPS,
+		SessionSeconds:    int64(jwtCfg.AccessTokenTTL.Seconds()),
+	})
+	adminSettingsHandler := auth.NewAdminSettingsHandler(pricingCfg.MinProgramPriceMinorUnits, commissionCfg.DefaultPlatformCommissionBPS, enabledMethods)
 
 	// Reconciliation diagnostics are written by the verified webhook layer and
 	// read by the restricted commerce surface. The same repository instance
@@ -420,11 +442,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/programs/:programID/questionnaire", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.GetRequirement)
 	v1.POST("/me/programs/:programID/questionnaire", middleware.Authenticate(tokenService, userRepository), questionnaireHandler.Submit)
 	v1.GET("/me/programs/:programID/nutrition", middleware.Authenticate(tokenService, userRepository), nutritionHandler.GetStatus)
-	v1.POST("/me/programs/:programID/nutrition/generate", middleware.Authenticate(tokenService, userRepository), nutritionHandler.Generate)
+	v1.POST("/me/programs/:programID/nutrition/generate", append(limits.chain(scopeNutritionGenerate), middleware.Authenticate(tokenService, userRepository), nutritionHandler.Generate)...)
 	v1.GET("/me/purchases", middleware.Authenticate(tokenService, userRepository), purchaseHandler.ListPurchases)
-	v1.POST("/me/programs/:programID/purchase", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CreatePurchase)
-	v1.POST("/me/purchases/:purchaseID/payment", middleware.Authenticate(tokenService, userRepository), purchaseHandler.InitiatePayment)
-	v1.POST("/me/purchases/:purchaseID/capture", middleware.Authenticate(tokenService, userRepository), purchaseHandler.CapturePayment)
+	v1.POST("/me/programs/:programID/purchase", append(limits.chain(scopePurchase), middleware.Authenticate(tokenService, userRepository), purchaseHandler.CreatePurchase)...)
+	v1.POST("/me/purchases/:purchaseID/payment", append(limits.chain(scopePurchase), middleware.Authenticate(tokenService, userRepository), purchaseHandler.InitiatePayment)...)
+	v1.POST("/me/purchases/:purchaseID/capture", append(limits.chain(scopePurchase), middleware.Authenticate(tokenService, userRepository), purchaseHandler.CapturePayment)...)
 	v1.POST("/me/programs/:programID/workouts/:workoutID/sessions", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Start)
 	v1.GET("/me/workout-sessions/active", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Active)
 	v1.GET("/me/workout-sessions", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.History)
@@ -439,7 +461,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
 	v1.GET("/trainer/access", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.GetAccessStatus)
-	v1.POST("/trainer/application/documents", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.UploadDocument)
+	v1.POST("/trainer/application/documents", append(limits.chain(scopeDocumentUpload), middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.UploadDocument)...)
 	v1.GET("/trainer/application/documents", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.ListOwnDocuments)
 	v1.GET("/trainer/application/documents/:documentID/download", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.DownloadOwnDocument)
 	v1.DELETE("/trainer/application/documents/:documentID", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.DeleteOwnDocument)
@@ -470,7 +492,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.PUT("/premium-level-2/requests/:requestID/nutrition", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.SaveNutrition)
 	trainer.POST("/premium-level-2/requests/:requestID/deliver", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.Deliver)
 	trainer.GET("/clients", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.ListClients)
-	trainer.GET("/clients/lookup", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.LookupClient)
+	trainer.GET("/clients/lookup", append(limits.chain(scopeClientLookup), middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.LookupClient)...)
 	trainer.GET("/clients/:userID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientHandler.GetClient)
 	trainer.GET("/clients/:userID/overview", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientInsightHandler.GetOverview)
 	trainer.GET("/clients/:userID/statistics", middleware.RequireTrainerPermission(trainerroles.PermissionClients), trainerClientInsightHandler.GetStatistics)
@@ -554,6 +576,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))
 	admin.GET("/auth/me", adminMeHandler.GetMe)
+
+	// Technical Administrator: deployment status and enabled features.
+	adminSystem := admin.Group("")
+	adminSystem.Use(middleware.RequireAdminPermission(adminroles.PermissionSystem))
+	adminSystem.GET("/system/status", adminSystemHandler.Status)
 
 	adminRead := admin.Group("")
 	adminRead.Use(middleware.RequireAdminPermission(adminroles.PermissionUsersRead))
@@ -642,6 +669,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	adminPricing := admin.Group("")
 	adminPricing.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
+	adminPricing.GET("/settings/commerce", adminSettingsHandler.GetCommerce)
 	adminPricing.GET("/programs/:programID", adminProgramPricingHandler.GetProgram)
 	adminPricing.PATCH("/programs/:programID/pricing", adminProgramPricingHandler.UpdatePricing)
 

@@ -89,6 +89,19 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-13 (v2.110.0) — Owner request: a PT | EN toggle that changes the
+  whole site. Interpretation applied to protected parts, to be confirmed by
+  the owner: their English text is unchanged and Portuguese is added beside
+  it, shown only when the visitor chooses PT. Footer: a Portuguese label map
+  (`PT_LABELS`) over the untouched English columns and copy. Login and
+  registration: `login_page.pt.ts`; fields, validation rules, API calls and
+  redirects unchanged. Exercise Library: labels only (titles, filters, states,
+  3D viewer buttons); layout, behaviour and media unchanged. Services cards:
+  not touched at all (their images carry English text), so they stay English
+  in PT. The trainer area now uses the member navigation (`account_nav`
+  styles) and no longer renders the public chrome. Private pages use the
+  `body.ryze-app` tokens; admin tables opt into `app-stack-table` cards on
+  phones.
 - 2026-11-12 (completion brief, v2.109.0) — The owner's "Final Platform
   Completion" brief asked for Google Sign-In and self-service account
   recovery. On the protected login/registration page only functional wiring

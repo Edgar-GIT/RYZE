@@ -1999,6 +1999,15 @@ bundle found no `securitypolicyviolation` on Home, Services, Generic
 Marketplace, Premium Level 1, Exercise Library or Contact, including a real
 contact submission through the same-origin proxy.
 
+Implemented in v2.110.0 in the API itself
+(`middleware/security_headers.go`, registered before CORS): every response
+carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: no-referrer` and `Cross-Origin-Resource-Policy: same-site`;
+responses under `/api/v1/me`, `/trainer`, `/admin`, `/auth`,
+`/programs/generic` and `/programs/premium-level-*` also carry
+`Cache-Control: no-store`, so personal data is never kept by shared caches even
+when the API is reached without nginx.
+
 ---
 
 # CONTENT SECURITY POLICY (CSP)

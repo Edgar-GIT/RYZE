@@ -7,19 +7,20 @@ import { BrandGlobe } from "@/components/brand_globe/brand_globe";
 import { LaptopMockup, PhoneMockup } from "@/components/showcase/showcase";
 import { joinClassNames } from "@utils/class_names";
 
-import { CALLOUTS, SAMPLE_DATA_NOTE, SCREENS, STORY_CHAPTERS, type StoryChapter } from "./story_content";
+import { CALLOUTS, type StoryChapter, useStory } from "./story_content";
 import { ChapterCopy, StartActions, TONE_CLASS } from "./story_parts";
 import styles from "./story_stacked.module.css";
 
-const ChapterVisual = ({ chapter }: { chapter: StoryChapter }) => {
+const ChapterVisual = ({ chapter, chapters }: { chapter: StoryChapter; chapters: StoryChapter[] }) => {
   if (chapter.id === "identity") {
     return <BrandGlobe className={styles.orb} />;
   }
   if (chapter.id === "platform") {
+    const training = chapters.find((entry) => entry.id === "train")?.screen;
     return (
       <Reveal className={styles.platformVisual} y={24}>
-        <LaptopMockup src={SCREENS.platform.src} alt={SCREENS.platform.alt} />
-        <PhoneMockup className={styles.platformPhone} src={SCREENS.training.src} alt="" />
+        {chapter.screen ? <LaptopMockup src={chapter.screen.src} alt={chapter.screen.alt} /> : null}
+        {training ? <PhoneMockup className={styles.platformPhone} src={training.src} alt="" /> : null}
         <img className={styles.syncBadge} src={CALLOUTS.sync} alt="" aria-hidden="true" loading="lazy" decoding="async" />
       </Reveal>
     );
@@ -42,9 +43,11 @@ const ChapterVisual = ({ chapter }: { chapter: StoryChapter }) => {
 // StoryStacked tells the same five-chapter story as the desktop 3D experience,
 // as ordinary sections: the RYZE globe, the programs, then the app screens in
 // device frames.
-export const StoryStacked = ({ programs }: { programs: ReactNode }) => (
+export const StoryStacked = ({ programs }: { programs: ReactNode }) => {
+  const { text, chapters } = useStory();
+  return (
   <>
-    {STORY_CHAPTERS.map((chapter, index) => (
+    {chapters.map((chapter, index) => (
       <Fragment key={chapter.id}>
       <section
         className={joinClassNames(
@@ -57,14 +60,14 @@ export const StoryStacked = ({ programs }: { programs: ReactNode }) => (
       >
         <div className={joinClassNames(ui.container, styles.layout)}>
           <div className={styles.visual}>
-            <ChapterVisual chapter={chapter} />
+            <ChapterVisual chapter={chapter} chapters={chapters} />
           </div>
           <div className={styles.text}>
             <ChapterCopy chapter={chapter} headingId={`story-${chapter.id}`} as={index === 0 ? "h1" : "h2"} />
             {chapter.id === "identity" || chapter.id === "start" ? (
               <StartActions withEntryPoints={chapter.id === "identity"} />
             ) : null}
-            {chapter.screen ? <p className={ui.caption}>{SAMPLE_DATA_NOTE}</p> : null}
+            {chapter.screen ? <p className={ui.caption}>{text.sampleNote}</p> : null}
           </div>
         </div>
       </section>
@@ -73,3 +76,4 @@ export const StoryStacked = ({ programs }: { programs: ReactNode }) => (
     ))}
   </>
 );
+};

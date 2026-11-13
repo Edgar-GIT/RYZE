@@ -1,57 +1,31 @@
-import { ArrowLeft, ChevronRight, History, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { useHistory } from "react-router-dom";
+import { ChevronRight, Clock3, Dumbbell, ListChecks, RefreshCw, Trophy } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useHistory } from "react-router-dom";
 
 import { AccountNav } from "@/components/account_nav/account_nav";
 import { AnimatedBackground } from "@/components/animated_background/animated_background";
-import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import styles from "@/components/training/training_page.module.css";
 import { useI18n } from "@/i18n/i18n";
+import { formatClock, formatWeight, personalRecords, summarizeSession } from "@/services/training_insights";
+import { fetchWorkoutHistory, type WorkoutSession } from "@/services/workout_sessions_api";
 import { joinClassNames } from "@utils/class_names";
 import { ApiError } from "@utils/http_client";
-import { fetchWorkoutHistory, type WorkoutSession } from "@/services/workout_sessions_api";
 
-import styles from "./workout_history_page.module.css";
+type State = { status: "loading" } | { status: "error" } | { status: "ready"; sessions: WorkoutSession[] };
 
-const STATUS_KEY = {
-  in_progress: "account.training.inProgress",
-  paused: "account.training.paused",
-  completed: "account.training.completed",
-  abandoned: "account.training.abandoned"
-} as const satisfies Record<WorkoutSession["status"], string>;
-
-const statusClass = (status: WorkoutSession["status"]): string => {
-  if (status === "completed") {
-    return styles.badgeDone;
-  }
-  if (status === "abandoned") {
-    return styles.badgeAbandoned;
-  }
-  return styles.badgeOpen;
-};
-
-const formatDuration = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
-  return minutes > 0 ? `${minutes}m ${remainder}s` : `${remainder}s`;
-};
-
-type State =
-  | { status: "loading" }
-  | { status: "error" }
-  | { status: "ready"; sessions: WorkoutSession[] };
-
+// WorkoutHistoryPage lists every finished or stopped workout by month: when,
+// which day of which plan, how long, how much volume and any records. Each
+// entry opens its full report.
 export const WorkoutHistoryPage = () => {
-  const { t, formatDate } = useI18n();
+  const { t, intlLocale, formatDate } = useI18n();
   const history = useHistory();
   const [state, setState] = useState<State>({ status: "loading" });
-  const [retryCount, setRetryCount] = useState(0);
 
   const load = useCallback(async () => {
     setState({ status: "loading" });
     try {
-      setState({ status: "ready", sessions: await fetchWorkoutHistory(50) });
+      setState({ status: "ready", sessions: await fetchWorkoutHistory(100) });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         history.replace("/login");
@@ -63,7 +37,23 @@ export const WorkoutHistoryPage = () => {
 
   useEffect(() => {
     void load();
-  }, [load, retryCount]);
+  }, [load]);
+
+  const months = useMemo(() => {
+    if (state.status !== "ready") return [];
+    const groups: { key: string; label: string; sessions: WorkoutSession[] }[] = [];
+    for (const session of state.sessions) {
+      const date = new Date(session.started_at);
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      let group = groups.find((entry) => entry.key === key);
+      if (!group) {
+        group = { key, label: date.toLocaleDateString(intlLocale, { month: "long", year: "numeric" }), sessions: [] };
+        groups.push(group);
+      }
+      group.sessions.push(session);
+    }
+    return groups;
+  }, [state, intlLocale]);
 
   return (
     <PageWrapper className={styles.page}>
@@ -71,77 +61,86 @@ export const WorkoutHistoryPage = () => {
       <AccountNav />
 
       <main className={styles.main}>
-        {state.status === "loading" ? <LoadingScreen /> : null}
+        <header className={styles.header}>
+          <h1 className={styles.title}>{t("training.history.title")}</h1>
+          <p className={styles.lead}>{t("training.history.lead")}</p>
+        </header>
+
+        {state.status === "loading" ? <p className={styles.lead}>{t("common.loading")}</p> : null}
 
         {state.status === "error" ? (
-          <section className={styles.stateCard}>
+          <div className={styles.state}>
             <p>{t("account.training.historyError")}</p>
-            <Button variant="secondary" size="small" onClick={() => setRetryCount((count) => count + 1)} icon={<RefreshCw size={15} />}>
-              {t("common.retry")}
-            </Button>
-          </section>
+            <button type="button" className={joinClassNames(styles.button, styles.buttonQuiet)} onClick={() => void load()}>
+              <RefreshCw aria-hidden="true" /> {t("common.retry")}
+            </button>
+          </div>
         ) : null}
 
-        {state.status === "ready" ? (
-          <section className={styles.content}>
-            <div className={styles.back}>
-              <Button to="/services/my-programs" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
-                {t("account.training.myPrograms")}
-              </Button>
-            </div>
+        {state.status === "ready" && state.sessions.length === 0 ? (
+          <div className={styles.state}>
+            <p>{t("training.history.empty")}</p>
+            <Link className={styles.button} to="/services/my-programs">
+              {t("training.history.emptyAction")}
+            </Link>
+          </div>
+        ) : null}
 
-            <header className={styles.heading}>
-              <span className={styles.icon}>
-                <History size={22} aria-hidden="true" />
-              </span>
-              <div>
-                <h1 className={styles.title}>{t("account.training.history")}</h1>
-                <p className={styles.subtitle}>{t("account.training.historyLead")}</p>
-              </div>
-            </header>
-
-            {state.sessions.length === 0 ? (
-              <section className={styles.stateCard}>
-                <p>{t("account.training.historyEmpty")}</p>
-                <Button to="/services/my-programs" variant="primary" size="small">
-                  {t("account.training.openMyPrograms")}
-                </Button>
+        {state.status === "ready"
+          ? months.map((month) => (
+              <section key={month.key} className={styles.month} aria-label={month.label}>
+                <h2 className={styles.monthTitle}>{month.label}</h2>
+                <ul className={styles.sessionList}>
+                  {month.sessions.map((session) => {
+                    const summary = summarizeSession(session);
+                    const records = session.status === "completed" ? personalRecords(session, state.sessions).length : 0;
+                    const date = new Date(session.started_at);
+                    return (
+                      <li key={session.id}>
+                        <Link className={styles.session} to={`/services/workout-sessions/${encodeURIComponent(session.id)}`}>
+                          <span className={styles.date} aria-hidden="true">
+                            <strong>{date.getDate()}</strong>
+                            <span>{date.toLocaleDateString(intlLocale, { weekday: "short" })}</span>
+                          </span>
+                          <span className={styles.sessionBody}>
+                            <span className={styles.sessionTitle}>
+                              {t("account.training.weekDay", { week: session.week_number, day: session.workout_position })} ·{" "}
+                              {session.program_name}
+                            </span>
+                            <span className={styles.sessionMeta}>
+                              <span>
+                                <Clock3 aria-hidden="true" />
+                                {formatClock(summary.durationSeconds)}
+                              </span>
+                              <span>
+                                <Dumbbell aria-hidden="true" />
+                                {t("training.progress.kg", { value: formatWeight(summary.volumeKg, intlLocale) })}
+                              </span>
+                              <span>
+                                <ListChecks aria-hidden="true" />
+                                {summary.completedSets}/{summary.totalSets}
+                              </span>
+                              {records > 0 ? (
+                                <span className={styles.record}>
+                                  <Trophy aria-hidden="true" />
+                                  {records === 1 ? t("training.history.record") : t("training.history.records", { count: records })}
+                                </span>
+                              ) : null}
+                              {session.status === "abandoned" ? (
+                                <span className={styles.abandoned}>{t("training.history.abandoned")}</span>
+                              ) : null}
+                            </span>
+                            <span className={styles.srOnly}>{formatDate(session.started_at)}</span>
+                          </span>
+                          <ChevronRight className={styles.chevron} aria-label={t("training.history.open")} />
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
               </section>
-            ) : (
-              <div className={styles.list}>
-                {state.sessions.map((session) => (
-                  <article key={session.id} className={styles.card}>
-                    <div className={styles.cardMain}>
-                      <p className={styles.cardEyebrow}>
-                        {t("account.training.weekDay", { week: session.week_number, day: session.workout_position })} ·{" "}
-                        {formatDate(session.started_at, { day: "numeric", month: "short", year: "numeric" })}
-                      </p>
-                      <h2 className={styles.cardTitle}>{session.program_name}</h2>
-                      <div className={styles.meta}>
-                        <span className={joinClassNames(styles.badge, statusClass(session.status))}>
-                          {t(STATUS_KEY[session.status])}
-                        </span>
-                        <span>{t("account.training.setsShort", { done: session.completed_sets, total: session.total_sets })}</span>
-                        <span>{formatDuration(session.elapsed_seconds)}</span>
-                        {session.skipped_sets > 0 ? (
-                          <span>{t("account.training.skipped", { count: session.skipped_sets })}</span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <Button
-                      to={`/services/workout-sessions/${session.id}`}
-                      variant="secondary"
-                      size="small"
-                      icon={<ChevronRight size={15} />}
-                    >
-                      {t("account.training.details")}
-                    </Button>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        ) : null}
+            ))
+          : null}
       </main>
     </PageWrapper>
   );

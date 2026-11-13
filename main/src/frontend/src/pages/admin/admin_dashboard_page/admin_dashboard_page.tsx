@@ -8,7 +8,10 @@ import {
   fetchAdminTrainerApplications,
   fetchAdminTrainers,
   fetchAdminUsers,
-  ApplicationStatus
+  fetchAdminSystemStatus,
+  formatDuration,
+  ApplicationStatus,
+  type AdminSystemStatus
 } from "@/services/admin_api";
 import { joinClassNames } from "@utils/class_names";
 
@@ -54,6 +57,21 @@ export const AdminDashboardPage = () => {
   const [trainersTotal, setTrainersTotal] = useState<MetricState>({ status: "loading" });
   const [pendingApplications, setPendingApplications] = useState<MetricState>({ status: "loading" });
   const [apiReachable, setApiReachable] = useState(true);
+  // Only the Technical Administrator can read the system status; for anyone
+  // else the uptime and session rows stay "Not available".
+  const [system, setSystem] = useState<AdminSystemStatus | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAdminSystemStatus()
+      .then((status) => {
+        if (!cancelled) setSystem(status);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,8 +147,16 @@ export const AdminDashboardPage = () => {
             value={apiReachable ? "Reachable" : "Unreachable"}
             valueClass={apiReachable ? styles.overviewOk : styles.overviewWarning}
           />
-          <OverviewRow label="Server uptime" value="Not collected" valueClass={styles.overviewMuted} />
-          <OverviewRow label="Session lifetime" value="15 minutes" valueClass={styles.overviewMuted} />
+          <OverviewRow
+            label="Server uptime"
+            value={system ? formatDuration(system.uptime_seconds) : "Not available"}
+            valueClass={system ? undefined : styles.overviewMuted}
+          />
+          <OverviewRow
+            label="Session lifetime"
+            value={system ? formatDuration(system.features.session_lifetime_seconds) : "Not available"}
+            valueClass={system ? undefined : styles.overviewMuted}
+          />
         </dl>
       </section>
 

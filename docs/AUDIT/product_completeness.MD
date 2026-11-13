@@ -1,7 +1,7 @@
 # RYZE Product Completeness Audit
 
-Version: v2.109.0
-Date: 2026-11-11
+Version: v2.110.0
+Date: 2026-11-13
 Status: living document — update whenever a backlog item is closed.
 
 This document records the product-completeness audit of the RYZE platform
@@ -104,8 +104,8 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
 | Trainer application (apply) | Complete/Verified | application plus private evidence documents (upload/list/download/remove while pending); tests |
-| Trainer approval / rejection | Partial | transactional approval exists but the final status update is guarded only by `id` (concurrent-review race); no decision history; rejection atomic |
-| Verification lifecycle (more-info, suspend, reinstate, history) | Missing | only PENDING/APPROVED/REJECTED, no stored reviewer decisions |
+| Trainer approval / rejection | Complete/Verified | approve/reject with stored decisions (`trainer_application_decisions`, `GET …/decisions`) and evidence documents; e2e test |
+| Verification lifecycle (more-info, suspend, reinstate) | Missing | statuses are only PENDING/APPROVED/REJECTED; suspension is done by disabling the trainer in ADMIN_1 |
 | Trainer dashboard | Complete/Verified | data from clients/programs services |
 | Trainer clients | Complete/Verified | trainer_clients service + tests; client list UI |
 | Trainer client training insight | Complete/Verified | relationship-scoped overview/statistics/session/exercise-history APIs, repository + service + handler tests, client detail page tests |
@@ -116,8 +116,9 @@ its configuration locally, so deployment-only paths remain marked unverified.
 
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
-| ADMIN_1 dashboard/users/trainers/system/configuration/test-mode/development/audit | Implemented (unverified) | pages + APIs present; audit page backing not independently verified |
-| ADMIN_1 trainer applications review | Partial | approve/reject only; no evidence viewing (no evidence exists) |
+| ADMIN_1 dashboard/users/trainers/system/configuration/test-mode | Complete/Verified (local) | real data, including `GET /admin/system/status` (v2.110.0); every route opened at 390 and 1440 px |
+| ADMIN_1 Development and Audit log | Missing | explicit placeholder pages; no audit-log service exists |
+| ADMIN_1 trainer applications review | Complete/Verified | approve/reject, evidence download, decision history |
 | ADMIN_2 dashboard/plans/marketplace/trainers/clients/sales/analytics/feedback/settings | Implemented (unverified) | pages + APIs present; Generic, Premium Level 1 and Premium Level 2 family tabs, objective/mode/Level 2 offer authoring, curated nutrition editor, Premium Level 2 request queue and trainer allocation, content-lock UX |
 | ADMIN_2 catalogue management (exercises) | Complete/Verified | admin2 exercises page and API with tests |
 | Support chat (clients and trainers ↔ RYZE, answered by ADMIN_2) | Complete/Verified (local) | eligibility on every call, idempotent messages, SSE live stream with resume; service + handler tests and a live two-browser E2E on `ryze_test` (reply delivered in ~0.1 s, recovery after an offline period, closed and ineligible paths) |
@@ -128,8 +129,8 @@ its configuration locally, so deployment-only paths remain marked unverified.
 | Area | Status | Evidence / gap |
 | --- | --- | --- |
 | Statistics / analytics | Complete/Verified | programme-aware repository, all-time session/set counters + handler tests |
-| File uploads / media pipeline | Missing | no upload surface exists (v2.93.0 audit); needed for verification evidence |
-| Internationalisation | Partial | EN/PT system with browser detection and a stored manual choice; auth recovery, account area, notifications, support and PWA translated; public site, login/registration copy (protected), Premium service pages, trainer area and admin consoles still English-only |
+| File uploads | Complete/Verified | trainer application evidence (private storage, validation, download as attachment) and the contact attachment; exercise media stays licence-blocked |
+| Internationalisation | Partial | PT \| EN block in the navigation and a first-visit prompt (v2.110.0); public site, checkout, Premium Level 1/2, login/registration, footer, Exercise Library chrome, member area, training app and trainer navigation translated; trainer page content and admin consoles English-only; protected Services cards English |
 | Notifications (in-app + email) | Complete/Verified | 24-hour notifications with dedupe tombstones and hourly purge; created on purchase completion, Premium Level 2 intake/assignment/delivery and support replies; bell in the account and trainer headers; tests; push notifications not implemented |
 
 ## Prioritized backlog
@@ -176,6 +177,16 @@ its configuration locally, so deployment-only paths remain marked unverified.
     (live Resend delivery still unverified).
 11. Contact page submission backend. **Closed in v2.98.0** (live SMTP delivery still unverified).
 12. RYZE Feed (deferred by design; requires a product decision first).
+
+### v2.110.0 additions
+
+- Lyfta-style training app (plan, player, report, history, progress), PT | EN
+  toggle and first-visit prompt, public-site translation, private-area design
+  unification, lazy-loaded consoles, API security headers and extra rate
+  limits. Closed.
+- Open: trainer-page and admin-console translation; legal pages (Terms,
+  Privacy, Cookies) — owner content required; audit-log service; Feed;
+  test-database isolation between Go packages.
 
 ### v2.109.0 additions
 

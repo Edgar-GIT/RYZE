@@ -70,7 +70,7 @@
   border: 1px solid rgba(24, 216, 255, 0.22);
   border-radius: 10px;
   color: var(--text-primary);
-  background: rgba(7, 11, 18, 0.72);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   font: inherit;
   font-size: 0.9rem;
   resize: vertical;
@@ -113,7 +113,7 @@
   padding: 0.5rem;
   border: 1px solid rgba(24, 216, 255, 0.1);
   border-radius: 10px;
-  background: rgba(7, 11, 18, 0.55);
+  background: var(--app-inset, rgba(2, 8, 38, 0.55));
 }
 
 .setNumber {
@@ -141,7 +141,7 @@
   border: 1px solid rgba(24, 216, 255, 0.18);
   border-radius: 8px;
   color: var(--text-primary);
-  background: rgba(7, 11, 18, 0.75);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
   font: inherit;
   font-size: 0.82rem;
   outline: none;

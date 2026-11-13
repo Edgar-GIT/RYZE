@@ -6,6 +6,9 @@ import type {
   QuestionnaireAnswers,
   QuestionnaireQuestion
 } from "@/services/premium_level1_api";
+import { COMMERCE_PT } from "@/i18n/catalogs/commerce.pt";
+import { QUESTIONNAIRE_PT, questionnaireOptionLabel } from "@/i18n/catalogs/questionnaire.pt";
+import { type Catalog, type Gettext, type Locale, useGettext, useI18n } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./premium_questionnaire_form.module.css";
@@ -42,6 +45,32 @@ const REASON_TEXT: Record<string, string> = {
 
 const reasonText = (reason: string): string => REASON_TEXT[reason] ?? "Please check this answer.";
 
+const FORM_PT: Catalog = {
+  "This answer is required.": "Esta resposta é obrigatória.",
+  "Choose one of the listed options.": "Escolhe uma das opções da lista.",
+  "This value is outside the accepted range.": "Este valor está fora do intervalo aceite.",
+  "Too many options selected.": "Escolheste demasiadas opções.",
+  "This answer is too long.": "Esta resposta é demasiado longa.",
+  "Please check this answer.": "Verifica esta resposta.",
+  "Select an option…": "Escolhe uma opção…",
+  "One item per line": "Um item por linha",
+  "Your answers are locked": "As tuas respostas estão bloqueadas",
+  "Your questionnaire is part of the package you purchased, so it can no longer be edited. Your training plan and your nutrition programme are built from exactly these answers.":
+    "O teu questionário faz parte do pacote que compraste, por isso já não pode ser alterado. O teu plano de treino e o teu programa de nutrição são criados exatamente a partir destas respostas.",
+  "We could not load the questionnaire": "Não foi possível carregar o questionário",
+  "Nutrition questionnaire": "Questionário de nutrição",
+  "These answers personalise the nutrition programme that ships with your package. You can review and update them until you complete checkout.":
+    "Estas respostas personalizam o programa de nutrição incluído no teu pacote. Podes revê-las e alterá-las até concluíres o pagamento.",
+  " (required)": " (obrigatório)",
+  "Used only to build your nutrition programme.": "Usado apenas para criar o teu programa de nutrição.",
+  "Saving your answers": "A guardar as tuas respostas",
+  "Save and continue": "Guardar e continuar",
+  "Saving…": "A guardar…",
+  "We could not load the questionnaire. Please try again.": "Não foi possível carregar o questionário. Tenta novamente.",
+  "We could not save your answers. Please try again.": "Não foi possível guardar as tuas respostas. Tenta novamente."
+};
+
+
 // renderInput picks the control from the server-declared question type. The
 // catalog is the single source of truth, so a new question type never needs a
 // client release to be renderable.
@@ -49,7 +78,9 @@ const renderInput = (
   question: QuestionnaireQuestion,
   value: string | number | string[] | undefined,
   describedBy: string | undefined,
-  onChange: (value: string | number | string[]) => void
+  onChange: (value: string | number | string[]) => void,
+  tr: Gettext,
+  locale: Locale
 ) => {
   // Only the attributes that are meaningful for the chosen control are
   // forwarded. A server-provided max_length must not leak onto a <select> or a
@@ -67,10 +98,10 @@ const renderInput = (
         onChange={(event) => onChange(event.target.value)}
         {...described}
       >
-        <option value="">Select an option…</option>
+        <option value="">{tr("Select an option…")}</option>
         {(question.options ?? []).map((option) => (
           <option key={option} value={option}>
-            {option}
+            {questionnaireOptionLabel(option, locale)}
           </option>
         ))}
       </select>
@@ -106,7 +137,7 @@ const renderInput = (
                   )
                 }
               />
-              <span>{option}</span>
+              <span>{questionnaireOptionLabel(option, locale)}</span>
             </label>
           );
         })}
@@ -151,7 +182,7 @@ const renderInput = (
         name={question.field}
         className={joinClassNames(styles.control, styles.textarea)}
         rows={4}
-        placeholder="One item per line"
+        placeholder={tr("One item per line")}
         value={entries.join("\n")}
         onChange={(event) => {
           const lines = event.target.value
@@ -212,6 +243,8 @@ export const PremiumQuestionnaireForm = ({
   onSubmit,
   onRetry
 }: PremiumQuestionnaireFormProps) => {
+  const tr = useGettext(FORM_PT, QUESTIONNAIRE_PT, COMMERCE_PT);
+  const { locale } = useI18n();
   const incomplete = useMemo(
     () =>
       questions.some((question) => {
@@ -231,11 +264,12 @@ export const PremiumQuestionnaireForm = ({
       <section className={styles.locked} aria-labelledby={`locked-${programId}`}>
         <p className={styles.lockedTitle}>
           <Lock size={16} aria-hidden="true" />
-          <span id={`locked-${programId}`}>Your answers are locked</span>
+          <span id={`locked-${programId}`}>{tr("Your answers are locked")}</span>
         </p>
         <p className={styles.lockedText}>
-          Your questionnaire is part of the package you purchased, so it can no longer be edited. Your training
-          plan and your nutrition programme are built from exactly these answers.
+          {tr(
+            "Your questionnaire is part of the package you purchased, so it can no longer be edited. Your training plan and your nutrition programme are built from exactly these answers."
+          )}
         </p>
       </section>
     );
@@ -246,12 +280,12 @@ export const PremiumQuestionnaireForm = ({
       <section className={styles.failure}>
         <p className={styles.failureTitle}>
           <AlertTriangle size={16} aria-hidden="true" />
-          We could not load the questionnaire
+          {tr("We could not load the questionnaire")}
         </p>
-        <p className={styles.failureText}>{errorMessage}</p>
+        <p className={styles.failureText}>{tr(errorMessage)}</p>
         <div className={styles.actions}>
           <Button variant="secondary" size="small" onClick={onRetry} icon={<RefreshCw size={15} />}>
-            Retry
+            {tr("Retry")}
           </Button>
         </div>
       </section>
@@ -261,16 +295,17 @@ export const PremiumQuestionnaireForm = ({
   return (
     <section className={styles.form} aria-labelledby={`questionnaire-${programId}`}>
       <h2 className={styles.title} id={`questionnaire-${programId}`}>
-        Nutrition questionnaire
+        {tr("Nutrition questionnaire")}
       </h2>
       <p className={styles.intro}>
-        These answers personalise the nutrition programme that ships with your package. You can review and
-        update them until you complete checkout.
+        {tr(
+          "These answers personalise the nutrition programme that ships with your package. You can review and update them until you complete checkout."
+        )}
       </p>
 
       {errorMessage ? (
         <p className={styles.submitError} role="alert">
-          {errorMessage}
+          {tr(errorMessage)}
         </p>
       ) : null}
 
@@ -288,33 +323,35 @@ export const PremiumQuestionnaireForm = ({
           return (
             <fieldset key={question.field} className={styles.field}>
               <legend className={styles.label}>
-                {question.label}
+                {tr(question.label)}
                 {question.required ? (
                   <>
                     <span aria-hidden="true"> *</span>
-                    <span className={styles.visuallyHidden}> (required)</span>
+                    <span className={styles.visuallyHidden}>{tr(" (required)")}</span>
                   </>
                 ) : null}
               </legend>
               {question.help ? (
                 <p className={styles.help} id={`${question.field}-help`}>
-                  {question.help}
+                  {tr(question.help)}
                 </p>
               ) : null}
               {renderInput(
                 question,
                 answers[question.field],
                 describedBy,
-                (value) => onChange(question.field, value)
+                (value) => onChange(question.field, value),
+                tr,
+                locale
               )}
               {question.sensitive ? (
                 <p className={styles.sensitive} id={`${question.field}-sensitive`}>
-                  Used only to build your nutrition programme.
+                  {tr("Used only to build your nutrition programme.")}
                 </p>
               ) : null}
               {fieldError ? (
                 <p className={styles.fieldError} id={errorId} role="alert">
-                  {reasonText(fieldError)}
+                  {tr(reasonText(fieldError))}
                 </p>
               ) : null}
             </fieldset>
@@ -327,9 +364,9 @@ export const PremiumQuestionnaireForm = ({
           variant="primary"
           onClick={onSubmit}
           disabled={submitting || incomplete}
-          ariaLabel={submitting ? "Saving your answers" : "Save and continue"}
+          ariaLabel={submitting ? tr("Saving your answers") : tr("Save and continue")}
         >
-          {submitting ? "Saving…" : "Save and continue"}
+          {submitting ? tr("Saving…") : tr("Save and continue")}
         </Button>
       </div>
     </section>

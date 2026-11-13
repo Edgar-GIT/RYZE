@@ -10,9 +10,13 @@ import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { fetchExerciseDetail, type ExerciseDetail } from "@/services/exercise_library";
 import { ApiError } from "@utils/http_client";
 
+import { EXERCISE_LIBRARY_PT } from "@/components/exercise_library/exercise_library.pt";
+import { useGettext } from "@/i18n/i18n";
+
 import styles from "./exercise_detail_page.module.css";
 
 export const ExerciseDetailPage = () => {
+  const tr = useGettext(EXERCISE_LIBRARY_PT);
   const { exerciseId } = useParams<{ exerciseId: string }>();
   const history = useHistory();
 
@@ -64,29 +68,29 @@ export const ExerciseDetailPage = () => {
         <Container size="default" className={styles.container}>
           <Link to="/exercises" className={styles.backLink}>
             <ArrowLeft size={15} aria-hidden="true" />
-            Exercise Library
+            {tr("Exercise Library")}
           </Link>
 
           {loading ? (
             <div className={styles.pageState}>
-              <p>Loading exercise…</p>
+              <p>{tr("Loading exercise…")}</p>
             </div>
           ) : notFound ? (
             <div className={styles.pageState}>
-              <p>This exercise does not exist or is no longer available.</p>
+              <p>{tr("This exercise does not exist or is no longer available.")}</p>
               <Button variant="secondary" size="small" to="/exercises">
-                Browse the Exercise Library
+                {tr("Browse the Exercise Library")}
               </Button>
             </div>
           ) : error || !detail ? (
             <div className={styles.pageState}>
-              <p>{error || "Unable to load this exercise."}</p>
+              <p>{tr(error || "Unable to load this exercise.")}</p>
               <Button
                 variant="secondary"
                 size="small"
                 onClick={() => setReloadToken((current) => current + 1)}
               >
-                Retry
+                {tr("Retry")}
               </Button>
             </div>
           ) : (

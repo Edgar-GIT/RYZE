@@ -9,10 +9,11 @@ import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PublicAction, Waves } from "@/components/public_ui/public_ui";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
-import { translate, useI18n } from "@/i18n/i18n";
+import { translate, useGettext, useI18n } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 import { ApiError, apiGet, apiPost, apiUrl } from "@utils/http_client";
 
+import { LOGIN_PT } from "./login_page.pt";
 import styles from "./login_page.module.css";
 
 type AuthMode = "login" | "register";
@@ -43,17 +44,18 @@ type GoogleResult = (typeof GOOGLE_RESULTS)[number];
 
 const isGoogleResult = (value: string | null): value is GoogleResult => GOOGLE_RESULTS.includes(value as GoogleResult);
 
-// The login page copy is a protected area and stays in English until the
-// owner approves its translation, so its Google notices are English too: the
-// page never mixes languages. The chosen locale still travels to the API so a
-// new account gets emails in the reader's language.
-const loginText: typeof translate = (_locale, key, params) => translate("en", key, params);
+// The login page is a protected part: its English copy is unchanged and the
+// Portuguese comes from login_page.pt.ts when the visitor chooses PT. The
+// chosen locale also travels to the API so a new account gets emails in the
+// reader's language.
+const loginText = translate;
 
 // GoogleButton starts Google sign-in: the API redirects to Google and back.
 // When the provider is not configured it reports that instead of navigating.
 const GoogleButton = ({ onMessage }: { onMessage: (message: string) => void }) => {
   const { locale } = useI18n();
   const t = (key: Parameters<typeof translate>[1]) => loginText(locale, key);
+  const tr = useGettext(LOGIN_PT);
   const [pending, setPending] = useState(false);
 
   const handleClick = async () => {
@@ -80,7 +82,7 @@ const GoogleButton = ({ onMessage }: { onMessage: (message: string) => void }) =
     <button
       className={styles.googleButton}
       type="button"
-      aria-label={pending ? t("auth.google.redirecting") : "Continue with Google"}
+      aria-label={pending ? t("auth.google.redirecting") : tr("Continue with Google")}
       aria-busy={pending}
       disabled={pending}
       onClick={() => void handleClick()}
@@ -117,6 +119,7 @@ const PasswordField = ({
   placeholder: string;
   autoComplete: string;
 }) => {
+  const tr = useGettext(LOGIN_PT);
   const [isVisible, setIsVisible] = useState(false);
 
   return (
@@ -127,14 +130,14 @@ const PasswordField = ({
         className={styles.inputAction}
         type={isVisible ? "text" : "password"}
         name={id}
-        placeholder={placeholder}
+        placeholder={tr(placeholder)}
         autoComplete={autoComplete}
-        aria-label={placeholder}
+        aria-label={tr(placeholder)}
       />
       <button
         className={styles.eyeButton}
         type="button"
-        aria-label={isVisible ? "Hide password" : "Show password"}
+        aria-label={isVisible ? tr("Hide password") : tr("Show password")}
         onClick={() => setIsVisible((currentValue) => !currentValue)}
       >
         {isVisible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
@@ -164,6 +167,7 @@ const errorMessageFor = (error: unknown): string => {
 };
 
 const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps) => {
+  const tr = useGettext(LOGIN_PT);
   const history = useHistory();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(initialMessage);
@@ -206,9 +210,9 @@ const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps)
     >
       <FadeItem className={styles.header}>
         <h1 ref={headingRef} tabIndex={-1}>
-          Welcome <span className={ui.hl}>back.</span>
+          {tr("Welcome")} <span className={ui.hl}>{tr("back.")}</span>
         </h1>
-        <p>Log in to continue your journey.</p>
+        <p>{tr("Log in to continue your journey.")}</p>
       </FadeItem>
 
       <FadeItem className={styles.fields}>
@@ -217,9 +221,9 @@ const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps)
           <input
             type="email"
             name="email"
-            placeholder="Email or username"
+            placeholder={tr("Email or username")}
             autoComplete="email"
-            aria-label="Email or username"
+            aria-label={tr("Email or username")}
           />
         </div>
         <PasswordField id="login-password" placeholder="Password" autoComplete="current-password" />
@@ -228,29 +232,29 @@ const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps)
       <FadeItem className={styles.options}>
         <label className={styles.check}>
           <input type="checkbox" name="remember" />
-          <span>Remember me</span>
+          <span>{tr("Remember me")}</span>
         </label>
         <Link className={styles.link} to="/forgot-password">
-          Forgot your password?
+          {tr("Forgot your password?")}
         </Link>
       </FadeItem>
 
       {errorMessage ? (
         <FadeItem>
           <p className={styles.formError} role="alert">
-            {errorMessage}
+            {tr(errorMessage)}
           </p>
         </FadeItem>
       ) : null}
 
       <FadeItem>
         <PublicAction type="submit" className={styles.submit} disabled={submitting} icon={<ArrowRight />}>
-          Log in
+          {tr("Log in")}
         </PublicAction>
       </FadeItem>
 
       <FadeItem className={styles.divider}>
-        <span>or continue with</span>
+        <span>{tr("or continue with")}</span>
       </FadeItem>
 
       <FadeItem className={styles.googleRow}>
@@ -259,9 +263,9 @@ const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps)
 
       <FadeItem className={styles.formFooter}>
         <p className={styles.switch}>
-          Don&apos;t have an account?{" "}
+          {tr("Don't have an account?")}{" "}
           <button type="button" onClick={onSwitch}>
-            Create one here
+            {tr("Create one here")}
           </button>
         </p>
       </FadeItem>
@@ -272,6 +276,7 @@ const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps)
 const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
   // The interface language at sign-up becomes the language of RYZE emails.
   const { locale } = useI18n();
+  const tr = useGettext(LOGIN_PT);
   const history = useHistory();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -328,9 +333,9 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
     >
       <FadeItem className={styles.header}>
         <h1 ref={headingRef} tabIndex={-1}>
-          Create <span className={ui.hl}>account.</span>
+          {tr("Create")} <span className={ui.hl}>{tr("account.")}</span>
         </h1>
-        <p>Join RYZE and start your evolution.</p>
+        <p>{tr("Join RYZE and start your evolution.")}</p>
       </FadeItem>
 
       <FadeItem className={styles.fields}>
@@ -340,9 +345,9 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
             <input
               type="text"
               name="first_name"
-              placeholder="First name"
+              placeholder={tr("First name")}
               autoComplete="given-name"
-              aria-label="First name"
+              aria-label={tr("First name")}
             />
           </div>
           <div className={styles.field}>
@@ -350,15 +355,15 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
             <input
               type="text"
               name="last_name"
-              placeholder="Last name"
+              placeholder={tr("Last name")}
               autoComplete="family-name"
-              aria-label="Last name"
+              aria-label={tr("Last name")}
             />
           </div>
         </div>
         <div className={styles.field}>
           <Mail className={styles.fieldIcon} aria-hidden="true" />
-          <input type="email" name="email" placeholder="Email" autoComplete="email" aria-label="Email" />
+          <input type="email" name="email" placeholder={tr("Email")} autoComplete="email" aria-label={tr("Email")} />
         </div>
         <PasswordField id="register-password" placeholder="Password" autoComplete="new-password" />
         <PasswordField id="register-confirm" placeholder="Confirm password" autoComplete="new-password" />
@@ -370,16 +375,16 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
             id="register-terms"
             type="checkbox"
             name="terms"
-            aria-label="I agree to the Terms of Service and the Privacy Policy"
+            aria-label={tr("I agree to the Terms of Service and the Privacy Policy")}
           />
           <span>
-            I agree to the{" "}
+            {tr("I agree to the")}{" "}
             <a href="#" onClick={(event) => event.preventDefault()}>
-              Terms of Service
+              {tr("Terms of Service")}
             </a>{" "}
-            and the{" "}
+            {tr("and the")}{" "}
             <a href="#" onClick={(event) => event.preventDefault()}>
-              Privacy Policy
+              {tr("Privacy Policy")}
             </a>
           </span>
         </span>
@@ -388,19 +393,19 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
       {errorMessage ? (
         <FadeItem>
           <p className={styles.formError} role="alert">
-            {errorMessage}
+            {tr(errorMessage)}
           </p>
         </FadeItem>
       ) : null}
 
       <FadeItem>
         <PublicAction type="submit" className={styles.submit} disabled={submitting} icon={<ArrowRight />}>
-          Create account
+          {tr("Create account")}
         </PublicAction>
       </FadeItem>
 
       <FadeItem className={styles.divider}>
-        <span>or continue with</span>
+        <span>{tr("or continue with")}</span>
       </FadeItem>
 
       <FadeItem className={styles.googleRow}>
@@ -409,9 +414,9 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
 
       <FadeItem className={styles.formFooter}>
         <p className={styles.switch}>
-          Already have an account?{" "}
+          {tr("Already have an account?")}{" "}
           <button type="button" onClick={onSwitch}>
-            Log in
+            {tr("Log in")}
           </button>
         </p>
       </FadeItem>
@@ -442,6 +447,8 @@ const PANEL_COPY: Record<AuthMode, { kicker: string; title: string; text: string
 // the other form takes its place. The inactive form is inert and hidden from
 // assistive technology; focus moves to the new form's heading.
 export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
+  const { locale } = useI18n();
+  const tr = useGettext(LOGIN_PT);
   const history = useHistory();
   const location = useLocation();
   // A Google sign-in result arrives as ?oauth=...; it is read once and removed
@@ -477,7 +484,7 @@ export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
   return (
     <PageWrapper className={joinClassNames(ui.page, styles.page)}>
       <section className={joinClassNames(ui.toneNavy, styles.section)}>
-        <Link className={styles.brand} to="/" aria-label="RYZE home">
+        <Link className={styles.brand} to="/" aria-label={tr("RYZE home")}>
           <BrandMark size="navigation" />
           <span>RYZE</span>
         </Link>
@@ -492,7 +499,7 @@ export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
             <LoginForm
               onSwitch={() => switchMode("register")}
               headingRef={loginHeading}
-              initialMessage={googleResult ? loginText("en", `auth.google.result.${googleResult}`) : ""}
+              initialMessage={googleResult ? loginText(locale, `auth.google.result.${googleResult}`) : ""}
             />
           </div>
           <div
@@ -504,7 +511,7 @@ export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
             <RegisterForm onSwitch={() => switchMode("login")} headingRef={registerHeading} />
           </div>
 
-          <aside className={joinClassNames(ui.toneLight, styles.panel)} aria-label="RYZE account">
+          <aside className={joinClassNames(ui.toneLight, styles.panel)} aria-label={tr("RYZE account")}>
             <Waves />
             <img className={styles.panelMark} src={BRAND_ASSETS.icon} alt="" width="600" height="658" />
             {(["login", "register"] as const).map((panelMode) => {
@@ -520,11 +527,11 @@ export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
                   inert={!active}
                   aria-hidden={!active}
                 >
-                  <p className={styles.panelKicker}>{copy.kicker}</p>
-                  <p className={styles.panelTitle}>{copy.title}</p>
-                  <p className={styles.panelText}>{copy.text}</p>
+                  <p className={styles.panelKicker}>{tr(copy.kicker)}</p>
+                  <p className={styles.panelTitle}>{tr(copy.title)}</p>
+                  <p className={styles.panelText}>{tr(copy.text)}</p>
                   <PublicAction variant="ink" icon={<ArrowRight />} onClick={() => switchMode(copy.target)}>
-                    {copy.action}
+                    {tr(copy.action)}
                   </PublicAction>
                 </div>
               );
@@ -535,11 +542,11 @@ export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
         <p className={styles.legal}>
           © 2026 RYZE ·{" "}
           <a href="#" onClick={(event) => event.preventDefault()}>
-            Privacy Policy
+            {tr("Privacy Policy")}
           </a>{" "}
           ·{" "}
           <a href="#" onClick={(event) => event.preventDefault()}>
-            Terms of Service
+            {tr("Terms of Service")}
           </a>
         </p>
       </section>

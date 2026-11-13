@@ -114,7 +114,7 @@ export const AdminTrainersPage = () => {
       ) : (
         <>
           <div className={styles.tableCard}>
-            <table className={styles.table}>
+            <table className={`${styles.table} app-stack-table`}>
               <thead>
                 <tr>
                   <th scope="col">Name</th>
@@ -128,14 +128,14 @@ export const AdminTrainersPage = () => {
                 {trainers.map((trainer) => (
                   <tr key={trainer.id}>
                     <td className={styles.nameCell}>{fullName(trainer)}</td>
-                    <td className={styles.emailCell}>{trainer.email}</td>
-                    <td>
+                    <td className={styles.emailCell} data-wide="">{trainer.email}</td>
+                    <td data-label="Status">
                       <span className={joinClassNames(styles.statusBadge, trainer.status === "active" ? styles.statusActive : styles.statusDisabled)}>
                         {trainer.status === "active" ? "Active" : "Disabled"}
                       </span>
                     </td>
-                    <td>{formatAdminDate(trainer.created_at)}</td>
-                    <td>
+                    <td data-label="Created">{formatAdminDate(trainer.created_at)}</td>
+                    <td data-actions="">
                       <div className={styles.actionsCell}>
                         {activeTab === "active" ? (
                           <button
