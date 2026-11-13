@@ -34,6 +34,7 @@ const (
 	scopeNutritionGenerate  = "nutrition-generate"
 	scopeClientLookup       = "trainer-client-lookup"
 	scopeDocumentUpload     = "document-upload"
+	scopeProgramView        = "program-view"
 )
 
 // authRateLimitScope is one endpoint's policy. The IP limiter always applies.
@@ -94,6 +95,9 @@ var authRateLimitScopes = []authRateLimitScope{
 	{name: scopeClientLookup, ipLimit: 60, ipWindow: 15 * time.Minute},
 	// Trainer application documents: each upload is stored on disk.
 	{name: scopeDocumentUpload, ipLimit: 30, ipWindow: time.Hour},
+	// Program views: a visitor browsing many programs stays well inside the
+	// bound; a script cannot inflate the featured ranking.
+	{name: scopeProgramView, ipLimit: 120, ipWindow: 10 * time.Minute},
 }
 
 // authRateLimiters owns the limiters for every authentication scope.

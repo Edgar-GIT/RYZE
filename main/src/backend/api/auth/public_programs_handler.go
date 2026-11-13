@@ -10,30 +10,34 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ryze/backend/models"
+	"ryze/backend/services/coach_showcase"
 	"ryze/backend/services/public_programs"
 )
 
 // publicProgramResponse only exposes safe published program metadata: the
 // program identity, its public product fields, the generic audience metadata
-// and the lifecycle timestamps. The owning trainer id and the programme
-// structure are never exposed publicly; structure is only available through an
-// authenticated access grant.
+// and the lifecycle timestamps. The programme structure is never exposed
+// publicly; structure is only available through an authenticated access grant.
+// The detail endpoint adds the public coach (trainer id and registered name)
+// of a trainer-owned program, so the program can link to the coach profile;
+// the listing never carries it.
 type publicProgramResponse struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Description      string    `json:"description"`
-	Type             string    `json:"type"`
-	Status           string    `json:"status"`
-	Level            *string   `json:"level"`
-	DurationWeeks    *int      `json:"duration_weeks"`
-	FrequencyPerWeek *int      `json:"frequency_per_week"`
-	TrainingType     *string   `json:"training_type"`
-	PriceMinorUnits  int64     `json:"price_minor_units"`
-	Currency         string    `json:"currency"`
-	ProductType      string    `json:"product_type"`
-	Objective        *string   `json:"objective"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               string               `json:"id"`
+	Name             string               `json:"name"`
+	Description      string               `json:"description"`
+	Type             string               `json:"type"`
+	Status           string               `json:"status"`
+	Level            *string              `json:"level"`
+	DurationWeeks    *int                 `json:"duration_weeks"`
+	FrequencyPerWeek *int                 `json:"frequency_per_week"`
+	TrainingType     *string              `json:"training_type"`
+	PriceMinorUnits  int64                `json:"price_minor_units"`
+	Currency         string               `json:"currency"`
+	ProductType      string               `json:"product_type"`
+	Objective        *string              `json:"objective"`
+	CreatedAt        time.Time            `json:"created_at"`
+	UpdatedAt        time.Time            `json:"updated_at"`
+	Coach            *publicCoachResponse `json:"coach,omitempty"`
 }
 
 func newPublicProgramResponse(program *public_programs.Program) publicProgramResponse {
@@ -62,10 +66,17 @@ func newPublicProgramResponse(program *public_programs.Program) publicProgramRes
 // exposed in this foundation.
 type PublicProgramsHandler struct {
 	service public_programs.Service
+	coaches coach_showcase.Service
 }
 
 func NewPublicProgramsHandler(svc public_programs.Service) *PublicProgramsHandler {
 	return &PublicProgramsHandler{service: svc}
+}
+
+// WithCoaches enables coach attribution on the program detail endpoint.
+func (h *PublicProgramsHandler) WithCoaches(coaches coach_showcase.Service) *PublicProgramsHandler {
+	h.coaches = coaches
+	return h
 }
 
 // ListPublishedPrograms returns one page of the published program catalog.
@@ -172,10 +183,19 @@ func (h *PublicProgramsHandler) GetPublishedProgram(c *gin.Context) {
 		return
 	}
 
+	response := newPublicProgramResponse(program)
+	if h.coaches != nil && program.TrainerID != "" {
+		// A coach who is no longer public (disabled, Test Mode persona) simply
+		// leaves the program unattributed.
+		if coach, err := h.coaches.CoachOf(c.Request.Context(), program.TrainerID); err == nil {
+			response.Coach = &publicCoachResponse{ID: coach.ID, Name: coach.Name}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Program retrieved successfully.",
-		"data":    newPublicProgramResponse(program),
+		"data":    response,
 	})
 }
 

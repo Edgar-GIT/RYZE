@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	paypal "github.com/plutov/paypal/v4"
@@ -23,6 +24,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/account_recovery"
+	"ryze/backend/services/admin_audit"
 	"ryze/backend/services/admin_commerce"
 	"ryze/backend/services/admin_login"
 	"ryze/backend/services/admin_program_pricing"
@@ -30,6 +32,7 @@ import (
 	"ryze/backend/services/admin_users"
 	"ryze/backend/services/change_password"
 	"ryze/backend/services/client_programs"
+	"ryze/backend/services/coach_showcase"
 	"ryze/backend/services/commission_rules"
 	"ryze/backend/services/contact"
 	"ryze/backend/services/delete_account"
@@ -228,7 +231,16 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	premiumLevel2Handler := auth.NewPremiumLevel2Handler(premiumLevel2Service)
 
 	publicProgramService := public_programs.NewService(trainerProgramRepository)
-	publicProgramHandler := auth.NewPublicProgramsHandler(publicProgramService)
+	// Program views count once per viewer and program every 30 minutes; the
+	// dedupe keys share the rate limiter's bound and eviction.
+	programViewDedupe := middleware.NewLimiter(middleware.RateLimitPolicy{Limit: 1, Window: 30 * time.Minute}, rateLimitCfg.MaxKeys)
+	coachShowcaseService := coach_showcase.New(repositories.NewCoachShowcaseRepository(db), programViewDedupe)
+	publicCoachesHandler := auth.NewPublicCoachesHandler(coachShowcaseService, tokenService)
+	publicProgramHandler := auth.NewPublicProgramsHandler(publicProgramService).WithCoaches(coachShowcaseService)
+
+	// Administrative audit log (ADMIN_1 reads it; every admin action writes it).
+	adminAuditService := admin_audit.New(repositories.NewAdminAuditRepository(db))
+	adminAuditHandler := auth.NewAdminAuditHandler(adminAuditService)
 
 	contactService := contact.NewService(contact.NewSMTPNotifier(contactCfg))
 	contactHandler := auth.NewContactHandler(contactService)
@@ -399,13 +411,16 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/auth/google/callback", append(limits.chain(scopeGoogleCallback), googleHandler.Callback)...)
 	v1.POST("/auth/logout", logoutHandler.Logout)
 	v1.POST("/admin/auth/login", append(limits.chain(scopeAdminLogin), adminLoginHandler.Login)...)
-	v1.POST("/admin/auth/verify", append(limits.chain(scopeAdminVerify), adminLoginHandler.Verify)...)
+	v1.POST("/admin/auth/verify", append(limits.chain(scopeAdminVerify), middleware.AdminSignInAudit(adminAuditService, tokenService), adminLoginHandler.Verify)...)
 	v1.POST("/admin/auth/logout", adminLogoutHandler.Logout)
 	v1.GET("/exercises", exercisesHandler.ListExercises)
 	v1.GET("/exercises/search", exercisesHandler.SearchExercises)
 	v1.GET("/exercises/:exerciseID", exercisesHandler.GetExercise)
 	v1.GET("/programs", publicProgramHandler.ListPublishedPrograms)
 	v1.GET("/programs/:programID", publicProgramHandler.GetPublishedProgram)
+	v1.POST("/programs/:programID/views", append(limits.chain(scopeProgramView), publicCoachesHandler.RecordView)...)
+	v1.GET("/coaches/featured-programs", publicCoachesHandler.FeaturedPrograms)
+	v1.GET("/coaches/:trainerID", publicCoachesHandler.GetCoach)
 	v1.POST("/contact", append(limits.chain(scopeContact), contactHandler.Submit)...)
 	v1.GET("/feedback", memberFeedbackHandler.ListPublished)
 	v1.GET("/me/feedback/eligibility", middleware.Authenticate(tokenService, userRepository), memberFeedbackHandler.GetEligibility)
@@ -473,6 +488,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// session, and exiting only ever restores the original admin identity.
 	v1.POST("/admin/auth/test-mode",
 		middleware.AdminAuthenticate(tokenService),
+		middleware.AdminAudit(adminAuditService),
 		middleware.RequireAdminRole(adminroles.RoleTechnicalAdministrator),
 		testModeHandler.Enter)
 	v1.POST("/admin/auth/test-mode/exit", testModeHandler.Exit)
@@ -535,6 +551,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// never involved: generic programs are always trainer_id NULL.
 	genericPrograms := v1.Group("/programs/generic")
 	genericPrograms.Use(middleware.AdminAuthenticate(tokenService))
+	genericPrograms.Use(middleware.AdminAudit(adminAuditService))
 	genericPrograms.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
 	genericPrograms.GET("", genericProgramHandler.ListPrograms)
 	genericPrograms.POST("", genericProgramHandler.CreateProgram)
@@ -552,6 +569,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// never be created as, edited into or published under any other family.
 	premiumLevel1Programs := v1.Group("/programs/premium-level-1")
 	premiumLevel1Programs.Use(middleware.AdminAuthenticate(tokenService))
+	premiumLevel1Programs.Use(middleware.AdminAudit(adminAuditService))
 	premiumLevel1Programs.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
 	premiumLevel1Programs.GET("", premiumLevel1ProgramHandler.ListPrograms)
 	premiumLevel1Programs.POST("", premiumLevel1ProgramHandler.CreateProgram)
@@ -565,6 +583,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	// to the request lifecycle and the allocated trainer.
 	premiumLevel2Programs := v1.Group("/programs/premium-level-2")
 	premiumLevel2Programs.Use(middleware.AdminAuthenticate(tokenService))
+	premiumLevel2Programs.Use(middleware.AdminAudit(adminAuditService))
 	premiumLevel2Programs.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
 	premiumLevel2Programs.GET("", premiumLevel2ProgramHandler.ListPrograms)
 	premiumLevel2Programs.POST("", premiumLevel2ProgramHandler.CreateProgram)
@@ -575,12 +594,20 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))
+	// Every state-changing admin request (and every evidence download) is
+	// recorded before the permission checks run, so denials are kept too.
+	admin.Use(middleware.AdminAudit(adminAuditService))
 	admin.GET("/auth/me", adminMeHandler.GetMe)
 
 	// Technical Administrator: deployment status and enabled features.
 	adminSystem := admin.Group("")
 	adminSystem.Use(middleware.RequireAdminPermission(adminroles.PermissionSystem))
 	adminSystem.GET("/system/status", adminSystemHandler.Status)
+
+	// Technical Administrator: the immutable administrative audit log.
+	adminSecurity := admin.Group("")
+	adminSecurity.Use(middleware.RequireAdminPermission(adminroles.PermissionSecurity))
+	adminSecurity.GET("/logs", adminAuditHandler.List)
 
 	adminRead := admin.Group("")
 	adminRead.Use(middleware.RequireAdminPermission(adminroles.PermissionUsersRead))
