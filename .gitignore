@@ -9,6 +9,7 @@ main/src/frontend/dist/
 backups/
 uploads/
 storage/
+.runtime/
 *.log
 test-results/
 playwright-report/

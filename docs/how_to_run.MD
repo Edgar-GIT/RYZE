@@ -493,21 +493,12 @@ file (git ignored).
 
 A normal user account for exercising the product flows. The credentials are
 defined in `.env` under `TEST_USER_EMAIL` / `TEST_USER_PASSWORD`. Current local
-development values:
-
-- Email: `teste1@gmail.com`
-- Password: `RyzeTest1234` (12 characters, the minimum the password policy
-  accepts)
+development values are intentionally kept out of committed documentation.
+Read them only from the local `.env` file.
 
 The account is not seeded by migrations — it is created through the public
-registration endpoint. After a database reset, recreate it with the same
-endpoint (or simply register it again in the frontend):
-
-```bash
-curl -X POST http://localhost:8080/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"teste1@gmail.com","password":"RyzeTest1234","first_name":"Teste","last_name":"Um"}'
-```
+registration endpoint. The root `start_test_mode.sh` launcher creates or
+reuses it idempotently through the existing API.
 
 Passwords must be 12 to 128 characters on every endpoint that sets one
 (registration, change-password, administrative creation and administrative
@@ -549,6 +540,46 @@ TEST_MODE_ENABLED=true
 
 Real money is never involved and no provider configuration is required for
 Test Mode purchases.
+
+## One-command local test stack
+
+From the repository root, run:
+
+```bash
+./start_test_mode.sh
+```
+
+The launcher starts or reuses PostgreSQL (using Docker Compose when no local
+server is available), applies migrations, imports the exercise catalogue,
+starts the Go API on `http://localhost:8080` and Vite on
+`http://localhost:5173`, and enables the local-only exercise media preview.
+It creates or reuses the configured normal client and active trainer through
+the public and administrative APIs. ADMIN_1 and ADMIN_2 remain configuration-
+only accounts from `.env`; the Test Client and Test Trainer personas are
+provisioned by the existing Test Mode service. The launcher never writes
+database tables directly and does not print credentials.
+
+The bundled exercise media is third-party content and is enabled here only
+for local testing. Do not use this setting for production until its licence
+has been confirmed. Press Ctrl-C to stop the local API and frontend; the
+database service is intentionally left running.
+
+### DBeaver — PostgreSQL local
+
+Start `./start_test_mode.sh` first. The launcher publishes the PostgreSQL
+container only on the local machine so DBeaver can inspect the same database.
+Create a PostgreSQL connection with:
+
+- Host: `127.0.0.1`
+- Port: `5432`
+- Database: the value of `DB_NAME` in the local `.env` (normally `ryze`)
+- Username: the value of `DB_USER` in the local `.env`
+- Password: the value of `DB_PASSWORD` in the local `.env`
+- SSL mode: `disable`
+
+Use the PostgreSQL driver, not the MySQL/MariaDB driver. The old DBeaver
+connection on port `3306` points to the former MariaDB environment and is not
+the database used by the current backend.
 
 ## Stripe Checkout Provider (Optional)
 
