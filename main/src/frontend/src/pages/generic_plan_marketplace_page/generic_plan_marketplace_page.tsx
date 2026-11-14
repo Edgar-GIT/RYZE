@@ -5,10 +5,13 @@ import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { FilterSidebar } from "@/components/filter_sidebar/filter_sidebar";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { PlanAudiencePrompt, type PlanAudienceAnswer } from "@/components/plan_audience_prompt/plan_audience_prompt";
 import { ProgramRow } from "@/components/program_row/program_row";
 import { SearchBar } from "@/components/search_bar/search_bar";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import {
+  AUDIENCE_GROUP_ID,
+  AUDIENCE_OPTIONS,
   DURATION_RANGES,
   MARKETPLACE_FILTER_GROUPS,
   MARKETPLACE_ROWS
@@ -20,6 +23,14 @@ import {
   type MarketplaceFilters,
   type MarketplaceProgram
 } from "@/services/marketplace_api";
+import {
+  fetchAccountPlanPreferences,
+  readLocalPlanPreferences,
+  saveAccountPlanPreferences,
+  writeLocalPlanPreferences,
+  type PlanPreferences,
+  type Sex
+} from "@/services/plan_preferences_api";
 import { fetchEntitlements } from "@/services/purchases_api";
 import { joinClassNames } from "@utils/class_names";
 
@@ -45,7 +56,19 @@ const filtersFromSelection = (selected: SelectedFilters): MarketplaceFilters => 
       durationRanges.push(range);
     }
   }
+  // One audience chosen: plans for everyone plus those for it; both or none:
+  // every plan.
+  const audiences = selected[AUDIENCE_GROUP_ID] ?? [];
+  const audience =
+    audiences.length === 1
+      ? audiences[0] === AUDIENCE_OPTIONS.female
+        ? ("female" as const)
+        : audiences[0] === AUDIENCE_OPTIONS.male
+          ? ("male" as const)
+          : undefined
+      : undefined;
   return {
+    audience,
     trainingTypes: selected["training-type"] ?? [],
     levels: selected["level"] ?? [],
     frequencies,
@@ -70,6 +93,65 @@ export const GenericPlanMarketplacePage = () => {
   );
   const requestId = useRef(0);
   const [featured, setFeatured] = useState<CoachProgram[]>([]);
+  // Plan preferences (owner request, 2026-11-14): asked the first time the
+  // plans are opened; the account keeps them for signed-in members, this
+  // browser for visitors. The catalogue waits for them so it does not show
+  // every plan and then narrow down.
+  const [preferences, setPreferences] = useState<PlanPreferences | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
+  const [preferencesReady, setPreferencesReady] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
+
+  const applyAudience = useCallback((next: PlanPreferences | null) => {
+    setSelected((current) => {
+      const rest = { ...current };
+      delete rest[AUDIENCE_GROUP_ID];
+      return next?.plan_audience_filter && next.sex ? { ...rest, [AUDIENCE_GROUP_ID]: [AUDIENCE_OPTIONS[next.sex]] } : rest;
+    });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const local = readLocalPlanPreferences();
+    void fetchAccountPlanPreferences()
+      .catch(() => null)
+      .then((account) => {
+        if (cancelled) return;
+        let current = account ?? local;
+        if (account) {
+          setSignedIn(true);
+          if (account.plan_audience_filter === null && local && local.plan_audience_filter !== null) {
+            // Answered in this browser before signing in: keep that answer.
+            const sex: Sex | null = account.sex ?? local.sex;
+            current = { sex, plan_audience_filter: local.plan_audience_filter && sex !== null };
+            void saveAccountPlanPreferences({ ...(sex ? { sex } : {}), filter_by_sex: current.plan_audience_filter ?? false }).catch(
+              () => undefined
+            );
+          }
+        }
+        setPreferences(current);
+        if (!current || current.plan_audience_filter === null) setPromptOpen(true);
+        else applyAudience(current);
+        setPreferencesReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyAudience]);
+
+  const answerPrompt = (answer: PlanAudienceAnswer) => {
+    const sex = answer.sex ?? preferences?.sex ?? null;
+    const next: PlanPreferences = { sex, plan_audience_filter: answer.filter && sex !== null };
+    writeLocalPlanPreferences(next);
+    if (signedIn) {
+      void saveAccountPlanPreferences({ ...(sex ? { sex } : {}), filter_by_sex: next.plan_audience_filter ?? false }).catch(
+        () => undefined
+      );
+    }
+    setPreferences(next);
+    setPromptOpen(false);
+    applyAudience(next);
+  };
 
   // Featured coach programs: trainer programs ranked by views. Independent of
   // the filters, so it loads once.
@@ -163,8 +245,8 @@ export const GenericPlanMarketplacePage = () => {
   }, [filters]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (preferencesReady) void load();
+  }, [load, preferencesReady]);
 
   const activeFilterCount = Object.values(selected).reduce(
     (total, options) => total + options.length,
@@ -172,7 +254,13 @@ export const GenericPlanMarketplacePage = () => {
   );
 
   const resultCount = totalPrograms;
-  const showFeatured = featured.length > 0 && activeFilterCount === 0;
+  // The audience preference does not hide the featured coaches; it only keeps
+  // their plans for everyone and for that audience.
+  const otherFilterCount = activeFilterCount - (selected[AUDIENCE_GROUP_ID]?.length ?? 0);
+  const featuredShown = featured.filter(
+    (program) => !filters.audience || !program.audience || program.audience === filters.audience
+  );
+  const showFeatured = featuredShown.length > 0 && otherFilterCount === 0;
 
   const toggleFilter = (groupId: string, option: string) => {
     setSelected((prev) => {
@@ -202,7 +290,14 @@ export const GenericPlanMarketplacePage = () => {
                 <span className={styles.stop}>.</span>
               </h1>
               <p className={styles.subtitle}>{text.subtitle}</p>
+              {preferencesReady && !promptOpen ? (
+                <button type="button" className={styles.forMe} onClick={() => setPromptOpen(true)}>
+                  {text.forMe}
+                </button>
+              ) : null}
             </header>
+
+            {promptOpen ? <PlanAudiencePrompt initialSex={preferences?.sex ?? null} onAnswer={answerPrompt} /> : null}
 
             {activeFilterCount > 0 ? (
               <div className={styles.filterResults}>
@@ -263,7 +358,7 @@ export const GenericPlanMarketplacePage = () => {
                   <ProgramRow
                     title={text.featuredTitle}
                     description={text.featuredDescription}
-                    programs={featured}
+                    programs={featuredShown}
                     forceFree={testModeActive}
                     ownedProgramIds={ownedProgramIds}
                   />

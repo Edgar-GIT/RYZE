@@ -71,6 +71,31 @@
   line-height: 1.55;
 }
 
+/* Reopens the plan preference question. */
+.forMe {
+  justify-self: start;
+  min-height: 2.75rem;
+  margin-top: 0.35rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(0, 203, 255, 0.45);
+  border-radius: 999px;
+  color: #7cebff;
+  background: rgba(0, 203, 255, 0.06);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.forMe:hover {
+  border-color: #00cbff;
+}
+
+.forMe:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
 .filterResults {
   display: inline-flex;
   align-items: center;

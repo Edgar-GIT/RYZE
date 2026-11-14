@@ -1,0 +1,164 @@
+/* A glass card above the training plans, in the public colours. */
+.prompt {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.25rem 3.2rem 1.25rem 1.25rem;
+  border: 1px solid rgba(0, 203, 255, 0.45);
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(0, 203, 255, 0.16), transparent 60%),
+    linear-gradient(180deg, rgba(17, 36, 104, 0.88), rgba(6, 15, 58, 0.94));
+  box-shadow: 0 24px 60px -36px rgba(0, 203, 255, 0.6);
+  color: #ffffff;
+  animation: arrive 320ms ease-out both;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-top: 0.1rem;
+  color: #00cbff;
+}
+
+.body {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.kicker {
+  margin: 0;
+  color: #7cebff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.question {
+  margin: 0;
+  font-family: "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif;
+  font-size: clamp(1.15rem, 1rem + 0.8vw, 1.45rem);
+  font-stretch: 112%;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.question:focus {
+  outline: none;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.option,
+.primary {
+  min-height: 2.9rem;
+  padding: 0 1.3rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.option {
+  border: 1.5px solid rgba(124, 200, 255, 0.4);
+  color: #ffffff;
+  background: rgba(2, 8, 38, 0.55);
+}
+
+.option[aria-pressed="true"] {
+  border-color: #00cbff;
+}
+
+.primary {
+  border: 0;
+  color: #02041f;
+  background: linear-gradient(135deg, #8cefff 0%, #36d6ff 45%, #0aa8f2 100%);
+}
+
+.option:hover {
+  border-color: #00cbff;
+}
+
+.link {
+  justify-self: start;
+  padding: 0.25rem 0;
+  border: 0;
+  color: #7cebff;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.note {
+  margin: 0;
+  color: #93a4c8;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 0;
+  border-radius: 50%;
+  color: #c9d5ec;
+  background: transparent;
+  cursor: pointer;
+}
+
+.close svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.option:focus-visible,
+.primary:focus-visible,
+.link:focus-visible,
+.close:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .prompt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .icon {
+    display: none;
+  }
+
+  .options > button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prompt {
+    animation: none;
+  }
+}

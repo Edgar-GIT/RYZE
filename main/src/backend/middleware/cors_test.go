@@ -3,6 +3,7 @@ package middleware_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -77,6 +78,9 @@ func TestCORSHandlesPreflight(t *testing.T) {
 	}
 	if rec.Header().Get("Access-Control-Allow-Origin") != testOrigin {
 		t.Fatalf("expected Access-Control-Allow-Origin %q, got %q", testOrigin, rec.Header().Get("Access-Control-Allow-Origin"))
+	}
+	if !strings.Contains(rec.Header().Get("Access-Control-Allow-Methods"), "PUT") {
+		t.Fatal("expected PUT among the allowed methods")
 	}
 	if rec.Header().Get("Access-Control-Allow-Methods") == "" {
 		t.Fatal("expected Access-Control-Allow-Methods to be set")

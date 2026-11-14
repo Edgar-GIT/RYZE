@@ -590,6 +590,42 @@ To encourage long-term engagement, RYZE incorporates several gamification system
 
 These systems are designed to improve user motivation without interfering with the training experience.
 
+## EXP, lifter levels and record medals (v2.116.0)
+
+Implemented at the owner's request of 2026-11-14 ("every weight record earns a
+medal, like Lyfta; every workout earns EXP towards levels such as average
+lifter or elite lifter"). The owner left the levels to the implementation; the
+current rules are:
+
+- Every finished workout earns 100 EXP, plus 5 EXP per completed set (up to 40
+  sets) and 50 EXP per record medal earned in it. At most two workouts a day
+  earn EXP, so the system rewards training, not tapping "finish".
+- A record medal is earned when a workout's heaviest set of an exercise beats
+  the member's previous heaviest set of that exercise. The first time an
+  exercise is done sets the starting record; warm-up sets do not count; one
+  medal per exercise per workout.
+- Eight lifter levels: Rookie (0), Beginner (500), Average (1 500), Dedicated
+  (4 000), Advanced (8 000), Elite (15 000), Master (25 000) and Legendary
+  (40 000 EXP). A typical workout earns about 200 EXP, so Average comes after
+  two or three weeks of regular training and Legendary after more than a year.
+- Everything is computed by the server from the completed workout sessions;
+  the member home shows the level, EXP and latest medals first, the
+  "Achievements" page lists them all, and each saved workout shows what it
+  earned.
+
+The other systems listed above (streak rewards, missions, events) remain
+future work; the member home already shows the weekly streak.
+
+## Plans for women or men (v2.116.0)
+
+A training plan can say it is designed more for women or more for men; by
+default it is for everyone. The first time someone opens the training plans
+RYZE asks whether they are a woman or a man and whether they prefer to see
+the plans made for them first; plans for everyone always stay visible, and the
+answer can be changed at any time ("Plans for me"). The Premium Level 1
+journey also asks the member's sex and only picks packages for everyone or for
+that sex. A Premium Level 2 offer is personalised and has no audience.
+
 ---
 
 # Artificial Intelligence
@@ -741,6 +777,18 @@ not a technical limitation, and the interface states it plainly instead of hidin
 it behind a disabled control. A curated package has no intake and goes directly
 from product to checkout.
 
+## Choosing a plan (v2.115.0)
+
+Owner request of 2026-11-14. Opening Premium Level 1 shows the service, then
+"Learn more" leads to the objective cards: gain muscle, strength, lose weight
+and sport-specific training (e.g. football). The client then enters current
+weight, age and height, and RYZE picks one fitting curated package from the
+published Level 1 catalogue at random. The same client never gets the same
+plan twice: packages they already own or have bought are never picked. The
+picked plan is shown with its price and the payment step; the plan is assigned
+only after the purchase completes. What the body data changes inside the plan
+is a later decision; for now it is recorded with the match.
+
 ## Delivery
 
 Premium Level 1 uses the existing purchase, payment and entitlement flow. It adds
@@ -760,6 +808,15 @@ creates one service request. The client completes a detailed intake, ADMIN_2
 allocates an active trainer, and that trainer attaches one of their own draft
 programmes and authors the nutrition plan before delivery. Delivery creates the
 training entitlement and releases the nutrition plan to the client.
+
+Since v2.115.0 (owner request, 2026-11-14) the order is: the service is
+explained, the client picks their main goal from cards, answers the long
+questionnaire (saved section by section), and only then pays. The completed
+payment turns the answers into the request's intake and the service is
+assigned. The owner's target is that AI will later analyse the questionnaire to
+build the plan and nutrition; until that exists, the allocated trainer prepares
+them as described above. No AI analysis is implemented or promised in the
+interface.
 
 Premium Level 3 and trainer-authored nutrition sold outside this service remain
 out of scope. The intake answers are sensitive health data and are exposed only

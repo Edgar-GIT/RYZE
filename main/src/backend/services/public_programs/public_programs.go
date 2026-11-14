@@ -97,6 +97,9 @@ type ProgramFilter struct {
 	ScopeGeneric       bool
 	ScopePremiumLevel1 bool
 	ScopePremiumLevel2 bool
+	// Audience ("female" or "male") keeps the plans for everyone plus the
+	// plans designed for that audience.
+	Audience string
 }
 
 // Program is the safe representation of one published program. It carries
@@ -114,6 +117,7 @@ type Program struct {
 	FrequencyPerWeek *int
 	TrainingType     *string
 	CoverImage       *string
+	Audience         *string
 	PriceMinorUnits  int64
 	Currency         string
 	// ProductType is the product family the program belongs to. It is public
@@ -267,6 +271,7 @@ func (s *service) SearchPublishedPrograms(ctx context.Context, filter ProgramFil
 		ScopeGeneric:       filter.ScopeGeneric,
 		ScopePremiumLevel1: filter.ScopePremiumLevel1,
 		ScopePremiumLevel2: filter.ScopePremiumLevel2,
+		Audience:           filter.Audience,
 	}, page, limit)
 	if err != nil {
 		return ListProgramsResult{}, fmt.Errorf("failed to search published programs: %w", err)
@@ -292,6 +297,7 @@ func toSafe(model *models.Program) *Program {
 		FrequencyPerWeek: model.FrequencyPerWeek,
 		TrainingType:     model.TrainingType,
 		CoverImage:       model.CoverImage,
+		Audience:         model.Audience,
 		PriceMinorUnits:  model.PriceMinorUnits,
 		ProductType:      model.ProductType,
 		Objective:        model.Objective,

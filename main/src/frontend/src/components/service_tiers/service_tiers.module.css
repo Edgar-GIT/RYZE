@@ -1,0 +1,486 @@
+/* The three RYZE services as rising glass panels (owner design of
+   2026-11-14), in the brand colours: navy #02041f, royal #072a77, ring blue
+   #0481dc and cyan #00cbff. Mobile first: the panels stack on phones and rise
+   side by side from 900px. */
+
+.tiers {
+  --tier-display: "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif;
+  position: relative;
+  display: grid;
+  gap: 2.5rem;
+  width: 100%;
+  color: #ffffff;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  gap: 1.75rem;
+  isolation: isolate;
+}
+
+/* A soft light on the floor the panels stand on. */
+.stage::after {
+  content: "";
+  position: absolute;
+  right: -4%;
+  bottom: -2.5rem;
+  left: 8%;
+  z-index: -1;
+  height: 6rem;
+  background: radial-gradient(50% 60% at 60% 40%, rgba(0, 203, 255, 0.28), transparent 70%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+.intro {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 46rem;
+}
+
+.label {
+  margin: 0;
+  font-family: var(--tier-display);
+  font-size: 0.82rem;
+  font-stretch: 115%;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.label span {
+  color: #00cbff;
+}
+
+.heading {
+  display: grid;
+  margin: 0;
+  font-family: var(--tier-display);
+  font-size: clamp(2.1rem, 6.4vw, 3.5rem);
+  font-stretch: 112%;
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+
+.heading span {
+  color: #00cbff;
+  text-shadow: 0 0 34px rgba(0, 203, 255, 0.35);
+}
+
+.lead {
+  max-width: 30rem;
+  margin: 0;
+  color: #c9d5ec;
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.18rem);
+  line-height: 1.5;
+}
+
+/* The rising arrow (desktop only). */
+.arrow {
+  display: none;
+}
+
+.arrowGlow {
+  fill: none;
+  stroke: rgba(0, 203, 255, 0.35);
+  stroke-width: 14;
+  stroke-linecap: round;
+  filter: blur(8px);
+}
+
+.arrowLine {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.arrowHead {
+  fill: none;
+  stroke: #7cebff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px rgba(0, 203, 255, 0.8));
+}
+
+/* --- Panels --------------------------------------------------------------- */
+
+.tier {
+  --slant: 1.6rem;
+  position: relative;
+  display: grid;
+  filter: drop-shadow(0 0 22px rgba(0, 203, 255, 0.28)) drop-shadow(0 26px 40px rgba(0, 0, 0, 0.55));
+  animation: rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.tier2 {
+  animation-delay: 120ms;
+}
+
+.tier3 {
+  animation-delay: 240ms;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+
+.panel {
+  position: relative;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: calc(var(--slant) + 1.1rem) 1.4rem 1.4rem;
+  border: 1.5px solid transparent;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(0, 203, 255, 0.16), transparent 60%) padding-box,
+    linear-gradient(180deg, rgba(12, 34, 104, 0.82) 0%, rgba(4, 12, 52, 0.92) 70%, rgba(2, 4, 31, 0.96) 100%) padding-box,
+    linear-gradient(180deg, rgba(124, 235, 255, 0.85) 0%, rgba(0, 203, 255, 0.22) 45%, rgba(4, 129, 220, 0.55) 100%) border-box;
+  clip-path: polygon(0 var(--slant), 100% 0, 100% 100%, 0 100%);
+  text-align: center;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  transition: transform 200ms ease;
+}
+
+/* The bright slanted top edge. */
+.panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 203, 255, 0.45), #9af3ff);
+  clip-path: polygon(0 var(--slant), 100% 0, 100% 3px, 0 calc(var(--slant) + 3px));
+  pointer-events: none;
+}
+
+.tier:hover .panel,
+.tier:focus-within .panel {
+  transform: translateY(-4px);
+}
+
+.tier3 .panel {
+  background:
+    radial-gradient(110% 55% at 50% 0%, rgba(0, 203, 255, 0.28), transparent 62%) padding-box,
+    linear-gradient(180deg, rgba(10, 52, 150, 0.85) 0%, rgba(5, 22, 86, 0.92) 60%, rgba(2, 6, 38, 0.96) 100%) padding-box,
+    linear-gradient(180deg, #9af3ff 0%, rgba(0, 203, 255, 0.45) 40%, #0481dc 100%) border-box;
+}
+
+.level {
+  padding: 0.3rem 0.9rem;
+  border: 1px solid rgba(124, 200, 255, 0.35);
+  border-radius: 999px;
+  color: #dbe7ff;
+  background: rgba(2, 4, 31, 0.72);
+  font-family: var(--tier-display);
+  font-size: 0.72rem;
+  font-stretch: 115%;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0.2rem 0 0;
+  font-family: var(--tier-display);
+  font-size: clamp(1.7rem, 1.3rem + 1.6vw, 2.4rem);
+  font-stretch: 112%;
+  font-weight: 800;
+  line-height: 1.08;
+}
+
+.titleLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* The whole panel opens its service. */
+.titleLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.titleLink svg {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  color: #00cbff;
+  filter: drop-shadow(0 0 8px rgba(0, 203, 255, 0.6));
+}
+
+.title em {
+  display: block;
+  color: #00cbff;
+  font-style: italic;
+}
+
+.price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.2rem 0.45rem;
+  white-space: nowrap;
+  margin: 0;
+  font-family: var(--tier-display);
+  font-size: clamp(2rem, 1.3rem + 1.5vw, 2.7rem);
+  font-stretch: 112%;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.price span {
+  color: #a9b8d6;
+  font-family: "Google Sans", Inter, Roboto, Arial, sans-serif;
+  font-size: 0.95rem;
+  font-stretch: normal;
+  font-weight: 600;
+}
+
+.tierLead {
+  max-width: 22rem;
+  margin: 0;
+  color: #d5e0f3;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.features {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.features li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.6rem;
+  color: #e7eefb;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.features svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.05rem;
+  color: #00cbff;
+}
+
+.tier3 .features svg {
+  color: #02041f;
+  fill: #00cbff;
+}
+
+.ctaQuiet,
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  font-weight: 800;
+}
+
+.ctaQuiet {
+  color: #7cebff;
+  font-size: 0.92rem;
+}
+
+.ctaQuiet svg,
+.ctaPrimary svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.ctaPrimary {
+  width: 100%;
+  min-height: 3.4rem;
+  border-radius: 999px;
+  color: #02041f;
+  background: linear-gradient(135deg, #8cefff 0%, #36d6ff 45%, #0aa8f2 100%);
+  box-shadow:
+    0 0 28px rgba(0, 203, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  font-size: 1.05rem;
+  font-style: italic;
+}
+
+.crown {
+  position: absolute;
+  top: -3.6rem;
+  left: 50%;
+  z-index: 2;
+  width: 5.2rem;
+  transform: translateX(-50%);
+  fill: none;
+  stroke: #7cebff;
+  stroke-width: 4;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 10px rgba(0, 203, 255, 0.9));
+}
+
+.tier3 {
+  margin-top: 3.4rem;
+}
+
+.titleLink:focus-visible {
+  outline: none;
+}
+
+.tier:has(.titleLink:focus-visible) .panel {
+  outline: 3px solid #7cebff;
+  outline-offset: -6px;
+}
+
+/* --- Benefits ------------------------------------------------------------- */
+
+.benefits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+  margin: 0;
+  padding: 1.4rem 0 0;
+  border-top: 1px solid rgba(124, 200, 255, 0.14);
+  list-style: none;
+}
+
+.benefits li {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  color: #e7eefb;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.benefits svg {
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  color: #00cbff;
+  filter: drop-shadow(0 0 8px rgba(0, 203, 255, 0.55));
+}
+
+/* --- Desktop: the panels rise side by side --------------------------------- */
+
+@media (min-width: 900px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr) minmax(0, 1.2fr);
+    grid-template-rows: auto auto;
+    align-items: end;
+    gap: 0 1.1rem;
+  }
+
+  .intro {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    align-self: start;
+    z-index: 2;
+  }
+
+  .arrow {
+    position: absolute;
+    top: 6.8rem;
+    left: 24%;
+    z-index: 0;
+    display: block;
+    width: 38%;
+    height: auto;
+    pointer-events: none;
+  }
+
+  .tier {
+    --slant: 3.2rem;
+  }
+
+  .tier1 {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .tier2 {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 1.5rem;
+  }
+
+  .tier3 {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    margin-top: 4.2rem;
+  }
+
+  .tier1 .panel {
+    min-height: 17rem;
+  }
+
+  .tier2 .panel {
+    min-height: 21.5rem;
+  }
+
+  .tier3 .panel {
+    min-height: 28.5rem;
+    padding-right: 2rem;
+    padding-left: 2rem;
+  }
+
+  .tier3 .title {
+    font-size: clamp(2rem, 1.3rem + 1.6vw, 2.7rem);
+  }
+
+  .benefits {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .benefits li {
+    justify-content: center;
+    padding: 0 1rem;
+  }
+
+  .benefits li + li {
+    border-left: 1px solid rgba(124, 200, 255, 0.18);
+  }
+}
+
+@media (max-width: 899px) {
+  .tier3 .panel {
+    padding-top: calc(var(--slant) + 1.8rem);
+  }
+}
+
+@media (max-width: 420px) {
+  .benefits {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tier {
+    animation: none;
+  }
+
+  .panel {
+    transition: none;
+  }
+
+  .tier:hover .panel,
+  .tier:focus-within .panel {
+    transform: none;
+  }
+}

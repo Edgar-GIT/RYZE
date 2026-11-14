@@ -24,6 +24,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/account_recovery"
+	"ryze/backend/services/achievements"
 	"ryze/backend/services/admin_audit"
 	"ryze/backend/services/admin_commerce"
 	"ryze/backend/services/admin_login"
@@ -48,7 +49,9 @@ import (
 	"ryze/backend/services/nutrition_assignment"
 	"ryze/backend/services/password"
 	"ryze/backend/services/payments"
+	"ryze/backend/services/plan_preferences"
 	"ryze/backend/services/premium_level_2"
+	"ryze/backend/services/premium_match"
 	"ryze/backend/services/program_access"
 	"ryze/backend/services/program_assignments"
 	"ryze/backend/services/program_details"
@@ -255,8 +258,11 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	notificationsHandler := auth.NewNotificationsHandler(notificationService)
 	supportHandler := auth.NewSupportHandler(support.New(repositories.NewSupportRepository(db), notificationService)).
 		WithSessions(tokenService, userRepository)
+	premiumJourneyRepository := repositories.NewPremiumJourneyRepository(db)
 	premiumLevel2Service := premium_level_2.NewService(premiumLevel2Repository, trainerProgramRepository, entitlementRepository,
-		premium_level_2.WithNotifier(notificationService))
+		premium_level_2.WithNotifier(notificationService), premium_level_2.WithDrafts(premiumJourneyRepository))
+	premiumLevel2Drafts, _ := premium_level_2.Drafts(premiumLevel2Service)
+	premiumJourneysHandler := auth.NewPremiumJourneysHandler(premium_match.NewService(premiumJourneyRepository), premiumLevel2Drafts)
 	premiumLevel2Handler := auth.NewPremiumLevel2Handler(premiumLevel2Service)
 
 	publicProgramService := public_programs.NewService(trainerProgramRepository)
@@ -347,7 +353,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 		entitlementRepository,
 		&commissionAdapter{svc: commissionRulesService},
 		methodMap.Resolve,
-		purchases.WithCheckoutPrerequisites(questionnaireService),
+		// Legacy Level 1 packages need their questionnaire; Level 2 offers need
+		// the long questionnaire answered before payment.
+		purchases.WithCheckoutPrerequisites(purchases.AllPrerequisites(questionnaireService, premiumLevel2Drafts)),
 		// Completing a purchase delivers what the product owes. Nutrition is the
 		// first such artifact: the hook runs after the entitlement is committed and
 		// its failure never fails the purchase.
@@ -408,6 +416,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	statisticsRepository := repositories.NewStatisticsRepository(db)
 	statisticsService := statistics.NewService(statisticsRepository)
 	statisticsHandler := auth.NewStatisticsHandler(statisticsService)
+	achievementsHandler := auth.NewAchievementsHandler(achievements.NewService(repositories.NewAchievementsRepository(db)))
+	planPreferencesHandler := auth.NewPlanPreferencesHandler(plan_preferences.NewService(repositories.NewPlanPreferencesRepository(db)))
 
 	trainerClientInsightRepository := repositories.NewTrainerClientInsightRepository(db)
 	trainerClientInsightService := trainer_client_insights.NewService(
@@ -460,6 +470,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 	v1.POST("/me/email/verification", append(limits.chain(scopeEmailResend), middleware.Authenticate(tokenService, userRepository), accountHandler.ResendVerification)...)
 	v1.PATCH("/me/preferences", middleware.Authenticate(tokenService, userRepository), accountHandler.UpdatePreferences)
+	v1.PATCH("/me/plan-preferences", middleware.Authenticate(tokenService, userRepository), planPreferencesHandler.Save)
 	v1.GET("/me/identities", middleware.Authenticate(tokenService, userRepository), googleHandler.ListIdentities)
 	v1.GET("/me/notifications", middleware.Authenticate(tokenService, userRepository), notificationsHandler.List)
 	v1.POST("/me/notifications/read-all", middleware.Authenticate(tokenService, userRepository), notificationsHandler.MarkAllRead)
@@ -478,6 +489,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/me/programs/:programID/free-activation", middleware.Authenticate(tokenService, userRepository), freeProgramHandler.Activate)
 	v1.GET("/me/free-programs", middleware.Authenticate(tokenService, userRepository), freeProgramHandler.ListActive)
 	v1.GET("/me/premium-level-2/catalog", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.GetCatalog)
+	v1.GET("/me/premium-level-2/offers/:programID/intake-draft", middleware.Authenticate(tokenService, userRepository), premiumJourneysHandler.GetDraft)
+	v1.PUT("/me/premium-level-2/offers/:programID/intake-draft", middleware.Authenticate(tokenService, userRepository), premiumJourneysHandler.SaveDraft)
+	v1.POST("/me/premium-level-1/match", append(limits.chain(scopePremiumMatch), middleware.Authenticate(tokenService, userRepository), premiumJourneysHandler.Match)...)
 	v1.GET("/me/premium-level-2", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.ListClientRequests)
 	v1.GET("/me/premium-level-2/:requestID", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.GetClientRequest)
 	v1.PUT("/me/premium-level-2/:requestID/intake", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.SubmitIntake)
@@ -503,6 +517,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/me/workouts/:workoutID/complete", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.CompleteWorkout)
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
+	v1.GET("/me/achievements", middleware.Authenticate(tokenService, userRepository), achievementsHandler.Summary)
+	v1.GET("/me/achievements/sessions/:sessionID", middleware.Authenticate(tokenService, userRepository), achievementsHandler.Session)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
 	v1.GET("/trainer/access", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.GetAccessStatus)
 	v1.POST("/trainer/application/documents", append(limits.chain(scopeDocumentUpload), middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.UploadDocument)...)

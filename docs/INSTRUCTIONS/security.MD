@@ -2046,6 +2046,13 @@ Production environments should explicitly define allowed origins.
 
 Allowed methods should be limited.
 
+RYZE allows `GET`, `POST`, `PUT`, `PATCH`, `DELETE` and `OPTIONS`
+(`middleware/cors.go`, covered by `cors_test.go`). `PUT` was added in v2.115.0:
+the API already served `PUT` routes (Premium Level 2 intake and draft, trainer
+plan structure, Level 2 trainer steps), and without it every cross-origin
+browser `PUT` failed preflight. Origins stay allow-list only, and the origin
+guard still checks every unsafe method.
+
 Allowed headers should be limited.
 
 Credentials should only be enabled when required.
@@ -2627,6 +2634,12 @@ Every service should receive only the permissions it requires.
 # SENSITIVE DATA
 
 Sensitive information should always receive additional protection.
+
+The member's sex (v2.116.0, `users.sex`) and the body data of Premium Level 1
+matches are personal data: they are returned only to their owner (`GET /me`,
+the match response does not echo the body data) and never appear in public
+projections or logs. The achievements endpoints are owner-scoped and answer
+`404` for another member's workout session.
 
 Examples include:
 

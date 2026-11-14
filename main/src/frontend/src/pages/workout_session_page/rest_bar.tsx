@@ -45,13 +45,26 @@ export const RestBar = ({ endsAt, plannedSeconds, onDismiss }: RestBarProps) => 
     return () => window.clearTimeout(timer);
   }, [remaining, onDismiss]);
 
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+
   return (
     <div className={styles.restBar} role="timer" aria-live={remaining === 0 ? "assertive" : "off"}>
-      <div className={styles.restTrack} aria-hidden="true">
-        <span style={{ transform: `scaleX(${progress})` }} />
-      </div>
       <div className={styles.restContent}>
-        <Timer className={styles.restIcon} aria-hidden="true" />
+        <div className={styles.restRing} aria-hidden="true">
+          <svg viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r={radius} className={styles.restRingTrack} />
+            <circle
+              cx="32"
+              cy="32"
+              r={radius}
+              className={styles.restRingFill}
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference * (1 - progress)}
+            />
+          </svg>
+          <Timer className={styles.restIcon} />
+        </div>
         {remaining > 0 ? (
           <p className={styles.restTime}>
             <span>{t("training.player.restLabel")}</span>
@@ -59,7 +72,7 @@ export const RestBar = ({ endsAt, plannedSeconds, onDismiss }: RestBarProps) => 
           </p>
         ) : (
           <p className={styles.restTime}>
-            <strong>{t("training.player.restOver")}</strong>
+            <strong className={styles.restOver}>{t("training.player.restOver")}</strong>
           </p>
         )}
         {remaining > 0 ? (

@@ -29,7 +29,8 @@ paths:
 - Do not globally restyle shared components until protected-part consumers are
   mapped. Protected parts (see `docs/AI/frontend-revamp.md`): footer layout,
   columns, slogan image and copy; Exercise Library/details layout, behaviour and
-  3D viewer; the Services cards; the Home program cards' background images;
+  3D viewer; the Services tiers (`components/service_tiers/`); the Home
+  program cards' background images;
   login/registration fields, validation, messages and API flow. Use isolated
   variants when needed.
 - Prefer existing components and API utilities. Do not duplicate state or add a

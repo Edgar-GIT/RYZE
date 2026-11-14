@@ -1,5 +1,5 @@
 import { BarChart3, CheckCircle2, Clock3, Dumbbell, History, ListChecks, Repeat, Trophy, XCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { useI18n } from "@/i18n/i18n";
@@ -19,12 +19,14 @@ interface WorkoutReportProps {
   onSave?: () => void;
   onKeepGoing?: () => void;
   onAbandon?: () => void;
+  // Shown after the numbers (the saved workout's EXP and medals).
+  rewards?: ReactNode;
 }
 
 // WorkoutReport is the end-of-workout summary: time, volume, sets and reps,
 // personal records and what was done on each exercise. In review mode it
 // offers to save the workout (or go back, or abandon it).
-export const WorkoutReport = ({ session, history, mode, busy = false, onSave, onKeepGoing, onAbandon }: WorkoutReportProps) => {
+export const WorkoutReport = ({ session, history, mode, busy = false, onSave, onKeepGoing, onAbandon, rewards }: WorkoutReportProps) => {
   const { t, intlLocale, formatDate } = useI18n();
   const [confirmAbandon, setConfirmAbandon] = useState(false);
   const summary = summarizeSession(session);
@@ -91,6 +93,8 @@ export const WorkoutReport = ({ session, history, mode, busy = false, onSave, on
           <dd>{summary.reps}</dd>
         </div>
       </dl>
+
+      {rewards}
 
       {mode === "review" && summary.pendingSets > 0 ? (
         <p className={styles.warning}>{t("training.report.unfinished", { count: summary.pendingSets })}</p>

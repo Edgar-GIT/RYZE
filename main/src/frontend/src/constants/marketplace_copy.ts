@@ -38,6 +38,7 @@ interface MarketplaceText {
   featuredDescription: string;
   coachLink: (name: string) => string;
   groups: Record<string, string>;
+  forMe: string;
   rows: Record<string, { title: string; description?: string }>;
   values: Record<string, string>;
 }
@@ -79,6 +80,7 @@ const en: MarketplaceText = {
   featuredDescription: "The most viewed plans from RYZE coaches. Tap a coach to see all their programs.",
   coachLink: (name) => `See ${name}'s coach profile`,
   groups: {},
+  forMe: "Plans for me",
   rows: {},
   values: {}
 };
@@ -118,6 +120,7 @@ const pt: MarketplaceText = {
   featuredDescription: "Os planos mais vistos dos treinadores RYZE. Toca num treinador para ver todos os seus programas.",
   coachLink: (name) => `Ver o perfil de treinador de ${name}`,
   groups: {
+    audience: "Pensado para",
     "training-type": "Tipo de treino",
     frequency: "Frequência de treino",
     level: "Nível",
@@ -133,7 +136,10 @@ const pt: MarketplaceText = {
     "at-home": { title: "Treinar em casa" },
     performance: { title: "Performance e condição física" }
   },
+  forMe: "Planos para mim",
   values: {
+    "For women": "Para mulheres",
+    "For men": "Para homens",
     Hypertrophy: "Hipertrofia",
     Strength: "Força",
     "Fat Loss": "Perda de gordura",

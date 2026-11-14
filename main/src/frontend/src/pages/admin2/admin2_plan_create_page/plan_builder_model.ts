@@ -104,6 +104,8 @@ export interface PlanDraft {
   // Cover picture: the uploads key the API returned and its public URL.
   cover_image: string;
   cover_url: string;
+  // Who the plan is designed for: "" everyone, "female" or "male".
+  audience: "" | "female" | "male";
   weeks: PlanDraftWeek[];
 }
 
@@ -225,6 +227,7 @@ export const createPlanDraft = (
   frequency_per_week: productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2 ? "" : "3",
   cover_image: "",
   cover_url: "",
+  audience: "",
   weeks: []
 });
 
@@ -668,6 +671,7 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
   price_minor_units: 0,
   currency: "EUR",
   cover_image: draft.cover_image,
+  audience: isLevel2 ? "" : draft.audience,
   weeks: isLevel2
     ? []
     : draft.weeks.map((week) => ({
@@ -773,6 +777,7 @@ export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
   frequency_per_week: detail.frequency_per_week === null ? "" : String(detail.frequency_per_week),
   cover_image: detail.cover_image ?? "",
   cover_url: detail.cover_image_url ?? "",
+  audience: detail.audience ?? "",
   weeks: detail.weeks.map((week) => ({
     id: uid(),
     week_number: week.week_number,

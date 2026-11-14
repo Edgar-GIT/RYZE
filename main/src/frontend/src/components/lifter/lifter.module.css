@@ -1,0 +1,314 @@
+/* Lifter level, EXP and record medals. Used inside the member shell and in
+   the full-screen workout player, so every app token has a fallback. */
+
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid rgba(0, 203, 255, 0.35);
+  border-radius: var(--app-radius, 20px);
+  color: var(--app-text, #ffffff);
+  background:
+    radial-gradient(70% 120% at 0% 0%, rgba(0, 203, 255, 0.16), transparent 60%),
+    var(--app-surface, linear-gradient(180deg, rgba(17, 36, 104, 0.78) 0%, rgba(8, 19, 66, 0.82) 100%));
+  box-shadow: 0 24px 60px -40px rgba(0, 203, 255, 0.55);
+}
+
+.skeleton {
+  min-height: 9.5rem;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: #7cebff;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.kicker svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.levelName {
+  margin: 0.2rem 0 0;
+  font-family: var(--app-font-display, "RYZE Archivo", "Google Sans", Inter, sans-serif);
+  font-size: clamp(1.45rem, 1.2rem + 1vw, 1.9rem);
+  font-stretch: 118%;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.levelOf {
+  margin: 0.25rem 0 0;
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* --- Level badge ------------------------------------------------------------ */
+
+.badge {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.badge svg {
+  width: 100%;
+  height: 100%;
+}
+
+.badge b {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-family: var(--app-font-display, "RYZE Archivo", "Google Sans", Inter, sans-serif);
+  font-stretch: 112%;
+  font-weight: 800;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.badge_sm {
+  width: 2.1rem;
+  height: 2.36rem;
+  font-size: 0.95rem;
+}
+
+.badge_md {
+  width: 3rem;
+  height: 3.38rem;
+  font-size: 1.25rem;
+}
+
+.badge_lg {
+  width: 4.4rem;
+  height: 4.95rem;
+  font-size: 1.75rem;
+}
+
+.badge[data-tier="mid"] svg {
+  filter: drop-shadow(0 0 8px rgba(0, 203, 255, 0.45));
+}
+
+.badge[data-tier="top"] svg {
+  filter: drop-shadow(0 0 14px rgba(0, 203, 255, 0.85));
+}
+
+/* --- EXP bar ------------------------------------------------------------- */
+
+.xp {
+  display: grid;
+  align-content: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.xpTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.2rem 1rem;
+}
+
+.xpTop strong {
+  font-family: var(--app-font-display, "RYZE Archivo", "Google Sans", Inter, sans-serif);
+  font-size: 1.35rem;
+  font-stretch: 112%;
+  font-weight: 800;
+}
+
+.xpTop span {
+  color: var(--app-text-2, #c9d5ec);
+  font-size: 0.86rem;
+}
+
+.bar {
+  height: 0.7rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--app-inset, rgba(2, 8, 38, 0.6));
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--app-light, linear-gradient(135deg, #8cefff 0%, #36d6ff 45%, #0aa8f2 100%));
+  box-shadow: 0 0 14px rgba(0, 203, 255, 0.6);
+  transition: width 600ms ease;
+}
+
+/* --- Medals ------------------------------------------------------------- */
+
+.medals {
+  display: grid;
+  align-content: start;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.medalsHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+}
+
+.medalCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.75rem;
+  color: var(--app-accent, #00cbff);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.link svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.link:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.medalRow {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.medal {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  color: #3a2500;
+  background: radial-gradient(circle at 35% 30%, #fff1c7 0%, #ffcf7a 45%, #c98a1c 100%);
+  box-shadow:
+    0 0 0 2px rgba(255, 207, 122, 0.35),
+    0 6px 18px -6px rgba(255, 207, 122, 0.7);
+}
+
+.medal svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.medalSmall {
+  width: 2rem;
+  height: 2rem;
+}
+
+.medalSmall svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.medalItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(255, 207, 122, 0.2);
+  border-radius: 16px;
+  background: var(--app-inset, rgba(2, 8, 38, 0.6));
+}
+
+.medalItemCompact {
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px;
+}
+
+.medalText {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.medalText strong {
+  overflow: hidden;
+  font-size: 0.95rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.medalText span {
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.8rem;
+}
+
+.medalGain {
+  color: var(--app-success, #5ee6a8);
+  font-size: 0.85rem;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.empty {
+  margin: 0;
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+@media (min-width: 1024px) {
+  .card {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: center;
+    gap: 1.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+
+  .bar span {
+    transition: none;
+  }
+}

@@ -6,15 +6,6 @@ import {
 
 export type ProgramHighlightCategory = "generic" | "premium" | "premiumLevel2";
 
-export interface ProgramHighlight {
-  id: string;
-  category: ProgramHighlightCategory;
-  title: string;
-  description: string;
-  ctaLabel: string;
-  to: string;
-}
-
 const isFree = (program: MarketplaceProgram): boolean =>
   program.type === "free" || program.price_minor_units === 0;
 
@@ -63,60 +54,4 @@ export const buildServiceCategoryCards = (
     });
   }
   return cards;
-};
-
-const premiumHighlight = (program: MarketplaceProgram): ProgramHighlight => ({
-  id: program.id,
-  category: "premium",
-  title: program.name,
-  description: program.description,
-  ctaLabel: "View package",
-  to: `/services/premium-level-1?program=${program.id}`
-});
-
-const premiumLevel2Highlight = (program: MarketplaceProgram): ProgramHighlight => ({
-  id: program.id,
-  category: "premiumLevel2",
-  title: program.name,
-  description: program.description,
-  ctaLabel: "View service",
-  to: `/services/premium-level-2?program=${program.id}`
-});
-
-const genericHighlight = (program: MarketplaceProgram): ProgramHighlight => ({
-  id: program.id,
-  category: "generic",
-  title: program.name,
-  description: program.description,
-  ctaLabel: "Explore",
-  to: `/services/generic-program/${program.id}`
-});
-
-export const buildProgramHighlights = (
-  generic: MarketplaceProgram[],
-  premium: MarketplaceProgram[],
-  premiumLevel2: MarketplaceProgram[] = [],
-  limit = 3
-): ProgramHighlight[] => {
-  const featured = [
-    ...premiumLevel2.slice(0, 1).map(premiumLevel2Highlight),
-    ...premium.slice(0, 1).map(premiumHighlight)
-  ].slice(0, limit);
-  const remaining = limit - featured.length;
-  const highlights = [...featured, ...generic.slice(0, Math.max(remaining, 0)).map(genericHighlight)];
-  if (highlights.length < limit) {
-    highlights.push(
-      ...premiumLevel2
-        .slice(1, 1 + (limit - highlights.length))
-        .map(premiumLevel2Highlight)
-    );
-  }
-  if (highlights.length < limit) {
-    highlights.push(
-      ...premium
-        .slice(1, 1 + (limit - highlights.length))
-        .map(premiumHighlight)
-    );
-  }
-  return highlights;
 };

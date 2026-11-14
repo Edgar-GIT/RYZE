@@ -226,7 +226,9 @@ Permission denied. A browser-originated state-changing request whose origin is
 neither the API's own host nor an allow-listed origin (`CORS_ALLOWED_ORIGINS`)
 is rejected before the handler runs with `CROSS_ORIGIN_FORBIDDEN`; requests
 with no browser origin context (curl, webhooks, server-to-server) are not
-affected.
+affected. CORS preflight allows `GET`, `POST`, `PUT`, `PATCH`, `DELETE` and
+`OPTIONS` for allow-listed origins (`PUT` was missing before v2.115.0, which
+blocked every cross-origin `PUT` from the browser).
 
 404
 
@@ -1894,6 +1896,9 @@ Request body:
 - `cover_image` — optional uploads key from `POST /trainer/uploads/program-cover`
   inside the folder of the type's category (v2.114.0). Responses also carry
   `cover_image_url`.
+- `audience` — optional (v2.116.0): `""` (everyone), `"female"` (designed more
+  for women) or `"male"`; anything else is `400`. Responses carry `audience`
+  (`null` = everyone).
 
 Response:
 
@@ -2567,6 +2572,13 @@ All responses use the standard envelope. Authenticated routes use the
   account's emails. The web app also sends `language` on registration.
 - `GET /api/v1/me` adds `email_verified`, `preferred_language` and
   `password_set` (owner-only fields; other user projections do not carry them).
+  Since v2.116.0 it also carries `sex` (`"female"`, `"male"` or `null`) and
+  `plan_audience_filter` (`true`, `false` or `null` = not asked yet).
+- `PATCH /api/v1/me/plan-preferences` (v2.116.0) `{sex?: "female"|"male",
+  filter_by_sex?: boolean}` → `{sex, plan_audience_filter}`. A partial update
+  keeps the stored value; an empty body, an unknown sex, or `filter_by_sex:
+  true` without a known sex answer `400 VALIDATION_ERROR`. Asked the first time
+  the member opens the training plans (owner request, 2026-11-14).
 
 Tokens travel only in the URL fragment and only their SHA-256 is stored.
 
@@ -2662,7 +2674,8 @@ stream 120/10 min.
 
 Per client IP: purchase creation, payment start and payment capture share the
 `purchase` scope (30/10 min); nutrition generation 20/hour; trainer client
-lookup 60/15 min; trainer application document upload 30/hour.
+lookup 60/15 min; trainer application document upload 30/hour. Since v2.115.0
+the Premium Level 1 plan match has the `premium-match` scope (30/10 min).
 
 ### Admin settings and system status (v2.110.0)
 
@@ -3334,8 +3347,8 @@ Response `data`:
   `status`, `level`, `duration_weeks`, `frequency_per_week`, `training_type`,
   `price_minor_units`, `currency`, `product_type`, `objective`, `created_at`,
   `updated_at`. `objective` is a controlled Premium Level 1 catalogue value
-  (`gain_muscle`, `lose_fat`, `strength_conditioning`) or `null` for legacy and
-  non-curated programs. The owning `trainer_id` is never public.
+  (`gain_muscle`, `lose_fat`, `strength_conditioning`, `sport_specific` since
+  v2.115.0) or `null` for legacy and non-curated programs. The owning `trainer_id` is never public.
 - `pagination` — `page`, `limit`, `total`, `total_pages`.
 
 ### `GET /api/v1/programs/:programID`
@@ -4385,6 +4398,64 @@ continue to purchase without an intake.
 
 ---
 
+## Plan Match (v2.115.0)
+
+```
+POST /api/v1/me/premium-level-1/match
+```
+
+Owner request of 2026-11-14: the client chooses an objective and gives current
+weight, height and age; RYZE picks one fitting Premium Level 1 package at
+random and never gives the same plan twice.
+
+Protected by `Authenticate`; rate scope `premium-match` (30 per 10 minutes per
+client IP). Body:
+
+```json
+{ "objective": "gain_muscle", "sex": "female", "weight_kg": 78.5, "height_cm": 180, "age": 29 }
+```
+
+- `objective` — the program objective vocabulary (`gain_muscle`, `lose_fat`,
+  `strength_conditioning`, `sport_specific`).
+- `sex` — required since v2.116.0: `"female"` or `"male"`. Only packages for
+  everyone or for that sex are candidates, and the match records it.
+- `weight_kg` 30–300 and `height_cm` 120–230 (rounded to one decimal),
+  `age` 14–100.
+
+Candidates are published, platform-owned (`trainer_id IS NULL`), curated
+Premium Level 1 packages with that objective and an audience of everyone or
+the client's sex, excluding every package the
+caller already holds an active entitlement for or has a completed purchase of.
+One candidate is picked uniformly at random and the pick is recorded in
+`premium_level_1_matches` with the body data. Response `201`:
+
+```json
+{
+  "match": { "id": "...", "objective": "gain_muscle", "created_at": "..." },
+  "program": { "id": "...", "name": "...", "description": "...", "type": "premium",
+    "product_type": "premium_level_1", "objective": "gain_muscle",
+    "nutrition_mode": "curated", "level": "...", "duration_weeks": 8,
+    "frequency_per_week": 4, "training_type": "...", "price_minor_units": 1499,
+    "currency": "EUR", "cover_image_url": "/uploads/programs/l1/..." }
+}
+```
+
+The client then buys `program.id` through the ordinary checkout.
+
+Failures:
+
+- `400 VALIDATION_ERROR` — malformed body, unknown objective or a value out of
+  range.
+- `401 AUTHENTICATION_REQUIRED`.
+- `404 NO_MATCHING_PLAN` — no published package exists for the objective.
+- `409 ALL_PLANS_OWNED` — the caller already owns every package for the
+  objective.
+
+The match is a recommendation: checkout does not require one, and a package
+can still be bought directly from its detail page.
+
+---
+
 ## Product Type in Program Responses
 
 `product_type` is the product family of a program (`generic`,
@@ -4412,6 +4483,11 @@ The scopes are independent predicates. A platform-owned Premium Level 1
 program never appears in the generic marketplace, where the questionnaire
 prerequisite would not be enforced. Any other `scope` value answers
 `400 VALIDATION_ERROR`; it is never silently ignored.
+
+Since v2.116.0 the catalogue accepts `audience=female|male`: it keeps the plans
+for everyone (`audience IS NULL`) plus those designed for that audience. Any
+other value answers `400 VALIDATION_ERROR`. Catalogue items, program details and
+the featured coach programs carry `audience` (`"female"`, `"male"` or `null`).
 
 
 # PREMIUM LEVEL 2 ENDPOINTS
@@ -4490,6 +4566,34 @@ pre-allocation states. Once a trainer is allocated the endpoint answers
 `409 PREMIUM_LEVEL_2_NOT_EDITABLE`.
 
 Response `data`: `{ request, intake }`.
+
+### Pre-purchase questionnaire (v2.115.0)
+
+```
+GET /api/v1/me/premium-level-2/offers/:programID/intake-draft
+PUT /api/v1/me/premium-level-2/offers/:programID/intake-draft
+```
+
+Owner request of 2026-11-14: the long questionnaire is answered before
+payment. Protected by `Authenticate`; the owner comes from the session.
+`programID` must be a published Premium Level 2 offer, otherwise
+`404 OFFER_NOT_FOUND`.
+
+`PUT` accepts `{ "answers": { ... } }` with any subset of the catalog answers,
+so the client can save section by section. Answers are normalized against the
+same catalog as the intake; only valid known answers are stored (one draft per
+user and offer, replaced on every save). Invalid or unknown keys are reported,
+never stored, and never fail the call.
+
+Response `data` for both methods:
+
+```json
+{ "answers": { ... }, "complete": false, "missing": ["key", ...], "invalid": { "key": "reason" } }
+```
+
+`complete` is true when every required answer is present and valid and the
+cross-field checks pass. `GET` before any save answers `answers: {}` with every
+required key in `missing`. The draft answers are returned only to their owner.
 
 ### Delivered nutrition
 
@@ -4587,11 +4691,59 @@ the session. A trainer can only see and modify requests allocated to them.
 
 ## Purchase Integration
 
-Premium Level 2 uses the existing purchase and Test Mode paths. Purchase
+Premium Level 2 uses the existing purchase and Test Mode paths. Since v2.115.0
+checkout (regular and Test Mode) requires a complete pre-purchase questionnaire
+for that offer, otherwise `409 PURCHASE_PREREQUISITE_NOT_MET`. Purchase
 fulfilment verifies the active entitlement, then creates the request in
-`awaiting_intake`; duplicate fulfilment is a no-op. There is no intake
-prerequisite before checkout. The client list and detail enforce an active
+`awaiting_intake`, turns the complete draft into intake revision 1 (the request
+moves to `awaiting_trainer_assignment` and the usual intake notification is
+sent) and deletes the draft; duplicate fulfilment is a no-op. A request without
+a usable draft stays in `awaiting_intake` and the existing intake endpoint
+still applies. The client list and detail enforce an active
 entitlement even after an offer is unpublished.
+
+# ACHIEVEMENTS ENDPOINTS
+
+v2.116.0, owner request of 2026-11-14: "every weight record earns a medal, like
+Lyfta; every workout earns EXP towards lifter levels". Nothing is stored: the
+server recomputes everything from the member's completed workout sessions, so
+the numbers always match the training history.
+
+```
+GET /api/v1/me/achievements
+GET /api/v1/me/achievements/sessions/:sessionID
+```
+
+Protected by `Authenticate`; the owner always comes from the session.
+
+Rules (`services/achievements`):
+
+- A completed session with at least one completed set earns 100 EXP, plus 5 EXP
+  per completed set (at most 40 sets), plus 50 EXP per medal earned in it.
+- At most two sessions per UTC day earn EXP; later ones that day earn none
+  (their medals still count). Sessions without completed sets earn nothing.
+- A medal is earned when a session's heaviest completed set of an exercise
+  beats the member's previous heaviest completed set of that exercise (by more
+  than 0.001 kg). Warm-up sets and sets without weight or reps are ignored; the
+  first time an exercise is lifted sets the record without a medal; at most one
+  medal per exercise per session.
+- Levels: `rookie` 0, `beginner` 500, `average` 1500, `dedicated` 4000,
+  `advanced` 8000, `elite` 15000, `master` 25000, `legend` 40000 EXP (the
+  client translates the keys, e.g. "Average Lifter" / "Lifter Médio").
+
+`GET /me/achievements` → `{xp, level, next_level, levels, rules,
+workouts_counted, medal_count, medals}`. `level`/`next_level` are
+`{rank, key, min_xp}` (`next_level` is `null` at the top). `rules` carries
+`workout_xp`, `set_xp`, `max_sets_counted`, `record_xp`, `sessions_per_day`.
+`medals` lists at most 500, newest first: `{id, session_id, exercise_id,
+exercise_name, weight_kg, reps, previous_best_kg, earned_at}`.
+
+`GET /me/achievements/sessions/:sessionID` → `{award, level_before,
+level_after, next_level, rules}` where `award` is `{session_id, completed_at,
+completed_sets, xp_earned, counted, breakdown: {workout, sets, records},
+medals, xp_before, xp_after}`. A session of another member or a missing one is
+`404 SESSION_NOT_FOUND` (indistinguishable); a session not completed is
+`409 SESSION_NOT_COMPLETED`.
 
 # WORKOUT ENDPOINTS
 
@@ -5668,7 +5820,7 @@ below; the route decides the product family.
   `training_type`, `duration_weeks = 0`, `frequency_per_week = 0` and
   `type = premium`. Any other shape answers `400 VALIDATION_ERROR`.
 - `objective` is a closed vocabulary: `gain_muscle`, `lose_fat`,
-  `strength_conditioning`.
+  `strength_conditioning`, `sport_specific` (added in v2.115.0).
 - `objective` and `nutrition_mode` are fixed at creation. A PATCH that changes
   either answers `409 PROGRAM_METADATA_LOCKED`.
 - `content_version` starts at `1` and increments on every successful content
@@ -7229,6 +7381,9 @@ administration dashboards).
   `POST /admin/uploads/program-cover`, inside the folder of the family's
   category; another folder is `400`). Responses carry `cover_image` and
   `cover_image_url` (`/uploads/programs/<folder>/<uuid>.<ext>`).
+- Since v2.116.0 the body may carry `audience` (`""` everyone, `"female"`,
+  `"male"`); a Premium Level 2 offer never has one (`400 VALIDATION_ERROR`).
+  Responses carry `audience` (`null` = everyone).
 - Each workout (training day) accepts and returns `name` (max 80),
   `description` (max 1000) and `focus` (one of `full_body`, `upper_body`,
   `lower_body`, `push`, `pull`, `legs`, `chest`, `back`, `shoulders`, `arms`,

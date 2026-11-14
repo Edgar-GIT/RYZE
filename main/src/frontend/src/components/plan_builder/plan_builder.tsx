@@ -627,6 +627,24 @@ export const PlanBuilder = ({
               ))}
             </div>
           </div>
+          <div className={styles.field}>
+            <span className={styles.label}>{copy.audience}</span>
+            <div className={styles.choiceRow} role="radiogroup" aria-label={copy.audience}>
+              {(["", "female", "male"] as const).map((audience) => (
+                <button
+                  key={audience || "everyone"}
+                  type="button"
+                  role="radio"
+                  aria-checked={draft.audience === audience}
+                  className={styles.choice}
+                  onClick={() => onChange((current) => ({ ...current, audience }))}
+                >
+                  {copy.audiences[audience]}
+                </button>
+              ))}
+            </div>
+            <span className={styles.hint}>{copy.audienceHint}</span>
+          </div>
           <div className={styles.countGrid}>
             <div className={styles.field}>
               <span className={styles.label}>
@@ -830,6 +848,7 @@ export const PlanBuilder = ({
             <div className={styles.summaryChips}>
               {draft.training_type ? <span>{copy.goals[draft.training_type] ?? draft.training_type}</span> : null}
               {draft.level ? <span>{copy.levels[draft.level]}</span> : null}
+              {hasStructure && draft.audience ? <span>{copy.audiences[draft.audience]}</span> : null}
               {hasStructure ? <span>{copy.weeksCount(draft.weeks.length || Number(draft.duration_weeks) || 1)}</span> : null}
               <span className={styles.statusChip} data-status={status}>
                 {status === "published" ? copy.published : copy.draft}

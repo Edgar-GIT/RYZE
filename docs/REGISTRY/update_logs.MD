@@ -1,3 +1,192 @@
+# Version 2.116.0
+
+Title: EXP, lifter levels and record medals; plans for women or men; sex in Premium Level 1
+
+Date: 2026-11-14
+
+Summary:
+
+Owner request of 2026-11-14: a medal every time a weight record is beaten
+("like Lyfta"), EXP for every workout towards lifter levels such as "average
+lifter" and "elite lifter" (levels left to the implementation), shown among
+the first things in the member area; the member's sex in the Premium Level 1
+journey; a "plan for women / for men" option when creating a plan; and, the
+first time someone opens the training plans, a question about their sex and
+whether they prefer to see the plans for it. One additive migration (000045).
+
+Main changes:
+
+- Achievements (`services/achievements`, `GET /me/achievements`,
+  `GET /me/achievements/sessions/:id`): computed on read from the completed
+  workout sessions, nothing stored. 100 EXP per finished workout + 5 per
+  completed set (max 40) + 50 per record medal; at most two workouts a day
+  earn EXP. A medal when a workout's heaviest set of an exercise beats the
+  previous best (warm-ups ignored; the first time sets the record; one per
+  exercise per workout). Eight levels: Rookie 0, Beginner 500, Average 1500,
+  Dedicated 4000, Advanced 8000, Elite 15000, Master 25000, Legendary 40000.
+- Member area: the lifter card is the first card of the home (level badge,
+  EXP bar, medal count and latest medals); new "Achievements" page
+  (`/achievements`, secondary navigation) with all medals, the level ladder and
+  the rules; the saved-workout summary shows the EXP earned, a level up and
+  the medals.
+- Plan audience (`programs.audience`): "Designed for" (Everyone / Mostly women
+  / Mostly men) in the shared plan builder (ADMIN_2 and trainers), the plan
+  facts and the review; never on a Level 2 offer. The public catalogue accepts
+  `audience=female|male` (plans for everyone plus that audience) and returns
+  `audience`.
+- Plan preferences (`users.sex`, `users.plan_audience_filter`,
+  `PATCH /me/plan-preferences`, both on `GET /me`): the training plans ask once
+  (account for members, browser for visitors) and apply the "Designed for"
+  filter; "Plans for me" reopens the question.
+- Premium Level 1: the journey asks Woman / Man (pre-filled when known);
+  `POST /me/premium-level-1/match` requires `sex`, only picks packages for
+  everyone or that sex, and stores it on the match.
+- Fixed while verifying: `/achievements` was missing from the app's private
+  paths, so the public navbar appeared over the member area.
+
+Verification:
+
+- Backend: `gofmt`, `go vet ./...` and `go test -p 1 ./...` on `ryze_test`
+  pass (60 packages; new tests: achievement rules, levels, audience
+  validation, plan preferences, and a repository test for the completed-set
+  query, session ownership, preferences and the catalogue audience filter).
+- Frontend: typecheck, 164 tests and the build pass.
+- Isolated stack (API :8081 on `ryze_test`, Vite :5175): 51/51 checks. The API
+  EXP (2 815) and medals (22) of a demo member with eleven workouts match an
+  independent copy of the rules; a live workout with heavier loads earned 3
+  medals and 300 EXP; another member gets 404 for that award; preferences,
+  catalogue audience, Level 2 refusal and the sex-aware match behave as
+  documented. Browser at 1440 and 390 px: lifter card first on the home,
+  achievements page, workout rewards, Level 1 sex choice, the plans question
+  for a visitor (filtered for men, not asked again) and for a member (saved on
+  the account), and the builder's "Designed for"; no horizontal overflow and
+  no page errors. Demo data removed afterwards.
+
+Open:
+
+- The EXP rules and level names are the implementation's proposal (the owner
+  asked to create the levels); change them in `services/achievements` and the
+  `LEVEL_NAMES` copy.
+- Workouts recorded only through the legacy `POST /me/workouts/:id/complete`
+  (without sets) earn no EXP; the player always creates sessions.
+- Exercise names on medals are the names saved with each workout (some
+  imported catalogue names are lower-case English).
+- The "plan for women / men" applies to new and edited plans; existing plans
+  are for everyone until edited.
+
+---
+
+# Version 2.115.1
+
+Title: Home goal cards restored
+
+Date: 2026-11-14
+
+Summary:
+
+Owner report of 2026-11-14: Home's "Find your next program" still showed the
+published plan "Plano 1" (its name and description) in place of the original
+"Train for free" card. The section now always shows the three original goal
+cards — Build muscle → Premium Level 1, Lose fat → Premium Level 2, Train for
+free → training plans — with their images (`advert1–3`, protected) and no
+dependency on the catalogue. `buildProgramHighlights` and its tests were
+removed (no other consumer). Services and the category overview still list
+what is published.
+
+Verification: frontend typecheck, 164 tests and the build pass; the local
+Home (one generic plan published) shows the three goal cards with the right
+links and images at 1440 px (EN) and 390 px (PT), with no page errors.
+
+---
+
+# Version 2.115.0
+
+Title: Services tiers, Premium Level 1 and Level 2 purchase journeys, Lyfta-style player
+
+Date: 2026-11-14
+
+Summary:
+
+Owner request of 2026-11-14: Services and Home's "Find your next program"
+showed a single card after one plan was published; a complete rework of the
+Services cards copying the owner's image (three rising levels in the RYZE
+colours, so the card background images can go; everything below the cards
+unchanged); the Premium Level 1 flow as planned (service → "Learn more" → goal
+cards → weight, age and height → RYZE picks a fitting plan at random, never
+the same plan twice → payment → plan assigned); the Premium Level 2 flow
+(service → goal cards → long questionnaire → payment last → service
+assigned); a visible payment screen; and a workout mode closer to Lyfta. One
+additive migration (000044).
+
+Main changes:
+
+- Cause of the single card: Services and Home were catalogue-driven and showed
+  only published families (the fallback appeared only when nothing at all was
+  published). Services now always shows the three tiers; Home fills the
+  missing categories with the original goal cards (always three).
+- Services: `components/service_tiers/` replaces `components/service_card/`
+  and `components/service_showroom/` (deleted, with `SERVICE_SHOWCASE`):
+  Nível 1 Grátis, Nível 2 Premium 14,99 €, Nível 3 Personalizado 19,49 € with
+  the crown and the main CTA, rising glass panels with slanted lit edges, the
+  arrow and the benefits strip; stacked on phones. `rcc1–3.png` are no longer
+  referenced.
+- Premium Level 1 journey (`pages/premium_level1_journey/`) and
+  `POST /api/v1/me/premium-level-1/match` (rate scope `premium-match`): a
+  random published curated package for the objective, excluding packages the
+  client owns or bought (`409 ALL_PLANS_OWNED`, `404 NO_MATCHING_PLAN`). New
+  objective `sport_specific`. Each pick is stored in `premium_level_1_matches`.
+- Premium Level 2 journey (`pages/premium_level2_journey/`):
+  `GET|PUT /api/v1/me/premium-level-2/offers/:programID/intake-draft` saves the
+  questionnaire section by section; checkout requires a complete draft
+  (`409 PURCHASE_PREREQUISITE_NOT_MET`, regular and Test Mode); fulfilment
+  turns it into intake revision 1 and deletes the draft. The legacy `?program=`
+  page no longer sells: it links to the journey for that offer, and the Home
+  Level 2 card opens the journey (`?offer=`).
+- Payment screen: `components/checkout_panel/` (order summary, total,
+  payment-method cards, Test Mode notice, a plain "payments are not available
+  yet" message when no provider is configured, cancelled/error/confirmed
+  states), shared by both journeys. Guests return to the journey after signing
+  in (`services/after_login.ts`).
+- Workout player: exercise pictures, the training day's name, a stats strip
+  (duration, volume, sets), current/done states with a "Current" tag, a rest
+  chip per exercise and a ring rest timer with −15 s / +15 s / Skip (screen
+  only; the countdown still follows `rest_ends_at`).
+- CORS: `PUT` added to the allowed methods. It was missing, so every
+  cross-origin browser `PUT` failed preflight (the Level 2 questionnaire, the
+  trainer plan structure and the Level 2 trainer steps in the development
+  setup).
+
+Verification:
+
+- Backend: `gofmt`, `go vet ./...` and `go test -p 1 ./...` on `ryze_test`
+  pass (57 packages; new tests: match service, partial answers, journey
+  repository, CORS methods). Two failures during the run came from a Test Mode
+  persona left in `ryze_test` by the browser checks; it was removed and the
+  cleanup script now removes personas.
+- Frontend: typecheck, 167 tests and the build pass.
+- Isolated stack (API :8081 on `ryze_test`, Vite :5175), at 1440 and 390 px:
+  Services tiers; Level 1 pick and Test Mode payment; the same goal again
+  never returns the owned plan; Level 2 purchase refused before the
+  questionnaire; partial and complete drafts; Level 2 payment step and Test
+  Mode payment (request `awaiting_trainer_assignment` with intake v1); legacy
+  Level 2 link and Home card lead to the journey with the right offer; no
+  horizontal overflow and no page errors. Demo data removed afterwards.
+- Payments were tested in Test Mode only; no real payment provider was
+  exercised.
+
+Open:
+
+- AI analysis of the Level 2 questionnaire is not implemented; the allocated
+  trainer prepares the plan and nutrition as before.
+- The Level 1 match is a recommendation: checkout does not require it, and a
+  package can still be bought from its detail page.
+- What the Level 1 body data changes in the plan is still to be decided.
+- No retention period for questionnaire drafts of offers never bought.
+- Provider return URLs are deployment configuration (`STRIPE_*_URL`,
+  `PAYPAL_*_URL`); they were not changed.
+
+---
+
 # Version 2.114.0
 
 Title: Fixed catalogue prices, plan builder rework, plan covers, admin consoles rebuilt

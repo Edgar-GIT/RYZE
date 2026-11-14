@@ -20,10 +20,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
 
 import { useMember } from "@/components/app_shell/member_shell";
+import { LifterCard } from "@/components/lifter/lifter";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { Waves } from "@/components/public_ui/public_ui";
 import { BarChart } from "@/components/training/charts";
 import { type Copy, useI18n } from "@/i18n/i18n";
+import { fetchAchievements, type Achievements } from "@/services/achievements_api";
 import { fetchFreeActivations } from "@/services/free_programs_api";
 import { fetchEntitlements, fetchProgramAccess, type ProgramAccessDetail, type ProgramAccessWorkout } from "@/services/purchases_api";
 import { fetchClientStatistics, type ClientStatistics } from "@/services/statistics_api";
@@ -292,9 +294,10 @@ const EmailNotice = () => {
   );
 };
 
-// MemberDashboardPage is the member's home: the next workout first, then this
-// week, all-time totals, activity, the current plan, recent workouts and
-// personal bests — everything about the member's training in one look.
+// MemberDashboardPage is the member's home: the lifter level, EXP and medals
+// first, then the next workout, this week, all-time totals, activity, the
+// current plan, recent workouts and personal bests — everything about the
+// member's training in one look.
 export const MemberDashboardPage = () => {
   const { locale, intlLocale, formatDate, formatNumber } = useI18n();
   const text = COPY[locale];
@@ -304,6 +307,8 @@ export const MemberDashboardPage = () => {
   const [stats, setStats] = useState<ClientStatistics | null>(null);
   const [programs, setPrograms] = useState<ProgramRef[] | null>(null);
   const [active, setActive] = useState<WorkoutSession | null>(null);
+  const [achievements, setAchievements] = useState<Achievements | null>(null);
+  const [achievementsFailed, setAchievementsFailed] = useState(false);
   const [plan, setPlan] = useState<ProgramAccessDetail | null>(null);
   const [failed, setFailed] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -328,6 +333,7 @@ export const MemberDashboardPage = () => {
     });
     void guard(fetchClientStatistics(), setStats);
     void guard(fetchActiveWorkoutSession(), setActive);
+    void guard(fetchAchievements(), setAchievements, () => setAchievementsFailed(true));
     void guard(
       Promise.all([fetchEntitlements().catch(() => []), fetchFreeActivations().catch(() => [])]),
       ([entitlements, free]) => {
@@ -500,6 +506,9 @@ export const MemberDashboardPage = () => {
 
       {user && !user.email_verified ? <EmailNotice /> : null}
       {failed ? <p className={styles.error}>{text.loadError}</p> : null}
+
+      {/* The lifter level, EXP and medals come first (owner request, 2026-11-14). */}
+      {achievementsFailed ? null : <LifterCard data={achievements} totalLevels={achievements?.levels.length ?? 8} />}
 
       <div className={styles.grid}>
         {/* The one thing to do next: the login page's light-blue wave panel. */}

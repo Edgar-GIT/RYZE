@@ -1,9 +1,13 @@
 import { formatDuration } from "@/components/plan_builder/duration";
-import { ArrowLeft, CheckCircle2, Info, Pause, Play, RefreshCw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Info, Pause, Play, RefreshCw, Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useHistory, useParams } from "react-router-dom";
 
+import { SessionRewards } from "@/components/lifter/session_rewards";
 import { WorkoutReport } from "@/components/training/workout_report";
+import { ExerciseThumb, fromCatalogEntry, type BuilderExercise } from "@/components/plan_builder/exercise_media";
+import { fetchExerciseDetail } from "@/services/exercise_library";
+import { fetchProgramAccess } from "@/services/purchases_api";
 import { useI18n } from "@/i18n/i18n";
 import { formatClock, previousSets } from "@/services/training_insights";
 import {
@@ -41,7 +45,6 @@ const usePrescription = () => {
     const first = sets[0];
     return [
       repsText ? t("training.plan.setsReps", { sets: sets.length, reps: repsText }) : t("training.plan.sets1", { sets: sets.length }),
-      first?.prescribed_rest_seconds != null ? t("training.player.rest", { time: formatDuration(first.prescribed_rest_seconds) }) : null,
       first?.prescribed_rir != null ? t("training.player.rir", { value: first.prescribed_rir }) : null,
       first?.prescribed_rpe != null ? t("training.player.rpe", { value: first.prescribed_rpe }) : null,
       first?.prescribed_tempo ? t("training.player.tempo", { value: first.prescribed_tempo }) : null
@@ -82,6 +85,8 @@ export const WorkoutSessionPage = () => {
   const [dismissedRest, setDismissedRest] = useState<string | null>(null);
   const [infoFor, setInfoFor] = useState<WorkoutSessionExercise | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
+  const [media, setMedia] = useState<Record<string, BuilderExercise>>({});
+  const [dayName, setDayName] = useState("");
 
   const apply = useCallback((next: WorkoutSession) => {
     setSession(next);
@@ -105,6 +110,44 @@ export const WorkoutSessionPage = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Each exercise shows its still picture (the animation plays in the info
+  // sheet), like a training app.
+  const exerciseIds = session ? session.exercises.map((exercise) => exercise.exercise_id).join(",") : "";
+  useEffect(() => {
+    if (!exerciseIds) return;
+    let cancelled = false;
+    Promise.all(
+      exerciseIds.split(",").map((id) =>
+        fetchExerciseDetail(id)
+          .then((detail) => fromCatalogEntry(detail.exercise))
+          .catch(() => null)
+      )
+    ).then((entries) => {
+      if (cancelled) return;
+      setMedia(Object.fromEntries(entries.filter((entry): entry is BuilderExercise => entry !== null).map((entry) => [entry.id, entry])));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [exerciseIds]);
+
+  // The training day's name ("Push") from the plan, when the author gave one.
+  const programId = session?.program_id;
+  const workoutId = session?.program_workout_id;
+  useEffect(() => {
+    if (!programId || !workoutId) return;
+    let cancelled = false;
+    fetchProgramAccess(programId)
+      .then((detail) => {
+        const workout = detail.weeks.flatMap((week) => week.workouts).find((entry) => entry.id === workoutId);
+        if (!cancelled) setDayName(workout?.name?.trim() ?? "");
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [programId, workoutId]);
 
   // Earlier sessions give the "previous" column and the personal records.
   useEffect(() => {
@@ -197,7 +240,12 @@ export const WorkoutSessionPage = () => {
   if (finished) {
     return (
       <main className={styles.page}>
-        <WorkoutReport session={session} history={past} mode="saved" />
+        <WorkoutReport
+          session={session}
+          history={past}
+          mode="saved"
+          rewards={session.status === "completed" ? <SessionRewards sessionId={session.id} /> : null}
+        />
       </main>
     );
   }
@@ -225,6 +273,12 @@ export const WorkoutSessionPage = () => {
 
   const done = session.completed_sets + session.skipped_sets;
   const progress = session.total_sets > 0 ? done / session.total_sets : 0;
+  const volume = session.exercises
+    .flatMap((exercise) => exercise.sets)
+    .filter((set) => set.status === "completed")
+    .reduce((sum, set) => sum + (set.actual_weight_kg ?? 0) * (set.actual_reps ?? 0), 0);
+  const currentExerciseId = session.exercises.find((exercise) => exercise.sets.some((set) => set.status === "pending"))?.id;
+  const weekDay = t("account.training.weekDay", { week: session.week_number, day: session.workout_position });
 
   return (
     <div className={styles.player} ref={topRef}>
@@ -238,10 +292,8 @@ export const WorkoutSessionPage = () => {
             <ArrowLeft aria-hidden="true" />
           </Link>
           <div className={styles.titleBlock}>
-            <p className={styles.kicker}>{session.program_name}</p>
-            <h1 className={styles.title}>
-              {t("account.training.weekDay", { week: session.week_number, day: session.workout_position })}
-            </h1>
+            <p className={styles.kicker}>{dayName ? `${session.program_name} · ${weekDay}` : session.program_name}</p>
+            <h1 className={styles.title}>{dayName || weekDay}</h1>
           </div>
           <button
             type="button"
@@ -257,6 +309,25 @@ export const WorkoutSessionPage = () => {
             {t("training.player.finish")}
           </button>
         </div>
+        <dl className={styles.stats}>
+          <div>
+            <dt>{t("training.player.statDuration")}</dt>
+            <dd>{formatClock(clock)}</dd>
+          </div>
+          <div>
+            <dt>{t("training.player.statVolume")}</dt>
+            <dd>
+              {Math.round(volume).toLocaleString()} <small>kg</small>
+            </dd>
+          </div>
+          <div>
+            <dt>{t("training.player.statSets")}</dt>
+            <dd>
+              {session.completed_sets}
+              <small>/{session.total_sets}</small>
+            </dd>
+          </div>
+        </dl>
         <div className={styles.progressRow}>
           <div
             className={styles.progressTrack}
@@ -291,17 +362,40 @@ export const WorkoutSessionPage = () => {
 
         {session.exercises.map((exercise) => {
           const last = previous.get(exercise.exercise_id) ?? [];
+          const exerciseDone = exercise.sets.length > 0 && exercise.sets.every((set) => set.status !== "pending");
+          const isCurrent = exercise.id === currentExerciseId;
+          const rest = exercise.sets.find((set) => set.prescribed_rest_seconds != null)?.prescribed_rest_seconds;
           return (
-            <article key={exercise.id} id={`exercise-${exercise.id}`} className={styles.exerciseCard}>
+            <article
+              key={exercise.id}
+              id={`exercise-${exercise.id}`}
+              className={joinClassNames(styles.exerciseCard, isCurrent && styles.exerciseCurrent, exerciseDone && styles.exerciseDone)}
+            >
               <header className={styles.exerciseHead}>
-                <span className={styles.exerciseIndex}>{exercise.position}</span>
+                <button
+                  type="button"
+                  className={styles.exerciseThumb}
+                  onClick={() => setInfoFor(exercise)}
+                  aria-label={t("training.player.info", { name: exercise.name })}
+                >
+                  <ExerciseThumb exercise={media[exercise.exercise_id]} size="md" />
+                  <span className={styles.exerciseBadge} aria-hidden="true">
+                    {exerciseDone ? <CheckCircle2 /> : exercise.position}
+                  </span>
+                </button>
                 <div className={styles.exerciseTitle}>
+                  {isCurrent ? <span className={styles.currentTag}>{t("training.player.current")}</span> : null}
                   <h2>
                     <button type="button" onClick={() => setInfoFor(exercise)}>
                       {exercise.name}
                     </button>
                   </h2>
                   <p>{prescription(exercise)}</p>
+                  {rest != null ? (
+                    <span className={styles.restChip}>
+                      <Timer aria-hidden="true" /> {t("training.player.restLabel")} {formatDuration(rest)}
+                    </span>
+                  ) : null}
                 </div>
                 <button
                   type="button"

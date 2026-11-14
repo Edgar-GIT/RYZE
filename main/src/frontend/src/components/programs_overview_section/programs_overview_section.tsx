@@ -1,12 +1,11 @@
-import { ArrowRight, Dumbbell, Flame, Gift, Sparkles } from "lucide-react";
+import { ArrowRight, Dumbbell, Flame, Gift } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { PublicAction } from "@/components/public_ui/public_ui";
 import ui from "@/components/public_ui/public_ui.module.css";
-import type { ServiceCatalogState } from "@/hooks/use_service_catalog";
 import { useMediaQuery } from "@/hooks/use_media_query";
 import { type Copy, useI18n } from "@/i18n/i18n";
-import { buildProgramHighlights, type ProgramHighlightCategory } from "@/services/service_catalog";
+import type { ProgramHighlightCategory } from "@/services/service_catalog";
 import { joinClassNames } from "@utils/class_names";
 
 import advert1 from "@resources/img/program_cards/advert1.jpeg";
@@ -16,16 +15,6 @@ import advert3 from "@resources/img/program_cards/advert3.jpeg";
 import styles from "./programs_overview_section.module.css";
 
 const images = [advert1, advert2, advert3];
-
-interface ProgramCard {
-  key: string;
-  title: string;
-  description: string;
-  ctaLabel: string;
-  to: string;
-  category: ProgramHighlightCategory;
-  Icon: LucideIcon;
-}
 
 interface ShowcaseText {
   title: string;
@@ -43,9 +32,7 @@ interface SectionText {
   headingRest: string;
   lead: string;
   allPlans: string;
-  loading: string;
   listLabel: string;
-  cta: Record<ProgramHighlightCategory, string>;
   showcase: [ShowcaseText, ShowcaseText, ShowcaseText];
 }
 
@@ -58,9 +45,7 @@ const COPY: Copy<SectionText> = {
     headingRest: " next program",
     lead: "Choose your goal and start your first session today.",
     allPlans: "See all plans",
-    loading: "Loading the published programs…",
     listLabel: "Programs",
-    cta: { generic: "Explore", premium: "View package", premiumLevel2: "View service" },
     showcase: [
       {
         title: "Build muscle",
@@ -90,9 +75,7 @@ const COPY: Copy<SectionText> = {
     headingRest: " próximo programa",
     lead: "Escolhe o teu objetivo e faz o teu primeiro treino hoje.",
     allPlans: "Ver todos os planos",
-    loading: "A carregar os programas publicados…",
     listLabel: "Programas",
-    cta: { generic: "Explorar", premium: "Ver pacote", premiumLevel2: "Ver serviço" },
     showcase: [
       {
         title: "Ganhar massa muscular",
@@ -116,10 +99,11 @@ const COPY: Copy<SectionText> = {
   }
 };
 
-// The original goal cards (restored from before the section became
-// API-driven). Shown only while no program is published, so Home always invites
-// people in; published programs replace them with live data.
-const SHOWCASE_STRUCTURE: { key: string; to: string; category: ProgramHighlightCategory; Icon: LucideIcon }[] = [
+// The three goal cards, always shown in this order with their images (owner
+// request, 2026-11-14: published plans are not listed here; their names, such
+// as a draft-quality "Plano 1", replaced the goal cards). Published plans are
+// found from Services and the category overview below.
+const GOAL_CARDS: { key: string; to: string; category: ProgramHighlightCategory; Icon: LucideIcon }[] = [
   { key: "build-muscle", to: "/services/premium-level-1", category: "premium", Icon: Dumbbell },
   { key: "lose-fat", to: "/services/premium-level-2", category: "premiumLevel2", Icon: Flame },
   { key: "train-for-free", to: "/services/generic-program", category: "generic", Icon: Gift }
@@ -129,33 +113,16 @@ const SHOWCASE_STRUCTURE: { key: string; to: string; category: ProgramHighlightC
 // keyboard-focusable; from 768px they are a static grid.
 const SCROLLER_QUERY = "(max-width: 767px)";
 
-interface ProgramsOverviewSectionProps {
-  catalog: ServiceCatalogState;
-}
-
-export const ProgramsOverviewSection = ({ catalog }: ProgramsOverviewSectionProps) => {
+export const ProgramsOverviewSection = () => {
   const { locale } = useI18n();
   const text = COPY[locale];
   const scroller = useMediaQuery(SCROLLER_QUERY);
-  const highlights =
-    catalog.status === "ready" ? buildProgramHighlights(catalog.generic, catalog.premium, catalog.premiumLevel2) : [];
-  const cards: ProgramCard[] =
-    highlights.length > 0
-      ? highlights.map((program) => ({
-          key: `${program.category}-${program.id}`,
-          title: program.title,
-          description: program.description,
-          ctaLabel: text.cta[program.category],
-          to: program.to,
-          category: program.category,
-          Icon: program.category === "generic" ? Dumbbell : Sparkles
-        }))
-      : SHOWCASE_STRUCTURE.map((card, index) => ({
-          ...card,
-          title: text.showcase[index].title,
-          description: text.showcase[index].description,
-          ctaLabel: text.showcase[index].cta
-        }));
+  const cards = GOAL_CARDS.map((card, index) => ({
+    ...card,
+    title: text.showcase[index].title,
+    description: text.showcase[index].description,
+    ctaLabel: text.showcase[index].cta
+  }));
 
   return (
     <section id="programs" className={joinClassNames(ui.toneNavy, ui.anchorTarget, styles.section)} aria-labelledby="programs-heading">
@@ -176,12 +143,7 @@ export const ProgramsOverviewSection = ({ catalog }: ProgramsOverviewSectionProp
           </PublicAction>
         </div>
 
-        {catalog.status === "loading" ? (
-          <div className={joinClassNames(ui.surface, styles.state)}>
-            <p className={ui.body}>{text.loading}</p>
-          </div>
-        ) : (
-          <ul className={styles.cards} tabIndex={scroller ? 0 : undefined} aria-label={text.listLabel}>
+        <ul className={styles.cards} tabIndex={scroller ? 0 : undefined} aria-label={text.listLabel}>
             {cards.map((program, index) => {
               const Icon = program.Icon;
 
@@ -206,7 +168,6 @@ export const ProgramsOverviewSection = ({ catalog }: ProgramsOverviewSectionProp
               );
             })}
           </ul>
-        )}
       </div>
     </section>
   );

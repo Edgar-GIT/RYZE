@@ -50,6 +50,7 @@ type Program struct {
 	FrequencyPerWeek *int
 	TrainingType     *string
 	CoverImage       *string
+	Audience         *string
 	PriceMinorUnits  int64
 	Currency         string
 	ProductType      string
@@ -195,6 +196,7 @@ func toPrograms(rows []repositories.CoachProgramRow) []Program {
 			FrequencyPerWeek: row.FrequencyPerWeek,
 			TrainingType:     row.TrainingType,
 			CoverImage:       row.CoverImage,
+			Audience:         row.Audience,
 			PriceMinorUnits:  row.PriceMinorUnits,
 			Currency:         row.Currency,
 			ProductType:      row.ProductType,

@@ -415,6 +415,18 @@ export default function Admin2PlanDetailPage() {
                   <p className={styles.rowValue}>{program.training_type ?? "—"}</p>
                 </div>
                 <div className={styles.row}>
+                  <p className={styles.rowLabel}>Designed for</p>
+                  <p className={styles.rowValue}>
+                    {program.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2
+                      ? "—"
+                      : program.audience === "female"
+                        ? "Mostly women"
+                        : program.audience === "male"
+                          ? "Mostly men"
+                          : "Everyone"}
+                  </p>
+                </div>
+                <div className={styles.row}>
                   <p className={styles.rowLabel}>Frequency</p>
                   <p className={styles.rowValue}>
                     {program.frequency_per_week === null

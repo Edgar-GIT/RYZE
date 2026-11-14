@@ -41,7 +41,7 @@ indirect effects from shared components, global tokens or CSS:
 | --- | --- | --- |
 | Website footer — `components/footer/` (consumed by `components/layout/layout.tsx`) | Layout, link columns and their links, the slogan image, copy | Surface colour, lines, link/heading colours, typeface |
 | Exercise Library and details — `pages/exercise_library_page/`, `pages/exercise_detail_page/`, `components/exercise_library/` (including the Three.js demo/viewer and tests) | Layout, components, behaviour, media and the 3D viewer | Colours only, through page-scoped token overrides in each page's `.page` rule, plus the library title typeface; a glass style on 2026-11-14 (owner request: frosted toolbar and cards, reflections, page light — layout unchanged) |
-| Services page — `pages/services_page/` | The service cards: `components/service_card/` markup and styles (the owner added a purple "Personalized" tag variant for Premium Level 2 on 2026-11-11 and a mint "Free" tag for the generic plans on 2026-11-14) | Page background (the former static background image is removed), intro, loading state, benefits row, the route guide split panel (2026-11-11); the original showcase cards appear while nothing is published. The card grid became the 3D showroom (`components/service_showroom/`, owner request 2026-11-14): the unchanged cards stand flat and crisp on WebGL pedestals with a goal placard, and lift on hover with fact bubbles (no floor, spotlights or page blur — rejected by the owner) |
+| Services page — `pages/services_page/` | The service tiers: `components/service_tiers/`, the owner's own design of 2026-11-14 (three rising glass panels Nível 1/2/3 with the crown, arrow and benefits strip); it replaced the image-backed `service_card` cards and their 3D showroom at the owner's request, both removed | Everything below the tiers: the four product items and the route guide split panel (2026-11-11) |
 | Home “Find Your Next Program” — `components/programs_overview_section/` | The card background images (`advert1–3`), until the owner replaces them | Everything else: redesigned on 2026-11-11 as the Home's main call to action and moved right after the hero; only free programs carry a tag (the Premium Level tags were removed the same day) |
 | Login and registration — `pages/login_page/` | Form fields, validation, messages, API calls and redirects | Everything visual (fully redesigned; no background image now) |
 
@@ -89,6 +89,40 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-14 (v2.116.0) — Owner request: medals and EXP like Lyfta, shown first
+  in the member area; plans for women or men. New `components/lifter/`
+  (level badge, medal, EXP bar, lifter card, workout rewards),
+  `pages/achievements_page/` (`/achievements`, in the member shell),
+  `components/plan_audience_prompt/` (first-visit question on the training
+  plans), a "Designed for" choice in the shared plan builder, a woman/man
+  choice in the Level 1 journey, and a `rewards` slot on `WorkoutReport`.
+  Protected parts untouched (footer, Exercise Library, login/registration,
+  Services tiers, Home card images). Gold is used only for record medals, as
+  the existing personal-bests card already did.
+- 2026-11-14 (v2.115.1) — Owner report: Home showed the published "Plano 1"
+  instead of the original free goal card. `programs_overview_section` always
+  shows the three original goal cards with their unchanged images and links;
+  it no longer reads the catalogue.
+- 2026-11-14 (v2.115.0) — Owner request: Services showed one card and Home's
+  "Find your next program" one card after a single plan was published; a
+  complete rework of the Services cards copying the owner's image (rising
+  Nível 1/2/3 panels in the RYZE colours, so the card background images can
+  go); the Premium Level 1 and Level 2 purchase journeys with a real payment
+  screen; a more Lyfta-like workout player. `components/service_tiers/`
+  replaces `components/service_card/` and `components/service_showroom/`
+  (deleted, with `SERVICE_SHOWCASE`); content below the cards is unchanged.
+  Home fills missing categories with the original goal cards (always three;
+  card images untouched). New: `pages/premium_level1_journey/`,
+  `pages/premium_level2_journey/`, `components/checkout_panel/`,
+  `components/journey/` styles, `components/premium_level2_intake/`
+  (`QuestionField` extracted unchanged from the request page) and
+  `services/after_login.ts` (return to the journey after signing in). The
+  legacy Level 1/2 pages remain for `?program=` links and payment returns; the
+  Level 2 one now links to the journey instead of selling. Player: exercise
+  pictures, day name, stats strip, current/done states and a ring rest timer.
+  Protected parts untouched: footer, Exercise Library (the player only reads
+  exercise media through the existing API), login/registration, Home card
+  images. Verified at 1440 and 390 px on the isolated stack.
 - 2026-11-14 (v2.114.0) — Owner request: account menu with sign-out,
   trainers land in the trainer area, both administration consoles rebuilt on
   the shared app shell with richer overviews, and a Lyfta-style plan builder.

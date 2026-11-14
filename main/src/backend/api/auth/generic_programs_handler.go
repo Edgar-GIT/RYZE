@@ -36,6 +36,7 @@ type genericProgramResponse struct {
 	Currency         string    `json:"currency"`
 	CoverImage       *string   `json:"cover_image"`
 	CoverImageURL    string    `json:"cover_image_url"`
+	Audience         *string   `json:"audience"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
@@ -59,6 +60,7 @@ func newGenericProgramResponse(program generic_programs.Program) genericProgramR
 		Currency:         program.Currency,
 		CoverImage:       program.CoverImage,
 		CoverImageURL:    program_details.CoverURL(program.CoverImage),
+		Audience:         program.Audience,
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.UpdatedAt,
 	}
@@ -246,6 +248,7 @@ type genericProgramRequest struct {
 	PriceMinorUnits  int64                    `json:"price_minor_units"`
 	Currency         string                   `json:"currency"`
 	CoverImage       string                   `json:"cover_image"`
+	Audience         string                   `json:"audience"`
 	Weeks            []genericWeekRequest     `json:"weeks"`
 }
 
@@ -294,6 +297,7 @@ func toGenericProgramInput(req *genericProgramRequest) generic_programs.ProgramI
 		Objective:        req.Objective,
 		NutritionMode:    req.NutritionMode,
 		CoverImage:       req.CoverImage,
+		Audience:         req.Audience,
 		Weeks:            make([]generic_programs.WeekInput, 0, len(req.Weeks)),
 	}
 	if req.CuratedNutrition != nil {

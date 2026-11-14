@@ -34,6 +34,12 @@ type User struct {
 	// database default (true) applies to every password registration.
 	PasswordSet bool           `gorm:"column:password_set;not null;default:true" json:"password_set"`
 	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`
+	// Sex ("female" or "male") is asked when the member first opens the
+	// training plans and in the Premium Level 1 journey; nil until answered.
+	// PlanAudienceFilter records whether the member prefers to see the plans
+	// made for their sex first; nil means the question was not answered yet.
+	Sex                *string `gorm:"column:sex;type:varchar(10)" json:"sex"`
+	PlanAudienceFilter *bool   `gorm:"column:plan_audience_filter" json:"plan_audience_filter"`
 }
 
 func (u *User) BeforeCreate(_ *gorm.DB) error {

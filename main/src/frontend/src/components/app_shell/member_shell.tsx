@@ -10,6 +10,7 @@ import {
   ReceiptText,
   Settings,
   ShoppingBag,
+  Trophy,
   Users
 } from "lucide-react";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
@@ -30,6 +31,8 @@ export interface MemberUser {
   email_verified: boolean;
   preferred_language: string | null;
   password_set: boolean;
+  sex?: "female" | "male" | null;
+  plan_audience_filter?: boolean | null;
 }
 
 interface MemberContextValue {
@@ -48,6 +51,7 @@ const COPY: Copy<{
   home: string;
   train: string;
   progress: string;
+  achievements: string;
   history: string;
   library: string;
   plans: string;
@@ -71,6 +75,7 @@ const COPY: Copy<{
     home: "Home",
     train: "Train",
     progress: "Progress",
+    achievements: "Achievements",
     history: "History",
     library: "Exercises",
     plans: "Training plans",
@@ -94,6 +99,7 @@ const COPY: Copy<{
     home: "Início",
     train: "Treinar",
     progress: "Progresso",
+    achievements: "Conquistas",
     history: "Histórico",
     library: "Exercícios",
     plans: "Planos de treino",
@@ -156,6 +162,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     { to: "/services/workout-history", label: text.history, icon: History }
   ];
   const secondaryItems: ShellNavItem[] = [
+    { to: "/achievements", label: text.achievements, icon: Trophy },
     { to: "/services/generic-program", label: text.plans, icon: ShoppingBag },
     { to: "/exercises", label: text.library, icon: BookOpen },
     { to: "/account/purchases", label: text.purchases, icon: ReceiptText },

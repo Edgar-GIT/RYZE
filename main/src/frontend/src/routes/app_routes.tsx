@@ -15,6 +15,21 @@ import { ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from "@/pages/
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
 import { PremiumLevel1Page } from "@/pages/premium_level1_page/premium_level1_page";
 import { PremiumLevel2Page } from "@/pages/premium_level2_page/premium_level2_page";
+import PremiumLevel1JourneyPage from "@/pages/premium_level1_journey/premium_level1_journey_page";
+import PremiumLevel2JourneyPage from "@/pages/premium_level2_journey/premium_level2_journey_page";
+
+// The premium services open on their journeys (owner request, 2026-11-14).
+// A link to a specific package or offer, and the browser return from a payment
+// provider, still open the detailed product pages that handle them.
+const LEGACY_PARAMS = ["program", "objective", "purchase_id", "status", "session_id", "token"];
+const hasLegacyParams = (search: string) => {
+  const params = new URLSearchParams(search);
+  return LEGACY_PARAMS.some((key) => params.has(key));
+};
+const PremiumLevel1Route = () =>
+  hasLegacyParams(window.location.search) ? <PremiumLevel1Page /> : <PremiumLevel1JourneyPage />;
+const PremiumLevel2Route = () =>
+  hasLegacyParams(window.location.search) ? <PremiumLevel2Page /> : <PremiumLevel2JourneyPage />;
 import { PremiumLevel2RequestPage } from "@/pages/premium_level2_request_page/premium_level2_request_page";
 import { WorkoutSessionPage } from "@/pages/workout_session_page/workout_session_page";
 import { ServicesPage } from "@/pages/services_page/services_page";
@@ -36,6 +51,7 @@ const RouteFallback = () => <div role="status" aria-busy="true" style={{ minHeig
 // full screen, outside the shell.
 const MEMBER_PATHS = [
   "/profile",
+  "/achievements",
   "/account/settings",
   "/account/purchases",
   "/support",
@@ -46,7 +62,7 @@ const MEMBER_PATHS = [
   "/trainer/apply"
 ];
 
-const memberPathPattern = /^\/(profile|support|account\/(settings|purchases)|services\/(my-programs(\/[^/]+)?|workout-history|progress)|trainer\/apply)\/?$/;
+const memberPathPattern = /^\/(profile|achievements|support|account\/(settings|purchases)|services\/(my-programs(\/[^/]+)?|workout-history|progress)|trainer\/apply)\/?$/;
 
 // The route transition key: one key per area shell, so moving inside the
 // member or trainer area never remounts its shell.
@@ -69,8 +85,8 @@ export const AppRoutes = () => {
         <Route exact path="/coaches/:trainerId" component={CoachProfilePage} />
         {/* Premium Level 1 must be declared before the dynamic /services/:serviceSlug
             route, otherwise the slug route would swallow it. */}
-        <Route exact path="/services/premium-level-1" component={PremiumLevel1Page} />
-        <Route exact path="/services/premium-level-2" component={PremiumLevel2Page} />
+        <Route exact path="/services/premium-level-1" component={PremiumLevel1Route} />
+        <Route exact path="/services/premium-level-2" component={PremiumLevel2Route} />
         <Route exact path="/services/premium-level-2/requests/:requestID" component={PremiumLevel2RequestPage} />
         <Route exact path="/services/generic-program/:programId" component={GenericProgramDetailPage} />
         {/* The configured payment return URLs land here (Stripe appends

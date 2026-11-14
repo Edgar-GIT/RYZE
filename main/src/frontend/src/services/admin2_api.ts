@@ -477,7 +477,8 @@ export type GenericProgramLevel = "Beginner" | "Intermediate" | "Advanced";
 export const PROGRAM_OBJECTIVE = {
   GAIN_MUSCLE: "gain_muscle",
   LOSE_FAT: "lose_fat",
-  STRENGTH_CONDITIONING: "strength_conditioning"
+  STRENGTH_CONDITIONING: "strength_conditioning",
+  SPORT_SPECIFIC: "sport_specific"
 } as const;
 
 export type ProgramObjectiveValue =
@@ -486,7 +487,8 @@ export type ProgramObjectiveValue =
 export const PROGRAM_OBJECTIVES: readonly ProgramObjectiveValue[] = [
   PROGRAM_OBJECTIVE.GAIN_MUSCLE,
   PROGRAM_OBJECTIVE.LOSE_FAT,
-  PROGRAM_OBJECTIVE.STRENGTH_CONDITIONING
+  PROGRAM_OBJECTIVE.STRENGTH_CONDITIONING,
+  PROGRAM_OBJECTIVE.SPORT_SPECIFIC
 ];
 
 export const programObjectiveLabel = (objective: ProgramObjectiveValue | string): string => {
@@ -495,6 +497,8 @@ export const programObjectiveLabel = (objective: ProgramObjectiveValue | string)
       return "Gain muscle";
     case PROGRAM_OBJECTIVE.LOSE_FAT:
       return "Lose fat";
+    case PROGRAM_OBJECTIVE.SPORT_SPECIFIC:
+      return "Sport-specific";
     default:
       return "Strength & conditioning";
   }
@@ -545,6 +549,7 @@ export interface GenericProgramSummary {
   currency: string;
   cover_image?: string | null;
   cover_image_url?: string;
+  audience?: "female" | "male" | null;
   created_at: string;
   updated_at: string;
 }
@@ -699,6 +704,8 @@ export interface GenericProgramInput {
   price_minor_units: number;
   currency: string;
   cover_image: string;
+  // "" (everyone), "female" or "male"; always "" for a Level 2 offer.
+  audience: "" | "female" | "male";
   weeks: GenericProgramWeekInput[];
 }
 

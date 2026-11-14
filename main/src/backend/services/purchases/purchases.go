@@ -1173,3 +1173,23 @@ func validatePurchaseID(id string) error {
 	}
 	return nil
 }
+
+// AllPrerequisites combines several checkout preconditions; every one must be
+// satisfied (the first failure is returned).
+func AllPrerequisites(list ...CheckoutPrerequisite) CheckoutPrerequisite {
+	return prerequisiteList(list)
+}
+
+type prerequisiteList []CheckoutPrerequisite
+
+func (l prerequisiteList) Satisfied(ctx context.Context, userID, programID, productType, nutritionMode string) error {
+	for _, prerequisite := range l {
+		if prerequisite == nil {
+			continue
+		}
+		if err := prerequisite.Satisfied(ctx, userID, programID, productType, nutritionMode); err != nil {
+			return err
+		}
+	}
+	return nil
+}

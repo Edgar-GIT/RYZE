@@ -44,8 +44,8 @@ the pgx driver (migrated from MariaDB on 2026-11-11; conventions in
 
 - `main/src/frontend/src/` — pages, components, stores, API clients and styles.
 - `main/src/backend/` — Go API, services, repositories, models and database.
-- `main/src/backend/database/migrations/` — embedded SQL migrations (000043,
-  plan covers and training-day details, is the latest file; apply pending
+- `main/src/backend/database/migrations/` — embedded SQL migrations (000045,
+  plan audience and member sex, is the latest file; apply pending
   migrations with `go run . migrate up` from `main/src/backend/`).
 - `main/src/backend/uploads/` — public uploads (`UPLOADS_DIR`): plan covers in
   `programs/{generic,l1,l2}`; `avatars` and `feedback` reserved. Gitignored.
@@ -92,9 +92,9 @@ shared-component effects. Since the owner's 2026-11-10/11 revisions these are:
 the footer's layout, link columns, slogan image and copy; the Exercise Library
 and details layout, components, behaviour and 3D viewer (colours may follow the
 public design, and the owner approved a glass style on 2026-11-14); the
-Services cards (`components/service_card/`, including the owner-added
-"Personalized" and "Free" tags; their 3D showroom presentation is
-`components/service_showroom/`); the Home program cards' background images; and
+Services tiers (`components/service_tiers/`, the owner's own Nível 1/2/3
+design of 2026-11-14, which replaced the former cards and showroom); the Home
+program cards' background images; and
 the login/registration fields, validation, messages, API calls and redirects.
 Before any frontend work, read `docs/AI/frontend-revamp.md` and its
 protected-area inventory. Isolate redesigned variants instead of globally

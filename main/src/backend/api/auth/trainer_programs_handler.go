@@ -29,6 +29,7 @@ type trainerProgramResponse struct {
 	TrainingType     *string   `json:"training_type"`
 	CoverImage       *string   `json:"cover_image"`
 	CoverImageURL    string    `json:"cover_image_url"`
+	Audience         *string   `json:"audience"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
@@ -49,6 +50,7 @@ func newTrainerProgramResponse(program *programs.Program) trainerProgramResponse
 		TrainingType:     program.TrainingType,
 		CoverImage:       program.CoverImage,
 		CoverImageURL:    program_details.CoverURL(program.CoverImage),
+		Audience:         program.Audience,
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.UpdatedAt,
 	}
@@ -70,6 +72,7 @@ type createTrainerProgramRequest struct {
 	FrequencyPerWeek int    `json:"frequency_per_week"`
 	TrainingType     string `json:"training_type"`
 	CoverImage       string `json:"cover_image"`
+	Audience         string `json:"audience"`
 }
 
 // updateTrainerProgramRequest is the request DTO for PATCH /api/v1/trainer/programs/:programID.
@@ -86,6 +89,7 @@ type updateTrainerProgramRequest struct {
 	FrequencyPerWeek *int    `json:"frequency_per_week"`
 	TrainingType     *string `json:"training_type"`
 	CoverImage       *string `json:"cover_image"`
+	Audience         *string `json:"audience"`
 }
 
 // TrainerProgramsHandler exposes the authenticated trainer's program
@@ -129,6 +133,7 @@ func (h *TrainerProgramsHandler) CreateProgram(c *gin.Context) {
 		FrequencyPerWeek: req.FrequencyPerWeek,
 		TrainingType:     req.TrainingType,
 		CoverImage:       req.CoverImage,
+		Audience:         req.Audience,
 	})
 	if err != nil {
 		h.respondProgramsError(c, err)
@@ -237,6 +242,7 @@ func (h *TrainerProgramsHandler) UpdateProgram(c *gin.Context) {
 		FrequencyPerWeek: req.FrequencyPerWeek,
 		TrainingType:     req.TrainingType,
 		CoverImage:       req.CoverImage,
+		Audience:         req.Audience,
 	})
 	if err != nil {
 		h.respondProgramsError(c, err)

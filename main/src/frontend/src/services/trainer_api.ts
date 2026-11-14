@@ -100,6 +100,7 @@ export interface TrainerProgram {
   training_type?: string | null;
   cover_image?: string | null;
   cover_image_url?: string;
+  audience?: "female" | "male" | null;
   created_at: string;
   updated_at: string;
 }
@@ -121,6 +122,7 @@ export interface TrainerProgramInput {
   frequency_per_week?: number;
   training_type?: string;
   cover_image?: string;
+  audience?: "" | "female" | "male";
 }
 
 export type TrainerProgramUpdateInput = Partial<TrainerProgramInput>;

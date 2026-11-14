@@ -224,23 +224,30 @@ Secondary
 - Soft cyan glow on hover
 - Slight lift on hover
 
-## Service cards
+## Service tiers
 
-- Rectangular image-backed cards using `rcc1.png` (generic marketplace) and
-  `rcc2.png` (Premium Level 1) as full-bleed backgrounds, covered by a readable
-  dark gradient overlay
-- Content is minimal: compact right-aligned price above a full-width CTA
-- Featured program (`Premium Level 1`) is taller (different aspect ratio),
-  keeps the stronger cyan glow, and shows a floating "Featured" mini
-  rectangle above the top edge
-- Premium Level 2 carries a purple "Personalized" tag in the same place: Premium
-  Level 1 is the most chosen route, Premium Level 2 the most personalized one
-  (owner decision, 2026-11-11)
-- Hover: lift + cyan border glow
-- Used on `/services` only; Home presents the same categories with the
-  image-free category overview described under Home
-- Protected: the cards' markup and styles stay unchanged when the page around
-  them is redesigned
+`components/service_tiers/` (owner design of 2026-11-14, which replaced the
+image-backed `ServiceCard`s and their 3D showroom, both removed):
+
+- Label "PLANOS RYZE" / "RYZE PLANS" and the heading "Evolui ao teu ritmo.
+  Escolhe o teu nível." / "Grow at your pace. Choose your level.", with a lead
+  line
+- Three rising glass panels with a slanted, bright top edge (`clip-path`), in
+  the logo colours only (navy, royal, ring blue, cyan); no background images.
+  Nível 1 "Grátis" → `/services/generic-program`; Nível 2 "Premium" 14,99 €,
+  one-time payment → `/services/premium-level-1`; Nível 3 "Personalizado,
+  feito para ti" 19,49 € with a crown and the primary CTA "Escolher
+  Personalizado" → `/services/premium-level-2`
+- Each panel lists what the route includes; the whole panel is one link (the
+  title's stretched link) with a visible focus ring
+- From 900px the panels stand side by side with rising heights and a glowing
+  curved arrow behind them; below 900px they stack
+- A benefits strip under the panels: plans for every level, continuous
+  progress, one-time payment without commitment, specialist support, focus on
+  your goals
+- Panels rise in on load; reduced motion removes the rise and the hover lift
+- Always three tiers: the prices are the fixed catalogue prices, so the cards
+  never depend on what is published
 
 ## Inputs
 
@@ -463,16 +470,14 @@ same screens. Three.js is never downloaded there.
 
 ### Programs
 
-The program highlights are read from the published catalogue through
-`useServiceCatalog`. While no program is published (empty catalogue or an
-unavailable API), the section shows the original goal cards instead of an
-empty state — Build Muscle → Premium Level 1, Lose Fat → Premium Level 2, Train
-for Free → the training-plan marketplace — so Home always invites people in
-(owner decision, 2026-11-10). With published programs, nothing is hardcoded: The section
-shows at most three cards: one Premium Level 2 service first, then one Premium
-Level 1 package, then published generic programs, then additional Premium
-packages when needed. Each card uses the API name and description and links to
-its own package; a loading state shows while the catalogue loads.
+The section always shows the three original goal cards, in this order and
+with their images: Build muscle → Premium Level 1 (`advert1`), Lose fat →
+Premium Level 2 (`advert2`), Train for free → the training-plan marketplace
+(`advert3`, "Free" tag). Owner request of 2026-11-14: published programmes are
+not listed here (a published "Plano 1" had replaced the free goal card with
+its own name and description); they are reached from Services, the category
+overview and "See all plans". The section does not read the catalogue, so it
+has no loading state.
 
 Presentation (owner revision, 2026-11-11): the Home's main call to action. Label
 "Start training today", heading "Find your next program." and "See all plans" →
@@ -504,8 +509,9 @@ plans" → `/services/generic-program` and "See how RYZE works" → `/our-vision
 and five steps on a cyan rail for training plans and Premium Level 1: choose a
 plan, check the details (level, duration, weekly frequency), activate (free)
 or check out (paid), open My Programs, train and log. A note explains that
-Premium Level 2 adds an intake after purchase and a trainer prepares the
-programme and nutrition before they appear in My Programs.
+Premium Level 2 starts with a detailed questionnaire, payment comes last, and
+a trainer then prepares the programme and nutrition before they appear in My
+Programs.
 
 ### Contact preview
 
@@ -546,63 +552,12 @@ Catalog landing
   "Start free today.", a line inviting a free account and a first session, and
   "Create free account" → `/register` and "Log in" → `/login`. The halves
   stack on phones.
-- One image-backed category card per available product family, using
-  `rcc1.png` for the generic training-plan marketplace and `rcc2.png` for
-  Premium Level 1 and Premium Level 2, each animating in with a staggered
-  fade-up on page load
-- A loading state while the catalogue loads; when no offer is published (empty
-  catalogue or unavailable API) the original showcase cards are shown — Generic
-  Program "FREE", Premium Level 1 "14,49€" and Premium Level 2 "19,49€" with
-  `rcc1/2/3.png` — as before the catalogue became API-driven (owner decision,
-  2026-11-10)
-
-Each card contains:
-
-- Full-bleed category background image with a dark gradient overlay for
-  readability
-- Compact right-aligned price derived from the published catalogue (`Free`,
-  exact price, `From <cheapest>`, or `Free and paid`)
-- Call To Action (primary on featured Premium Level 1, outline on generic)
-- Featured Premium Level 1 card is taller, glows stronger and carries a
-  floating "Featured" tag above its top edge
-
-The generic card opens the training-plan marketplace, the Premium Level 1 card
-opens the Premium package catalogue and the Premium Level 2 card opens the
-trainer-delivered service page. With published offers, no product price or
-offer copy is hardcoded and each card is rendered only when its family has at
-least one published offer; the showcase prices above appear only while nothing
-is published.
-
-`ServiceCard` is used only by the Services page; the cards are protected and
-unchanged except for the owner-added tags: purple "Personalized" on Premium
-Level 2 and mint "Free" on the generic training plans (2026-11-14).
-
-Showroom (`components/service_showroom/`, 2026-11-14, rebuilt the same day
-after owner feedback): the cards stay flat and crisp at all times — no 3D
-rotation at rest, no blur on the card in focus. With a precise pointer from
-1024px each card stands on a real 3D pedestal drawn by a lazily loaded WebGL
-stage behind the cards (`showroom_scene.ts`: slim two-tier navy pedestals with
-a matte top, a cyan light ring on the top edge, a pool of light under the card,
-a soft glow on the ground and a soft light behind the card; no floor, no
-spotlights). The stage is placed from the cards' layout positions and drawn on
-demand (arrival and focus transitions only, never a permanent loop). Under
-each pedestal a placard states the route's goal in one look ("Just training —
-Ready-made training plans, including free ones"; "Training and nutrition — A
-programme with a nutrition plan, right after purchase"; "Built around you — A
-RYZE trainer prepares your programme and nutrition"). The cards arrive from
-the left, the depth and the right while their pedestals rise and light up.
-Hovering or keyboard-focusing a card lifts and enlarges it from its base (2D
-only), brightens its pedestal, steps the other cards back (dimmed, no blur) and
-floats out four bubbles with what the route includes (generic: ready-made
-plans, weeks and days in order, set-by-set logging, history and progress;
-Premium Level 1: training with a nutrition plan, available right after
-purchase, daily calorie and macro targets, hypertrophy programme; Premium
-Level 2: complete intake, a RYZE trainer prepares the plan, training and
-nutrition built around you, follow the request until delivery). Phones,
-tablets and touch screens keep stacked cards (arriving from alternating
-sides) with the goal placard and the facts as chips under each card. Reduced
-motion removes the arrivals and drifting. Home no longer renders
-`ServiceCard`; it uses the image-free category overview described under Home.
+- Since v2.115.0 (owner request, 2026-11-14) the top of the page is the
+  service tiers component (see "Service tiers" under Components): the former
+  intro, the image-backed category cards (`rcc1–3.png`) and the 3D showroom
+  were removed. The three tiers always show, whatever is published, because
+  the prices are fixed. Everything below the cards (the four product items,
+  the route guide in the split panel) is unchanged.
 
 ### Free
 
@@ -615,6 +570,18 @@ Reached from the free program CTA on the Services area
 (`/services/generic-program`). A product-like, Lyfta-inspired browsing
 experience built on the RYZE dark/cyan identity — not a promotional landing
 page. The existing navbar is untouched; all marketplace content starts below it.
+
+Plans for women or men (v2.116.0, owner request 2026-11-14): the first time
+someone opens this page a glass card above the catalogue asks "Are you a
+woman or a man?", then "Show the plans designed for women/men first?" (Yes /
+No, show every plan; × = not now). The answer is kept on the account for
+signed-in members (`PATCH /me/plan-preferences`) and in the browser for
+visitors (an answer given before signing in is copied to the account). "Yes"
+selects the "Designed for" filter (first filter group: For women / For men),
+which keeps the plans for everyone plus the chosen audience; "Plans for me"
+under the title reopens the question. The featured coach programs follow the
+same audience but are not hidden by it. The catalogue waits for the answer
+before loading, so it never shows every plan and then narrows down.
 
 Layout hierarchy:
 
@@ -948,9 +915,24 @@ The interactive execution surface for one prescribed workout.
   prescription (reps, weight, RIR/RPE, tempo) with editable actual reps,
   weight, RIR/RPE and a complete/skip control. Completed and skipped states are
   visually distinct; disabled states are never implied by colour alone.
+- **Rewards** (v2.116.0) — after a workout is saved, the summary shows a card
+  after the numbers: "+N EXP" with the breakdown (workout, sets, records), a
+  note when the day's EXP limit was reached, "Level up!" with the new level
+  when it changed, the EXP bar and the record medals earned, and "See
+  achievements". From `GET /me/achievements/sessions/:id`; nothing is shown if
+  it cannot load. The existing personal-records block of the summary is
+  unchanged.
 - **Rest timer** — when a completed set returns `rest_ends_at`, the UI computes
   the remaining duration from that absolute server timestamp. It never
-  decrements a local countdown, so backgrounding the tab cannot drift.
+  decrements a local countdown, so backgrounding the tab cannot drift. Since
+  v2.115.0 the rest bar shows a countdown ring with the big remaining time and
+  −15 s, +15 s and Skip; these only change the screen, never the session.
+- **Exercise blocks (v2.115.0, Lyfta-style)** — the title is the training
+  day's name (from the programme access response, falling back to the week
+  day); a stats strip shows duration, volume (kg) and completed sets. Each
+  exercise shows its picture (when exercise media is enabled) with a position
+  number or a check when done, a "Current" tag on the exercise being trained,
+  a rest chip with the prescribed rest, and distinct current/done states.
 - **Controls** — pause/resume, complete and abandon. Complete is the primary
   action; abandon is destructive and asks for confirmation. A finished session
   shows a read-only summary and the duration is frozen.
@@ -1360,6 +1342,13 @@ The member's dashboard. Every value comes from existing endpoints
 data shows an honest empty state.
 
 - **Header** — date, greeting and the current streak.
+- **Lifter card** (v2.116.0, first card, owner request 2026-11-14) — the
+  lifter level as a numbered hexagon badge with its name ("Lifter Médio",
+  "Level 3 of 8"), total EXP with a progress bar and "N EXP to <next level>",
+  the medal count and the three latest record medals (gold medal, exercise,
+  weight × reps, date, kg gained), and "See achievements" → `/achievements`.
+  From `GET /me/achievements`; hidden if it cannot load. Three columns from
+  1024px, stacked below.
 - **Next workout** (light wave panel) — the next workout of the current plan
   with Start (creates the session and opens the player), Continue when a
   session is live, a "plan complete" state, or a no-plan state linking to the
@@ -1373,6 +1362,15 @@ data shows an honest empty state.
   exercise), plus shortcuts.
 - **Layout** — a twelve-column grid on desktop, stacked below 1024px.
 - An email-verification notice appears when the email is not verified.
+
+### Achievements (`/achievements`, v2.116.0)
+
+In the member shell (secondary navigation "Achievements" / "Conquistas", in the
+"More" sheet on phones). A hero with the level badge, level name, EXP bar,
+workouts counted and medal count; the record medals (newest first, up to 60
+with "and N more"; an empty state links to training); the level ladder (eight
+levels with their thresholds: reached, current, locked); and how EXP is earned,
+written from the `rules` the API returns. Two columns from 1024px.
 
 ### Account (`/account/settings`)
 
@@ -1696,9 +1694,11 @@ Plan builder (`/admin2/plans/create`, also used by trainers):
 
 1. **Plan** — the category first (cards with the fixed price; fixed once the
    plan exists), the cover image (uploaded to the category's folder), name,
-   description, goal and difficulty chips, weeks and training days per week
-   (steppers). Level 1 adds the package objective and nutrition model; Level 2
-   offers carry no structure.
+   description, goal and difficulty chips, "Designed for" (Everyone / Mostly
+   women / Mostly men, v2.116.0; also shown in the plan facts and the review),
+   weeks and training days per week (steppers). Level 1 adds the package
+   objective and nutrition model; Level 2 offers carry no structure and no
+   audience.
 2. **Structure** — the weeks are created automatically from step 1, each with
    the chosen number of training days. Week tabs, "Copy this week to the next
    weeks", add/remove weeks and days. Each day has a name, a muscle-group focus
@@ -2187,6 +2187,36 @@ Reference for:
 Route: `/services/premium-level-1`. It must be declared before the dynamic
 `/services/:serviceSlug` route, or the slug route will swallow it.
 
+## Plan journey (v2.115.0)
+
+Owner request of 2026-11-14. Without any of the legacy parameters (`program`,
+`objective`, `purchase_id`, `status`, `session_id`, `token`) the route opens
+`pages/premium_level1_journey/`, a step-by-step journey with a progress bar:
+
+1. Intro: what the plan includes, the fixed price (14,99 €, one-time) and how
+   it works; "Saber mais" / "Learn more".
+2. Goal: four cards — gain muscle, strength, lose weight, sport-specific
+   (e.g. football). A goal with no published plan shows "Soon" and explains
+   it after the match.
+3. Details: sex (Woman / Man, required since v2.116.0, pre-filled from the
+   account or the browser when already answered), then weight, age and height
+   in large blocks with − / + buttons and the
+   allowed ranges.
+4. Match: `POST /me/premium-level-1/match`. Guests are asked to sign in or
+   create an account and come back to the same goal; "no plan yet" and "you
+   already own every plan for this goal" have their own messages.
+5. Plan and payment: the picked plan's card (cover, weeks, days per week,
+   level) beside the checkout panel; after payment, "Open my plan" goes to the
+   plan in My Programs.
+
+The checkout panel (`components/checkout_panel/`) is shared with the Level 2
+journey: order summary with what is included and the total, payment methods
+as radio cards, the Test Mode notice, a plain message when no payment provider
+is configured, cancelled/error states with retry, and the confirmation.
+
+The legacy page below still serves `?program=` links (e.g. My Programs) and
+payment returns.
+
 The selected package is a single scrolling detail page, not a wizard with its
 own navigation. A legacy package follows product → questionnaire → checkout →
 access; a curated package follows product → checkout → access. The user always
@@ -2374,6 +2404,27 @@ Premium entitlements, with the same state, readiness and resilience rules.
 # Premium Level 2 Page
 
 Route: `/services/premium-level-2`, declared before `/services/:serviceSlug`.
+
+## Service journey (v2.115.0)
+
+Owner request of 2026-11-14. Without the legacy parameters the route opens
+`pages/premium_level2_journey/`: intro (what the service includes, 19,49 €,
+"Learn more") → the main goal as cards (from the intake catalog) → the long
+questionnaire in sections with a section list, progress bar and "Save and
+continue" (each section is saved as a draft through
+`PUT /me/premium-level-2/offers/:programID/intake-draft` and must be valid
+before moving on; answers come back when the client returns) → the offer
+card and the checkout panel. Payment is the last step; the completed purchase
+turns the answers into the request's intake. `?offer=<id>` selects an offer,
+otherwise the first published one is used.
+
+The legacy page below (`?program=`) no longer sells: its purchase panel says
+the questionnaire comes first and links to the journey for that offer, so a
+purchase can never start without the questionnaire. It still shows owned
+services and handles payment returns.
+
+## Legacy detail page
+
 It is a single scrolling detail page, not a wizard. Without a `program` query
 parameter it lists every published Premium Level 2 offer; selecting one adds the
 `program` parameter and shows the product.

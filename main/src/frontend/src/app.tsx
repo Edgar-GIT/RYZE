@@ -15,6 +15,7 @@ const CHROME_FREE_PATHNAMES = new Set([
   "/login",
   "/register",
   "/profile",
+  "/achievements",
   "/support",
   "/forgot-password",
   "/reset-password",
@@ -46,6 +47,7 @@ export const App = () => {
     isAccountRoute ||
     pathname.startsWith("/trainer") ||
     pathname === "/profile" ||
+    pathname === "/achievements" ||
     pathname === "/support";
   useEffect(() => {
     document.body.classList.toggle("ryze-app", isPrivateApp);

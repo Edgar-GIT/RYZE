@@ -13,7 +13,7 @@ export const HomePage = () => {
   return (
     <PageWrapper className={ui.page}>
       {/* The programs come right after the opening chapter: visitors reach them first. */}
-      <HomeStory programs={<ProgramsOverviewSection catalog={catalog} />} />
+      <HomeStory programs={<ProgramsOverviewSection />} />
 
       <CategoryOverview catalog={catalog} />
 

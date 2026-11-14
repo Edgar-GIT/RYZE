@@ -990,3 +990,192 @@
     opacity: 0.6;
   }
 }
+
+
+/* --- Lyfta-style touches (v2.115.0) --------------------------------------- */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.6rem 0 0;
+}
+
+.stats div {
+  display: grid;
+  gap: 0.05rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 12px;
+  background: rgba(2, 8, 38, 0.55);
+}
+
+.stats dt {
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stats dd {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats small {
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.exerciseThumb {
+  position: relative;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  cursor: pointer;
+}
+
+.exerciseThumb:focus-visible {
+  outline: 2px solid var(--app-accent, #00cbff);
+  outline-offset: 2px;
+}
+
+.exerciseBadge {
+  position: absolute;
+  bottom: -0.35rem;
+  right: -0.35rem;
+  display: grid;
+  place-items: center;
+  min-width: 1.45rem;
+  height: 1.45rem;
+  padding: 0 0.3rem;
+  border: 2px solid #050d3c;
+  border-radius: 999px;
+  color: #02041f;
+  background: var(--app-accent, #00cbff);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.exerciseBadge svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.exerciseDone .exerciseBadge {
+  background: var(--app-success, #5ee6a8);
+}
+
+.exerciseCurrent {
+  border-color: rgba(0, 203, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(0, 203, 255, 0.25), 0 18px 44px -26px rgba(0, 203, 255, 0.8);
+}
+
+.exerciseDone {
+  opacity: 0.82;
+}
+
+.currentTag {
+  display: inline-block;
+  margin-bottom: 0.15rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  color: #02041f;
+  background: var(--app-accent, #00cbff);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.restChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  color: #7cebff;
+  background: rgba(0, 203, 255, 0.1);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.restChip svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.setDone .checkButtonDone {
+  box-shadow: 0 0 14px rgba(94, 230, 168, 0.55);
+}
+
+/* The rest timer: a floating card with a countdown ring. */
+.restBar {
+  border-color: rgba(0, 203, 255, 0.55);
+  background: linear-gradient(180deg, rgba(17, 40, 116, 0.98), rgba(6, 15, 58, 0.98));
+  box-shadow: 0 0 40px -10px rgba(0, 203, 255, 0.55), 0 24px 50px -14px rgba(0, 0, 0, 0.85);
+}
+
+.restContent {
+  gap: 0.85rem;
+  padding: 0.75rem 0.9rem;
+}
+
+.restRing {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.6rem;
+  height: 3.6rem;
+}
+
+.restRing svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.restRingTrack {
+  fill: none;
+  stroke: rgba(124, 200, 255, 0.18);
+  stroke-width: 5;
+}
+
+.restRingFill {
+  fill: none;
+  stroke: var(--app-accent, #00cbff);
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 250ms linear;
+}
+
+.restTime strong {
+  font-size: 1.9rem;
+}
+
+.restOver {
+  font-size: 1rem !important;
+  color: var(--app-success, #5ee6a8);
+}
+
+@media (min-width: 640px) {
+  .restBar {
+    bottom: 1.25rem;
+    max-width: 30rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .restRingFill {
+    transition: none;
+  }
+}

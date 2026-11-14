@@ -24,8 +24,8 @@ export const PREMIUM_LEVEL2_PT: Catalog = {
   "Loading Premium Level 2…": "A carregar o Premium Nível 2…",
   "Premium Level 2": "Premium Nível 2",
   "One-to-one training, built around you": "Treino individual, feito à tua medida",
-  "Buy the service first, complete your intake, and a certified RYZE trainer will author your individual training and nutrition plans.":
-    "Compra primeiro o serviço, preenche o teu questionário e um treinador RYZE certificado cria os teus planos individuais de treino e nutrição.",
+  "Answer a detailed questionnaire, pay once, and a certified RYZE trainer will author your individual training and nutrition plans.":
+    "Responde a um questionário detalhado, paga uma única vez e um treinador RYZE certificado cria os teus planos individuais de treino e nutrição.",
   "Your Premium Level 2 services": "Os teus serviços Premium Nível 2",
   "Continue intake": "Continuar questionário",
   "View service": "Ver serviço",
@@ -35,8 +35,8 @@ export const PREMIUM_LEVEL2_PT: Catalog = {
   "What you receive": "O que recebes",
   "How it works": "Como funciona",
   "Purchase the service.": "Compra o serviço.",
-  "The offer itself contains no training plan; your programme is created for you afterwards.":
-    "A oferta não inclui um plano de treino pronto; o teu programa é criado para ti depois.",
+  "You pay once the questionnaire is complete; your programme is created for you afterwards.":
+    "Pagas quando o questionário estiver completo; o teu programa é criado para ti depois.",
   "Complete your intake.": "Preenche o teu questionário.",
   "Your trainer uses it to build around your goal, experience, schedule and dietary needs.":
     "O teu treinador usa-o para adaptar tudo ao teu objetivo, experiência, horário e necessidades alimentares.",
@@ -52,13 +52,9 @@ export const PREMIUM_LEVEL2_PT: Catalog = {
   "Your service is being prepared. Refresh in a moment if it does not appear.":
     "O teu serviço está a ser preparado. Atualiza daqui a pouco se não aparecer.",
   "Check my service": "Ver o meu serviço",
-  "Complete checkout to start your intake. Your trainer is allocated after the intake is submitted.":
-    "Conclui o pagamento para começares o questionário. O treinador é atribuído depois de enviares o questionário.",
-  "Test Mode is active. No payment provider is contacted.": "O modo de teste está ativo. Nenhum fornecedor de pagamento é contactado.",
-  "Sign in to purchase": "Entrar para comprar",
+  "The questionnaire comes first; payment is the last step.": "Primeiro o questionário; o pagamento é o último passo.",
+  "Start the questionnaire": "Começar o questionário",
   "This service is already active. Open it from the list above.": "Este serviço já está ativo. Abre-o na lista acima.",
-  "Buy Premium Level 2": "Comprar Premium Nível 2"
-,
 
   // Service (request) page
   "Your nutrition plan": "O teu plano de nutrição",

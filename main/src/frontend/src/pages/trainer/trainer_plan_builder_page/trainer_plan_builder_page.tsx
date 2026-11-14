@@ -120,6 +120,7 @@ const toDetail = (program: TrainerProgram, weeks: GenericProgramWeek[]): Generic
   currency: program.currency,
   cover_image: program.cover_image ?? null,
   cover_image_url: program.cover_image_url ?? "",
+  audience: program.audience ?? null,
   created_at: program.created_at,
   updated_at: program.updated_at,
   curated_nutrition: null,
@@ -155,7 +156,8 @@ const metadataOf = (draft: PlanDraft) => ({
   level: draft.level,
   training_type: draft.training_type,
   duration_weeks: Number(draft.duration_weeks) || 0,
-  frequency_per_week: Number(draft.frequency_per_week) || 0
+  frequency_per_week: Number(draft.frequency_per_week) || 0,
+  audience: draft.audience
 });
 
 // TrainerPlanBuilderPage creates and edits a trainer's own programme with the

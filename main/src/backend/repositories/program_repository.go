@@ -102,6 +102,9 @@ type PublicCatalogFilter struct {
 	// ScopePremiumLevel2 restricts the catalog to the Premium Level 2 offer
 	// family. Only these offers start the post-purchase service flow.
 	ScopePremiumLevel2 bool
+	// Audience ("female" or "male") keeps the plans for everyone (NULL) plus
+	// the plans designed for that audience.
+	Audience string
 }
 
 type programRepository struct {
@@ -346,6 +349,10 @@ func (r *programRepository) SearchPublished(ctx context.Context, filter PublicCa
 		// per-client training programme is trainer-owned and draft, so it can
 		// never match this family scope.
 		db = db.Where("product_type = ?", models.ProgramProductTypePremiumLevel2)
+	}
+
+	if filter.Audience != "" {
+		db = db.Where("(audience IS NULL OR audience = ?)", filter.Audience)
 	}
 
 	if filter.Query != "" {

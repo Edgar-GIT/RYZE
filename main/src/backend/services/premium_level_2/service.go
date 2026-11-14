@@ -105,6 +105,7 @@ type service struct {
 	programs     ProgramRepository
 	entitlements EntitlementRepository
 	notifier     notifications.Notifier
+	drafts       DraftRepository
 }
 
 // ServiceOption configures an optional collaborator.
@@ -165,9 +166,12 @@ func (s *service) FulfillPurchase(ctx context.Context, userID, programID string)
 		}
 		return fmt.Errorf("failed to verify premium level 2 purchase: %w", err)
 	}
-	if _, err := s.requests.CreateRequest(ctx, userID, programID); err != nil {
+	request, err := s.requests.CreateRequest(ctx, userID, programID)
+	if err != nil {
 		return fmt.Errorf("failed to create premium level 2 request: %w", err)
 	}
+	// The questionnaire answered before payment becomes the first intake.
+	s.submitDraft(ctx, request)
 	return nil
 }
 
@@ -225,6 +229,14 @@ func (s *service) SubmitIntake(ctx context.Context, userID, requestID string, an
 		}
 		return nil, nil, fmt.Errorf("failed to submit premium level 2 intake: %w", err)
 	}
+	s.notifyIntakeReceived(ctx, requestID, intake)
+	return updated, intake, nil
+}
+
+func (s *service) notifyIntakeReceived(ctx context.Context, requestID string, intake *models.PremiumLevel2Intake) {
+	if intake == nil {
+		return
+	}
 	s.notifyTransition(ctx, requestID, func(request *models.PremiumLevel2Request) []notifications.Event {
 		return []notifications.Event{{
 			UserID:        request.UserID,
@@ -235,7 +247,6 @@ func (s *service) SubmitIntake(ctx context.Context, userID, requestID string, an
 			EmailTemplate: email.TemplateIntakeReceived,
 		}}
 	})
-	return updated, intake, nil
 }
 
 func (s *service) GetDeliveredNutrition(ctx context.Context, userID, requestID string) (*models.PremiumLevel2Request, *models.PremiumLevel2NutritionPlan, error) {

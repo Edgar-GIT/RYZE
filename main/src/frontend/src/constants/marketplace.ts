@@ -18,7 +18,17 @@ export interface MarketplaceRow {
   trainingTypes?: string[];
 }
 
+// The audience options map to the API's audience filter (plans for everyone
+// plus the ones designed for that audience).
+export const AUDIENCE_GROUP_ID = "audience";
+export const AUDIENCE_OPTIONS = { female: "For women", male: "For men" } as const;
+
 export const MARKETPLACE_FILTER_GROUPS: FilterGroup[] = [
+  {
+    id: AUDIENCE_GROUP_ID,
+    title: "Designed for",
+    options: [AUDIENCE_OPTIONS.female, AUDIENCE_OPTIONS.male]
+  },
   {
     id: "training-type",
     title: "Training Type",

@@ -36,6 +36,7 @@ const (
 	scopeDocumentUpload     = "document-upload"
 	scopeProgramView        = "program-view"
 	scopeImageUpload        = "image-upload"
+	scopePremiumMatch       = "premium-match"
 )
 
 // authRateLimitScope is one endpoint's policy. The IP limiter always applies.
@@ -101,6 +102,8 @@ var authRateLimitScopes = []authRateLimitScope{
 	{name: scopeProgramView, ipLimit: 120, ipWindow: 10 * time.Minute},
 	// Programme cover images: each upload is stored on disk.
 	{name: scopeImageUpload, ipLimit: 60, ipWindow: time.Hour},
+	// Premium Level 1 picks: each records body data and re-rolls the choice.
+	{name: scopePremiumMatch, ipLimit: 30, ipWindow: 10 * time.Minute},
 }
 
 // authRateLimiters owns the limiters for every authentication scope.

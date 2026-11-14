@@ -4,6 +4,7 @@ import { MemberShell } from "@/components/app_shell/member_shell";
 import { TrainerSessionProvider } from "@/components/trainer/trainer_session_context";
 import { AccountPurchaseHistoryPage } from "@/pages/account_purchase_history_page/account_purchase_history_page";
 import { AccountSettingsPage } from "@/pages/account_settings_page/account_settings_page";
+import { AchievementsPage } from "@/pages/achievements_page/achievements_page";
 import { MemberDashboardPage } from "@/pages/member_dashboard_page/member_dashboard_page";
 import { MyProgramsPage } from "@/pages/my_programs_page/my_programs_page";
 import { ProgramAccessPage } from "@/pages/program_access_page/program_access_page";
@@ -19,6 +20,7 @@ const MemberRoutes = () => (
   <MemberShell>
     <Switch>
       <Route exact path="/profile" component={MemberDashboardPage} />
+      <Route exact path="/achievements" component={AchievementsPage} />
       <Route exact path="/account/settings" component={AccountSettingsPage} />
       <Route exact path="/account/purchases" component={AccountPurchaseHistoryPage} />
       <Route exact path="/support" component={SupportPage} />

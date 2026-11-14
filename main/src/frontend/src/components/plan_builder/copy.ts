@@ -24,6 +24,9 @@ export interface BuilderCopy {
   goals: Record<string, string>;
   level: string;
   levels: Record<string, string>;
+  audience: string;
+  audienceHint: string;
+  audiences: Record<"" | "female" | "male", string>;
   weeks: string;
   weeksHint: string;
   daysPerWeek: string;
@@ -186,6 +189,9 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     },
     level: "Difficulty",
     levels: { Beginner: "Beginner", Intermediate: "Intermediate", Advanced: "Advanced" },
+    audience: "Designed for",
+    audienceHint: "Members who prefer plans for their sex see plans for everyone plus the ones marked for them.",
+    audiences: { "": "Everyone", female: "Mostly women", male: "Mostly men" },
     weeks: "Weeks",
     weeksHint: "The weeks are created for you in the next step.",
     daysPerWeek: "Training days per week",
@@ -193,7 +199,7 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     decrease: "Decrease",
     increase: "Increase",
     objective: "Package objective",
-    objectives: { gain_muscle: "Gain muscle", lose_fat: "Lose fat", strength_conditioning: "Strength & conditioning" },
+    objectives: { gain_muscle: "Gain muscle", lose_fat: "Lose fat", strength_conditioning: "Strength & conditioning", sport_specific: "Sport-specific (e.g. football)" },
     nutritionMode: "Nutrition",
     nutritionCurated: "Curated plan",
     nutritionCuratedText: "You write one nutrition plan that every buyer receives.",
@@ -308,6 +314,9 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     },
     level: "Dificuldade",
     levels: { Beginner: "Iniciante", Intermediate: "Intermédio", Advanced: "Avançado" },
+    audience: "Pensado para",
+    audienceHint: "Quem prefere planos para o seu sexo vê os planos para todos e os marcados para si.",
+    audiences: { "": "Todos", female: "Mais para mulheres", male: "Mais para homens" },
     weeks: "Semanas",
     weeksHint: "As semanas são criadas automaticamente no passo seguinte.",
     daysPerWeek: "Dias de treino por semana",
@@ -315,7 +324,7 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     decrease: "Diminuir",
     increase: "Aumentar",
     objective: "Objetivo do pacote",
-    objectives: { gain_muscle: "Ganhar músculo", lose_fat: "Perder gordura", strength_conditioning: "Força e condição física" },
+    objectives: { gain_muscle: "Ganhar músculo", lose_fat: "Perder gordura", strength_conditioning: "Força e condição física", sport_specific: "Treino específico (ex.: futebol)" },
     nutritionMode: "Nutrição",
     nutritionCurated: "Plano definido",
     nutritionCuratedText: "Escreves um plano de nutrição que todos os compradores recebem.",

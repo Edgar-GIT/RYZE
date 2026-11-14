@@ -157,6 +157,7 @@ type ProgramInput struct {
 	Objective        string
 	NutritionMode    string
 	CoverImage       string
+	Audience         string
 	CuratedNutrition *curated_nutrition.PlanInput
 	Weeks            []WeekInput
 }
@@ -247,6 +248,7 @@ type Program struct {
 	PriceMinorUnits  int64
 	Currency         string
 	CoverImage       *string
+	Audience         *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -596,6 +598,9 @@ func (s *service) validateProgramInput(productType string, input ProgramInput) e
 	if err := validateCoverImage(productType, input.CoverImage); err != nil {
 		return err
 	}
+	if err := program_details.ValidateAudience(productType, input.Audience); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
 
 	if productType == models.ProgramProductTypePremiumLevel2 {
 		return validatePremiumLevel2Offer(input)
@@ -744,6 +749,7 @@ func buildProgramModel(productType string, input ProgramInput) (*models.Program,
 		PriceMinorUnits:  input.PriceMinorUnits,
 		Currency:         strings.TrimSpace(input.Currency),
 		CoverImage:       program_details.OptionalCover(input.CoverImage),
+		Audience:         program_details.OptionalAudience(input.Audience),
 	}
 	if program.Status == "" {
 		program.Status = models.ProgramStatusDraft
@@ -834,6 +840,7 @@ func newProgramSummary(model *models.Program) Program {
 		PriceMinorUnits:  model.PriceMinorUnits,
 		Currency:         model.Currency,
 		CoverImage:       model.CoverImage,
+		Audience:         model.Audience,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
 	}

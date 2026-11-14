@@ -5,12 +5,9 @@ import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PublicAction, Waves } from "@/components/public_ui/public_ui";
 import { Reveal } from "@/components/reveal/reveal";
-import { ServiceShowroom } from "@/components/service_showroom/service_showroom";
+import { ServiceTiers } from "@/components/service_tiers/service_tiers";
 import ui from "@/components/public_ui/public_ui.module.css";
-import { SERVICE_SHOWCASE } from "@/constants/services";
-import { useServiceCatalog } from "@/hooks/use_service_catalog";
 import { type Copy, useI18n } from "@/i18n/i18n";
-import { buildServiceCategoryCards } from "@/services/service_catalog";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./services_page.module.css";
@@ -117,11 +114,6 @@ const COPY: Copy<ServicesText> = {
 export const ServicesPage = () => {
   const { locale } = useI18n();
   const text = COPY[locale];
-  const catalog = useServiceCatalog();
-  const services =
-    catalog.status === "ready"
-      ? buildServiceCategoryCards(catalog.generic, catalog.premium, catalog.premiumLevel2)
-      : [];
 
   return (
     <PageWrapper className={joinClassNames(ui.page, styles.page)}>
@@ -129,25 +121,10 @@ export const ServicesPage = () => {
           their own styling; only the intro, states and benefits use the public tones. */}
       <section className={styles.catalog}>
         <Container className={styles.catalogInner}>
-          <Reveal className={joinClassNames(ui.toneNavy, styles.intro)}>
-            <p className={ui.label}>{text.label}</p>
-            <h1 className={ui.heading}>
-              {text.heading}
-              <span className={ui.hl}>RYZE</span>
-              <span className={ui.stop}>.</span>
-            </h1>
-            <p className={joinClassNames(ui.lead, styles.lead)}>{text.lead}</p>
-          </Reveal>
-
-          {catalog.status === "loading" ? (
-            <div className={joinClassNames(ui.toneNavy, ui.surface, styles.state)}>
-              <p className={styles.stateText}>{text.loading}</p>
-            </div>
-          ) : (
-            // Live offers when published; otherwise the original showcase cards,
-            // presented as products on display.
-            <ServiceShowroom services={services.length > 0 ? services : SERVICE_SHOWCASE} />
-          )}
+          {/* The three services as rising glass panels (owner design,
+              2026-11-14). They are always shown: the prices are fixed by
+              category and each journey explains what is available. */}
+          <ServiceTiers />
 
           <Reveal className={joinClassNames(ui.toneNavy, ui.surface, styles.evolution)} delay={0.18}>
             {text.evolution.map((item, index) => {

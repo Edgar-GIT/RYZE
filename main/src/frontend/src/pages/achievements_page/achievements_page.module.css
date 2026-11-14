@@ -1,0 +1,301 @@
+/* Achievements: the lifter level, EXP, record medals and the level ladder. */
+.page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: #7cebff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.kicker svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--app-font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-stretch: 125%;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.stop {
+  color: var(--app-accent);
+}
+
+.lead {
+  margin: 0;
+  color: var(--app-text-2);
+}
+
+.error {
+  margin: 0;
+  color: var(--app-danger);
+}
+
+.hero {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(0, 203, 255, 0.35);
+  border-radius: var(--app-radius);
+  background:
+    radial-gradient(70% 120% at 0% 0%, rgba(0, 203, 255, 0.18), transparent 60%),
+    var(--app-surface);
+  box-shadow: 0 24px 60px -40px rgba(0, 203, 255, 0.55);
+}
+
+.skeleton {
+  min-height: 10rem;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.heroIdentity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.levelName {
+  margin: 0;
+  font-family: var(--app-font-display);
+  font-size: clamp(1.6rem, 1.3rem + 1.2vw, 2.2rem);
+  font-stretch: 118%;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.levelOf {
+  margin: 0.3rem 0 0;
+  color: var(--app-text-3);
+  font-weight: 600;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.4rem;
+  margin: 0;
+  padding: 0;
+  color: var(--app-text-2);
+  list-style: none;
+}
+
+.stats li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+}
+
+.stats svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--app-warning);
+}
+
+.columns {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.side {
+  display: grid;
+  align-content: start;
+  gap: 1.25rem;
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid var(--app-line);
+  border-top-color: rgba(160, 225, 255, 0.24);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+}
+
+.cardTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.cardTitle svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--app-warning);
+}
+
+.cardLead {
+  margin: 0;
+  color: var(--app-text-3);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.medalList {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: 0.8rem;
+  padding: 1rem;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-inset);
+}
+
+.empty p {
+  margin: 0;
+  color: var(--app-text-2);
+  line-height: 1.5;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 1.2rem;
+  border-radius: 999px;
+  color: var(--app-ink);
+  background: var(--app-light);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.action:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.ladder {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rung {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 14px;
+}
+
+.rung[data-state="current"] {
+  border-color: var(--app-line-strong);
+  background: var(--app-accent-soft);
+}
+
+.rung[data-state="locked"] {
+  opacity: 0.62;
+}
+
+.rungText {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.rungText strong {
+  font-size: 0.95rem;
+}
+
+.rungText span {
+  color: var(--app-text-3);
+  font-size: 0.8rem;
+}
+
+.rungState svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.rung[data-state="reached"] .rungState svg {
+  color: var(--app-success);
+}
+
+.rung[data-state="current"] .rungState svg {
+  color: var(--app-accent);
+}
+
+.rung[data-state="locked"] .rungState svg {
+  color: var(--app-text-3);
+}
+
+.rules {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  color: var(--app-text-2);
+  line-height: 1.45;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (min-width: 1024px) {
+  .hero {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr) auto;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .stats {
+    flex-direction: column;
+  }
+
+  .columns {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

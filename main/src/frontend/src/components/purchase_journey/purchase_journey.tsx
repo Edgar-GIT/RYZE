@@ -37,7 +37,7 @@ const COPY: Copy<JourneyText> = {
       { title: "Open My Programs", text: "Everything you own is waiting in My Programs." },
       { title: "Train and log", text: "Start a session, log every set and follow your history." }
     ],
-    note: "Premium Level 2 adds a detailed intake after purchase; a RYZE trainer then prepares your programme and nutrition before they appear in My Programs."
+    note: "Premium Level 2 starts with a detailed questionnaire and payment comes last; a RYZE trainer then prepares your programme and nutrition before they appear in My Programs."
   },
   pt: {
     label: "Como funciona",
@@ -53,7 +53,7 @@ const COPY: Copy<JourneyText> = {
       { title: "Abre Os meus programas", text: "Tudo o que é teu está à tua espera em Os meus programas." },
       { title: "Treina e regista", text: "Inicia um treino, regista cada série e acompanha o teu histórico." }
     ],
-    note: "O Premium Nível 2 inclui um questionário detalhado depois da compra; um treinador RYZE prepara depois o teu programa e a tua nutrição, que aparecem em Os meus programas."
+    note: "O Premium Nível 2 começa com um questionário detalhado e o pagamento é o último passo; depois, um treinador RYZE prepara o teu programa e a tua nutrição, que aparecem em Os meus programas."
   }
 };
 

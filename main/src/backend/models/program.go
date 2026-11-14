@@ -33,13 +33,31 @@ const (
 	ProgramObjectiveGainMuscle           = "gain_muscle"
 	ProgramObjectiveLoseFat              = "lose_fat"
 	ProgramObjectiveStrengthConditioning = "strength_conditioning"
+	// ProgramObjectiveSportSpecific is training for a sport (e.g. football);
+	// added with the Premium Level 1 journey (owner request, 2026-11-14).
+	ProgramObjectiveSportSpecific = "sport_specific"
 )
+
+// Sexes is the closed vocabulary of a member's sex and of a plan's audience
+// (owner request, 2026-11-14). Program.Audience says a plan is designed more
+// for women or more for men; nil means everyone, and a Premium Level 2 offer
+// never carries one.
+const (
+	SexFemale = "female"
+	SexMale   = "male"
+)
+
+// ValidSex reports whether value is a known sex.
+func ValidSex(value string) bool {
+	return value == SexFemale || value == SexMale
+}
 
 // ProgramObjectives is the closed list accepted for Premium Level 1 packages.
 var ProgramObjectives = []string{
 	ProgramObjectiveGainMuscle,
 	ProgramObjectiveLoseFat,
 	ProgramObjectiveStrengthConditioning,
+	ProgramObjectiveSportSpecific,
 }
 
 // ProgramNutritionMode values persist the two Premium Level 1 delivery models.
@@ -91,6 +109,7 @@ type Program struct {
 	PriceMinorUnits  int64                 `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
 	Currency         string                `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
 	CoverImage       *string               `gorm:"column:cover_image;type:varchar(120)" json:"cover_image"`
+	Audience         *string               `gorm:"column:audience;type:varchar(10)" json:"audience"`
 	Weeks            []ProgramWeek         `gorm:"foreignKey:ProgramID" json:"-"`
 	CuratedNutrition *CuratedNutritionPlan `gorm:"foreignKey:ProgramID" json:"-"`
 	CreatedAt        time.Time             `gorm:"column:created_at;type:datetime(6)" json:"created_at"`

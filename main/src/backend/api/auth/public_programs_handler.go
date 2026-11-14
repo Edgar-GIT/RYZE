@@ -33,6 +33,7 @@ type publicProgramResponse struct {
 	FrequencyPerWeek *int                 `json:"frequency_per_week"`
 	TrainingType     *string              `json:"training_type"`
 	CoverImageURL    string               `json:"cover_image_url"`
+	Audience         *string              `json:"audience"`
 	PriceMinorUnits  int64                `json:"price_minor_units"`
 	Currency         string               `json:"currency"`
 	ProductType      string               `json:"product_type"`
@@ -54,6 +55,7 @@ func newPublicProgramResponse(program *public_programs.Program) publicProgramRes
 		FrequencyPerWeek: program.FrequencyPerWeek,
 		TrainingType:     program.TrainingType,
 		CoverImageURL:    program_details.CoverURL(program.CoverImage),
+		Audience:         program.Audience,
 		PriceMinorUnits:  program.PriceMinorUnits,
 		Currency:         program.Currency,
 		ProductType:      program.ProductType,
@@ -125,6 +127,11 @@ func (h *PublicProgramsHandler) ListPublishedPrograms(c *gin.Context) {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		return
 	}
+	audience := strings.TrimSpace(c.Query("audience"))
+	if audience != "" && !models.ValidSex(audience) {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
 	filter := public_programs.ProgramFilter{
 		Query:              strings.TrimSpace(c.Query("q")),
 		ProgramType:        strings.TrimSpace(c.Query("type")),
@@ -139,11 +146,13 @@ func (h *PublicProgramsHandler) ListPublishedPrograms(c *gin.Context) {
 		ScopeGeneric:       scope == "generic",
 		ScopePremiumLevel1: scope == models.ProgramProductTypePremiumLevel1,
 		ScopePremiumLevel2: scope == models.ProgramProductTypePremiumLevel2,
+		Audience:           audience,
 	}
 
 	hasSearchParams := filter.Query != "" || filter.ProgramType != "" || len(filter.TrainingTypes) > 0 ||
 		len(filter.Levels) > 0 || len(filter.Frequencies) > 0 || filter.DurationMin > 0 || filter.DurationMax > 0 ||
-		len(filter.DurationRanges) > 0 || filter.SortBy != "" || filter.Order != "" || filter.ScopeGeneric || filter.ScopePremiumLevel1 || filter.ScopePremiumLevel2
+		len(filter.DurationRanges) > 0 || filter.SortBy != "" || filter.Order != "" || filter.ScopeGeneric || filter.ScopePremiumLevel1 || filter.ScopePremiumLevel2 ||
+		filter.Audience != ""
 
 	var result public_programs.ListProgramsResult
 	if hasSearchParams {

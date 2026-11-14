@@ -7,8 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// corsMethods are the HTTP methods allowed for preflighted requests.
-var corsMethods = []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete, http.MethodOptions}
+// corsMethods are the HTTP methods allowed for preflighted requests. PUT is
+// used by the Premium Level 2 questionnaire (draft and intake), the trainer
+// plan structure and the Level 2 trainer steps; without it a browser on
+// another origin (the development setup) could never send them. The origin
+// guard (csrf.go) still checks every state-changing method, PUT included.
+var corsMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions}
 
 // corsHeaders are the request headers allowed for preflighted requests.
 var corsHeaders = []string{"Content-Type", "Authorization"}

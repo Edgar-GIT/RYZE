@@ -49,6 +49,9 @@ type accountResponse struct {
 	// PasswordSet is false for an account created through Google until the
 	// owner sets a password.
 	PasswordSet bool `json:"password_set"`
+	// Sex and PlanAudienceFilter are the plan preferences (nil: not asked).
+	Sex                *string `json:"sex"`
+	PlanAudienceFilter *bool   `json:"plan_audience_filter"`
 }
 
 // AfterRegister runs after a successful registration (store the language,
@@ -127,10 +130,12 @@ func newUserResponse(user *models.User) userResponse {
 
 func newAccountResponse(user *models.User) accountResponse {
 	return accountResponse{
-		userResponse:      newUserResponse(user),
-		EmailVerified:     user.EmailVerifiedAt != nil,
-		PreferredLanguage: user.PreferredLanguage,
-		PasswordSet:       user.PasswordSet,
+		userResponse:       newUserResponse(user),
+		EmailVerified:      user.EmailVerifiedAt != nil,
+		PreferredLanguage:  user.PreferredLanguage,
+		PasswordSet:        user.PasswordSet,
+		Sex:                user.Sex,
+		PlanAudienceFilter: user.PlanAudienceFilter,
 	}
 }
 

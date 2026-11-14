@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, CheckCircle2, Dumbbell, Flame, FlaskConical, Sparkles } from "lucide-react";
+import { Activity, ArrowLeft, CheckCircle2, Dumbbell, Flame, FlaskConical, Sparkles, Trophy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useHistory, useLocation } from "react-router-dom";
 
@@ -98,6 +98,10 @@ const OBJECTIVE_META: Record<
     description:
       "Get stronger, fitter and more capable with structured strength work and conditioning.",
     icon: Activity
+  },
+  [PROGRAM_OBJECTIVE.SPORT_SPECIFIC]: {
+    description: "Train for your sport with a plan built around its demands, plus the matching nutrition.",
+    icon: Trophy
   }
 };
 

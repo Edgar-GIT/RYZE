@@ -190,8 +190,9 @@ page's look (navy half + light-blue wave half, the `split` panel in
 Protected parts (owner revisions of 2026-11-10/11; full inventory in
 `docs/AI/frontend-revamp.md`): the footer's layout, link columns, slogan image
 and copy; the Exercise Library/details layout, components, behaviour and 3D
-viewer (colours may follow the public design); the Services cards
-(`components/service_card/`); the Home program cards' background images; and the
+viewer (colours may follow the public design); the Services tiers
+(`components/service_tiers/`, the owner's own design of 2026-11-14 that
+replaced the former cards); the Home program cards' background images; and the
 login/registration fields, validation, messages, API calls and redirects. Do not
 alter them or their shared styling indirectly. Read `docs/AI/frontend-revamp.md`
 before any frontend work and use isolated variants when a shared component is

@@ -84,6 +84,27 @@ func OptionalCover(key string) *string {
 	return &key
 }
 
+// ValidateAudience accepts no audience (everyone), "female" or "male". A
+// Premium Level 2 offer is personalised and never carries one.
+func ValidateAudience(productType, audience string) error {
+	audience = strings.TrimSpace(audience)
+	if audience == "" {
+		return nil
+	}
+	if !models.ValidSex(audience) {
+		return errors.New("audience must be female, male or empty")
+	}
+	if productType == models.ProgramProductTypePremiumLevel2 {
+		return errors.New("a premium level 2 offer has no audience")
+	}
+	return nil
+}
+
+// OptionalAudience maps an empty audience (everyone) to nil.
+func OptionalAudience(audience string) *string {
+	return OptionalCover(audience)
+}
+
 // ValidateWorkoutDetails validates a training day's name, description and
 // focus. Every field is optional; an empty focus means "not set".
 func ValidateWorkoutDetails(name, description, focus string) error {

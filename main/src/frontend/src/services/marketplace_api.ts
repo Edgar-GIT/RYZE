@@ -51,6 +51,8 @@ export interface MarketplaceProgram extends MarketplaceProgramProduct {
   currency: string;
   // Public path of the plan's cover picture ("" without one).
   cover_image_url?: string;
+  // Designed more for women or men; null: for everyone.
+  audience?: "female" | "male" | null;
   created_at: string;
   updated_at: string;
 }
@@ -74,6 +76,8 @@ export type MarketplaceSort = "created_at" | "updated_at" | "name";
 /** MarketplaceFilters is the server-side filter contract. Values inside one
  *  dimension are ORed; dimensions are ANDed by the backend. */
 export interface MarketplaceFilters {
+  // Plans for everyone plus those designed for this audience.
+  audience?: "female" | "male";
   trainingTypes?: string[];
   levels?: string[];
   frequencies?: number[];
@@ -105,6 +109,9 @@ export const fetchMarketplacePrograms = async (
   }
   if (params.type) {
     query.set("type", params.type);
+  }
+  if (params.audience) {
+    query.set("audience", params.audience);
   }
   if (params.trainingTypes?.length) {
     query.set("training_type", commaList(params.trainingTypes));

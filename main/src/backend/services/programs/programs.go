@@ -74,6 +74,7 @@ type Program struct {
 	FrequencyPerWeek *int
 	TrainingType     *string
 	CoverImage       *string
+	Audience         *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -95,6 +96,7 @@ type CreateProgramInput struct {
 	FrequencyPerWeek int
 	TrainingType     string
 	CoverImage       string
+	Audience         string
 }
 
 // UpdateProgramInput carries the optional whitelisted fields accepted when
@@ -114,6 +116,7 @@ type UpdateProgramInput struct {
 	FrequencyPerWeek *int
 	TrainingType     *string
 	CoverImage       *string
+	Audience         *string
 }
 
 // UpdatePricingInput carries the pricing fields accepted when updating a
@@ -212,6 +215,9 @@ func (s *service) CreateProgram(ctx context.Context, trainerID string, input Cre
 	if err := program_details.ValidateCoverKey(program_details.CoverFolder(models.ProgramProductTypeGeneric, input.Type), input.CoverImage); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
+	if err := program_details.ValidateAudience(models.ProgramProductTypeGeneric, input.Audience); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
 
 	program := &models.Program{
 		TrainerID:        trainerID,
@@ -226,6 +232,7 @@ func (s *service) CreateProgram(ctx context.Context, trainerID string, input Cre
 		FrequencyPerWeek: program_details.OptionalPositive(input.FrequencyPerWeek),
 		TrainingType:     program_details.OptionalString(input.TrainingType),
 		CoverImage:       program_details.OptionalCover(input.CoverImage),
+		Audience:         program_details.OptionalAudience(input.Audience),
 	}
 	if err := s.programs.Create(ctx, program); err != nil {
 		return nil, fmt.Errorf("failed to create program: %w", err)
@@ -384,6 +391,12 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 			return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 		}
 		updates["cover_image"] = program_details.OptionalCover(*input.CoverImage)
+	}
+	if input.Audience != nil {
+		if err := program_details.ValidateAudience(models.ProgramProductTypeGeneric, *input.Audience); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+		}
+		updates["audience"] = program_details.OptionalAudience(*input.Audience)
 	}
 
 	if len(updates) == 0 {
@@ -584,6 +597,7 @@ func newProgram(model *models.Program) *Program {
 		FrequencyPerWeek: model.FrequencyPerWeek,
 		TrainingType:     model.TrainingType,
 		CoverImage:       model.CoverImage,
+		Audience:         model.Audience,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
 	}

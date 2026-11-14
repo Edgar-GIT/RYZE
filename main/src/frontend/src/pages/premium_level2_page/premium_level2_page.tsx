@@ -171,7 +171,7 @@ export const PremiumLevel2Page = () => {
               <h1 className={styles.title}>{tr("One-to-one training, built around you")}</h1>
               <p className={styles.subtitle}>
                 {tr(
-                  "Buy the service first, complete your intake, and a certified RYZE trainer will author your individual training and nutrition plans."
+                  "Answer a detailed questionnaire, pay once, and a certified RYZE trainer will author your individual training and nutrition plans."
                 )}
               </p>
             </header>
@@ -302,12 +302,12 @@ export const PremiumLevel2Page = () => {
                 <h2 className={styles.sectionTitle}>{tr("How it works")}</h2>
                 <ol className={styles.steps}>
                   <li>
-                    <strong>{tr("Purchase the service.")}</strong>{" "}
-                    {tr("The offer itself contains no training plan; your programme is created for you afterwards.")}
-                  </li>
-                  <li>
                     <strong>{tr("Complete your intake.")}</strong>{" "}
                     {tr("Your trainer uses it to build around your goal, experience, schedule and dietary needs.")}
+                  </li>
+                  <li>
+                    <strong>{tr("Purchase the service.")}</strong>{" "}
+                    {tr("You pay once the questionnaire is complete; your programme is created for you afterwards.")}
                   </li>
                   <li>
                     <strong>{tr("Your trainer builds both plans.")}</strong>{" "}
@@ -364,19 +364,9 @@ export const PremiumLevel2Page = () => {
                 ) : (
                   <>
                     <p className={styles.sectionText}>
-                      {tr("Complete checkout to start your intake. Your trainer is allocated after the intake is submitted.")}
+                      {tr("The questionnaire comes first; payment is the last step.")}
                     </p>
-                    {testModeActive ? (
-                      <p className={styles.testModeNote}>
-                        <FlaskConical size={14} aria-hidden="true" />
-                        {tr("Test Mode is active. No payment provider is contacted.")}
-                      </p>
-                    ) : null}
-                    {checkout.state.status === "guest" ? (
-                      <Button variant="primary" size="small" to="/login">
-                        {tr("Sign in to purchase")}
-                      </Button>
-                    ) : checkout.state.status === "error" ? (
+                    {checkout.state.status === "error" ? (
                       <div className={styles.actions}>
                         <p className={styles.errorText}>{tr(checkout.state.message)}</p>
                         <Button variant="secondary" size="small" onClick={() => void checkout.buy()}>
@@ -388,49 +378,15 @@ export const PremiumLevel2Page = () => {
                         {tr("This service is already active. Open it from the list above.")}
                       </p>
                     ) : (
-                      <>
-                        {checkout.paymentMethods.length > 0 ? (
-                          <fieldset className={styles.methods}>
-                            <legend className={styles.label}>{tr("Payment method")}</legend>
-                            <div className={styles.methodOptions}>
-                              {checkout.paymentMethods.map((method) => (
-                                <label
-                                  key={method.method}
-                                  className={styles.method}
-                                >
-                                  <input
-                                    type="radio"
-                                    name="premium-level-2-method"
-                                    value={method.method}
-                                    checked={checkout.selectedMethod === method.method}
-                                    onChange={() => checkout.selectMethod(method.method)}
-                                  />
-                                  <span>{method.label}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </fieldset>
-                        ) : (
-                          <p className={styles.sectionText}>
-                            {tr("Checkout is temporarily unavailable. No payment can be started right now.")}
-                          </p>
-                        )}
-                        <Button
-                          variant="primary"
-                          size="small"
-                          disabled={
-                            checkout.paymentMethods.length === 0 ||
-                            ["creating", "negotiating", "redirecting", "processing"].includes(
-                              checkout.state.status
-                            )
-                          }
-                          onClick={() => void checkout.buy()}
-                        >
-                          {checkout.state.status === "checking"
-                            ? tr("Checking access…")
-                            : tr("Buy Premium Level 2")}
-                        </Button>
-                      </>
+                      <Button
+                        variant="primary"
+                        size="small"
+                        icon={<ClipboardList size={15} />}
+                        iconPosition="left"
+                        to={`/services/premium-level-2?offer=${encodeURIComponent(selectedOffer.id)}`}
+                      >
+                        {tr("Start the questionnaire")}
+                      </Button>
                     )}
                   </>
                 )}

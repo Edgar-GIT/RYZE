@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useHistory } from "react-router-dom";
 
+import { takeAfterLogin } from "@/services/after_login";
 import { fetchTrainerAccess } from "@/services/trainer_api";
 import { ApiError } from "@utils/http_client";
 
@@ -16,6 +17,12 @@ export const SignedInPage = () => {
 
   useEffect(() => {
     let cancelled = false;
+    // A journey interrupted by the sign-in continues where it was.
+    const resume = takeAfterLogin();
+    if (resume) {
+      history.replace(resume);
+      return;
+    }
     fetchTrainerAccess()
       .then((access) => {
         if (!cancelled) {

@@ -1438,8 +1438,13 @@ The implemented `programs` table contains:
   means no backfill was required and every pre-existing program kept its
   behaviour.
 - `objective` — goal classification (`VARCHAR(32)`, nullable), `CHECK`-constrained
-  to (`gain_muscle`, `lose_fat`, `strength_conditioning`) and indexed by
-  `idx_programs_objective`. Added by migration `000034`. It is required for a
+  to (`gain_muscle`, `lose_fat`, `strength_conditioning`, and `sport_specific`
+  since migration `000044`) and indexed by `idx_programs_objective`. Added by
+  migration `000034`.
+- `audience` — who the plan is designed for (`VARCHAR(10)`, nullable, migration
+  `000045`): `female`, `male` or `NULL` (everyone). `chk_programs_audience`
+  refuses other values and any audience on a `premium_level_2` offer. Editable;
+  the public catalogue filters with `audience IS NULL OR audience = ?`. It is required for a
   curated Premium Level 1 package, `NULL` for a legacy questionnaire-generated
   package and `NULL` for every generic program. It is server-owned metadata and
   cannot change after creation.
@@ -2726,3 +2731,59 @@ reads it only (`->`). Writing it (as the model did after the PostgreSQL
 migration) failed with SQLSTATE 428C9 and made every trainer commission
 override impossible; fixed in v2.114.0 and covered by
 `repositories/commission_rule_repository_test.go`.
+
+---
+
+## Migration 000044 — Premium Level 1 match and Level 2 questionnaire drafts (v2.115.0)
+
+Additive (owner request, 2026-11-14):
+
+- `chk_programs_objective` is recreated with a fourth objective,
+  `sport_specific` (sport-specific training, e.g. football). Existing rows are
+  unaffected.
+- `premium_level_1_matches` — one row per plan match: `id`, `user_id`
+  (FK `users`), `program_id` (FK `programs`), `objective` (same vocabulary),
+  `weight_kg NUMERIC(5,1)` 30–300, `height_cm NUMERIC(5,1)` 120–230,
+  `age SMALLINT` 14–100 (all `CHECK`-constrained), `created_at`. Index
+  `idx_premium_level_1_matches_user (user_id, created_at DESC)`. Rows are
+  append-only; the body data is kept with the account for the later nutrition
+  work and is never exposed publicly.
+- `premium_level_2_intake_drafts` — the pre-purchase questionnaire: `id`,
+  `user_id`, `program_id` (FKs), `answers JSONB NOT NULL DEFAULT '{}'` (only
+  answers valid against the intake catalog), `complete BOOLEAN`, `created_at`,
+  `updated_at` (touched by `ryze_touch_updated_at()`), unique
+  `(user_id, program_id)`. A completed purchase copies the draft into
+  `premium_level_2_intakes` (revision 1) and deletes the draft.
+
+"Never the same plan twice" is enforced by excluding packages with an active
+entitlement or a completed purchase of the caller, not by these tables.
+
+Like the other intake tables, drafts and matches are kept on account soft
+deletion. No retention period is defined yet for drafts of offers that were
+never bought (open business decision).
+
+The down migration drops both tables and restores the three-value objective
+constraint; it fails if a programme already uses `sport_specific`, so such
+rows must be reclassified before rolling back.
+
+---
+
+## Migration 000045 — plan audience and member sex (v2.116.0)
+
+Additive (owner request, 2026-11-14):
+
+- `programs.audience VARCHAR(10) NULL` with `chk_programs_audience`
+  (`NULL`, or `female`/`male` on a product other than `premium_level_2`).
+- `users.sex VARCHAR(10) NULL` with `chk_users_sex` (`female`/`male`) and
+  `users.plan_audience_filter BOOLEAN NULL` (`NULL`: not asked yet; `true`:
+  show the plans for the member's sex first; `false`: show every plan).
+- `premium_level_1_matches.sex VARCHAR(10) NULL` with
+  `chk_premium_level_1_matches_sex`; filled for every match since v2.116.0
+  (older rows stay `NULL`).
+
+The EXP, lifter levels and record medals added in the same version need no
+table: they are derived on read from `workout_sessions`,
+`workout_session_exercises` and `workout_session_sets` (completed sessions and
+completed sets only).
+
+The down migration drops the constraints and columns.
