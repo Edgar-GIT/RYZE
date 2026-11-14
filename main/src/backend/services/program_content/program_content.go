@@ -52,11 +52,14 @@ type WorkoutExercise struct {
 
 // Workout is one workout slot inside a program week.
 type Workout struct {
-	ID        string
-	Position  int
-	Exercises []WorkoutExercise
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          string
+	Position    int
+	Name        string
+	Description string
+	Focus       *string
+	Exercises   []WorkoutExercise
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // Week is one week slot inside a program.
@@ -80,6 +83,7 @@ type Program struct {
 	DurationWeeks    *int
 	FrequencyPerWeek *int
 	TrainingType     *string
+	CoverImage       *string
 	PriceMinorUnits  int64
 	Currency         string
 	ProductType      string
@@ -114,6 +118,7 @@ func (b *Builder) Build(model *models.Program) *Program {
 		DurationWeeks:    model.DurationWeeks,
 		FrequencyPerWeek: model.FrequencyPerWeek,
 		TrainingType:     model.TrainingType,
+		CoverImage:       model.CoverImage,
 		PriceMinorUnits:  model.PriceMinorUnits,
 		Currency:         model.Currency,
 		ProductType:      model.ProductType,
@@ -143,11 +148,14 @@ func (b *Builder) newWeek(model *models.ProgramWeek) Week {
 
 func (b *Builder) newWorkout(model *models.ProgramWorkout) Workout {
 	workout := Workout{
-		ID:        model.ID,
-		Position:  model.Position,
-		Exercises: make([]WorkoutExercise, 0, len(model.Exercises)),
-		CreatedAt: model.CreatedAt,
-		UpdatedAt: model.UpdatedAt,
+		ID:          model.ID,
+		Position:    model.Position,
+		Name:        model.Name,
+		Description: model.Description,
+		Focus:       model.Focus,
+		Exercises:   make([]WorkoutExercise, 0, len(model.Exercises)),
+		CreatedAt:   model.CreatedAt,
+		UpdatedAt:   model.UpdatedAt,
 	}
 	for i := range model.Exercises {
 		workout.Exercises = append(workout.Exercises, b.newWorkoutExercise(&model.Exercises[i]))

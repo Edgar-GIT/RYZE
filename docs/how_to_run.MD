@@ -816,6 +816,22 @@ never be reproduced in the production server configuration.
 
 ## Trainer Evidence Storage (Optional)
 
+Plan cover images (v2.114.0) are public and live in the uploads directory,
+created on start as `programs/{generic,l1,l2}` plus the reserved `avatars` and
+`feedback` folders:
+
+```env
+# Public uploads (default: uploads, next to the API working directory)
+UPLOADS_DIR=uploads
+
+# Maximum size of one image in bytes (default: 5242880 = 5 MiB, max 15 MiB)
+UPLOADS_MAX_IMAGE_BYTES=5242880
+```
+
+In production point `UPLOADS_DIR` at a writable state directory (for example
+`/var/lib/ryze/uploads`) and keep it in the backups; it is served read-only at
+`/uploads/programs/...`.
+
 Applicant evidence documents are private; only validated metadata is stored in
 the database and the file bytes live in the configured directory.
 

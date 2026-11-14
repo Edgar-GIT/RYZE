@@ -1,12 +1,24 @@
-import { ClipboardList, Dumbbell, LayoutDashboard, LifeBuoy, Plus, UserRound, Users } from "lucide-react";
+import {
+  ClipboardList,
+  Dumbbell,
+  ExternalLink,
+  Globe2,
+  LayoutDashboard,
+  LifeBuoy,
+  Plus,
+  Settings,
+  UserRound,
+  Users
+} from "lucide-react";
 import { useEffect, useState } from "react";
-import { Redirect } from "react-router-dom";
+import { Redirect, useHistory } from "react-router-dom";
 
-import { AppShell, type ShellNavItem } from "@/components/app_shell/app_shell";
+import { AppShell, type ShellNavItem, type UserMenuItem } from "@/components/app_shell/app_shell";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { useTrainerSession } from "@/components/trainer/trainer_session_context";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { fetchTrainerProfile } from "@/services/trainer_api";
+import { apiPost } from "@utils/http_client";
 
 interface TrainerLayoutProps {
   children: React.ReactNode;
@@ -25,6 +37,14 @@ const COPY: Copy<{
   newProgramText: string;
   memberArea: string;
   back: string;
+  menu: string;
+  publicProfile: string;
+  account: string;
+  site: string;
+  signOut: string;
+  signingOut: string;
+  coach: string;
+  close: string;
 }> = {
   en: {
     nav: "Trainer area",
@@ -38,7 +58,15 @@ const COPY: Copy<{
     newProgram: "New programme",
     newProgramText: "Build a plan for clients or the store",
     memberArea: "My training",
-    back: "Back to the site"
+    back: "Back to the site",
+    menu: "Account menu",
+    publicProfile: "Public coach profile",
+    account: "Account settings",
+    site: "RYZE website",
+    signOut: "Sign out",
+    signingOut: "Signing out…",
+    coach: "Coach",
+    close: "Close"
   },
   pt: {
     nav: "Área de treinador",
@@ -52,7 +80,15 @@ const COPY: Copy<{
     newProgram: "Novo programa",
     newProgramText: "Cria um plano para clientes ou para a loja",
     memberArea: "O meu treino",
-    back: "Voltar ao site"
+    back: "Voltar ao site",
+    menu: "Menu da conta",
+    publicProfile: "Perfil público",
+    account: "Definições da conta",
+    site: "Site da RYZE",
+    signOut: "Terminar sessão",
+    signingOut: "A terminar sessão…",
+    coach: "Treinador",
+    close: "Fechar"
   }
 };
 
@@ -65,7 +101,9 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
   const { access, unauthenticated, loaded } = useTrainerSession();
   const { locale } = useI18n();
   const text = COPY[locale];
+  const history = useHistory();
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
 
   const isTrainer = access?.is_trainer ?? false;
 
@@ -77,6 +115,7 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
         if (!cancelled) {
           const name = [profile.user.first_name, profile.user.last_name].filter(Boolean).join(" ");
           setUser({ name: name || profile.user.email, email: profile.user.email });
+          setProfileId(profile.id);
         }
       })
       .catch(() => {
@@ -109,19 +148,42 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
     { to: "/trainer/profile", label: text.profile, icon: UserRound },
     { to: "/support", label: text.support, icon: LifeBuoy }
   ];
+  const menuItems: UserMenuItem[] = [
+    { to: "/trainer/profile", label: text.profile, icon: UserRound },
+    ...(profileId ? [{ to: `/coaches/${profileId}`, label: text.publicProfile, icon: ExternalLink }] : []),
+    { to: "/profile", label: text.memberArea, icon: Dumbbell },
+    { to: "/account/settings", label: text.account, icon: Settings },
+    { to: "/support", label: text.support, icon: LifeBuoy },
+    { to: "/", label: text.site, icon: Globe2 }
+  ];
+
+  const signOut = async () => {
+    try {
+      await apiPost("/auth/logout", {});
+    } catch {
+      // Best effort: the session cookie may already be gone.
+    }
+    history.replace("/login");
+  };
 
   return (
     <AppShell
       area="trainer"
+      brandTag={text.coach}
       navLabel={text.nav}
-      items={items}
-      secondaryLabel={text.more}
-      secondaryItems={secondaryItems}
-      tabs={[...items, secondaryItems[0]]}
-      user={user}
-      accountTo="/trainer/profile"
-      accountLabel={text.profile}
-      action={{ to: "/trainer/programs?new=1", title: text.newProgram, text: text.newProgramText, icon: Plus }}
+      groups={[{ items }, { label: text.more, items: secondaryItems }]}
+      tabs={items}
+      moreLabel={text.more}
+      closeLabel={text.close}
+      user={user ? { ...user, role: text.coach } : null}
+      menu={{
+        label: text.menu,
+        items: menuItems,
+        signOutLabel: text.signOut,
+        signingOutLabel: text.signingOut,
+        onSignOut: signOut
+      }}
+      action={{ to: "/trainer/programs/new", title: text.newProgram, text: text.newProgramText, icon: Plus }}
       switchTo={{ to: "/profile", label: text.memberArea, icon: Dumbbell }}
       backToSite={text.back}
     >

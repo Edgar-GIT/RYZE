@@ -28,6 +28,7 @@ type CoachProgramRow struct {
 	DurationWeeks    *int
 	FrequencyPerWeek *int
 	TrainingType     *string
+	CoverImage       *string
 	PriceMinorUnits  int64
 	Currency         string
 	ProductType      string
@@ -81,7 +82,7 @@ JOIN users u ON u.id = t.user_id AND u.deleted_at IS NULL AND u.test_persona IS 
 
 const coachProgramColumns = `
 SELECT p.id, p.name, COALESCE(p.description, '') AS description, p.type, p.status, p.level,
-       p.duration_weeks, p.frequency_per_week, p.training_type, p.price_minor_units,
+       p.duration_weeks, p.frequency_per_week, p.training_type, p.cover_image, p.price_minor_units,
        p.currency, p.product_type, p.created_at, p.updated_at,
        COALESCE(v.view_count, 0) AS view_count,
        t.id AS coach_id, u.first_name AS coach_first_name, u.last_name AS coach_last_name

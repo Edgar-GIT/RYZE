@@ -38,6 +38,13 @@ func (h *AdminSettingsHandler) GetCommerce(c *gin.Context) {
 			"default_platform_commission_bps": h.defaultCommission,
 			"max_commission_bps":              commission_rules.MaxCommissionBPS,
 			"payment_methods":                 methods,
+			// Fixed catalogue prices (owner decision, 2026-11-14): nobody sets
+			// a price; trainer premium/personalized plans follow Level 1/2.
+			"catalog_prices": gin.H{
+				models.ProgramProductTypeGeneric:       models.CatalogPriceMinorUnits(models.ProgramProductTypeGeneric, models.ProgramTypeFree),
+				models.ProgramProductTypePremiumLevel1: models.PremiumLevel1PriceMinorUnits,
+				models.ProgramProductTypePremiumLevel2: models.PremiumLevel2PriceMinorUnits,
+			},
 		},
 	})
 }

@@ -11,6 +11,7 @@ import { AppRoutes } from "@/routes/app_routes";
 import { ScrollToTop } from "@/routes/scroll_to_top";
 
 const CHROME_FREE_PATHNAMES = new Set([
+  "/app",
   "/login",
   "/register",
   "/profile",

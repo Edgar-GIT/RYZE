@@ -12,6 +12,7 @@ export interface FreeProgramSummary {
   training_type: string | null;
   price_minor_units: number;
   currency: string;
+  cover_image_url?: string;
 }
 
 export interface FreeProgramActivation {

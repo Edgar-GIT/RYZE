@@ -1885,10 +1885,15 @@ Request body:
 - `description` — optional, max 5000 characters.
 - `type` — one of `free`, `premium`, `personalized`.
 - `status` — one of `draft`, `published`; defaults to `draft` when omitted.
-- `price_minor_units` — integer, price in minor currency units (cents for EUR).
-  Free programs must have 0; paid programs must meet the configured minimum
-  (env `MIN_PROGRAM_PRICE_MINOR_UNITS`, default 100 = €1.00). Defaults to 0.
-- `currency` — ISO 4217 code, currently only `EUR`. Defaults to `EUR`.
+- `price_minor_units`, `currency` — accepted for compatibility and ignored
+  (v2.114.0): the price follows the type's catalogue category — `free` 0,
+  `premium` 1499 (the Premium Level 1 price), `personalized` 1949 (the Premium
+  Level 2 price) — always in EUR. Changing the type on `PATCH` re-applies it.
+- `level`, `training_type`, `duration_weeks`, `frequency_per_week` — optional
+  catalogue metadata with the generic-program vocabularies (v2.114.0).
+- `cover_image` — optional uploads key from `POST /trainer/uploads/program-cover`
+  inside the folder of the type's category (v2.114.0). Responses also carry
+  `cover_image_url`.
 
 Response:
 
@@ -5580,18 +5585,21 @@ Responses:
 
 ### `PATCH /api/v1/admin/programs/:programID/pricing`
 
-Updates the price of one active program. Protected by `plans` permission.
+Since v2.114.0 prices are fixed by catalogue category (owner decision,
+2026-11-14), so this endpoint can only re-apply a program's catalogue price
+(useful for a row saved before the rule existed). Protected by `plans`.
 
 Request body:
 
-- `price_minor_units` — integer, price in minor currency units. Free programs
-  must have 0; paid programs must meet the configured minimum.
+- `price_minor_units` — must equal the program's catalogue price (generic 0,
+  Premium Level 1 1499, Premium Level 2 1949; trainer plans by type).
 - `currency` — ISO 4217 code, currently only `EUR`.
 
 Responses:
 
 - `200 OK` — updated program object.
-- `400 VALIDATION_ERROR` — invalid pricing input.
+- `400 VALIDATION_ERROR` — invalid currency.
+- `409 PRICE_FIXED` — any other price.
 - `403 FORBIDDEN` — insufficient permissions.
 - `404 PROGRAM_NOT_FOUND` — missing or soft-deleted program.
 
@@ -5878,11 +5886,11 @@ Transitions a `draft` generic program to `published` via a guarded conditional
 update. Protected by `plans`.
 
 Because publishing exposes the program as a purchasable marketplace entry, the
-commercial gate is re-checked server-side before the transition: free programs
-must carry a price of `0` minor units and paid programs must carry at least the
-configured minimum (`MIN_PROGRAM_PRICE_MINOR_UNITS`, default 100 = €1.00). An
-invalid price rejects the publish even though create/update already validate
-prices. A Premium Level 1 package is also re-checked for a valid nutrition mode,
+commercial gate is re-checked server-side before the transition: the program
+must carry its family's type and catalogue price (generic free, Premium Level 1
+1499, Premium Level 2 1949, EUR). A row saved before the catalogue prices
+existed is rejected (`400 VALIDATION_ERROR`) until it is saved again, which
+applies the price. A Premium Level 1 package is also re-checked for a valid nutrition mode,
 and a curated package for its objective and complete plan. A content lock does
 not block publishing.
 
@@ -7207,3 +7215,80 @@ Whenever the API changes:
 - Avoid breaking changes unless a new API version is introduced.
 
 The RYZE API should always prioritize consistency, simplicity, security, scalability and long-term maintainability.
+
+---
+
+# PLAN COVERS, TRAINING-DAY DETAILS, TRAINER PLAN STRUCTURE AND ADMIN OVERVIEWS (v2.114.0)
+
+Owner request of 2026-11-14 (plan builder rework, fixed prices, richer
+administration dashboards).
+
+## Platform plans (`/programs/generic|premium-level-1|premium-level-2`)
+
+- The request body may carry `cover_image` (an uploads key from
+  `POST /admin/uploads/program-cover`, inside the folder of the family's
+  category; another folder is `400`). Responses carry `cover_image` and
+  `cover_image_url` (`/uploads/programs/<folder>/<uuid>.<ext>`).
+- Each workout (training day) accepts and returns `name` (max 80),
+  `description` (max 1000) and `focus` (one of `full_body`, `upper_body`,
+  `lower_body`, `push`, `pull`, `legs`, `chest`, `back`, `shoulders`, `arms`,
+  `core`, `glutes`, `cardio`, `mobility`, or empty).
+- `type`, `price_minor_units` and `currency` are ignored: generic plans are
+  stored `free`/0, Level 1 `premium`/1499 and Level 2 `premium`/1949 (EUR).
+- Client reads (`/me/programs/:id`, entitlements, Free activations, the
+  public catalogue and coach profiles) expose `cover_image_url`; the client
+  programme structure exposes each day's `name`, `description` and `focus`.
+
+## Cover uploads
+
+- `POST /api/v1/admin/uploads/program-cover` — `plans` permission (ADMIN_2).
+  Multipart: `family` (`generic`, `premium_level_1`, `premium_level_2`) and
+  `file`.
+- `POST /api/v1/trainer/uploads/program-cover` — trainer `programs`
+  permission. Multipart: `type` (`free`, `premium`, `personalized`) and `file`.
+- Folder: the catalogue category (`generic`, `l1`, `l2`). JPEG, PNG or WebP
+  only, detected from the bytes; at most `UPLOADS_MAX_IMAGE_BYTES` (default
+  5 MiB); JPEG/PNG headers are decoded and limited to 8000 px per side.
+- `201` → `{ key, url }`. `400 IMAGE_TYPE_NOT_ALLOWED`, `413 IMAGE_TOO_LARGE`,
+  `400 VALIDATION_ERROR` (unknown family/type or missing file). Rate limited
+  (`image-upload`, 60 per hour per IP). Admin uploads are audited
+  (`program.cover_upload`).
+- `GET|HEAD /uploads/programs/{generic|l1|l2}/<uuid>.<jpg|png|webp>` —
+  public, read-only; any other path is `404`. Sent with the exact content type,
+  `X-Content-Type-Options: nosniff`, a sandboxing CSP and a one-year immutable
+  cache (keys are unique per upload).
+
+## Trainer plan structure
+
+- `GET /api/v1/trainer/programs/:programID/structure` →
+  `{ weeks: [...] }` (same shape as the platform plan weeks).
+- `PUT /api/v1/trainer/programs/:programID/structure` with `{ weeks: [...] }`
+  (same request shape as the platform plans) reconciles the whole structure in
+  one transaction: reused rows keep their ids, surplus rows are soft-deleted.
+  Same validation as the platform builder. `404 PROGRAM_NOT_FOUND` for another
+  trainer's plan, `409 PROGRAM_LOCKED` after a Premium Level 2 delivery,
+  `409 DUPLICATE_EXERCISE`, `404 EXERCISE_NOT_FOUND`.
+
+## Administration overviews
+
+- `GET /api/v1/admin/overview/business?days=7|30|90` — `commerce` permission
+  (ADMIN_2). Revenue (all time, period, previous period, platform share,
+  trainer payouts, by category — `generic`, `premium_level_1`,
+  `premium_level_2`, `trainer` — and per day), purchases (pending, failed,
+  Test Mode), members (total, new, signups per day, active in 7 days and in the
+  period), training (workouts completed per day, Free activations, active
+  entitlements), trainers (active, pending applications), catalogue (published
+  per category, platform drafts), queues and the top selling and most viewed
+  plans. Revenue counts completed, non-test purchases only; Test Mode personas
+  are excluded from member figures. Days are UTC calendar days.
+- `GET /api/v1/admin/overview/queues` — `commerce`. The open work counts used
+  as navigation badges (Premium L2 by status, open support, pending feedback,
+  pending applications).
+- `GET /api/v1/admin/overview/platform?days=7|30|90` — `system` permission
+  (ADMIN_1). Members (total, new, verified, disabled, signups per day, active
+  in 7 days), workouts completed per day, trainers and pending applications,
+  and admin audit counts for the last 24 hours (total, denied, failed).
+- Every figure is an aggregate; no personal data, payment reference or message
+  content is returned.
+- `GET /api/v1/admin/settings/commerce` also returns `catalog_prices`
+  (`generic`, `premium_level_1`, `premium_level_2`).

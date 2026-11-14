@@ -433,6 +433,166 @@
   display: none;
 }
 
+.navSection + .navSection {
+  margin-top: 0.35rem;
+}
+
+.navBadge {
+  margin-left: auto;
+  min-width: 1.4rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  color: #02041f;
+  background: #00cbff;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 800;
+  text-align: center;
+}
+
+.topTag {
+  margin-left: 0.15rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  color: #7cebff;
+  background: rgba(0, 203, 255, 0.12);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* --- Phones: the "More" sheet ------------------------------------------- */
+
+.sheetLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheetBackdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 4, 31, 0.6);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.sheet {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-height: 82svh;
+  overflow-y: auto;
+  padding: 1rem 1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(160, 225, 255, 0.3);
+  border-radius: 24px 24px 0 0;
+  background: linear-gradient(180deg, #0f2366 0%, #050d3c 100%);
+  box-shadow: 0 -30px 60px -20px rgba(0, 0, 0, 0.8);
+  animation: sheetIn 200ms ease-out;
+}
+
+@keyframes sheetIn {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+.sheetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sheetHead strong {
+  font-family: var(--app-font-display);
+  font-size: 1.2rem;
+  font-stretch: 125%;
+}
+
+.sheetClose {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgba(124, 200, 255, 0.2);
+  border-radius: 12px;
+  color: #ffffff;
+  background: rgba(2, 8, 38, 0.5);
+  cursor: pointer;
+}
+
+.sheetClose svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.sheetGroup {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sheetLabel {
+  margin: 0;
+  color: #7c8db3;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sheetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.sheetItem,
+.sheetSwitch {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 3.1rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(124, 200, 255, 0.14);
+  border-radius: 14px;
+  color: #dbe5f7;
+  background: rgba(2, 8, 38, 0.45);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.sheetItem svg,
+.sheetSwitch svg {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  color: #00cbff;
+}
+
+.sheetItemActive {
+  border-color: rgba(0, 203, 255, 0.55);
+  color: #ffffff;
+  background: rgba(0, 203, 255, 0.12);
+}
+
+.sheetSwitch {
+  justify-content: center;
+}
+
+.sheetItem:focus-visible,
+.sheetSwitch:focus-visible,
+.sheetClose:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}
+
 /* --- Tablets: an icon rail --------------------------------------------- */
 
 @media (max-width: 1180px) {
@@ -451,6 +611,7 @@
 
   .brand .brandName,
   .brandTag,
+  .navBadge,
   .navItem span,
   .navGroup,
   .actionText,
@@ -548,15 +709,36 @@
   }
 
   .tab {
+    position: relative;
     display: grid;
     justify-items: center;
     gap: 0.2rem;
     padding: 0.4rem 0.2rem;
+    border: 0;
     border-radius: 12px;
     color: #93a4c8;
+    background: transparent;
+    font: inherit;
     font-size: 0.68rem;
     font-weight: 700;
     text-decoration: none;
+    cursor: pointer;
+  }
+
+  .tabBadge {
+    position: absolute;
+    top: 0.15rem;
+    left: calc(50% + 0.35rem);
+    min-width: 1.05rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    color: #02041f;
+    background: #00cbff;
+    font-size: 0.6rem;
+    font-style: normal;
+    font-weight: 800;
+    line-height: 1.05rem;
+    text-align: center;
   }
 
   .tab svg {
@@ -584,5 +766,9 @@
   .navItem,
   .actionCard {
     transition: none;
+  }
+
+  .sheet {
+    animation: none;
   }
 }

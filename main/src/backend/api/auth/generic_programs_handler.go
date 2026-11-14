@@ -9,6 +9,7 @@ import (
 
 	"ryze/backend/services/curated_nutrition"
 	"ryze/backend/services/generic_programs"
+	"ryze/backend/services/program_details"
 )
 
 // genericProgramResponse exposes only safe program metadata of a
@@ -33,6 +34,8 @@ type genericProgramResponse struct {
 	TrainingType     *string   `json:"training_type"`
 	PriceMinorUnits  int64     `json:"price_minor_units"`
 	Currency         string    `json:"currency"`
+	CoverImage       *string   `json:"cover_image"`
+	CoverImageURL    string    `json:"cover_image_url"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
@@ -54,6 +57,8 @@ func newGenericProgramResponse(program generic_programs.Program) genericProgramR
 		TrainingType:     program.TrainingType,
 		PriceMinorUnits:  program.PriceMinorUnits,
 		Currency:         program.Currency,
+		CoverImage:       program.CoverImage,
+		CoverImageURL:    program_details.CoverURL(program.CoverImage),
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.UpdatedAt,
 	}
@@ -129,10 +134,14 @@ func newGenericExerciseResponse(exercise generic_programs.WorkoutExercise) gener
 	}
 }
 
-// genericWorkoutResponse exposes one workout slot in position order.
+// genericWorkoutResponse exposes one workout slot (training day) in position
+// order with its name, description and muscle-group focus.
 type genericWorkoutResponse struct {
-	Position  int                       `json:"position"`
-	Exercises []genericExerciseResponse `json:"exercises"`
+	Position    int                       `json:"position"`
+	Name        string                    `json:"name"`
+	Description string                    `json:"description"`
+	Focus       *string                   `json:"focus"`
+	Exercises   []genericExerciseResponse `json:"exercises"`
 }
 
 func newGenericWorkoutResponse(workout generic_programs.Workout) genericWorkoutResponse {
@@ -140,7 +149,13 @@ func newGenericWorkoutResponse(workout generic_programs.Workout) genericWorkoutR
 	for i := range workout.Exercises {
 		exercises = append(exercises, newGenericExerciseResponse(workout.Exercises[i]))
 	}
-	return genericWorkoutResponse{Position: workout.Position, Exercises: exercises}
+	return genericWorkoutResponse{
+		Position:    workout.Position,
+		Name:        workout.Name,
+		Description: workout.Description,
+		Focus:       workout.Focus,
+		Exercises:   exercises,
+	}
 }
 
 // genericWeekResponse exposes one week in week order.
@@ -199,9 +214,12 @@ type genericExerciseRequest struct {
 	Sets         []genericSetRequest `json:"sets"`
 }
 
-// genericWorkoutRequest is one workout slot of a week.
+// genericWorkoutRequest is one workout slot (training day) of a week.
 type genericWorkoutRequest struct {
-	Exercises []genericExerciseRequest `json:"exercises"`
+	Name        string                   `json:"name"`
+	Description string                   `json:"description"`
+	Focus       string                   `json:"focus"`
+	Exercises   []genericExerciseRequest `json:"exercises"`
 }
 
 // genericWeekRequest is one week of the program.
@@ -227,6 +245,7 @@ type genericProgramRequest struct {
 	TrainingType     string                   `json:"training_type"`
 	PriceMinorUnits  int64                    `json:"price_minor_units"`
 	Currency         string                   `json:"currency"`
+	CoverImage       string                   `json:"cover_image"`
 	Weeks            []genericWeekRequest     `json:"weeks"`
 }
 
@@ -274,6 +293,7 @@ func toGenericProgramInput(req *genericProgramRequest) generic_programs.ProgramI
 		Currency:         req.Currency,
 		Objective:        req.Objective,
 		NutritionMode:    req.NutritionMode,
+		CoverImage:       req.CoverImage,
 		Weeks:            make([]generic_programs.WeekInput, 0, len(req.Weeks)),
 	}
 	if req.CuratedNutrition != nil {
@@ -312,36 +332,7 @@ func toGenericProgramInput(req *genericProgramRequest) generic_programs.ProgramI
 			input.CuratedNutrition.Meals = append(input.CuratedNutrition.Meals, mealInput)
 		}
 	}
-	for i := range req.Weeks {
-		weekInput := generic_programs.WeekInput{WeekNumber: i + 1, Workouts: make([]generic_programs.WorkoutInput, 0, len(req.Weeks[i].Workouts))}
-		for k := range req.Weeks[i].Workouts {
-			workoutInput := generic_programs.WorkoutInput{Position: k + 1, Exercises: make([]generic_programs.ExerciseInput, 0, len(req.Weeks[i].Workouts[k].Exercises))}
-			for j := range req.Weeks[i].Workouts[k].Exercises {
-				exerciseReq := &req.Weeks[i].Workouts[k].Exercises[j]
-				exerciseInput := generic_programs.ExerciseInput{
-					ExerciseID:   exerciseReq.ExerciseID,
-					Instructions: exerciseReq.Instructions,
-					Notes:        exerciseReq.Notes,
-					Prescription: make([]generic_programs.SetInput, 0, len(exerciseReq.Sets)),
-				}
-				for l := range exerciseReq.Sets {
-					setReq := &exerciseReq.Sets[l]
-					exerciseInput.Prescription = append(exerciseInput.Prescription, generic_programs.SetInput{
-						SetType:     setReq.SetType,
-						Reps:        setReq.Reps,
-						WeightKg:    setReq.WeightKg,
-						RIR:         setReq.RIR,
-						RPE:         setReq.RPE,
-						RestSeconds: setReq.RestSeconds,
-						Tempo:       setReq.Tempo,
-					})
-				}
-				workoutInput.Exercises = append(workoutInput.Exercises, exerciseInput)
-			}
-			weekInput.Workouts = append(weekInput.Workouts, workoutInput)
-		}
-		input.Weeks = append(input.Weeks, weekInput)
-	}
+	input.Weeks = toGenericWeekInputs(req.Weeks)
 	return input
 }
 
@@ -538,4 +529,48 @@ func (h *GenericProgramsHandler) respondGenericProgramsError(c *gin.Context, err
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}
+}
+
+// toGenericWeekInputs maps the requested weeks into service inputs; week
+// numbers and positions are derived from array order.
+func toGenericWeekInputs(weeks []genericWeekRequest) []generic_programs.WeekInput {
+	result := make([]generic_programs.WeekInput, 0, len(weeks))
+	for i := range weeks {
+		weekInput := generic_programs.WeekInput{WeekNumber: i + 1, Workouts: make([]generic_programs.WorkoutInput, 0, len(weeks[i].Workouts))}
+		for k := range weeks[i].Workouts {
+			workoutReq := &weeks[i].Workouts[k]
+			workoutInput := generic_programs.WorkoutInput{
+				Position:    k + 1,
+				Name:        workoutReq.Name,
+				Description: workoutReq.Description,
+				Focus:       workoutReq.Focus,
+				Exercises:   make([]generic_programs.ExerciseInput, 0, len(workoutReq.Exercises)),
+			}
+			for j := range weeks[i].Workouts[k].Exercises {
+				exerciseReq := &weeks[i].Workouts[k].Exercises[j]
+				exerciseInput := generic_programs.ExerciseInput{
+					ExerciseID:   exerciseReq.ExerciseID,
+					Instructions: exerciseReq.Instructions,
+					Notes:        exerciseReq.Notes,
+					Prescription: make([]generic_programs.SetInput, 0, len(exerciseReq.Sets)),
+				}
+				for l := range exerciseReq.Sets {
+					setReq := &exerciseReq.Sets[l]
+					exerciseInput.Prescription = append(exerciseInput.Prescription, generic_programs.SetInput{
+						SetType:     setReq.SetType,
+						Reps:        setReq.Reps,
+						WeightKg:    setReq.WeightKg,
+						RIR:         setReq.RIR,
+						RPE:         setReq.RPE,
+						RestSeconds: setReq.RestSeconds,
+						Tempo:       setReq.Tempo,
+					})
+				}
+				workoutInput.Exercises = append(workoutInput.Exercises, exerciseInput)
+			}
+			weekInput.Workouts = append(weekInput.Workouts, workoutInput)
+		}
+		result = append(result, weekInput)
+	}
+	return result
 }

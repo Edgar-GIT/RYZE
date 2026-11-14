@@ -2,7 +2,7 @@ import { Button } from "@/components/button/button";
 import { AppLoading } from "@/components/app_shell/app_loading";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { useI18n } from "@/i18n/i18n";
-import { ApiError } from "@utils/http_client";
+import { ApiError, publicFileUrl } from "@utils/http_client";
 import { fetchEntitlements } from "@/services/purchases_api";
 import { fetchFreeActivations } from "@/services/free_programs_api";
 import { fetchMyPremiumLevel2Requests } from "@/services/premium_level_2_api";
@@ -31,6 +31,7 @@ interface ProgramCard {
   durationWeeks: number | null;
   frequencyPerWeek: number | null;
   free: boolean;
+  cover: string;
 }
 
 type State =
@@ -73,7 +74,8 @@ export const MyProgramsPage = () => {
             level: entitlement.program.level ?? null,
             durationWeeks: entitlement.program.duration_weeks ?? null,
             frequencyPerWeek: entitlement.program.frequency_per_week ?? null,
-            free: entitlement.program.type === "free"
+            free: entitlement.program.type === "free",
+            cover: publicFileUrl(entitlement.program.cover_image_url)
           };
         }),
         ...activations.map((activation) => ({
@@ -87,7 +89,8 @@ export const MyProgramsPage = () => {
           level: activation.program.level,
           durationWeeks: activation.program.duration_weeks,
           frequencyPerWeek: activation.program.frequency_per_week,
-          free: true
+          free: true,
+          cover: publicFileUrl(activation.program.cover_image_url)
         }))
       ];
       setState(programs.length === 0 ? { status: "empty" } : { status: "ready", programs });
@@ -157,6 +160,7 @@ export const MyProgramsPage = () => {
                 const premiumLevel2 = isPremiumLevel2(program.productType);
                 return (
                   <Link key={program.key} className={styles.card} to={program.to}>
+                    {program.cover ? <img className={styles.cardCover} src={program.cover} alt="" loading="lazy" /> : null}
                     <span className={styles.cardTitle}>{program.name}</span>
                     {program.description ? (
                       <span className={styles.cardDescription}>{program.description}</span>

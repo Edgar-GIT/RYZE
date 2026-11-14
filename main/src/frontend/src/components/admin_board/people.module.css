@@ -1,0 +1,275 @@
+/* People lists of the administration consoles (trainers, members). */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.search {
+  display: flex;
+  flex: 1 1 18rem;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.9rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--app-line);
+  border-radius: 14px;
+  background: var(--app-inset);
+}
+
+.search:focus-within {
+  border-color: var(--app-line-strong);
+}
+
+.search svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--app-text-3);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #ffffff;
+  background: transparent;
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) minmax(16rem, 24rem);
+  align-items: center;
+  gap: 1rem 1.25rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--app-line);
+  border-top-color: rgba(160, 225, 255, 0.22);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  color: #02041f;
+  background: linear-gradient(135deg, #8cefff 0%, #00cbff 55%, #2a8cff 100%);
+  font-weight: 800;
+}
+
+.identity {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.identity > strong,
+.identity > span:not(.meta) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity > strong {
+  font-size: 1rem;
+}
+
+.identity > span:not(.meta) {
+  color: var(--app-text-2);
+  font-size: 0.86rem;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.3rem;
+  color: var(--app-text-3);
+  font-size: 0.8rem;
+}
+
+.inlineLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #00cbff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.inlineLink svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.commission {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.2rem 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 14px;
+  background: var(--app-inset);
+}
+
+.commissionValue {
+  grid-row: span 2;
+  font-family: var(--app-font-display);
+  font-size: 1.6rem;
+  font-stretch: 125%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.commissionNote {
+  color: var(--app-text-3);
+  font-size: 0.8rem;
+}
+
+.commission .linkButton {
+  grid-row: span 2;
+  grid-column: 3;
+}
+
+.linkButton {
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: 8px;
+  color: #00cbff;
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  background: rgba(0, 203, 255, 0.1);
+}
+
+.commissionForm {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.8rem;
+  border: 1px solid var(--app-line-strong);
+  border-radius: 14px;
+  background: var(--app-inset);
+}
+
+.percentField {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 3rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--app-line);
+  border-radius: 12px;
+  background: rgba(2, 4, 31, 0.6);
+}
+
+.percentField:focus-within {
+  border-color: #00cbff;
+}
+
+.percentField input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #ffffff;
+  background: transparent;
+  font: inherit;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.percentField svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--app-text-3);
+}
+
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.quick button {
+  min-height: 2.1rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--app-line);
+  border-radius: 999px;
+  color: var(--app-text-2);
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.quick button[aria-pressed="true"] {
+  border-color: #00cbff;
+  color: #02041f;
+  background: #00cbff;
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.error {
+  margin: 0;
+  color: #ffb3ab;
+  font-size: 0.85rem;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: var(--app-text-3);
+  font-size: 0.88rem;
+}
+
+.linkButton:focus-visible,
+.quick button:focus-visible,
+.inlineLink:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .row {
+    grid-template-columns: 3rem minmax(0, 1fr);
+  }
+
+  .row > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .row {
+    padding: 0.9rem;
+  }
+}

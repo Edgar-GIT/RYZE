@@ -42,6 +42,7 @@ type ProgramSummary struct {
 	DurationWeeks    *int
 	FrequencyPerWeek *int
 	TrainingType     *string
+	CoverImage       *string
 	PriceMinorUnits  int64
 	Currency         string
 }
@@ -150,6 +151,7 @@ func newProgramSummary(program *models.Program) ProgramSummary {
 		DurationWeeks:    program.DurationWeeks,
 		FrequencyPerWeek: program.FrequencyPerWeek,
 		TrainingType:     program.TrainingType,
+		CoverImage:       program.CoverImage,
 		PriceMinorUnits:  program.PriceMinorUnits,
 		Currency:         program.Currency,
 	}

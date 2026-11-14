@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ryze/backend/services/coach_showcase"
+	"ryze/backend/services/program_details"
 	"ryze/backend/services/token"
 )
 
@@ -42,6 +43,7 @@ type coachProgramResponse struct {
 	DurationWeeks    *int                `json:"duration_weeks"`
 	FrequencyPerWeek *int                `json:"frequency_per_week"`
 	TrainingType     *string             `json:"training_type"`
+	CoverImageURL    string              `json:"cover_image_url"`
 	PriceMinorUnits  int64               `json:"price_minor_units"`
 	Currency         string              `json:"currency"`
 	ProductType      string              `json:"product_type"`
@@ -63,6 +65,7 @@ func newCoachProgramResponse(program coach_showcase.Program) coachProgramRespons
 		DurationWeeks:    program.DurationWeeks,
 		FrequencyPerWeek: program.FrequencyPerWeek,
 		TrainingType:     program.TrainingType,
+		CoverImageURL:    program_details.CoverURL(program.CoverImage),
 		PriceMinorUnits:  program.PriceMinorUnits,
 		Currency:         program.Currency,
 		ProductType:      program.ProductType,

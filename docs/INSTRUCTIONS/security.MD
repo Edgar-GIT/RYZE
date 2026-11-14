@@ -927,13 +927,14 @@ constraints:
 - Pricing fields (`price_minor_units`, `currency`) are exposed in all public,
   client and entitlement responses alongside the existing program metadata.
   No internal data is exposed.
-- Trainers can set pricing through the existing `POST /trainer/programs` and
-  `PATCH /trainer/programs/:programID` endpoints. The trainer identity always
+- Prices are fixed by catalogue category since v2.114.0 (generic free, Level 1
+  14.99 EUR, Level 2 19.49 EUR; trainer plans by type) and stamped server-side;
+  client-sent prices are ignored. Trainers create and edit plans through
+  `POST /trainer/programs` and `PATCH /trainer/programs/:programID`. The trainer identity always
   comes from the authenticated trainer context; ownership is verified
   server-side.
-- The Management Administrator (ADMIN_2) can update pricing through
-  `PATCH /admin/programs/:programID/pricing`, protected by the `plans`
-  permission. The administrator identity is resolved from the admin
+- `PATCH /admin/programs/:programID/pricing` (ADMIN_2, `plans`) can only
+  re-apply the catalogue price; any other value is `409 PRICE_FIXED`. The administrator identity is resolved from the admin
   authentication middleware and never from the request body.
 - Free programs must always have a price of 0. Paid programs (premium,
   personalized) must meet the configurable minimum
@@ -3742,3 +3743,25 @@ provider and no currency handling. It reuses the existing checkout, Test Mode
 and entitlement flow. The intake is JSON text only; any future attachment must
 go through the existing upload security controls rather than a Level 2-specific
 path.
+
+---
+
+## Public uploads (v2.114.0)
+
+- Programme covers are public by design (they illustrate the catalogue) and
+  live in `UPLOADS_DIR` (default `uploads` next to the API working directory;
+  production should point it at a writable state directory such as
+  `/var/lib/ryze/uploads`). Layout: `programs/{generic,l1,l2}` today;
+  `avatars` and `feedback` are reserved for the planned profile and feedback
+  photos and are not written by any endpoint yet.
+- Only ADMIN_2 (`plans`) and authenticated trainers (`programs`) can upload.
+  The server chooses the folder from the category and names the file with a
+  UUID; the client never names a path. Content is accepted only as JPEG, PNG or
+  WebP by its magic bytes, bounded in size (`UPLOADS_MAX_IMAGE_BYTES`, default
+  5 MiB, max 15 MiB) and, for JPEG/PNG, by decoded dimensions. Writes are
+  atomic (temporary file + rename) with `0640` files.
+- The read route only resolves keys of the exact generated shape, so no other
+  file can be reached (path traversal returns `404`). Responses carry the exact
+  content type, `nosniff` and a sandboxing CSP.
+- Plan writes accept a cover key only in the folder of the plan's category.
+- Uploads are rate limited and admin uploads are recorded in the audit log.

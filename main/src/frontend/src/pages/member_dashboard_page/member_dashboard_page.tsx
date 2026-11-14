@@ -527,9 +527,12 @@ export const MemberDashboardPage = () => {
                 <CalendarCheck aria-hidden="true" /> {text.nextWorkout}
               </p>
               <h2 id="dashboard-next" className={styles.heroTitle}>
-                {text.weekDay(next.week, next.day)}
+                {next.workout.name?.trim() || text.weekDay(next.week, next.day)}
               </h2>
-              <p className={styles.heroMeta}>{plan.name}</p>
+              <p className={styles.heroMeta}>
+                {next.workout.name?.trim() ? `${text.weekDay(next.week, next.day)} · ` : ""}
+                {plan.name}
+              </p>
               <ul className={styles.heroChips}>
                 <li>
                   <Dumbbell aria-hidden="true" />

@@ -20,6 +20,7 @@ import { WorkoutSessionPage } from "@/pages/workout_session_page/workout_session
 import { ServicesPage } from "@/pages/services_page/services_page";
 import { UnderDevelopmentPage } from "@/pages/under_development_page/under_development_page";
 import AdminLoginPage from "@/pages/admin_login_page/admin_login_page";
+import SignedInPage from "@/pages/signed_in_page/signed_in_page";
 
 // The consoles and the trainer area are separate bundles: a visitor of the
 // public site or the member app never downloads them.
@@ -111,6 +112,7 @@ export const AppRoutes = () => {
             />
           )}
         />
+        <Route exact path="/app" component={SignedInPage} />
         <Route exact path="/login" component={LoginPage} />
         <Route exact path="/forgot-password" component={ForgotPasswordPage} />
         <Route exact path="/reset-password" component={ResetPasswordPage} />

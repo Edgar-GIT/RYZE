@@ -192,6 +192,15 @@ type EvidenceConfig struct {
 	MaxBytes   int64
 }
 
+// UploadsConfig controls the public uploads directory (programme cover images
+// today; profile and feedback photos later). Files are named by the store
+// (never by the client), validated by their magic bytes and served read-only
+// under /uploads. MaxImageBytes bounds one image.
+type UploadsConfig struct {
+	Dir           string
+	MaxImageBytes int64
+}
+
 // ServerConfig holds the HTTP server safety configuration. The timeouts bound
 // how long a single connection may take to send a request, read the body and
 // write a response, and how long in-flight requests are allowed to drain during

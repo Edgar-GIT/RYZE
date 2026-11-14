@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ryze/backend/services/admin_program_pricing"
+	"ryze/backend/services/programs"
 )
 
 // adminProgramPricingResponse is the safe program representation returned by
@@ -106,6 +107,10 @@ func (h *AdminProgramPricingHandler) respondError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, admin_program_pricing.ErrProgramNotFound):
 		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
+	case errors.Is(err, programs.ErrPriceFixed):
+		RespondError(c, http.StatusConflict, "PRICE_FIXED", "Prices follow the catalogue category and cannot be changed.", nil)
+	case errors.Is(err, programs.ErrInvalidInput):
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}

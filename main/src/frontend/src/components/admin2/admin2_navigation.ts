@@ -1,16 +1,18 @@
-import type { LucideIcon } from "lucide-react";
-import { Dumbbell, LayoutDashboard, LifeBuoy, Package, Users, BarChart3, MessageSquare, Settings } from "lucide-react";
+import {
+  BarChart3,
+  ClipboardList,
+  Dumbbell,
+  FileCheck2,
+  LayoutDashboard,
+  LifeBuoy,
+  MessageSquare,
+  Package,
+  Settings,
+  UserRoundCheck,
+  Users
+} from "lucide-react";
 
-export interface Admin2NavItem {
-  label: string;
-  path: string;
-  icon: LucideIcon;
-}
-
-export interface Admin2NavGroup {
-  label: string;
-  items: Admin2NavItem[];
-}
+import type { ShellNavGroup, ShellNavItem } from "@/components/app_shell/app_shell";
 
 export const ADMIN2_PATHS = {
   ROOT: "/admin2",
@@ -19,56 +21,66 @@ export const ADMIN2_PATHS = {
   PLAN_CREATE: "/admin2/plans/create",
   PREMIUM_LEVEL_2: "/admin2/premium-level-2",
   EXERCISES: "/admin2/exercises",
-  MARKETPLACE: "/admin2/marketplace",
   TRAINERS: "/admin2/trainers",
+  APPLICATIONS: "/admin2/trainer-applications",
   CLIENTS: "/admin2/clients",
   SALES: "/admin2/sales",
-  ANALYTICS: "/admin2/analytics",
   FEEDBACK: "/admin2/feedback",
   SUPPORT: "/admin2/support",
   SETTINGS: "/admin2/settings"
 } as const;
 
-export const admin2NavGroups: Admin2NavGroup[] = [
+export interface Admin2Badges {
+  premiumLevel2?: number;
+  applications?: number;
+  support?: number;
+  feedback?: number;
+}
+
+const item = (to: string, label: string, icon: ShellNavItem["icon"], badge?: number): ShellNavItem => ({
+  to,
+  label,
+  icon,
+  badge
+});
+
+// The Management Administrator console (ADMIN_2): the catalogue, the business
+// and the service queues. Badges show the open work of each queue.
+export const admin2NavGroups = (badges: Admin2Badges = {}): ShellNavGroup[] => [
+  { items: [item(ADMIN2_PATHS.DASHBOARD, "Overview", LayoutDashboard)] },
   {
-    label: "Overview",
-    items: [{ label: "Dashboard", path: ADMIN2_PATHS.DASHBOARD, icon: LayoutDashboard }]
-  },
-  {
-    label: "Programs",
+    label: "Catalogue",
     items: [
-      { label: "Plans", path: ADMIN2_PATHS.PLANS, icon: Package },
-      { label: "Premium L2", path: ADMIN2_PATHS.PREMIUM_LEVEL_2, icon: Users },
-      { label: "Exercises", path: ADMIN2_PATHS.EXERCISES, icon: Dumbbell },
-      { label: "Marketplace", path: ADMIN2_PATHS.MARKETPLACE, icon: Package }
-    ]
-  },
-  {
-    label: "People",
-    items: [
-      { label: "Trainers", path: ADMIN2_PATHS.TRAINERS, icon: Users },
-      { label: "Clients", path: ADMIN2_PATHS.CLIENTS, icon: Users }
+      item(ADMIN2_PATHS.PLANS, "Plans", Package),
+      item(ADMIN2_PATHS.EXERCISES, "Exercises", Dumbbell)
     ]
   },
   {
     label: "Business",
     items: [
-      { label: "Sales", path: ADMIN2_PATHS.SALES, icon: BarChart3 },
-      { label: "Analytics", path: ADMIN2_PATHS.ANALYTICS, icon: BarChart3 }
+      item(ADMIN2_PATHS.SALES, "Sales", BarChart3),
+      item(ADMIN2_PATHS.TRAINERS, "Trainers & commissions", UserRoundCheck),
+      item(ADMIN2_PATHS.CLIENTS, "Members", Users)
     ]
   },
   {
-    label: "Engagement",
+    label: "Service",
     items: [
-      { label: "Support", path: ADMIN2_PATHS.SUPPORT, icon: LifeBuoy },
-      { label: "Feedback", path: ADMIN2_PATHS.FEEDBACK, icon: MessageSquare }
+      item(ADMIN2_PATHS.PREMIUM_LEVEL_2, "Premium L2 requests", ClipboardList, badges.premiumLevel2),
+      item(ADMIN2_PATHS.APPLICATIONS, "Trainer applications", FileCheck2, badges.applications),
+      item(ADMIN2_PATHS.SUPPORT, "Support", LifeBuoy, badges.support),
+      item(ADMIN2_PATHS.FEEDBACK, "Feedback", MessageSquare, badges.feedback)
     ]
   },
-  {
-    label: "Configuration",
-    items: [{ label: "Settings", path: ADMIN2_PATHS.SETTINGS, icon: Settings }]
-  }
+  { label: "Configuration", items: [item(ADMIN2_PATHS.SETTINGS, "Settings", Settings)] }
+];
+
+export const admin2Tabs = (badges: Admin2Badges = {}): ShellNavItem[] => [
+  item(ADMIN2_PATHS.DASHBOARD, "Overview", LayoutDashboard),
+  item(ADMIN2_PATHS.PLANS, "Plans", Package),
+  item(ADMIN2_PATHS.SALES, "Sales", BarChart3),
+  item(ADMIN2_PATHS.SUPPORT, "Support", LifeBuoy, badges.support)
 ];
 
 export const isNavActive = (pathname: string, path: string): boolean =>
-  pathname === path;
+  pathname === path || pathname.startsWith(`${path}/`);

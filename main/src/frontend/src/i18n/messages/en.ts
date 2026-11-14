@@ -491,7 +491,7 @@ export const en = {
       kgCol: "kg",
       repsCol: "Reps",
       doneCol: "Done",
-      rest: "rest {seconds}s",
+      rest: "rest {time}",
       rir: "RIR {value}",
       rpe: "RPE {value}",
       tempo: "tempo {value}",

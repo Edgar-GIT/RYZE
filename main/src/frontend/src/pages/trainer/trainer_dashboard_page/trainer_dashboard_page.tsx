@@ -255,7 +255,7 @@ export const TrainerDashboardPage = () => {
             <Link className={styles.inkButton} to="/trainer/clients">
               <UserPlus aria-hidden="true" /> {text.addClient}
             </Link>
-            <Link className={styles.ghostInk} to="/trainer/programs?new=1">
+            <Link className={styles.ghostInk} to="/trainer/programs/new">
               <Plus aria-hidden="true" /> {text.newProgram}
             </Link>
           </div>

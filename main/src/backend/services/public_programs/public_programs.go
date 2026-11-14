@@ -113,6 +113,7 @@ type Program struct {
 	DurationWeeks    *int
 	FrequencyPerWeek *int
 	TrainingType     *string
+	CoverImage       *string
 	PriceMinorUnits  int64
 	Currency         string
 	// ProductType is the product family the program belongs to. It is public
@@ -290,6 +291,7 @@ func toSafe(model *models.Program) *Program {
 		DurationWeeks:    model.DurationWeeks,
 		FrequencyPerWeek: model.FrequencyPerWeek,
 		TrainingType:     model.TrainingType,
+		CoverImage:       model.CoverImage,
 		PriceMinorUnits:  model.PriceMinorUnits,
 		ProductType:      model.ProductType,
 		Objective:        model.Objective,

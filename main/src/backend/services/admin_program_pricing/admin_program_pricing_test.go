@@ -98,17 +98,28 @@ func TestGetProgramInvalidID(t *testing.T) {
 	}
 }
 
-func TestUpdatePricingSuccess(t *testing.T) {
-	svc := newService(validProgram(), false)
+// TestUpdatePricingOnlyReappliesCatalogPrice: prices follow the catalogue
+// category (owner decision, 2026-11-14), so the pricing endpoint can only
+// re-apply the plan's catalogue price.
+func TestUpdatePricingOnlyReappliesCatalogPrice(t *testing.T) {
+	model := validProgram()
+	catalog := models.CatalogPriceMinorUnits(model.ProductType, model.Type)
+	svc := newService(model, false)
+	if _, err := svc.UpdatePricing(context.Background(), programID, admin_program_pricing.UpdatePricingInput{
+		PriceMinorUnits: catalog + 1500,
+		Currency:        "EUR",
+	}); !errors.Is(err, programs.ErrPriceFixed) {
+		t.Fatalf("expected ErrPriceFixed, got %v", err)
+	}
 	program, err := svc.UpdatePricing(context.Background(), programID, admin_program_pricing.UpdatePricingInput{
-		PriceMinorUnits: 2999,
+		PriceMinorUnits: catalog,
 		Currency:        "EUR",
 	})
 	if err != nil {
 		t.Fatalf("UpdatePricing: %v", err)
 	}
-	if program.PriceMinorUnits != 2999 {
-		t.Fatalf("expected price 2999, got %d", program.PriceMinorUnits)
+	if program.PriceMinorUnits != catalog {
+		t.Fatalf("expected price %d, got %d", catalog, program.PriceMinorUnits)
 	}
 }
 

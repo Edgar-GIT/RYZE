@@ -39,6 +39,9 @@ const (
 	defaultMaxBodyBytes                     = 1 << 20
 	defaultExerciseMediaBasePath            = "/media/exercises"
 	defaultEvidenceStorageDir               = "storage/trainer-evidence"
+	defaultUploadsDir                       = "uploads"
+	defaultUploadsMaxImageBytes             = 5 << 20
+	maxUploadsMaxImageBytes                 = 15 << 20
 	defaultEvidenceMaxBytes                 = 10 << 20
 	defaultContactSMTPPort                  = "587"
 	maxEvidenceMaxBytes                     = 25 << 20
@@ -461,6 +464,30 @@ func LoadExerciseMedia() (ExerciseMediaConfig, error) {
 		return ExerciseMediaConfig{}, fmt.Errorf("EXERCISE_MEDIA_BASE_PATH must be a same-origin absolute path without parent traversal, got %q", cfg.BasePath)
 	}
 
+	return cfg, nil
+}
+
+// LoadUploads reads the public uploads configuration. UPLOADS_DIR defaults to
+// "uploads" next to the API working directory; UPLOADS_MAX_IMAGE_BYTES bounds
+// one image (default 5 MiB, at most 15 MiB).
+func LoadUploads() (UploadsConfig, error) {
+	cfg := UploadsConfig{Dir: defaultUploadsDir, MaxImageBytes: defaultUploadsMaxImageBytes}
+	if raw := os.Getenv("UPLOADS_DIR"); strings.TrimSpace(raw) != "" {
+		if strings.ContainsRune(raw, 0) {
+			return UploadsConfig{}, fmt.Errorf("UPLOADS_DIR contains an invalid character")
+		}
+		cfg.Dir = strings.TrimSpace(raw)
+	}
+	if raw := strings.TrimSpace(os.Getenv("UPLOADS_MAX_IMAGE_BYTES")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed <= 0 {
+			return UploadsConfig{}, fmt.Errorf("UPLOADS_MAX_IMAGE_BYTES must be a positive integer, got %q", raw)
+		}
+		if parsed > maxUploadsMaxImageBytes {
+			return UploadsConfig{}, fmt.Errorf("UPLOADS_MAX_IMAGE_BYTES must not exceed %d bytes, got %q", maxUploadsMaxImageBytes, raw)
+		}
+		cfg.MaxImageBytes = parsed
+	}
 	return cfg, nil
 }
 

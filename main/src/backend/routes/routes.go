@@ -27,6 +27,7 @@ import (
 	"ryze/backend/services/admin_audit"
 	"ryze/backend/services/admin_commerce"
 	"ryze/backend/services/admin_login"
+	"ryze/backend/services/admin_overview"
 	"ryze/backend/services/admin_program_pricing"
 	"ryze/backend/services/admin_trainers"
 	"ryze/backend/services/admin_users"
@@ -50,9 +51,11 @@ import (
 	"ryze/backend/services/premium_level_2"
 	"ryze/backend/services/program_access"
 	"ryze/backend/services/program_assignments"
+	"ryze/backend/services/program_details"
 	"ryze/backend/services/program_structure"
 	"ryze/backend/services/programs"
 	"ryze/backend/services/public_programs"
+	uploads "ryze/backend/services/public_uploads"
 	"ryze/backend/services/purchase_fulfillment"
 	"ryze/backend/services/purchases"
 	"ryze/backend/services/questionnaires"
@@ -80,6 +83,13 @@ const evidenceUploadPath = "/api/v1/trainer/application/documents"
 // body but not of the stored file.
 const evidenceUploadOverhead = 64 << 10
 
+// adminCoverUploadPath and trainerCoverUploadPath are the programme cover
+// image uploads; both carry one image up to the configured image bound.
+const (
+	adminCoverUploadPath   = "/api/v1/admin/uploads/program-cover"
+	trainerCoverUploadPath = "/api/v1/trainer/uploads/program-cover"
+)
+
 // contactUploadPath is the public contact form. It accepts one optional
 // attachment, so its multipart envelope gets a bounded exception over the
 // global body limit.
@@ -88,7 +98,7 @@ const contactUploadPath = "/api/v1/contact"
 const contactUploadOverhead = 64 << 10
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig, evidenceCfg config.EvidenceConfig, contactCfg config.ContactConfig, mailCfg config.MailConfig, googleCfg config.GoogleConfig) *gin.Engine {
+func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig, evidenceCfg config.EvidenceConfig, uploadsCfg config.UploadsConfig, contactCfg config.ContactConfig, mailCfg config.MailConfig, googleCfg config.GoogleConfig) *gin.Engine {
 	router := gin.Default()
 	// Only the configured proxies may set the client address from forwarded
 	// headers; with the default (no trusted proxies) ClientIP is the socket
@@ -118,7 +128,26 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 			Path:     contactUploadPath,
 			MaxBytes: contact.MaxAttachmentBytes + contactUploadOverhead,
 		},
+		middleware.BodyLimitException{
+			Path:     adminCoverUploadPath,
+			MaxBytes: uploadsCfg.MaxImageBytes + evidenceUploadOverhead,
+		},
+		middleware.BodyLimitException{
+			Path:     trainerCoverUploadPath,
+			MaxBytes: uploadsCfg.MaxImageBytes + evidenceUploadOverhead,
+		},
 	))
+
+	// Public uploads (programme cover images). The layout is created at start
+	// so the folders exist on disk before the first upload; a failure only
+	// disables the uploads until the directory becomes writable.
+	uploadsStore := uploads.NewStore(uploadsCfg.Dir, uploadsCfg.MaxImageBytes)
+	if err := uploadsStore.EnsureLayout(); err != nil {
+		slog.Warn("uploads directory unavailable", "error", err)
+	}
+	uploadsHandler := auth.NewUploadsHandler(uploadsStore)
+	router.GET(program_details.PublicUploadsPrefix+"/programs/*filepath", uploadsHandler.ServeProgramImage)
+	router.HEAD(program_details.PublicUploadsPrefix+"/programs/*filepath", uploadsHandler.ServeProgramImage)
 
 	userRepository := repositories.NewUserRepository(db)
 
@@ -497,10 +526,14 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 		middleware.Authenticate(tokenService, userRepository),
 		testModePurchaseHandler.Purchase)
 
+	trainerStructureHandler := auth.NewTrainerStructureHandler(generic_programs.NewTrainerStructureService(
+		repositories.NewTrainerStructureRepository(db), trainerProgramRepository.(generic_programs.PremiumLevel2LinkReader), mediaCfg))
+
 	trainer := v1.Group("/trainer")
 	trainer.Use(middleware.Authenticate(tokenService, userRepository))
 	trainer.Use(middleware.TrainerAuthenticate(trainerRepository))
 	trainer.GET("/profile", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerProfileHandler.GetProfile)
+	trainer.POST("/uploads/program-cover", append(limits.chain(scopeImageUpload), middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), uploadsHandler.TrainerProgramCover)...)
 	trainer.GET("/premium-level-2/catalog", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.GetStaffCatalog)
 	trainer.GET("/premium-level-2/requests", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.ListTrainerRequests)
 	trainer.GET("/premium-level-2/requests/:requestID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.GetTrainerRequest)
@@ -524,6 +557,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainer.GET("/programs", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.ListPrograms)
 	trainer.POST("/programs", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.CreateProgram)
 	trainer.GET("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.GetProgram)
+	trainer.GET("/programs/:programID/structure", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerStructureHandler.GetStructure)
+	trainer.PUT("/programs/:programID/structure", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerStructureHandler.ReplaceStructure)
 	trainer.PATCH("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.UpdateProgram)
 	trainer.POST("/programs/:programID/publish", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.PublishProgram)
 	trainer.DELETE("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.DeleteProgram)
@@ -592,6 +627,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	premiumLevel2Programs.POST("/:programID/publish", premiumLevel2ProgramHandler.PublishProgram)
 	premiumLevel2Programs.DELETE("/:programID", premiumLevel2ProgramHandler.DeleteProgram)
 
+	adminOverviewHandler := auth.NewAdminOverviewHandler(admin_overview.NewService(repositories.NewAdminOverviewRepository(db)))
+
 	admin := v1.Group("/admin")
 	admin.Use(middleware.AdminAuthenticate(tokenService))
 	// Every state-changing admin request (and every evidence download) is
@@ -603,6 +640,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminSystem := admin.Group("")
 	adminSystem.Use(middleware.RequireAdminPermission(adminroles.PermissionSystem))
 	adminSystem.GET("/system/status", adminSystemHandler.Status)
+	adminSystem.GET("/overview/platform", adminOverviewHandler.Platform)
 
 	// Technical Administrator: the immutable administrative audit log.
 	adminSecurity := admin.Group("")
@@ -694,6 +732,10 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminPremiumLevel2.GET("/premium-level-2/requests/:requestID", premiumLevel2Handler.GetAdminRequest)
 	adminPremiumLevel2.POST("/premium-level-2/requests/:requestID/trainer", premiumLevel2Handler.AssignTrainer)
 
+	adminUploads := admin.Group("")
+	adminUploads.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
+	adminUploads.POST("/uploads/program-cover", append(limits.chain(scopeImageUpload), uploadsHandler.AdminProgramCover)...)
+
 	adminPricing := admin.Group("")
 	adminPricing.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
 	adminPricing.GET("/settings/commerce", adminSettingsHandler.GetCommerce)
@@ -709,6 +751,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	adminCommerce := admin.Group("")
 	adminCommerce.Use(middleware.RequireAdminPermission(adminroles.PermissionCommerce))
+	adminCommerce.GET("/overview/business", adminOverviewHandler.Business)
+	adminCommerce.GET("/overview/queues", adminOverviewHandler.Queues)
 	// The static /programs and /reconciliation-events paths must be registered
 	// before /purchases/:id so the router resolves both without ambiguity.
 	adminCommerce.GET("/purchases/programs", adminCommerceHandler.ListProgramSales)

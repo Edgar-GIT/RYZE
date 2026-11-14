@@ -52,7 +52,8 @@ The Generic Programs Marketplace displays real published Generic Program data
 and its current sale price. Search, filtering, sorting and pagination are
 server-side. The public contact form delivers through a configured SMTP relay;
 when delivery is not configured it reports that honestly instead of accepting
-the message. Paid Generic Programs are fully purchasable end to
+the message. Paid programmes (Premium Level 1 and 2, and trainers' premium
+and personalized plans) are fully purchasable end to
 end: the checkout UX lets an authenticated user create a purchase, pick one of
 the payment methods the backend currently supports (advertised by
 `GET /api/v1/payments/methods`, never hard-coded in the frontend), pay through
@@ -253,6 +254,13 @@ Published packs are subject to a platform commission.
 
 The commission structure may evolve as the platform grows.
 
+Prices are fixed by category and nobody sets them (owner decision,
+2026-11-14): Generic plans are free, Premium Level 1 costs 14.99 EUR and
+Premium Level 2 costs 19.49 EUR. A trainer's plan sells at the price of its
+type — free, premium (the Level 1 price) or personalized (the Level 2 price).
+What administrators decide is the commission each trainer pays when one of
+their plans is sold, typed as a plain percentage (30 = 30%).
+
 The default platform commission on trainer-owned sales is 30% (3000 basis
 points; owner decision, 2026-11-11). A trainer-specific rule set by the
 Management Administrator replaces it; platform-owned content carries no
@@ -262,7 +270,7 @@ with.
 The first marketplace surface is the Generic Training Plans Marketplace: a
 public catalog of published, platform-owned Generic Programs
 (`scope=generic`) with live search, server-side filtering/sorting/pagination and
-a per-program detail page. Paid Generic Programs are purchasable end to end from that detail
+a per-program detail page. Generic programs are free (v2.114.0); paid programmes are purchasable end to end from their detail
 page (see Current Status); pricing display, purchases, payments and
 entitlements are implemented and backend-authoritative.
 

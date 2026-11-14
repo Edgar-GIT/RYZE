@@ -21,9 +21,12 @@
 
 .title {
   margin: 0;
-  font-size: clamp(1.35rem, 3vw, 1.65rem);
-  font-weight: 600;
   color: var(--text-primary);
+  font-family: var(--app-font-display, inherit);
+  font-size: clamp(1.8rem, 3.6vw, 2.6rem);
+  font-stretch: 125%;
+  font-weight: 800;
+  line-height: 1.05;
 }
 
 .description {

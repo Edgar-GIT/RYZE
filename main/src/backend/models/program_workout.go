@@ -19,6 +19,9 @@ type ProgramWorkout struct {
 	ID            string            `gorm:"type:varchar(36);primaryKey" json:"id"`
 	ProgramWeekID string            `gorm:"column:program_week_id;type:varchar(36);not null" json:"program_week_id"`
 	Position      int               `gorm:"column:position;not null" json:"position"`
+	Name          string            `gorm:"column:name;type:varchar(80);not null;default:''" json:"name"`
+	Description   string            `gorm:"column:description;type:varchar(1000);not null;default:''" json:"description"`
+	Focus         *string           `gorm:"column:focus;type:varchar(20)" json:"focus"`
 	Exercises     []WorkoutExercise `gorm:"foreignKey:ProgramWorkoutID" json:"-"`
 	CreatedAt     time.Time         `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
 	UpdatedAt     time.Time         `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`

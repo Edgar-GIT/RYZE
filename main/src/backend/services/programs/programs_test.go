@@ -709,45 +709,6 @@ func TestProgramNeverExposesSecrets(t *testing.T) {
 	}
 }
 
-func TestCreateProgramFreeMustHaveZeroPrice(t *testing.T) {
-	svc := newService(&stubProgramRepo{})
-	_, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
-		Name:            "Free Program",
-		Type:            models.ProgramTypeFree,
-		PriceMinorUnits: 100,
-		Currency:        "EUR",
-	})
-	if !errors.Is(err, programs.ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
-	}
-}
-
-func TestCreateProgramPaidMustMeetMinimum(t *testing.T) {
-	svc := newService(&stubProgramRepo{})
-	_, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
-		Name:            "Cheap Program",
-		Type:            models.ProgramTypePremium,
-		PriceMinorUnits: 50,
-		Currency:        "EUR",
-	})
-	if !errors.Is(err, programs.ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
-	}
-}
-
-func TestCreateProgramInvalidCurrency(t *testing.T) {
-	svc := newService(&stubProgramRepo{})
-	_, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
-		Name:            "Program",
-		Type:            models.ProgramTypePremium,
-		PriceMinorUnits: 1449,
-		Currency:        "USD",
-	})
-	if !errors.Is(err, programs.ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
-	}
-}
-
 func TestCreateProgramFreeDefaultsZeroPrice(t *testing.T) {
 	repo := &stubProgramRepo{}
 	svc := newService(repo)
@@ -763,38 +724,6 @@ func TestCreateProgramFreeDefaultsZeroPrice(t *testing.T) {
 	}
 	if program.Currency != "EUR" {
 		t.Fatalf("expected default currency EUR, got %q", program.Currency)
-	}
-}
-
-func TestUpdateProgramPricingSuccess(t *testing.T) {
-	repo := &stubProgramRepo{program: validProgram()}
-	svc := newService(repo)
-
-	program, err := svc.UpdateProgramPricing(context.Background(), programID, programs.UpdatePricingInput{
-		PriceMinorUnits: 2999,
-		Currency:        "EUR",
-	})
-	if err != nil {
-		t.Fatalf("UpdateProgramPricing: %v", err)
-	}
-	if program.PriceMinorUnits != 2999 {
-		t.Fatalf("expected price 2999, got %d", program.PriceMinorUnits)
-	}
-}
-
-func TestUpdateProgramPricingFreeMustBeZero(t *testing.T) {
-	freeProgram := validProgram()
-	freeProgram.Type = models.ProgramTypeFree
-	freeProgram.PriceMinorUnits = 0
-	repo := &stubProgramRepo{program: freeProgram}
-	svc := newService(repo)
-
-	_, err := svc.UpdateProgramPricing(context.Background(), programID, programs.UpdatePricingInput{
-		PriceMinorUnits: 100,
-		Currency:        "EUR",
-	})
-	if !errors.Is(err, programs.ErrInvalidInput) {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }
 
@@ -839,5 +768,58 @@ func TestGetProgramByIDInvalidID(t *testing.T) {
 	_, err := svc.GetProgramByID(context.Background(), "")
 	if !errors.Is(err, programs.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// TestCreateProgramUsesCatalogPrice covers the owner decision of 2026-11-14:
+// trainers never set a price; the type decides it (free 0, premium 14.99 EUR,
+// personalized 19.49 EUR) and any client-sent price or currency is ignored.
+func TestCreateProgramUsesCatalogPrice(t *testing.T) {
+	cases := []struct {
+		programType string
+		sent        int64
+		want        int64
+	}{
+		{models.ProgramTypeFree, 100, 0},
+		{models.ProgramTypePremium, 50, 1499},
+		{models.ProgramTypePersonalized, 99999, 1949},
+	}
+	for _, tc := range cases {
+		svc := newService(&stubProgramRepo{})
+		program, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
+			Name:            "Program",
+			Type:            tc.programType,
+			PriceMinorUnits: tc.sent,
+			Currency:        "USD",
+		})
+		if err != nil {
+			t.Fatalf("%s: CreateProgram: %v", tc.programType, err)
+		}
+		if program.PriceMinorUnits != tc.want || program.Currency != "EUR" {
+			t.Fatalf("%s: price = %d %s, want %d EUR", tc.programType, program.PriceMinorUnits, program.Currency, tc.want)
+		}
+	}
+}
+
+func TestUpdateProgramPricingIsFixed(t *testing.T) {
+	repo := &stubProgramRepo{program: validProgram()}
+	svc := newService(repo)
+	catalog := models.CatalogPriceMinorUnits(repo.program.ProductType, repo.program.Type)
+
+	if _, err := svc.UpdateProgramPricing(context.Background(), programID, programs.UpdatePricingInput{
+		PriceMinorUnits: catalog + 1000,
+		Currency:        "EUR",
+	}); !errors.Is(err, programs.ErrPriceFixed) {
+		t.Fatalf("expected ErrPriceFixed, got %v", err)
+	}
+	program, err := svc.UpdateProgramPricing(context.Background(), programID, programs.UpdatePricingInput{
+		PriceMinorUnits: catalog,
+		Currency:        "EUR",
+	})
+	if err != nil {
+		t.Fatalf("re-applying the catalogue price: %v", err)
+	}
+	if program.PriceMinorUnits != catalog {
+		t.Fatalf("price = %d, want %d", program.PriceMinorUnits, catalog)
 	}
 }

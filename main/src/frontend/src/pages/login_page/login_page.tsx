@@ -71,7 +71,7 @@ const GoogleButton = ({ onMessage }: { onMessage: (message: string) => void }) =
         setPending(false);
         return;
       }
-      window.location.assign(apiUrl(`/auth/google/start?mode=login&lang=${locale}`));
+      window.location.assign(apiUrl(`/auth/google/start?mode=login&lang=${locale}&return=%2Fapp`));
     } catch {
       onMessage(t("common.genericError"));
       setPending(false);
@@ -199,7 +199,9 @@ const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps)
 
     try {
       await apiPost("/auth/login", { email, password });
-      history.push("/profile");
+      // /app sends trainers to their trainer area and members to their home
+      // (owner request, 2026-11-14).
+      history.push("/app");
     } catch (error) {
       setErrorMessage(errorMessageFor(error));
       setSubmitting(false);

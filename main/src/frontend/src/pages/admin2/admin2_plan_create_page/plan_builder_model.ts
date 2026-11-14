@@ -40,6 +40,11 @@ export interface PlanDraftExercise {
 export interface PlanDraftWorkout {
   id: string;
   position: number;
+  // Training-day details: a name ("Push"), a short description and the
+  // muscle group the day focuses on (one of DAY_FOCUS_VALUES or "").
+  name: string;
+  description: string;
+  focus: string;
   exercises: PlanDraftExercise[];
 }
 
@@ -96,6 +101,9 @@ export interface PlanDraft {
   training_type: GenericTrainingType | "";
   duration_weeks: string;
   frequency_per_week: string;
+  // Cover picture: the uploads key the API returned and its public URL.
+  cover_image: string;
+  cover_url: string;
   weeks: PlanDraftWeek[];
 }
 
@@ -137,11 +145,13 @@ const createSet = (setNumber: number): PlanDraftSet => ({
   set_type: "working"
 });
 
+// A new exercise starts with a common prescription (3 sets of 10, 90 s rest)
+// that the coach adjusts inline.
 const createExerciseAssignment = (exerciseId: string, position: number): PlanDraftExercise => ({
   id: uid(),
   exercise_id: exerciseId,
   position,
-  sets: [createSet(1)],
+  sets: [1, 2, 3].map((setNumber) => ({ ...createSet(setNumber), reps: "10", rest_seconds: "90" })),
   instructions: "",
   notes: ""
 });
@@ -211,31 +221,126 @@ export const createPlanDraft = (
   currency: "EUR",
   level: "",
   training_type: "",
-  duration_weeks: "",
-  frequency_per_week: "",
-  weeks:
-    productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2
-      ? []
-      : [{ id: uid(), week_number: 1, workouts: [] }]
+  duration_weeks: productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2 ? "" : "4",
+  frequency_per_week: productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2 ? "" : "3",
+  cover_image: "",
+  cover_url: "",
+  weeks: []
 });
 
-export const addWeek = (draft: PlanDraft): PlanDraft => ({
-  ...draft,
-  weeks: [
-    ...draft.weeks,
-    {
-      id: uid(),
-      week_number: draft.weeks.length + 1,
-      workouts: []
-    }
-  ]
+// --- Training-day focus --------------------------------------------------
+
+// DAY_FOCUS_VALUES is the closed muscle-group vocabulary of a training day
+// (it matches the API and the database constraint).
+export const DAY_FOCUS_VALUES = [
+  "full_body",
+  "upper_body",
+  "lower_body",
+  "push",
+  "pull",
+  "legs",
+  "chest",
+  "back",
+  "shoulders",
+  "arms",
+  "core",
+  "glutes",
+  "cardio",
+  "mobility"
+] as const;
+
+export type DayFocus = (typeof DAY_FOCUS_VALUES)[number];
+
+const createDay = (position: number): PlanDraftWorkout => ({
+  id: uid(),
+  position,
+  name: "",
+  description: "",
+  focus: "",
+  exercises: []
 });
+
+const createWeek = (weekNumber: number, days: number): PlanDraftWeek => ({
+  id: uid(),
+  week_number: weekNumber,
+  workouts: Array.from({ length: days }, (_, index) => createDay(index + 1))
+});
+
+const weekHasContent = (week: PlanDraftWeek) =>
+  week.workouts.some(
+    (workout) => workout.exercises.length > 0 || workout.name.trim() !== "" || workout.description.trim() !== ""
+  );
+
+// syncWeeks makes the structure match the number of weeks chosen in the first
+// step: missing weeks are created with one empty training day per weekly
+// session, and surplus weeks are removed only while they are still empty (a
+// week with content is never discarded silently). Returns the new draft.
+export const syncWeeks = (draft: PlanDraft): PlanDraft => {
+  const target = Math.min(52, Math.max(1, Number(draft.duration_weeks) || 1));
+  const days = Math.min(7, Math.max(1, Number(draft.frequency_per_week) || 3));
+  let weeks = [...draft.weeks];
+  while (weeks.length < target) {
+    weeks.push(createWeek(weeks.length + 1, days));
+  }
+  while (weeks.length > target && !weekHasContent(weeks[weeks.length - 1])) {
+    weeks = weeks.slice(0, -1);
+  }
+  return { ...draft, weeks, duration_weeks: String(weeks.length) };
+};
+
+const cloneWorkouts = (workouts: PlanDraftWorkout[]): PlanDraftWorkout[] =>
+  workouts.map((workout) => ({
+    ...workout,
+    id: uid(),
+    exercises: workout.exercises.map((assignment) => ({
+      ...assignment,
+      id: uid(),
+      sets: assignment.sets.map((set) => ({ ...set, id: uid() }))
+    }))
+  }));
+
+// copyWeekForward replaces every following week with a copy of the given
+// week (the usual way to build a block of identical weeks).
+export const copyWeekForward = (draft: PlanDraft, weekId: string): PlanDraft => {
+  const index = draft.weeks.findIndex((week) => week.id === weekId);
+  if (index < 0) return draft;
+  const source = draft.weeks[index];
+  return {
+    ...draft,
+    weeks: draft.weeks.map((week, position) =>
+      position > index ? { ...week, workouts: cloneWorkouts(source.workouts) } : week
+    )
+  };
+};
+
+export const updateDayDetails = (
+  draft: PlanDraft,
+  weekId: string,
+  workoutId: string,
+  patch: Partial<Pick<PlanDraftWorkout, "name" | "description" | "focus">>
+): PlanDraft => mapWorkout(draft, weekId, workoutId, (workout) => ({ ...workout, ...patch }));
+
+// addExercisesToDay appends several catalogue exercises at once (exercises
+// already in the day are skipped: the API rejects duplicates per day).
+export const addExercisesToDay = (
+  draft: PlanDraft,
+  weekId: string,
+  workoutId: string,
+  exerciseIds: string[]
+): PlanDraft =>
+  exerciseIds.reduce((current, exerciseId) => addExerciseToDay(current, weekId, workoutId, exerciseId), draft);
+
+export const addWeek = (draft: PlanDraft): PlanDraft => {
+  const days = Math.min(7, Math.max(1, Number(draft.frequency_per_week) || 3));
+  const weeks = [...draft.weeks, createWeek(draft.weeks.length + 1, days)];
+  return { ...draft, weeks, duration_weeks: String(weeks.length) };
+};
 
 export const removeWeek = (draft: PlanDraft, weekId: string): PlanDraft => {
   const weeks = draft.weeks
     .filter((week) => week.id !== weekId)
     .map((week, index) => ({ ...week, week_number: index + 1 }));
-  return { ...draft, weeks };
+  return { ...draft, weeks, duration_weeks: String(Math.max(weeks.length, 1)) };
 };
 
 export const addDay = (draft: PlanDraft, weekId: string): PlanDraft => ({
@@ -244,10 +349,7 @@ export const addDay = (draft: PlanDraft, weekId: string): PlanDraft => ({
     week.id === weekId
       ? {
           ...week,
-          workouts: [
-            ...week.workouts,
-            { id: uid(), position: week.workouts.length + 1, exercises: [] }
-          ]
+          workouts: [...week.workouts, createDay(week.workouts.length + 1)]
         }
       : week
   )
@@ -361,9 +463,14 @@ export const addSetToExercise = (
       if (assignment.id !== assignmentId) {
         return assignment;
       }
+      // A new set repeats the previous one, which is what a coach types next.
+      const last = assignment.sets[assignment.sets.length - 1];
+      const next = last
+        ? { ...last, id: uid(), set_number: assignment.sets.length + 1 }
+        : createSet(assignment.sets.length + 1);
       return {
         ...assignment,
-        sets: [...assignment.sets, createSet(assignment.sets.length + 1)]
+        sets: [...assignment.sets, next]
       };
     })
   }));
@@ -443,12 +550,6 @@ export const validatePlan = (draft: PlanDraft): PlanValidation => {
   }
   if (!isLevel2 && countExercises(draft) === 0) {
     messages.push("The plan needs at least one exercise across its training days.");
-  }
-  if (draft.type !== ProgramType.FREE) {
-    const parsedPrice = Number(draft.price);
-    if (Number.isNaN(parsedPrice) || Math.round(parsedPrice * 100) < 100) {
-      messages.push("Paid plans must have a price of at least €1.00.");
-    }
   }
 
   if (!isLevel2) {
@@ -547,7 +648,7 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
   return {
   name: draft.name.trim(),
   description: draft.description.trim(),
-  type: isLevel2 ? ProgramType.PREMIUM : draft.type,
+  type: draft.product_type === PROGRAM_PRODUCT_TYPE.GENERIC ? ProgramType.FREE : ProgramType.PREMIUM,
   status: draft.status,
   objective: draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? draft.objective : "",
   nutrition_mode:
@@ -562,13 +663,18 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
   training_type: isLevel2 ? "" : draft.training_type,
   duration_weeks: isLevel2 ? 0 : optionalNumber(draft.duration_weeks) ?? 0,
   frequency_per_week: isLevel2 ? 0 : optionalNumber(draft.frequency_per_week) ?? 0,
-  price_minor_units:
-    !isLevel2 && draft.type === ProgramType.FREE ? 0 : Math.round(Number(draft.price) * 100),
-  currency: draft.currency || "EUR",
+  // The price follows the family's catalogue category on the server; the
+  // value sent here is ignored.
+  price_minor_units: 0,
+  currency: "EUR",
+  cover_image: draft.cover_image,
   weeks: isLevel2
     ? []
     : draft.weeks.map((week) => ({
     workouts: week.workouts.map((workout) => ({
+      name: workout.name.trim(),
+      description: workout.description.trim(),
+      focus: workout.focus,
       exercises: workout.exercises.map((assignment) => ({
         exercise_id: assignment.exercise_id,
         instructions: assignment.instructions,
@@ -665,12 +771,17 @@ export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
   training_type: detail.training_type ?? "",
   duration_weeks: detail.duration_weeks === null ? "" : String(detail.duration_weeks),
   frequency_per_week: detail.frequency_per_week === null ? "" : String(detail.frequency_per_week),
+  cover_image: detail.cover_image ?? "",
+  cover_url: detail.cover_image_url ?? "",
   weeks: detail.weeks.map((week) => ({
     id: uid(),
     week_number: week.week_number,
     workouts: week.workouts.map((workout) => ({
       id: uid(),
       position: workout.position,
+      name: workout.name ?? "",
+      description: workout.description ?? "",
+      focus: workout.focus ?? "",
       exercises: workout.exercises.map((assignment) => ({
         id: uid(),
         exercise_id: assignment.id,

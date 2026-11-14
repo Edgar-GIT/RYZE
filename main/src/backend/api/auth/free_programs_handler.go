@@ -8,6 +8,7 @@ import (
 
 	"ryze/backend/middleware/authcontext"
 	"ryze/backend/services/free_programs"
+	"ryze/backend/services/program_details"
 )
 
 type freeActivationResponse struct {
@@ -26,6 +27,7 @@ type freeProgramSummaryResponse struct {
 	DurationWeeks    *int    `json:"duration_weeks"`
 	FrequencyPerWeek *int    `json:"frequency_per_week"`
 	TrainingType     *string `json:"training_type"`
+	CoverImageURL    string  `json:"cover_image_url"`
 	PriceMinorUnits  int64   `json:"price_minor_units"`
 	Currency         string  `json:"currency"`
 }
@@ -44,6 +46,7 @@ func newFreeActivationResponse(activation *free_programs.Activation) freeActivat
 			DurationWeeks:    activation.Program.DurationWeeks,
 			FrequencyPerWeek: activation.Program.FrequencyPerWeek,
 			TrainingType:     activation.Program.TrainingType,
+			CoverImageURL:    program_details.CoverURL(activation.Program.CoverImage),
 			PriceMinorUnits:  activation.Program.PriceMinorUnits,
 			Currency:         activation.Program.Currency,
 		},

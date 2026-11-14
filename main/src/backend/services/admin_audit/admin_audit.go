@@ -212,6 +212,7 @@ var actions = map[string]string{
 	"POST /api/v1/admin/premium-level-2/requests/:requestID/trainer": "premium_level_2.assign_trainer",
 
 	"PATCH /api/v1/admin/programs/:programID/pricing": "program.pricing_update",
+	"POST /api/v1/admin/uploads/program-cover":        "program.cover_upload",
 
 	"PATCH /api/v1/admin/trainers/:id/commission":  "commission.update",
 	"DELETE /api/v1/admin/trainers/:id/commission": "commission.delete",

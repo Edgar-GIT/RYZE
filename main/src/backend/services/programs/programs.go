@@ -13,6 +13,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
+	"ryze/backend/services/program_details"
 )
 
 var (
@@ -27,6 +28,10 @@ var (
 	// ErrProgramLocked indicates the program is attached to a Premium Level 2
 	// request and can no longer be published, deleted or edited after delivery.
 	ErrProgramLocked = errors.New("program locked by premium level 2 delivery")
+	// ErrPriceFixed indicates a price other than the plan's fixed catalogue
+	// price was requested. Prices follow the catalogue category only (owner
+	// decision, 2026-11-14).
+	ErrPriceFixed = errors.New("program price is fixed by its catalogue category")
 )
 
 const (
@@ -56,40 +61,59 @@ type ProgramRepository interface {
 // public program metadata and never exposes deletion markers or any internal
 // data.
 type Program struct {
-	ID              string
-	TrainerID       string
-	Name            string
-	Description     string
-	Type            string
-	Status          string
-	PriceMinorUnits int64
-	Currency        string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID               string
+	TrainerID        string
+	Name             string
+	Description      string
+	Type             string
+	Status           string
+	PriceMinorUnits  int64
+	Currency         string
+	Level            *string
+	DurationWeeks    *int
+	FrequencyPerWeek *int
+	TrainingType     *string
+	CoverImage       *string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // CreateProgramInput carries the fields accepted when creating a program. The
 // trainer id never comes from the input: it is always the authenticated
 // trainer.
+// CreateProgramInput carries a new trainer plan. PriceMinorUnits and Currency
+// are ignored: the price follows the plan type's catalogue category.
 type CreateProgramInput struct {
-	Name            string
-	Description     string
-	Type            string
-	Status          string
-	PriceMinorUnits int64
-	Currency        string
+	Name             string
+	Description      string
+	Type             string
+	Status           string
+	PriceMinorUnits  int64
+	Currency         string
+	Level            string
+	DurationWeeks    int
+	FrequencyPerWeek int
+	TrainingType     string
+	CoverImage       string
 }
 
 // UpdateProgramInput carries the optional whitelisted fields accepted when
 // updating a program. Nil values mean "leave unchanged"; at least one field
 // must be provided.
+// UpdateProgramInput carries a partial trainer plan update. PriceMinorUnits and
+// Currency are ignored: changing the type re-applies its catalogue price.
 type UpdateProgramInput struct {
-	Name            *string
-	Description     *string
-	Type            *string
-	Status          *string
-	PriceMinorUnits *int64
-	Currency        *string
+	Name             *string
+	Description      *string
+	Type             *string
+	Status           *string
+	PriceMinorUnits  *int64
+	Currency         *string
+	Level            *string
+	DurationWeeks    *int
+	FrequencyPerWeek *int
+	TrainingType     *string
+	CoverImage       *string
 }
 
 // UpdatePricingInput carries the pricing fields accepted when updating a
@@ -174,25 +198,34 @@ func (s *service) CreateProgram(ctx context.Context, trainerID string, input Cre
 		return nil, err
 	}
 
-	currency := strings.TrimSpace(input.Currency)
-	if currency == "" {
-		currency = string(models.ProgramCurrencyEUR)
-	}
-	if err := validateCurrency(currency); err != nil {
+	// The price is never chosen by the trainer: it is the catalogue price of
+	// the plan type (free, Level 1 price for premium, Level 2 price for
+	// personalized).
+	currency := string(models.ProgramCurrencyEUR)
+	price := models.CatalogPriceMinorUnits(models.ProgramProductTypeGeneric, input.Type)
+	if err := validatePriceForType(input.Type, price, currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
 		return nil, err
 	}
-	if err := validatePriceForType(input.Type, input.PriceMinorUnits, currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
-		return nil, err
+	if err := program_details.ValidateCatalogMetadata(input.Level, input.TrainingType, input.DurationWeeks, input.FrequencyPerWeek); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
+	if err := program_details.ValidateCoverKey(program_details.CoverFolder(models.ProgramProductTypeGeneric, input.Type), input.CoverImage); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 
 	program := &models.Program{
-		TrainerID:       trainerID,
-		Name:            strings.TrimSpace(input.Name),
-		Description:     input.Description,
-		Type:            input.Type,
-		Status:          status,
-		PriceMinorUnits: input.PriceMinorUnits,
-		Currency:        currency,
+		TrainerID:        trainerID,
+		Name:             strings.TrimSpace(input.Name),
+		Description:      input.Description,
+		Type:             input.Type,
+		Status:           status,
+		PriceMinorUnits:  price,
+		Currency:         currency,
+		Level:            program_details.OptionalString(input.Level),
+		DurationWeeks:    program_details.OptionalPositive(input.DurationWeeks),
+		FrequencyPerWeek: program_details.OptionalPositive(input.FrequencyPerWeek),
+		TrainingType:     program_details.OptionalString(input.TrainingType),
+		CoverImage:       program_details.OptionalCover(input.CoverImage),
 	}
 	if err := s.programs.Create(ctx, program); err != nil {
 		return nil, fmt.Errorf("failed to create program: %w", err)
@@ -313,27 +346,55 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 		effectiveType = t.(string)
 	}
 
-	if input.PriceMinorUnits != nil || input.Currency != nil {
-		price := existing.PriceMinorUnits
-		if input.PriceMinorUnits != nil {
-			price = *input.PriceMinorUnits
+	level, trainingType := "", ""
+	if existing.Level != nil {
+		level = *existing.Level
+	}
+	if existing.TrainingType != nil {
+		trainingType = *existing.TrainingType
+	}
+	duration, frequency := 0, 0
+	if existing.DurationWeeks != nil {
+		duration = *existing.DurationWeeks
+	}
+	if existing.FrequencyPerWeek != nil {
+		frequency = *existing.FrequencyPerWeek
+	}
+	if input.Level != nil {
+		level = *input.Level
+		updates["level"] = program_details.OptionalString(level)
+	}
+	if input.TrainingType != nil {
+		trainingType = *input.TrainingType
+		updates["training_type"] = program_details.OptionalString(trainingType)
+	}
+	if input.DurationWeeks != nil {
+		duration = *input.DurationWeeks
+		updates["duration_weeks"] = program_details.OptionalPositive(duration)
+	}
+	if input.FrequencyPerWeek != nil {
+		frequency = *input.FrequencyPerWeek
+		updates["frequency_per_week"] = program_details.OptionalPositive(frequency)
+	}
+	if err := program_details.ValidateCatalogMetadata(level, trainingType, duration, frequency); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
+	if input.CoverImage != nil {
+		if err := program_details.ValidateCoverKey(program_details.CoverFolder(models.ProgramProductTypeGeneric, effectiveType), *input.CoverImage); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 		}
-		currency := existing.Currency
-		if input.Currency != nil {
-			currency = strings.TrimSpace(*input.Currency)
-		}
-		if err := validateCurrency(currency); err != nil {
-			return nil, err
-		}
-		if err := validatePriceForType(effectiveType, price, currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
-			return nil, err
-		}
-		updates["price_minor_units"] = price
-		updates["currency"] = currency
+		updates["cover_image"] = program_details.OptionalCover(*input.CoverImage)
 	}
 
 	if len(updates) == 0 {
 		return nil, fmt.Errorf("%w: at least one field must be provided", ErrInvalidInput)
+	}
+
+	// The price always follows the effective type's catalogue category; a
+	// client-sent price or currency is ignored.
+	if catalogPrice := models.CatalogPriceMinorUnits(models.ProgramProductTypeGeneric, effectiveType); catalogPrice != existing.PriceMinorUnits || existing.Currency != string(models.ProgramCurrencyEUR) {
+		updates["price_minor_units"] = catalogPrice
+		updates["currency"] = string(models.ProgramCurrencyEUR)
 	}
 
 	if err := s.programs.Update(ctx, trainerID, programID, updates); err != nil {
@@ -363,6 +424,19 @@ func (s *service) PublishProgram(ctx context.Context, trainerID, programID strin
 	}
 	if linked {
 		return nil, ErrProgramLocked
+	}
+
+	// A plan saved before the catalogue prices existed is aligned with its
+	// type's catalogue price before it becomes purchasable.
+	if existing, findErr := s.programs.FindByIDAndTrainer(ctx, trainerID, programID); findErr == nil {
+		if catalogPrice := models.CatalogPriceMinorUnits(models.ProgramProductTypeGeneric, existing.Type); existing.PriceMinorUnits != catalogPrice {
+			if err := s.programs.Update(ctx, trainerID, programID, map[string]any{
+				"price_minor_units": catalogPrice,
+				"currency":          string(models.ProgramCurrencyEUR),
+			}); err != nil {
+				return nil, fmt.Errorf("failed to apply catalogue price: %w", err)
+			}
+		}
 	}
 
 	err = s.programs.Publish(ctx, trainerID, programID)
@@ -443,6 +517,12 @@ func (s *service) UpdateProgramPricing(ctx context.Context, programID string, in
 	if err := validateCurrency(currency); err != nil {
 		return nil, err
 	}
+	// Prices are fixed by the catalogue category: the only accepted value is
+	// the plan's catalogue price, which lets an administrator re-align a plan
+	// saved before the catalogue prices existed, never choose a price.
+	if input.PriceMinorUnits != models.CatalogPriceMinorUnits(program.ProductType, program.Type) {
+		return nil, ErrPriceFixed
+	}
 	if err := validatePriceForType(program.Type, input.PriceMinorUnits, currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
 		return nil, err
 	}
@@ -491,16 +571,21 @@ func (s *service) premiumLevel2Link(ctx context.Context, programID string) (bool
 
 func newProgram(model *models.Program) *Program {
 	return &Program{
-		ID:              model.ID,
-		TrainerID:       model.TrainerID,
-		Name:            model.Name,
-		Description:     model.Description,
-		Type:            model.Type,
-		Status:          model.Status,
-		PriceMinorUnits: model.PriceMinorUnits,
-		Currency:        model.Currency,
-		CreatedAt:       model.CreatedAt,
-		UpdatedAt:       model.UpdatedAt,
+		ID:               model.ID,
+		TrainerID:        model.TrainerID,
+		Name:             model.Name,
+		Description:      model.Description,
+		Type:             model.Type,
+		Status:           model.Status,
+		PriceMinorUnits:  model.PriceMinorUnits,
+		Currency:         model.Currency,
+		Level:            model.Level,
+		DurationWeeks:    model.DurationWeeks,
+		FrequencyPerWeek: model.FrequencyPerWeek,
+		TrainingType:     model.TrainingType,
+		CoverImage:       model.CoverImage,
+		CreatedAt:        model.CreatedAt,
+		UpdatedAt:        model.UpdatedAt,
 	}
 }
 

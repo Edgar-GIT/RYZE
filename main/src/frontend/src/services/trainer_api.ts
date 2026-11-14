@@ -1,6 +1,7 @@
-import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, downloadFile, encodePathSegment } from "@utils/http_client";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiUpload, downloadFile, encodePathSegment } from "@utils/http_client";
 
 import { AdminPagination } from "./admin_api";
+import type { GenericProgramWeek, GenericProgramWeekInput, UploadedImage } from "./admin2_api";
 import type { WorkoutSession } from "./workout_sessions_api";
 
 // The trainer session state comes from the backend access endpoint, which is
@@ -93,6 +94,12 @@ export interface TrainerProgram {
   status: TrainerProgramStatusValue;
   price_minor_units: number;
   currency: string;
+  level?: string | null;
+  duration_weeks?: number | null;
+  frequency_per_week?: number | null;
+  training_type?: string | null;
+  cover_image?: string | null;
+  cover_image_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -102,12 +109,18 @@ export interface TrainerProgramsList {
   pagination: AdminPagination;
 }
 
+// The price is not part of the input: it follows the type's catalogue
+// category on the server (free 0, premium = Level 1, personalized = Level 2).
 export interface TrainerProgramInput {
   name: string;
   description: string;
   type: TrainerProgramTypeValue;
   status: TrainerProgramStatusValue;
-  price_minor_units: number;
+  level?: string;
+  duration_weeks?: number;
+  frequency_per_week?: number;
+  training_type?: string;
+  cover_image?: string;
 }
 
 export type TrainerProgramUpdateInput = Partial<TrainerProgramInput>;
@@ -282,6 +295,28 @@ export const publishTrainerProgram = (programId: string): Promise<TrainerProgram
 
 export const deleteTrainerProgram = (programId: string): Promise<never> =>
   apiDelete<never>(`/trainer/programs/${encodeURIComponent(programId)}`);
+
+// The whole structure of one own plan (weeks, training days, exercises and
+// sets), read and saved in one request by the plan builder.
+export const fetchTrainerProgramStructure = (programId: string): Promise<GenericProgramWeek[]> =>
+  apiGet<{ weeks: GenericProgramWeek[] }>(`/trainer/programs/${encodeURIComponent(programId)}/structure`).then(
+    (data) => data.weeks
+  );
+
+export const saveTrainerProgramStructure = (
+  programId: string,
+  weeks: GenericProgramWeekInput[]
+): Promise<GenericProgramWeek[]> =>
+  apiPut<{ weeks: GenericProgramWeek[] }>(`/trainer/programs/${encodeURIComponent(programId)}/structure`, { weeks }).then(
+    (data) => data.weeks
+  );
+
+export const uploadTrainerCover = (type: TrainerProgramTypeValue, file: File): Promise<UploadedImage> => {
+  const form = new FormData();
+  form.append("type", type);
+  form.append("file", file);
+  return apiUpload<UploadedImage>("/trainer/uploads/program-cover", form);
+};
 
 const structurePath = (programId: string): string =>
   `/trainer/programs/${encodeURIComponent(programId)}`;

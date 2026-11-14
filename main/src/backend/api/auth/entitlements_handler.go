@@ -9,6 +9,7 @@ import (
 
 	"ryze/backend/middleware/authcontext"
 	"ryze/backend/services/entitlements"
+	"ryze/backend/services/program_details"
 )
 
 // programSummaryResponse is the safe program summary exposed inside
@@ -25,6 +26,7 @@ type programSummaryResponse struct {
 	DurationWeeks    *int    `json:"duration_weeks"`
 	FrequencyPerWeek *int    `json:"frequency_per_week"`
 	TrainingType     *string `json:"training_type"`
+	CoverImageURL    string  `json:"cover_image_url"`
 	PriceMinorUnits  int64   `json:"price_minor_units"`
 	// ProductType is the product family the owned program belongs to. It lets
 	// the client render a Premium Level 1 package as training plus nutrition
@@ -60,6 +62,7 @@ func newEntitlementResponse(ent *entitlements.Entitlement) entitlementResponse {
 			DurationWeeks:    ent.Program.DurationWeeks,
 			FrequencyPerWeek: ent.Program.FrequencyPerWeek,
 			TrainingType:     ent.Program.TrainingType,
+			CoverImageURL:    program_details.CoverURL(ent.Program.CoverImage),
 			PriceMinorUnits:  ent.Program.PriceMinorUnits,
 			ProductType:      ent.Program.ProductType,
 			Currency:         ent.Program.Currency,

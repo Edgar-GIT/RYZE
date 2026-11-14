@@ -44,6 +44,7 @@ type Program struct {
 	DurationWeeks    *int
 	FrequencyPerWeek *int
 	TrainingType     *string
+	CoverImage       *string
 	PriceMinorUnits  int64
 	Currency         string
 	// ProductType is the product family of the owned program.
@@ -167,6 +168,7 @@ func newProgram(model *models.Program) Program {
 		DurationWeeks:    model.DurationWeeks,
 		FrequencyPerWeek: model.FrequencyPerWeek,
 		TrainingType:     model.TrainingType,
+		CoverImage:       model.CoverImage,
 		PriceMinorUnits:  model.PriceMinorUnits,
 		Currency:         model.Currency,
 		ProductType:      model.ProductType,

@@ -9,6 +9,8 @@ import {
   type MarketplaceProgram
 } from "@/services/marketplace_api";
 
+import { publicFileUrl } from "@utils/http_client";
+
 import styles from "./program_card.module.css";
 
 interface ProgramCardProps {
@@ -52,7 +54,11 @@ export const ProgramCard = ({ program, forceFree = false, owned = false, coach =
         aria-label={owned ? text.open(program.name) : text.view(program.name)}
       >
         <div className={styles.image} data-tone={toneFor(program.id)} aria-hidden="true">
-          <img className={styles.logo} src={BRAND_ASSETS.icon} alt="" />
+          {program.cover_image_url ? (
+            <img className={styles.cover} src={publicFileUrl(program.cover_image_url)} alt="" loading="lazy" decoding="async" />
+          ) : (
+            <img className={styles.logo} src={BRAND_ASSETS.icon} alt="" />
+          )}
           {isFree && !owned ? <span className={styles.freeBadge}>{text.free}</span> : null}
         </div>
         <div className={styles.body}>

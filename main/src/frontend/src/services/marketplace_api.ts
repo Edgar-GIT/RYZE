@@ -49,6 +49,8 @@ export interface MarketplaceProgram extends MarketplaceProgramProduct {
   objective: string | null;
   price_minor_units: number;
   currency: string;
+  // Public path of the plan's cover picture ("" without one).
+  cover_image_url?: string;
   created_at: string;
   updated_at: string;
 }

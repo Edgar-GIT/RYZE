@@ -7,11 +7,10 @@ import Admin2PlansPage from "@/pages/admin2/admin2_plans_page/admin2_plans_page"
 import Admin2PremiumLevel2Page from "@/pages/admin2/admin2_premium_level2_page/admin2_premium_level2_page";
 import Admin2PlanCreatePage from "@/pages/admin2/admin2_plan_create_page/admin2_plan_create_page";
 import Admin2PlanDetailPage from "@/pages/admin2/admin2_plan_detail_page/admin2_plan_detail_page";
-import Admin2MarketplacePage from "@/pages/admin2/admin2_marketplace_page/admin2_marketplace_page";
 import Admin2TrainersPage from "@/pages/admin2/admin2_trainers_page/admin2_trainers_page";
 import Admin2ClientsPage from "@/pages/admin2/admin2_clients_page/admin2_clients_page";
 import Admin2SalesPage from "@/pages/admin2/admin2_sales_page/admin2_sales_page";
-import Admin2AnalyticsPage from "@/pages/admin2/admin2_analytics_page/admin2_analytics_page";
+import { AdminTrainerApplicationsPage } from "@/pages/admin/admin_trainer_applications_page/admin_trainer_applications_page";
 import Admin2FeedbackPage from "@/pages/admin2/admin2_feedback_page/admin2_feedback_page";
 import Admin2SupportPage from "@/pages/admin2/admin2_support_page/admin2_support_page";
 import Admin2ExercisesPage from "@/pages/admin2/admin2_exercises_page/admin2_exercises_page";
@@ -30,11 +29,12 @@ const Admin2Routes = () => (
         <Route exact path="/admin2/plans/create" component={Admin2PlanCreatePage} />
         <Route exact path="/admin2/plans/:programId" component={Admin2PlanDetailPage} />
         <Route exact path="/admin2/exercises" component={Admin2ExercisesPage} />
-        <Route exact path="/admin2/marketplace" component={Admin2MarketplacePage} />
         <Route exact path="/admin2/trainers" component={Admin2TrainersPage} />
         <Route exact path="/admin2/clients" component={Admin2ClientsPage} />
         <Route exact path="/admin2/sales" component={Admin2SalesPage} />
-        <Route exact path="/admin2/analytics" component={Admin2AnalyticsPage} />
+        <Route exact path="/admin2/trainer-applications" component={AdminTrainerApplicationsPage} />
+        <Redirect from="/admin2/analytics" to="/admin2/dashboard" />
+        <Redirect from="/admin2/marketplace" to="/admin2/plans" />
         <Route exact path="/admin2/feedback" component={Admin2FeedbackPage} />
         <Route exact path="/admin2/support" component={Admin2SupportPage} />
         <Route exact path="/admin2/settings" component={Admin2SettingsPage} />

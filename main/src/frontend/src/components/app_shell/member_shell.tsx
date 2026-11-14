@@ -3,6 +3,7 @@ import {
   BookOpen,
   Dumbbell,
   History,
+  Globe2,
   LayoutDashboard,
   LifeBuoy,
   Play,
@@ -16,9 +17,9 @@ import { useHistory } from "react-router-dom";
 
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { fetchTrainerAccess } from "@/services/trainer_api";
-import { ApiError, apiGet } from "@utils/http_client";
+import { ApiError, apiGet, apiPost } from "@utils/http_client";
 
-import { AppShell, type ShellNavItem } from "./app_shell";
+import { AppShell, type ShellNavItem, type UserMenuItem } from "./app_shell";
 
 export interface MemberUser {
   id: string;
@@ -54,6 +55,12 @@ const COPY: Copy<{
   support: string;
   account: string;
   more: string;
+  menu: string;
+  signOut: string;
+  signingOut: string;
+  site: string;
+  member: string;
+  close: string;
   start: string;
   startText: string;
   trainer: string;
@@ -71,6 +78,12 @@ const COPY: Copy<{
     support: "Support",
     account: "Account",
     more: "More",
+    menu: "Account menu",
+    signOut: "Sign out",
+    signingOut: "Signing out…",
+    site: "RYZE website",
+    member: "Member",
+    close: "Close",
     start: "Start a workout",
     startText: "Pick up your plan where you left it",
     trainer: "Trainer area",
@@ -88,6 +101,12 @@ const COPY: Copy<{
     support: "Suporte",
     account: "Conta",
     more: "Mais",
+    menu: "Menu da conta",
+    signOut: "Terminar sessão",
+    signingOut: "A terminar sessão…",
+    site: "Site da RYZE",
+    member: "Membro",
+    close: "Fechar",
     start: "Começar treino",
     startText: "Continua o teu plano onde ficaste",
     trainer: "Área de treinador",
@@ -143,18 +162,24 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     { to: "/support", label: text.support, icon: LifeBuoy },
     { to: "/account/settings", label: text.account, icon: Settings }
   ];
-  const tabs: ShellNavItem[] = [
-    items[0],
-    items[1],
-    items[2],
-    items[3],
-    {
-      to: "/account/settings",
-      label: text.account,
-      icon: Settings,
-      match: (pathname) => pathname.startsWith("/account") || pathname === "/support"
-    }
+  const menuItems: UserMenuItem[] = [
+    { to: "/account/settings", label: text.account, icon: Settings },
+    { to: "/account/purchases", label: text.purchases, icon: ReceiptText },
+    { to: "/support", label: text.support, icon: LifeBuoy },
+    ...(isTrainer ? [{ to: "/trainer/dashboard", label: text.trainer, icon: Users }] : []),
+    { to: "/", label: text.site, icon: Globe2 }
   ];
+
+  // Sign out ends the session on the server, then leaves for the login page;
+  // a failed request still leaves (the session cookie may already be gone).
+  const signOut = async () => {
+    try {
+      await apiPost("/auth/logout", {});
+    } catch {
+      // Best effort.
+    }
+    history.replace("/login");
+  };
 
   const name = user ? `${user.first_name} ${user.last_name}`.trim() || user.email : "";
 
@@ -163,13 +188,18 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
       <AppShell
         area="member"
         navLabel={text.nav}
-        items={items}
-        secondaryLabel={text.more}
-        secondaryItems={secondaryItems}
-        tabs={tabs}
-        user={user ? { name, email: user.email } : null}
-        accountTo="/account/settings"
-        accountLabel={text.account}
+        groups={[{ items }, { label: text.more, items: secondaryItems }]}
+        tabs={items}
+        moreLabel={text.more}
+        closeLabel={text.close}
+        user={user ? { name, email: user.email, role: isTrainer ? undefined : text.member } : null}
+        menu={{
+          label: text.menu,
+          items: menuItems,
+          signOutLabel: text.signOut,
+          signingOutLabel: text.signingOut,
+          onSignOut: signOut
+        }}
         action={{ to: "/services/my-programs", title: text.start, text: text.startText, icon: Play }}
         switchTo={isTrainer ? { to: "/trainer/dashboard", label: text.trainer, icon: Users } : undefined}
         backToSite={text.back}

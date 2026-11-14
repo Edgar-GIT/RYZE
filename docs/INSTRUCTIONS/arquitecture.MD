@@ -854,9 +854,12 @@ existing layered pattern:
 - The `programs` service (`services/programs`) owns pricing validation: free
   programs must have price 0, paid programs must meet the configurable minimum,
   and currency is validated against the supported set (EUR only initially).
-- The minimum price is configurable via `MIN_PROGRAM_PRICE_MINOR_UNITS` env var
-  (loaded through `config.PricingConfig`). This avoids hard-coding business
-  rules.
+- Since v2.114.0 nobody chooses a price (owner decision, 2026-11-14): the
+  catalogue prices live in `models.CatalogPriceMinorUnits` — generic 0,
+  Premium Level 1 1499, Premium Level 2 1949; trainer plans take the price of
+  their type (premium = Level 1, personalized = Level 2). The platform and
+  trainer services stamp it on every create/update and ignore client prices.
+  `MIN_PROGRAM_PRICE_MINOR_UNITS` remains only as a lower safety bound.
 - Trainers set pricing through the existing `CreateProgram` and `UpdateProgram`
   methods. The admin pricing path uses a dedicated `admin_program_pricing`
   service that delegates to the programs service.
@@ -2256,3 +2259,28 @@ Every modification must respect the project's principles and be properly documen
 
 The goal is to continuously improve the platform while maintaining consistency,
 clarity and long-term maintainability.
+
+---
+
+## v2.114.0 — plan builder, uploads and administration overviews
+
+- `services/program_details` holds the shared rules for plan presentation
+  details: cover keys per category folder, training-day name/description/focus
+  and the level/goal vocabularies. `models.CatalogPriceMinorUnits` holds the
+  fixed catalogue prices.
+- `services/public_uploads` is the public uploads store (`UPLOADS_DIR`), served by
+  `api/auth/uploads_handler.go` at `/uploads/programs/*`.
+- `generic_programs.TrainerStructureService` (with
+  `repositories.TrainerStructureRepository`) saves a trainer plan's whole
+  structure with the same validation and reconciliation as platform plans.
+- `services/admin_overview` (with `repositories.AdminOverviewRepository`)
+  builds the ADMIN_2 business overview and the ADMIN_1 platform overview from
+  read-only aggregates.
+- Frontend: `components/app_shell` now frames all four signed-in areas
+  (member, trainer, ADMIN_1 `/admin`, ADMIN_2 `/admin2`) with grouped
+  navigation, an account menu (`user_menu.tsx`, with sign-out) and a phone
+  "More" sheet. `components/plan_builder` is the shared plan builder used by
+  `/admin2/plans/create` and `/trainer/programs/new|:id`;
+  `components/admin_board` and `components/admin_charts` hold the dashboard
+  styles and SVG charts. `/app` (`pages/signed_in_page`) decides where an
+  account lands after signing in (trainers → `/trainer/dashboard`).

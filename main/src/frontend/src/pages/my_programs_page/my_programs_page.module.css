@@ -78,6 +78,22 @@
   border-bottom: 1px solid rgba(124, 200, 255, 0.18);
 }
 
+/* The plan's cover picture replaces the gradient band when there is one. */
+.cardCover {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 0;
+  width: 100%;
+  height: 6.2rem;
+  object-fit: cover;
+  border-bottom: 1px solid rgba(124, 200, 255, 0.18);
+}
+
+.card > :not(.cardCover) {
+  position: relative;
+  z-index: 1;
+}
+
 .card:hover {
   border-color: var(--app-line-strong);
   box-shadow: 0 28px 60px -32px rgba(0, 203, 255, 0.45);

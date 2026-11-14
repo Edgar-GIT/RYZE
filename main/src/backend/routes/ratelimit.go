@@ -35,6 +35,7 @@ const (
 	scopeClientLookup       = "trainer-client-lookup"
 	scopeDocumentUpload     = "document-upload"
 	scopeProgramView        = "program-view"
+	scopeImageUpload        = "image-upload"
 )
 
 // authRateLimitScope is one endpoint's policy. The IP limiter always applies.
@@ -98,6 +99,8 @@ var authRateLimitScopes = []authRateLimitScope{
 	// Program views: a visitor browsing many programs stays well inside the
 	// bound; a script cannot inflate the featured ranking.
 	{name: scopeProgramView, ipLimit: 120, ipWindow: 10 * time.Minute},
+	// Programme cover images: each upload is stored on disk.
+	{name: scopeImageUpload, ipLimit: 60, ipWindow: time.Hour},
 }
 
 // authRateLimiters owns the limiters for every authentication scope.

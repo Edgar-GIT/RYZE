@@ -1,126 +1,38 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import {
-  ExternalLink,
-  LogOut,
-  Menu,
-  ShieldCheck,
-  X
-} from "lucide-react";
-import { Link, Redirect, useLocation } from "react-router-dom";
+import { Globe2, ScrollText, ServerCog } from "lucide-react";
+import { Redirect, useLocation } from "react-router-dom";
 
-import { BrandMark } from "@/components/brand_mark/brand_mark";
+import { AppLoading } from "@/components/app_shell/app_loading";
+import { AppShell, type UserMenuItem } from "@/components/app_shell/app_shell";
+import { adminNavigationGroups, ADMIN_TABS } from "@/components/admin/admin_navigation";
+import { AdminSessionContext } from "@/components/admin/admin_session_context";
 import {
-  adminNavigationGroups,
-  type AdminNavGroup,
-  type AdminNavItem
-} from "@/components/admin/admin_navigation";
-import {
-  TECHNICAL_ADMINISTRATOR,
+  MANAGEMENT_ADMINISTRATOR,
   adminRoleName,
   fetchAdminIdentity,
   signOutAdmin,
   type AdminIdentity
 } from "@/services/admin_api";
-import { joinClassNames } from "@utils/class_names";
-import { AdminSessionContext } from "@/components/admin/admin_session_context";
-
-import styles from "./admin_layout.module.css";
 
 type AdminSessionState =
   | { status: "loading" }
   | { status: "ready"; identity: AdminIdentity }
   | { status: "unauthenticated" };
 
-interface AdminSidebarProps {
-  identity: AdminIdentity;
-  pathname: string;
-  onSignOut: () => void;
-  onNavigate: () => void;
-}
+const MENU_ITEMS: UserMenuItem[] = [
+  { to: "/admin/system", label: "System status", icon: ServerCog },
+  { to: "/admin/audit", label: "Audit log", icon: ScrollText },
+  { to: "/", label: "RYZE website", icon: Globe2 }
+];
 
-const AdminNavItemLink = ({ item, pathname, onNavigate }: { item: AdminNavItem; pathname: string; onNavigate: () => void }) => {
-  const isActive = pathname === item.to;
-  const Icon = item.icon;
-
-  return (
-    <Link
-      to={item.to}
-      className={joinClassNames(styles.navItem, isActive && styles.navItemActive)}
-      aria-current={isActive ? "page" : undefined}
-      onClick={onNavigate}
-    >
-      <Icon className={styles.navItemIcon} aria-hidden="true" strokeWidth={1.8} />
-      <span>{item.label}</span>
-    </Link>
-  );
-};
-
-const AdminNavGroupSection = ({ group, pathname, onNavigate }: { group: AdminNavGroup; pathname: string; onNavigate: () => void }) => (
-  <div className={styles.navGroup}>
-    <p className={styles.navGroupTitle}>{group.title}</p>
-    <nav className={styles.navList} aria-label={`${group.title} navigation`}>
-      {group.items.map((item) => (
-        <AdminNavItemLink key={item.to} item={item} pathname={pathname} onNavigate={onNavigate} />
-      ))}
-    </nav>
-  </div>
-);
-
-const AdminSidebar = ({ identity, pathname, onSignOut, onNavigate }: AdminSidebarProps) => {
-  const isTechnicalAdministrator = identity.role === TECHNICAL_ADMINISTRATOR;
-
-  return (
-    <div className={styles.sidebarInner}>
-      <div className={styles.sidebarHeader}>
-        <Link className={styles.brand} to="/" aria-label="RYZE home" onClick={onNavigate}>
-          <BrandMark size="navigation" />
-          <span className={styles.brandText}>
-            RYZE <em className={styles.brandSub}>Admin</em>
-          </span>
-        </Link>
-        <button
-          type="button"
-          className={styles.rolePill}
-          aria-label={`Role: ${adminRoleName(identity.role)}`}
-          title={identity.role}
-        >
-          <ShieldCheck className={styles.roleIcon} aria-hidden="true" strokeWidth={1.8} />
-          <span>{adminRoleName(identity.role)}</span>
-        </button>
-      </div>
-
-      <div className={styles.sidebarNav}>
-        {adminNavigationGroups(isTechnicalAdministrator).map((group) => (
-          <AdminNavGroupSection key={group.title} group={group} pathname={pathname} onNavigate={onNavigate} />
-        ))}
-      </div>
-
-      <div className={styles.sidebarFooter}>
-        <Link className={styles.footerLink} to="/" onClick={onNavigate}>
-          <ExternalLink className={styles.footerIcon} aria-hidden="true" strokeWidth={1.8} />
-          <span>Back to the site</span>
-        </Link>
-        <button type="button" className={styles.signOutButton} onClick={onSignOut}>
-          <LogOut className={styles.footerIcon} aria-hidden="true" strokeWidth={1.8} />
-          <span>Sign out</span>
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const AdminLoadingScreen = () => (
-  <div className={styles.loadingScreen} role="status" aria-label="Loading admin session">
-    <div className={styles.loadingSpinner} aria-hidden="true" />
-    <p>Loading admin session…</p>
-  </div>
-);
-
+// AdminLayout is the Technical Administrator console (ADMIN_1). It resolves
+// the administrator session from the server first; the Management
+// Administrator has its own console (/admin2) and is sent there. The frame is
+// the shared app shell of the signed-in areas, in the login page colours.
 export const AdminLayout = ({ children }: { children: ReactNode }) => {
   const { pathname } = useLocation();
   const [session, setSession] = useState<AdminSessionState>({ status: "loading" });
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,17 +52,6 @@ export const AdminLayout = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  useEffect(() => {
-    if (!sidebarOpen) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [sidebarOpen]);
-
   const handleSignOut = async () => {
     try {
       await signOutAdmin();
@@ -162,7 +63,7 @@ export const AdminLayout = ({ children }: { children: ReactNode }) => {
   };
 
   if (session.status === "loading") {
-    return <AdminLoadingScreen />;
+    return <AppLoading />;
   }
 
   if (session.status === "unauthenticated") {
@@ -170,52 +71,33 @@ export const AdminLayout = ({ children }: { children: ReactNode }) => {
   }
 
   const identity = session.identity;
+  if (identity.role === MANAGEMENT_ADMINISTRATOR) {
+    // The applications review is shared; everything else of the management
+    // role lives in its own console.
+    return <Redirect to={pathname === "/admin/trainer-applications" ? "/admin2/trainer-applications" : "/admin2/dashboard"} />;
+  }
 
   return (
-    <div className={styles.adminLayout}>
-      {/* Phones: a top bar with the menu button and the console name. */}
-      <div className={styles.mobileBar}>
-        <button
-          type="button"
-          className={styles.menuToggle}
-          aria-label={sidebarOpen ? "Close admin menu" : "Open admin menu"}
-          aria-expanded={sidebarOpen}
-          onClick={() => setSidebarOpen((open) => !open)}
-        >
-          {sidebarOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
-        </button>
-        <Link className={styles.mobileBrand} to="/admin/dashboard">
-          <BrandMark size="navigation" />
-          <span>
-            RYZE <i>Admin</i>
-          </span>
-        </Link>
-      </div>
-
-      <aside
-        className={joinClassNames(styles.sidebar, sidebarOpen && styles.sidebarOpen)}
-        aria-label="Admin navigation"
-      >
-        <AdminSidebar
-          identity={identity}
-          pathname={pathname}
-          onSignOut={handleSignOut}
-          onNavigate={() => setSidebarOpen(false)}
-        />
-      </aside>
-
-      {sidebarOpen ? (
-        <button
-          type="button"
-          className={styles.scrim}
-          aria-label="Close admin menu"
-          onClick={() => setSidebarOpen(false)}
-        />
-      ) : null}
-
-      <main className={styles.content}>
-        <AdminSessionContext.Provider value={{ identity }}>{children}</AdminSessionContext.Provider>
-      </main>
-    </div>
+    <AppShell
+      area="admin"
+      brandTag="Tech"
+      brandTo="/admin/dashboard"
+      navLabel="Technical administration"
+      groups={adminNavigationGroups()}
+      tabs={ADMIN_TABS}
+      moreLabel="More"
+      user={{ name: adminRoleName(identity.role), email: identity.id, role: "ADMIN_1" }}
+      menu={{
+        label: "Administrator menu",
+        items: MENU_ITEMS,
+        signOutLabel: "Sign out",
+        signingOutLabel: "Signing out…",
+        onSignOut: handleSignOut
+      }}
+      backToSite="Back to the site"
+      compactTopbar
+    >
+      <AdminSessionContext.Provider value={{ identity }}>{children}</AdminSessionContext.Provider>
+    </AppShell>
   );
 };

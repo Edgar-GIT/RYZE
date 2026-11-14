@@ -1,3 +1,4 @@
+import { formatDuration } from "@/components/plan_builder/duration";
 import { ArrowLeft, CheckCircle2, Info, Pause, Play, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useHistory, useParams } from "react-router-dom";
@@ -40,7 +41,7 @@ const usePrescription = () => {
     const first = sets[0];
     return [
       repsText ? t("training.plan.setsReps", { sets: sets.length, reps: repsText }) : t("training.plan.sets1", { sets: sets.length }),
-      first?.prescribed_rest_seconds != null ? t("training.player.rest", { seconds: first.prescribed_rest_seconds }) : null,
+      first?.prescribed_rest_seconds != null ? t("training.player.rest", { time: formatDuration(first.prescribed_rest_seconds) }) : null,
       first?.prescribed_rir != null ? t("training.player.rir", { value: first.prescribed_rir }) : null,
       first?.prescribed_rpe != null ? t("training.player.rpe", { value: first.prescribed_rpe }) : null,
       first?.prescribed_tempo ? t("training.player.tempo", { value: first.prescribed_tempo }) : null

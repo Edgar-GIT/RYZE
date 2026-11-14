@@ -119,7 +119,10 @@ export const PlanSchedule = ({ weeks, sessions, activeWorkoutId, startingWorkout
                 onClick={() => setOpenId(open ? null : workout.id)}
               >
                 <span className={styles.dayTitleRow}>
-                  <span className={styles.dayTitle}>{t("training.plan.day", { day: workout.position })}</span>
+                  <span className={styles.dayTitle}>
+                    {t("training.plan.day", { day: workout.position })}
+                    {workout.name?.trim() ? ` · ${workout.name.trim()}` : ""}
+                  </span>
                   {active ? <span className={styles.badgeActive}>{t("account.training.inProgress")}</span> : null}
                   {next ? <span className={styles.badgeNext}>{t("training.plan.upNext")}</span> : null}
                   {done && !active ? (
@@ -150,6 +153,7 @@ export const PlanSchedule = ({ weeks, sessions, activeWorkoutId, startingWorkout
                 <ChevronDown className={joinClassNames(styles.chevron, open && styles.chevronOpen)} aria-hidden="true" />
               </button>
 
+              {open && workout.description?.trim() ? <p className={styles.dayNames}>{workout.description.trim()}</p> : null}
               {open ? (
                 <ol className={styles.preview} aria-label={t("training.plan.preview")}>
                   {workout.exercises.length === 0 ? <li className={styles.previewEmpty}>{t("training.plan.noExercises")}</li> : null}

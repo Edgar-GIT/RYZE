@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch, apiPost, encodePathSegment } from "@utils/http_client";
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, encodePathSegment } from "@utils/http_client";
 import { AdminPagination } from "./admin_api";
 import type { SetType } from "./exercise_library";
 import { PREMIUM_LEVEL_1_PRODUCT_TYPE } from "./premium_level1_api";
@@ -543,6 +543,8 @@ export interface GenericProgramSummary {
   training_type: GenericTrainingType | null;
   price_minor_units: number;
   currency: string;
+  cover_image?: string | null;
+  cover_image_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -576,6 +578,9 @@ export interface GenericProgramExercise {
 
 export interface GenericProgramWorkout {
   position: number;
+  name?: string;
+  description?: string;
+  focus?: string | null;
   exercises: GenericProgramExercise[];
 }
 
@@ -669,6 +674,9 @@ export interface GenericProgramExerciseInput {
 }
 
 export interface GenericProgramWorkoutInput {
+  name: string;
+  description: string;
+  focus: string;
   exercises: GenericProgramExerciseInput[];
 }
 
@@ -690,6 +698,7 @@ export interface GenericProgramInput {
   training_type: GenericTrainingType | "";
   price_minor_units: number;
   currency: string;
+  cover_image: string;
   weeks: GenericProgramWeekInput[];
 }
 
@@ -881,3 +890,18 @@ export const createAdminExercise = (input: AdminExerciseCreateInput) =>
 
 export const updateAdminExercise = (id: string, input: AdminExerciseUpdateInput) =>
   apiPatch<AdminExerciseMutationResult>(`/admin/exercises/${encodePathSegment(id)}`, input);
+// --- Cover images ---
+
+export interface UploadedImage {
+  key: string;
+  url: string;
+}
+
+// uploadPlatformCover stores a platform plan cover in the family's uploads
+// folder (generic, l1 or l2); the server names and validates the file.
+export const uploadPlatformCover = (family: ProgramProductTypeValue, file: File): Promise<UploadedImage> => {
+  const form = new FormData();
+  form.append("family", family);
+  form.append("file", file);
+  return apiUpload<UploadedImage>("/admin/uploads/program-cover", form);
+};

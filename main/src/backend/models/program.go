@@ -90,6 +90,7 @@ type Program struct {
 	TrainingType     *string               `gorm:"column:training_type;type:varchar(40)" json:"training_type"`
 	PriceMinorUnits  int64                 `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
 	Currency         string                `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
+	CoverImage       *string               `gorm:"column:cover_image;type:varchar(120)" json:"cover_image"`
 	Weeks            []ProgramWeek         `gorm:"foreignKey:ProgramID" json:"-"`
 	CuratedNutrition *CuratedNutritionPlan `gorm:"foreignKey:ProgramID" json:"-"`
 	CreatedAt        time.Time             `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
@@ -112,4 +113,47 @@ func (p *Program) BeforeCreate(_ *gorm.DB) error {
 		p.ContentVersion = 1
 	}
 	return nil
+}
+
+// Catalogue prices (owner decision, 2026-11-14): nobody sets a price. A plan's
+// price follows its category only — Free is free, Premium Level 1 costs 14.99
+// EUR and Premium Level 2 costs 19.49 EUR. Platform plans take the category of
+// their product family; trainer plans (product family generic) take it from
+// their commercial type, where premium sells at the Level 1 price and
+// personalized at the Level 2 price. Administrators decide the trainer
+// commission instead, never the price.
+const (
+	PremiumLevel1PriceMinorUnits int64 = 1499
+	PremiumLevel2PriceMinorUnits int64 = 1949
+)
+
+// FamilyProgramType is the only commercial type a platform-owned plan of the
+// given product family can have: generic plans are free, Level 1 and Level 2
+// packages are premium.
+func FamilyProgramType(productType string) string {
+	switch productType {
+	case ProgramProductTypePremiumLevel1, ProgramProductTypePremiumLevel2:
+		return ProgramTypePremium
+	default:
+		return ProgramTypeFree
+	}
+}
+
+// CatalogPriceMinorUnits returns the fixed catalogue price of a plan of the
+// given product family and commercial type.
+func CatalogPriceMinorUnits(productType, programType string) int64 {
+	switch productType {
+	case ProgramProductTypePremiumLevel1:
+		return PremiumLevel1PriceMinorUnits
+	case ProgramProductTypePremiumLevel2:
+		return PremiumLevel2PriceMinorUnits
+	}
+	switch programType {
+	case ProgramTypePremium:
+		return PremiumLevel1PriceMinorUnits
+	case ProgramTypePersonalized:
+		return PremiumLevel2PriceMinorUnits
+	default:
+		return 0
+	}
 }

@@ -15,6 +15,7 @@ import (
 	"ryze/backend/services/admin_users"
 	"ryze/backend/services/curated_nutrition"
 	"ryze/backend/services/exercise_media"
+	"ryze/backend/services/program_details"
 	"ryze/backend/services/training_prescription"
 )
 
@@ -69,13 +70,13 @@ const (
 
 // LevelValues is the controlled audience vocabulary of generic programs.
 // Values are stored verbatim and every filter value is validated against them.
-var LevelValues = []string{"Beginner", "Intermediate", "Advanced"}
+var LevelValues = program_details.LevelValues
 
 // TrainingTypeValues is the controlled marketplace vocabulary of generic
 // programs. Values are stored verbatim and every filter value is validated
 // against them; an empty value means the program does not advertise a specific
 // training type.
-var TrainingTypeValues = []string{"Hypertrophy", "Strength", "HYROX", "CrossFit", "Fat Loss", "At Home"}
+var TrainingTypeValues = program_details.TrainingTypeValues
 
 // SetTypeValues is the controlled set-type vocabulary, matching the database
 // CHECK constraint and the builder's prescription editor.
@@ -118,10 +119,14 @@ type ExerciseInput struct {
 	Prescription []SetInput
 }
 
-// WorkoutInput carries one workout slot of a week with its exercise usages.
+// WorkoutInput carries one workout slot (training day) of a week with its
+// name, description, muscle-group focus and exercise usages.
 type WorkoutInput struct {
-	Position  int
-	Exercises []ExerciseInput
+	Position    int
+	Name        string
+	Description string
+	Focus       string
+	Exercises   []ExerciseInput
 }
 
 // WeekInput carries one week of the program with its workouts.
@@ -151,6 +156,7 @@ type ProgramInput struct {
 	Currency         string
 	Objective        string
 	NutritionMode    string
+	CoverImage       string
 	CuratedNutrition *curated_nutrition.PlanInput
 	Weeks            []WeekInput
 }
@@ -204,10 +210,14 @@ type WorkoutExercise struct {
 	Sets         []Set
 }
 
-// Workout is the safe representation of one workout slot in position order.
+// Workout is the safe representation of one workout slot (training day) in
+// position order.
 type Workout struct {
-	Position  int
-	Exercises []WorkoutExercise
+	Position    int
+	Name        string
+	Description string
+	Focus       *string
+	Exercises   []WorkoutExercise
 }
 
 // Week is the safe representation of one program week in week order.
@@ -236,6 +246,7 @@ type Program struct {
 	TrainingType     *string
 	PriceMinorUnits  int64
 	Currency         string
+	CoverImage       *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -292,6 +303,7 @@ func (s *service) CreateProgram(ctx context.Context, productType string, input P
 	if err := validateProductType(productType); err != nil {
 		return nil, err
 	}
+	input = withCatalogPricing(productType, input)
 	if err := s.validateProgramInput(productType, input); err != nil {
 		return nil, err
 	}
@@ -374,6 +386,7 @@ func (s *service) UpdateProgram(ctx context.Context, productType, programID stri
 	if err := validateProgramID(programID); err != nil {
 		return nil, err
 	}
+	input = withCatalogPricing(productType, input)
 	if err := s.validateProgramInput(productType, input); err != nil {
 		return nil, err
 	}
@@ -425,8 +438,13 @@ func (s *service) PublishProgram(ctx context.Context, productType, programID str
 
 	// Publishing exposes the program as a purchasable marketplace entry, so
 	// the commercial gate is re-checked at publish time even though create and
-	// update already validated it. This guarantees a published purchasable
-	// program can never carry an invalid price.
+	// update already stamped it: a published plan always carries its family's
+	// type and fixed catalogue price. A row saved before the catalogue prices
+	// existed must be saved again (which applies the price) before publishing.
+	if model.Type != models.FamilyProgramType(productType) ||
+		model.PriceMinorUnits != models.CatalogPriceMinorUnits(productType, model.Type) {
+		return Program{}, fmt.Errorf("%w: save the plan again to apply the catalogue price", ErrInvalidInput)
+	}
 	if err := validatePriceForType(model.Type, model.PriceMinorUnits, model.Currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
 		return Program{}, err
 	}
@@ -505,6 +523,27 @@ func (s *service) DeleteProgram(ctx context.Context, productType, programID stri
 	return nil
 }
 
+// validateCoverImage accepts no cover or a key from the uploads store inside
+// the folder of the family's catalogue category.
+func validateCoverImage(productType, key string) error {
+	folder := program_details.CoverFolder(productType, models.FamilyProgramType(productType))
+	if err := program_details.ValidateCoverKey(folder, key); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
+	return nil
+}
+
+// withCatalogPricing stamps the family's only commercial type and its fixed
+// catalogue price onto the input (owner decision, 2026-11-14: nobody sets a
+// price). Any type, price or currency sent by the client is replaced, so an
+// administrator can never sell a generic plan or price a package differently.
+func withCatalogPricing(productType string, input ProgramInput) ProgramInput {
+	input.Type = models.FamilyProgramType(productType)
+	input.PriceMinorUnits = models.CatalogPriceMinorUnits(productType, input.Type)
+	input.Currency = string(models.ProgramCurrencyEUR)
+	return input
+}
+
 // validateProgramInput enforces the documented generic program invariants:
 // required and bounded metadata, controlled vocabularies, contiguous structural
 // ordering and the duplicate-exercise rule. Structural keys (week_number,
@@ -554,6 +593,9 @@ func (s *service) validateProgramInput(productType string, input ProgramInput) e
 	if err := validateProductMetadata(productType, input); err != nil {
 		return err
 	}
+	if err := validateCoverImage(productType, input.CoverImage); err != nil {
+		return err
+	}
 
 	if productType == models.ProgramProductTypePremiumLevel2 {
 		return validatePremiumLevel2Offer(input)
@@ -562,13 +604,20 @@ func (s *service) validateProgramInput(productType string, input ProgramInput) e
 	if len(input.Weeks) < 1 {
 		return fmt.Errorf("%w: a generic program requires at least one week", ErrInvalidInput)
 	}
-	if len(input.Weeks) > MaxWeeksPerProgram {
+	return validateWeeks(input.Weeks)
+}
+
+// validateWeeks enforces the structural invariants shared by platform plans
+// and trainer plans: the week cap, contiguous ordering keys, training-day
+// details, the per-day caps, the duplicate-exercise rule and the prescription.
+func validateWeeks(weeks []WeekInput) error {
+	if len(weeks) > MaxWeeksPerProgram {
 		return fmt.Errorf("%w: a generic program is capped at %d weeks", ErrInvalidInput, MaxWeeksPerProgram)
 	}
 
 	seenExercises := make(map[string]int)
-	for i := range input.Weeks {
-		week := &input.Weeks[i]
+	for i := range weeks {
+		week := &weeks[i]
 		if week.WeekNumber != i+1 {
 			return fmt.Errorf("%w: week numbers must be contiguous starting at 1", ErrInvalidInput)
 		}
@@ -579,6 +628,9 @@ func (s *service) validateProgramInput(productType string, input ProgramInput) e
 			workout := &week.Workouts[k]
 			if workout.Position != k+1 {
 				return fmt.Errorf("%w: workout positions must be contiguous starting at 1", ErrInvalidInput)
+			}
+			if err := program_details.ValidateWorkoutDetails(workout.Name, workout.Description, workout.Focus); err != nil {
+				return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 			}
 			if len(workout.Exercises) > MaxExercisesPerWorkout {
 				return fmt.Errorf("%w: a workout is capped at %d exercises", ErrInvalidInput, MaxExercisesPerWorkout)
@@ -691,6 +743,7 @@ func buildProgramModel(productType string, input ProgramInput) (*models.Program,
 		TrainingType:     trainingType,
 		PriceMinorUnits:  input.PriceMinorUnits,
 		Currency:         strings.TrimSpace(input.Currency),
+		CoverImage:       program_details.OptionalCover(input.CoverImage),
 	}
 	if program.Status == "" {
 		program.Status = models.ProgramStatusDraft
@@ -699,13 +752,39 @@ func buildProgramModel(productType string, input ProgramInput) (*models.Program,
 		program.Currency = string(models.ProgramCurrencyEUR)
 	}
 
-	program.Weeks = make([]models.ProgramWeek, 0, len(input.Weeks))
-	for i := range input.Weeks {
-		week := &input.Weeks[i]
+	program.Weeks = buildWeeks(input.Weeks)
+	if productType == models.ProgramProductTypePremiumLevel1 && input.NutritionMode == models.ProgramNutritionModeCurated {
+		if input.CuratedNutrition == nil {
+			return nil, fmt.Errorf("%w: a curated package requires a nutrition plan", ErrInvalidInput)
+		}
+		plan, err := curated_nutrition.Validate(*input.CuratedNutrition)
+		if err != nil {
+			return nil, err
+		}
+		stored, err := curated_nutrition.ToModel(plan, program.ID, 0)
+		if err != nil {
+			return nil, err
+		}
+		program.CuratedNutrition = stored
+	}
+	return program, nil
+}
+
+// buildWeeks maps validated week inputs into the model tree.
+func buildWeeks(input []WeekInput) []models.ProgramWeek {
+	weeks := make([]models.ProgramWeek, 0, len(input))
+	for i := range input {
+		week := &input[i]
 		modelWeek := models.ProgramWeek{WeekNumber: week.WeekNumber, Workouts: make([]models.ProgramWorkout, 0, len(week.Workouts))}
 		for k := range week.Workouts {
 			workout := &week.Workouts[k]
-			modelWorkout := models.ProgramWorkout{Position: workout.Position, Exercises: make([]models.WorkoutExercise, 0, len(workout.Exercises))}
+			modelWorkout := models.ProgramWorkout{
+				Position:    workout.Position,
+				Name:        strings.TrimSpace(workout.Name),
+				Description: strings.TrimSpace(workout.Description),
+				Focus:       program_details.OptionalFocus(workout.Focus),
+				Exercises:   make([]models.WorkoutExercise, 0, len(workout.Exercises)),
+			}
 			for j := range workout.Exercises {
 				exercise := &workout.Exercises[j]
 				modelExercise := models.WorkoutExercise{
@@ -732,23 +811,9 @@ func buildProgramModel(productType string, input ProgramInput) (*models.Program,
 			}
 			modelWeek.Workouts = append(modelWeek.Workouts, modelWorkout)
 		}
-		program.Weeks = append(program.Weeks, modelWeek)
+		weeks = append(weeks, modelWeek)
 	}
-	if productType == models.ProgramProductTypePremiumLevel1 && input.NutritionMode == models.ProgramNutritionModeCurated {
-		if input.CuratedNutrition == nil {
-			return nil, fmt.Errorf("%w: a curated package requires a nutrition plan", ErrInvalidInput)
-		}
-		plan, err := curated_nutrition.Validate(*input.CuratedNutrition)
-		if err != nil {
-			return nil, err
-		}
-		stored, err := curated_nutrition.ToModel(plan, program.ID, 0)
-		if err != nil {
-			return nil, err
-		}
-		program.CuratedNutrition = stored
-	}
-	return program, nil
+	return weeks
 }
 
 func newProgramSummary(model *models.Program) Program {
@@ -768,6 +833,7 @@ func newProgramSummary(model *models.Program) Program {
 		TrainingType:     model.TrainingType,
 		PriceMinorUnits:  model.PriceMinorUnits,
 		Currency:         model.Currency,
+		CoverImage:       model.CoverImage,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
 	}
@@ -795,7 +861,13 @@ func (s *service) newWeek(model *models.ProgramWeek) Week {
 }
 
 func (s *service) newWorkout(model *models.ProgramWorkout) Workout {
-	workout := Workout{Position: model.Position, Exercises: make([]WorkoutExercise, 0, len(model.Exercises))}
+	workout := Workout{
+		Position:    model.Position,
+		Name:        model.Name,
+		Description: model.Description,
+		Focus:       model.Focus,
+		Exercises:   make([]WorkoutExercise, 0, len(model.Exercises)),
+	}
 	for i := range model.Exercises {
 		workout.Exercises = append(workout.Exercises, s.newWorkoutExercise(&model.Exercises[i]))
 	}

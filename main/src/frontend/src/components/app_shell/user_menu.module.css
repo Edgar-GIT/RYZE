@@ -1,0 +1,273 @@
+/* The account button of the signed-in areas and its menu. */
+
+.root {
+  position: relative;
+}
+
+.rootCard {
+  width: 100%;
+}
+
+.avatar,
+.headAvatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #02041f;
+  background: linear-gradient(135deg, #8cefff 0%, #00cbff 55%, #2a8cff 100%);
+  font-weight: 800;
+}
+
+.avatarButton {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.avatarButton .avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 0.85rem;
+  box-shadow: 0 0 0 3px rgba(0, 203, 255, 0.14);
+  transition: box-shadow 160ms ease;
+}
+
+.avatarButton:hover .avatar,
+.avatarButton[aria-expanded="true"] .avatar {
+  box-shadow: 0 0 0 3px rgba(0, 203, 255, 0.45);
+}
+
+.card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid rgba(124, 200, 255, 0.14);
+  border-radius: 14px;
+  color: inherit;
+  background: rgba(2, 8, 38, 0.45);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card:hover,
+.card[aria-expanded="true"] {
+  border-color: rgba(0, 203, 255, 0.45);
+}
+
+.card .avatar {
+  width: 2.4rem;
+  height: 2.4rem;
+  font-size: 0.85rem;
+}
+
+.cardText {
+  display: grid;
+  min-width: 0;
+}
+
+.cardText strong,
+.cardText span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardText strong {
+  font-size: 0.9rem;
+}
+
+.cardText span {
+  color: #93a4c8;
+  font-size: 0.76rem;
+}
+
+.avatarButton:focus-visible,
+.card:focus-visible,
+.item:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}
+
+/* --- Menu ---------------------------------------------------------------- */
+
+.menu {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  width: min(18.5rem, calc(100vw - 1.5rem));
+  padding: 0.5rem;
+  border: 1px solid rgba(124, 200, 255, 0.2);
+  border-top-color: rgba(160, 225, 255, 0.32);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(17, 36, 104, 0.97) 0%, rgba(6, 15, 58, 0.98) 100%);
+  box-shadow:
+    0 30px 70px -24px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(2, 4, 31, 0.6);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  animation: menuIn 160ms ease-out;
+}
+
+.menuDown {
+  transform-origin: top right;
+}
+
+.menuUp {
+  transform-origin: bottom left;
+}
+
+@keyframes menuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+.head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.6rem 0.8rem;
+  border-bottom: 1px solid rgba(124, 200, 255, 0.14);
+}
+
+.headAvatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: 0.95rem;
+}
+
+.headText {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.headText strong,
+.headText span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headText strong {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.headText span {
+  color: #93a4c8;
+  font-size: 0.78rem;
+}
+
+.headText em {
+  justify-self: start;
+  margin-top: 0.2rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  color: #7cebff;
+  background: rgba(0, 203, 255, 0.12);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.items {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(124, 200, 255, 0.14);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: 10px;
+  color: #dbe5f7;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.item svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #00cbff;
+}
+
+.item:hover,
+.item:focus-visible {
+  color: #ffffff;
+  background: rgba(0, 203, 255, 0.1);
+}
+
+.signOut {
+  margin-top: 0.4rem;
+  color: #ffb3ab;
+}
+
+.signOut svg {
+  color: #ff8a80;
+}
+
+.signOut:hover,
+.signOut:focus-visible {
+  color: #ffffff;
+  background: rgba(255, 138, 128, 0.14);
+}
+
+.signOut:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Tablets: the sidebar is an icon rail, so the card shows the avatar only. */
+@media (max-width: 1180px) {
+  .card {
+    grid-template-columns: auto;
+    justify-items: center;
+    padding: 0.4rem;
+  }
+
+  .cardText {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .avatarButton .avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
+
+  .avatarButton .avatar {
+    transition: none;
+  }
+}

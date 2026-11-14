@@ -223,13 +223,13 @@ func validProgramModel() *models.Program {
 		ID:               programID,
 		Name:             "Hypertrophy 101",
 		Description:      "A 12 week hypertrophy program.",
-		Type:             models.ProgramTypePremium,
+		Type:             models.ProgramTypeFree,
 		Status:           models.ProgramStatusDraft,
 		ProductType:      models.ProgramProductTypeGeneric,
 		Level:            &level,
 		DurationWeeks:    &duration,
 		FrequencyPerWeek: &frequency,
-		PriceMinorUnits:  1449,
+		PriceMinorUnits:  0,
 		Currency:         "EUR",
 		CreatedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		UpdatedAt:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -360,11 +360,7 @@ func TestCreateProgramRejectsInvalidInput(t *testing.T) {
 		{name: "description too long", mutate: func(i *generic_programs.ProgramInput) {
 			i.Description = strings.Repeat("a", generic_programs.MaxDescriptionLength+1)
 		}},
-		{name: "invalid type", mutate: func(i *generic_programs.ProgramInput) { i.Type = "random" }},
 		{name: "invalid status", mutate: func(i *generic_programs.ProgramInput) { i.Status = "archived" }},
-		{name: "invalid currency", mutate: func(i *generic_programs.ProgramInput) { i.Currency = "USD" }},
-		{name: "free with price", mutate: func(i *generic_programs.ProgramInput) { i.Type = models.ProgramTypeFree; i.PriceMinorUnits = 100 }},
-		{name: "paid below minimum", mutate: func(i *generic_programs.ProgramInput) { i.PriceMinorUnits = 50 }},
 		{name: "invalid level", mutate: func(i *generic_programs.ProgramInput) { i.Level = "Expert" }},
 		{name: "negative duration", mutate: func(i *generic_programs.ProgramInput) { i.DurationWeeks = -1 }},
 		{name: "duration too long", mutate: func(i *generic_programs.ProgramInput) { i.DurationWeeks = generic_programs.MaxWeeksPerProgram + 1 }},
@@ -593,7 +589,7 @@ func TestGetProgramSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetProgram: %v", err)
 	}
-	if program.ID != programID || program.Type != models.ProgramTypePremium {
+	if program.ID != programID || program.Type != models.ProgramTypeFree {
 		t.Fatalf("unexpected program %+v", program)
 	}
 	if len(program.Weeks) != 1 || len(program.Weeks[0].Workouts[0].Exercises[0].Sets) != 1 {
@@ -1079,6 +1075,8 @@ func TestFamilyForwardedToRepository(t *testing.T) {
 
 	premium := validProgramModel()
 	premium.ProductType = models.ProgramProductTypePremiumLevel1
+	premium.Type = models.ProgramTypePremium
+	premium.PriceMinorUnits = models.PremiumLevel1PriceMinorUnits
 	legacyMode := models.ProgramNutritionModeQuestionnaireGenerated
 	premium.NutritionMode = &legacyMode
 	repo.program = premium
@@ -1143,5 +1141,54 @@ func TestGetProgramGatesMedia(t *testing.T) {
 	}
 	if !enabledExercise.MediaAvailable || enabledExercise.MediaAttribution != "© Gym visual" {
 		t.Fatalf("enabled media metadata missing, got %+v", enabledExercise)
+	}
+}
+
+// TestCatalogPricingIsServerOwned covers the owner decision of 2026-11-14:
+// nobody sets a price. Whatever type and price the client sends, a generic
+// plan is free, a Level 1 package costs 14.99 EUR and a Level 2 offer 19.49 EUR.
+func TestCatalogPricingIsServerOwned(t *testing.T) {
+	input := validProgramInput()
+	input.Type = models.ProgramTypePremium
+	input.PriceMinorUnits = 9999
+	input.Currency = "USD"
+
+	var created *models.Program
+	repo := &stubGenericRepo{}
+	repo.create = func(program *models.Program) error {
+		program.ID = programID
+		created = program
+		repo.program = program
+		return nil
+	}
+	svc := newService(repo)
+	if _, err := svc.CreateProgram(context.Background(), models.ProgramProductTypeGeneric, input); err != nil {
+		t.Fatalf("CreateProgram: %v", err)
+	}
+	if created == nil {
+		t.Fatal("expected the program to be created")
+	}
+	if created.Type != models.ProgramTypeFree || created.PriceMinorUnits != 0 || created.Currency != "EUR" {
+		t.Fatalf("generic plan = %s/%d/%s, want free/0/EUR", created.Type, created.PriceMinorUnits, created.Currency)
+	}
+
+	if got := models.CatalogPriceMinorUnits(models.ProgramProductTypePremiumLevel1, models.ProgramTypePremium); got != 1499 {
+		t.Fatalf("level 1 price = %d, want 1499", got)
+	}
+	if got := models.CatalogPriceMinorUnits(models.ProgramProductTypePremiumLevel2, models.ProgramTypePremium); got != 1949 {
+		t.Fatalf("level 2 price = %d, want 1949", got)
+	}
+	if got := models.CatalogPriceMinorUnits(models.ProgramProductTypeGeneric, models.ProgramTypePersonalized); got != 1949 {
+		t.Fatalf("personalized trainer price = %d, want 1949", got)
+	}
+}
+
+func TestPublishRejectsLegacyPrice(t *testing.T) {
+	legacy := validProgramModel()
+	legacy.Type = models.ProgramTypePremium
+	legacy.PriceMinorUnits = 2999
+	repo := &stubGenericRepo{program: legacy}
+	if _, err := newService(repo).PublishProgram(context.Background(), models.ProgramProductTypeGeneric, programID); !errors.Is(err, generic_programs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for a legacy price, got %v", err)
 	}
 }

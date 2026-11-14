@@ -1,3 +1,4 @@
+import { formatDuration } from "@/components/plan_builder/duration";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useHistory, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, Edit, ExternalLink, RefreshCw, Trash2 } from "lucide-react";
@@ -125,7 +126,7 @@ const SetTable = ({ sets }: { sets: GenericProgramSet[] }) => (
             <td>{optionalValue(set.weight_kg)}</td>
             <td>{optionalValue(set.rir)}</td>
             <td>{optionalValue(set.rpe)}</td>
-            <td>{optionalValue(set.rest_seconds)}</td>
+            <td>{set.rest_seconds === null ? "—" : formatDuration(set.rest_seconds)}</td>
             <td>{setCell(set.tempo)}</td>
           </tr>
         ))}

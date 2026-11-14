@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"ryze/backend/services/program_details"
 	"ryze/backend/services/programs"
 )
 
@@ -14,53 +15,77 @@ import (
 // identity, its owner trainer id, the public product fields and the lifecycle
 // timestamps. Deletion markers and any internal data are never exposed.
 type trainerProgramResponse struct {
-	ID              string    `json:"id"`
-	TrainerID       string    `json:"trainer_id"`
-	Name            string    `json:"name"`
-	Description     string    `json:"description"`
-	Type            string    `json:"type"`
-	Status          string    `json:"status"`
-	PriceMinorUnits int64     `json:"price_minor_units"`
-	Currency        string    `json:"currency"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	TrainerID        string    `json:"trainer_id"`
+	Name             string    `json:"name"`
+	Description      string    `json:"description"`
+	Type             string    `json:"type"`
+	Status           string    `json:"status"`
+	PriceMinorUnits  int64     `json:"price_minor_units"`
+	Currency         string    `json:"currency"`
+	Level            *string   `json:"level"`
+	DurationWeeks    *int      `json:"duration_weeks"`
+	FrequencyPerWeek *int      `json:"frequency_per_week"`
+	TrainingType     *string   `json:"training_type"`
+	CoverImage       *string   `json:"cover_image"`
+	CoverImageURL    string    `json:"cover_image_url"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 func newTrainerProgramResponse(program *programs.Program) trainerProgramResponse {
 	return trainerProgramResponse{
-		ID:              program.ID,
-		TrainerID:       program.TrainerID,
-		Name:            program.Name,
-		Description:     program.Description,
-		Type:            program.Type,
-		Status:          program.Status,
-		PriceMinorUnits: program.PriceMinorUnits,
-		Currency:        program.Currency,
-		CreatedAt:       program.CreatedAt,
-		UpdatedAt:       program.UpdatedAt,
+		ID:               program.ID,
+		TrainerID:        program.TrainerID,
+		Name:             program.Name,
+		Description:      program.Description,
+		Type:             program.Type,
+		Status:           program.Status,
+		PriceMinorUnits:  program.PriceMinorUnits,
+		Currency:         program.Currency,
+		Level:            program.Level,
+		DurationWeeks:    program.DurationWeeks,
+		FrequencyPerWeek: program.FrequencyPerWeek,
+		TrainingType:     program.TrainingType,
+		CoverImage:       program.CoverImage,
+		CoverImageURL:    program_details.CoverURL(program.CoverImage),
+		CreatedAt:        program.CreatedAt,
+		UpdatedAt:        program.UpdatedAt,
 	}
 }
 
 // createTrainerProgramRequest is the request DTO for POST /api/v1/trainer/programs.
 // It never accepts trainer_id: the owner is always the authenticated trainer.
+// price_minor_units and currency are accepted for compatibility and ignored:
+// the price follows the plan type's catalogue category.
 type createTrainerProgramRequest struct {
-	Name            string `json:"name"`
-	Description     string `json:"description"`
-	Type            string `json:"type"`
-	Status          string `json:"status"`
-	PriceMinorUnits int64  `json:"price_minor_units"`
-	Currency        string `json:"currency"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
+	Type             string `json:"type"`
+	Status           string `json:"status"`
+	PriceMinorUnits  int64  `json:"price_minor_units"`
+	Currency         string `json:"currency"`
+	Level            string `json:"level"`
+	DurationWeeks    int    `json:"duration_weeks"`
+	FrequencyPerWeek int    `json:"frequency_per_week"`
+	TrainingType     string `json:"training_type"`
+	CoverImage       string `json:"cover_image"`
 }
 
 // updateTrainerProgramRequest is the request DTO for PATCH /api/v1/trainer/programs/:programID.
 // Nil values mean "leave unchanged"; trainer_id is immutable and never accepted.
 type updateTrainerProgramRequest struct {
-	Name            *string `json:"name"`
-	Description     *string `json:"description"`
-	Type            *string `json:"type"`
-	Status          *string `json:"status"`
-	PriceMinorUnits *int64  `json:"price_minor_units"`
-	Currency        *string `json:"currency"`
+	Name             *string `json:"name"`
+	Description      *string `json:"description"`
+	Type             *string `json:"type"`
+	Status           *string `json:"status"`
+	PriceMinorUnits  *int64  `json:"price_minor_units"`
+	Currency         *string `json:"currency"`
+	Level            *string `json:"level"`
+	DurationWeeks    *int    `json:"duration_weeks"`
+	FrequencyPerWeek *int    `json:"frequency_per_week"`
+	TrainingType     *string `json:"training_type"`
+	CoverImage       *string `json:"cover_image"`
 }
 
 // TrainerProgramsHandler exposes the authenticated trainer's program
@@ -93,12 +118,17 @@ func (h *TrainerProgramsHandler) CreateProgram(c *gin.Context) {
 	}
 
 	program, err := h.service.CreateProgram(c.Request.Context(), trainerID, programs.CreateProgramInput{
-		Name:            req.Name,
-		Description:     req.Description,
-		Type:            req.Type,
-		Status:          req.Status,
-		PriceMinorUnits: req.PriceMinorUnits,
-		Currency:        req.Currency,
+		Name:             req.Name,
+		Description:      req.Description,
+		Type:             req.Type,
+		Status:           req.Status,
+		PriceMinorUnits:  req.PriceMinorUnits,
+		Currency:         req.Currency,
+		Level:            req.Level,
+		DurationWeeks:    req.DurationWeeks,
+		FrequencyPerWeek: req.FrequencyPerWeek,
+		TrainingType:     req.TrainingType,
+		CoverImage:       req.CoverImage,
 	})
 	if err != nil {
 		h.respondProgramsError(c, err)
@@ -196,12 +226,17 @@ func (h *TrainerProgramsHandler) UpdateProgram(c *gin.Context) {
 	}
 
 	program, err := h.service.UpdateProgram(c.Request.Context(), trainerID, c.Param("programID"), programs.UpdateProgramInput{
-		Name:            req.Name,
-		Description:     req.Description,
-		Type:            req.Type,
-		Status:          req.Status,
-		PriceMinorUnits: req.PriceMinorUnits,
-		Currency:        req.Currency,
+		Name:             req.Name,
+		Description:      req.Description,
+		Type:             req.Type,
+		Status:           req.Status,
+		PriceMinorUnits:  req.PriceMinorUnits,
+		Currency:         req.Currency,
+		Level:            req.Level,
+		DurationWeeks:    req.DurationWeeks,
+		FrequencyPerWeek: req.FrequencyPerWeek,
+		TrainingType:     req.TrainingType,
+		CoverImage:       req.CoverImage,
 	})
 	if err != nil {
 		h.respondProgramsError(c, err)

@@ -40,6 +40,24 @@
     box-shadow 280ms ease;
 }
 
+/* The plan's own cover picture fills the frame (a dark veil keeps the badge
+   readable). */
+.cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image:has(.cover)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2, 4, 31, 0) 55%, rgba(2, 4, 31, 0.55) 100%);
+  pointer-events: none;
+}
+
 .image[data-tone="ring"] {
   --sky: #0461b8;
   --horizon: rgba(124, 235, 255, 0.5);
@@ -81,6 +99,7 @@
 }
 
 .freeBadge {
+  z-index: 1;
   position: absolute;
   top: 0.7rem;
   left: 0.7rem;

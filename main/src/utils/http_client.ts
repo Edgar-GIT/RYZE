@@ -48,6 +48,20 @@ export const encodePathSegment = (value: string): string => encodeURIComponent(v
  */
 export const apiUrl = (path: string): string => `${API_BASE_URL}${path}`;
 
+// publicFileUrl resolves a public file path served by the API (for example a
+// programme cover, "/uploads/programs/...") against the API origin, so it
+// works when the API runs on another port in development.
+export const publicFileUrl = (path: string | null | undefined): string => {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  try {
+    const base = new URL(API_BASE_URL, typeof window === "undefined" ? "http://localhost" : window.location.origin);
+    return new URL(path, base).toString();
+  } catch {
+    return path;
+  }
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   let response: Response;
 

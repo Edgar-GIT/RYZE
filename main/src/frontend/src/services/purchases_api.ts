@@ -99,6 +99,7 @@ export interface EntitlementProgram {
   /** Product family: "generic" or "premium_level_1". Product metadata, not
    *  client data. */
   product_type: string;
+  cover_image_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -147,6 +148,10 @@ export interface ProgramAccessWeek {
 export interface ProgramAccessWorkout {
   id: string;
   position: number;
+  // Training-day details written by the plan author (may be empty).
+  name?: string;
+  description?: string;
+  focus?: string | null;
   exercises: ProgramAccessExercise[];
 }
 

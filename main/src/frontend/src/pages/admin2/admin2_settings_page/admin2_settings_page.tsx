@@ -14,6 +14,7 @@ interface CommerceSettings {
   min_program_price_minor_units: number;
   default_platform_commission_bps: number;
   max_commission_bps: number;
+  catalog_prices?: { generic: number; premium_level_1: number; premium_level_2: number };
   payment_methods: string[];
 }
 
@@ -22,7 +23,7 @@ const METHOD_LABEL: Record<string, string> = { card: "Card", mbway: "MB WAY", pa
 const formatMoney = (minorUnits: number, currency: string) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(minorUnits / 100);
 
-const formatBps = (bps: number) => `${(bps / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}% (${bps} bps)`;
+const formatBps = (bps: number) => `${(bps / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}%`;
 
 // Admin2SettingsPage shows the commercial parameters the server enforces,
 // read from the deployment configuration (they are changed there, not here).
@@ -55,7 +56,8 @@ export default function Admin2SettingsPage() {
         <Info size={15} className={styles.noticeIcon} aria-hidden="true" />
         <span>
           <strong>Read from the server configuration.</strong> They change through the deployment settings, so
-          every sale uses exactly these values. Trainer-specific commissions are set on each trainer.
+          every sale uses exactly these values. Prices are fixed by catalogue category and nobody sets them;
+          trainer-specific commissions are set under Trainers &amp; commissions.
         </span>
       </div>
 
@@ -78,8 +80,20 @@ export default function Admin2SettingsPage() {
               <p className={styles.rowValue}>{settings.currency}</p>
             </div>
             <div className={styles.row}>
-              <p className={styles.rowLabel}>Minimum paid program price</p>
-              <p className={styles.rowValue}>{formatMoney(settings.min_program_price_minor_units, settings.currency)}</p>
+              <p className={styles.rowLabel}>Generic plans</p>
+              <p className={styles.rowValue}>Free</p>
+            </div>
+            <div className={styles.row}>
+              <p className={styles.rowLabel}>Premium Level 1 (and trainer premium plans)</p>
+              <p className={styles.rowValue}>
+                {formatMoney(settings.catalog_prices?.premium_level_1 ?? 1499, settings.currency)}
+              </p>
+            </div>
+            <div className={styles.row}>
+              <p className={styles.rowLabel}>Premium Level 2 (and trainer personalized plans)</p>
+              <p className={styles.rowValue}>
+                {formatMoney(settings.catalog_prices?.premium_level_2 ?? 1949, settings.currency)}
+              </p>
             </div>
             <div className={styles.row}>
               <p className={styles.rowLabel}>Default platform commission</p>

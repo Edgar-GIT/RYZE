@@ -1241,8 +1241,12 @@ Routes: `/login` (login), `/register` (register).
 Purpose: authenticate existing accounts and create new ones. Both forms send
 data to the backend (`POST /api/v1/auth/login` and
 `POST /api/v1/auth/register`). Login stores the `ryze_access_token` HttpOnly
-cookie in the browser; no JWT is ever handled in JavaScript. On success both
-forms redirect to `/profile`, the authenticated profile page. Backend and
+cookie in the browser; no JWT is ever handled in JavaScript. On success
+registration redirects to `/profile`; login (and Google sign-in, through its
+`return` path) goes to `/app`, which sends approved trainers to
+`/trainer/dashboard` and everyone else to `/profile` (owner request,
+2026-11-14 — the only change to this protected page: fields, validation,
+messages and API calls are unchanged). Backend and
 network errors are shown inside the card as a compact inline alert above the
 submit button.
 
@@ -1325,8 +1329,16 @@ member and trainer areas.
   accessible labels.
 - **Phone (767px and below)** — a top bar and a bottom tab bar with five tabs;
   the content stacks in one column.
-- **Top bar** — PT | EN toggle, notification bell and the account avatar
-  (linking to Account).
+- **Top bar** — PT | EN toggle, notification bell and the account avatar.
+- **Account menu** (v2.114.0) — the avatar (and the sidebar account card)
+  opens a menu with the name, email and role, the area's shortcuts (member:
+  Account, Purchases, Support, Trainer area, RYZE website; trainer: Profile,
+  Public profile, My training, Account settings, Support, RYZE website) and
+  "Sign out". Arrow keys move, Escape closes, a click outside closes.
+- **Phone "More"** (v2.114.0) — the last tab opens a sheet with every section.
+- **After sign-in** (v2.114.0) — `/app` sends approved trainers to
+  `/trainer/dashboard` and everyone else to `/profile` (password and Google
+  sign-in).
 - **Loading** — `AppLoading`, a shimmer skeleton inside the shell; reduced
   motion removes the shimmer.
 
@@ -1445,9 +1457,10 @@ Trainer layout
 - `TrainerLayout` renders `AppShell` with Dashboard, Clients, Premium L2 and
   Programmes as primary navigation and Profile and Support as secondary
   navigation; links show an active state.
-- The action card "New programme" opens `/trainer/programs?new=1`, which
-  starts with the creation form open; a switch returns to the member area
-  (`/profile`).
+- The action card "New programme" opens the plan builder
+  (`/trainer/programs/new`); a switch returns to the member area (`/profile`).
+- Since v2.114.0 a trainer who signs in lands here (`/trainer/dashboard`)
+  first; the member area stays one click away.
 
 Apply page (`/trainer/apply`)
 
@@ -1519,25 +1532,19 @@ Client detail (`/trainer/clients/:userID`)
   nutrition, medical data or unrecorded activity. All expandable rows are real
   buttons with `aria-expanded`; color is never the only status signal.
 
-Programs (`/trainer/programs`)
+Programs (`/trainer/programs`) — v2.114.0
 
-- One card list of the trainer's own programs (name, type, status, price) with
-  pagination and a compact create form: name, description, type
-  (free / premium / personalized), price in EUR. Free is fixed at 0,00;
-  paid programs enforce the platform minimum. The form states that programs
-  start as drafts.
-- Success navigates to the program detail.
+- A card grid of the trainer's programmes (cover, type, status, weeks, days per
+  week, fixed price, last update) with All / Published / Drafts filters and a
+  light "New programme" card. PT and EN.
 
-Program detail (`/trainer/programs/:programId`)
+Plan builder (`/trainer/programs/new`, `/trainer/programs/:programId`)
 
-- Metadata card: edit name/description/type/price, publish (POST publish) and
-  unpublish (back to draft).
-- Builder card: weeks → workouts → exercises, each level with inline add,
-  block-style up/down reorder buttons and delete. Exercises are picked from the
-  existing exercise library dialog; already-added exercises are disabled in the
-  picker. Workout exercises load lazily per workout.
-- Danger zone: delete program with inline confirmation.
-- Honest empty states at every level; no placeholder content.
+- The shared plan builder (see "Plan builder" under the Admin Console). The
+  categories are the trainer types: Free, Premium (14.99 EUR, the Level 1
+  price) and Personalized (19.49 EUR, the Level 2 price); the price is shown,
+  never typed. Saving stores the details and the whole structure; Publish
+  publishes a draft; Delete removes the programme.
 
 Premium L2 (`/trainer/premium-level-2`)
 
@@ -1646,11 +1653,67 @@ Functions include:
 
 ## Admin Console
 
-The admin console implements the Technical and Management dashboards as two
-responsive shells: `/admin` for Technical Administrators (ADMIN_1) and
-`/admin2` for Management Administrators (ADMIN_2). Each shell shares one
-sidebar with the brand, the current administrator role, section groups and a
-sign-out action, and hides public-facing navigation and footer.
+Since v2.114.0 both consoles use the same app shell as the member and trainer
+areas (login-page colours, sidebar → icon rail → phone tabs with a "More"
+sheet, account menu with sign-out): `/admin` for the Technical Administrator
+(ADMIN_1, tag "Tech") and `/admin2` for the Management Administrator (ADMIN_2,
+tag "Business"). Each console redirects the other role to its own console.
+Navigation keeps only what each role uses:
+
+- ADMIN_1: Dashboard; People — Users, Trainers, Applications; Platform —
+  System status, Configuration, Test Mode, Audit log. (The "Development"
+  placeholder was removed.)
+- ADMIN_2: Overview; Catalogue — Plans, Exercises; Business — Sales, Trainers &
+  commissions, Members; Service — Premium L2 requests, Trainer applications,
+  Support, Feedback (with open-work badges); Configuration — Settings.
+  ("Marketplace" and "Analytics" were removed: the plans list and the overview
+  replace them.)
+
+Dashboards:
+
+- **ADMIN_2 Business overview** (`/admin2/dashboard`) — period switch (7/30/90
+  days); revenue in the light wave panel with the change against the previous
+  period, sales, platform share and trainer payouts; a "Needs attention" list
+  (Premium L2 waiting for a trainer, applications, open support, pending
+  feedback, pending/failed payments); tiles for members, active members,
+  workouts and trainers; revenue per day; revenue by category; workouts and new
+  members per day; best sellers; most viewed plans; catalogue counts.
+- **ADMIN_1 Platform overview** (`/admin/dashboard`) — system health (API
+  version, uptime, database and schema, connections), "Needs attention"
+  (applications, denied/failed admin requests in 24 h, email queue, disabled
+  accounts), account tiles, new accounts and workouts per day, the deployment
+  configuration and the latest admin actions.
+
+Trainers & commissions (`/admin2/trainers`) lists trainers with search and a
+status filter; each row shows the trainer's commission and edits it inline as a
+plain percentage (30 = 30%, quick values 20/25/30/35%, "Use default").
+
+Plans (`/admin2/plans`) — category tabs (Generic free, Premium Level 1
+14.99 EUR, Premium Level 2 19.49 EUR), search, difficulty and status filters,
+and a card grid (cover, status, schedule, price, sales, revenue, Edit, Delete).
+
+Plan builder (`/admin2/plans/create`, also used by trainers):
+
+1. **Plan** — the category first (cards with the fixed price; fixed once the
+   plan exists), the cover image (uploaded to the category's folder), name,
+   description, goal and difficulty chips, weeks and training days per week
+   (steppers). Level 1 adds the package objective and nutrition model; Level 2
+   offers carry no structure.
+2. **Structure** — the weeks are created automatically from step 1, each with
+   the chosen number of training days. Week tabs, "Copy this week to the next
+   weeks", add/remove weeks and days. Each day has a name, a muscle-group focus
+   and a description. "Add exercises" opens an app-style picker (search,
+   muscle and equipment filters, a grid of still pictures, a one-tap "+"); a tap
+   on a card opens the preview where the animation plays. Each exercise is
+   prescribed inline (sets × reps, kg, rest, RIR, notes; three sets of 10 with
+   90 s rest by default); a tap on the exercise opens the full sheet (set type,
+   RPE, tempo, client instructions). Rest times read adaptively: 45 s, then
+   1 min 1 s, 1 min 30 s, 2 min; the field accepts "90", "1:30" or "2 min" and
+   the arrow keys add or remove 15 s.
+3. **Nutrition** — curated Level 1 packages only (the shared nutrition
+   editor).
+4. **Review** — cover, category and fixed price, counts, a week-by-week
+   overview, a checklist, then Save draft / Publish (or Save changes).
 
 Available to Technical Administrators (ADMIN_1):
 
@@ -1692,7 +1755,6 @@ ADMIN_1 to `/admin/dashboard` and ADMIN_2 to `/admin2/dashboard`.
 /admin/system
 /admin/configuration
 /admin/test-mode
-/admin/development
 /admin/audit
 ```
 
@@ -1702,11 +1764,12 @@ ADMIN_1 to `/admin/dashboard` and ADMIN_2 to `/admin2/dashboard`.
 /admin2/plans/create
 /admin2/plans/:programId
 /admin2/exercises
-/admin2/marketplace
 /admin2/trainers
+/admin2/trainer-applications
 /admin2/clients
 /admin2/sales
-/admin2/analytics
+/admin2/premium-level-2
+/admin2/support
 /admin2/feedback
 /admin2/settings
 ```

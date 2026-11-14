@@ -1472,9 +1472,9 @@ The implemented `programs` table contains:
   when present), indexed by `idx_programs_frequency_per_week`. Added by
   migration `000019`.
 - `price_minor_units` — program price in minor currency units (cents for EUR),
-  `BIGINT NOT NULL DEFAULT 0`. Free programs must always have a value of 0; paid
-  programs (premium/personalized) must meet the configurable minimum (env var
-  `MIN_PROGRAM_PRICE_MINOR_UNITS`, default 100 = €1.00). The integer
+  `BIGINT NOT NULL DEFAULT 0`. Since v2.114.0 the value is the catalogue price
+  stamped by the API (generic 0, Premium Level 1 1499, Premium Level 2 1949;
+  trainer plans: free 0, premium 1499, personalized 1949). The integer
   minor-unit model avoids floating-point rounding issues.
 - `currency` — ISO 4217 currency code (`VARCHAR(3) NOT NULL DEFAULT 'EUR'`).
   Initially only `EUR` is supported. The database index `idx_programs_currency`
@@ -2701,3 +2701,28 @@ Migration `000033_secure_program_access_and_workout_sessions` adds:
 The `down` migration drops the session tables, the Free activation table, the
 entitlement expiry index and the `expires_at` column. It never deletes
 entitlement, programme, assignment or history rows.
+
+---
+
+## Migration 000043 — plan covers and training-day details (v2.114.0)
+
+Additive (owner request, 2026-11-14):
+
+- `programs.cover_image VARCHAR(120) NULL` — uploads key of the plan's cover
+  (`programs/<generic|l1|l2>/<uuid>.<jpg|png|webp>`), guarded by
+  `chk_programs_cover_image`. The file lives in the uploads directory
+  (`UPLOADS_DIR`), never in the database.
+- `program_workouts.name VARCHAR(80) NOT NULL DEFAULT ''`,
+  `program_workouts.description VARCHAR(1000) NOT NULL DEFAULT ''` and
+  `program_workouts.focus VARCHAR(20) NULL` with `chk_program_workouts_focus`
+  (`full_body`, `upper_body`, `lower_body`, `push`, `pull`, `legs`, `chest`,
+  `back`, `shoulders`, `arms`, `core`, `glutes`, `cardio`, `mobility`).
+
+The down migration drops the constraints and columns. Existing rows keep an
+empty name/description and no focus or cover.
+
+`commission_rules.active_commission_rule` is a generated column: the GORM model
+reads it only (`->`). Writing it (as the model did after the PostgreSQL
+migration) failed with SQLSTATE 428C9 and made every trainer commission
+override impossible; fixed in v2.114.0 and covered by
+`repositories/commission_rule_repository_test.go`.

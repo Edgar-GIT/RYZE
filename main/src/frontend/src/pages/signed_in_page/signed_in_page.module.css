@@ -1,0 +1,38 @@
+.screen {
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  background:
+    radial-gradient(60rem 36rem at 80% -10%, rgba(4, 129, 220, 0.3), transparent 62%),
+    #02041f;
+}
+
+.ring {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 3px solid rgba(0, 203, 255, 0.2);
+  border-top-color: #00cbff;
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring {
+    animation-duration: 2400ms;
+  }
+}

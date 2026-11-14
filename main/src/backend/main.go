@@ -91,6 +91,11 @@ func main() {
 		fail("configuration error: %v", err)
 	}
 
+	uploadsCfg, err := config.LoadUploads()
+	if err != nil {
+		fail("configuration error: %v", err)
+	}
+
 	contactCfg, err := config.LoadContact()
 	if err != nil {
 		fail("configuration error: %v", err)
@@ -133,7 +138,7 @@ func main() {
 		port = "8080"
 	}
 
-	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg, mediaCfg, evidenceCfg, contactCfg, mailCfg, googleCfg)
+	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg, mediaCfg, evidenceCfg, uploadsCfg, contactCfg, mailCfg, googleCfg)
 
 	// Background jobs (email delivery, retention) stop with the server.
 	jobsCtx, stopJobs := context.WithCancel(context.Background())

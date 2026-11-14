@@ -10,6 +10,7 @@ import (
 	"ryze/backend/middleware/authcontext"
 	"ryze/backend/services/client_programs"
 	"ryze/backend/services/program_content"
+	"ryze/backend/services/program_details"
 )
 
 // clientProgramResponse only exposes safe assigned-program information: the
@@ -26,6 +27,7 @@ type clientProgramResponse struct {
 	DurationWeeks    *int                 `json:"duration_weeks"`
 	FrequencyPerWeek *int                 `json:"frequency_per_week"`
 	TrainingType     *string              `json:"training_type"`
+	CoverImageURL    string               `json:"cover_image_url"`
 	PriceMinorUnits  int64                `json:"price_minor_units"`
 	Currency         string               `json:"currency"`
 	ProductType      string               `json:"product_type"`
@@ -46,11 +48,14 @@ type clientWeekResponse struct {
 // clientWorkoutResponse is the safe view of one workout of the assigned
 // program.
 type clientWorkoutResponse struct {
-	ID        string                          `json:"id"`
-	Position  int                             `json:"position"`
-	CreatedAt time.Time                       `json:"created_at"`
-	UpdatedAt time.Time                       `json:"updated_at"`
-	Exercises []clientWorkoutExerciseResponse `json:"exercises"`
+	ID          string                          `json:"id"`
+	Position    int                             `json:"position"`
+	Name        string                          `json:"name"`
+	Description string                          `json:"description"`
+	Focus       *string                         `json:"focus"`
+	CreatedAt   time.Time                       `json:"created_at"`
+	UpdatedAt   time.Time                       `json:"updated_at"`
+	Exercises   []clientWorkoutExerciseResponse `json:"exercises"`
 }
 
 // clientWorkoutExerciseResponse is the safe view of one exercise usage inside
@@ -78,6 +83,7 @@ func newClientProgramResponse(program *program_content.Program) clientProgramRes
 		DurationWeeks:    program.DurationWeeks,
 		FrequencyPerWeek: program.FrequencyPerWeek,
 		TrainingType:     program.TrainingType,
+		CoverImageURL:    program_details.CoverURL(program.CoverImage),
 		PriceMinorUnits:  program.PriceMinorUnits,
 		Currency:         program.Currency,
 		ProductType:      program.ProductType,
@@ -107,11 +113,14 @@ func newClientWeekResponse(week *program_content.Week) clientWeekResponse {
 
 func newClientWorkoutResponse(workout *program_content.Workout) clientWorkoutResponse {
 	response := clientWorkoutResponse{
-		ID:        workout.ID,
-		Position:  workout.Position,
-		CreatedAt: workout.CreatedAt,
-		UpdatedAt: workout.UpdatedAt,
-		Exercises: make([]clientWorkoutExerciseResponse, 0, len(workout.Exercises)),
+		ID:          workout.ID,
+		Position:    workout.Position,
+		Name:        workout.Name,
+		Description: workout.Description,
+		Focus:       workout.Focus,
+		CreatedAt:   workout.CreatedAt,
+		UpdatedAt:   workout.UpdatedAt,
+		Exercises:   make([]clientWorkoutExerciseResponse, 0, len(workout.Exercises)),
 	}
 	for i := range workout.Exercises {
 		response.Exercises = append(response.Exercises, newClientWorkoutExerciseResponse(&workout.Exercises[i]))

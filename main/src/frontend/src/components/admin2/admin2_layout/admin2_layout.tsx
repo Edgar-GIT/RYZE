@@ -1,180 +1,99 @@
+import { Globe2, Settings } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, Redirect, useLocation } from "react-router-dom";
-import { AlertCircle, LogOut, Menu, ShieldCheck, X } from "lucide-react";
-import ryzeIcon from "@resources/img/logo/ryze_icon.png";
-import { signOutAdmin, MANAGEMENT_ADMINISTRATOR, adminRoleName } from "@/services/admin_api";
-import { Button } from "@/components/button/button";
-import { joinClassNames } from "@utils/class_names";
-import { useAdmin2Session } from "../admin2_session_context";
-import { admin2NavGroups, isNavActive } from "../admin2_navigation";
-import styles from "./admin2_layout.module.css";
+import { Redirect, useLocation } from "react-router-dom";
 
+import { AppLoading } from "@/components/app_shell/app_loading";
+import { AppShell, type UserMenuItem } from "@/components/app_shell/app_shell";
+import { adminRoleName, MANAGEMENT_ADMINISTRATOR, signOutAdmin } from "@/services/admin_api";
+import { fetchAdminQueues, type OverviewQueues } from "@/services/admin_overview_api";
+
+import { useAdmin2Session } from "../admin2_session_context";
+import { admin2NavGroups, admin2Tabs, ADMIN2_PATHS, type Admin2Badges } from "../admin2_navigation";
+
+const MENU_ITEMS: UserMenuItem[] = [
+  { to: ADMIN2_PATHS.SETTINGS, label: "Commerce settings", icon: Settings },
+  { to: "/", label: "RYZE website", icon: Globe2 }
+];
+
+const badgesOf = (queues: OverviewQueues | null): Admin2Badges =>
+  queues
+    ? {
+        premiumLevel2: queues.premium_level_2_awaiting_trainer,
+        applications: queues.applications_pending,
+        support: queues.support_open,
+        feedback: queues.feedback_pending
+      }
+    : {};
+
+// Admin2Layout is the Management Administrator console (ADMIN_2): the
+// catalogue, the business and the service queues, in the shared app shell of
+// the signed-in areas. Navigation badges show the open work of each queue and
+// refresh when the administrator moves between pages.
 export default function Admin2Layout({ children }: { children: React.ReactNode }) {
   const { identity, loaded } = useAdmin2Session();
-  const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
+  const { pathname } = useLocation();
+  const [queues, setQueues] = useState<OverviewQueues | null>(null);
+
+  const isManagement = identity?.role === MANAGEMENT_ADMINISTRATOR;
 
   useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (!sidebarOpen) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (!isManagement) return;
+    let cancelled = false;
+    fetchAdminQueues()
+      .then((result) => {
+        if (!cancelled) setQueues(result);
+      })
+      .catch(() => undefined);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      cancelled = true;
     };
-  }, [sidebarOpen]);
+  }, [isManagement, pathname]);
 
   const handleSignOut = useCallback(async () => {
-    if (signingOut) {
-      return;
-    }
-
-    setSigningOut(true);
     try {
       await signOutAdmin();
     } catch {
       // Sign-out is best-effort; the hard redirect leaves the console regardless.
-    } finally {
-      window.location.assign("/admin/login");
     }
-  }, [signingOut]);
+    window.location.assign("/admin/login");
+  }, []);
 
   if (!loaded) {
-    return (
-      <div className={styles.statusScreen} role="status" aria-label="Loading admin session">
-        <div className={styles.loadingSpinner} aria-hidden="true" />
-        <p className={styles.statusDescription}>Loading admin session…</p>
-      </div>
-    );
+    return <AppLoading />;
   }
 
   if (!identity) {
     return <Redirect to="/admin/login" />;
   }
 
-  if (identity.role !== MANAGEMENT_ADMINISTRATOR) {
-    return (
-      <div className={styles.statusScreen}>
-        <AlertCircle size={36} color="#ff5a6a" strokeWidth={1.8} />
-        <h1 className={styles.statusTitle}>Access restricted</h1>
-        <p className={styles.statusDescription}>
-          This console is available only to Management Administrators. Your account
-          currently has a different role.
-        </p>
-        <div className={styles.statusActions}>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={handleSignOut}
-            disabled={signingOut}
-            icon={<LogOut size={15} />}
-          >
-            Sign out
-          </Button>
-        </div>
-      </div>
-    );
+  if (!isManagement) {
+    // The Technical Administrator has its own console.
+    return <Redirect to="/admin/dashboard" />;
   }
 
+  const badges = badgesOf(queues);
+
   return (
-    <div className={styles.admin2Layout}>
-      {/* Phones: a top bar with the menu button and the console name. */}
-      <div className={styles.mobileBar}>
-        <button
-          type="button"
-          className={styles.mobileMenuToggle}
-          aria-label={sidebarOpen ? "Close admin menu" : "Open admin menu"}
-          aria-expanded={sidebarOpen}
-          onClick={() => setSidebarOpen((open) => !open)}
-        >
-          {sidebarOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
-        </button>
-        <Link to="/admin2/dashboard" className={styles.mobileBrand}>
-          <img src={ryzeIcon} alt="" width="28" height="28" />
-          <span>
-            RYZE <i>Console</i>
-          </span>
-        </Link>
-      </div>
-
-      <aside
-        className={joinClassNames(styles.sidebar, sidebarOpen && styles.sidebarOpen)}
-        aria-label="Business administration navigation"
-      >
-        <div className={styles.sidebarInner}>
-          <div className={styles.sidebarHeader}>
-            <Link to="/admin2/dashboard" className={styles.brand}>
-              <img src={ryzeIcon} alt="" width="28" height="28" />
-              <span className={styles.brandText}>
-                RYZE
-                <i className={styles.brandSub}>Console</i>
-              </span>
-            </Link>
-            <button type="button" className={styles.rolePill} aria-label="Administrator role" title={identity.role}>
-              <ShieldCheck size={15} className={styles.roleIcon} aria-hidden="true" strokeWidth={1.8} />
-              <span>{adminRoleName(identity.role)}</span>
-            </button>
-          </div>
-
-          <nav className={styles.sidebarNav}>
-            {admin2NavGroups.map((group) => (
-              <div key={group.label} className={styles.navGroup}>
-                <p className={styles.navGroupTitle}>{group.label}</p>
-                <div className={styles.navList}>
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isNavActive(location.pathname, item.path);
-
-                    return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        className={joinClassNames(styles.navItem, active && styles.navItemActive)}
-                        aria-current={active ? "page" : undefined}
-                        onClick={() => setSidebarOpen(false)}
-                      >
-                        <Icon size={17} className={styles.navIcon} aria-hidden="true" strokeWidth={1.8} />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </nav>
-
-          <div className={styles.sidebarFooter}>
-            <button
-              type="button"
-              className={styles.signOutButton}
-              onClick={handleSignOut}
-              disabled={signingOut}
-            >
-              <LogOut size={17} aria-hidden="true" strokeWidth={1.8} />
-              <span>{signingOut ? "Signing out…" : "Sign out"}</span>
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {sidebarOpen ? (
-        <button
-          type="button"
-          className={styles.mobileBackdrop}
-          aria-label="Close admin menu"
-          onClick={() => setSidebarOpen(false)}
-        />
-      ) : null}
-
-      <main className={styles.content}>
-        <div className={styles.contentInner}>{children}</div>
-      </main>
-    </div>
+    <AppShell
+      area="admin"
+      brandTag="Business"
+      brandTo={ADMIN2_PATHS.DASHBOARD}
+      navLabel="Business administration"
+      groups={admin2NavGroups(badges)}
+      tabs={admin2Tabs(badges)}
+      moreLabel="More"
+      user={{ name: adminRoleName(identity.role), email: identity.id, role: "ADMIN_2" }}
+      menu={{
+        label: "Administrator menu",
+        items: MENU_ITEMS,
+        signOutLabel: "Sign out",
+        signingOutLabel: "Signing out…",
+        onSignOut: handleSignOut
+      }}
+      backToSite="Back to the site"
+      compactTopbar
+    >
+      {children}
+    </AppShell>
   );
 }

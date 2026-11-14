@@ -187,6 +187,7 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, productType, 
 				"training_type":      program.TrainingType,
 				"price_minor_units":  program.PriceMinorUnits,
 				"currency":           program.Currency,
+				"cover_image":        program.CoverImage,
 			}).Error; err != nil {
 			return fmt.Errorf("failed to update generic program: %w", err)
 		}
@@ -500,7 +501,12 @@ func applyWorkouts(tx *gorm.DB, weekID string, existing []models.ProgramWorkout,
 		if reuse {
 			if err := tx.Model(&models.ProgramWorkout{}).
 				Where("id = ?", workout.ID).
-				Update("position", i+1).Error; err != nil {
+				Updates(map[string]any{
+					"position":    i + 1,
+					"name":        desired[i].Name,
+					"description": desired[i].Description,
+					"focus":       desired[i].Focus,
+				}).Error; err != nil {
 				return fmt.Errorf("failed to update generic program workout: %w", err)
 			}
 		} else {

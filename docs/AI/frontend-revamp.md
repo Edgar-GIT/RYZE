@@ -89,6 +89,19 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-14 (v2.114.0) — Owner request: account menu with sign-out,
+  trainers land in the trainer area, both administration consoles rebuilt on
+  the shared app shell with richer overviews, and a Lyfta-style plan builder.
+  `AppShell` now takes navigation groups, an account menu (`user_menu.tsx`)
+  and a phone "More" sheet; it frames member, trainer, `/admin` and `/admin2`.
+  New shared pieces: `components/plan_builder` (stepper, exercise picker with
+  stills and animated preview, inline prescription, adaptive rest field),
+  `components/admin_board` and `components/admin_charts` (SVG trend chart and
+  share bars). The login page changed only its post-login destination (`/app`)
+  at the owner's request. Protected parts untouched: the Exercise Library is
+  only read by the picker (its components are not reused or modified), the
+  Services cards and the Home program card images are unchanged; marketplace
+  program cards show a plan's own cover when one exists.
 - 2026-11-14 (v2.113.0) — Owner request: a complete rework of the member and
   trainer areas for desktop and phone (the old area looked like a phone screen
   on a desktop), with Lyfta-style information and the login/registration

@@ -1,3 +1,4 @@
+import TrainerPlanBuilderPage from "@/pages/trainer/trainer_plan_builder_page/trainer_plan_builder_page";
 import { Redirect, Route, Switch } from "react-router-dom";
 
 import { TrainerSessionProvider } from "@/components/trainer/trainer_session_context";
@@ -6,7 +7,6 @@ import { TrainerClientDetailPage } from "@/pages/trainer/trainer_client_detail_p
 import { TrainerClientsPage } from "@/pages/trainer/trainer_clients_page/trainer_clients_page";
 import { TrainerDashboardPage } from "@/pages/trainer/trainer_dashboard_page/trainer_dashboard_page";
 import { TrainerProfilePage } from "@/pages/trainer/trainer_profile_page/trainer_profile_page";
-import { TrainerProgramDetailPage } from "@/pages/trainer/trainer_program_detail_page/trainer_program_detail_page";
 import { TrainerProgramsPage } from "@/pages/trainer/trainer_programs_page/trainer_programs_page";
 import { TrainerPremiumLevel2Page } from "@/pages/trainer/trainer_premium_level2_page/trainer_premium_level2_page";
 import { TrainerPremiumLevel2DetailPage } from "@/pages/trainer/trainer_premium_level2_detail_page/trainer_premium_level2_detail_page";
@@ -24,7 +24,8 @@ const TrainerRoutes = () => (
         <Route exact path="/trainer/premium-level-2" component={TrainerPremiumLevel2Page} />
         <Route exact path="/trainer/premium-level-2/:requestID" component={TrainerPremiumLevel2DetailPage} />
         <Route exact path="/trainer/programs" component={TrainerProgramsPage} />
-        <Route exact path="/trainer/programs/:programId" component={TrainerProgramDetailPage} />
+        <Route exact path="/trainer/programs/new" component={TrainerPlanBuilderPage} />
+        <Route exact path="/trainer/programs/:programId" component={TrainerPlanBuilderPage} />
         <Route exact path="/trainer/profile" component={TrainerProfilePage} />
         <Redirect to="/trainer/dashboard" />
       </Switch>

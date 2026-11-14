@@ -1,3 +1,93 @@
+# Version 2.114.0
+
+Title: Fixed catalogue prices, plan builder rework, plan covers, admin consoles rebuilt
+
+Date: 2026-11-14
+
+Summary:
+
+Owner request of 2026-11-14: an account menu with sign-out; trainers land in
+their trainer area after signing in; nobody sets prices (Generic is free,
+Premium Level 1 costs 14.99 EUR, Premium Level 2 costs 19.49 EUR) while
+administrators set each trainer's commission as a plain percentage; a far
+richer first screen for ADMIN_2 and a complete rework of both administration
+consoles in the look of the other signed-in areas; a Lyfta-style plan creation
+workflow (classification and cover first, weeks created automatically, named
+training days with a muscle-group focus, an exercise picker with pictures,
+inline prescriptions, adaptive rest times, no price or category choice at
+publishing); easier trainer and commission management; and an `uploads`
+folder for plan images split into generic, l1 and l2 (with room for profile
+and feedback photos). One additive migration (000043).
+
+Main changes:
+
+- Prices (owner decision): `models.CatalogPriceMinorUnits` fixes the price of
+  every plan. Platform plans take their family (generic free, Level 1 1499,
+  Level 2 1949, EUR); trainer plans take their type (free 0, premium 1499,
+  personalized 1949). Create/update stamp it and ignore client prices; publish
+  re-checks it; `PATCH /admin/programs/:id/pricing` can only re-apply it
+  (`409 PRICE_FIXED`). `/admin/settings/commerce` returns `catalog_prices`.
+  Existing purchases keep the price they were sold at.
+- Commissions: typed and shown as percentages (30 = 30%) on "Trainers &
+  commissions"; the API keeps basis points. Fixed a PostgreSQL bug that made
+  every commission override fail (the model wrote the generated
+  `active_commission_rule` column, SQLSTATE 428C9).
+- Plan covers and training days (migration 000043): `programs.cover_image`
+  and `program_workouts.name/description/focus`. Covers are uploaded through
+  `POST /admin/uploads/program-cover` and `POST /trainer/uploads/program-cover`
+  into `UPLOADS_DIR/programs/{generic,l1,l2}` (JPEG/PNG/WebP by magic bytes,
+  5 MiB, UUID names, atomic writes) and served read-only at
+  `/uploads/programs/...`. Covers show on the marketplace cards and on Train;
+  day names show on the member home and the plan schedule.
+- Trainer plans: catalogue metadata (level, goal, weeks, days per week, cover)
+  and `GET|PUT /trainer/programs/:id/structure`, which saves the whole
+  structure with the platform builder's rules.
+- Plan builder (`components/plan_builder`), shared by ADMIN_2 and trainers:
+  Plan (category with the fixed price, cover, name, description, goal,
+  difficulty, weeks and days) → Structure (weeks created automatically, week
+  tabs, copy a week forward, named days with a focus, app-style exercise picker
+  with stills and an animated preview, inline sets/reps/kg/rest/RIR and notes,
+  a full sheet per exercise) → Nutrition (curated Level 1) → Review (summary,
+  checklist, Save draft / Publish). Rest reads 45 s, 1 min 1 s, 1 min 30 s;
+  the player uses the same format.
+- Account menu and landing: the avatar opens a menu with the area's shortcuts
+  and "Sign out"; phones get a "More" sheet. Login and Google sign-in go to
+  `/app`, which sends approved trainers to `/trainer/dashboard` (the only
+  change to the protected login page).
+- Administration consoles: both now use the shared app shell. ADMIN_2:
+  `GET /admin/overview/business` (revenue and trend, shares, categories,
+  members, activity, catalogue, best sellers, most viewed) and
+  `GET /admin/overview/queues` (navigation badges); ADMIN_1:
+  `GET /admin/overview/platform` with system health, configuration and the
+  latest admin actions. Navigation reorganised; the Marketplace, Analytics and
+  Development pages were removed (replaced by the plans list and overviews);
+  ADMIN_2 reviews trainer applications in its own console. Plans list rebuilt
+  as cards per category.
+
+Verification:
+
+- Backend: `go vet ./...` and `go test -p 1 ./...` on `ryze_test` pass
+  (56 packages; new tests: catalogue pricing, fixed-price endpoint,
+  commission override repository, uploads store).
+- Frontend: typecheck, 167 tests (new: adaptive durations) and the build pass.
+- Isolated stack (API :8081 on `ryze_test`, Vite :5175): 27/27 API checks
+  (prices, uploads incl. non-image and traversal rejection, cover category,
+  day details, trainer structure and type price, permissions, commission) and
+  browser checks at 1440 and 390 px (trainer sign-in lands on the trainer
+  dashboard, member menu sign-out, both consoles, the whole builder flow
+  including save and delete) with no horizontal overflow and no page errors.
+  Demo data removed afterwards.
+
+Open:
+
+- Legacy rows priced before this rule keep their price until saved again
+  (the local database had no programmes).
+- The administration consoles stay in English; the plan builder and the
+  member/trainer areas are PT/EN.
+- Avatars and feedback photos: folders reserved, no endpoint yet.
+
+---
+
 # Version 2.113.0
 
 Title: Member and trainer areas rebuilt as a desktop and phone app

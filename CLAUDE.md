@@ -44,9 +44,11 @@ the pgx driver (migrated from MariaDB on 2026-11-11; conventions in
 
 - `main/src/frontend/src/` — pages, components, stores, API clients and styles.
 - `main/src/backend/` — Go API, services, repositories, models and database.
-- `main/src/backend/database/migrations/` — embedded SQL migrations (000042,
-  program view counters, is the latest file; apply pending migrations with
-  `go run . migrate up` from `main/src/backend/`).
+- `main/src/backend/database/migrations/` — embedded SQL migrations (000043,
+  plan covers and training-day details, is the latest file; apply pending
+  migrations with `go run . migrate up` from `main/src/backend/`).
+- `main/src/backend/uploads/` — public uploads (`UPLOADS_DIR`): plan covers in
+  `programs/{generic,l1,l2}`; `avatars` and `feedback` reserved. Gitignored.
 - `docs/` — product, architecture, database, design, procedure and registry
   documentation.
 

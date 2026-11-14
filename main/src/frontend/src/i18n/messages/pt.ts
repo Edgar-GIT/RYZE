@@ -490,7 +490,7 @@ export const pt: Messages = {
       kgCol: "kg",
       repsCol: "Reps",
       doneCol: "Feita",
-      rest: "descanso {seconds}s",
+      rest: "descanso {time}",
       rir: "RIR {value}",
       rpe: "RPE {value}",
       tempo: "cadência {value}",

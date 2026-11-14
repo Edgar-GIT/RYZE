@@ -25,10 +25,11 @@
 .title {
   margin: 0;
   color: var(--text-primary);
-  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  font-family: var(--app-font-display, inherit);
+  font-size: clamp(1.8rem, 3.6vw, 2.6rem);
+  font-stretch: 125%;
+  font-weight: 800;
+  line-height: 1.05;
 }
 
 .description {
