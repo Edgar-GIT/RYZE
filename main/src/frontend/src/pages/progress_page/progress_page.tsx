@@ -2,8 +2,6 @@ import { CalendarCheck, Dumbbell, Flame, RefreshCw, Trophy } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
 
-import { AccountNav } from "@/components/account_nav/account_nav";
-import { AnimatedBackground } from "@/components/animated_background/animated_background";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { BarChart, LineChart, type ChartPoint } from "@/components/training/charts";
 import styles from "@/components/training/training_page.module.css";
@@ -98,10 +96,8 @@ export const ProgressPage = () => {
 
   return (
     <PageWrapper className={styles.page}>
-      <AnimatedBackground />
-      <AccountNav />
 
-      <main className={styles.main}>
+      <div className={styles.main}>
         <header className={styles.header}>
           <h1 className={styles.title}>{t("training.progress.title")}</h1>
           <p className={styles.lead}>{t("training.progress.lead")}</p>
@@ -227,7 +223,7 @@ export const ProgressPage = () => {
             )}
           </>
         ) : null}
-      </main>
+      </div>
     </PageWrapper>
   );
 };

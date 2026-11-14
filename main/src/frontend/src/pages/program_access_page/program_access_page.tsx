@@ -1,7 +1,5 @@
-import { AccountNav } from "@/components/account_nav/account_nav";
-import { AnimatedBackground } from "@/components/animated_background/animated_background";
 import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { AppLoading } from "@/components/app_shell/app_loading";
 import { PlanSchedule } from "@/components/training/plan_schedule";
 import {
   fetchActiveWorkoutSession,
@@ -180,12 +178,9 @@ export const ProgramAccessPage = () => {
 
   return (
     <PageWrapper className={styles.page}>
-      <AnimatedBackground />
 
-      <AccountNav />
-
-      <main className={styles.main}>
-        {loading ? <LoadingScreen /> : null}
+      <div className={styles.main}>
+        {loading ? <AppLoading /> : null}
 
         {!loading && (errorMessage || !detail) ? (
           <section className={styles.stateCard}>
@@ -205,6 +200,7 @@ export const ProgramAccessPage = () => {
 
         {!loading && detail && !errorMessage ? (
           <section className={styles.content}>
+            <div className={styles.side}>
             <div className={styles.back}>
               <Button to="/services/my-programs" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
                 {t("account.training.myPrograms")}
@@ -278,7 +274,9 @@ export const ProgramAccessPage = () => {
                 {t("training.nav.progress")}
               </Link>
             </nav>
+            </div>
 
+            <div className={styles.planColumn}>
             <PlanSchedule
               weeks={detail.weeks}
               sessions={programSessions}
@@ -296,9 +294,10 @@ export const ProgramAccessPage = () => {
                 onRefresh={() => void loadNutrition()}
               />
             ) : null}
+            </div>
           </section>
         ) : null}
-      </main>
+      </div>
     </PageWrapper>
   );
 };

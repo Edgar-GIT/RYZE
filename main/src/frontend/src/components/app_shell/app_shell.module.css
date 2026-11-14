@@ -1,0 +1,588 @@
+/*
+ * The signed-in member and trainer areas. Colours follow the login page: the
+ * logo navy with soft blue light, navy panels with a light top edge, cyan as
+ * the light, and the light-blue wave panel (with ink text) for the one thing
+ * to do next. The tokens are scoped here so the administration consoles keep
+ * their own look.
+ */
+.shell {
+  /* Panels and text (newer --app-* and legacy names used by older pages). */
+  --app-bg: #02041f;
+  --app-surface: linear-gradient(180deg, rgba(17, 36, 104, 0.78) 0%, rgba(8, 19, 66, 0.82) 100%);
+  --app-surface-solid: #0b1a52;
+  --app-surface-2: rgba(18, 38, 108, 0.9);
+  --app-inset: rgba(2, 8, 38, 0.6);
+  --app-line: rgba(124, 200, 255, 0.16);
+  --app-line-strong: rgba(0, 203, 255, 0.5);
+  --app-text: #ffffff;
+  --app-text-2: #c9d5ec;
+  --app-text-3: #93a4c8;
+  --app-accent: #00cbff;
+  --app-accent-2: #0481dc;
+  --app-accent-soft: rgba(0, 203, 255, 0.13);
+  --app-success: #5ee6a8;
+  --app-success-soft: rgba(94, 230, 168, 0.13);
+  --app-warning: #ffcf7a;
+  --app-danger: #ff8a80;
+  --app-radius: 20px;
+  --app-radius-sm: 12px;
+  /* The bright moment: the login page's light-blue wave panel. */
+  --app-light: linear-gradient(135deg, #8cefff 0%, #36d6ff 45%, #0aa8f2 100%);
+  --app-ink: #02041f;
+  --app-font-display: "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif;
+
+  --bg-primary: #02041f;
+  --bg-secondary: #071245;
+  --surface: rgba(12, 27, 82, 0.82);
+  --surface-elevated: rgba(17, 36, 104, 0.85);
+  --surface-hover: rgba(22, 46, 124, 0.85);
+  --card: rgba(12, 27, 82, 0.82);
+  --card-hover: rgba(18, 38, 108, 0.9);
+  --border: 1px solid rgba(124, 200, 255, 0.16);
+  --border-color: rgba(124, 200, 255, 0.16);
+  --border-hover: rgba(0, 203, 255, 0.5);
+  --text-primary: #ffffff;
+  --text-secondary: #c9d5ec;
+  --text-muted: #93a4c8;
+  --accent: #00cbff;
+  --accent-secondary: #0481dc;
+  --accent-glow-soft: rgba(0, 203, 255, 0.14);
+
+  --sidebar-width: 17rem;
+  --rail-width: 5.25rem;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100svh;
+  color: var(--app-text);
+  background:
+    radial-gradient(70rem 42rem at 92% -8%, rgba(4, 129, 220, 0.3), transparent 62%),
+    radial-gradient(52rem 40rem at 22% 108%, rgba(0, 203, 255, 0.12), transparent 64%),
+    radial-gradient(40rem 30rem at 50% 40%, rgba(7, 42, 119, 0.25), transparent 70%),
+    #02041f;
+}
+
+/* The sidebar column's surface runs the full height of the page; the
+   sidebar itself stays in view (sticky) above it. */
+.shell::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-width);
+  border-right: 1px solid rgba(124, 200, 255, 0.14);
+  background: linear-gradient(180deg, rgba(11, 26, 82, 0.86) 0%, rgba(4, 11, 46, 0.9) 100%);
+  pointer-events: none;
+}
+
+/* --- Sidebar ------------------------------------------------------------- */
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  height: 100svh;
+  padding: 1.35rem 1rem 1.1rem;
+  z-index: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.brand,
+.topBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.brand {
+  padding: 0.2rem 0.55rem 0.4rem;
+}
+
+.brandName {
+  font-family: var(--app-font-display);
+  font-size: 1.15rem;
+  font-stretch: 125%;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.brandTag {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid rgba(0, 203, 255, 0.45);
+  border-radius: 999px;
+  color: #7cebff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.nav {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  flex: 1;
+}
+
+.navList {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navGroup {
+  margin: 1rem 0 0.35rem;
+  padding: 0 0.85rem;
+  color: #6f83ad;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.navItem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 2.9rem;
+  padding: 0 0.85rem;
+  border-radius: 14px;
+  color: #b8c7e6;
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition:
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.navItem svg {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.navItem:hover {
+  color: #ffffff;
+  background: rgba(124, 200, 255, 0.08);
+}
+
+.navItemActive {
+  color: #ffffff;
+  background: linear-gradient(90deg, rgba(0, 203, 255, 0.2), rgba(0, 203, 255, 0.04));
+  box-shadow: inset 0 0 0 1px rgba(0, 203, 255, 0.28);
+}
+
+.navItemActive svg {
+  color: #00cbff;
+}
+
+.navItemActive::before {
+  content: "";
+  position: absolute;
+  top: 0.6rem;
+  bottom: 0.6rem;
+  left: -1rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #00cbff;
+  box-shadow: 0 0 12px #00cbff;
+}
+
+.navItem:focus-visible,
+.actionCard:focus-visible,
+.switch:focus-visible,
+.userCard:focus-visible,
+.tab:focus-visible,
+.topAvatar:focus-visible,
+.backLink:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}
+
+.sidebarFoot {
+  display: grid;
+  gap: 0.7rem;
+}
+
+/* The light-blue wave panel of the login page, as the sidebar's call to action. */
+.actionCard {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+  padding: 0.95rem;
+  border-radius: 18px;
+  color: #02041f;
+  background: var(--app-light);
+  box-shadow:
+    0 18px 40px -22px rgba(0, 203, 255, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: transform 180ms ease;
+}
+
+.actionCard::after {
+  content: "";
+  position: absolute;
+  right: -10%;
+  bottom: -40%;
+  left: -10%;
+  height: 70%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(4, 129, 220, 0.35), transparent);
+  pointer-events: none;
+}
+
+.actionCard:hover {
+  transform: translateY(-2px);
+}
+
+.actionIcon {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 12px;
+  color: #ffffff;
+  background: #02041f;
+}
+
+.actionIcon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.actionText {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.actionText strong {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.actionText span {
+  color: #0b2350;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.6rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(124, 200, 255, 0.18);
+  border-radius: 12px;
+  color: #c9d5ec;
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.switch svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: #00cbff;
+}
+
+.switch:hover {
+  border-color: rgba(0, 203, 255, 0.5);
+  color: #ffffff;
+}
+
+.userCard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem;
+  border: 1px solid rgba(124, 200, 255, 0.14);
+  border-radius: 14px;
+  color: inherit;
+  background: rgba(2, 8, 38, 0.45);
+  text-decoration: none;
+}
+
+.userCard:hover,
+.userCardActive {
+  border-color: rgba(0, 203, 255, 0.45);
+}
+
+.avatar,
+.topAvatar {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #02041f;
+  background: linear-gradient(135deg, #8cefff 0%, #00cbff 55%, #2a8cff 100%);
+  font-weight: 800;
+}
+
+.avatar {
+  width: 2.4rem;
+  height: 2.4rem;
+  font-size: 0.85rem;
+}
+
+.userText {
+  display: grid;
+  min-width: 0;
+}
+
+.userText strong {
+  overflow: hidden;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userText span {
+  overflow: hidden;
+  color: #93a4c8;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Content ------------------------------------------------------------- */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 4.25rem;
+  padding: 0 clamp(1.25rem, 3vw, 2.5rem);
+  border-bottom: 1px solid rgba(124, 200, 255, 0.1);
+  background: rgba(2, 4, 31, 0.72);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.topBrand {
+  display: none;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #93a4c8;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.backLink svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.backLink:hover {
+  color: #ffffff;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.topAvatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 0.85rem;
+  text-decoration: none;
+  box-shadow: 0 0 0 3px rgba(0, 203, 255, 0.14);
+}
+
+.main {
+  width: 100%;
+  max-width: 88rem;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 3vw, 2.4rem) clamp(1.25rem, 3vw, 2.5rem) 4rem;
+}
+
+.tabBar {
+  display: none;
+}
+
+/* --- Tablets: an icon rail --------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .shell {
+    grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  }
+
+  .shell::before {
+    width: var(--rail-width);
+  }
+
+  .sidebar {
+    align-items: center;
+    padding: 1.2rem 0.6rem;
+  }
+
+  .brand .brandName,
+  .brandTag,
+  .navItem span,
+  .navGroup,
+  .actionText,
+  .switch span,
+  .userText {
+    display: none;
+  }
+
+  .brand {
+    padding: 0.2rem 0 0.6rem;
+  }
+
+  .navItem {
+    justify-content: center;
+    width: 3.4rem;
+    padding: 0;
+  }
+
+  .navItemActive::before {
+    left: -0.6rem;
+  }
+
+  .actionCard {
+    grid-template-columns: auto;
+    padding: 0.55rem;
+  }
+
+  .switch {
+    justify-content: center;
+    width: 3.4rem;
+    padding: 0;
+  }
+
+  .userCard {
+    grid-template-columns: auto;
+    padding: 0.4rem;
+  }
+}
+
+/* --- Phones: top bar and bottom tabs ----------------------------------- */
+
+@media (max-width: 767px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell::before {
+    display: none;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .topbar {
+    min-height: 3.75rem;
+    padding: 0 1rem;
+  }
+
+  .topBrand {
+    display: inline-flex;
+  }
+
+  .backLink {
+    display: none;
+  }
+
+  .topActions {
+    gap: 0.5rem;
+  }
+
+  .topAvatar {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .main {
+    padding: 1.15rem 1rem calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .tabBar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    padding: 0.4rem 0.4rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(124, 200, 255, 0.16);
+    background: rgba(4, 10, 43, 0.94);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  .tab {
+    display: grid;
+    justify-items: center;
+    gap: 0.2rem;
+    padding: 0.4rem 0.2rem;
+    border-radius: 12px;
+    color: #93a4c8;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .tab svg {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+
+  .tabActive {
+    color: #ffffff;
+    background: rgba(0, 203, 255, 0.12);
+  }
+
+  .tabActive svg {
+    color: #00cbff;
+  }
+}
+
+@media (max-width: 380px) {
+  .language {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navItem,
+  .actionCard {
+    transition: none;
+  }
+}

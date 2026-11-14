@@ -10,18 +10,21 @@ export interface ServiceProgram {
   imageSrc: string;
   featured?: boolean;
   // A label above the card that replaces "Featured" (Premium Level 2: the most
-  // personalized route, in contrast with the most chosen Premium Level 1).
-  tag?: { label: string; tone: "personalized" };
+  // personalized route, in contrast with the most chosen Premium Level 1; the
+  // generic training plans: free, owner request 2026-11-14).
+  tag?: { label: string; tone: "personalized" | "free" };
 }
 
 const PERSONALIZED_TAG = { label: "Personalized", tone: "personalized" } as const;
+const FREE_TAG = { label: "Free", tone: "free" } as const;
 
 export const SERVICE_CATEGORY_PRESENTATION = {
   generic: {
     title: "Training plans",
     ctaLabel: "Browse training plans",
     to: "/services/generic-program",
-    imageSrc: rccImageOne
+    imageSrc: rccImageOne,
+    tag: FREE_TAG
   },
   premium: {
     title: "Premium Level 1",
@@ -49,7 +52,8 @@ export const SERVICE_SHOWCASE: ServiceProgram[] = [
     price: "FREE",
     ctaLabel: "Start now for FREE",
     to: "/services/generic-program",
-    imageSrc: rccImageOne
+    imageSrc: rccImageOne,
+    tag: FREE_TAG
   },
   {
     title: "Premium Level 1",

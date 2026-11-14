@@ -2,10 +2,8 @@ import { useState } from "react";
 import { Redirect } from "react-router-dom";
 import { ClipboardCheck, Clock3, Send, ShieldCheck } from "lucide-react";
 
-import { AccountNav } from "@/components/account_nav/account_nav";
-import { AnimatedBackground } from "@/components/animated_background/animated_background";
 import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { AppLoading } from "@/components/app_shell/app_loading";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { useTrainerSession } from "@/components/trainer/trainer_session_context";
 import {
@@ -57,8 +55,7 @@ export const TrainerApplyPage = () => {
   if (!loaded) {
     return (
       <PageWrapper>
-        <AnimatedBackground />
-        <LoadingScreen />
+        <AppLoading />
       </PageWrapper>
     );
   }
@@ -74,10 +71,8 @@ export const TrainerApplyPage = () => {
 
   return (
     <PageWrapper className={styles.page}>
-      <AnimatedBackground />
-      <AccountNav />
 
-      <main className={styles.main}>
+      <div className={styles.main}>
         {isTrainer ? (
           <section className={styles.card}>
             <span className={styles.icon}>
@@ -155,7 +150,7 @@ export const TrainerApplyPage = () => {
             </div>
           </section>
         ) : null}
-      </main>
+      </div>
     </PageWrapper>
   );
 };

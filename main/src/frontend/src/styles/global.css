@@ -198,12 +198,6 @@ body.ryze-app {
   background: var(--app-bg);
 }
 
-/* Room for the member area's bottom tab bar on phones (see AccountNav). */
-@media (max-width: 720px) {
-  body.has-tabbar {
-    padding-bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px));
-  }
-}
 
 /* Admin and trainer tables on phones: each row becomes a small card (the
    first cell as its title, labelled values below, actions on the right)

@@ -3,18 +3,13 @@
 
 .page {
   position: relative;
-  min-height: 100svh;
 }
 
 .main {
   position: relative;
-  z-index: 2;
   display: grid;
   gap: 1.25rem;
   width: 100%;
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: 1.5rem 1.25rem 3rem;
 }
 
 .trainerBack {

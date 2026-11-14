@@ -19,6 +19,7 @@ export const en = {
     en: "English",
     pt: "Português",
     switchTo: "Change language",
+    toggle: "Language: {current}. Switch to {other}",
     prompt: {
       title: "RYZE in English",
       text: "We picked English from your location. Change it any time with PT | EN at the top.",

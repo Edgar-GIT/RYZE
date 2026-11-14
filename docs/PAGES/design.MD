@@ -210,6 +210,11 @@ Secondary
 - Auth actions: outline “Log in” (with user icon) + gradient cyan “Start free”
   (with arrow)
 - Never use boxed active navigation items as the sole active treatment
+- Language: one PT | EN toggle (2026-11-14). The whole pill is a single button:
+  a click anywhere switches the language and a cyan light slides to the
+  language in use with a slight spring; ← / → pick a side; its accessible name
+  says the current language and the one it switches to. The same toggle (with a
+  language icon) appears on the profile and account-recovery pages.
 
 ## Cards
 
@@ -430,13 +435,18 @@ Scroll progress drives one Three.js scene (`story_scene.ts`, dynamically
 imported):
 the Earth with real continents and an atmosphere, RYZE routes leaving Lisbon
 (light pulses travel each route) and the official icon on a badge above
-Lisbon — the brand travelling the world; a modelled phone (titanium frame,
+Lisbon — the brand travelling the world (2026-11-14: land drawn as a glowing
+dot matrix, twinkling city lights on the night side, a sun glint on the oceans,
+thin procedural clouds and a brighter atmosphere; no orbit ring); a modelled phone (titanium frame,
 glass, island, buttons, camera module, blue edge light) that flies in with the
 training screen and spins, showing the logo on its back, to reveal the
 nutrition screen; a laptop (black keys with backlit legends, Touch ID and arrow
 keys, glass trackpad, opening scoop, hinge, display notch) that rises with the
 logo on its closed lid and opens square-on to the viewer on the programme
-screen, with the phone standing beside it; then the Earth returns for
+screen (2026-11-14: the closed lid rests above the keys instead of cutting
+through them; each key size has its own rounded cap, a cyan backlight shows
+between the keys, speaker grilles flank the keyboard and the legends are
+sharper), with the phone standing beside it; then the Earth returns for
 the call to action. The stage backdrop stays in the navy family (only the
 blue light moves) and fades into the page at its base, the chapter copy fades
 in its scroll window (every chapter stays in the accessibility tree; keyboard
@@ -564,7 +574,34 @@ least one published offer; the showcase prices above appear only while nothing
 is published.
 
 `ServiceCard` is used only by the Services page; the cards are protected and
-unchanged. Home no longer renders
+unchanged except for the owner-added tags: purple "Personalized" on Premium
+Level 2 and mint "Free" on the generic training plans (2026-11-14).
+
+Showroom (`components/service_showroom/`, 2026-11-14, rebuilt the same day
+after owner feedback): the cards stay flat and crisp at all times — no 3D
+rotation at rest, no blur on the card in focus. With a precise pointer from
+1024px each card stands on a real 3D pedestal drawn by a lazily loaded WebGL
+stage behind the cards (`showroom_scene.ts`: slim two-tier navy pedestals with
+a matte top, a cyan light ring on the top edge, a pool of light under the card,
+a soft glow on the ground and a soft light behind the card; no floor, no
+spotlights). The stage is placed from the cards' layout positions and drawn on
+demand (arrival and focus transitions only, never a permanent loop). Under
+each pedestal a placard states the route's goal in one look ("Just training —
+Ready-made training plans, including free ones"; "Training and nutrition — A
+programme with a nutrition plan, right after purchase"; "Built around you — A
+RYZE trainer prepares your programme and nutrition"). The cards arrive from
+the left, the depth and the right while their pedestals rise and light up.
+Hovering or keyboard-focusing a card lifts and enlarges it from its base (2D
+only), brightens its pedestal, steps the other cards back (dimmed, no blur) and
+floats out four bubbles with what the route includes (generic: ready-made
+plans, weeks and days in order, set-by-set logging, history and progress;
+Premium Level 1: training with a nutrition plan, available right after
+purchase, daily calorie and macro targets, hypertrophy programme; Premium
+Level 2: complete intake, a RYZE trainer prepares the plan, training and
+nutrition built around you, follow the request until delivery). Phones,
+tablets and touch screens keep stacked cards (arriving from alternating
+sides) with the goal placard and the facts as chips under each card. Reduced
+motion removes the arrivals and drifting. Home no longer renders
 `ServiceCard`; it uses the image-free category overview described under Home.
 
 ### Free
@@ -851,13 +888,10 @@ The authenticated client-facing listing of every program the client can enter:
 entitled programs, trainer assignments and activated Free programs. It follows
 the palette, motion and typography of the other authenticated pages.
 
-- **Route** — `/services/my-programs`, chrome-free: it renders without the
-  public chrome (same pattern as `/profile`). It shares the single account
-  navigation bar (`components/account_nav`: Brand left, Profile / My Programs /
-  Progress / Purchase History pills in the reserved center area, optional user
-  chip right)
-  used by every authenticated account page. The global navigation is never
-  swapped for an authenticated state outside of it.
+- **Route** — `/services/my-programs` ("Train" in the member navigation),
+  rendered inside the member app shell (see "Member Area" below) without the
+  public chrome. The global navigation is never swapped for an authenticated
+  state outside of it.
 - **Data** — `GET /api/v1/me/entitlements` plus `GET /api/v1/me/free-programs`,
   401 → redirect to `/login`. A Free activation is merged into the same list and
   marked with a distinct "Free" chip; the card never claims purchase metadata.
@@ -868,8 +902,8 @@ the palette, motion and typography of the other authenticated pages.
   `frequency_per_week`), plus an "Open program" affordance navigating to
   `/services/my-programs/:programId`. No price and no entitlement metadata are
   shown.
-- **Entry point** — the `/profile` account hub exposes a "My Programs" card
-  linking here.
+- **Entry point** — "Train" in the member navigation, the home dashboard's
+  current plan and the "Start workout" action card.
 
 ---
 
@@ -879,9 +913,9 @@ The access-protected program detail ("client program detail"). It renders the
 safe structure for any program the client may enter through an entitlement,
 trainer assignment or Free activation. It is only reachable from My Programs.
 
-- **Route** — `/services/my-programs/:programId`, chrome-free with the shared
-  account navigation bar (`components/account_nav`), identical to the other
-  account pages.
+- **Route** — `/services/my-programs/:programId`, inside the member app shell.
+  From 1100px the plan structure and a sticky side column (session banner,
+  shortcuts) sit side by side.
 - **Data** — `GET /api/v1/me/programs/:programId`; 401 → redirect to
   `/login`.
 - **States** — loading (spinner), generic error with a Retry button, and a
@@ -903,8 +937,10 @@ trainer assignment or Free activation. It is only reachable from My Programs.
 
 The interactive execution surface for one prescribed workout.
 
-- **Route** — `/services/workout-sessions/:sessionId`, chrome-free with the
-  shared account navigation bar.
+- **Route** — `/services/workout-sessions/:sessionId`, a full-screen player
+  outside the member shell (no navigation while training). From 1100px a sticky
+  overview column shows the progress ring, the elapsed clock, the exercise list
+  with jump links to each exercise block, and Finish.
 - **Data** — `GET /api/v1/me/workout-sessions/:sessionId`; 401 → redirect to
   `/login`.
 - **Layout** — programme name, week/day position, elapsed time, completed-set
@@ -925,9 +961,9 @@ The interactive execution surface for one prescribed workout.
 
 ### Workout History and Progress
 
-- **Routes** — `/services/workout-history` and `/services/progress`,
-  chrome-free with the shared account navigation bar. AccountNav and the profile
-  hub both link to Progress.
+- **Routes** — `/services/workout-history` and `/services/progress`, inside
+  the member app shell ("History" and "Progress" in its navigation). History
+  lists sessions in two columns from 1100px.
 - **History data** — `GET /api/v1/me/workout-sessions?limit=50`; 401 →
   redirect to `/login`. Cards show programme, week/day, date, a correct status
   badge (`In progress`, `Paused`, `Completed`, `Abandoned`), set progress,
@@ -944,10 +980,10 @@ The interactive execution surface for one prescribed workout.
 ### Purchase History
 
 The authenticated client-facing order history. It continues the account area
-palette, motion and typography and reuses the shared account navigation bar.
+palette and typography of the member area.
 
-- **Route** — `/account/purchases`, chrome-free alongside the other account
-  pages (`app.tsx` treats `/account` like `/services/my-programs`).
+- **Route** — `/account/purchases`, inside the member app shell ("Purchases"
+  in its secondary navigation).
 - **Data** — `GET /api/v1/me/purchases`, 401 → redirect to `/login`. The
   endpoint returns a safe history DTO (never commission or payout fields) with
   a nested program summary plus server-computed `test` and `access` flags.
@@ -987,6 +1023,14 @@ future Elite counterpart.
 ---
 
 ## Exercise Library
+
+Glass style (owner request 2026-11-14, layout unchanged): the page sits on
+fixed blue/cyan light; the search and filter toolbar is frosted glass with a
+top highlight and inset fields; exercise cards are translucent glass with a
+brighter top edge, a reflection over the thumbnail and a cyan-tinted body;
+hover lifts the card, lights its edge and sweeps a sheen across it; category
+tags are glass pills. The detail page uses translucent surface tokens on the
+same light. Filter labels are translated in Portuguese.
 
 The public, canonical catalogue of platform exercises. It is reachable from the
 public navbar and is not part of the purchase flow: every entry is readable
@@ -1258,66 +1302,76 @@ Accessibility
 
 ---
 
-## Profile
+## Member Area
 
-Route: `/profile`.
+Owner request of 2026-11-14: the reserved user area is an app for both
+desktop and phone, in the colours of the login and registration page, with
+clear information about everything the member does. ADMIN_1 and ADMIN_2 are
+not part of it.
 
-Purpose: prove the user is authenticated and display their personal area. This
-is intentionally a simple profile page, not a dashboard. It shows only real
-data returned by `GET /api/v1/me`; nothing is hardcoded.
+### App shell
 
-Authentication
+`components/app_shell/app_shell.tsx` (`AppShell`) is the shared layout of the
+member and trainer areas.
 
-- On page load the page calls `GET /api/v1/me` with credentials included.
-- If `/me` returns 401, the user is redirected to `/login`.
-- On success the real user data is rendered.
-- Loading uses the shared RYZE `LoadingScreen` overlay.
-- Unexpected API errors render a simple generic error state with a "Try
-  again" action.
-- The JWT is never read from JavaScript and no storage (localStorage /
-  sessionStorage) is used for authentication. The HttpOnly cookie is managed
-  entirely by the browser.
+- **Palette** — tokens scoped to `.shell` (never global): the logo navy page,
+  royal glass panels, cyan as the light and the light-blue wave gradient
+  (`--app-light`) reserved for the main action of a page; display headings use
+  the RYZE display font.
+- **Desktop (above 1180px)** — a 17rem sidebar: brand, primary navigation,
+  secondary navigation, an action card in the light gradient and an optional
+  switch to the other area. Content uses the full remaining width.
+- **Tablet (768–1180px)** — the sidebar collapses to an icon rail with
+  accessible labels.
+- **Phone (767px and below)** — a top bar and a bottom tab bar with five tabs;
+  the content stacks in one column.
+- **Top bar** — PT | EN toggle, notification bell and the account avatar
+  (linking to Account).
+- **Loading** — `AppLoading`, a shimmer skeleton inside the shell; reduced
+  motion removes the shimmer.
 
-Navbar
+`components/app_shell/member_shell.tsx` (`MemberShell`) loads
+`GET /api/v1/me` once for every member page (401 → `/login`) and shares it
+through `useMember()` (`user`, `isTrainer`, `reload`). Navigation: Home, Train,
+Progress, History; secondary: Training plans, Exercises, Purchases, Support,
+Account. Phone tabs: Home, Train, Progress, History, Account. The action card
+is "Start workout" (to Train); approved trainers also see a switch to the
+trainer area. `routes/member_routes.tsx` is loaded lazily and keeps one shell
+mounted while moving between member pages. The workout player and the
+Premium Level 2 request page render outside the shell.
 
-The profile page renders the shared account navigation bar
-(`components/account_nav`) since the page is rendered without the global site
-chrome (`/profile` is chrome-free alongside `/account/*` and
-`/services/my-programs`).
+### Home (`/profile`)
 
-- Left: RYZE logo/icon linking home.
-- Center: Profile / My Programs / Progress / Purchase History pills (the
-  authenticated account navigation, identical across every account page).
-- Right: the authenticated user's first name followed by a circular profile
-  avatar. No avatar upload exists yet, so a default person/user icon is shown.
+The member's dashboard. Every value comes from existing endpoints
+(`/me`, entitlements and Free activations, the plan's access detail,
+`/me/workout-sessions` and `/me/statistics`); nothing is invented, and empty
+data shows an honest empty state.
 
-Profile content
+- **Header** — date, greeting and the current streak.
+- **Next workout** (light wave panel) — the next workout of the current plan
+  with Start (creates the session and opens the player), Continue when a
+  session is live, a "plan complete" state, or a no-plan state linking to the
+  training plans.
+- **This week** — a day strip with the trained days and the week's sessions.
+- **Totals** — completed workouts, training time, total volume and completed
+  sets.
+- **Activity** — sessions per week over the last 8 weeks.
+- **Current plan** — completion ring and per-week bars, linking to the plan.
+- **Recent workouts** and **personal bests** (the best completed set per
+  exercise), plus shortcuts.
+- **Layout** — a twelve-column grid on desktop, stacked below 1024px.
+- An email-verification notice appears when the email is not verified.
 
-A centered, spacious, glass profile card (same language as the auth card):
+### Account (`/account/settings`)
 
-- Large circular avatar (default person icon; structured to accept a real
-  image later without redesign).
-- Full name (`first_name` + `last_name`).
-- Email.
-- "Member since <Month Year>" derived from the account `created_at`.
-- A thin divider.
-- **Account hub** — three navigation cards (icon + title + one-line hint):
-  My Programs, Purchase History and Marketplace, making the profile the
-  authenticated account hub.
-- A secondary "Log out" button plus the existing authentication actions
-  (Change Password and Soft Delete Account panels).
+Profile details, language preference, sign-in methods, email verification,
+password change, trainer status (apply or open the trainer area), sign-out and
+account deletion. These panels moved from the old profile page with their
+behaviour, API calls and confirmations unchanged. Two columns on desktop, one
+on phones.
 
-Logout
-
-The "Log out" action calls `POST /api/v1/auth/logout` with credentials
-included and redirects to `/login` on success. No new backend logout
-functionality is implemented.
-
-Scope
-
-No statistics, training plans, nutrition, calendar, charts, dashboard grids,
-sidebar or fake data in the profile card itself — training plans and purchases
-live on their own account pages reached from the hub.
+Logout calls `POST /api/v1/auth/logout` and redirects to `/login`. The JWT is
+never read from JavaScript; the HttpOnly cookie is managed by the browser.
 
 ---
 
@@ -1367,10 +1421,11 @@ Routes: `/trainer/apply`, `/trainer/dashboard`, `/trainer/clients`,
 `/trainer/premium-level-2`, `/trainer/premium-level-2/:requestID`,
 `/trainer/profile`.
 
-The trainer area reuses the existing dark RYZE design language (near-black
-backgrounds, cyan accents, rounded translucent cards, the shared `Button` and
-`LoadingScreen` components) and the existing typography. It introduces no new
-visual pattern.
+Since 2026-11-14 the trainer area uses the same app shell as the member area
+(`AppShell`, see "Member Area"): the login palette, a sidebar on desktop, an
+icon rail on tablets and a top bar with bottom tabs on phones, and the shimmer
+`AppLoading` skeleton. `/trainer/apply` renders inside the member shell
+because the applicant is not yet a trainer.
 
 Access is decided exclusively by the backend: the shared session context loads
 `GET /api/v1/trainer/access` on entry. Unauthenticated users are sent to
@@ -1380,16 +1435,19 @@ client-side.
 
 Entry point
 
-- The Profile page hub shows a single trainer link resolved from the access
-  endpoint: "Trainer Dashboard" for approved trainers, "Become a Trainer"
-  otherwise. A failed access request hides the link; it never blocks the page.
+- The member shell shows a switch to the trainer area for approved trainers,
+  and Account (`/account/settings`) shows the trainer status: open the trainer
+  area for approved trainers, "Become a Trainer" otherwise. A failed access
+  request hides the trainer link; it never blocks the page.
 
 Trainer layout
 
-- Left/top navigation with five items — Dashboard, Clients, Programs, Premium
-  L2, Profile — rendered as links with an active state.
-- Desktop: sidebar; small screens: horizontal navigation that wraps. Content
-  sits on the same dark surface as the rest of the account area.
+- `TrainerLayout` renders `AppShell` with Dashboard, Clients, Premium L2 and
+  Programmes as primary navigation and Profile and Support as secondary
+  navigation; links show an active state.
+- The action card "New programme" opens `/trainer/programs?new=1`, which
+  starts with the creation form open; a switch returns to the member area
+  (`/profile`).
 
 Apply page (`/trainer/apply`)
 
@@ -1409,10 +1467,14 @@ Apply page (`/trainer/apply`)
 
 Dashboard (`/trainer/dashboard`)
 
-- Greeting plus real totals only: number of active clients, number of own
-  programs, and the trainer's profile summary, all from the existing list
-  endpoints (pagination totals). No fake statistics, revenue, ratings or
-  placeholder charts.
+- PT and EN. Data from the existing endpoints only: the trainer profile, the
+  first clients, the own programmes, the Premium Level 2 requests and the
+  public coach profile (view count, shown only when the profile is public).
+- A light wave hero with "Add client" and "New programme", a public profile
+  views card, tiles for active clients, published programmes, drafts and
+  Premium Level 2 requests, then lists of recent clients, programmes (with
+  Published/Draft status) and the Premium Level 2 queue.
+- No fake statistics, revenue, ratings or placeholder charts.
 
 Clients (`/trainer/clients`)
 

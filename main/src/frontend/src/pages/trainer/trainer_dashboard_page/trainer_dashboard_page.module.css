@@ -1,0 +1,475 @@
+/* Trainer home: the same board language as the member home. */
+
+.page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.kicker {
+  margin: 0;
+  color: #7cebff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--app-font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-stretch: 125%;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.title span {
+  color: #00cbff;
+}
+
+.lead {
+  margin: 0;
+  color: var(--app-text-2);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.grid > * {
+  min-width: 0;
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid var(--app-line);
+  border-top-color: rgba(160, 225, 255, 0.24);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+  box-shadow: 0 24px 60px -40px rgba(0, 0, 0, 0.9);
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+}
+
+.cardTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.cardTitle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #00cbff;
+}
+
+.cardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #00cbff;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.cardLink svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.muted {
+  margin: 0;
+  color: var(--app-text-3);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+/* Hero: the light-blue wave panel. */
+.hero {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  grid-column: span 8;
+  min-height: 17rem;
+  overflow: hidden;
+  padding: 1.8rem 2rem 6rem;
+  border-radius: 24px;
+  color: var(--app-ink);
+  background: var(--app-light);
+  box-shadow:
+    0 34px 70px -38px rgba(0, 203, 255, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.heroWaves {
+  height: min(55%, 9rem);
+}
+
+.heroKicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: #072a77;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.heroKicker svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.heroTitle {
+  margin: 0;
+  font-family: var(--app-font-display);
+  font-size: clamp(1.7rem, 3.2vw, 2.4rem);
+  font-stretch: 125%;
+  font-weight: 800;
+  line-height: 1.08;
+}
+
+.heroText {
+  margin: 0;
+  max-width: 36rem;
+  color: #0b2350;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.inkButton,
+.ghostInk {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3.05rem;
+  padding: 0 1.35rem;
+  border-radius: 14px;
+  font-size: 0.96rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.inkButton {
+  color: #ffffff;
+  background: #02041f;
+  box-shadow: 0 14px 30px -14px rgba(2, 4, 31, 0.9);
+}
+
+.ghostInk {
+  border: 1.5px solid rgba(2, 4, 31, 0.55);
+  color: #02041f;
+}
+
+.ghostInk:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.inkButton svg,
+.ghostInk svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.reach {
+  grid-column: span 4;
+}
+
+.bigNumber {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-family: var(--app-font-display);
+  font-size: 2.8rem;
+  font-stretch: 125%;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.bigNumber svg {
+  width: 1.8rem;
+  height: 1.8rem;
+  color: #00cbff;
+}
+
+/* Tiles. */
+.tiles {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.tile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0.15rem 0.9rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--app-line);
+  border-top-color: rgba(160, 225, 255, 0.24);
+  border-radius: var(--app-radius);
+  color: inherit;
+  background: var(--app-surface);
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.tile:hover {
+  border-color: var(--app-line-strong);
+  transform: translateY(-2px);
+}
+
+.tileIcon {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 14px;
+  color: #00cbff;
+  background: rgba(0, 203, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(0, 203, 255, 0.25);
+}
+
+.tileIcon svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.tileLabel {
+  color: var(--app-text-3);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.tileValue {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.half {
+  grid-column: span 6;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  color: inherit;
+  background: var(--app-inset);
+  text-decoration: none;
+  transition: border-color 160ms ease;
+}
+
+.row:hover {
+  border-color: var(--app-line-strong);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  color: #02041f;
+  background: linear-gradient(135deg, #8cefff 0%, #00cbff 55%, #2a8cff 100%);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.programIcon {
+  border-radius: 12px;
+  color: #00cbff;
+  background: rgba(0, 203, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(0, 203, 255, 0.25);
+}
+
+.programIcon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.rowText {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.rowText strong,
+.rowText span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowText span {
+  color: var(--app-text-3);
+  font-size: 0.82rem;
+}
+
+.rowMeta {
+  color: var(--app-text-3);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.status {
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.statusLive {
+  color: #9af0c8;
+  background: rgba(94, 230, 168, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(94, 230, 168, 0.35);
+}
+
+.statusDraft {
+  color: #ffe2b8;
+  background: rgba(255, 207, 122, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 207, 122, 0.32);
+}
+
+.chevron {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--app-text-3);
+}
+
+.stateCard {
+  display: grid;
+  justify-items: start;
+  gap: 0.9rem;
+  max-width: 34rem;
+  margin: 2rem auto;
+  padding: 1.75rem;
+  border: 1px solid var(--app-line);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+}
+
+.stateCard p {
+  margin: 0;
+  color: var(--app-text-2);
+}
+
+.row:focus-visible,
+.tile:focus-visible,
+.cardLink:focus-visible,
+.inkButton:focus-visible,
+.ghostInk:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}
+
+.hero .inkButton:focus-visible,
+.hero .ghostInk:focus-visible {
+  outline-color: #02041f;
+}
+
+@media (max-width: 1280px) {
+  .hero {
+    grid-column: span 7;
+  }
+
+  .reach {
+    grid-column: span 5;
+  }
+}
+
+@media (max-width: 1023px) {
+  .hero,
+  .reach,
+  .half {
+    grid-column: 1 / -1;
+  }
+
+  .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .grid,
+  .tiles {
+    gap: 0.85rem;
+  }
+
+  .hero {
+    min-height: 0;
+    padding: 1.4rem 1.25rem 5.5rem;
+  }
+
+  .row {
+    grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+  }
+
+  .rowMeta {
+    display: none;
+  }
+
+  .tile {
+    padding: 0.9rem;
+  }
+
+  .tileValue {
+    font-size: 1.3rem;
+  }
+}

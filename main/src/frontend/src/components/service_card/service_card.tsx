@@ -21,7 +21,14 @@ export const ServiceCard = ({ service }: ServiceCardProps) => (
     <span className={styles.overlay} aria-hidden="true" />
 
     {service.tag ? (
-      <span className={joinClassNames(styles.featuredBadge, styles.personalizedBadge)}>{service.tag.label}</span>
+      <span
+        className={joinClassNames(
+          styles.featuredBadge,
+          service.tag.tone === "personalized" ? styles.personalizedBadge : styles.freeBadge
+        )}
+      >
+        {service.tag.label}
+      </span>
     ) : service.featured ? (
       <span className={styles.featuredBadge}>Featured</span>
     ) : null}

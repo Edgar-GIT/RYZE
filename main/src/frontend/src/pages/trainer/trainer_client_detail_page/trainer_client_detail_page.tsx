@@ -12,7 +12,7 @@ import {
 import { useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { AppLoading } from "@/components/app_shell/app_loading";
 import {
   assignTrainerClientProgram,
   fetchTrainerClient,
@@ -349,7 +349,7 @@ export const TrainerClientDetailPage = () => {
   };
 
   if (state.status === "loading") {
-    return <LoadingScreen />;
+    return <AppLoading />;
   }
 
   if (state.status === "not-found") {
@@ -423,7 +423,7 @@ export const TrainerClientDetailPage = () => {
         <div className={styles.grid}>
           <div className={styles.card}>
             <p className={styles.statLabel}>Current programme</p>
-            <p className={styles.statValue}>{overview.statistics.current_program_name || "None"}</p>
+            <p className={styles.statText}>{overview.statistics.current_program_name || "None"}</p>
             <p className={styles.cardText}>
               {overview.statistics.has_active_program
                 ? "This is the active programme used for current progress."
@@ -432,7 +432,7 @@ export const TrainerClientDetailPage = () => {
           </div>
           <div className={styles.card}>
             <p className={styles.statLabel}>Programme completion</p>
-            <p className={styles.statValue}>{overview.statistics.completion_percentage}%</p>
+            <p className={styles.statValue}>{Math.round(Number(overview.statistics.completion_percentage) || 0)}%</p>
             <p className={styles.cardText}>
               {overview.statistics.unique_workouts_completed} of {overview.statistics.total_workouts_in_program} workouts completed.
             </p>

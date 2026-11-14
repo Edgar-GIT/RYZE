@@ -2,18 +2,13 @@
 
 .page {
   position: relative;
-  min-height: 100svh;
 }
 
 .main {
   position: relative;
-  z-index: 2;
   display: grid;
-  gap: 1.25rem;
+  gap: 1.5rem;
   width: 100%;
-  max-width: 56rem;
-  margin: 0 auto;
-  padding: 1.25rem 1rem calc(6rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Grid children may shrink below their content (long exercise names). */
@@ -30,9 +25,11 @@
 .title {
   margin: 0;
   color: var(--app-text, #fff);
-  font-size: clamp(1.7rem, 6vw, 2.3rem);
+  font-family: var(--app-font-display, inherit);
+  font-size: clamp(1.9rem, 3.6vw, 2.7rem);
+  font-stretch: 125%;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.05;
 }
 
 .lead {
@@ -43,11 +40,13 @@
 
 .card {
   display: grid;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: 0.85rem;
+  padding: 1.35rem 1.4rem;
   border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
+  border-top-color: rgba(160, 225, 255, 0.24);
   border-radius: var(--app-radius, 16px);
   background: var(--app-surface, rgba(10, 22, 69, 0.78));
+  box-shadow: 0 24px 60px -40px rgba(0, 0, 0, 0.9);
 }
 
 .cardTitle {
@@ -346,9 +345,6 @@
 }
 
 @media (min-width: 720px) {
-  .main {
-    padding: 2rem 1.5rem 3rem;
-  }
 
   .tiles {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -370,4 +366,11 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* Computers: a month's workouts in two columns. */
+@media (min-width: 1100px) {
+  .sessionList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

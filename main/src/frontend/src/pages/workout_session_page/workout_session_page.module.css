@@ -798,3 +798,195 @@
     transition: none;
   }
 }
+
+/* --- Computers: exercises beside an overview panel ----------------------- */
+
+.layout {
+  display: block;
+}
+
+.overview {
+  display: none;
+}
+
+.exerciseTitle h2 button {
+  text-transform: capitalize;
+}
+
+@media (min-width: 1100px) {
+  .topBar {
+    padding-inline: max(1.5rem, calc((100vw - 78rem) / 2));
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 21rem;
+    align-items: start;
+    gap: 1.75rem;
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 1.5rem 1.5rem 0;
+  }
+
+  .workout {
+    max-width: none;
+    padding: 0 0 4rem;
+  }
+
+  .finishWide {
+    display: none;
+  }
+
+  .overview {
+    position: sticky;
+    top: 6.5rem;
+    display: grid;
+    gap: 1.1rem;
+    padding: 1.35rem;
+    border: 1px solid var(--app-line, rgba(124, 200, 255, 0.16));
+    border-top-color: rgba(160, 225, 255, 0.24);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(17, 36, 104, 0.78) 0%, rgba(8, 19, 66, 0.82) 100%);
+    box-shadow: 0 24px 60px -40px rgba(0, 0, 0, 0.9);
+  }
+
+  .overviewHead {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .overviewRing {
+    --p: 0;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 5rem;
+    height: 5rem;
+    border-radius: 50%;
+    background:
+      radial-gradient(closest-side, #0a1a52 76%, transparent 78% 100%),
+      conic-gradient(#00cbff calc(var(--p) * 1%), rgba(124, 200, 255, 0.14) 0);
+  }
+
+  .overviewRing span {
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  .overviewClock {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .overviewClock strong {
+    font-family: "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif;
+    font-size: 2rem;
+    font-stretch: 125%;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .overviewClock span {
+    color: var(--app-text-3, #93a4c8);
+    font-size: 0.84rem;
+  }
+
+  .overviewList {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .overviewItem {
+    display: grid;
+    grid-template-columns: 1.9rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: var(--app-text-2, #c9d5ec);
+    background: rgba(2, 8, 38, 0.55);
+    text-decoration: none;
+  }
+
+  .overviewItem:hover {
+    border-color: rgba(0, 203, 255, 0.4);
+  }
+
+  .overviewItem:focus-visible {
+    outline: 2px solid #00cbff;
+    outline-offset: 2px;
+  }
+
+  .overviewIndex {
+    display: grid;
+    place-items: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    color: #ffffff;
+    background: rgba(124, 200, 255, 0.14);
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+
+  .overviewIndex svg {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  .overviewName {
+    overflow: hidden;
+    font-size: 0.9rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    text-transform: capitalize;
+    white-space: nowrap;
+  }
+
+  .overviewSets {
+    color: var(--app-text-3, #93a4c8);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .overviewCurrent {
+    border-color: rgba(0, 203, 255, 0.55);
+    color: #ffffff;
+    background: rgba(0, 203, 255, 0.1);
+  }
+
+  .overviewCurrent .overviewIndex {
+    color: #02041f;
+    background: #00cbff;
+  }
+
+  .overviewDone .overviewIndex {
+    color: #02041f;
+    background: #5ee6a8;
+  }
+
+  .overviewDone .overviewName {
+    color: var(--app-text-3, #93a4c8);
+  }
+
+  .overviewFinish {
+    min-height: 3rem;
+    border: 0;
+    border-radius: 14px;
+    color: #02041f;
+    background: linear-gradient(180deg, #4fe3ff 0%, #00cbff 100%);
+    box-shadow: 0 14px 30px -14px rgba(0, 203, 255, 0.8);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .overviewFinish:disabled {
+    opacity: 0.6;
+  }
+}

@@ -1,15 +1,13 @@
 .page {
-  min-height: 100vh;
+  position: relative;
 }
 
 .main {
   display: grid;
-  place-items: center;
+  justify-items: center;
   width: 100%;
-  max-width: 720px;
-  min-height: calc(100vh - 4.5rem);
+  max-width: 760px;
   margin: 0 auto;
-  padding: 2rem 1.5rem 5rem;
 }
 
 .card {

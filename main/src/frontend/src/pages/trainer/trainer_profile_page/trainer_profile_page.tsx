@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, RefreshCw, UserRound } from "lucide-react";
 
 import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { AppLoading } from "@/components/app_shell/app_loading";
 import { fetchTrainerProfile, type TrainerProfile } from "@/services/trainer_api";
 
 import styles from "@/components/trainer/trainer_page.module.css";
@@ -35,7 +35,7 @@ export const TrainerProfilePage = () => {
   }, [load, retryCount]);
 
   if (state.status === "loading") {
-    return <LoadingScreen />;
+    return <AppLoading />;
   }
 
   if (state.status === "error") {

@@ -447,9 +447,18 @@ const earthFragment = /* glsl */ `
   uniform vec3 uLandHigh;
   uniform vec3 uCoast;
   uniform vec3 uRim;
+  uniform vec3 uDot;
+  uniform vec3 uCity;
+  uniform vec3 uGlint;
+  uniform float uTime;
   varying vec2 vUv;
   varying vec3 vNormalW;
   varying vec3 vPositionW;
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
   void main() {
     float raw = texture2D(uMask, vUv).r;
     float land = smoothstep(0.38, 0.62, raw);
@@ -467,6 +476,32 @@ const earthFragment = /* glsl */ `
     vec3 color = mix(ocean, ground, land) * mix(0.14, 1.0, day);
 
     color += coast * uCoast * mix(0.2, 0.75, day);
+
+    // Dot matrix over the land. Each row holds fewer dots towards the poles,
+    // so the dots stay round on the sphere; a cell is lit when its centre is
+    // land (sampled at the base level: the cell coordinate is discontinuous).
+    const float PI = 3.14159265;
+    float rows = 150.0;
+    float row = floor(vUv.y * rows);
+    float rowLat = ((row + 0.5) / rows - 0.5) * PI;
+    float cols = max(floor(rows * 2.0 * cos(rowLat)), 1.0);
+    vec2 cell = vec2(vUv.x * cols, vUv.y * rows);
+    vec2 cellId = floor(cell);
+    float d = length(fract(cell) - 0.5);
+    float aa = fwidth(d) * 1.2;
+    float dotMask = 1.0 - smoothstep(0.24 - aa, 0.24 + aa, d);
+    float cellLand = smoothstep(0.45, 0.6, textureLod(uMask, (cellId + 0.5) / vec2(cols, rows), 0.0).r);
+    color += dotMask * cellLand * uDot * mix(0.3, 1.0, day);
+
+    // City lights on the night side: some land cells glow and twinkle.
+    float seed = hash(cellId + vec2(row * 0.37, 0.0));
+    float night = 1.0 - smoothstep(-0.2, 0.22, light);
+    float twinkle = 0.6 + 0.4 * sin(uTime * (0.8 + seed * 1.8) + seed * 40.0);
+    color += step(0.82, seed) * cellLand * night * dotMask * uCity * twinkle * 1.8;
+
+    // Sun glint on the oceans.
+    vec3 halfway = normalize(uSun + view);
+    color += pow(max(dot(normal, halfway), 0.0), 260.0) * (1.0 - land) * day * uGlint;
 
     float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 3.2);
     color += fresnel * uRim * mix(0.3, 0.8, day);
@@ -497,6 +532,74 @@ const haloFragment = /* glsl */ `
     float facing = dot(normalize(vNormal), normalize(vView));
     float glow = pow(clamp(-facing / 0.5, 0.0, 1.0), 2.4) * uStrength;
     gl_FragColor = vec4(uColor * glow, glow);
+    #include <colorspace_fragment>
+  }
+`;
+
+const cloudVertex = /* glsl */ `
+  varying vec3 vObject;
+  varying vec3 vNormalW;
+  varying vec3 vPositionW;
+  void main() {
+    vObject = normalize(position);
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vPositionW = world.xyz;
+    vNormalW = normalize(mat3(modelMatrix) * normal);
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`;
+
+// Thin procedural clouds (value-noise fbm), lit by the same sun, drifting
+// slowly over the surface.
+const cloudFragment = /* glsl */ `
+  uniform vec3 uSun;
+  uniform vec3 uColor;
+  uniform float uTime;
+  uniform float uOpacity;
+  varying vec3 vObject;
+  varying vec3 vNormalW;
+  varying vec3 vPositionW;
+
+  float hash3(vec3 p) {
+    p = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+  }
+
+  float noise(vec3 x) {
+    vec3 i = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(mix(hash3(i), hash3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 0.0)), hash3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+      mix(mix(hash3(i + vec3(0.0, 0.0, 1.0)), hash3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 1.0)), hash3(i + vec3(1.0)), f.x), f.y),
+      f.z
+    );
+  }
+
+  float fbm(vec3 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    for (int octave = 0; octave < 5; octave++) {
+      value += amplitude * noise(p);
+      p *= 2.03;
+      amplitude *= 0.5;
+    }
+    return value;
+  }
+
+  void main() {
+    vec3 p = vObject * 3.2 + vec3(uTime * 0.012, 0.0, uTime * 0.006);
+    // Stretched along the latitudes, like weather bands.
+    float n = fbm(vec3(p.x * 1.6, p.y * 3.4, p.z * 1.6));
+    float cover = smoothstep(0.52, 0.76, n);
+    vec3 normal = normalize(vNormalW);
+    float day = smoothstep(-0.25, 0.55, dot(normal, uSun));
+    vec3 view = normalize(cameraPosition - vPositionW);
+    float edge = smoothstep(0.0, 0.35, dot(normal, view));
+    // Additive: clouds only ever brighten the surface below them.
+    float alpha = cover * uOpacity * mix(0.2, 1.0, day) * edge;
+    gl_FragColor = vec4(uColor, alpha);
     #include <colorspace_fragment>
   }
 `;
@@ -671,14 +774,34 @@ const layoutKeys = (): KeyCap[] => {
 
 // Backlit legends drawn at each key's position on a transparent texture that
 // lies on top of the key caps.
+// Perforated speaker grille: a dense grid of small dark holes with a faint
+// cyan rim, on a transparent background.
+const speakerGrilleTexture = (anisotropy: number) => {
+  const { element, context } = canvas2d(128, 1280);
+  const step = 16;
+  for (let y = step / 2; y < 1280; y += step) {
+    for (let x = step / 2 + ((y / step) % 2 ? step / 2 : 0); x < 128; x += step) {
+      context.beginPath();
+      context.arc(x, y, 3.4, 0, TAU);
+      context.fillStyle = "rgba(2, 4, 12, 0.92)";
+      context.fill();
+      context.lineWidth = 1;
+      context.strokeStyle = "rgba(124, 200, 255, 0.18)";
+      context.stroke();
+    }
+  }
+  return colorTexture(element, anisotropy);
+};
+
+const LEGEND_TEXTURE_WIDTH = 3072;
 const keyLegendTexture = (caps: KeyCap[], anisotropy: number) => {
-  const scale = 2048 / KEYBOARD.width;
-  const { element, context } = canvas2d(2048, Math.round(KEYBOARD.depth * scale));
+  const scale = LEGEND_TEXTURE_WIDTH / KEYBOARD.width;
+  const { element, context } = canvas2d(LEGEND_TEXTURE_WIDTH, Math.round(KEYBOARD.depth * scale));
   const top = KEYBOARD.centerZ - KEYBOARD.depth / 2;
   context.fillStyle = "rgba(226, 234, 248, 0.94)";
   context.strokeStyle = "rgba(226, 234, 248, 0.94)";
-  context.shadowColor = "rgba(124, 235, 255, 0.55)";
-  context.shadowBlur = 6;
+  context.shadowColor = "rgba(124, 235, 255, 0.6)";
+  context.shadowBlur = 9;
   context.textAlign = "center";
   context.textBaseline = "middle";
   const font = (size: number, weight = 600) => `${weight} ${Math.round(size)}px "RYZE Archivo", Arial, sans-serif`;
@@ -816,7 +939,11 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
             uLandLow: { value: new THREE.Color(0x103f9e) },
             uLandHigh: { value: new THREE.Color(0x4aa6f2) },
             uCoast: { value: new THREE.Color(COLORS.ice) },
-            uRim: { value: new THREE.Color(0x3fb8ff) }
+            uRim: { value: new THREE.Color(0x3fb8ff) },
+            uDot: { value: new THREE.Color(0x4fd2ff).multiplyScalar(0.42) },
+            uCity: { value: new THREE.Color(0xc4f6ff) },
+            uGlint: { value: new THREE.Color(0x8fdcff).multiplyScalar(0.55) },
+            uTime: { value: 0 }
           },
           vertexShader: earthVertex,
           fragmentShader: earthFragment
@@ -827,7 +954,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       track(new THREE.SphereGeometry(globeRadius * 1.16, 96, 64)),
       track(
         new THREE.ShaderMaterial({
-          uniforms: { uColor: { value: new THREE.Color(0x1aa8ff) }, uStrength: { value: 1.0 } },
+          uniforms: { uColor: { value: new THREE.Color(0x22b4ff) }, uStrength: { value: 1.25 } },
           vertexShader: haloVertex,
           fragmentShader: haloFragment,
           side: THREE.BackSide,
@@ -902,7 +1029,24 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     badge.position.y = stemLength + 0.1;
     marker.add(stem, pulse, badge);
 
-    earth.add(surface, routes, cities, marker);
+    const cloudMaterial = track(
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uSun: { value: sun },
+          uColor: { value: new THREE.Color(0xe6f6ff) },
+          uTime: { value: 0 },
+          uOpacity: { value: 0.3 }
+        },
+        vertexShader: cloudVertex,
+        fragmentShader: cloudFragment,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      })
+    );
+    const clouds = new THREE.Mesh(track(new THREE.SphereGeometry(globeRadius * 1.012, 96, 64)), cloudMaterial);
+
+    earth.add(surface, clouds, routes, cities, marker);
     globe.add(atmosphere, earth);
     // Start over the Atlantic so Lisbon and the routes face the viewer.
     const view = latLonToVector(24, -16, 1);
@@ -1270,24 +1414,66 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
 
     const caps = layoutKeys();
     const keyHeight = 0.022;
-    const keys = new THREE.InstancedMesh(
-      track(new RoundedBoxGeometry(1, 1, 1, 3, 0.22)),
-      // Matte black caps: horizontal parts are seen at a grazing angle, where the
-      // studio environment would mirror white, so they barely reflect it.
-      track(new THREE.MeshStandardMaterial({ color: 0x05070d, roughness: 0.7, metalness: 0, envMapIntensity: 0.06 })),
-      caps.length
+    // Matte dark caps: horizontal parts are seen at a grazing angle, where the
+    // studio environment would mirror white, so they barely reflect it. Each
+    // key size gets its own rounded geometry, so the bevels stay round instead
+    // of being stretched with the key.
+    const keyMaterial = track(
+      new THREE.MeshStandardMaterial({ color: 0x0a0d18, roughness: 0.58, metalness: 0.08, envMapIntensity: 0.08 })
     );
+    const keys = new THREE.Group();
     {
+      const bySize = new Map<string, KeyCap[]>();
+      for (const cap of caps) {
+        const size = `${cap.width.toFixed(4)}x${cap.depth.toFixed(4)}`;
+        bySize.set(size, [...(bySize.get(size) ?? []), cap]);
+      }
       const placement = new THREE.Object3D();
-      caps.forEach((cap, index) => {
-        placement.position.set(cap.x, top + 0.012, cap.z);
-        placement.scale.set(cap.width, keyHeight, cap.depth);
-        placement.updateMatrix();
-        keys.setMatrixAt(index, placement.matrix);
-      });
-      keys.instanceMatrix.needsUpdate = true;
-      keys.computeBoundingSphere();
+      for (const group of bySize.values()) {
+        const { width, depth } = group[0];
+        const radius = Math.min(0.011, keyHeight * 0.48, width * 0.2, depth * 0.2);
+        const mesh = new THREE.InstancedMesh(
+          track(new RoundedBoxGeometry(width - 0.004, keyHeight, depth - 0.004, 3, radius)),
+          keyMaterial,
+          group.length
+        );
+        group.forEach((cap, index) => {
+          placement.position.set(cap.x, top + 0.012, cap.z);
+          placement.updateMatrix();
+          mesh.setMatrixAt(index, placement.matrix);
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.computeBoundingSphere();
+        keys.add(mesh);
+      }
     }
+    // Backlight: cyan light under the caps, seen in the gaps between them.
+    const backlight = new THREE.Mesh(
+      track(new THREE.PlaneGeometry(KEYBOARD.width * 0.98, KEYBOARD.depth * 0.96)),
+      track(
+        new THREE.MeshBasicMaterial({
+          map: track(radialTexture("rgba(0,203,255,0.6)", "rgba(0,120,220,0.14)")),
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          toneMapped: false
+        })
+      )
+    );
+    backlight.rotation.x = -Math.PI / 2;
+    backlight.position.set(0, top + 0.0016, KEYBOARD.centerZ);
+    // Speaker grilles on both sides of the keyboard.
+    const grilleTexture = track(speakerGrilleTexture(anisotropy));
+    const grilleMaterial = track(
+      new THREE.MeshBasicMaterial({ map: grilleTexture, transparent: true, depthWrite: false, toneMapped: false })
+    );
+    const grilleGeometry = track(new THREE.PlaneGeometry(0.11, KEYBOARD.depth * 0.94));
+    const grilles = [-1, 1].map((side) => {
+      const grille = new THREE.Mesh(grilleGeometry, grilleMaterial);
+      grille.rotation.x = -Math.PI / 2;
+      grille.position.set(side * (KEYBOARD.width / 2 + (deckWidth - KEYBOARD.width) / 4), top + 0.0009, KEYBOARD.centerZ);
+      return grille;
+    });
     const legends = new THREE.Mesh(
       track(new THREE.PlaneGeometry(KEYBOARD.width, KEYBOARD.depth)),
       track(
@@ -1360,7 +1546,15 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     );
     lidLogo.position.set(0, lidHeight / 2 + 0.02, -lidThickness / 2 - 0.0012);
     lidLogo.rotation.y = Math.PI;
-    lidPivot.add(lidShell, lidGlass, display, notch, lidLogo);
+    // Closed (rotation pi/2) the lid's local -z points up: pushing the body
+    // back by LID_REST lifts its inner face just above the key tops instead of
+    // through them; open, it simply sits behind the hinge.
+    const keyTop = 0.012 + keyHeight / 2;
+    const LID_REST = keyTop + 0.006 + lidThickness / 2 + 0.0012;
+    const lidBody = new THREE.Group();
+    lidBody.position.z = -LID_REST;
+    lidBody.add(lidShell, lidGlass, display, notch, lidLogo);
+    lidPivot.add(lidBody);
 
     const laptopGlow = new THREE.Mesh(
       track(new THREE.PlaneGeometry(6.4, 3.4)),
@@ -1376,7 +1570,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     );
     laptopGlow.rotation.x = -Math.PI / 2;
     laptopGlow.position.y = -0.08;
-    laptop.add(laptopGlow, deck, well, keys, legends, trackpadEdge, trackpad, scoop, hinge, lidPivot);
+    laptop.add(laptopGlow, deck, well, backlight, keys, legends, ...grilles, trackpadEdge, trackpad, scoop, hinge, lidPivot);
     scene.add(laptop);
 
     // Frame loop ----------------------------------------------------------------------------
@@ -1432,6 +1626,8 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       // A slow sway keeps the Atlantic routes in view instead of a full spin.
       earth.rotation.set(0, baseYaw + state.globeSpin + Math.sin(elapsed * 0.05) * 0.35, 0);
       routeMaterial.uniforms.uTime.value = elapsed;
+      (surface.material as THREE.ShaderMaterial).uniforms.uTime.value = elapsed;
+      cloudMaterial.uniforms.uTime.value = elapsed;
       cityMaterial.uniforms.uScale.value = state.globeScale * fit * 10;
       const beat = (elapsed * 0.45) % 1;
       pulse.scale.setScalar(1 + beat * 3.2);

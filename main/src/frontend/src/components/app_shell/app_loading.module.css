@@ -1,0 +1,63 @@
+.loading {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+}
+
+.title,
+.line,
+.grid > span {
+  display: block;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(124, 200, 255, 0.07) 0%, rgba(124, 200, 255, 0.16) 50%, rgba(124, 200, 255, 0.07) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.title {
+  width: min(22rem, 70%);
+  height: 2.6rem;
+}
+
+.line {
+  width: min(32rem, 90%);
+  height: 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.grid > span {
+  height: 11rem;
+  border-radius: 20px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title,
+  .line,
+  .grid > span {
+    animation: none;
+  }
+}

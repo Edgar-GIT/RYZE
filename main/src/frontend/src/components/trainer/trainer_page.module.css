@@ -9,9 +9,9 @@
 
 .eyebrow {
   margin: 0 0 0.35rem;
-  color: var(--accent-cyan);
+  color: #7cebff;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -19,9 +19,12 @@
 .title {
   margin: 0;
   color: var(--text-primary);
-  font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+  font-family: var(--app-font-display, inherit);
+  font-size: clamp(1.9rem, 3.6vw, 2.7rem);
+  font-stretch: 125%;
   font-weight: 800;
   letter-spacing: -0.01em;
+  line-height: 1.05;
 }
 
 .subtitle {
@@ -45,10 +48,11 @@
   max-width: 40rem;
   margin: 2rem auto;
   padding: 1.75rem;
-  border: 1px solid rgba(24, 216, 255, 0.16);
-  border-radius: 18px;
-  background: var(--app-surface, rgba(10, 22, 69, 0.78));
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--app-line);
+  border-top-color: rgba(160, 225, 255, 0.24);
+  border-radius: var(--app-radius, 20px);
+  background: var(--app-surface);
+  box-shadow: 0 24px 60px -40px rgba(0, 0, 0, 0.9);
 }
 
 .stateTitle {
@@ -81,26 +85,27 @@
 
 .grid {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
 }
 
 .card {
   display: grid;
   gap: 0.9rem;
   align-content: start;
-  padding: 1.35rem;
-  border: 1px solid rgba(24, 216, 255, 0.14);
-  border-radius: 16px;
-  background: var(--app-surface, rgba(10, 22, 69, 0.78));
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+  padding: 1.35rem 1.4rem;
+  border: 1px solid var(--app-line);
+  border-top-color: rgba(160, 225, 255, 0.24);
+  border-radius: var(--app-radius, 20px);
+  background: var(--app-surface);
+  box-shadow: 0 24px 60px -40px rgba(0, 0, 0, 0.9);
 }
 
 .cardTitle {
   margin: 0;
   color: var(--text-primary);
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1.08rem;
+  font-weight: 800;
 }
 
 .cardText {
@@ -113,8 +118,21 @@
 .statValue {
   margin: 0;
   color: var(--text-primary);
-  font-size: 2rem;
+  font-family: var(--app-font-display, inherit);
+  font-size: 2.4rem;
+  font-stretch: 125%;
   font-weight: 800;
+  line-height: 1.05;
+}
+
+/* A text value in a stat tile (e.g. a programme name). */
+.statText {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .statLabel {
@@ -156,7 +174,7 @@
   border: 1px solid rgba(24, 216, 255, 0.22);
   border-radius: 12px;
   color: var(--text-primary);
-  background: var(--app-surface, rgba(10, 22, 69, 0.78));
+  background: var(--app-inset, rgba(2, 8, 38, 0.55));
   font-size: 0.95rem;
   outline: none;
   transition:
@@ -206,9 +224,9 @@
   justify-content: space-between;
   gap: 0.9rem;
   padding: 1rem 1.15rem;
-  border: 1px solid rgba(24, 216, 255, 0.14);
+  border: 1px solid var(--app-line);
   border-radius: 14px;
-  background: var(--app-surface, rgba(10, 22, 69, 0.78));
+  background: var(--app-inset, rgba(2, 8, 38, 0.55));
 }
 
 .rowMain {

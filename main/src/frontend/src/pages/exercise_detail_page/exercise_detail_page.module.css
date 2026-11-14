@@ -4,19 +4,24 @@
 .page {
   --bg-primary: #02041f;
   --bg-secondary: #050c30;
-  --surface: #0a1645;
-  --surface-elevated: #0e1c52;
-  --surface-hover: #11225e;
-  --card: #0e1c52;
-  --card-hover: #11225e;
-  --border-color: rgba(124, 200, 255, 0.15);
-  --border: 1px solid rgba(124, 200, 255, 0.15);
+  /* Glass surfaces (owner request 2026-11-14): translucent navy over the
+     page's light, matching the library. */
+  --surface: rgba(14, 30, 86, 0.5);
+  --surface-elevated: rgba(18, 36, 98, 0.55);
+  --surface-hover: rgba(22, 42, 110, 0.55);
+  --card: rgba(18, 36, 98, 0.5);
+  --card-hover: rgba(22, 42, 110, 0.58);
+  --border-color: rgba(160, 235, 255, 0.2);
+  --border: 1px solid rgba(160, 235, 255, 0.2);
   --text-secondary: #c9d5ec;
   --text-muted: #93a4c8;
   min-height: 100%;
   background:
-    radial-gradient(56rem 30rem at 85% 0%, rgba(4, 129, 220, 0.18), transparent 65%),
+    radial-gradient(56rem 30rem at 85% 0%, rgba(4, 129, 220, 0.26), transparent 65%),
+    radial-gradient(40rem 26rem at 8% 22rem, rgba(0, 203, 255, 0.14), transparent 70%),
+    radial-gradient(48rem 34rem at 60% 60rem, rgba(7, 42, 119, 0.5), transparent 70%),
     #02041f;
+  background-attachment: fixed;
 }
 
 .detail {

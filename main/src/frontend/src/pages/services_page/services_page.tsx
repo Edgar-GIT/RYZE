@@ -5,7 +5,7 @@ import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PublicAction, Waves } from "@/components/public_ui/public_ui";
 import { Reveal } from "@/components/reveal/reveal";
-import { ServiceCard } from "@/components/service_card/service_card";
+import { ServiceShowroom } from "@/components/service_showroom/service_showroom";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { SERVICE_SHOWCASE } from "@/constants/services";
 import { useServiceCatalog } from "@/hooks/use_service_catalog";
@@ -144,12 +144,9 @@ export const ServicesPage = () => {
               <p className={styles.stateText}>{text.loading}</p>
             </div>
           ) : (
-            // Live offers when published; otherwise the original showcase cards.
-            <div className={styles.grid}>
-              {(services.length > 0 ? services : SERVICE_SHOWCASE).map((service) => (
-                <ServiceCard key={service.title} service={service} />
-              ))}
-            </div>
+            // Live offers when published; otherwise the original showcase cards,
+            // presented as products on display.
+            <ServiceShowroom services={services.length > 0 ? services : SERVICE_SHOWCASE} />
           )}
 
           <Reveal className={joinClassNames(ui.toneNavy, ui.surface, styles.evolution)} delay={0.18}>

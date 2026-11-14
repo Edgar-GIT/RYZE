@@ -253,7 +253,7 @@ export const ExerciseLibraryPage = () => {
 
             <div className={styles.filters}>
               <label className={styles.filterItem}>
-                <span className={styles.filterLabel}>Body part</span>
+                <span className={styles.filterLabel}>{tr("Body part")}</span>
                 <select
                   value={filters.bodyPart}
                   onChange={(event) => updateFilter("bodyPart", event.target.value)}
@@ -270,7 +270,7 @@ export const ExerciseLibraryPage = () => {
               </label>
 
               <label className={styles.filterItem}>
-                <span className={styles.filterLabel}>Muscle</span>
+                <span className={styles.filterLabel}>{tr("Muscle")}</span>
                 <select
                   value={filters.muscle}
                   onChange={(event) => updateFilter("muscle", event.target.value)}
@@ -287,7 +287,7 @@ export const ExerciseLibraryPage = () => {
               </label>
 
               <label className={styles.filterItem}>
-                <span className={styles.filterLabel}>Equipment</span>
+                <span className={styles.filterLabel}>{tr("Equipment")}</span>
                 <select
                   value={filters.equipment}
                   onChange={(event) => updateFilter("equipment", event.target.value)}
@@ -304,7 +304,7 @@ export const ExerciseLibraryPage = () => {
               </label>
 
               <label className={styles.filterItem}>
-                <span className={styles.filterLabel}>Difficulty</span>
+                <span className={styles.filterLabel}>{tr("Difficulty")}</span>
                 <select
                   value={filters.difficulty}
                   onChange={(event) => updateFilter("difficulty", event.target.value)}
@@ -321,7 +321,7 @@ export const ExerciseLibraryPage = () => {
               </label>
 
               <label className={styles.filterItem}>
-                <span className={styles.filterLabel}>Category</span>
+                <span className={styles.filterLabel}>{tr("Category")}</span>
                 <select
                   value={filters.category}
                   onChange={(event) => updateFilter("category", event.target.value)}

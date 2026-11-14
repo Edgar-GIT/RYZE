@@ -3,7 +3,7 @@ import { ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { Link, useHistory } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { AppLoading } from "@/components/app_shell/app_loading";
 import {
   createTrainerProgram,
   fetchTrainerPrograms,
@@ -44,7 +44,8 @@ export const TrainerProgramsPage = () => {
   const [page, setPage] = useState(1);
   const [retryCount, setRetryCount] = useState(0);
 
-  const [formOpen, setFormOpen] = useState(false);
+  // The sidebar's "New programme" opens the page with the form ready (?new=1).
+  const [formOpen, setFormOpen] = useState(() => new URLSearchParams(window.location.search).get("new") === "1");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<TrainerProgramTypeValue>(TrainerProgramType.FREE);
@@ -114,7 +115,7 @@ export const TrainerProgramsPage = () => {
   };
 
   if (state.status === "loading") {
-    return <LoadingScreen />;
+    return <AppLoading />;
   }
 
   if (state.status === "error") {

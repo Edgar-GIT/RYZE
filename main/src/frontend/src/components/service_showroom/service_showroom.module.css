@@ -1,0 +1,352 @@
+/*
+ * Service showroom. The cards are always flat and crisp (no 3D rotation at
+ * rest, no blur on the card in focus). Base (phones, tablets, touch): stacked
+ * cards with their goal placard and facts as chips below. Wide screens with a
+ * precise pointer (.interactive) put each card on a 3D pedestal (.with3d, a
+ * WebGL stage drawn behind the cards) and bring a hovered or focused card
+ * forward with floating fact bubbles while the others step back.
+ */
+
+.showroom {
+  position: relative;
+  font-family: var(--r-font, inherit);
+}
+
+.stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 24rem));
+  justify-content: center;
+  align-items: end;
+  gap: 2.8rem 1.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slot {
+  position: relative;
+  min-width: 0;
+}
+
+/* Phones: card, then its goal, then the facts. */
+.enter {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  animation: fromSide 0.85s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 110ms + 80ms);
+}
+
+.slot:nth-child(even) .enter {
+  animation-name: fromOtherSide;
+}
+
+@keyframes fromSide {
+  from {
+    opacity: 0;
+    transform: translate3d(-36px, 24px, 0);
+  }
+}
+
+@keyframes fromOtherSide {
+  from {
+    opacity: 0;
+    transform: translate3d(36px, 24px, 0);
+  }
+}
+
+.card {
+  display: contents;
+}
+
+.canvasHost {
+  display: none;
+}
+
+/* The goal of the route, under its card. */
+.placard {
+  order: 1;
+  display: grid;
+  gap: 0.2rem;
+  justify-items: center;
+  margin: 1.05rem 0 0;
+  text-align: center;
+}
+
+.placard strong {
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.placard span {
+  max-width: 22rem;
+  color: #a9bbdc;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+/* Facts: chips under the goal. */
+.bubbles {
+  order: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.38rem 0.8rem 0.38rem 0.38rem;
+  border: 1px solid rgba(124, 200, 255, 0.24);
+  border-radius: 999px;
+  color: #e6efff;
+  background: linear-gradient(135deg, rgba(22, 44, 120, 0.92), rgba(8, 18, 62, 0.92));
+  box-shadow: 0 10px 24px -16px rgba(0, 0, 0, 0.8);
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.bubbleIcon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  color: #02041f;
+  background: linear-gradient(135deg, #8af0ff 0%, #00cbff 60%, #0aa8f2 100%);
+}
+
+.bubbleIcon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Showroom: precise pointer on a wide screen.                                */
+/* ------------------------------------------------------------------------- */
+
+.interactive {
+  padding: 2.2rem 0 0.5rem;
+}
+
+.interactive .stage {
+  grid-template-columns: repeat(3, minmax(0, 21.5rem));
+  gap: 3.6rem;
+}
+
+.interactive.count2 .stage {
+  grid-template-columns: repeat(2, minmax(0, 21.5rem));
+}
+
+.interactive.count1 .stage {
+  grid-template-columns: minmax(0, 22rem);
+}
+
+.interactive .card {
+  position: relative;
+  display: block;
+}
+
+/* The WebGL stage behind the cards (pedestals, floor, light). */
+.with3d .canvasHost {
+  position: absolute;
+  inset: -1rem -6% 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* With pedestals, the placard sits just below its pedestal (--plinth is the
+   pedestal's depth under the card, measured by the 3D stage); the stage
+   reserves the room for both. */
+.with3d .stage {
+  padding-bottom: 9.5rem;
+}
+
+.with3d .enter {
+  position: relative;
+}
+
+.with3d .placard {
+  position: absolute;
+  top: calc(100% + var(--plinth, 4.5rem) + 0.9rem);
+  right: -1rem;
+  left: -1rem;
+  margin: 0;
+}
+
+/* Arrival: from the left, from the depth, from the right; always ending flat. */
+.interactive .enter {
+  animation: fromDepth 1.15s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 160ms + 120ms);
+}
+
+.interactive .slot_left .enter {
+  animation-name: fromLeft;
+}
+
+.interactive .slot_right .enter {
+  animation-name: fromRight;
+}
+
+@keyframes fromLeft {
+  0% {
+    opacity: 0;
+    transform: perspective(1600px) translate3d(-40vw, 30px, -500px) rotateY(55deg);
+  }
+  55% {
+    opacity: 1;
+  }
+}
+
+@keyframes fromRight {
+  0% {
+    opacity: 0;
+    transform: perspective(1600px) translate3d(40vw, 30px, -500px) rotateY(-55deg);
+  }
+  55% {
+    opacity: 1;
+  }
+}
+
+@keyframes fromDepth {
+  0% {
+    opacity: 0;
+    transform: perspective(1600px) translate3d(0, 120px, -1200px);
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Focus: the card lifts and grows from its base (2D only, so its text stays
+   sharp); the others step back. */
+.interactive .slot {
+  transform-origin: 50% 100%;
+  transition:
+    transform 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 360ms ease,
+    filter 360ms ease;
+}
+
+.interactive .slotActive {
+  z-index: 2;
+  transform: translateY(-12px) scale(1.05);
+}
+
+.interactive .slotBehind {
+  opacity: 0.3;
+  filter: saturate(0.6) brightness(0.75);
+  transform: scale(0.97);
+}
+
+/* Floating fact bubbles beside the card in focus. */
+.interactive .bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: block;
+  margin: 0;
+  pointer-events: none;
+}
+
+.interactive .bubble {
+  --side: 1;
+  position: absolute;
+  top: calc(6% + var(--b, 0) * 23%);
+  left: calc(100% + 1.4rem + var(--b, 0) * 0.3rem);
+  width: max-content;
+  max-width: 15.5rem;
+  padding: 0.55rem 1rem 0.55rem 0.55rem;
+  border-color: rgba(124, 235, 255, 0.4);
+  box-shadow:
+    0 16px 36px -14px rgba(0, 0, 0, 0.85),
+    0 0 22px -8px rgba(0, 203, 255, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  font-size: 0.9rem;
+  opacity: 0;
+  transform: translate3d(calc(var(--side) * -36px), 0, 0) scale(0.7);
+  transition:
+    opacity 300ms ease,
+    transform 460ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-delay: calc(var(--b, 0) * 60ms);
+  animation: drift 5.2s ease-in-out infinite paused;
+  animation-delay: calc(var(--b, 0) * -1.3s);
+}
+
+/* A dot on the side facing the card. */
+.interactive .bubble::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -0.85rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #7cebff;
+  box-shadow: 0 0 10px #00cbff;
+  transform: translateY(-50%);
+}
+
+.interactive .slot_right .bubble,
+.interactive .slot_middle .bubble:nth-child(odd) {
+  --side: -1;
+  right: calc(100% + 1.4rem + var(--b, 0) * 0.3rem);
+  left: auto;
+}
+
+.interactive .slot_middle .bubble:nth-child(odd) {
+  top: calc(9% + var(--b, 0) * 23%);
+}
+
+.interactive .slot_right .bubble::before,
+.interactive .slot_middle .bubble:nth-child(odd)::before {
+  right: -0.85rem;
+  left: auto;
+}
+
+.interactive .slotActive .bubble {
+  opacity: 1;
+  transform: none;
+  animation-play-state: running;
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter,
+  .interactive .enter,
+  .interactive .bubble {
+    animation: none;
+  }
+
+  .interactive .slot,
+  .interactive .bubble {
+    transition: none;
+  }
+}

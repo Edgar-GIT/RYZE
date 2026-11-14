@@ -3,8 +3,6 @@ import type { FormEvent } from "react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
 
-import { AccountNav } from "@/components/account_nav/account_nav";
-import { AnimatedBackground } from "@/components/animated_background/animated_background";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { SupportThread, type SupportThreadLabels } from "@/components/support_chat/support_thread";
 import { useSupportThread, type SupportThreadApi } from "@/components/support_chat/use_support_thread";
@@ -225,10 +223,8 @@ export const SupportPage = () => {
 
   return (
     <PageWrapper className={styles.page}>
-      <AnimatedBackground />
-      <AccountNav />
 
-      <main className={styles.main}>
+      <div className={styles.main}>
         <header className={styles.intro}>
           <span className={styles.introIcon} aria-hidden="true">
             <LifeBuoy />
@@ -386,7 +382,7 @@ export const SupportPage = () => {
             </section>
           </div>
         ) : null}
-      </main>
+      </div>
     </PageWrapper>
   );
 };

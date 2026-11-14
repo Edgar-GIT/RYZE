@@ -353,10 +353,10 @@ parallel authentication or API layer:
   loads `GET /trainer/access` once per trainer route tree and exposes
   `{ access, unauthenticated, loaded, refresh }`. It is the only place trainer
   status is decided; a 401 marks the session unauthenticated.
-- `components/trainer/trainer_layout/` — the shared shell (navigation +
-  redirect rules): loading → loading screen, unauthenticated → `/login`,
-  authenticated non-trainer → `/trainer/apply`. Routes render their page inside
-  the layout inside the provider.
+- `components/trainer/trainer_layout/` — the trainer shell (redirect rules +
+  `components/app_shell` navigation): loading → `AppLoading` skeleton,
+  unauthenticated → `/login`, authenticated non-trainer → `/trainer/apply`.
+  Routes render their page inside the layout inside the provider.
 - `pages/trainer/*` — one folder per page (apply, dashboard, clients, programs,
   program detail, profile), with page-local CSS modules over the design tokens
   and a shared `trainer_page.module.css` for the common card/list/form styles.
@@ -1706,16 +1706,19 @@ Important public UI building blocks currently include:
   generic program API (see `services/admin2_api.ts`), converting the local
   draft into the `wrapped weeks → workouts → exercises → sets` payload used by
   both `POST` and `PATCH` generic endpoints
-- authenticated account area (`/profile`, `/account/purchases`,
-  `/services/my-programs`, `/services/my-programs/:id`): the chrome-free
-  account pages share a single `components/account_nav` navigation bar (brand +
-  Profile / My Programs / Purchase History pills + optional user area). The
-  profile page is the account hub (hub cards linking into My Programs, Purchase
-  History and the Marketplace). The Purchase History page lists orders with
-  amount, date, status badges, the Test purchase marker and an "Open program"
-  action gated by the server-computed `access` flag. Routes under `/account`
-  and `/services/my-programs` opt out of the public navbar/footer chrome in
-  `app.tsx` (see also `docs/PAGES/design.MD`).
+- authenticated member area (`/profile`, `/account/settings`,
+  `/account/purchases`, `/support`, `/services/my-programs`,
+  `/services/my-programs/:id`, `/services/workout-history`,
+  `/services/progress`, `/trainer/apply`): `routes/member_routes.tsx` is loaded
+  lazily and renders every page inside one `MemberShell`
+  (`components/app_shell/`), which loads `GET /me` once and shares it through
+  `useMember()`. `app_routes.tsx` keys the route switch so the shell stays
+  mounted between member pages. `/profile` is the member dashboard and
+  `/account/settings` holds the account panels. The Purchase History page lists
+  orders with amount, date, status badges, the Test purchase marker and an
+  "Open program" action gated by the server-computed `access` flag. These
+  routes opt out of the public navbar/footer chrome in `app.tsx` (see also
+  `docs/PAGES/design.MD`, "Member Area").
 - marketplace owned state: `fetchEntitlements()` runs fire-and-forget on the
   marketplace page; owned programs render an accent "Owned" pill on their card
   and link straight into the account area instead of the detail page

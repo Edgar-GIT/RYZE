@@ -40,8 +40,8 @@ indirect effects from shared components, global tokens or CSS:
 | Area | Still protected | May follow the public design (owner-approved 2026-11-10) |
 | --- | --- | --- |
 | Website footer — `components/footer/` (consumed by `components/layout/layout.tsx`) | Layout, link columns and their links, the slogan image, copy | Surface colour, lines, link/heading colours, typeface |
-| Exercise Library and details — `pages/exercise_library_page/`, `pages/exercise_detail_page/`, `components/exercise_library/` (including the Three.js demo/viewer and tests) | Layout, components, behaviour, media and the 3D viewer | Colours only, through page-scoped token overrides in each page's `.page` rule, plus the library title typeface |
-| Services page — `pages/services_page/` | The service cards: `components/service_card/` markup and styles, and the card grid (the owner added a purple "Personalized" tag variant for Premium Level 2 on 2026-11-11) | Page background (the former static background image is removed), intro, loading state, benefits row, the route guide split panel (2026-11-11); the original showcase cards appear while nothing is published |
+| Exercise Library and details — `pages/exercise_library_page/`, `pages/exercise_detail_page/`, `components/exercise_library/` (including the Three.js demo/viewer and tests) | Layout, components, behaviour, media and the 3D viewer | Colours only, through page-scoped token overrides in each page's `.page` rule, plus the library title typeface; a glass style on 2026-11-14 (owner request: frosted toolbar and cards, reflections, page light — layout unchanged) |
+| Services page — `pages/services_page/` | The service cards: `components/service_card/` markup and styles (the owner added a purple "Personalized" tag variant for Premium Level 2 on 2026-11-11 and a mint "Free" tag for the generic plans on 2026-11-14) | Page background (the former static background image is removed), intro, loading state, benefits row, the route guide split panel (2026-11-11); the original showcase cards appear while nothing is published. The card grid became the 3D showroom (`components/service_showroom/`, owner request 2026-11-14): the unchanged cards stand flat and crisp on WebGL pedestals with a goal placard, and lift on hover with fact bubbles (no floor, spotlights or page blur — rejected by the owner) |
 | Home “Find Your Next Program” — `components/programs_overview_section/` | The card background images (`advert1–3`), until the owner replaces them | Everything else: redesigned on 2026-11-11 as the Home's main call to action and moved right after the hero; only free programs carry a tag (the Premium Level tags were removed the same day) |
 | Login and registration — `pages/login_page/` | Form fields, validation, messages, API calls and redirects | Everything visual (fully redesigned; no background image now) |
 
@@ -89,6 +89,33 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-14 (v2.113.0) — Owner request: a complete rework of the member and
+  trainer areas for desktop and phone (the old area looked like a phone screen
+  on a desktop), with Lyfta-style information and the login/registration
+  colours; the admin console stays as it is. `components/app_shell/` adds
+  `AppShell` (sidebar above 1180px, icon rail to 768px, top bar and bottom tabs
+  below) with tokens scoped to `.shell`, `MemberShell`/`useMember()` and the
+  `AppLoading` skeleton. `/profile` becomes the member dashboard and the old
+  profile panels move unchanged to `/account/settings`; `components/account_nav`
+  and the old profile page were removed. The member pages, the workout player
+  (desktop overview column) and the trainer layout and dashboard were rebuilt
+  on the shell. Protected parts were not touched: the Exercise Library opens
+  from the member navigation as before, login/registration and the Services
+  cards are unchanged. Open: trainer pages other than the dashboard keep their
+  English copy; the Premium Level 2 request page is still outside the shell.
+- 2026-11-14 (v2.112.0) — Owner request: a glassier Exercise Library (layout
+  unchanged), a better Home globe, a fixed and better laptop, a 3D showroom for
+  the Services cards with hover bubbles and blur, a "Free" tag on the generic
+  card, and a reworked PT | EN control. The Exercise Library gets frosted glass
+  through its own CSS (toolbar, inset fields, translucent cards with a top
+  highlight, a glass reflection over the thumbnails, a hover sheen) and the
+  detail page translucent tokens; components and layout are untouched. The
+  Services cards are wrapped, never edited, by `ServiceShowroom`; only the
+  owner-requested tag variant was added to `ServiceCard`. Home story: the lid
+  now rests above the keys when closed (it went through them), keys have one
+  rounded geometry per size with a cyan backlight and speaker grilles, and the
+  globe gains a dot-matrix land, night-side city lights, an ocean glint,
+  procedural clouds (an orbit ring was removed at the owner's request).
 - 2026-11-13 (v2.111.0) — Owner request: more life on the Feedback page (top
   and around the cards only) and a 3D "WOW" for the Our Vision hero, plus the
   coach showcase and the ADMIN_1 audit log. Feedback: CSS-only drifting

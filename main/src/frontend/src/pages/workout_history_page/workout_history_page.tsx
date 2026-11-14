@@ -2,8 +2,6 @@ import { ChevronRight, Clock3, Dumbbell, ListChecks, RefreshCw, Trophy } from "l
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
 
-import { AccountNav } from "@/components/account_nav/account_nav";
-import { AnimatedBackground } from "@/components/animated_background/animated_background";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import styles from "@/components/training/training_page.module.css";
 import { useI18n } from "@/i18n/i18n";
@@ -57,10 +55,8 @@ export const WorkoutHistoryPage = () => {
 
   return (
     <PageWrapper className={styles.page}>
-      <AnimatedBackground />
-      <AccountNav />
 
-      <main className={styles.main}>
+      <div className={styles.main}>
         <header className={styles.header}>
           <h1 className={styles.title}>{t("training.history.title")}</h1>
           <p className={styles.lead}>{t("training.history.lead")}</p>
@@ -141,7 +137,7 @@ export const WorkoutHistoryPage = () => {
               </section>
             ))
           : null}
-      </main>
+      </div>
     </PageWrapper>
   );
 };

@@ -20,6 +20,7 @@ export const pt: Messages = {
     en: "English",
     pt: "Português",
     switchTo: "Mudar idioma",
+    toggle: "Idioma: {current}. Mudar para {other}",
     prompt: {
       title: "RYZE em português",
       text: "Escolhemos português pela tua localização. Muda quando quiseres em PT | EN, no topo.",

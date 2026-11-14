@@ -4,7 +4,7 @@ import { useHistory, useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { ExerciseLibraryDialog } from "@/components/exercise_library/exercise_library_dialog";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { AppLoading } from "@/components/app_shell/app_loading";
 import { PrescriptionEditor } from "@/components/trainer/prescription_editor";
 import {
   addWorkoutExercise,
@@ -359,7 +359,7 @@ export const TrainerProgramDetailPage = () => {
     });
 
   if (state.status === "loading") {
-    return <LoadingScreen />;
+    return <AppLoading />;
   }
 
   if (state.status === "error") {

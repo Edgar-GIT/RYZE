@@ -1,76 +1,94 @@
+import { ClipboardList, Dumbbell, LayoutDashboard, LifeBuoy, Plus, UserRound, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ClipboardList, Dumbbell, LayoutDashboard, LifeBuoy, UserRound, Users } from "lucide-react";
-import { Link, NavLink, Redirect, useLocation } from "react-router-dom";
+import { Redirect } from "react-router-dom";
 
-import nav from "@/components/account_nav/account_nav.module.css";
-import { AnimatedBackground } from "@/components/animated_background/animated_background";
-import { BrandMark } from "@/components/brand_mark/brand_mark";
+import { AppShell, type ShellNavItem } from "@/components/app_shell/app_shell";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
-import { NotificationBell } from "@/components/notification_bell/notification_bell";
-import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { useTrainerSession } from "@/components/trainer/trainer_session_context";
-import { useI18n } from "@/i18n/i18n";
+import { type Copy, useI18n } from "@/i18n/i18n";
 import { fetchTrainerProfile } from "@/services/trainer_api";
-import { joinClassNames } from "@utils/class_names";
-
-import styles from "./trainer_layout.module.css";
 
 interface TrainerLayoutProps {
   children: React.ReactNode;
 }
 
-// TrainerLayout is the shared shell for the authenticated trainer area. It
-// resolves the trainer session before rendering anything: unauthenticated
-// visitors are sent to the login page and authenticated non-trainers are sent
-// to the application page, so a trainer-only surface is never rendered for
-// someone the backend has not confirmed as a trainer.
-//
-// It uses the member area's navigation (account_nav styles): the sections in
-// the header on wider screens and an app-style tab bar at the bottom on
-// phones, so clients and trainers find their way around the same way.
+const COPY: Copy<{
+  nav: string;
+  dashboard: string;
+  clients: string;
+  premium: string;
+  programs: string;
+  more: string;
+  profile: string;
+  support: string;
+  newProgram: string;
+  newProgramText: string;
+  memberArea: string;
+  back: string;
+}> = {
+  en: {
+    nav: "Trainer area",
+    dashboard: "Dashboard",
+    clients: "Clients",
+    premium: "Premium L2",
+    programs: "Programs",
+    more: "More",
+    profile: "Profile",
+    support: "Support",
+    newProgram: "New programme",
+    newProgramText: "Build a plan for clients or the store",
+    memberArea: "My training",
+    back: "Back to the site"
+  },
+  pt: {
+    nav: "Área de treinador",
+    dashboard: "Painel",
+    clients: "Clientes",
+    premium: "Premium N2",
+    programs: "Programas",
+    more: "Mais",
+    profile: "Perfil",
+    support: "Suporte",
+    newProgram: "Novo programa",
+    newProgramText: "Cria um plano para clientes ou para a loja",
+    memberArea: "O meu treino",
+    back: "Voltar ao site"
+  }
+};
+
+// TrainerLayout is the shell of the approved-trainer area. It resolves the
+// trainer session first: visitors without a session go to the login page and
+// members who are not trainers go to the application page, so a trainer-only
+// surface never renders for someone the backend has not confirmed. The frame
+// is the same app shell as the member area (sidebar, top bar, phone tabs).
 export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
   const { access, unauthenticated, loaded } = useTrainerSession();
-  const { t } = useI18n();
-  const { pathname } = useLocation();
-  const [userName, setUserName] = useState("");
+  const { locale } = useI18n();
+  const text = COPY[locale];
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
 
   const isTrainer = access?.is_trainer ?? false;
 
   useEffect(() => {
-    if (!isTrainer) {
-      return;
-    }
+    if (!isTrainer) return;
     let cancelled = false;
     fetchTrainerProfile()
       .then((profile) => {
         if (!cancelled) {
           const name = [profile.user.first_name, profile.user.last_name].filter(Boolean).join(" ");
-          setUserName(name || profile.user.email);
+          setUser({ name: name || profile.user.email, email: profile.user.email });
         }
       })
       .catch(() => {
-        // The header can render without the name; the surface itself already
-        // comes from the backend.
+        // The shell renders without the name; the pages load their own data.
       });
     return () => {
       cancelled = true;
     };
   }, [isTrainer]);
 
-  // Reserve room for the bottom tab bar while the trainer shell is shown.
-  useEffect(() => {
-    if (!isTrainer) return;
-    document.body.classList.add("has-tabbar");
-    return () => document.body.classList.remove("has-tabbar");
-  }, [isTrainer]);
-
   if (!loaded) {
-    return (
-      <PageWrapper>
-        <AnimatedBackground />
-        <LoadingScreen />
-      </PageWrapper>
-    );
+    return <LoadingScreen />;
   }
 
   if (unauthenticated) {
@@ -81,57 +99,33 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
     return <Redirect to="/trainer/apply" />;
   }
 
-  const sections = [
-    { to: "/trainer/dashboard", label: t("trainerNav.dashboard"), icon: LayoutDashboard },
-    { to: "/trainer/clients", label: t("trainerNav.clients"), icon: Users },
-    { to: "/trainer/premium-level-2", label: t("trainerNav.premium"), icon: ClipboardList },
-    { to: "/trainer/programs", label: t("trainerNav.programs"), icon: Dumbbell },
-    { to: "/trainer/profile", label: t("trainerNav.profile"), icon: UserRound }
+  const items: ShellNavItem[] = [
+    { to: "/trainer/dashboard", label: text.dashboard, icon: LayoutDashboard },
+    { to: "/trainer/clients", label: text.clients, icon: Users },
+    { to: "/trainer/premium-level-2", label: text.premium, icon: ClipboardList },
+    { to: "/trainer/programs", label: text.programs, icon: Dumbbell }
+  ];
+  const secondaryItems: ShellNavItem[] = [
+    { to: "/trainer/profile", label: text.profile, icon: UserRound },
+    { to: "/support", label: text.support, icon: LifeBuoy }
   ];
 
   return (
-    <PageWrapper className={styles.page}>
-      <AnimatedBackground />
-
-      <header className={nav.navbar}>
-        <Link className={nav.brand} to="/" aria-label={t("trainerNav.home")}>
-          <BrandMark size="navigation" />
-          <span>RYZE</span>
-        </Link>
-
-        <nav className={nav.centerNav} aria-label={t("trainerNav.label")}>
-          {sections.map((section) => (
-            <NavLink key={section.to} className={nav.navLink} activeClassName={nav.navLinkActive} to={section.to}>
-              {section.label}
-            </NavLink>
-          ))}
-          <NavLink className={nav.navLink} activeClassName={nav.navLinkActive} to="/support">
-            {t("trainerNav.support")}
-          </NavLink>
-        </nav>
-
-        <div className={nav.userArea}>
-          {userName ? <span className={nav.userName}>{userName}</span> : null}
-          <Link className={styles.iconLink} to="/support" aria-label={t("trainerNav.support")} title={t("trainerNav.support")}>
-            <LifeBuoy aria-hidden="true" strokeWidth={1.8} />
-          </Link>
-          <NotificationBell />
-        </div>
-      </header>
-
-      <main className={styles.main}>{children}</main>
-
-      <nav className={nav.tabBar} aria-label={t("trainerNav.label")}>
-        {sections.map(({ to, label, icon: Icon }) => {
-          const active = pathname.startsWith(to);
-          return (
-            <Link key={to} to={to} className={joinClassNames(nav.tab, active && nav.tabActive)} aria-current={active ? "page" : undefined}>
-              <Icon aria-hidden="true" strokeWidth={active ? 2.2 : 1.8} />
-              <span>{label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-    </PageWrapper>
+    <AppShell
+      area="trainer"
+      navLabel={text.nav}
+      items={items}
+      secondaryLabel={text.more}
+      secondaryItems={secondaryItems}
+      tabs={[...items, secondaryItems[0]]}
+      user={user}
+      accountTo="/trainer/profile"
+      accountLabel={text.profile}
+      action={{ to: "/trainer/programs?new=1", title: text.newProgram, text: text.newProgramText, icon: Plus }}
+      switchTo={{ to: "/profile", label: text.memberArea, icon: Dumbbell }}
+      backToSite={text.back}
+    >
+      {children}
+    </AppShell>
   );
 };

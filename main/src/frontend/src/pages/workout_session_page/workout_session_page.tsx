@@ -1,4 +1,4 @@
-import { ArrowLeft, Info, Pause, Play, RefreshCw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Info, Pause, Play, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useHistory, useParams } from "react-router-dom";
 
@@ -271,6 +271,7 @@ export const WorkoutSessionPage = () => {
         </div>
       </header>
 
+      <div className={styles.layout}>
       <main className={styles.workout}>
         {!running ? (
           <div className={styles.pausedBanner}>
@@ -290,7 +291,7 @@ export const WorkoutSessionPage = () => {
         {session.exercises.map((exercise) => {
           const last = previous.get(exercise.exercise_id) ?? [];
           return (
-            <article key={exercise.id} className={styles.exerciseCard}>
+            <article key={exercise.id} id={`exercise-${exercise.id}`} className={styles.exerciseCard}>
               <header className={styles.exerciseHead}>
                 <span className={styles.exerciseIndex}>{exercise.position}</span>
                 <div className={styles.exerciseTitle}>
@@ -338,6 +339,52 @@ export const WorkoutSessionPage = () => {
           {t("training.player.finish")}
         </button>
       </main>
+
+      {/* Computers: the workout at a glance beside the exercises. */}
+      <aside className={styles.overview} aria-label={t("training.player.progress", { done, total: session.total_sets })}>
+        <div className={styles.overviewHead}>
+          <div
+            className={styles.overviewRing}
+            style={{ "--p": Math.round(progress * 100) } as React.CSSProperties}
+            aria-hidden="true"
+          >
+            <span>{Math.round(progress * 100)}%</span>
+          </div>
+          <div className={styles.overviewClock}>
+            <strong>{formatClock(clock)}</strong>
+            <span>{t("training.player.progress", { done, total: session.total_sets })}</span>
+          </div>
+        </div>
+        <ol className={styles.overviewList}>
+          {session.exercises.map((exercise) => {
+            const finished = exercise.sets.filter((set) => set.status !== "pending").length;
+            const complete = finished === exercise.sets.length && exercise.sets.length > 0;
+            const current = !complete && session.exercises.find((entry) => entry.sets.some((set) => set.status === "pending"))?.id === exercise.id;
+            return (
+              <li key={exercise.id}>
+                <a
+                  href={`#exercise-${exercise.id}`}
+                  className={joinClassNames(styles.overviewItem, complete && styles.overviewDone, current && styles.overviewCurrent)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    document.getElementById(`exercise-${exercise.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  <span className={styles.overviewIndex}>{complete ? <CheckCircle2 aria-hidden="true" /> : exercise.position}</span>
+                  <span className={styles.overviewName}>{exercise.name}</span>
+                  <span className={styles.overviewSets}>
+                    {finished}/{exercise.sets.length}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ol>
+        <button type="button" className={styles.overviewFinish} onClick={openReview} disabled={busy}>
+          {t("training.player.finish")}
+        </button>
+      </aside>
+      </div>
 
       {restSet?.rest_ends_at ? (
         <RestBar

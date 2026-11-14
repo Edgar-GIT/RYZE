@@ -2,10 +2,8 @@ import { CalendarDays, CreditCard, FlaskConical, RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
 
-import { AccountNav } from "@/components/account_nav/account_nav";
-import { AnimatedBackground } from "@/components/animated_background/animated_background";
 import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { AppLoading } from "@/components/app_shell/app_loading";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { useI18n } from "@/i18n/i18n";
 import { fetchMyPurchases, type PurchaseHistoryEntry } from "@/services/purchases_api";
@@ -63,11 +61,9 @@ export const AccountPurchaseHistoryPage = () => {
 
   return (
     <PageWrapper className={styles.page}>
-      <AnimatedBackground />
-      <AccountNav />
 
-      <main className={styles.main}>
-        {state.status === "loading" ? <LoadingScreen /> : null}
+      <div className={styles.main}>
+        {state.status === "loading" ? <AppLoading /> : null}
 
         {state.status === "error" ? (
           <section className={styles.stateCard}>
@@ -173,7 +169,7 @@ export const AccountPurchaseHistoryPage = () => {
             </ul>
           </section>
         ) : null}
-      </main>
+      </div>
     </PageWrapper>
   );
 };

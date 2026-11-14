@@ -1,27 +1,45 @@
 .page {
   position: relative;
-  min-height: 100svh;
 }
 
 .main {
   position: relative;
-  z-index: 2;
   display: grid;
-  min-height: calc(100svh - 4.5rem);
-  place-items: start center;
-  padding: 2.5rem 1.5rem 4.5rem;
+  width: 100%;
 }
 
 .content {
   display: grid;
-  gap: 2rem;
+  gap: 1.5rem;
   width: 100%;
-  max-width: 52rem;
+}
+
+.side,
+.planColumn {
+  display: grid;
+  align-content: start;
+  gap: 1.4rem;
+  min-width: 0;
+}
+
+/* Computers: the plan's identity and actions on the left (kept in view),
+   the weeks and days on the right. */
+@media (min-width: 1100px) {
+  .content {
+    grid-template-columns: minmax(18rem, 23rem) minmax(0, 1fr);
+    align-items: start;
+    gap: 2rem;
+  }
+
+  .side {
+    position: sticky;
+    top: 5.75rem;
+  }
 }
 
 .back {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .activeBanner {
@@ -71,16 +89,22 @@
 .heading {
   display: grid;
   gap: 0.8rem;
-  max-width: 52rem;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid var(--app-line);
+  border-top-color: rgba(160, 225, 255, 0.24);
+  border-radius: var(--app-radius, 20px);
+  background: var(--app-surface);
 }
 
 .title {
   margin: 0;
   color: var(--text-primary);
-  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-family: var(--app-font-display, inherit);
+  font-size: clamp(1.6rem, 2.6vw, 2.1rem);
+  font-stretch: 125%;
   font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
 }
 
 .subtitle {
@@ -127,16 +151,12 @@
   justify-items: center;
   gap: 1.2rem;
   width: 100%;
-  max-width: 460px;
+  max-width: 520px;
+  margin: 2rem auto;
   padding: 2.5rem 2rem;
-  border: 1px solid rgba(42, 140, 255, 0.2);
-  border-radius: 18px;
-  background: var(--app-surface, rgba(10, 22, 69, 0.78));
-  box-shadow:
-    0 0 0 1px rgba(42, 140, 255, 0.04) inset,
-    0 24px 60px rgba(5, 7, 11, 0.4);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--app-line);
+  border-radius: var(--app-radius, 20px);
+  background: var(--app-surface);
   text-align: center;
 }
 

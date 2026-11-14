@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, RefreshCw, Search, Trash2, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/button/button";
-import { LoadingScreen } from "@/components/loading_screen/loading_screen";
+import { AppLoading } from "@/components/app_shell/app_loading";
 import {
   addTrainerClient,
   fetchTrainerClients,
@@ -146,7 +146,7 @@ export const TrainerClientsPage = () => {
   };
 
   if (state.status === "loading") {
-    return <LoadingScreen />;
+    return <AppLoading />;
   }
 
   if (state.status === "error") {

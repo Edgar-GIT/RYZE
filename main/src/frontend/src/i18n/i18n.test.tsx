@@ -61,7 +61,7 @@ describe("language choice", () => {
     window.localStorage.clear();
   });
 
-  it("highlights the current language and switches on click", () => {
+  it("toggles the language with one click anywhere on the switch", () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ locale: "pt", source: "manual" }));
     render(
       <I18nProvider>
@@ -69,13 +69,24 @@ describe("language choice", () => {
         <LangProbe />
       </I18nProvider>
     );
-    expect(screen.getByRole("button", { name: "PT" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "EN" }).getAttribute("aria-pressed")).toBe("false");
+    const toggle = screen.getByRole("button", { name: "Idioma: Português. Mudar para English" });
+    expect(toggle.getAttribute("data-locale")).toBe("pt");
 
-    fireEvent.click(screen.getByRole("button", { name: "EN" }));
+    fireEvent.click(toggle);
     expect(screen.getByTestId("locale").textContent).toBe("en");
-    expect(screen.getByRole("button", { name: "EN" }).getAttribute("aria-pressed")).toBe("true");
     expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}")).toEqual({ locale: "en", source: "manual" });
+
+    const english = screen.getByRole("button", { name: "Language: English. Switch to Português" });
+    fireEvent.click(english);
+    expect(screen.getByTestId("locale").textContent).toBe("pt");
+
+    // Arrow keys pick a side without toggling past it.
+    fireEvent.keyDown(english, { key: "ArrowRight" });
+    expect(screen.getByTestId("locale").textContent).toBe("en");
+    fireEvent.keyDown(english, { key: "ArrowRight" });
+    expect(screen.getByTestId("locale").textContent).toBe("en");
+    fireEvent.keyDown(english, { key: "ArrowLeft" });
+    expect(screen.getByTestId("locale").textContent).toBe("pt");
   });
 
   it("asks once on the first visit and remembers the answer", () => {

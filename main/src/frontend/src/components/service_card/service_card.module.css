@@ -104,6 +104,16 @@
     0 10px 24px rgba(5, 7, 11, 0.45);
 }
 
+/* Mint tag for the free route (generic training plans). */
+.freeBadge {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #022018;
+  background: linear-gradient(135deg, #8af5c8 0%, #3fdc9c 55%, #12c086 100%);
+  box-shadow:
+    0 0 22px rgba(63, 220, 156, 0.55),
+    0 10px 24px rgba(5, 7, 11, 0.45);
+}
+
 .footer {
   position: relative;
   z-index: 2;

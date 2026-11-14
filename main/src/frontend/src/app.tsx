@@ -33,8 +33,8 @@ export const App = () => {
     pathname.startsWith("/services/workout-") ||
     pathname === "/services/progress";
   // The trainer area has its own shell (TrainerLayout); the application form
-  // at /trainer/apply is open to any member and keeps the public chrome.
-  const isTrainerArea = pathname.startsWith("/trainer") && !pathname.startsWith("/trainer/apply");
+  // at /trainer/apply is part of the member area (MemberShell).
+  const isTrainerArea = pathname.startsWith("/trainer");
   const showChrome =
     !isAdminRoute && !CHROME_FREE_PATHNAMES.has(pathname) && !isAccountRoute && !isTrainerArea;
 

@@ -303,11 +303,14 @@ Clients can:
 - Participate in the community
 - Manage their personal profile
 
-The client account area (`/profile`, `/account/purchases`,
-`/services/my-programs`) is the authenticated shopfront: the Profile page acts
-as the account hub, a shared account navigation is used across all account
-pages, and every client's purchases are listed with amount, date, status and a
-server-verified "Open program" action (see `docs/PAGES/design.MD`).
+The member area (`/profile`, `/services/my-programs`, `/services/progress`,
+`/services/workout-history`, `/account/purchases`, `/account/settings`,
+`/support`) is one app for desktop and phone: `/profile` is the member's
+dashboard (next workout, week, totals, activity, current plan, recent workouts
+and personal bests from real data), one shared app shell provides the
+navigation, and every client's purchases are listed with amount, date, status
+and a server-verified "Open program" action (see `docs/PAGES/design.MD`,
+"Member Area").
 
 ---
 
@@ -439,7 +442,7 @@ The platform currently includes the following core features:
 - Progress tracking
 - Marketplace
 - Purchase history (client order history with status, Test Mode marker,
-  server-verified access states and a shared account navigation/hub)
+  server-verified access states inside the member app shell)
 - User authentication
 - PDF export
 - Notifications

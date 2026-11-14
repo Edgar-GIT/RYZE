@@ -1,3 +1,139 @@
+# Version 2.113.0
+
+Title: Member and trainer areas rebuilt as a desktop and phone app
+
+Date: 2026-11-14
+
+Summary:
+
+Owner request of 2026-11-14: a complete rework of the reserved user areas —
+the best possible experience with Lyfta-style information about everything,
+built for both PC and phone (the old area looked like a phone screen on a
+desktop), in the colours of the login and registration page — and the same for
+the trainer area. ADMIN_1 and ADMIN_2 stay as they are. Frontend only: no API,
+database, price, access, purchase or workout rule changed; every value shown
+comes from the existing endpoints.
+
+Main changes:
+
+- App shell: `components/app_shell/` adds `AppShell`, one layout for the member
+  and trainer areas in the login palette (logo navy, royal panels, cyan light,
+  the light-blue wave gradient for the main action). Desktop: a 17rem sidebar
+  with primary and secondary navigation, a highlighted action card and an
+  area switch; at 1180px and below an icon rail; at 767px and below a top bar
+  and a bottom tab bar. The top bar carries the PT | EN toggle, the
+  notification bell and the account avatar. Tokens are scoped to the shell, so
+  public and admin pages are unaffected. Loading states use a shimmer skeleton
+  (`AppLoading`) instead of the full-screen loader.
+- Member area: `MemberShell` loads `GET /api/v1/me` once for all member pages
+  (401 → `/login`) and exposes it through `useMember()`. Navigation: Home,
+  Train, Progress, History; secondary: Training plans, Exercises, Purchases,
+  Support, Account; a "Start workout" action; a switch to the trainer area for
+  approved trainers. Member routes load lazily and keep one shell mounted while
+  moving between member pages.
+- Member home (`/profile`): replaces the profile card with a dashboard — the
+  next workout in the light wave panel (start, resume the live session, plan
+  complete or no plan), the current week with a day strip and streak, totals
+  (workouts, training time, volume, completed sets),
+  an 8-week activity chart, the current plan with a completion ring and
+  per-week bars, recent workouts, personal bests from completed sets, and
+  shortcuts. Twelve-column grid on desktop, stacked below 1024px.
+- Account settings (`/account/settings`): profile, language preference, sign-in
+  methods, email verification, password change, trainer status, sign-out and
+  account deletion moved here unchanged in behaviour, in two columns on
+  desktop.
+- Member pages (Train, plan detail, Progress, History, Purchases, Support,
+  trainer application) render inside the shell without the old account bar and
+  background, use the full width, and gain desktop layouts (plan detail with a
+  sticky side column, two-column session lists). `components/account_nav` and
+  the old profile page were removed.
+- Workout player: still full screen; from 1100px a sticky overview column shows
+  the progress ring, the clock, the exercise list with jump links and Finish.
+- Trainer area: `TrainerLayout` now uses `AppShell` (Dashboard, Clients,
+  Premium L2, Programmes; secondary: Profile, Support; a "New programme" action
+  that opens the creation form; a switch to the member area). The trainer
+  dashboard is rebuilt in PT and EN: a light hero with "Add client" and "New
+  programme", public profile views, tiles for clients, published, drafts and
+  Premium L2, and lists of recent clients, programmes and the Premium L2 queue.
+  Shared trainer styles follow the shell; the client detail rounds completion
+  and fits long programme names.
+
+Not changed / open:
+
+- The admin console (ADMIN_1 and ADMIN_2) is unchanged, as requested.
+- Trainer pages other than the dashboard and the shell (clients, client
+  detail, programmes, programme detail, Premium L2, profile) keep their English
+  copy; translating them is a separate step.
+- The Premium Level 2 request page (`/services/premium-level-2/requests/:id`)
+  still renders outside the member shell.
+
+Verification:
+
+- `npm run typecheck`, `npm run test` (164 tests) and `npm run build` pass; the
+  member area is a separate lazy chunk.
+- Browser checks on an isolated stack (`ryze_test`, demo data removed
+  afterwards): member home, Train, plan detail, Progress, History, Purchases,
+  Support and Account, and the trainer dashboard, clients, client detail and
+  programmes at 1440, 1024 and 390 px with no horizontal overflow; "Start
+  workout" from the home opens the full-screen player without the shell and
+  the home then offers "Continue workout".
+
+---
+
+# Version 2.112.0
+
+Title: Services showroom, PT | EN toggle, glass Exercise Library, Home globe and laptop
+
+Date: 2026-11-14
+
+Summary:
+
+Owner request of 2026-11-14: a glassier Exercise Library with the same layout,
+a better Home globe, a fixed and better laptop, a 3D showroom for the Services
+cards (arrival from the left, the depth and the right; hover brings a card
+forward with floating fact bubbles while the background blurs), a "Free" tag on
+the generic plan card and a reworked PT | EN control. Frontend only: no API,
+database, price or access change.
+
+Main changes:
+
+- Language: the PT | EN block is one toggle button — a click anywhere switches
+  the language (before, only a click exactly on the other option did), a cyan
+  light slides to the active language, arrow keys pick a side, and the
+  accessible name states the current and the next language.
+- Services: `ServiceShowroom` presents the unchanged `ServiceCard`s as products
+  on display. After owner feedback the first version (grid floor, spotlight
+  cones, page-wide blur, rotated cards) was replaced the same day: from 1024px
+  with a precise pointer the cards stand flat and crisp on real 3D pedestals
+  (a lazily loaded WebGL stage drawn on demand: navy two-tier pedestals, cyan
+  light rings, light pools, ground glow, a soft light behind each card), with a
+  placard under each pedestal stating the route's goal; hovering or focusing a
+  card lifts it (2D only), lights its pedestal, dims the others and floats out
+  four fact bubbles. Phones and touch screens keep stacked cards with the goal
+  and the facts as chips. The generic plan card carries a mint "Free" tag.
+- Exercise Library: frosted glass toolbar and inset fields, translucent glass
+  cards with a top highlight, thumbnail reflection and hover sheen, glass
+  tags, fixed page light; translucent tokens on the detail page; filter labels
+  translated in Portuguese. Layout and components unchanged.
+- Home story: the closed laptop lid no longer cuts through the keys; keys use
+  one rounded geometry per size, a cyan backlight, speaker grilles and sharper
+  legends. The globe gains a dot-matrix land, night-side city lights, an ocean
+  glint, procedural clouds and a brighter atmosphere (an orbit ring with
+  satellites was tried and removed at the owner's request).
+
+Verification:
+
+- `npm run typecheck`, `npm run test` (164 tests; the language test now covers
+  one-click toggling and arrow keys) and `npm run build` pass.
+- Browser checks: Services showroom at rest (pedestals under each card,
+  placards under each pedestal), on hover of each card and on keyboard focus
+  (1440 px), stacked with goal and chips at 390 px, no horizontal overflow, no
+  console errors; the toggle switches when clicked on the active side; Exercise
+  Library and detail at 390 and 1440 px; Home story globe and laptop (closed,
+  opening, open) rendered with WebGL.
+
+---
+
 # Version 2.111.0
 
 Title: Admin audit log, coach showcase, test stack fixes, Feedback and Our Vision motion
