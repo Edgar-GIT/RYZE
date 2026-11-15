@@ -18,6 +18,7 @@ import { Link, useHistory, useLocation } from "react-router-dom";
 import { CheckoutPanel } from "@/components/checkout_panel/checkout_panel";
 import j from "@/components/journey/journey.module.css";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import ui from "@/components/public_ui/public_ui.module.css";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { rememberAfterLogin } from "@/services/after_login";
 import { fetchAllPremiumLevel1Programs } from "@/services/marketplace_api";
@@ -353,7 +354,7 @@ export const PremiumLevel1JourneyPage = () => {
   const cover = publicFileUrl(program?.cover_image_url);
 
   return (
-    <PageWrapper>
+    <PageWrapper className={ui.page}>
       <div className={j.page}>
         <div className={j.top}>
           <button type="button" className={j.back} onClick={goBack}>

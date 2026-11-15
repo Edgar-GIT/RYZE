@@ -8,7 +8,7 @@ import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PwaUpdatePrompt } from "@/components/pwa_update_prompt/pwa_update_prompt";
 import { useInitialLoading } from "@/hooks/use_initial_loading";
 import { AppRoutes } from "@/routes/app_routes";
-import { ScrollToTop } from "@/routes/scroll_to_top";
+import { NavigationTracker, ScrollToTop } from "@/routes/scroll_to_top";
 
 const CHROME_FREE_PATHNAMES = new Set([
   "/app",
@@ -57,6 +57,7 @@ export const App = () => {
     <>
       <AnimatePresence>{isInitialLoading ? <LoadingScreen /> : null}</AnimatePresence>
       <ScrollToTop />
+      <NavigationTracker />
       {/* First visit only, on the public site, once the loading screen is gone. */}
       {!isInitialLoading && showChrome ? <LanguagePrompt /> : null}
       <Layout showChrome={showChrome}>

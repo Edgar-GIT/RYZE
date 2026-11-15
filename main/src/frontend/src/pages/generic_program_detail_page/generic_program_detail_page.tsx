@@ -5,6 +5,7 @@ import { Link, useHistory, useParams } from "react-router-dom";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import ui from "@/components/public_ui/public_ui.module.css";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { useProgramCheckout, type PurchaseState } from "@/hooks/use_program_checkout";
 import {
@@ -473,7 +474,7 @@ export const GenericProgramDetailPage = () => {
     : "";
 
   return (
-    <PageWrapper className={styles.page}>
+    <PageWrapper className={joinClassNames(ui.page, styles.page)}>
       <section className={styles.detail}>
         <Container size="wide" className={styles.container}>
           <div className={styles.back}>

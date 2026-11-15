@@ -91,6 +91,8 @@ export default function Admin2Layout({ children }: { children: React.ReactNode }
         onSignOut: handleSignOut
       }}
       backToSite="Back to the site"
+      homePath={ADMIN2_PATHS.DASHBOARD}
+      backLabel="Back"
       compactTopbar
     >
       {children}

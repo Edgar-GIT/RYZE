@@ -1,7 +1,6 @@
-/* Services: the navy public surface with blue light behind the cards. The
-   service cards themselves are unchanged (they keep their own styles). */
+/* Services: the public field (v2.117.0) with extra light behind the tiers. */
 .page {
-  background: var(--r-navy);
+  /* The public layer paints the field. */
 }
 
 .catalog {
@@ -9,9 +8,8 @@
   overflow: hidden;
   padding: 8.5rem 0 5.5rem;
   background:
-    radial-gradient(48rem 30rem at 50% 18rem, rgba(4, 129, 220, 0.26), transparent 70%),
-    radial-gradient(40rem 26rem at 100% 100%, rgba(0, 203, 255, 0.1), transparent 70%),
-    var(--r-navy);
+    radial-gradient(48rem 30rem at 50% 18rem, rgba(120, 200, 255, 0.3), transparent 70%),
+    radial-gradient(40rem 26rem at 100% 100%, rgba(0, 203, 255, 0.16), transparent 70%);
 }
 
 .catalogInner {
@@ -130,7 +128,9 @@
   border: 1px solid var(--r-line);
   border-radius: var(--r-radius);
   color: var(--tone-text);
-  background: rgba(12, 28, 78, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: var(--r-glass-blur);
+  backdrop-filter: var(--r-glass-blur);
   text-decoration: none;
   transition:
     border-color 200ms var(--r-ease),

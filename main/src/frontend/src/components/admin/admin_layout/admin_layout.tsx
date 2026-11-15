@@ -95,6 +95,8 @@ export const AdminLayout = ({ children }: { children: ReactNode }) => {
         onSignOut: handleSignOut
       }}
       backToSite="Back to the site"
+      homePath="/admin/dashboard"
+      backLabel="Back"
       compactTopbar
     >
       <AdminSessionContext.Provider value={{ identity }}>{children}</AdminSessionContext.Provider>

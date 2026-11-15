@@ -27,6 +27,11 @@
   display: none;
 }
 
+/* Phones: Train follows the programs without a double section gap. */
+.chapter.train {
+  padding-top: clamp(1.5rem, 5vw, 2.5rem);
+}
+
 /* Opening chapter: the globe first so the brand is the first thing seen on a phone. */
 .identity {
   padding-top: calc(var(--r-nav-clearance) + 0.75rem);

@@ -4,6 +4,7 @@ import type { FormEvent, ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
 
+import { BackButton } from "@/components/back_button/back_button";
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PublicAction, Waves } from "@/components/public_ui/public_ui";
@@ -493,10 +494,13 @@ export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
   return (
     <PageWrapper className={joinClassNames(ui.page, styles.page)}>
       <section className={joinClassNames(ui.toneNavy, styles.section)}>
-        <Link className={styles.brand} to="/" aria-label={tr("RYZE home")}>
-          <BrandMark size="navigation" />
-          <span>RYZE</span>
-        </Link>
+        <div className={styles.topLeft}>
+          <BackButton variant="icon" fallback="/" />
+          <Link className={styles.brand} to="/" aria-label={tr("RYZE home")}>
+            <BrandMark size="navigation" />
+            <span>RYZE</span>
+          </Link>
+        </div>
 
         <div className={styles.shell} data-mode={mode}>
           <div

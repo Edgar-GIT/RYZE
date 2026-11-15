@@ -69,6 +69,7 @@ const COPY: Copy<{
   startText: string;
   trainer: string;
   back: string;
+  goBack: string;
 }> = {
   en: {
     nav: "Member area",
@@ -92,7 +93,8 @@ const COPY: Copy<{
     start: "Start a workout",
     startText: "Pick up your plan where you left it",
     trainer: "Trainer area",
-    back: "Back to the site"
+    back: "Back to the site",
+    goBack: "Back"
   },
   pt: {
     nav: "Área de membro",
@@ -116,7 +118,8 @@ const COPY: Copy<{
     start: "Começar treino",
     startText: "Continua o teu plano onde ficaste",
     trainer: "Área de treinador",
-    back: "Voltar ao site"
+    back: "Voltar ao site",
+    goBack: "Voltar"
   }
 };
 
@@ -210,6 +213,8 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
         action={{ to: "/services/my-programs", title: text.start, text: text.startText, icon: Play }}
         switchTo={isTrainer ? { to: "/trainer/dashboard", label: text.trainer, icon: Users } : undefined}
         backToSite={text.back}
+        homePath="/profile"
+        backLabel={text.goBack}
       >
         {children}
       </AppShell>

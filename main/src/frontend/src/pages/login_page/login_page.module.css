@@ -24,11 +24,18 @@
     radial-gradient(44rem 30rem at 12% 92%, rgba(4, 129, 220, 0.2), transparent 70%);
 }
 
-.brand {
+/* Back one page and the logo, at the top left. */
+.topLeft {
   position: absolute;
   top: 1.25rem;
   left: var(--r-gutter);
   z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.brand {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;

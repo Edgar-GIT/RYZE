@@ -18,16 +18,18 @@
   gap: 1rem;
   margin-inline: auto;
   padding: 0.4rem 0.7rem 0.4rem 0.85rem;
-  border: 1px solid rgba(24, 216, 255, calc(0.16 + var(--nav-scroll) * 0.18));
+  /* Light frosted glass over the blue field (v2.117.0); it gains body as the
+     page scrolls under it. */
+  border: 1px solid rgba(255, 255, 255, calc(0.24 + var(--nav-scroll) * 0.12));
   border-radius: 1.15rem;
   background:
-    linear-gradient(180deg, rgba(10, 22, 66, calc(0.55 + var(--nav-scroll) * 0.28)), rgba(3, 7, 34, calc(0.62 + var(--nav-scroll) * 0.3)));
+    linear-gradient(180deg, rgba(255, 255, 255, calc(0.16 + var(--nav-scroll) * 0.04)), rgba(255, 255, 255, calc(0.07 + var(--nav-scroll) * 0.04))),
+    rgba(9, 38, 140, calc(0.18 + var(--nav-scroll) * 0.42));
   box-shadow:
-    0 0 0 1px rgba(24, 216, 255, calc(0.04 + var(--nav-scroll) * 0.06)) inset,
-    0 0 28px rgba(24, 216, 255, calc(0.08 + var(--nav-scroll) * 0.12)),
-    0 12px 36px rgba(1, 3, 20, calc(0.2 + var(--nav-scroll) * 0.35));
-  backdrop-filter: blur(calc(16px + var(--nav-scroll) * 6px));
-  -webkit-backdrop-filter: blur(calc(16px + var(--nav-scroll) * 6px));
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 14px 40px rgba(2, 10, 60, calc(0.22 + var(--nav-scroll) * 0.3));
+  backdrop-filter: blur(calc(18px + var(--nav-scroll) * 6px)) saturate(150%);
+  -webkit-backdrop-filter: blur(calc(18px + var(--nav-scroll) * 6px)) saturate(150%);
   pointer-events: auto;
   transition:
     background 280ms ease,
@@ -43,6 +45,15 @@
   min-height: 54px;
   padding: 0.3rem 0.55rem 0.3rem 0.7rem;
   border-radius: 1rem;
+}
+
+/* Back one page and the logo, together in the first column. */
+.start {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+  justify-self: start;
 }
 
 .brand {
@@ -106,7 +117,7 @@
   gap: 0.4rem;
   padding: 0.5rem 0.65rem;
   border-radius: 0.7rem;
-  color: rgba(176, 190, 210, 0.78);
+  color: rgba(232, 240, 255, 0.88);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -158,13 +169,13 @@
 
 .navLink:hover {
   color: var(--text-primary);
-  background: rgba(24, 216, 255, 0.06);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .activeLink {
-  color: var(--accent);
-  background: rgba(24, 216, 255, 0.08);
-  text-shadow: 0 0 14px rgba(24, 216, 255, 0.35);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+  text-shadow: 0 0 14px rgba(124, 235, 255, 0.6);
 }
 
 .activeLink::after {
@@ -180,7 +191,7 @@
 }
 
 .headerCompact .activeLink {
-  background: rgba(24, 216, 255, 0.12);
+  background: rgba(255, 255, 255, 0.18);
   box-shadow:
     0 0 16px rgba(24, 216, 255, 0.35),
     0 0 28px rgba(24, 216, 255, 0.16);
@@ -228,14 +239,14 @@
 }
 
 .loginButton {
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.34);
   color: var(--text-primary);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .loginButton:hover {
-  border-color: rgba(24, 216, 255, 0.35);
-  background: rgba(24, 216, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .startButton {
@@ -383,9 +394,9 @@
     margin: 0.55rem auto 0;
     padding: 0 0.55rem;
     overflow: hidden;
-    border: 1px solid rgba(24, 216, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.24);
     border-radius: 1rem;
-    background: rgba(3, 7, 34, 0.97);
+    background: rgba(10, 38, 128, 0.94);
     opacity: 0;
     visibility: hidden;
     pointer-events: auto;
@@ -414,7 +425,7 @@
     gap: 0.7rem;
     padding: 0.75rem 0.85rem;
     border-radius: 0.7rem;
-    color: var(--text-muted);
+    color: rgba(232, 240, 255, 0.9);
     font-size: 0.82rem;
     font-weight: 650;
     letter-spacing: 0.06em;
@@ -430,8 +441,8 @@
 
   .mobileLink:hover,
   .activeMobileLink {
-    color: var(--accent);
-    background: rgba(24, 216, 255, 0.08);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.14);
     box-shadow: inset 0 -1.5px 0 var(--accent);
   }
 }

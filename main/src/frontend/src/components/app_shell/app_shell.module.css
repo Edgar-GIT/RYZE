@@ -208,6 +208,12 @@
   outline-offset: 2px;
 }
 
+/* Back one page (the shared BackButton, sized for the top bar). */
+.historyBack {
+  min-height: 2.4rem;
+  font-size: 0.86rem;
+}
+
 .sidebarFoot {
   display: grid;
   gap: 0.7rem;
@@ -676,6 +682,17 @@
   }
 
   .backLink {
+    display: none;
+  }
+
+  /* Phones: the back button is an arrow only, before the logo. */
+  .historyBack {
+    width: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0;
+  }
+
+  .historyBack span {
     display: none;
   }
 

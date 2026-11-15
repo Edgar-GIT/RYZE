@@ -2,10 +2,15 @@
  * RYZE public website design layer.
  *
  * One principle: the website is built from the same materials as the app.
- * Every section sits on the logo navy, cards are the app's blue glass surfaces,
- * cyan is the light, and the only bright surface is the light-blue wave panel.
- * Sections are transparent: the page itself carries one continuous navy with a
- * repeating rhythm of soft blue light, so there is no seam between sections.
+ * Since v2.117.0 (owner request, 2026-11-15: "the background looks opaque,
+ * give it life; use the 60-30-10 rule") the colours follow 60-30-10:
+ *   60% a living field of the logo's blues (royal to ring blue) with a rhythm
+ *      of light, deep pools for depth and a fine sparkle;
+ *   30% light glass (translucent white, blurred, bright edges) for cards and
+ *      panels;
+ *   10% the Z cyan and white for highlights and calls to action.
+ * Sections are transparent: the page itself carries one continuous field, so
+ * there is no seam between sections.
  *
  * Colours are sampled from the official logo artwork (main/src/resources/img/logo):
  *   navy #02041F (outline), royal #072A77 (ring shade), ring blue #0481DC,
@@ -36,13 +41,19 @@
   --r-chrome: #e4e9f1;
   --r-white: #ffffff;
   --r-ink: #02041f;
+  /* The 60%: the field of blues. */
+  --r-field: #0b2c96;
+  --r-field-deep: #061b63;
+  --r-field-bright: #1958ec;
   --r-on-dark: #ffffff;
-  --r-on-dark-2: #c9d5ec;
-  --r-on-dark-3: #93a4c8;
-  --r-line: rgba(124, 200, 255, 0.15);
-  --r-line-strong: rgba(124, 200, 255, 0.3);
-  --r-surface: linear-gradient(180deg, rgba(22, 48, 112, 0.5) 0%, rgba(9, 22, 66, 0.5) 100%);
-  --r-surface-solid: #0a1846;
+  --r-on-dark-2: #e2ebff;
+  --r-on-dark-3: #bccdf0;
+  --r-line: rgba(255, 255, 255, 0.18);
+  --r-line-strong: rgba(255, 255, 255, 0.38);
+  /* The 30%: light glass. */
+  --r-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 100%);
+  --r-surface-solid: #123aa6;
+  --r-glass-blur: blur(18px) saturate(140%);
   --r-font: "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif;
   --r-max: 1240px;
   --r-gutter: max(1.15rem, var(--space-page-x));
@@ -54,11 +65,21 @@
   --r-radius-sm: 0.75rem;
   --r-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  /* Each glow stays inside its 125rem tile, so the repeat never shows an edge. */
+  /* Layers, top to bottom: a fine sparkle (three tile sizes, so it never reads
+     as a grid), the bright first screen, then a rhythm of light, haze and
+     deep pools repeating every 125rem (each glow stays inside its tile, so the
+     repeat never shows an edge), on the field. CSS only: no images. */
   background:
-    radial-gradient(52rem 28rem at 92% 30rem, rgba(4, 129, 220, 0.17), transparent 70%) 0 0 / 100% 125rem repeat-y,
-    radial-gradient(48rem 26rem at 6% 92rem, rgba(4, 129, 220, 0.12), transparent 70%) 0 0 / 100% 125rem repeat-y,
-    var(--r-navy);
+    radial-gradient(1.4px 1.4px at 22px 34px, rgba(255, 255, 255, 0.85), transparent 70%) 0 0 / 230px 230px,
+    radial-gradient(1px 1px at 141px 117px, rgba(200, 240, 255, 0.75), transparent 70%) 0 0 / 230px 230px,
+    radial-gradient(1px 1px at 87px 302px, rgba(255, 255, 255, 0.6), transparent 70%) 0 0 / 370px 370px,
+    radial-gradient(1.6px 1.6px at 291px 188px, rgba(160, 232, 255, 0.8), transparent 70%) 0 0 / 370px 370px,
+    radial-gradient(1.2px 1.2px at 412px 61px, rgba(255, 255, 255, 0.7), transparent 70%) 0 0 / 530px 530px,
+    radial-gradient(90rem 52rem at 72% -10rem, rgba(96, 182, 255, 0.62), transparent 70%) 0 0 / 100% 72rem no-repeat,
+    radial-gradient(56rem 32rem at 94% 44rem, rgba(36, 138, 255, 0.5), transparent 70%) 0 0 / 100% 125rem repeat-y,
+    radial-gradient(52rem 30rem at 3% 86rem, rgba(0, 203, 255, 0.24), transparent 70%) 0 0 / 100% 125rem repeat-y,
+    radial-gradient(64rem 26rem at 42% 104rem, rgba(3, 12, 64, 0.5), transparent 70%) 0 0 / 100% 125rem repeat-y,
+    linear-gradient(180deg, var(--r-field-bright) 0, var(--r-field) 44rem, var(--r-field) 100%);
 }
 
 /* --- Tones: typography, text colours, highlight and focus colour --- */
@@ -75,7 +96,7 @@
   --tone-text-2: var(--r-on-dark-2);
   --tone-text-3: var(--r-on-dark-3);
   --tone-line: var(--r-line);
-  --tone-card: rgba(12, 28, 78, 0.55);
+  --tone-card: rgba(255, 255, 255, 0.1);
   --hl: var(--r-cyan);
   --hl-text: var(--r-cyan);
   --focus: var(--r-cyan);
@@ -112,11 +133,15 @@
   scroll-margin-top: var(--r-nav-clearance);
 }
 
-/* App-style glass surface for cards. */
+/* Light glass surface for cards (the 30%). */
 .surface {
   border: 1px solid var(--tone-line);
+  border-top-color: rgba(255, 255, 255, 0.34);
   border-radius: var(--r-radius-lg);
   background: var(--r-surface);
+  -webkit-backdrop-filter: var(--r-glass-blur);
+  backdrop-filter: var(--r-glass-blur);
+  box-shadow: 0 24px 60px -36px rgba(2, 8, 50, 0.7);
 }
 
 /* Contained light-blue panel with waves along its base. */
@@ -138,7 +163,9 @@
   isolation: isolate;
   border: 1px solid var(--r-line);
   border-radius: var(--r-radius-xl);
-  background: linear-gradient(180deg, rgba(14, 32, 86, 0.72) 0%, rgba(6, 15, 48, 0.82) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 100%);
+  -webkit-backdrop-filter: var(--r-glass-blur);
+  backdrop-filter: var(--r-glass-blur);
   box-shadow:
     0 0 0 1px rgba(0, 203, 255, 0.05),
     0 60px 120px -60px rgba(0, 0, 0, 0.95),
@@ -364,10 +391,11 @@
 
 .primary {
   color: var(--r-ink);
-  background: linear-gradient(180deg, #4fe3ff 0%, var(--r-cyan) 100%);
+  background: linear-gradient(180deg, #8af0ff 0%, #36d9ff 45%, var(--r-cyan) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 10px 28px -10px rgba(0, 203, 255, 0.75);
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 0 26px rgba(80, 226, 254, 0.5),
+    0 12px 30px -10px rgba(0, 203, 255, 0.9);
 }
 
 .primary:hover {
@@ -391,12 +419,14 @@
 .ghostOnDark {
   border-color: var(--r-line-strong);
   color: var(--r-white);
-  background: rgba(124, 200, 255, 0.05);
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .ghostOnDark:hover {
-  border-color: var(--r-cyan);
-  background: rgba(0, 203, 255, 0.12);
+  border-color: var(--r-white);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .ghostOnLight {

@@ -182,8 +182,9 @@ reduced motion (the Home story is desktop only), and must not be used for
 decorative backgrounds elsewhere.
 
 Public pages follow one design principle (`docs/INSTRUCTIONS/design.MD`, "Public
-Website Layer"): one continuous logo-navy page, app-style glass cards, cyan as
-the light and the light-blue wave panel as the only bright surface. The login
+Website Layer"): since 2026-11-15 the 60-30-10 rule — 60% one continuous field
+of the logo's blues, 30% light glass cards, 10% cyan and white accents; the
+light-blue wave panel stays the brightest surface. The login
 page's look (navy half + light-blue wave half, the `split` panel in
 `public_ui`) is the owner's model for moments that should draw attention.
 

@@ -1,3 +1,187 @@
+# Version 2.117.5
+
+Title: Story steps show only the current chapter
+
+Date: 2026-11-15
+
+Summary: owner feedback of 2026-11-15 — the side steps should not show all
+five, only the current one, and without the bubble (the glassy look stays).
+The current step reads "02 — TRAIN" in glass type (white to ice gradient, soft
+glow) with a light-bar dash, fading and sliding in on each chapter; the others
+appear on hover or keyboard focus to keep the navigation. Checked on the local
+Home at 1920 and 1440 px (one step visible per chapter, all five on hover, no
+page errors); typecheck, tests and build pass.
+
+---
+
+# Version 2.117.4
+
+Title: Story steps without a panel
+
+Date: 2026-11-15
+
+Summary: owner correction of 2026-11-15 — no block around the five story
+steps, only the glass on each step. The panel was removed; every row now has
+its own frosted glass (stronger once passed, bright with a cyan glow when
+current), which keeps the rows readable over the 3D phone and laptop.
+Verified on the local Home at 1920 and 1440 px through the chapters;
+typecheck, tests and build pass.
+
+---
+
+# Version 2.117.3
+
+Title: Story steps as glass rows
+
+Date: 2026-11-15
+
+Summary:
+
+Owner request of 2026-11-15, with a reference image: show the Home story's
+side steps as "01 — ASSESS / 02 — TRAIN …" rows, the current one in bright
+glass.
+
+Main changes:
+
+- `components/home_story/story_immersive.module.css`: the steps are a small
+  frosted panel on the right edge; each row reads "01 — NAME" (names always
+  written from 1600px), the current chapter is bright glass with a cyan edge
+  and glow, the passed ones faint glass, the next ones plain text, with a
+  cross-fade between states. Below 1600px the rows show numbers only, because
+  the phone and laptop would otherwise sit under the names. The step buttons
+  carry `data-state` (current, done, next) for this.
+
+Verification: frontend typecheck, 168 tests and the build pass; the local
+Home at 1920, 1536, 1440, 1280 and 1100 px through the chapters (the steps'
+states follow the chapter on screen; no page errors). At 1920 px the full
+panel is clear of the phone in Train and touches the edge of the small phone in
+Evolve under its glass.
+
+---
+
+# Version 2.117.2
+
+Title: No empty space between "Find your next program" and Train
+
+Date: 2026-11-15
+
+Summary:
+
+Owner request of 2026-11-15: there should not be so much free space between
+the "Find your next program" section and the Train section of the Home.
+
+Main changes:
+
+- Desktop story (`components/home_story/story_immersive.tsx`): the Train copy
+  follows the leaving program cards 48px below them (as if it scrolled with the
+  page), fades in over its first 220px on screen and settles in its place once
+  the cards have gone; it still fades out with its window. The programs keep
+  only 1.5rem of bottom padding inside the story. Before, two thirds of the
+  screen stayed empty for about 500px of scrolling.
+- Phones: the Train chapter after the programs has a short top padding (96px
+  from the cards to the Train label), and the swipeable cards' shadow now fits
+  inside the row (it was cut in a straight line on the brighter field).
+
+Verification: frontend typecheck, 168 tests and the build pass; on the local
+Home at 1440 px the Train copy stays 72px under the cards while they leave
+(measured at six scroll positions) and rests in place after; at 390 px the
+gap is 96px with no edge under the cards; no page errors.
+
+---
+
+# Version 2.117.1
+
+Title: Language switch written as "PT / EN"
+
+Date: 2026-11-15
+
+Summary:
+
+Owner request of 2026-11-15: replace the PT | EN pill in the navigation bar —
+write "PT / EN" like the rest of the navigation; the language in use gets a
+small light and the other is darker; animate the change.
+
+Main changes:
+
+- `components/language_switcher/`: "PT / EN" in the navigation's type, no
+  pill or bubble; the active language is white with a glow and a cyan light
+  under it, the other dimmed (hover brightens it). On change the light
+  stretches to the other side (leading edge first, trailing edge 110 ms later)
+  and the new language lights up; no motion with reduced motion. Behaviour,
+  keyboard, accessible name and saving the choice are unchanged. Used by the
+  public navbar, the app shell's top bar, the account page and the account
+  recovery pages.
+
+Verification: frontend typecheck, the language tests (9) and the build pass;
+the local site at 1440 and 390 px shows PT active, the transition frames and EN
+active after one click, with no page errors.
+
+---
+
+# Version 2.117.0
+
+Title: Back buttons everywhere, Premium pages on the public layer, 60-30-10 colour
+
+Date: 2026-11-15
+
+Summary:
+
+Owner request of 2026-11-15: back buttons across the site (sign-in, the
+administration consoles, the plans catalogue — "what if I just want to go back
+one page?"); the Premium Level 1/2 pages showed the bare page background; and
+the site's background was "opaque", without contrast — apply the 60-30-10 rule
+so the last colour brings it to life, attract attention instantly (reference:
+a vivid blue/white 3D site), optionally a lighter glassy theme from the brand
+icon, navbar included.
+
+Main changes:
+
+- Back buttons: `components/back_button/`, `hooks/use_go_back.ts` and
+  `services/navigation_history.ts` (the tab's RYZE history, kept across
+  reloads). In the public navbar (not on Home), on login/registration,
+  password recovery and admin login, and in the app shell's top bar (member,
+  trainer, ADMIN_1, ADMIN_2; hidden on each area's home). With nothing behind,
+  the button goes to the page's parent, never to another site.
+- Premium pages: the Level 1/2 journeys, the legacy Level 1/2 pages, the Level 2
+  request page, the plan detail and the coach profile now use the public layer
+  (`ui.page`), so they no longer show the bare background or a seam before the
+  footer.
+- Colour (60-30-10, `public_ui`): 60% a continuous field of the logo's blues
+  (brightest on the first screen, a rhythm of light, cyan haze and deep pools,
+  a fine CSS sparkle; no images); 30% light glass (translucent white with blur)
+  for cards, panels and the navbar; 10% cyan and white accents (primary buttons
+  glow). Lighter secondary text for contrast. Applied to the public layer, the
+  navbar (light frosted glass), the 3D Home story backdrop palette, Services,
+  the plans catalogue (glass tokens), the L1/L2 journey cards, the footer (deep
+  end of the field; layout, columns and copy unchanged) and the Exercise
+  Library and detail (page tokens only; layout, components and viewer
+  unchanged).
+- Fixed while verifying: the contact form kept a blur from the shared glass
+  inside the split panel (a lighter box); a deep-pool glow crossed its 125rem
+  tile and showed a line every 2 000 px; the back button had no accessible
+  name when its label is hidden on phones.
+
+Verification:
+
+- Frontend: typecheck, 168 tests (new: navigation history) and the build pass.
+- Local site (public pages) at 1440 and 390 px before and after: Home, Services,
+  L1, L2, plans, login, contact, Our Vision, feedback, Exercise Library, the
+  footer; no page errors.
+- Isolated stack (API :8081 on `ryze_test`, Vite :5175): 10/10 back-button
+  checks (Home without a back button; navbar back to the previous page; a
+  directly opened page back to its parent; login back to the previous page;
+  member area back and phone fallback to the member home; ADMIN_2 fallback to
+  its dashboard; no page errors). Demo data removed afterwards.
+
+Open:
+
+- The private areas (member, trainer, administration) keep the app's navy
+  theme; the field and glass can be extended to them if the owner wants.
+- The Services tiers keep their own dark glass panels (the owner's design),
+  which now stand out against the field.
+
+---
+
 # Version 2.116.2
 
 Title: Level badges from the owner's artwork

@@ -1,7 +1,8 @@
-import { ArrowLeft, LayoutGrid, X, type LucideIcon } from "lucide-react";
+import { Globe2, LayoutGrid, X, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { BackButton } from "@/components/back_button/back_button";
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { LanguageSwitcher } from "@/components/language_switcher/language_switcher";
 import { NotificationBell } from "@/components/notification_bell/notification_bell";
@@ -54,6 +55,10 @@ interface AppShellProps {
   // Link to the other area (member <-> trainer), when the account has both.
   switchTo?: { to: string; label: string; icon: LucideIcon };
   backToSite: string;
+  // The area's first page: the back button hides there and falls back to it
+  // when the tab has no earlier RYZE page.
+  homePath: string;
+  backLabel: string;
   // Hides the language and notification controls (admin consoles).
   compactTopbar?: boolean;
   children: ReactNode;
@@ -83,6 +88,8 @@ export const AppShell = ({
   action,
   switchTo,
   backToSite,
+  homePath,
+  backLabel,
   compactTopbar = false,
   children
 }: AppShellProps) => {
@@ -189,13 +196,16 @@ export const AppShell = ({
 
       <div className={styles.body}>
         <header className={styles.topbar}>
+          {pathname === homePath ? null : (
+            <BackButton fallback={homePath} label={backLabel} className={styles.historyBack} />
+          )}
           <Link className={styles.topBrand} to={brandTo} aria-label={backToSite}>
             <BrandMark size="navigation" />
             <span className={styles.brandName}>RYZE</span>
             {brandTag ? <span className={styles.topTag}>{brandTag}</span> : null}
           </Link>
           <Link className={styles.backLink} to="/">
-            <ArrowLeft aria-hidden="true" />
+            <Globe2 aria-hidden="true" />
             {backToSite}
           </Link>
           <div className={styles.topActions}>

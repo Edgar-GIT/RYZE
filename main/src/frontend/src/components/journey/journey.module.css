@@ -23,7 +23,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  color: #a9b8d6;
+  color: #d3dff7;
   font-size: 0.9rem;
   font-weight: 700;
   text-decoration: none;
@@ -65,7 +65,7 @@
   width: 1.8rem;
   height: 0.3rem;
   border-radius: 999px;
-  background: rgba(124, 200, 255, 0.2);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .progress li[data-state="done"]::before,
@@ -118,7 +118,7 @@
 .lead {
   max-width: 40rem;
   margin: 1rem 0 0;
-  color: #c9d5ec;
+  color: #e2ebff;
   font-size: clamp(1rem, 0.95rem + 0.3vw, 1.15rem);
   line-height: 1.55;
 }
@@ -206,7 +206,9 @@
   padding: 1rem 1.1rem;
   border: 1px solid rgba(124, 200, 255, 0.18);
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(17, 36, 104, 0.6), rgba(6, 15, 58, 0.72));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
   counter-increment: step;
 }
 
@@ -228,7 +230,7 @@
 }
 
 .steps span {
-  color: #a9b8d6;
+  color: #d3dff7;
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -297,10 +299,12 @@
   gap: 1rem;
   min-height: 6rem;
   padding: 1.1rem 1.2rem;
-  border: 1.5px solid rgba(124, 200, 255, 0.2);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
   border-radius: 20px;
   color: #ffffff;
-  background: linear-gradient(180deg, rgba(17, 36, 104, 0.72), rgba(6, 15, 58, 0.86));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -354,7 +358,7 @@
 }
 
 .choice span span {
-  color: #a9b8d6;
+  color: #d3dff7;
   font-size: 0.88rem;
   line-height: 1.4;
 }
@@ -387,9 +391,11 @@
   display: grid;
   gap: 0.6rem;
   padding: 1.2rem;
-  border: 1.5px solid rgba(124, 200, 255, 0.2);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(17, 36, 104, 0.72), rgba(6, 15, 58, 0.86));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
 }
 
 .block:focus-within {
@@ -397,7 +403,7 @@
 }
 
 .blockLabel {
-  color: #a9b8d6;
+  color: #d3dff7;
   font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -435,7 +441,7 @@
 }
 
 .block label {
-  color: #a9b8d6;
+  color: #d3dff7;
   font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -522,7 +528,9 @@
   overflow: hidden;
   border: 1px solid rgba(124, 200, 255, 0.22);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(17, 36, 104, 0.78), rgba(6, 15, 58, 0.9));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
 }
 
 .planCover {
@@ -573,7 +581,7 @@
 
 .planBody p {
   margin: 0;
-  color: #c9d5ec;
+  color: #e2ebff;
   line-height: 1.55;
   white-space: pre-line;
 }
@@ -612,7 +620,7 @@
 
 .notice p {
   margin: 0;
-  color: #c9d5ec;
+  color: #e2ebff;
   line-height: 1.5;
 }
 
@@ -641,9 +649,9 @@
   flex: 0 0 auto;
   min-height: 2.4rem;
   padding: 0 0.9rem;
-  border: 1px solid rgba(124, 200, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 999px;
-  color: #a9b8d6;
+  color: #d3dff7;
   background: transparent;
   font: inherit;
   font-size: 0.82rem;
@@ -681,11 +689,13 @@
   display: grid;
   gap: 1.3rem;
   padding: 1.4rem;
-  border: 1px solid rgba(124, 200, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 22px;
-  background: linear-gradient(180deg, rgba(17, 36, 104, 0.72), rgba(6, 15, 58, 0.86));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
   --text-primary: #ffffff;
-  --text-secondary: #c9d5ec;
+  --text-secondary: #e2ebff;
 }
 
 .sectionCard h2 {
@@ -697,7 +707,7 @@
 
 .sectionIntro {
   margin: -0.6rem 0 0;
-  color: #a9b8d6;
+  color: #d3dff7;
   font-size: 0.9rem;
 }
 
@@ -708,7 +718,7 @@
 
 .saved {
   margin: 0;
-  color: #93a4c8;
+  color: #c2d2f0;
   font-size: 0.82rem;
 }
 

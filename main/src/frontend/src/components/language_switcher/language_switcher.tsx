@@ -8,15 +8,17 @@ import styles from "./language_switcher.module.css";
 
 interface LanguageSwitcherProps {
   className?: string;
-  // compact: the PT | EN toggle of the navigation bars (no icon, smaller).
+  // compact: the navigation bars' version (no icon).
   variant?: "default" | "compact";
 }
 
 const OPTIONS: readonly Locale[] = ["pt", "en"];
 
-// LanguageSwitcher is one toggle: a click anywhere on it switches between PT
-// and EN, and a light slides to the language in use. Arrow keys pick a side.
-// The choice is stored as manual and saved to the account when signed in.
+// LanguageSwitcher reads "PT / EN" like the other navigation labels (owner
+// request, 2026-11-15): the language in use is white with a small light under
+// it, the other is dimmed, and the light slides across when it changes. A
+// click anywhere switches; arrow keys pick a side. The choice is stored as
+// manual and saved to the account when signed in.
 export const LanguageSwitcher = ({ className, variant = "default" }: LanguageSwitcherProps) => {
   const { locale, setLocale, t } = useI18n();
   const other: Locale = locale === "pt" ? "en" : "pt";
@@ -42,16 +44,18 @@ export const LanguageSwitcher = ({ className, variant = "default" }: LanguageSwi
     >
       {variant === "default" ? <Languages className={styles.icon} aria-hidden="true" /> : null}
       <span className={styles.track} aria-hidden="true">
-        <span className={styles.thumb} />
-        {OPTIONS.map((option) => (
-          <span
-            key={option}
-            className={joinClassNames(styles.label, option === locale && styles.labelActive)}
-            lang={option === "pt" ? "pt-PT" : "en"}
-          >
-            {option.toUpperCase()}
+        {OPTIONS.map((option, index) => (
+          <span key={option} className={styles.slot}>
+            {index > 0 ? <span className={styles.separator}>/</span> : null}
+            <span
+              className={joinClassNames(styles.label, option === locale && styles.labelActive)}
+              lang={option === "pt" ? "pt-PT" : "en"}
+            >
+              {option.toUpperCase()}
+            </span>
           </span>
         ))}
+        <span className={styles.light} />
       </span>
     </button>
   );

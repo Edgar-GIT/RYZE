@@ -158,11 +158,23 @@ section follow the same look within the owner's limits (see
 
 The website is built from the same materials as the app:
 
-- one continuous logo-navy page; sections are transparent, and the page carries
-  a repeating rhythm of soft blue light, so there are no seams or colour jumps
-  between sections;
-- cards are the app's blue glass surfaces (`surface`: a translucent royal-to-navy
-  gradient with a thin light-blue border);
+- the 60-30-10 rule (owner request, 2026-11-15: "the background looks opaque,
+  give it life; the last colour is what brings the site to life"):
+  - 60% — one continuous field of the logo's blues (`.page` in `public_ui`:
+    `--r-field` #0B2C96, brightest `--r-field-bright` #1958EC on the first
+    screen), with a rhythm of light, cyan haze and deep pools repeating every
+    125rem (every glow stays inside its tile, so the repeat never shows an edge)
+    and a fine sparkle of CSS dots in three tile sizes. Sections are
+    transparent, so there are no seams or colour jumps between sections. CSS
+    gradients only: no background images;
+  - 30% — light glass (`surface`: translucent white, `backdrop-filter` blur and
+    saturation, a brighter top edge); the navbar is the same frosted glass;
+  - 10% — the Z cyan and white: headline continuations, primary buttons with a
+    cyan glow, icons, focus;
+- secondary text is lighter (`--r-on-dark-2` #E2EBFF, `--r-on-dark-3`
+  #BCCDF0) so it keeps its contrast on the brighter field;
+- the footer is the deep end of the field and the 3D Home story's backdrop uses
+  the same blues, so the page has no dark blocks;
 - cyan is the light: headline continuations, primary buttons, icons, focus;
 - one bright element only: the light-blue wave panel (`toneLight` + `lightPanel`
   + `Waves`), used for calls to action and the authentication side panel.

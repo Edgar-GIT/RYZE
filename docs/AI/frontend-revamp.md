@@ -89,6 +89,16 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-15 (v2.117.0) — Owner request: back buttons everywhere; Premium
+  pages showed the bare background; the 60-30-10 rule for colour and life
+  (navbar and everything may change). `public_ui` `.page` is now a field of the
+  logo's blues with light glass and cyan/white accents; the navbar is light
+  frosted glass; `components/back_button/` added to the navbar, auth pages and
+  the app shell. Protected parts: footer colours only (layout, columns, slogan
+  image and copy unchanged), Exercise Library colours only (page tokens;
+  layout, components and 3D viewer unchanged), Services tiers untouched, Home
+  card images untouched, login fields, validation, messages, API and
+  redirects untouched (only the back button next to the logo was added).
 - 2026-11-15 (v2.116.2) — The level badges use the owner's artwork
   (`main/src/resources/img/badges/`, cut from `badges.png` into eight WebP
   files) instead of the drawn hexagon; locked levels are grey in the ladder.

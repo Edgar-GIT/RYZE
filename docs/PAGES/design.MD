@@ -210,11 +210,15 @@ Secondary
 - Auth actions: outline “Log in” (with user icon) + gradient cyan “Start free”
   (with arrow)
 - Never use boxed active navigation items as the sole active treatment
-- Language: one PT | EN toggle (2026-11-14). The whole pill is a single button:
-  a click anywhere switches the language and a cyan light slides to the
-  language in use with a slight spring; ← / → pick a side; its accessible name
-  says the current language and the one it switches to. The same toggle (with a
-  language icon) appears on the profile and account-recovery pages.
+- Language (owner request, 2026-11-15): "PT / EN" written in the navigation's
+  own type (uppercase, wide tracking), no pill. The language in use is white
+  with a soft glow and a small cyan light under it (like the active link's
+  underline); the other is dimmed. One button: a click anywhere switches;
+  ← / → pick a side; its accessible name says the current language and the one
+  it switches to. On change the light stretches across (the leading edge moves
+  first, the trailing edge follows) and the new language lights up; reduced
+  motion switches instantly. The same control (with a language icon) appears
+  on the account and account-recovery pages and in the app shell's top bar.
 
 ## Cards
 
@@ -312,10 +316,34 @@ Archivo). Do not change its layout or content unless explicitly requested.
 
 The public navigation bar contains:
 
+- Back (v2.117.0): a round arrow before the logo on every page except Home —
+  see "Back buttons" below
 - Brand Logo (left)
 - Distributed links: Services, Exercise Library, Contact, Feedback, Our Vision,
   Feed
 - Right actions: Log in (outline pill) and Start free (solid cyan pill)
+
+Since v2.117.0 the bar is light frosted glass over the blue field (translucent
+white, blur and saturation, a bright top edge), gaining body as the page
+scrolls; links are near-white and the active link is a white glass pill.
+
+### Back buttons (v2.117.0)
+
+Owner request of 2026-11-15: a way to go back one page everywhere, not only the
+logo to Home. `components/back_button/` (`BackButton`) and `useGoBack` go to
+the previous RYZE page of the tab (`services/navigation_history.ts` follows the
+tab's history and survives reloads); with nothing behind (a page opened from a
+link or typed address) they go to the page's parent instead of leaving RYZE:
+plan detail → training plans, other `/services/...` pages → Services,
+exercise detail → library, everything else → Home.
+
+- Public navbar: round button before the logo (not on Home).
+- Login/registration, password recovery and admin login: round button before
+  the logo (recovery falls back to the login page).
+- App shell (member, trainer, ADMIN_1, ADMIN_2): "Back" / "Voltar" before
+  "Back to the site" (which now shows a globe), hidden on the area's home and
+  falling back to it; an arrow only before the logo on phones.
+- The button always has an accessible name and a visible focus ring.
 
 The six links occupy the flexible middle column and are spread evenly between
 the brand and the auth actions, so the group stays balanced instead of leaving
@@ -425,7 +453,15 @@ labelled "Illustrative RYZE screens with sample data."
 Desktop (≥1024px wide, ≥680px tall, fine pointer, WebGL2, no reduced-motion
 preference) pins one 3D stage behind the hero, the programs and a 500svh
 chapter track, with the five story steps on its right edge (owner revision,
-2026-11-11; the order hero → programs → chapters is the owner's and stays):
+2026-11-11; the order hero → programs → chapters is the owner's and stays).
+
+Story steps (owner, 2026-11-15): only the chapter on screen is shown on the
+right edge, "02 — TRAIN", with no bubble around it: the glass is in the type
+(a white to ice gradient with a soft glow) and in the dash, a short bar of
+light. When the chapter changes, the new step fades and slides in. Hovering
+or focusing it with the keyboard shows all five steps, so they still jump to
+their chapters. The steps step aside while the programs fill the screen, and
+every step is a button with a visible focus ring.
 
 1. Hero — the story steps (01 RYZE, 02 Train, 03 Fuel, 04 Evolve, 05 Start)
    are visible and clickable; step 1 is current. As the hero scrolls away its
@@ -435,8 +471,14 @@ chapter track, with the five story steps on its right edge (owner revision,
    (tucked a little further in, clear of the section header); the steps step
    aside (hidden and out of the tab order) while the programs fill the screen.
 3. Chapters — the track starts while the programs are still leaving (its top
-   at 55% of the viewport), so the phone flies in and the Train copy appears
-   right behind them; the current step follows the chapter on screen and each
+   at 55% of the viewport), so the phone flies in behind them. Since v2.117.2
+   (owner request, 2026-11-15: too much empty space between the programs and
+   Train) the Train copy follows the leaving cards 48px below the section
+   (which keeps only 1.5rem of bottom padding inside the story), fading in
+   over its first 220px on screen, and settles in its place once the cards
+   have gone — no empty screen in between. On phones the Train chapter has a
+   short top padding and the swipeable cards' shadow fits inside the row (a
+   longer one was cut in a straight line); the current step follows the chapter on screen and each
    step scrolls to its chapter. The stage keeps its height in the flow (the
    hero pulls itself up over it), so it is released and scrolls away exactly
    when the track ends, before the next section.
@@ -1303,7 +1345,7 @@ member and trainer areas.
   accessible labels.
 - **Phone (767px and below)** — a top bar and a bottom tab bar with five tabs;
   the content stacks in one column.
-- **Top bar** — PT | EN toggle, notification bell and the account avatar.
+- **Top bar** — the PT / EN switch, notification bell and the account avatar.
 - **Account menu** (v2.114.0) — the avatar (and the sidebar account card)
   opens a menu with the name, email and role, the area's shortcuts (member:
   Account, Purchases, Support, Trainer area, RYZE website; trainer: Profile,

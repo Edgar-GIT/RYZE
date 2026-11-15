@@ -105,6 +105,8 @@
   border-radius: 0;
   background: none;
   box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 @media (min-width: 900px) {

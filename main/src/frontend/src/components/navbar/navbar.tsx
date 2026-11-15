@@ -14,10 +14,12 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 
+import { BackButton } from "@/components/back_button/back_button";
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { LanguageSwitcher } from "@/components/language_switcher/language_switcher";
 import { PUBLIC_NAVIGATION_ITEMS } from "@/constants/navigation";
 import { useI18n } from "@/i18n/i18n";
+import { publicParentPath } from "@/services/navigation_history";
 import { joinClassNames } from "@utils/class_names";
 import { apiGet } from "@utils/http_client";
 
@@ -126,10 +128,15 @@ export const Navbar = () => {
       style={{ "--nav-scroll": String(scrollProgress) } as CSSProperties}
     >
       <nav className={styles.navbar} aria-label={t("publicNav.primary")}>
-        <Link className={styles.brand} to="/" aria-label={t("publicNav.home")}>
-          <BrandMark size="navigation" />
-          <span>RYZE</span>
-        </Link>
+        <div className={styles.start}>
+          {location.pathname === "/" ? null : (
+            <BackButton variant="icon" fallback={() => publicParentPath(location.pathname)} />
+          )}
+          <Link className={styles.brand} to="/" aria-label={t("publicNav.home")}>
+            <BrandMark size="navigation" />
+            <span>RYZE</span>
+          </Link>
+        </div>
 
         <div className={styles.desktopLinks}>
           {PUBLIC_NAVIGATION_ITEMS.map((item) => {

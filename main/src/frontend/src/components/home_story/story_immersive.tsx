@@ -20,8 +20,11 @@ import styles from "./story_immersive.module.css";
  *   chapter track                0.14 → 1     the phone flies in, then the
  *                                              laptop; the Earth returns
  * The track starts while the programs are still leaving, so the phone and the
- * Train copy arrive right behind them. The stage is released (scrolls away)
- * when the track ends.
+ * Train copy arrive right behind them (owner request, 2026-11-15: no empty
+ * screen between the programs and Train): the Train copy follows the leaving
+ * program cards 48px below them, as if it scrolled with the page, and settles
+ * in its place once they have gone. The stage is released (scrolls away) when
+ * the track ends.
  */
 const HERO_END = 0.1;
 const TRACK_START = 0.14;
@@ -31,10 +34,15 @@ const TRACK_LEAD = 0.55;
 // Every chapter after the opening one (ids only; the copy comes from useStory).
 const CHAPTER_IDS = STORY_CHAPTER_IDS.slice(1);
 
+// The Train copy follows this far below the leaving program cards, and fades
+// in over its first pixels on screen.
+const FOLLOW_GAP = 48;
+const FOLLOW_FADE = 220;
+
 // Progress windows in which each chapter's copy is visible: fade in, hold, fade out.
-const TRAIN_IN = 0.19;
+const TRAIN_IN = 0.155;
 const WINDOWS: Partial<Record<StoryChapterId, [number, number, number, number]>> = {
-  train: [TRAIN_IN, 0.24, 0.39, 0.44],
+  train: [TRAIN_IN, 0.2, 0.39, 0.44],
   fuel: [0.47, 0.52, 0.63, 0.68],
   platform: [0.74, 0.79, 0.87, 0.91],
   start: [0.93, 0.97, 2, 2]
@@ -50,14 +58,15 @@ const ANCHORS: Partial<Record<StoryChapterId, number>> = {
 
 type Rgba = [number, number, number, number];
 
-// The backdrop never leaves the navy family: each chapter only shifts where
-// the blue light sits and how strong it is, so the story reads as one place.
+// The backdrop stays in the page's field of blues (v2.117.0, 60-30-10): each
+// chapter only shifts where the light sits and how strong it is, so the story
+// reads as one place and joins the page without an edge.
 type Light = "hero" | "train" | "fuel" | "platform";
 const PALETTES: Record<Light, [Rgba, Rgba, Rgba]> = {
-  hero: [[2, 4, 31, 1], [5, 14, 58, 1], [4, 129, 220, 0.34]],
-  train: [[2, 5, 34, 1], [6, 22, 78, 1], [0, 160, 240, 0.3]],
-  fuel: [[2, 6, 38, 1], [7, 30, 96, 1], [0, 203, 255, 0.28]],
-  platform: [[3, 8, 44, 1], [8, 36, 112, 1], [4, 129, 220, 0.42]]
+  hero: [[10, 40, 150, 1], [22, 86, 232, 1], [110, 196, 255, 0.55]],
+  train: [[9, 36, 140, 1], [16, 80, 220, 1], [0, 203, 255, 0.42]],
+  fuel: [[9, 38, 144, 1], [20, 92, 230, 1], [80, 226, 254, 0.4]],
+  platform: [[10, 40, 150, 1], [24, 90, 236, 1], [124, 235, 255, 0.46]]
 };
 
 const STOPS: Array<[number, Light]> = [
@@ -108,7 +117,8 @@ const chapterVisibility = (id: StoryChapterId, progress: number) => {
   const [inStart, inEnd, outStart, outEnd] = WINDOWS[id] ?? [2, 2, 2, 2];
   const rise = smoothstep(inStart, inEnd, progress);
   const fall = 1 - smoothstep(outStart, outEnd, progress);
-  return { opacity: Math.min(rise, fall), shift: (1 - rise) * 28 - (1 - fall) * 28 };
+  // Copy rises into place (56px) and leaves upwards (28px).
+  return { opacity: Math.min(rise, fall), shift: (1 - rise) * 56 - (1 - fall) * 28 };
 };
 
 interface Layout {
@@ -160,6 +170,8 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
   const canvasHostRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const chapterRefs = useRef<Partial<Record<StoryChapterId, HTMLDivElement | null>>>({});
+  // The vertical shift last applied to each chapter (to find its resting place).
+  const shiftRefs = useRef<Partial<Record<StoryChapterId, number>>>({});
   const sceneRef = useRef<StoryScene | null>(null);
   const visibleRef = useRef(false);
   const [ready, setReady] = useState(false);
@@ -201,9 +213,22 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
 
       let strongest: StoryChapterId = "identity";
       let strongestOpacity = 0.5;
+      const programsBottom = current.programs.getBoundingClientRect().bottom;
       for (const chapterId of CHAPTER_IDS) {
         const element = chapterRefs.current[chapterId];
-        const { opacity, shift } = chapterVisibility(chapterId, progress);
+        let { opacity, shift } = chapterVisibility(chapterId, progress);
+        if (chapterId === "train" && element) {
+          // Train flows in right under the program cards and settles in its
+          // place once they have gone; it still fades out with its window.
+          const [, , outStart, outEnd] = WINDOWS.train ?? [2, 2, 2, 2];
+          const fall = 1 - smoothstep(outStart, outEnd, progress);
+          const resting = element.getBoundingClientRect().top - (shiftRefs.current.train ?? 0);
+          const follow = Math.max(0, programsBottom + FOLLOW_GAP - resting);
+          const entering = clamp01((window.innerHeight - (resting + follow)) / FOLLOW_FADE);
+          opacity = Math.min(entering, fall);
+          shift = follow - (1 - fall) * 28;
+        }
+        shiftRefs.current[chapterId] = shift;
         if (element) {
           // Opacity only: every chapter stays in the accessibility tree.
           element.style.opacity = opacity.toFixed(3);
@@ -392,6 +417,13 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
                 <button
                   type="button"
                   className={styles.step}
+                  data-state={
+                    activeStep === chapter.id
+                      ? "current"
+                      : index < chapters.findIndex((item) => item.id === activeStep)
+                        ? "done"
+                        : "next"
+                  }
                   aria-current={activeStep === chapter.id ? "step" : undefined}
                   onClick={() => scrollToStep(chapter.id, "smooth")}
                 >

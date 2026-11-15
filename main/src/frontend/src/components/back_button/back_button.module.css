@@ -1,0 +1,62 @@
+/* Back one page: glass, readable on the public blue and the app navy. */
+.back {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.back:hover {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.back:active {
+  transform: scale(0.96);
+}
+
+.back:focus-visible {
+  outline: 2.5px solid #7cebff;
+  outline-offset: 2px;
+}
+
+.back svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+}
+
+.pill {
+  min-height: 2.75rem;
+  padding: 0 1rem 0 0.8rem;
+  border-radius: 999px;
+  font-size: 0.92rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back {
+    transition: none;
+  }
+
+  .back:active {
+    transform: none;
+  }
+}

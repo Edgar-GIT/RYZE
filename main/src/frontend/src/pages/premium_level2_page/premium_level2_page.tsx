@@ -5,6 +5,7 @@ import { useHistory, useLocation } from "react-router-dom";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import ui from "@/components/public_ui/public_ui.module.css";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { useProgramCheckout } from "@/hooks/use_program_checkout";
 import { formatMarketplacePrice, type MarketplaceProgram } from "@/services/marketplace_api";
@@ -20,6 +21,7 @@ import { useGettext, useI18n } from "@/i18n/i18n";
 import { ApiError } from "@utils/http_client";
 
 import styles from "./premium_level2_page.module.css";
+import { joinClassNames } from "@utils/class_names";
 
 const INCLUDES = [
   "A detailed intake reviewed by a certified RYZE trainer",
@@ -143,7 +145,7 @@ export const PremiumLevel2Page = () => {
 
   if (loading) {
     return (
-      <PageWrapper className={styles.page}>
+      <PageWrapper className={joinClassNames(ui.page, styles.page)}>
         <section className={styles.detail}>
           <Container size="wide">
             <p className={styles.stateText}>{tr("Loading Premium Level 2…")}</p>
@@ -155,7 +157,7 @@ export const PremiumLevel2Page = () => {
 
   if (!selectedOffer) {
     return (
-      <PageWrapper className={styles.page}>
+      <PageWrapper className={joinClassNames(ui.page, styles.page)}>
         <section className={styles.detail}>
           <Container size="wide" className={styles.container}>
             <div className={styles.back}>
@@ -241,7 +243,7 @@ export const PremiumLevel2Page = () => {
   }
 
   return (
-    <PageWrapper className={styles.page}>
+    <PageWrapper className={joinClassNames(ui.page, styles.page)}>
       <section className={styles.detail}>
         <Container size="wide" className={styles.container}>
           <div className={styles.back}>

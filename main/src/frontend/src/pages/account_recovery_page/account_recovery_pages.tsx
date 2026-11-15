@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { BackButton } from "@/components/back_button/back_button";
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { LanguageSwitcher } from "@/components/language_switcher/language_switcher";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
@@ -34,10 +35,13 @@ const RecoveryShell = ({ icon, title, lead, children }: { icon: ReactNode; title
   <PageWrapper className={joinClassNames(ui.page, styles.page)}>
     <section className={joinClassNames(ui.toneNavy, styles.section)}>
       <header className={styles.top}>
-        <Link className={styles.brand} to="/" aria-label="RYZE home">
-          <BrandMark size="navigation" />
-          <span>RYZE</span>
-        </Link>
+        <div className={styles.topLeft}>
+          <BackButton variant="icon" fallback="/login" />
+          <Link className={styles.brand} to="/" aria-label="RYZE home">
+            <BrandMark size="navigation" />
+            <span>RYZE</span>
+          </Link>
+        </div>
         <LanguageSwitcher />
       </header>
       <div className={styles.card}>

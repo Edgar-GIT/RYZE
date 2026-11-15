@@ -184,6 +184,18 @@
   margin-top: 0.35rem;
 }
 
+/* Phones: the swipeable row clips what leaves its box, so the cards' shadow
+   stays inside its bottom padding (a longer one was cut in a straight line). */
+@media (max-width: 767px) {
+  .cards {
+    padding-bottom: 2.25rem;
+  }
+
+  .card {
+    box-shadow: 0 14px 26px -14px rgba(2, 8, 50, 0.7);
+  }
+}
+
 @media (min-width: 768px) {
   .header {
     grid-template-columns: minmax(0, 1fr) auto;

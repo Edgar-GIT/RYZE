@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, Redirect } from "react-router-dom";
 
+import { BackButton } from "@/components/back_button/back_button";
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { Button } from "@/components/button/button";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
@@ -115,10 +116,13 @@ const AdminLoginPage = () => {
         className={loginStyles.section}
         style={{ backgroundImage: `url(${loginBackground})` }}
       >
-        <Link className={loginStyles.brand} to="/" aria-label="RYZE home">
-          <BrandMark size="navigation" />
-          <span>RYZE</span>
-        </Link>
+        <div className={loginStyles.topLeft}>
+          <BackButton variant="icon" fallback="/" label="Back" />
+          <Link className={loginStyles.brand} to="/" aria-label="RYZE home">
+            <BrandMark size="navigation" />
+            <span>RYZE</span>
+          </Link>
+        </div>
 
         <div className={loginStyles.scrim} aria-hidden="true" />
 

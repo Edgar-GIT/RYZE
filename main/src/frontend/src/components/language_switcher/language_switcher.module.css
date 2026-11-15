@@ -1,129 +1,147 @@
-/* One PT | EN toggle: the whole control is the button; a cyan light slides to
-   the language in use. */
+/* "PT / EN" in the navigation's own type: the language in use is white with a
+   glow and a small light under it; the other is dimmed. When the language
+   changes, the light stretches across to the other side (its leading edge
+   moves first, the trailing edge follows) and the new language lights up. */
 
 .toggle {
+  --lang-w: 1.85rem;
+  --sep-w: 0.75rem;
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.22rem;
-  border: 1px solid rgba(124, 200, 255, 0.28);
-  border-radius: 999px;
+  min-height: 2.6rem;
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: 0.7rem;
   color: inherit;
-  background:
-    linear-gradient(180deg, rgba(14, 30, 86, 0.78) 0%, rgba(2, 6, 28, 0.82) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 -6px 14px rgba(0, 0, 0, 0.25),
-    0 8px 22px -14px rgba(0, 203, 255, 0.6);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  background: transparent;
   font: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition:
-    border-color 200ms ease,
-    box-shadow 200ms ease,
-    transform 160ms ease;
+  transition: background-color 200ms ease;
 }
 
 .toggle:hover {
-  border-color: rgba(0, 203, 255, 0.62);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    inset 0 -6px 14px rgba(0, 0, 0, 0.25),
-    0 0 0 3px rgba(0, 203, 255, 0.08),
-    0 10px 26px -12px rgba(0, 203, 255, 0.75);
-}
-
-.toggle:active {
-  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .toggle:focus-visible {
-  outline: 2px solid #00cbff;
-  outline-offset: 3px;
+  outline: 2px solid #7cebff;
+  outline-offset: 2px;
 }
 
 .icon {
   flex: 0 0 auto;
   width: 1rem;
   height: 1rem;
-  margin-left: 0.45rem;
-  color: rgba(201, 213, 236, 0.8);
+  color: rgba(225, 235, 255, 0.7);
 }
 
 .track {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: var(--lang-w) var(--sep-w) var(--lang-w);
+  align-items: center;
+  padding-bottom: 0.32rem;
 }
 
-.thumb {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 50%;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #74ecff 0%, #00cbff 55%, #00a6e6 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 0 14px rgba(0, 203, 255, 0.55),
-    0 4px 10px -4px rgba(0, 0, 0, 0.6);
-  transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+.slot {
+  display: contents;
 }
 
-.toggle[data-locale="en"] .thumb {
-  transform: translateX(100%);
-}
-
-.toggle:hover .thumb {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    0 0 22px rgba(0, 203, 255, 0.8),
-    0 4px 10px -4px rgba(0, 0, 0, 0.6);
+.label,
+.separator {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.6;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .label {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  min-width: 2.55rem;
-  height: 2.2rem;
-  padding: 0 0.55rem;
-  color: rgba(201, 213, 236, 0.72);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  transition: color 260ms ease;
+  /* Optical centring: the tracking adds space after the last letter. */
+  padding-left: 0.12em;
+  color: rgba(225, 235, 255, 0.42);
+  transition:
+    color 320ms ease,
+    text-shadow 320ms ease;
 }
 
 .toggle:hover .label:not(.labelActive) {
-  color: #ffffff;
+  color: rgba(225, 235, 255, 0.72);
+}
+
+.separator {
+  color: rgba(225, 235, 255, 0.3);
+  font-weight: 600;
 }
 
 .labelActive {
-  color: #02041f;
+  color: #ffffff;
+  text-shadow:
+    0 0 2px rgba(255, 255, 255, 0.7),
+    0 0 12px rgba(124, 235, 255, 0.85);
+  animation: light-up 520ms ease-out;
 }
 
-/* Navigation bars: the same toggle, tighter and without the icon. */
+@keyframes light-up {
+  0% {
+    color: rgba(225, 235, 255, 0.42);
+    text-shadow: none;
+  }
+
+  55% {
+    color: #ffffff;
+    text-shadow:
+      0 0 4px rgba(255, 255, 255, 0.9),
+      0 0 20px rgba(124, 235, 255, 1);
+  }
+}
+
+/* The light under the language in use. Each state sets which edge leads:
+   going to EN the right edge moves first, going to PT the left edge does. */
+.light {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: calc(var(--lang-w) + var(--sep-w));
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(124, 235, 255, 0.2), #7cebff 25%, #00cbff 50%, #7cebff 75%, rgba(124, 235, 255, 0.2));
+  box-shadow:
+    0 0 8px rgba(0, 203, 255, 0.9),
+    0 0 18px rgba(0, 203, 255, 0.5);
+  transition:
+    left 340ms cubic-bezier(0.65, 0, 0.35, 1),
+    right 340ms cubic-bezier(0.65, 0, 0.35, 1) 110ms;
+}
+
+.toggle[data-locale="en"] .light {
+  left: calc(var(--lang-w) + var(--sep-w));
+  right: 0;
+  transition:
+    right 340ms cubic-bezier(0.65, 0, 0.35, 1),
+    left 340ms cubic-bezier(0.65, 0, 0.35, 1) 110ms;
+}
+
+/* Navigation bars: the same control, a touch tighter. */
 .compact {
-  padding: 0.18rem;
-}
-
-.compact .label {
-  min-width: 2.3rem;
-  height: 1.95rem;
-  padding: 0 0.5rem;
-  font-size: 0.7rem;
+  --lang-w: 1.75rem;
+  --sep-w: 0.7rem;
+  padding: 0 0.4rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .toggle,
-  .thumb,
-  .label {
+  .label,
+  .light,
+  .toggle[data-locale="en"] .light {
     transition: none;
+  }
+
+  .labelActive {
+    animation: none;
   }
 }

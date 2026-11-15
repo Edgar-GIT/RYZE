@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import ui from "@/components/public_ui/public_ui.module.css";
 import { ProgramCard } from "@/components/program_card/program_card";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { type Copy, useI18n } from "@/i18n/i18n";
@@ -12,6 +13,7 @@ import { coachInitials, fetchCoachProfile, type CoachProfile } from "@/services/
 import { ApiError } from "@utils/http_client";
 
 import styles from "./coach_profile_page.module.css";
+import { joinClassNames } from "@utils/class_names";
 
 interface CoachText {
   back: string;
@@ -83,7 +85,7 @@ export const CoachProfilePage = () => {
   }, [load]);
 
   return (
-    <PageWrapper className={styles.page}>
+    <PageWrapper className={joinClassNames(ui.page, styles.page)}>
       <Container size="wide" className={styles.container}>
         <div className={styles.back}>
           <Button to="/services/generic-program" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">

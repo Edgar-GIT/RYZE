@@ -19,6 +19,12 @@
     radial-gradient(44rem 30rem at 12% 92%, rgba(4, 129, 220, 0.2), transparent 70%);
 }
 
+.topLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .top {
   position: absolute;
   top: 1.25rem;

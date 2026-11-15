@@ -2,25 +2,28 @@
    headings) by overriding the shared tokens for this page only; the layout and
    every component rule are unchanged. */
 .page {
-  --bg-primary: #02041f;
-  --bg-secondary: #050c30;
-  --surface: #0a1645;
-  --surface-elevated: #0e1c52;
-  --surface-hover: #11225e;
-  --card: #0e1c52;
-  --card-hover: #11225e;
-  --border-color: rgba(124, 200, 255, 0.15);
-  --border: 1px solid rgba(124, 200, 255, 0.15);
-  --text-secondary: #c9d5ec;
-  --text-muted: #93a4c8;
+  --bg-primary: rgba(9, 36, 128, 0.88);
+  --bg-secondary: rgba(255, 255, 255, 0.06);
+  --surface: rgba(255, 255, 255, 0.09);
+  --surface-elevated: rgba(255, 255, 255, 0.13);
+  --surface-hover: rgba(255, 255, 255, 0.17);
+  --card: rgba(255, 255, 255, 0.09);
+  --card-hover: rgba(255, 255, 255, 0.15);
+  --border-color: rgba(255, 255, 255, 0.2);
+  --border: 1px solid rgba(255, 255, 255, 0.2);
+  --text-secondary: #e2ebff;
+  --text-muted: #bccdf0;
   min-height: 100%;
-  /* Light behind the glass: the panels and cards blur and tint it. */
+  /* v2.117.0: the public field of blues (60-30-10); colours only, the
+     library's layout, components and viewer are unchanged. */
   background:
-    radial-gradient(56rem 30rem at 85% 0%, rgba(4, 129, 220, 0.26), transparent 65%),
-    radial-gradient(40rem 26rem at 8% 22rem, rgba(0, 203, 255, 0.14), transparent 70%),
-    radial-gradient(48rem 34rem at 60% 60rem, rgba(7, 42, 119, 0.5), transparent 70%),
-    radial-gradient(36rem 30rem at 95% 95rem, rgba(0, 203, 255, 0.1), transparent 70%),
-    #02041f;
+    radial-gradient(1.4px 1.4px at 22px 34px, rgba(255, 255, 255, 0.8), transparent 70%) 0 0 / 230px 230px,
+    radial-gradient(1px 1px at 141px 117px, rgba(200, 240, 255, 0.7), transparent 70%) 0 0 / 230px 230px,
+    radial-gradient(1.6px 1.6px at 291px 188px, rgba(160, 232, 255, 0.75), transparent 70%) 0 0 / 370px 370px,
+    radial-gradient(70rem 40rem at 80% -6rem, rgba(96, 182, 255, 0.55), transparent 70%),
+    radial-gradient(44rem 28rem at 6% 30rem, rgba(0, 203, 255, 0.22), transparent 70%),
+    radial-gradient(56rem 34rem at 55% 70rem, rgba(3, 12, 64, 0.45), transparent 70%),
+    linear-gradient(180deg, #1958ec 0, #0b2c96 44rem, #0b2c96 100%);
   background-attachment: fixed;
 }
 

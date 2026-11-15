@@ -5,6 +5,7 @@ import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { FilterSidebar } from "@/components/filter_sidebar/filter_sidebar";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import ui from "@/components/public_ui/public_ui.module.css";
 import { PlanAudiencePrompt, type PlanAudienceAnswer } from "@/components/plan_audience_prompt/plan_audience_prompt";
 import { ProgramRow } from "@/components/program_row/program_row";
 import { SearchBar } from "@/components/search_bar/search_bar";
@@ -275,7 +276,7 @@ export const GenericPlanMarketplacePage = () => {
   const closeFilters = () => setFiltersOpen(false);
 
   return (
-    <PageWrapper className={styles.page}>
+    <PageWrapper className={joinClassNames(ui.page, styles.page)}>
       <section className={styles.marketplace}>
         <Container size="wide" className={styles.container}>
           <SearchBar

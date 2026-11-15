@@ -37,6 +37,7 @@ const COPY: Copy<{
   newProgramText: string;
   memberArea: string;
   back: string;
+  goBack: string;
   menu: string;
   publicProfile: string;
   account: string;
@@ -59,6 +60,7 @@ const COPY: Copy<{
     newProgramText: "Build a plan for clients or the store",
     memberArea: "My training",
     back: "Back to the site",
+    goBack: "Back",
     menu: "Account menu",
     publicProfile: "Public coach profile",
     account: "Account settings",
@@ -81,6 +83,7 @@ const COPY: Copy<{
     newProgramText: "Cria um plano para clientes ou para a loja",
     memberArea: "O meu treino",
     back: "Voltar ao site",
+    goBack: "Voltar",
     menu: "Menu da conta",
     publicProfile: "Perfil público",
     account: "Definições da conta",
@@ -186,6 +189,8 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
       action={{ to: "/trainer/programs/new", title: text.newProgram, text: text.newProgramText, icon: Plus }}
       switchTo={{ to: "/profile", label: text.memberArea, icon: Dumbbell }}
       backToSite={text.back}
+      homePath="/trainer/dashboard"
+      backLabel={text.goBack}
     >
       {children}
     </AppShell>

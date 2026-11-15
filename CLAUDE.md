@@ -71,9 +71,11 @@ system may be redesigned around those colors with compatible neutrals and
 accessible semantic tokens.
 
 Public pages follow one design principle (`docs/INSTRUCTIONS/design.MD`, "Public
-Website Layer"): one continuous logo-navy page with soft blue light, app-style
-glass cards, cyan as the light and the light-blue wave panel as the only bright
-surface. The login page's look (a navy half joined to the light-blue wave half,
+Website Layer"): since 2026-11-15 the 60-30-10 rule (owner request: more
+colour, contrast and life) — 60% one continuous field of the logo's blues with a
+rhythm of light and a fine sparkle, 30% light glass (translucent white,
+blurred), 10% cyan and white for highlights and calls to action; the
+light-blue wave panel stays the brightest surface. The login page's look (a navy half joined to the light-blue wave half,
 the `split` panel in `public_ui`) is the owner's model for moments that should
 draw attention, such as Services. Do not reintroduce paper, white, cyan or royal
 section bands; the owner rejected them as making parts of the site look

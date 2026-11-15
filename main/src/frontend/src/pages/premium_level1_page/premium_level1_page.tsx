@@ -5,6 +5,7 @@ import { useHistory, useLocation } from "react-router-dom";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import ui from "@/components/public_ui/public_ui.module.css";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { useProgramCheckout, type PurchaseState } from "@/hooks/use_program_checkout";
 import {
@@ -38,6 +39,7 @@ import { PremiumNutritionPlan } from "./premium_nutrition_plan";
 import { PremiumQuestionnaireForm } from "./premium_questionnaire_form";
 import styles from "./premium_level1_page.module.css";
 import { PREMIUM_LEVEL1_PT } from "./premium_level1_page.pt";
+import { joinClassNames } from "@utils/class_names";
 
 // The step the client is on. The backend owns every gate that matters — this
 // only decides what is worth rendering.
@@ -520,7 +522,7 @@ export const PremiumLevel1Page = () => {
   );
 
   return (
-    <PageWrapper className={styles.page}>
+    <PageWrapper className={joinClassNames(ui.page, styles.page)}>
       <section className={styles.detail}>
         <Container size="wide" className={styles.container}>
           <div className={styles.back}>
