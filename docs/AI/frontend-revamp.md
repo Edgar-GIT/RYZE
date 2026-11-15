@@ -89,6 +89,9 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-15 (v2.116.1) — Owner request: the Home "Pick how much guidance you
+  want" section (`components/category_overview/`) was removed with its
+  catalogue hook; no protected part affected.
 - 2026-11-14 (v2.116.0) — Owner request: medals and EXP like Lyfta, shown first
   in the member area; plans for women or men. New `components/lifter/`
   (level badge, medal, EXP bar, lifter card, workout rewards),

@@ -365,14 +365,17 @@ Sections
    programs first (owner decision, 2026-11-11)
 3. The other story chapters (Train, Fuel, Evolve, Get started; desktop
    Three.js, stacked on mobile)
-4. Category overview (API-backed)
-5. Purchase journey ("From discovery to your first session")
-6. Contact preview
-7. Footer (layout protected; colours follow the public design)
+4. Purchase journey ("From discovery to your first session")
+5. Contact preview
+6. Footer (layout protected; colours follow the public design)
+
+The category overview ("Pick how much guidance you want.") was removed at the
+owner's request on 2026-11-15 (v2.116.1); the Services tiers present the three
+levels.
 
 The Home route mounts `HomeStory` (which places the `ProgramsOverviewSection`
-it receives right after the opening chapter), `CategoryOverview`,
-`PurchaseJourney` and `ContactPreview` inside a `PageWrapper` carrying the
+it receives right after the opening chapter), `PurchaseJourney` and
+`ContactPreview` inside a `PageWrapper` carrying the
 public website layer class. The Training, Nutrition
 and Progress showcase components remain available as design building blocks but
 are not mounted.
@@ -475,8 +478,8 @@ with their images: Build muscle → Premium Level 1 (`advert1`), Lose fat →
 Premium Level 2 (`advert2`), Train for free → the training-plan marketplace
 (`advert3`, "Free" tag). Owner request of 2026-11-14: published programmes are
 not listed here (a published "Plano 1" had replaced the free goal card with
-its own name and description); they are reached from Services, the category
-overview and "See all plans". The section does not read the catalogue, so it
+its own name and description); they are reached from Services and "See all
+plans". The section does not read the catalogue, so it
 has no loading state.
 
 Presentation (owner revision, 2026-11-11): the Home's main call to action. Label
@@ -490,17 +493,6 @@ plan with nutrition, not personalized; Premium Level 2 is personalized). Below
 768px the cards form a swipeable row (keyboard tab stop only at those widths).
 The section is transparent with a soft blue light behind the cards; on desktop
 it sits between the two 3D stages, never over them.
-
-### Category overview
-
-API-backed through `useServiceCatalog` and `describeCatalogPrice`; hidden while
-the catalogue is loading, failed or empty. Heading "Pick how much guidance you
-want." One glass card per family with at least one published offer; more
-personalization means more blue light: training plans (plain), Premium Level 1
-(ring-blue glow) and Premium Level 2 (cyan edge and glow). Each shows a personalization meter (1–3 rising bars), the
-category name, a one-line description and three "included" items summarising
-`project.MD`, the catalogue-derived price and the existing CTA label and
-destination. From 768px the cards stand in one row with rising heights.
 
 ### Purchase journey
 

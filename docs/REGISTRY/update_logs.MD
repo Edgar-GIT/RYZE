@@ -1,3 +1,24 @@
+# Version 2.116.1
+
+Title: Home "Pick how much guidance you want" section removed
+
+Date: 2026-11-15
+
+Summary:
+
+Owner request of 2026-11-15: remove the "Pick how much guidance you want."
+section from the Home page. The Home now goes from "Find your next program"
+(and the story chapters) straight to "From discovery to your first session".
+`components/category_overview/` and `hooks/use_service_catalog.ts`, used only by
+that section, were deleted; the Home no longer loads the catalogue. The
+Services tiers still present the three levels.
+
+Verification: frontend typecheck, 164 tests and the build pass; the local Home
+at 1440 px (EN) and 390 px (PT) no longer shows the section, with no horizontal
+overflow and no page errors.
+
+---
+
 # Version 2.116.0
 
 Title: EXP, lifter levels and record medals; plans for women or men; sex in Premium Level 1
