@@ -1,3 +1,38 @@
+# Version 2.116.2
+
+Title: Level badges from the owner's artwork
+
+Date: 2026-11-15
+
+Summary:
+
+Owner request of 2026-11-15: use the eight level icons the owner placed in
+`main/src/resources/img/badges/badges.png` (a 4 × 2 sheet), cut one by one.
+Each badge was cut from its cell in rank order (Rookie, Beginner, Average,
+Dedicated, Advanced, Elite, Master, Legendary), keeping its body and nearby
+glow and fading out the stray glow specks, then centred on a transparent
+256 × 256 WebP (`rookie.webp` … `legend.webp`, 30–36 kB each, next to the
+original sheet, which stays unchanged and is not bundled).
+
+Main changes:
+
+- `LevelBadge` (`components/lifter/`) shows the level's artwork with the level
+  number on a small chip (no chip in the level ladder) instead of the drawn
+  hexagon; the picture is decorative because the level name is always written
+  next to it.
+- Used in the member home's lifter card, the achievements hero and level
+  ladder (levels not reached are shown in grey) and the level-up message of a
+  saved workout.
+- The lifter card's first column is wider so the level name stays on one line
+  at 1100–1440 px.
+
+Verification: frontend typecheck, 164 tests and the build pass. Isolated stack
+with the demo member at 1440 and 390 px: the badges load on the home (1), the
+achievements page (9) and the level-up card, the level name fits one line at
+1440 and 1100 px, no page errors. Demo data removed afterwards.
+
+---
+
 # Version 2.116.1
 
 Title: Home "Pick how much guidance you want" section removed

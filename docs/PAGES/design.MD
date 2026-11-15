@@ -1335,7 +1335,8 @@ data shows an honest empty state.
 
 - **Header** — date, greeting and the current streak.
 - **Lifter card** (v2.116.0, first card, owner request 2026-11-14) — the
-  lifter level as a numbered hexagon badge with its name ("Lifter Médio",
+  lifter level as its badge (the owner's artwork, one per level, with the level
+  number on a chip) and its name ("Lifter Médio",
   "Level 3 of 8"), total EXP with a progress bar and "N EXP to <next level>",
   the medal count and the three latest record medals (gold medal, exercise,
   weight × reps, date, kg gained), and "See achievements" → `/achievements`.
@@ -1361,7 +1362,8 @@ In the member shell (secondary navigation "Achievements" / "Conquistas", in the
 "More" sheet on phones). A hero with the level badge, level name, EXP bar,
 workouts counted and medal count; the record medals (newest first, up to 60
 with "and N more"; an empty state links to training); the level ladder (eight
-levels with their thresholds: reached, current, locked); and how EXP is earned,
+levels with their badges and thresholds: reached, current, and locked with a
+grey badge); and how EXP is earned,
 written from the `rules` the API returns. Two columns from 1024px.
 
 ### Account (`/account/settings`)

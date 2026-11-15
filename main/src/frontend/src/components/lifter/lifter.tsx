@@ -1,6 +1,14 @@
 import { ArrowRight, Medal, TrendingUp } from "lucide-react";
-import { useId } from "react";
 import { Link } from "react-router-dom";
+
+import advancedBadge from "@resources/img/badges/advanced.webp";
+import averageBadge from "@resources/img/badges/average.webp";
+import beginnerBadge from "@resources/img/badges/beginner.webp";
+import dedicatedBadge from "@resources/img/badges/dedicated.webp";
+import eliteBadge from "@resources/img/badges/elite.webp";
+import legendBadge from "@resources/img/badges/legend.webp";
+import masterBadge from "@resources/img/badges/master.webp";
+import rookieBadge from "@resources/img/badges/rookie.webp";
 
 import { type Copy, useI18n } from "@/i18n/i18n";
 import {
@@ -76,26 +84,27 @@ const COPY: Copy<{
   }
 };
 
-// LevelBadge is a hexagon carrying the level number; higher levels shine more.
-export const LevelBadge = ({ rank, size = "md" }: { rank: number; size?: "sm" | "md" | "lg" }) => {
-  const gradient = useId();
-  return (
-    <span className={joinClassNames(styles.badge, styles[`badge_${size}`])} data-tier={rank >= 6 ? "top" : rank >= 4 ? "mid" : "base"}>
-      <svg viewBox="0 0 64 72" aria-hidden="true">
-        <defs>
-          <linearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#8cefff" />
-            <stop offset="55%" stopColor="#0aa8f2" />
-            <stop offset="100%" stopColor="#072a77" />
-          </linearGradient>
-        </defs>
-        <path d="M32 3 L60 19 L60 53 L32 69 L4 53 L4 19 Z" fill={`url(#${gradient})`} stroke="#c9f6ff" strokeWidth="2" />
-        <path d="M32 11 L53 23 L53 49 L32 61 L11 49 L11 23 Z" fill="#02041f" opacity="0.55" />
-      </svg>
-      <b>{rank}</b>
-    </span>
-  );
+// The owner's level artwork (main/src/resources/img/badges/badges.png), cut
+// into one picture per level, in rank order.
+const BADGE_ART: Record<LifterLevelKey, string> = {
+  rookie: rookieBadge,
+  beginner: beginnerBadge,
+  average: averageBadge,
+  dedicated: dedicatedBadge,
+  advanced: advancedBadge,
+  elite: eliteBadge,
+  master: masterBadge,
+  legend: legendBadge
 };
+
+// LevelBadge shows the level's badge with its number. The level name is always
+// written next to it, so the picture itself is decorative.
+export const LevelBadge = ({ level, size = "md" }: { level: Pick<LifterLevel, "rank" | "key">; size?: "sm" | "md" | "lg" }) => (
+  <span className={joinClassNames(styles.badge, styles[`badge_${size}`])}>
+    <img src={BADGE_ART[level.key]} alt="" aria-hidden="true" decoding="async" draggable={false} />
+    {size === "sm" ? null : <b>{level.rank}</b>}
+  </span>
+);
 
 // MedalBadge is the gold record medal.
 export const MedalBadge = ({ small = false }: { small?: boolean }) => (
@@ -163,7 +172,7 @@ export const LifterCard = ({ data, totalLevels }: { data: Achievements | null; t
   return (
     <section className={styles.card} aria-labelledby="lifter-level">
       <div className={styles.identity}>
-        <LevelBadge rank={level.rank} size="lg" />
+        <LevelBadge level={level} size="lg" />
         <div>
           <p className={styles.kicker}>
             <TrendingUp aria-hidden="true" /> {text.kicker}

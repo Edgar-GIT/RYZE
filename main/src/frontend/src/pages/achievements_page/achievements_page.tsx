@@ -135,7 +135,7 @@ export const AchievementsPage = () => {
         <>
           <section className={styles.hero} aria-labelledby="achievements-level">
             <div className={styles.heroIdentity}>
-              <LevelBadge rank={data.level.rank} size="lg" />
+              <LevelBadge level={data.level} size="lg" />
               <div>
                 <h2 id="achievements-level" className={styles.levelName}>
                   {names[data.level.key]}
@@ -192,7 +192,7 @@ export const AchievementsPage = () => {
                       level.rank === data.level.rank ? "current" : level.rank < data.level.rank ? "reached" : "locked";
                     return (
                       <li key={level.key} className={styles.rung} data-state={state} aria-current={state === "current" ? "step" : undefined}>
-                        <LevelBadge rank={level.rank} size="sm" />
+                        <LevelBadge level={level} size="sm" />
                         <span className={styles.rungText}>
                           <strong>{names[level.key]}</strong>
                           <span>{text.from(formatNumber(level.min_xp))}</span>

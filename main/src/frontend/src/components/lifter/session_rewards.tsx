@@ -100,7 +100,7 @@ export const SessionRewards = ({ sessionId }: { sessionId: string }) => {
       {leveledUp ? (
         <div className={styles.levelUp} role="status">
           <PartyPopper className={styles.party} aria-hidden="true" />
-          <LevelBadge rank={after.rank} size="md" />
+          <LevelBadge level={after} size="md" />
           <div>
             <strong>{text.levelUp}</strong>
             <span>{text.nowYou(names[after.key])}</span>

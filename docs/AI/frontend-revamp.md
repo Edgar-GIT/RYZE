@@ -89,6 +89,11 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-15 (v2.116.2) — The level badges use the owner's artwork
+  (`main/src/resources/img/badges/`, cut from `badges.png` into eight WebP
+  files) instead of the drawn hexagon; locked levels are grey in the ladder.
+  The artwork is functional imagery (it identifies the level), not a
+  background.
 - 2026-11-15 (v2.116.1) — Owner request: the Home "Pick how much guidance you
   want" section (`components/category_overview/`) was removed with its
   catalogue hook; no protected part affected.

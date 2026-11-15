@@ -227,6 +227,11 @@
   opacity: 0.62;
 }
 
+/* Levels not reached yet show their badge in grey. */
+.rung[data-state="locked"] img {
+  filter: grayscale(1) brightness(0.85);
+}
+
 .rungText {
   display: grid;
   gap: 0.05rem;
