@@ -7,6 +7,8 @@ import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
+import { isValidTestEmail } from "@/components/test_mode/test_mode_email";
+import { TestModeEmailField } from "@/components/test_mode/test_mode_email_field";
 import { useProgramCheckout, type PurchaseState } from "@/hooks/use_program_checkout";
 import {
   fetchAllPremiumLevel1Programs,
@@ -399,8 +401,16 @@ export const PremiumLevel1Page = () => {
       ) : checkout.state.status === "error" ? (
         <div className={styles.stateCardError}>
           <p className={styles.stateTitle}>{tr(checkout.state.message)}</p>
+          {testModeActive ? (
+            <TestModeEmailField value={checkout.testEmail} onChange={checkout.setTestEmail} />
+          ) : null}
           <div className={styles.actions}>
-            <Button variant="secondary" size="small" onClick={() => void checkout.buy()}>
+            <Button
+              variant="secondary"
+              size="small"
+              disabled={testModeActive && !isValidTestEmail(checkout.testEmail)}
+              onClick={() => void checkout.buy()}
+            >
               {tr("Try again")}
             </Button>
           </div>
@@ -431,13 +441,14 @@ export const PremiumLevel1Page = () => {
       ) : (
         <>
           {testModeActive ? (
-            <p className={styles.testModeNote}>
-              <FlaskConical size={14} aria-hidden="true" />
-              {tr("Test Mode is active, so this purchase completes without contacting any payment provider.")}
-            </p>
-          ) : null}
-
-          {checkout.paymentMethods.length > 0 ? (
+            <>
+              <p className={styles.testModeNote}>
+                <FlaskConical size={14} aria-hidden="true" />
+                {tr("Test Mode is active, so this purchase completes without contacting any payment provider.")}
+              </p>
+              <TestModeEmailField value={checkout.testEmail} onChange={checkout.setTestEmail} />
+            </>
+          ) : checkout.paymentMethods.length > 0 ? (
             <fieldset className={styles.methods}>
               <legend className={styles.label}>{tr("Payment method")}</legend>
               <div className={styles.methodOptions}>
@@ -469,12 +480,17 @@ export const PremiumLevel1Page = () => {
               variant="primary"
               size="small"
               disabled={
-                checkout.paymentMethods.length === 0 ||
+                (!testModeActive && checkout.paymentMethods.length === 0) ||
+                (testModeActive && !isValidTestEmail(checkout.testEmail)) ||
                 ["creating", "negotiating", "redirecting", "processing"].includes(checkout.state.status)
               }
               onClick={() => void checkout.buy()}
             >
-              {checkout.state.status === "checking" ? tr("Checking access…") : tr("Pay and unlock my package")}
+              {checkout.state.status === "checking"
+                ? tr("Checking access…")
+                : testModeActive
+                  ? tr("Complete Test Mode purchase")
+                  : tr("Pay and unlock my package")}
             </Button>
           </div>
         </>

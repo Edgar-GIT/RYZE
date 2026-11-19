@@ -1170,11 +1170,11 @@ Responses:
 Test Mode lets the Technical Administrator exercise the customer commerce
 flows without real payments. A predefined persona (Test Client or Test Trainer)
 is fixed by the backend; the client never chooses or provides a user identity.
-Inside Test Mode every purchasable program (Generic or Premium Level 1)
-renders as Free and the test purchase completes server-side with no payment
-provider. Checkout prerequisites still apply. Test Mode is globally disabled
-via the `TEST_MODE_ENABLED` environment variable; when disabled every Test Mode
-action returns `403 TEST_MODE_DISABLED`.
+Inside Test Mode every purchasable program (Generic, Premium Level 1 or
+Premium Level 2) renders as Free and the test purchase completes server-side
+with no payment provider. Checkout prerequisites still apply. Test Mode is
+globally disabled via the `TEST_MODE_ENABLED` environment variable; when
+disabled every Test Mode action returns `403 TEST_MODE_DISABLED`.
 
 ### `POST /api/v1/admin/auth/test-mode`
 
@@ -1245,18 +1245,32 @@ purchase server-side for the active persona at zero cost, creating a real
 involved; the amount never leaves the backend and the provider code path is
 never reached. A free program is rejected (free grants have nothing to obtain).
 
+The request must carry the real inbox that receives Test Mode emails. Persona
+accounts own non-deliverable `@ryze.local` addresses, so the checkout asks the
+administrator for an address before every test purchase. The backend validates
+it and stores it on the active session; normal purchase, Premium Level 1,
+Premium Level 2 and support emails for that persona then use the typed address
+until the session ends or another test purchase replaces it. In-app
+notifications are unchanged.
+
 Request path:
 
-- `programID` (required) — the target published program UUID (Generic or
-  Premium Level 1). Its type must be `premium` (purchasable); free programs are
-  not purchasable.
+- `programID` (required) — the target published program UUID (Generic, Premium
+  Level 1 or Premium Level 2). Its type must be `premium` (purchasable); free
+  programs are not purchasable.
+
+Request body:
+
+- `email` (required) — one bare, valid email address (maximum 255 characters).
+  Display names and mailbox decorations are rejected. The address is sensitive
+  session data and is never logged.
 
 Responses:
 
 - `201 Created` — `data`: the completed purchase snapshot (same shape as the
   normal capture response), `status` set to `"completed"`,
   `price_minor_units` `0`.
-- `400 VALIDATION_ERROR` — malformed program id.
+- `400 VALIDATION_ERROR` — malformed program id or missing/invalid `email`.
 - `401 AUTHENTICATION_REQUIRED` — no authenticated session.
 - `403 TEST_MODE_INACTIVE` — the authenticated identity is not the active Test
   Mode persona, or the persona session lacks durable ownership (a normal user
@@ -2620,7 +2634,9 @@ Tokens travel only in the URL fragment and only their SHA-256 is stored.
 Kinds: `access_granted` (completed purchase, once per purchase),
 `pl2_intake_received`, `pl2_trainer_assigned` (client), `pl2_request_assigned`
 (trainer), `pl2_delivered`, `support_reply`. Each is created once per business
-event (dedupe key) and, except Test Mode personas, records the matching email.
+event (dedupe key) and records the matching email. A Test Mode persona receives
+the email only while its session has a recipient typed at test checkout; without
+one, the in-app notification is still recorded and the email stays suppressed.
 
 ### Support chat (migration 000040)
 
@@ -4535,7 +4551,10 @@ definition `{ version, sections }`. Each section has `key`, `title`,
 `description` and `questions`. Each question has `key`, `label`, `type`,
 `required`, optional `help`, `placeholder`, `options`, `min`, `max`, `step` and
 `max_length`. Types are `text`, `textarea`, `number`, `select`, `multiselect`
-and `boolean`. The same catalog is served to staff by
+and `boolean`. Version `2` (v2.124.0) covers eight sections: personal details,
+goals, training history, body measurements, lifestyle, nutrition, health and
+coaching preferences; boolean questions are rendered as explicit Yes/No choices.
+The same catalog is served to staff by
 `GET /api/v1/admin/premium-level-2/catalog` and
 `GET /api/v1/trainer/premium-level-2/catalog`.
 
@@ -4566,34 +4585,6 @@ pre-allocation states. Once a trainer is allocated the endpoint answers
 `409 PREMIUM_LEVEL_2_NOT_EDITABLE`.
 
 Response `data`: `{ request, intake }`.
-
-### Pre-purchase questionnaire (v2.115.0)
-
-```
-GET /api/v1/me/premium-level-2/offers/:programID/intake-draft
-PUT /api/v1/me/premium-level-2/offers/:programID/intake-draft
-```
-
-Owner request of 2026-11-14: the long questionnaire is answered before
-payment. Protected by `Authenticate`; the owner comes from the session.
-`programID` must be a published Premium Level 2 offer, otherwise
-`404 OFFER_NOT_FOUND`.
-
-`PUT` accepts `{ "answers": { ... } }` with any subset of the catalog answers,
-so the client can save section by section. Answers are normalized against the
-same catalog as the intake; only valid known answers are stored (one draft per
-user and offer, replaced on every save). Invalid or unknown keys are reported,
-never stored, and never fail the call.
-
-Response `data` for both methods:
-
-```json
-{ "answers": { ... }, "complete": false, "missing": ["key", ...], "invalid": { "key": "reason" } }
-```
-
-`complete` is true when every required answer is present and valid and the
-cross-field checks pass. `GET` before any save answers `answers: {}` with every
-required key in `missing`. The draft answers are returned only to their owner.
 
 ### Delivered nutrition
 
@@ -4691,15 +4682,14 @@ the session. A trainer can only see and modify requests allocated to them.
 
 ## Purchase Integration
 
-Premium Level 2 uses the existing purchase and Test Mode paths. Since v2.115.0
-checkout (regular and Test Mode) requires a complete pre-purchase questionnaire
-for that offer, otherwise `409 PURCHASE_PREREQUISITE_NOT_MET`. Purchase
-fulfilment verifies the active entitlement, then creates the request in
-`awaiting_intake`, turns the complete draft into intake revision 1 (the request
-moves to `awaiting_trainer_assignment` and the usual intake notification is
-sent) and deletes the draft; duplicate fulfilment is a no-op. A request without
-a usable draft stays in `awaiting_intake` and the existing intake endpoint
-still applies. The client list and detail enforce an active
+Premium Level 2 uses the existing purchase and Test Mode paths. Since v2.124.0
+(owner request, 2026-11-15) the questionnaire follows payment: checkout has no
+intake prerequisite, and the pre-purchase draft endpoints and table no longer
+exist. Purchase fulfilment verifies the active entitlement and creates the
+request in `awaiting_intake` idempotently; the first submission through
+`PUT /api/v1/me/premium-level-2/:requestID/intake` creates revision 1, moves the
+request to `awaiting_trainer_assignment` and sends the usual intake notification.
+Duplicate fulfilment is a no-op. The client list and detail enforce an active
 entitlement even after an offer is unpublished.
 
 # ACHIEVEMENTS ENDPOINTS

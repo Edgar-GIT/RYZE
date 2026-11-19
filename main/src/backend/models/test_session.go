@@ -15,15 +15,16 @@ import (
 // replayed into an active session. Soft-deleted sessions are excluded from
 // regular queries through GORM's DeletedAt handling.
 type TestSession struct {
-	ID            string         `gorm:"type:char(36);primaryKey" json:"id"`
-	AdminIdentity string         `gorm:"column:admin_identity;type:varchar(16);not null" json:"-"`
-	Persona       string         `gorm:"column:persona;type:varchar(16);not null" json:"persona"`
-	PersonaUserID string         `gorm:"column:persona_user_id;type:varchar(36);not null" json:"-"`
-	TokenHash     string         `gorm:"column:token_hash;type:char(64);not null;uniqueIndex" json:"-"`
-	ReturnPath    string         `gorm:"column:return_path;type:varchar(512)" json:"-"`
-	CreatedAt     time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
-	UpdatedAt     time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"-"`
+	ID             string         `gorm:"type:char(36);primaryKey" json:"id"`
+	AdminIdentity  string         `gorm:"column:admin_identity;type:varchar(16);not null" json:"-"`
+	Persona        string         `gorm:"column:persona;type:varchar(16);not null" json:"persona"`
+	PersonaUserID  string         `gorm:"column:persona_user_id;type:varchar(36);not null" json:"-"`
+	TokenHash      string         `gorm:"column:token_hash;type:char(64);not null;uniqueIndex" json:"-"`
+	ReturnPath     string         `gorm:"column:return_path;type:varchar(512)" json:"-"`
+	RecipientEmail string         `gorm:"column:recipient_email;type:varchar(255)" json:"-"`
+	CreatedAt      time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
+	UpdatedAt      time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"-"`
 }
 
 func (s *TestSession) BeforeCreate(_ *gorm.DB) error {

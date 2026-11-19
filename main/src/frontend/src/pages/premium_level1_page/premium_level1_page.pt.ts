@@ -33,6 +33,7 @@ export const PREMIUM_LEVEL1_PT: Catalog = {
   "No money was taken. Your questionnaire is still saved, so you can resume whenever you are ready.":
     "Não foi cobrado nenhum valor. O teu questionário continua guardado, por isso podes retomar quando quiseres.",
   "Pay and unlock my package": "Pagar e desbloquear o meu pacote",
+  "Complete Test Mode purchase": "Concluir compra em Modo de Teste",
   "View package": "Ver pacote",
   "Back to {objective}": "Voltar a {objective}",
   "All objectives": "Todos os objetivos",

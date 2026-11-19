@@ -2,10 +2,9 @@ import { ChevronsDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
-import { BrandGlobe } from "@/components/brand_globe/brand_globe";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
-import earthLandMask from "@resources/img/globe/earth_land_mask.webp";
 import { joinClassNames } from "@utils/class_names";
+import earthLandMask from "@resources/img/globe/earth_land_mask.webp";
 
 import { CALLOUTS, SCREENS, STORY_CHAPTER_IDS, type StoryChapterId, useStory } from "./story_content";
 import { ChapterCopy, StartActions, TONE_CLASS } from "./story_parts";
@@ -15,10 +14,10 @@ import styles from "./story_immersive.module.css";
 /*
  * Desktop Home: one 3D stage stays pinned behind the hero, the programs and
  * the device chapters, with the five story steps on its right edge.
- *   hero scrolling away          0    → 0.1   the Earth travels to the corner
- *   programs passing over        0.1  → 0.14  the Earth waits in the corner
+ *   hero scrolling away          0    → 0.1   the hologram travels to the corner
+ *   programs passing over        0.1  → 0.14  the hologram waits in the corner
  *   chapter track                0.14 → 1     the phone flies in, then the
- *                                              laptop; the Earth returns
+ *                                              laptop; the hologram returns
  * The track starts while the programs are still leaving, so the phone and the
  * Train copy arrive right behind them (owner request, 2026-11-15: no empty
  * screen between the programs and Train): the Train copy follows the leaving
@@ -173,6 +172,7 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
   // The vertical shift last applied to each chapter (to find its resting place).
   const shiftRefs = useRef<Partial<Record<StoryChapterId, number>>>({});
   const sceneRef = useRef<StoryScene | null>(null);
+
   const visibleRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [activeStep, setActiveStep] = useState<StoryChapterId>("identity");
@@ -200,7 +200,7 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
       const progress = progressFor(current);
       sceneRef.current?.setProgress(progress);
 
-      // The hero copy fades as it scrolls away, while the Earth heads for the corner.
+      // The hero copy fades as it scrolls away, while the hologram heads for the corner.
       if (heroCopyRef.current) {
         const away = progress / HERO_END;
         heroCopyRef.current.style.opacity = (1 - smoothstep(0.2, 0.8, away)).toFixed(3);
@@ -310,14 +310,14 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
         }
         return createStoryScene(canvas, {
           logo: BRAND_ASSETS.icon,
-          landMask: earthLandMask,
           screens: {
             training: SCREENS.training,
             nutrition: SCREENS.nutrition,
             synced: SCREENS.synced,
             platform: SCREENS.platform
           },
-          callouts: CALLOUTS
+          callouts: CALLOUTS,
+          landMask: earthLandMask
         });
       })
       .then((created) => {
@@ -383,11 +383,6 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
     <div ref={rootRef} className={joinClassNames(styles.story, ready && styles.storyReady)} onPointerMove={handlePointerMove}>
       <section ref={stageRef} className={styles.stage} aria-label={text.discover}>
         <div ref={backdropRef} className={styles.backdrop} aria-hidden="true" />
-        {ready ? null : (
-          <div className={styles.placeholder} aria-hidden="true">
-            <BrandGlobe />
-          </div>
-        )}
         <div ref={canvasHostRef} className={styles.canvasHost} />
 
         <div className={styles.chapters}>

@@ -84,7 +84,8 @@ unrelated.
 Static background images are forbidden everywhere except login and registration.
 Functional imagery (exercise media, avatars and useful product imagery) is
 allowed. Three.js serves useful demonstrations and the owner-approved desktop
-Home scroll story (the Earth, phone and laptop; desktop only, phones get the
+Home scroll story (the drone's projected opening — phone, dumbbell and meal — the devices and planet RYZE;
+desktop only, phones get the
 SVG/CSS equivalents). Load it lazily with WebGL fallback and reduced motion, and
 consider GPU/battery cost. Do not add R3F or other dependencies merely because
 an installed skill contains examples.

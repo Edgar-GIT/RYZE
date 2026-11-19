@@ -3,10 +3,11 @@ import { ArrowRight, Construction, SearchX } from "lucide-react";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { PublicAction } from "@/components/public_ui/public_ui";
 import ui from "@/components/public_ui/public_ui.module.css";
-import { BrandGlobe } from "@/components/brand_globe/brand_globe";
 import { type Catalog, useGettext } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 
+import { BlockedHologram } from "./blocked_hologram";
+import { FeedConstructionHologram } from "./feed_construction_hologram";
 import styles from "./under_development_page.module.css";
 
 // Portuguese for this page and the texts the routes pass to it.
@@ -31,6 +32,7 @@ interface UnderDevelopmentPageProps {
   title: string;
   description: string;
   eyebrow?: string;
+  visual?: "blocked" | "feedConstruction";
   // "notFound" marks an address RYZE does not have (a missing page), as
   // opposed to a feature that is planned but not built yet.
   kind?: "inProgress" | "notFound";
@@ -40,7 +42,8 @@ export const UnderDevelopmentPage = ({
   title,
   description,
   eyebrow = "In progress",
-  kind = "inProgress"
+  kind = "inProgress",
+  visual = "blocked"
 }: UnderDevelopmentPageProps) => {
   const tr = useGettext(UNDER_DEVELOPMENT_PT);
   return (
@@ -65,7 +68,11 @@ export const UnderDevelopmentPage = ({
             </PublicAction>
           </div>
         </div>
-        <BrandGlobe className={styles.orb} />
+        {visual === "feedConstruction" ? (
+          <FeedConstructionHologram className={styles.orb} />
+        ) : (
+          <BlockedHologram className={styles.orb} />
+        )}
       </div>
     </section>
   </PageWrapper>

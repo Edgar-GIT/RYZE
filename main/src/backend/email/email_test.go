@@ -26,6 +26,19 @@ func TestRenderEveryTemplateInBothLocales(t *testing.T) {
 	}
 }
 
+func TestRecipientAddressValidation(t *testing.T) {
+	for _, valid := range []string{"qa@example.com", "  qa.tester@example.com  ", "first.last+tag@sub.example.com"} {
+		if !IsValidAddress(valid) {
+			t.Fatalf("expected %q to be valid", valid)
+		}
+	}
+	for _, invalid := range []string{"", "qa", "Name <qa@example.com>", "qa@example.com\r\nBcc: x@example.com", strings.Repeat("a", 250) + "@example.com"} {
+		if IsValidAddress(invalid) {
+			t.Fatalf("expected %q to be rejected", invalid)
+		}
+	}
+}
+
 func TestRenderEscapesHTMLAndRequiresLinks(t *testing.T) {
 	message, err := Render(TemplateAccessGranted, LocaleEnglish, Data{Name: "<b>x</b>", Program: "P", Link: "https://ryze.example/a"})
 	if err != nil {

@@ -7,6 +7,7 @@ import { AccountSettingsPage } from "@/pages/account_settings_page/account_setti
 import { AchievementsPage } from "@/pages/achievements_page/achievements_page";
 import { MemberDashboardPage } from "@/pages/member_dashboard_page/member_dashboard_page";
 import { MyProgramsPage } from "@/pages/my_programs_page/my_programs_page";
+import { PremiumLevel2AcademyPage } from "@/pages/premium_level2_academy/premium_level2_academy_page";
 import { ProgramAccessPage } from "@/pages/program_access_page/program_access_page";
 import { ProgressPage } from "@/pages/progress_page/progress_page";
 import { SupportPage } from "@/pages/support_page/support_page";
@@ -26,6 +27,7 @@ const MemberRoutes = () => (
       <Route exact path="/support" component={SupportPage} />
       <Route exact path="/services/my-programs" component={MyProgramsPage} />
       <Route exact path="/services/my-programs/:programId" component={ProgramAccessPage} />
+      <Route exact path="/services/premium-level-2/academy" component={PremiumLevel2AcademyPage} />
       <Route exact path="/services/workout-history" component={WorkoutHistoryPage} />
       <Route exact path="/services/progress" component={ProgressPage} />
       <Route

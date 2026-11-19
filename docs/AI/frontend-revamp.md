@@ -89,6 +89,42 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-16 (v2.124.0) — Owner request: payment first for Premium Level 2.
+  New `pages/premium_level2_experience/` (entry resolver, preparing moment,
+  full bilingual intake, plan-on-the-way timeline and printable summary with
+  receipt) and `pages/premium_level2_academy/` (delivered-only bilingual
+  guide inside the member shell). The journey is now Service → Payment, the
+  offer page links editable requests to the experience, and the pre-purchase
+  draft UI is gone. Public and member pages follow the existing glass/mobile
+  system; no static background, no new dependency, no 3D. Protected parts
+  untouched.
+- 2026-11-15 (v2.121.0) — Owner requests: a cinematic Home hero opening (drone
+  projects the phone, a dumbbell and a meal as holograms that turn solid;
+  `home_story/story_intro.ts`, light version `home_story/hero_showcase.tsx`),
+  planet RYZE back in the last chapter (`home_story/story_planet.ts`), lighter
+  device metals. No new dependency; lazy desktop-only Three.js, fallback,
+  reduced motion and disposal unchanged; CTAs never blocked. Protected parts
+  untouched (the showcase mockups are used only by the stacked story).
+- 2026-11-15 (v2.120.0) — Owner request: the hologram becomes a training
+  analysis tied to the app. Scanner drone, scan line and plane, dark platform
+  with a stencil-masked reflection, quiet network overlay, and an HTML readout
+  in the workout player's terms (`home_story/story_readout.tsx`) that avoids
+  the hero copy; the SVG fallback gets the scanner and a phone readout card.
+  No invented biometrics; no new dependency; lazy loading, fallback and
+  disposal unchanged. Protected parts untouched.
+- 2026-11-15 (v2.119.0) — Owner feedback: the hologram athlete looked like
+  "a set of balls". Replaced by a faceless, genderless SDF mannequin with a
+  triangulated light network that cycles curl, press, squat and Romanian
+  deadlift, the worked muscles pulsing gold to red
+  (`home_story/story_athlete.ts`); the SVG fallback follows (curls and
+  squats). No new dependency, no WebAssembly (CSP unchanged); lazy loading,
+  fallback and disposal unchanged. Protected parts untouched.
+- 2026-11-15 (v2.118.0) — Owner request: replace the Home story's Earth with a
+  drone-projected hologram athlete curling on a bench
+  (`home_story/story_hologram.ts`, procedural; `components/brand_hologram/`
+  for phones, reduced motion and no-WebGL). Lazy desktop-only Three.js, the
+  existing capability check, frame-rate policy, disposal and fallback are
+  unchanged. Protected parts untouched.
 - 2026-11-15 (v2.117.0) — Owner request: back buttons everywhere; Premium
   pages showed the bare background; the 60-30-10 rule for colour and life
   (navbar and everything may change). `public_ui` `.page` is now a field of the

@@ -829,6 +829,12 @@ The implemented `test_sessions` table contains:
   cookie value.
 - `return_path` — validated client-side safe path to return to on exit
   (`VARCHAR(512) NULL`).
+- `recipient_email` — the real inbox typed at Test Mode checkout
+  (`VARCHAR(255) NULL`). Personas have non-deliverable `@ryze.local` accounts,
+  so the notifications service uses this address for the persona's lifecycle
+  emails while the session is active. It is validated server-side, never logged
+  and never returned by an API; exiting soft-deletes the session and stops its
+  use.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker (exited sessions are kept for
   auditability).
@@ -965,10 +971,10 @@ The implemented `exercises` table contains:
 Additional indexes cover the administrative access patterns:
 `idx_exercises_body_part`, `idx_exercises_status`,
 `idx_exercises_source (source, source_id)` and `idx_exercises_owner_trainer_id`.
-Migrations `000029` (catalogue provenance, body part, steps, animation,
-attribution, publication lifecycle), `000030` (trainer-application evidence),
-`000031` (`three_d_key`) and `000032` (Test Mode persona ownership) are the
-current schema additions.
+Exercise-catalogue additions are migrations `000029` (catalogue provenance,
+body part, steps, animation, attribution, publication lifecycle), `000030`
+(trainer-application evidence) and `000031` (`three_d_key`). Test Mode additions
+are `000032` (persona ownership) and `000047` (session recipient email).
 
 Muscle reliability: filtering and previews rely on the controlled muscle-group
 values stored in `primary_muscle_group` / `secondary_muscle_groups`; the legacy
@@ -2615,7 +2621,8 @@ delivery.
 ### Lifecycle
 
 - Purchase fulfilment inserts the request in `awaiting_intake` only after
-  verifying an active entitlement; duplicate fulfilment is a no-op.
+  verifying an active entitlement; duplicate fulfilment is a no-op. There is no
+  pre-purchase draft row: the request's intake is written only after purchase.
 - The first intake submission moves the request to
   `awaiting_trainer_assignment`. Further submissions replace the active revision
   while the request is in either pre-allocation state.
@@ -2752,15 +2759,15 @@ Additive (owner request, 2026-11-14):
   `user_id`, `program_id` (FKs), `answers JSONB NOT NULL DEFAULT '{}'` (only
   answers valid against the intake catalog), `complete BOOLEAN`, `created_at`,
   `updated_at` (touched by `ryze_touch_updated_at()`), unique
-  `(user_id, program_id)`. A completed purchase copies the draft into
-  `premium_level_2_intakes` (revision 1) and deletes the draft.
+  `(user_id, program_id)`. A completed purchase copied the draft into
+  `premium_level_2_intakes` (revision 1) and deleted the draft. The table and
+  its flow were removed by migration `000046` (v2.124.0).
 
 "Never the same plan twice" is enforced by excluding packages with an active
 entitlement or a completed purchase of the caller, not by these tables.
 
-Like the other intake tables, drafts and matches are kept on account soft
-deletion. No retention period is defined yet for drafts of offers that were
-never bought (open business decision).
+Matches are kept on account soft deletion. No retention period is defined yet
+for match records (open business decision).
 
 The down migration drops both tables and restores the three-value objective
 constraint; it fails if a programme already uses `sport_specific`, so such
@@ -2787,3 +2794,33 @@ table: they are derived on read from `workout_sessions`,
 completed sets only).
 
 The down migration drops the constraints and columns.
+
+---
+
+## Migration 000046 — Premium Level 2 intake after purchase (v2.124.0)
+
+Removal (owner request, 2026-11-15): the long questionnaire moved from
+before checkout to immediately after purchase, so nothing reads or writes
+`premium_level_2_intake_drafts`. The up migration drops that table. No data is
+copied into `premium_level_2_intakes`: draft answers were never part of a
+purchase or a service request, and the request's versioned intake is created
+only by the post-purchase submission.
+
+No other table, view, index or programme row changes. The down migration
+recreates an empty `premium_level_2_intake_drafts` table with its original
+columns, unique owner/offer key, foreign keys and `updated_at` trigger; it
+cannot restore discarded draft answers.
+
+---
+
+## Migration 000047 — Test Mode session recipient email (v2.125.0)
+
+Adds `test_sessions.recipient_email VARCHAR(255) NULL`. Test Mode personas use
+non-deliverable `@ryze.local` accounts, so checkout previously could not send
+the normal purchase or lifecycle emails anywhere real. The typed address is
+stored per active session, validated server-side, and used by the notifications
+service only while that session is active. Exiting soft-deletes the session,
+which stops further use without erasing the audit row.
+
+The down migration drops the column; it cannot restore addresses already
+written.

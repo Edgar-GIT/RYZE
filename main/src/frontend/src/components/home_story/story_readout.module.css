@@ -1,0 +1,370 @@
+/* The hologram scanner's readout: the same navy glass cards as the story's
+   app callouts (cyan eyebrow, white title, large figures, a cyan "logged"
+   pill), joined to the scene by thin light lines. Decorative and
+   pointer-transparent; it is placed by the scene every frame. */
+
+.readout {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: var(--r-font, "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif);
+  transition: opacity 200ms linear;
+}
+
+.links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.muscleLink,
+.dataLink {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.muscleLink {
+  stroke: rgba(191, 246, 255, 0.7);
+  stroke-width: 1.2;
+}
+
+.muscleDot {
+  fill: #e8fdff;
+  filter: drop-shadow(0 0 6px rgba(124, 235, 255, 0.95));
+}
+
+/* The data link from the scanner to the session card: a quiet dashed line
+   that runs while a logged set arrives. */
+.dataLink {
+  stroke: rgba(124, 235, 255, 0.38);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 7;
+  animation: data-flow 1.6s linear infinite;
+  transition: stroke 300ms ease;
+}
+
+.dataLinkActive {
+  stroke: rgba(232, 253, 255, 0.95);
+  filter: drop-shadow(0 0 4px rgba(124, 235, 255, 0.9));
+}
+
+@keyframes data-flow {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+.card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  gap: 0.35rem;
+  width: clamp(13.25rem, 16.5vw, 15.5rem);
+  padding: 0.95rem 1.05rem 0.85rem;
+  border: 1px solid rgba(124, 235, 255, 0.22);
+  border-radius: 1.15rem;
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(24, 44, 104, 0.84), rgba(7, 17, 50, 0.9));
+  box-shadow:
+    0 18px 40px rgba(2, 4, 31, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  will-change: transform;
+}
+
+.card p {
+  margin: 0;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #7cebff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.eyebrowIcon {
+  flex: 0 0 auto;
+  width: 0.8rem;
+  height: 0.8rem;
+  stroke-width: 3;
+}
+
+/* The scanner is reading: a small live light. */
+.live {
+  flex: 0 0 auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #7cebff;
+  box-shadow: 0 0 8px rgba(124, 235, 255, 0.9);
+  animation: live 1.6s ease-in-out infinite;
+}
+
+@keyframes live {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.loadRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.load {
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.32rem 0.6rem;
+  border-radius: 999px;
+  color: #04122e;
+  background: linear-gradient(180deg, #5ee6ff, #18c6f5);
+  font-size: 0.72rem;
+  font-weight: 800;
+  opacity: 0;
+  transform: scale(0.85);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.pill svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  stroke-width: 3;
+}
+
+.pillOn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sets,
+.segments {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 0.3rem;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sets li {
+  height: 0.3rem;
+  border-radius: 999px;
+  background: rgba(124, 235, 255, 0.16);
+  transition: background-color 300ms ease;
+}
+
+.sets li[data-state="done"] {
+  background: #7cebff;
+  box-shadow: 0 0 8px rgba(124, 235, 255, 0.6);
+}
+
+.sets li[data-state="current"] {
+  background: rgba(124, 235, 255, 0.4);
+  animation: live 1.6s ease-in-out infinite;
+}
+
+.meta {
+  color: rgba(214, 228, 255, 0.72);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.sample {
+  color: rgba(214, 228, 255, 0.45);
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+}
+
+/* Rest before the next exercise, like the player's rest timer. */
+.rest {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.9rem 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.restRing {
+  width: 2.9rem;
+  height: 2.9rem;
+  rotate: -90deg;
+}
+
+.restTrack,
+.restArc {
+  fill: none;
+  stroke-width: 3;
+}
+
+.restTrack {
+  stroke: rgba(124, 235, 255, 0.18);
+}
+
+.restArc {
+  stroke: #18d8ff;
+  stroke-dasharray: 119.4;
+  stroke-linecap: round;
+  animation: rest-down 1.3s linear forwards;
+}
+
+@keyframes rest-down {
+  from {
+    stroke-dashoffset: 0;
+  }
+
+  to {
+    stroke-dashoffset: 119.4;
+  }
+}
+
+.restTime {
+  position: absolute;
+  top: 50%;
+  left: 1.45rem;
+  translate: -50% -50%;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.next {
+  color: rgba(214, 228, 255, 0.78);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.next strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* The workout's exercises: done, in progress (filled by its sets) and next. */
+.segments li {
+  height: 0.3rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(124, 235, 255, 0.16);
+}
+
+.segments i {
+  display: block;
+  width: calc(var(--fill, 0) * 100%);
+  height: 100%;
+  border-radius: inherit;
+  background: #7cebff;
+  transition: width 400ms ease;
+}
+
+.summary {
+  display: grid;
+  gap: 0.35rem;
+  animation: card-in 380ms ease-out;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.xp {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  background: linear-gradient(90deg, #ffffff, #7cebff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.level {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+  color: rgba(214, 228, 255, 0.85);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.bar {
+  height: 0.32rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(124, 235, 255, 0.16);
+}
+
+.bar i {
+  display: block;
+  width: var(--to);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2a8cff, #18d8ff);
+  animation: level-up 1.2s ease-out;
+}
+
+@keyframes level-up {
+  from {
+    width: var(--from);
+  }
+}
+
+/* The record medal is gold, as in the achievements page. */
+.medal {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.1rem;
+  color: #ffd27a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.medal svg {
+  flex: 0 0 auto;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dataLink,
+  .live,
+  .sets li[data-state="current"],
+  .restArc,
+  .summary,
+  .bar i {
+    animation: none;
+  }
+}

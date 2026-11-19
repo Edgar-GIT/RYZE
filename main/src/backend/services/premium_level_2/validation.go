@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 )
 
@@ -183,61 +182,4 @@ func crossValidate(answers map[string]any) error {
 		return fmt.Errorf("Select at least as many training days as weekly sessions.")
 	}
 	return nil
-}
-
-// NormalizePartialAnswers validates the answers given so far for a
-// questionnaire saved before payment. Only known, valid answers are kept;
-// invalid ones are reported in invalid, and the required questions not
-// answered yet are listed in missing. The draft is complete when both are
-// empty and the cross-field rules hold.
-func NormalizePartialAnswers(raw []byte) (normalized []byte, invalid map[string]string, missing []string) {
-	invalid = map[string]string{}
-	if len(bytes.TrimSpace(raw)) == 0 {
-		raw = []byte("{}")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
-	var input map[string]any
-	if err := decoder.Decode(&input); err != nil || input == nil {
-		invalid["_form"] = "Answers must be a JSON object."
-		return []byte("{}"), invalid, nil
-	}
-	questions := questionByKey(IntakeCatalog())
-	kept := map[string]any{}
-	for key := range input {
-		if _, ok := questions[key]; !ok {
-			invalid[key] = "Unknown field."
-		}
-	}
-	for key, question := range questions {
-		value, present := input[key]
-		if !present || value == nil {
-			if question.Required {
-				missing = append(missing, key)
-			}
-			continue
-		}
-		normalizedValue, message := normalizeAnswer(question, value)
-		if message != "" {
-			invalid[key] = message
-			continue
-		}
-		if normalizedValue != nil {
-			kept[key] = normalizedValue
-		} else if question.Required {
-			missing = append(missing, key)
-		}
-	}
-	if len(invalid) == 0 && len(missing) == 0 {
-		if err := crossValidate(kept); err != nil {
-			invalid["preferred_days"] = err.Error()
-		}
-	}
-	encoded, err := json.Marshal(kept)
-	if err != nil {
-		invalid["_form"] = "Answers could not be processed."
-		return []byte("{}"), invalid, missing
-	}
-	sort.Strings(missing)
-	return encoded, invalid, missing
 }

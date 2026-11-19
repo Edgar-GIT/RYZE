@@ -4,6 +4,7 @@ import {
   Dumbbell,
   History,
   Globe2,
+  GraduationCap,
   LayoutDashboard,
   LifeBuoy,
   Play,
@@ -17,6 +18,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { useHistory } from "react-router-dom";
 
 import { type Copy, useI18n } from "@/i18n/i18n";
+import { fetchMyPremiumLevel2Requests } from "@/services/premium_level_2_api";
 import { fetchTrainerAccess } from "@/services/trainer_api";
 import { ApiError, apiGet, apiPost } from "@utils/http_client";
 
@@ -68,6 +70,7 @@ const COPY: Copy<{
   start: string;
   startText: string;
   trainer: string;
+  academy: string;
   back: string;
   goBack: string;
 }> = {
@@ -93,6 +96,7 @@ const COPY: Copy<{
     start: "Start a workout",
     startText: "Pick up your plan where you left it",
     trainer: "Trainer area",
+    academy: "Premium L2 academy",
     back: "Back to the site",
     goBack: "Back"
   },
@@ -118,6 +122,7 @@ const COPY: Copy<{
     start: "Começar treino",
     startText: "Continua o teu plano onde ficaste",
     trainer: "Área de treinador",
+    academy: "Academia Premium N2",
     back: "Voltar ao site",
     goBack: "Voltar"
   }
@@ -135,6 +140,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
   const history = useHistory();
   const [user, setUser] = useState<MemberUser | null>(null);
   const [isTrainer, setIsTrainer] = useState(false);
+  const [hasPremiumLevel2Academy, setHasPremiumLevel2Academy] = useState(false);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -153,6 +159,11 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
         if (!cancelled) setIsTrainer(access.is_trainer);
       })
       .catch(() => undefined);
+    fetchMyPremiumLevel2Requests()
+      .then((requests) => {
+        if (!cancelled) setHasPremiumLevel2Academy(requests.some((request) => request.status === "delivered"));
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -168,6 +179,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     { to: "/achievements", label: text.achievements, icon: Trophy },
     { to: "/services/generic-program", label: text.plans, icon: ShoppingBag },
     { to: "/exercises", label: text.library, icon: BookOpen },
+    ...(hasPremiumLevel2Academy ? [{ to: "/services/premium-level-2/academy", label: text.academy, icon: GraduationCap }] : []),
     { to: "/account/purchases", label: text.purchases, icon: ReceiptText },
     { to: "/support", label: text.support, icon: LifeBuoy },
     { to: "/account/settings", label: text.account, icon: Settings }
@@ -175,6 +187,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
   const menuItems: UserMenuItem[] = [
     { to: "/account/settings", label: text.account, icon: Settings },
     { to: "/account/purchases", label: text.purchases, icon: ReceiptText },
+    ...(hasPremiumLevel2Academy ? [{ to: "/services/premium-level-2/academy", label: text.academy, icon: GraduationCap }] : []),
     { to: "/support", label: text.support, icon: LifeBuoy },
     ...(isTrainer ? [{ to: "/trainer/dashboard", label: text.trainer, icon: Users }] : []),
     { to: "/", label: text.site, icon: Globe2 }

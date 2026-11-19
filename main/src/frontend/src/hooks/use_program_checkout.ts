@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { isValidTestEmail } from "@/components/test_mode/test_mode_email";
 import { ApiError } from "@utils/http_client";
 import {
   capturePayment,
@@ -59,6 +60,9 @@ export interface ProgramCheckout {
   paymentMethods: PaymentMethodInfo[];
   selectedMethod: string;
   selectMethod: (method: string) => void;
+  /** The real inbox that receives Test Mode emails for this session. */
+  testEmail: string;
+  setTestEmail: (email: string) => void;
   buy: () => Promise<void>;
   retryPurchase: (purchaseId: string) => Promise<void>;
   /** Re-reads the ownership state after an external event (for example a
@@ -90,6 +94,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
   const [state, setState] = useState<PurchaseState>({ status: "checking" });
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodInfo[]>([]);
   const [selectedMethod, setSelectedMethod] = useState("");
+  const [testEmail, setTestEmail] = useState("");
   // Guards the PURCHASE_EXPIRED recovery so a checkout freshens its intent at
   // most once, keeping the auto-recovery bounded instead of recursive.
   const freshenedIntent = useRef(false);
@@ -226,9 +231,13 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
   }, [programId, recoverOwnershipOrFail, resolveMethodForPurchase]);
 
   const runTestModePurchase = useCallback(async () => {
+    if (!isValidTestEmail(testEmail)) {
+      setState({ status: "error", message: "Enter a valid test email address." });
+      return;
+    }
     setState({ status: "creating" });
     try {
-      const purchase = await completeTestPurchase(programId);
+      const purchase = await completeTestPurchase(programId, testEmail.trim());
       setState({ status: "success", purchase });
     } catch (error) {
       // 409 DUPLICATE_ENTITLEMENT: the persona already owns the program
@@ -240,7 +249,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       }
       setState({ status: "error", message: "We could not complete this Test Mode purchase. Please try again." });
     }
-  }, [programId, recoverOwnershipOrFail]);
+  }, [programId, recoverOwnershipOrFail, testEmail]);
 
   const buy = useCallback(async () => {
     if (testModeActive) {
@@ -375,6 +384,8 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
     paymentMethods,
     selectedMethod,
     selectMethod: setSelectedMethod,
+    testEmail,
+    setTestEmail,
     buy,
     retryPurchase,
     refreshOwnership: resolveOwnership

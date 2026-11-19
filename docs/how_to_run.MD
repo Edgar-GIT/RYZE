@@ -539,14 +539,18 @@ TEST_MODE_ENABLED=true
   **Test Mode** in the Technical navigation to enter as one of the personas.
   Inside Test Mode all purchasable programs render as Free and buying completes a
   real zero-cost purchase + entitlement server-side — no payment provider is
-  involved.
+  involved. Checkout asks for a real email recipient because persona accounts
+  use non-deliverable `@ryze.local` addresses. The normal purchase and lifecycle
+  emails go to that inbox for the rest of the session; without one, they stay
+  suppressed while in-app notifications continue to work. Actual delivery still
+  requires the standard `MAIL_*` configuration.
 - Exiting Test Mode restores the original ADMIN_1 session and returns to the
   configured return path. Audit entries (`test_mode.entered` /
   `test_mode.exited` / `test_mode.purchase_completed`) are written through the
   standard logging pipeline.
-- Test Mode requires a database migration: run `go run . migrate up` once in
+- Test Mode requires database migrations: run `go run . migrate up` once in
   development. Migration `000023` creates the `test_sessions` table and the
-  `purchases.test` marker.
+  `purchases.test` marker; migration `000047` adds the session email recipient.
 
 Real money is never involved and no provider configuration is required for
 Test Mode purchases.
@@ -1439,7 +1443,7 @@ go run . migrate up
 go run . migrate status
 ```
 
-The expected schema version is `35` with `dirty = false`. Then, as ADMIN_2,
+The expected schema version is `46` with `dirty = false`. Then, as ADMIN_2,
 open **Plans** (Programs → Plans), switch to the **Premium · Level 2** tab and
 select **New plan**. A Level 2 offer has no weeks, no level, no training type,
 no duration, no frequency and no nutrition content; it accepts only the Premium
@@ -1450,12 +1454,14 @@ pricing category. Publish it.
 1. Open `/services/premium-level-2` as a client, select the offer and complete a
    Test Mode purchase. Purchase fulfilment creates the service request; no
    intake is requested before payment.
-2. Open the request from the confirmation or from **My Programs**. The page shows
-   `awaiting_intake` and the intake form loaded from
-   `GET /api/v1/me/premium-level-2/catalog`.
+2. The confirmation opens `/services/premium-level-2/experience?preparing=1`,
+   then the full questionnaire loaded from
+   `GET /api/v1/me/premium-level-2/catalog`. The request page remains available
+   for the detailed status.
 3. Submit a complete intake. The request moves to
-   `awaiting_trainer_assignment`. Submit it again to confirm the revision number
-   increases and the answers are replaced while allocation has not happened.
+   `awaiting_trainer_assignment` and the experience shows the "plan on the way"
+   timeline. Submit it again before allocation to confirm the revision number
+   increases and the answers are replaced.
 4. As ADMIN_2, open `/admin2/premium-level-2`, select the request and allocate an
    active trainer. The request moves to `in_progress` and the client form becomes
    read-only.
@@ -1465,9 +1471,13 @@ pricing category. Publish it.
    moves to `ready_for_delivery`.
 6. Select **Deliver**. The request becomes `delivered`, the training entitlement
    is created and the nutrition plan is released.
-7. Back as the client, refresh the request page: answers are read-only, the
-   delivered nutrition renders and the training programme is available through
-   Program Access / My Programs.
+7. Back as the client, open the experience summary: answers are read-only, the
+   purchase receipt and printable answers/receipt sheet are available, the
+   delivered nutrition renders on the request page and the training programme is
+   available through Program Access / My Programs.
+8. Confirm `/services/premium-level-2/academy` now opens from the member
+   navigation and that it stays restricted for a client without a delivered
+   Level 2 request.
 
 ### Verify without the UI
 

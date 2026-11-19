@@ -40,8 +40,8 @@ type Event struct {
 	Link string
 	// DedupeKey identifies the business event; required.
 	DedupeKey string
-	// EmailTemplate also sends this email when set (never to Test Mode
-	// personas, whose addresses are not real mailboxes).
+	// EmailTemplate also sends this email when set. Test Mode personas only
+	// receive it after the session has supplied a deliverable recipient.
 	EmailTemplate string
 }
 
@@ -58,6 +58,13 @@ type Users interface {
 // Programs resolves programme names.
 type Programs interface {
 	FindByID(ctx context.Context, programID string) (*models.Program, error)
+}
+
+// TestRecipients resolves the mailbox supplied for the active Test Mode
+// session. An empty result means the session has no deliverable recipient and
+// persona emails must stay suppressed.
+type TestRecipients interface {
+	FindActiveRecipientByPersona(ctx context.Context, personaUserID string) (string, error)
 }
 
 // List is the account's current notifications.
@@ -81,16 +88,31 @@ type Service interface {
 }
 
 type service struct {
-	repo     repositories.NotificationRepository
-	users    Users
-	programs Programs
-	mailer   email.Mailer
-	now      func() time.Time
+	repo           repositories.NotificationRepository
+	users          Users
+	programs       Programs
+	mailer         email.Mailer
+	testRecipients TestRecipients
+	now            func() time.Time
+}
+
+// Option configures the notification service.
+type Option func(*service)
+
+// WithTestRecipients resolves the address supplied at Test Mode checkout so
+// personas receive the same lifecycle emails as real accounts while their
+// session is active.
+func WithTestRecipients(testRecipients TestRecipients) Option {
+	return func(s *service) { s.testRecipients = testRecipients }
 }
 
 // New builds the service. mailer may be nil (in-app only).
-func New(repo repositories.NotificationRepository, users Users, programs Programs, mailer email.Mailer) Service {
-	return &service{repo: repo, users: users, programs: programs, mailer: mailer, now: func() time.Time { return time.Now().UTC() }}
+func New(repo repositories.NotificationRepository, users Users, programs Programs, mailer email.Mailer, opts ...Option) Service {
+	s := &service{repo: repo, users: users, programs: programs, mailer: mailer, now: func() time.Time { return time.Now().UTC() }}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // safeLink keeps only an in-app absolute path.
@@ -150,8 +172,12 @@ func (s *service) Notify(ctx context.Context, event Event) {
 		}
 		return
 	}
+	recipient := user.Email
 	if user.TestPersona != nil {
-		return
+		recipient = s.testRecipient(ctx, user.ID)
+		if recipient == "" {
+			return
+		}
 	}
 	locale := email.LocaleEnglish
 	if user.PreferredLanguage != nil {
@@ -159,7 +185,7 @@ func (s *service) Notify(ctx context.Context, event Event) {
 	}
 	if err := s.mailer.Enqueue(ctx, email.Request{
 		UserID:    user.ID,
-		To:        user.Email,
+		To:        recipient,
 		Template:  event.EmailTemplate,
 		Locale:    locale,
 		Name:      email.GreetingName(user),
@@ -169,6 +195,21 @@ func (s *service) Notify(ctx context.Context, event Event) {
 	}); err != nil {
 		slog.Error("notification email not recorded", slog.String("kind", event.Kind), slog.String("user_id", user.ID), slog.String("error", err.Error()))
 	}
+}
+
+// testRecipient returns the deliverable address of the active Test Mode
+// session, never the persona's synthetic account address. An absent session or
+// recipient suppresses the email instead of failing the business event.
+func (s *service) testRecipient(ctx context.Context, personaUserID string) string {
+	if s.testRecipients == nil {
+		return ""
+	}
+	recipient, err := s.testRecipients.FindActiveRecipientByPersona(ctx, personaUserID)
+	if err != nil {
+		slog.Error("test notification recipient not resolved", slog.String("user_id", personaUserID), slog.String("error", err.Error()))
+		return ""
+	}
+	return recipient
 }
 
 func (s *service) List(ctx context.Context, userID string) (List, error) {
@@ -217,17 +258,13 @@ func (s *service) FulfillPurchase(ctx context.Context, userID, programID string)
 		// The buyer's next step is the intake.
 		link = "/services/premium-level-2"
 	}
-	event := Event{
+	s.Notify(ctx, Event{
 		UserID:        userID,
 		Kind:          models.NotificationAccessGranted,
 		Program:       program.Name,
 		Link:          link,
 		DedupeKey:     "access_granted:" + purchase.ID,
 		EmailTemplate: email.TemplateAccessGranted,
-	}
-	if purchase.Test {
-		event.EmailTemplate = ""
-	}
-	s.Notify(ctx, event)
+	})
 	return nil
 }

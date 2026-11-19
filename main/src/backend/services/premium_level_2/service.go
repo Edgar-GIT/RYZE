@@ -105,7 +105,6 @@ type service struct {
 	programs     ProgramRepository
 	entitlements EntitlementRepository
 	notifier     notifications.Notifier
-	drafts       DraftRepository
 }
 
 // ServiceOption configures an optional collaborator.
@@ -166,12 +165,9 @@ func (s *service) FulfillPurchase(ctx context.Context, userID, programID string)
 		}
 		return fmt.Errorf("failed to verify premium level 2 purchase: %w", err)
 	}
-	request, err := s.requests.CreateRequest(ctx, userID, programID)
-	if err != nil {
+	if _, err := s.requests.CreateRequest(ctx, userID, programID); err != nil {
 		return fmt.Errorf("failed to create premium level 2 request: %w", err)
 	}
-	// The questionnaire answered before payment becomes the first intake.
-	s.submitDraft(ctx, request)
 	return nil
 }
 

@@ -1,8 +1,11 @@
 import { CheckCircle2, CreditCard, FlaskConical, Loader2, Lock, RefreshCw, ShieldCheck, Smartphone, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { useTestMode } from "@/components/test_mode/test_mode_context";
+import { isValidTestEmail } from "@/components/test_mode/test_mode_email";
+import { TestModeEmailField } from "@/components/test_mode/test_mode_email_field";
 import { useProgramCheckout } from "@/hooks/use_program_checkout";
 import { rememberAfterLogin } from "@/services/after_login";
 import { type Copy, useI18n } from "@/i18n/i18n";
@@ -23,6 +26,9 @@ interface CheckoutPanelProps {
   // Extra content shown with the confirmation (e.g. what happens next).
   successNote?: ReactNode;
   loginReturn: string;
+  // Optional: run once when the purchase is confirmed (for an immediate
+  // hand-off to the product's post-purchase experience).
+  onSuccess?: () => void;
 }
 
 const COPY: Copy<{
@@ -115,6 +121,7 @@ const COPY: Copy<{
       "We could not start the checkout. No money was taken at this point.": "Não foi possível iniciar o pagamento. Não foi cobrado nenhum valor.",
       "We could not confirm your payment.": "Não foi possível confirmar o pagamento.",
       "We could not complete this Test Mode purchase. Please try again.": "Não foi possível concluir a compra em Modo de Teste. Tenta de novo.",
+      "Enter a valid test email address.": "Introduz um email de teste válido.",
       "We could not verify your access. Please try again.": "Não foi possível verificar o teu acesso. Tenta de novo.",
       "Checkout is temporarily unavailable. Please try again later.": "O pagamento está temporariamente indisponível. Tenta mais tarde.",
       "Checkout is temporarily unavailable. Please try again.": "O pagamento está temporariamente indisponível. Tenta de novo."
@@ -129,7 +136,7 @@ const METHOD_ICON: Record<string, typeof CreditCard> = { card: CreditCard, mbway
 // (never hard-coded), the Test Mode shortcut and honest states when nothing
 // can be charged. The purchase lifecycle is the shared useProgramCheckout
 // hook; the backend stays authoritative for every outcome.
-export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, includes, done, successNote, loginReturn }: CheckoutPanelProps) => {
+export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, includes, done, successNote, loginReturn, onSuccess }: CheckoutPanelProps) => {
   const { locale } = useI18n();
   const text = COPY[locale];
   const { isActive: testModeActive } = useTestMode();
@@ -137,8 +144,18 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
   const price = new Intl.NumberFormat(locale === "pt" ? "pt-PT" : "en-IE", { style: "currency", currency: "EUR" }).format(priceMinor / 100);
   const state = checkout.state;
   const busy = ["creating", "negotiating", "redirecting", "processing"].includes(state.status);
-  const canPay = testModeActive || checkout.paymentMethods.length > 0;
+  const canPay = testModeActive
+    ? isValidTestEmail(checkout.testEmail)
+    : checkout.paymentMethods.length > 0;
   const translate = (message: string) => text.errors[message] ?? message;
+  const successHandled = useRef(false);
+
+  useEffect(() => {
+    if (state.status === "success" && !successHandled.current) {
+      successHandled.current = true;
+      onSuccess?.();
+    }
+  }, [onSuccess, state.status]);
 
   if (state.status === "success" || state.status === "owned") {
     const success = state.status === "success";
@@ -212,16 +229,27 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
       ) : state.status === "error" ? (
         <div className={joinClassNames(styles.notice, styles.noticeError)} role="alert">
           <p>{translate(state.message)}</p>
-          <button type="button" className={styles.secondary} onClick={() => void checkout.buy()}>
+          {testModeActive ? (
+            <TestModeEmailField value={checkout.testEmail} onChange={checkout.setTestEmail} />
+          ) : null}
+          <button
+            type="button"
+            className={styles.secondary}
+            disabled={testModeActive && !isValidTestEmail(checkout.testEmail)}
+            onClick={() => void checkout.buy()}
+          >
             <RefreshCw aria-hidden="true" /> {text.retry}
           </button>
         </div>
       ) : (
         <>
           {testModeActive ? (
-            <p className={styles.testMode}>
-              <FlaskConical aria-hidden="true" /> {text.testMode}
-            </p>
+            <>
+              <p className={styles.testMode}>
+                <FlaskConical aria-hidden="true" /> {text.testMode}
+              </p>
+              <TestModeEmailField value={checkout.testEmail} onChange={checkout.setTestEmail} />
+            </>
           ) : checkout.paymentMethods.length > 0 ? (
             <fieldset className={styles.methods}>
               <legend>{text.method}</legend>

@@ -96,8 +96,37 @@ interface ChapterText {
   points?: string[];
 }
 
+// The hologram scanner's readout on the hero: a sped-up session in the terms
+// of the RYZE workout player (sets, kg × reps, muscles, rest) and its saved
+// workout summary (EXP earned, level, record medal). Sample data, decorative.
+export interface ReadoutText {
+  status: string;
+  set: (current: number, total: number) => string;
+  logged: string;
+  muscles: string;
+  rest: string;
+  restTime: string;
+  next: string;
+  today: string;
+  todayTitle: string;
+  progress: (done: number, total: number) => string;
+  saved: string;
+  workout: string;
+  sets: string;
+  records: string;
+  level: string;
+  newMedal: string;
+  sample: string;
+  // One per exercise of the hologram's routine, in order.
+  exercises: Array<{ name: string; muscles: string }>;
+}
+
+// The sample sets the readout logs, one per exercise (language-free).
+export const READOUT_LOADS = ["12 kg × 10", "16 kg × 8", "20 kg × 10", "24 kg × 8"] as const;
+
 interface StoryText {
   chapters: Record<StoryChapterId, ChapterText>;
+  readout: ReadoutText;
   screens: Record<ScreenKey, string>;
   sampleNote: string;
   entryPoints: [string, string, string];
@@ -160,7 +189,7 @@ const en: StoryText = {
     start: {
       navLabel: "Start",
       label: "Get started",
-      headline: [{ text: "Your next level " }, { text: "starts here.", highlight: true }],
+      headline: [{ text: "Your next level starts here, " }, { text: "join planet RYZE now!", highlight: true }],
       lead: "Start with a free training plan, step up to a Premium package with nutrition, or get a programme prepared for you by a trainer."
     }
   },
@@ -174,6 +203,31 @@ const en: StoryText = {
       "RYZE programme page on a laptop: a sample Premium programme with its weeks and training days, today's exercises with sets, reps, load, rest and tempo, the day's nutrition targets and the week's completed sessions."
   },
   sampleNote: "Illustrative RYZE screens with sample data.",
+  readout: {
+    status: "Logging",
+    set: (current, total) => `Set ${current} of ${total}`,
+    logged: "Logged",
+    muscles: "Muscles",
+    rest: "Rest",
+    restTime: "1:30",
+    next: "Up next",
+    today: "Today's workout",
+    todayTitle: "Full body",
+    progress: (done, total) => `${done}/${total} sets`,
+    saved: "Workout saved",
+    workout: "Workout",
+    sets: "Sets",
+    records: "Records",
+    level: "Average Lifter",
+    newMedal: "New medal",
+    sample: "Sample data",
+    exercises: [
+      { name: "Dumbbell curl", muscles: "Biceps" },
+      { name: "Dumbbell shoulder press", muscles: "Shoulders, triceps" },
+      { name: "Dumbbell squat", muscles: "Quads, glutes" },
+      { name: "Dumbbell Romanian deadlift", muscles: "Hamstrings, glutes" }
+    ]
+  },
   entryPoints: ["Free programs", "Premium plans", "Personalized coaching"],
   waysToTrain: "Ways to train with RYZE",
   startFree: "Start training free",
@@ -234,7 +288,7 @@ const pt: StoryText = {
     start: {
       navLabel: "Começar",
       label: "Começar",
-      headline: [{ text: "O teu próximo nível " }, { text: "começa aqui.", highlight: true }],
+      headline: [{ text: "O teu próximo nível começa aqui, " }, { text: "junta\u2011te já ao planeta RYZE!", highlight: true }],
       lead: "Começa com um plano de treino gratuito, sobe para um pacote Premium com nutrição, ou recebe um programa preparado para ti por um treinador."
     }
   },
@@ -248,6 +302,31 @@ const pt: StoryText = {
       "Página de programa RYZE num portátil: um programa Premium de exemplo com as suas semanas e dias de treino, os exercícios de hoje com séries, repetições, carga, descanso e cadência, as metas de nutrição do dia e os treinos concluídos da semana."
   },
   sampleNote: "Ecrãs RYZE ilustrativos, com dados de exemplo.",
+  readout: {
+    status: "A registar",
+    set: (current, total) => `Série ${current} de ${total}`,
+    logged: "Registada",
+    muscles: "Músculos",
+    rest: "Descanso",
+    restTime: "1:30",
+    next: "A seguir",
+    today: "Treino de hoje",
+    todayTitle: "Corpo inteiro",
+    progress: (done, total) => `${done}/${total} séries`,
+    saved: "Treino guardado",
+    workout: "Treino",
+    sets: "Séries",
+    records: "Recordes",
+    level: "Lifter Médio",
+    newMedal: "Nova medalha",
+    sample: "Dados de exemplo",
+    exercises: [
+      { name: "Curl com halteres", muscles: "Bíceps" },
+      { name: "Press de ombros com halteres", muscles: "Ombros, tríceps" },
+      { name: "Agachamento com halteres", muscles: "Quadríceps, glúteos" },
+      { name: "Peso morto romeno com halteres", muscles: "Isquiotibiais, glúteos" }
+    ]
+  },
   entryPoints: ["Programas gratuitos", "Planos premium", "Acompanhamento personalizado"],
   waysToTrain: "Formas de treinar com a RYZE",
   startFree: "Começar a treinar grátis",

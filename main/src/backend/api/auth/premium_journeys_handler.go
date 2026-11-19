@@ -1,29 +1,26 @@
 package auth
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"ryze/backend/middleware/authcontext"
-	"ryze/backend/services/premium_level_2"
 	"ryze/backend/services/premium_match"
 	"ryze/backend/services/program_details"
 )
 
 // PremiumJourneysHandler serves the client journeys of the premium services
-// (owner request, 2026-11-14): the Premium Level 1 pick and the Premium Level 2
-// questionnaire answered before payment. The client is always the
-// authenticated user.
+// (owner request, 2026-11-14): the Premium Level 1 pick. The Premium Level 2
+// questionnaire is part of the purchased service, not a checkout prerequisite.
+// The client is always the authenticated user.
 type PremiumJourneysHandler struct {
 	matches premium_match.Service
-	drafts  premium_level_2.DraftService
 }
 
-func NewPremiumJourneysHandler(matches premium_match.Service, drafts premium_level_2.DraftService) *PremiumJourneysHandler {
-	return &PremiumJourneysHandler{matches: matches, drafts: drafts}
+func NewPremiumJourneysHandler(matches premium_match.Service) *PremiumJourneysHandler {
+	return &PremiumJourneysHandler{matches: matches}
 }
 
 type premiumMatchRequest struct {
@@ -93,79 +90,4 @@ func (h *PremiumJourneysHandler) Match(c *gin.Context) {
 			},
 		},
 	})
-}
-
-func draftResponse(answers []byte, status premium_level_2.DraftStatus) gin.H {
-	missing := status.Missing
-	if missing == nil {
-		missing = []string{}
-	}
-	invalid := status.Invalid
-	if invalid == nil {
-		invalid = map[string]string{}
-	}
-	if len(answers) == 0 {
-		answers = []byte("{}")
-	}
-	return gin.H{
-		"answers":  json.RawMessage(answers),
-		"complete": status.Complete,
-		"missing":  missing,
-		"invalid":  invalid,
-	}
-}
-
-// GetDraft returns the client's questionnaire for an offer
-// (GET /me/premium-level-2/offers/:programID/intake-draft).
-func (h *PremiumJourneysHandler) GetDraft(c *gin.Context) {
-	userID, err := authcontext.UserIDFromContext(c)
-	if err != nil {
-		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
-		return
-	}
-	draft, status, err := h.drafts.GetIntakeDraft(c.Request.Context(), userID, c.Param("programID"))
-	if err != nil {
-		h.respondDraftError(c, err)
-		return
-	}
-	var answers []byte
-	if draft != nil {
-		answers = draft.Answers
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": draftResponse(answers, status)})
-}
-
-// SaveDraft stores the answers given so far
-// (PUT /me/premium-level-2/offers/:programID/intake-draft). Only valid answers
-// are stored; the response lists what is invalid or still missing.
-func (h *PremiumJourneysHandler) SaveDraft(c *gin.Context) {
-	userID, err := authcontext.UserIDFromContext(c)
-	if err != nil {
-		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
-		return
-	}
-	var envelope struct {
-		Answers json.RawMessage `json:"answers"`
-	}
-	if err := c.ShouldBindJSON(&envelope); err != nil {
-		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request body.", nil)
-		return
-	}
-	draft, status, err := h.drafts.SaveIntakeDraft(c.Request.Context(), userID, c.Param("programID"), envelope.Answers)
-	if err != nil {
-		h.respondDraftError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": draftResponse(draft.Answers, status)})
-}
-
-func (h *PremiumJourneysHandler) respondDraftError(c *gin.Context, err error) {
-	switch {
-	case errors.Is(err, premium_level_2.ErrOfferNotFound):
-		RespondError(c, http.StatusNotFound, "OFFER_NOT_FOUND", "Offer not found.", nil)
-	case errors.Is(err, premium_level_2.ErrRequestNotFound):
-		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
-	default:
-		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
-	}
 }

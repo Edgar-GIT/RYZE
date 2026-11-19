@@ -42,6 +42,24 @@ func (f *fakeSessions) FindActiveByTokenHash(_ context.Context, tokenHash string
 	return session, nil
 }
 
+func (f *fakeSessions) FindActiveRecipientByPersona(_ context.Context, personaUserID string) (string, error) {
+	for _, session := range f.byID {
+		if session.PersonaUserID == personaUserID {
+			return session.RecipientEmail, nil
+		}
+	}
+	return "", nil
+}
+
+func (f *fakeSessions) SetRecipientEmail(_ context.Context, id, recipient string) error {
+	session, ok := f.byID[id]
+	if !ok {
+		return repositories.ErrTestSessionNotFound
+	}
+	session.RecipientEmail = recipient
+	return nil
+}
+
 func (f *fakeSessions) SoftDelete(_ context.Context, id string) error {
 	session, ok := f.byID[id]
 	if !ok {
@@ -488,6 +506,50 @@ func TestActivePersonaReturnsSessionData(t *testing.T) {
 	}
 	if session.ReturnPath != "/admin/test-mode" {
 		t.Fatalf("expected return path, got %q", session.ReturnPath)
+	}
+}
+
+func TestSetRecipientEmailStoresAValidatedAddress(t *testing.T) {
+	svc, sessions, _, _ := newService(true)
+	ctx := context.Background()
+
+	entered, err := svc.Enter(ctx, "ADMIN_1", test_mode.PersonaClient, "")
+	if err != nil {
+		t.Fatalf("Enter: %v", err)
+	}
+	if err := svc.SetRecipientEmail(ctx, entered.Token, "  Qa.Tester@example.com  "); err != nil {
+		t.Fatalf("SetRecipientEmail: %v", err)
+	}
+	recipient, err := sessions.FindActiveRecipientByPersona(ctx, entered.PersonaUserID)
+	if err != nil || recipient != "Qa.Tester@example.com" {
+		t.Fatalf("stored recipient = %q (%v)", recipient, err)
+	}
+}
+
+func TestSetRecipientEmailRejectsInvalidAddressesAndInactiveSessions(t *testing.T) {
+	svc, _, _, _ := newService(true)
+	ctx := context.Background()
+
+	entered, err := svc.Enter(ctx, "ADMIN_1", test_mode.PersonaClient, "")
+	if err != nil {
+		t.Fatalf("Enter: %v", err)
+	}
+	for _, invalid := range []string{"", "not-an-email", "Name <qa@example.com>", "qa@example.com\r\nBcc: x@example.com"} {
+		if err := svc.SetRecipientEmail(ctx, entered.Token, invalid); !errors.Is(err, test_mode.ErrInvalidInput) {
+			t.Fatalf("address %q: expected ErrInvalidInput, got %v", invalid, err)
+		}
+	}
+	if err := svc.SetRecipientEmail(ctx, strings.Repeat("a", 64), "qa@example.com"); !errors.Is(err, test_mode.ErrNoActiveSession) {
+		t.Fatalf("expected ErrNoActiveSession for an unknown token, got %v", err)
+	}
+	if err := svc.SetRecipientEmail(ctx, entered.Token, "qa@example.com"); err != nil {
+		t.Fatalf("valid address after refused attempts: %v", err)
+	}
+	if _, err := svc.Exit(ctx, entered.Token); err != nil {
+		t.Fatalf("Exit: %v", err)
+	}
+	if err := svc.SetRecipientEmail(ctx, entered.Token, "qa@example.com"); !errors.Is(err, test_mode.ErrNoActiveSession) {
+		t.Fatalf("expected an exited session to reject a recipient, got %v", err)
 	}
 }
 

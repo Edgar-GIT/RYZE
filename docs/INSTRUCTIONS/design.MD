@@ -241,9 +241,10 @@ Archivo (variable, SIL Open Font License, self-hosted in
 
 - Desktop Home only: one Three.js scene (`components/home_story/story_scene.ts`)
   driven by scroll on one pinned stage behind the hero, the programs and the
-  chapter track, with the five story steps on its right edge. The Earth
+  chapter track, with the story steps on its right edge. The hologram
   travels to the upper right corner as the hero scrolls away and waits there
-  while the programs pass; the phone flies in as they leave. The stage is
+  while the programs pass; as they leave the drone flies up out of the frame
+  and the phone flies in; the drone returns for the last chapter. The stage is
   released when the track ends, so nothing that follows overlaps it.
   The scene is loaded with a dynamic import after a capability check
   (`hooks/use_immersive_story.ts`: ≥1024×680, fine pointer, WebGL2, no
@@ -253,11 +254,37 @@ Archivo (variable, SIL Open Font License, self-hosted in
   (about 30 fps for the idle motion); rendering only while on screen; full
   disposal on unmount and on any creation failure, which falls back to the
   stacked layout. Objects scale with the stage aspect ratio.
-- Scene content: the Earth with real continents (Natural Earth land mask,
-  `main/src/resources/img/globe/`) and RYZE routes leaving Lisbon with light
-  pulses and the official icon on a badge at home; a modelled phone (titanium
-  frame, glass, island, buttons, camera module, the logo on the back, blue edge
-  light as in the owner's reference) and laptop (black keys with backlit
+- Scene content: the hero's opening (owner request, 2026-11-15, which replaced the earlier
+  hologram athlete and its readout): when the page opens, a scanning drone
+  (satin graphite pod with a light ring, ducted rotors and a sensor array) flies
+  in from the right with a small overshoot and settle, opens a beam downwards
+  (lens flash, scan pulses, particles pouring down, a pool of light) and inside
+  it the three things RYZE is about materialise as holograms from the bottom up
+  (fresnel rim, scan lines, glowing edges, a bright building edge): the story's
+  own phone with the real RYZE training screen shown as a cyan hologram, a hex
+  dumbbell and a balanced meal. The beam closes up into the lens with a flash
+  and, as the drone leaves to the right, each hologram turns into its solid
+  object behind a bright line that climbs it (solid below, hologram above:
+  the same geometry clipped by a moving plane), with a flash, a shock ring and
+  its contact shadow — about 7 s, procedural, no model files
+  (`components/home_story/story_intro.ts`). The final composition stays: the
+  phone (natural titanium, frosted blue back, the training screen) in the
+  centre, the dumbbell (knurled steel handle, chrome collars, gunmetal hex
+  heads with a cyan inlay and the RYZE mark) in front and the meal in a white
+  ceramic bowl (grains, salmon with sesame, avocado, cherry tomatoes,
+  broccoli, edamame, chickpeas) beside it, with a slow float and turn. The
+  opening plays once when the story is first on screen; any scroll jumps to the
+  final composition, and it never covers the copy or delays the CTAs. As the
+  hero scrolls on, the dumbbell and meal leave up and away and the phone rises
+  out of the frame, coming back down for the Train chapter. The last chapter
+  ("Your next level starts here, join planet RYZE now!") shows planet RYZE
+  again: the Earth with RYZE routes leaving Lisbon, restored unchanged from the
+  original (`components/home_story/story_planet.ts`). The devices use light
+  metals (2026-11-15: natural titanium, silver-blue aluminium, a soft light rim
+  and a shadow) so they read as objects on the vivid blue field, where the
+  former dark slate looked like holes in it. The opening runs once; a modelled phone (natural
+  titanium frame, glass, island, buttons, camera module, the logo on the back,
+  a soft light rim and shadow) and laptop (silver-blue aluminium, black keys with backlit
   legends, glass trackpad, hinge, display notch, the logo on the lid). The
   laptop screen is a 2560×1600 image of a 1024×640 layout with large type, and
   horizontal parts barely reflect the studio environment (seen at a grazing

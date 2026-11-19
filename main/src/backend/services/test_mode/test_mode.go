@@ -12,6 +12,7 @@ import (
 	"unicode"
 
 	"ryze/backend/config"
+	"ryze/backend/email"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 )
@@ -97,6 +98,7 @@ type Service interface {
 	Enter(ctx context.Context, adminIdentity, persona, returnPath string) (EnterResult, error)
 	Exit(ctx context.Context, rawToken string) (ExitResult, error)
 	ActivePersona(ctx context.Context, rawToken string) (*Session, error)
+	SetRecipientEmail(ctx context.Context, rawToken, recipient string) error
 }
 
 // UserRepository is the user data-access surface Test Mode needs to resolve
@@ -286,6 +288,41 @@ func (s *service) ActivePersona(ctx context.Context, rawToken string) (*Session,
 		PersonaUserID: session.PersonaUserID,
 		ReturnPath:    session.ReturnPath,
 	}, nil
+}
+
+// SetRecipientEmail stores the administrator-supplied mailbox that receives
+// the normal lifecycle emails during this Test Mode session. Personas own
+// non-deliverable @ryze.local addresses, so without this the session can only
+// produce in-app notifications. The address is validated server-side and only
+// written to an active, unexpired session.
+func (s *service) SetRecipientEmail(ctx context.Context, rawToken, recipient string) error {
+	if !s.enabled {
+		return ErrDisabled
+	}
+	if strings.TrimSpace(rawToken) == "" {
+		return ErrNoActiveSession
+	}
+	recipient = email.NormalizeAddress(recipient)
+	if !email.IsValidAddress(recipient) {
+		return ErrInvalidInput
+	}
+	session, err := s.sessions.FindActiveByTokenHash(ctx, hashToken(rawToken))
+	if err != nil {
+		if errors.Is(err, repositories.ErrTestSessionNotFound) {
+			return ErrNoActiveSession
+		}
+		return fmt.Errorf("failed to load test session: %w", err)
+	}
+	if s.expired(session) {
+		return ErrNoActiveSession
+	}
+	if err := s.sessions.SetRecipientEmail(ctx, session.ID, recipient); err != nil {
+		if errors.Is(err, repositories.ErrTestSessionNotFound) {
+			return ErrNoActiveSession
+		}
+		return fmt.Errorf("failed to store test session recipient: %w", err)
+	}
+	return nil
 }
 
 // expired reports whether a session has outlived its configured server-side

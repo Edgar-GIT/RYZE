@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, encodePathSegment } from "@utils/http_client";
+import { apiPost } from "@utils/http_client";
 
 import type { MarketplaceProgram } from "./marketplace_api";
 import type { PremiumLevel2AnswerValue } from "./premium_level_2_format";
@@ -22,20 +22,3 @@ export interface PremiumMatch {
 // never one the client already owns (404 NO_MATCHING_PLAN, 409
 // ALL_PLANS_OWNED otherwise).
 export const matchPremiumLevel1 = (input: PremiumMatchInput) => apiPost<PremiumMatch>("/me/premium-level-1/match", input);
-
-export type PremiumLevel2Answers = Record<string, PremiumLevel2AnswerValue>;
-
-export interface PremiumLevel2Draft {
-  answers: PremiumLevel2Answers;
-  complete: boolean;
-  missing: string[];
-  invalid: Record<string, string>;
-}
-
-// The Premium Level 2 questionnaire is answered before payment; only valid
-// answers are stored and the response says what is still missing.
-export const fetchPremiumLevel2Draft = (programId: string) =>
-  apiGet<PremiumLevel2Draft>(`/me/premium-level-2/offers/${encodePathSegment(programId)}/intake-draft`);
-
-export const savePremiumLevel2Draft = (programId: string, answers: PremiumLevel2Answers) =>
-  apiPut<PremiumLevel2Draft>(`/me/premium-level-2/offers/${encodePathSegment(programId)}/intake-draft`, { answers });

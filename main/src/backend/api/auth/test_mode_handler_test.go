@@ -196,6 +196,8 @@ func strconvQuote(v string) string {
 	return `"` + v + `"`
 }
 
+const testPurchaseBody = `{"email":"qa.tester@example.com"}`
+
 func seedPurchasableProgram(t *testing.T, tx *gorm.DB, programType, status string) (*models.Program, string) {
 	t.Helper()
 	ctx := context.Background()
@@ -512,7 +514,7 @@ func TestTestModePurchaseCompletesWithoutProvider(t *testing.T) {
 	personaID := personaUserID(t, userRepo)
 	program, _ := seedPurchasableProgram(t, tx, models.ProgramTypePremium, models.ProgramStatusPublished)
 
-	rec, data, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", "", map[string]string{
+	rec, data, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", testPurchaseBody, map[string]string{
 		auth.AccessTokenCookieName:      cookies[auth.AccessTokenCookieName],
 		auth.TestSessionTokenCookieName: cookies[auth.TestSessionTokenCookieName],
 	})
@@ -546,6 +548,42 @@ func TestTestModePurchaseCompletesWithoutProvider(t *testing.T) {
 	if persisted.UserID != personaID {
 		t.Fatalf("expected purchase owned by the persona, got %q want %q", persisted.UserID, personaID)
 	}
+
+	sessionRepo := repositories.NewTestSessionRepository(tx)
+	session, err := sessionRepo.FindActiveByTokenHash(context.Background(), tokenHash(cookies[auth.TestSessionTokenCookieName]))
+	if err != nil {
+		t.Fatalf("load test session: %v", err)
+	}
+	if session.RecipientEmail != "qa.tester@example.com" {
+		t.Fatalf("expected the typed recipient to persist on the session, got %q", session.RecipientEmail)
+	}
+}
+
+func TestTestModePurchaseRequiresAValidRecipientEmail(t *testing.T) {
+	router, _, tx, tokenSvc := newTestModeTestRouter(t, true)
+
+	cookies, _ := enterTestMode(t, router, tokenSvc, "client")
+	program, _ := seedPurchasableProgram(t, tx, models.ProgramTypePremium, models.ProgramStatusPublished)
+	path := "/api/v1/auth/test-mode/programs/" + program.ID + "/purchase"
+	requestCookies := map[string]string{
+		auth.AccessTokenCookieName:      cookies[auth.AccessTokenCookieName],
+		auth.TestSessionTokenCookieName: cookies[auth.TestSessionTokenCookieName],
+	}
+
+	for _, body := range []string{"", `{}`, `{"email":"not-an-email"}`, `{"email":"Name <qa@example.com>"}`} {
+		rec, _, raw := testModeRequest(router, http.MethodPost, path, body, requestCookies)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
+			t.Fatalf("body %q: expected 400 VALIDATION_ERROR, got %d (body: %s)", body, rec.Code, raw)
+		}
+	}
+
+	var purchases int64
+	if err := tx.Model(&models.Purchase{}).Count(&purchases).Error; err != nil {
+		t.Fatalf("count purchases: %v", err)
+	}
+	if purchases != 0 {
+		t.Fatalf("a refused recipient must not create a purchase, got %d", purchases)
+	}
 }
 
 func TestTestModePurchaseDuplicateEntitlement(t *testing.T) {
@@ -560,12 +598,12 @@ func TestTestModePurchaseDuplicateEntitlement(t *testing.T) {
 	}
 	path := "/api/v1/auth/test-mode/programs/" + program.ID + "/purchase"
 
-	first, _, rawFirst := testModeRequest(router, http.MethodPost, path, "", purchaseCookies)
+	first, _, rawFirst := testModeRequest(router, http.MethodPost, path, testPurchaseBody, purchaseCookies)
 	if first.Code != http.StatusCreated {
 		t.Fatalf("expected 201 on first purchase, got %d (body: %s)", first.Code, rawFirst)
 	}
 
-	second, _, rawSecond := testModeRequest(router, http.MethodPost, path, "", purchaseCookies)
+	second, _, rawSecond := testModeRequest(router, http.MethodPost, path, testPurchaseBody, purchaseCookies)
 	if second.Code != http.StatusConflict {
 		t.Fatalf("expected 409 on duplicate purchase, got %d (body: %s)", second.Code, rawSecond)
 	}
@@ -580,7 +618,7 @@ func TestTestModePurchaseRejectsFreeProgram(t *testing.T) {
 	cookies, _ := enterTestMode(t, router, tokenSvc, "client")
 	program, _ := seedPurchasableProgram(t, tx, models.ProgramTypeFree, models.ProgramStatusPublished)
 
-	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", "", map[string]string{
+	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", testPurchaseBody, map[string]string{
 		auth.AccessTokenCookieName:      cookies[auth.AccessTokenCookieName],
 		auth.TestSessionTokenCookieName: cookies[auth.TestSessionTokenCookieName],
 	})
@@ -598,7 +636,7 @@ func TestTestModePurchaseRejectsUnknownProgram(t *testing.T) {
 
 	cookies, _ := enterTestMode(t, router, tokenSvc, "client")
 
-	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/44444444-4444-4444-4444-444444444444/purchase", "", map[string]string{
+	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/44444444-4444-4444-4444-444444444444/purchase", testPurchaseBody, map[string]string{
 		auth.AccessTokenCookieName:      cookies[auth.AccessTokenCookieName],
 		auth.TestSessionTokenCookieName: cookies[auth.TestSessionTokenCookieName],
 	})
@@ -622,7 +660,7 @@ func TestTestModePurchaseRejectsNonPersonaUser(t *testing.T) {
 
 	// A regular authenticated user must never complete a test purchase even
 	// without any session cookie.
-	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", "", map[string]string{
+	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", testPurchaseBody, map[string]string{
 		auth.AccessTokenCookieName: regularJWT,
 	})
 	if rec.Code != http.StatusForbidden {
@@ -647,7 +685,7 @@ func TestTestModePurchaseRejectsForeignPersonaIdentity(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", "", map[string]string{
+	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", testPurchaseBody, map[string]string{
 		auth.AccessTokenCookieName:      foreignJWT,
 		auth.TestSessionTokenCookieName: cookies[auth.TestSessionTokenCookieName],
 	})
@@ -670,6 +708,26 @@ func TestTestModePurchaseRequiresAuthentication(t *testing.T) {
 	}
 	if !strings.Contains(raw, `"code":"AUTHENTICATION_REQUIRED"`) {
 		t.Fatalf("expected AUTHENTICATION_REQUIRED, got %s", raw)
+	}
+}
+
+func TestTestModePurchaseRejectsDisabledService(t *testing.T) {
+	router, userRepo, _, tokenSvc := newTestModeTestRouter(t, false)
+
+	user := seedLoginUser(t, userRepo, uniqueEmail(), "Password123!")
+	token, err := tokenSvc.GenerateAccessToken(user.ID, user.SessionVersion)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken: %v", err)
+	}
+
+	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/44444444-4444-4444-4444-444444444444/purchase", testPurchaseBody, map[string]string{
+		auth.AccessTokenCookieName: token,
+	})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 when Test Mode is disabled, got %d (body: %s)", rec.Code, raw)
+	}
+	if !strings.Contains(raw, `"code":"TEST_MODE_DISABLED"`) {
+		t.Fatalf("expected TEST_MODE_DISABLED, got %s", raw)
 	}
 }
 
@@ -723,7 +781,7 @@ func TestTestModePurchaseRejectsSessionWithoutOwnershipMarker(t *testing.T) {
 		t.Fatalf("seed forged session: %v", err)
 	}
 
-	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", "", map[string]string{
+	rec, _, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", testPurchaseBody, map[string]string{
 		auth.AccessTokenCookieName:      personaToken,
 		auth.TestSessionTokenCookieName: rawSessionToken,
 	})
@@ -752,7 +810,7 @@ func TestTestModePurchaseIgnoresConfiguredCardProvider(t *testing.T) {
 	cookies, _ := enterTestMode(t, router, tokenSvc, "client")
 	program, _ := seedPurchasableProgram(t, tx, models.ProgramTypePremium, models.ProgramStatusPublished)
 
-	rec, data, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", "", map[string]string{
+	rec, data, raw := testModeRequest(router, http.MethodPost, "/api/v1/auth/test-mode/programs/"+program.ID+"/purchase", testPurchaseBody, map[string]string{
 		auth.AccessTokenCookieName:      cookies[auth.AccessTokenCookieName],
 		auth.TestSessionTokenCookieName: cookies[auth.TestSessionTokenCookieName],
 	})

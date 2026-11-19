@@ -23,16 +23,14 @@
   order: 0;
 }
 
-.start .visual {
-  display: none;
-}
+/* "Join planet RYZE": the planet after the call to action on phones, beside it from tablet up. */
 
 /* Phones: Train follows the programs without a double section gap. */
 .chapter.train {
   padding-top: clamp(1.5rem, 5vw, 2.5rem);
 }
 
-/* Opening chapter: the globe first so the brand is the first thing seen on a phone. */
+/* Opening chapter: the drone's projection first, so it is the first thing seen on a phone. */
 .identity {
   padding-top: calc(var(--r-nav-clearance) + 0.75rem);
 }
@@ -43,6 +41,10 @@
 
 .orb {
   width: min(78vw, 20rem);
+}
+
+.showcase {
+  width: min(88vw, 23rem);
 }
 
 .phoneVisual {
@@ -115,11 +117,11 @@
     order: 2;
   }
 
-  .start .layout {
-    grid-template-columns: minmax(0, 1fr);
+  .orb {
+    width: min(100%, 30rem);
   }
 
-  .orb {
+  .showcase {
     width: min(100%, 30rem);
   }
 

@@ -833,7 +833,7 @@ func testModePersona(t *testing.T, f *premiumFlowFixture, cookies map[string]str
 func testModePurchase(t *testing.T, f *premiumFlowFixture, cookies map[string]string, programID string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return testModeRequestWith(t, f, cookies, http.MethodPost, "/api/v1/auth/test-mode/programs/"+programID+"/purchase", "")
+	return testModeRequestWith(t, f, cookies, http.MethodPost, "/api/v1/auth/test-mode/programs/"+programID+"/purchase", `{"email":"qa.tester@example.com"}`)
 }
 
 // testModeRequestWith issues an authenticated request carrying both the persona

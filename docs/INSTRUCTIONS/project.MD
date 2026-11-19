@@ -471,11 +471,16 @@ sales tool.
 
 - **Entry is exclusive to the Technical Administrator** (ADMIN_1), enforced
   server-side.
-- Inside Test Mode every purchasable program (Generic or Premium Level 1)
-  renders as Free, and buying completes a real zero-cost purchase + entitlement
-  server-side — no payment provider, redirect or capture is involved. The same
-  checkout prerequisites still apply, including the legacy Premium Level 1
-  questionnaire. A curated package has no questionnaire prerequisite.
+- Inside Test Mode every purchasable program (Generic, Premium Level 1 or
+  Premium Level 2) renders as Free, and buying completes a real zero-cost
+  purchase + entitlement server-side — no payment provider, redirect or capture
+  is involved. The same checkout prerequisites still apply, including the
+  legacy Premium Level 1 questionnaire. A curated package has no questionnaire
+  prerequisite.
+- Test checkout asks for a real email address and sends the normal lifecycle
+  emails there for the rest of the session. Persona accounts themselves use
+  non-deliverable `@ryze.local` addresses; without a typed recipient the in-app
+  notifications still work and emails stay suppressed.
 - Identity is entirely server-side: the backend mints the persona session
   cookie and restores the administrator identity on exit.
 - The feature is globally controlled by `TEST_MODE_ENABLED` (default false) — a
@@ -809,14 +814,18 @@ allocates an active trainer, and that trainer attaches one of their own draft
 programmes and authors the nutrition plan before delivery. Delivery creates the
 training entitlement and releases the nutrition plan to the client.
 
-Since v2.115.0 (owner request, 2026-11-14) the order is: the service is
-explained, the client picks their main goal from cards, answers the long
-questionnaire (saved section by section), and only then pays. The completed
-payment turns the answers into the request's intake and the service is
-assigned. The owner's target is that AI will later analyse the questionnaire to
-build the plan and nutrition; until that exists, the allocated trainer prepares
-them as described above. No AI analysis is implemented or promised in the
-interface.
+Since v2.124.0 (owner request, 2026-11-15) the order is: the service is
+explained, the client pays, and the full questionnaire opens immediately after
+purchase. The client submits it, sees an honest progress timeline while ADMIN_2
+allocates a trainer and that trainer authors the plans, and receives the
+delivered training and nutrition. No answers are collected or stored before the
+purchase, and there is no pre-purchase draft. The post-purchase experience also
+includes a printable answer/receipt summary and, once delivery is complete, an
+exclusive academy that teaches the hypertrophy, progression and nutrition
+principles behind the service. The owner's target is that AI will later analyse
+the questionnaire to build the plan and nutrition; until that exists, the
+allocated trainer prepares them as described above. No AI analysis is
+implemented or promised in the interface.
 
 Premium Level 3 and trainer-authored nutrition sold outside this service remain
 out of scope. The intake answers are sensitive health data and are exposed only

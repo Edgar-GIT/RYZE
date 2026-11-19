@@ -20,6 +20,8 @@ var ErrTestSessionNotFound = errors.New("test session not found")
 type TestSessionRepository interface {
 	Create(ctx context.Context, session *models.TestSession) error
 	FindActiveByTokenHash(ctx context.Context, tokenHash string) (*models.TestSession, error)
+	FindActiveRecipientByPersona(ctx context.Context, personaUserID string) (string, error)
+	SetRecipientEmail(ctx context.Context, id, recipient string) error
 	SoftDelete(ctx context.Context, id string) error
 }
 
@@ -53,6 +55,41 @@ func (r *testSessionRepository) FindActiveByTokenHash(ctx context.Context, token
 		return nil, fmt.Errorf("failed to find test session: %w", err)
 	}
 	return &session, nil
+}
+
+// FindActiveRecipientByPersona returns the most recently opened active
+// session's deliverable recipient for a persona. An empty result means no
+// active session has provided one, so notification delivery stays suppressed.
+func (r *testSessionRepository) FindActiveRecipientByPersona(ctx context.Context, personaUserID string) (string, error) {
+	var session models.TestSession
+	err := r.db.WithContext(ctx).
+		Select("recipient_email").
+		Where("persona_user_id = ? AND recipient_email <> ''", personaUserID).
+		Order("created_at DESC").
+		First(&session).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to find test session recipient: %w", err)
+	}
+	return session.RecipientEmail, nil
+}
+
+// SetRecipientEmail records the mailbox typed at Test Mode checkout on the
+// active session. It never creates or revives a session.
+func (r *testSessionRepository) SetRecipientEmail(ctx context.Context, id, recipient string) error {
+	result := r.db.WithContext(ctx).
+		Model(&models.TestSession{}).
+		Where("id = ?", id).
+		Update("recipient_email", recipient)
+	if result.Error != nil {
+		return fmt.Errorf("failed to update test session recipient: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrTestSessionNotFound
+	}
+	return nil
 }
 
 // SoftDelete ends an active test session. The row is never physically removed

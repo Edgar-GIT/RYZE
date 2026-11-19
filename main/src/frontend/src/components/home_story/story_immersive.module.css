@@ -98,16 +98,7 @@
   opacity: 1;
 }
 
-/* SVG globe shown while the scene module loads, at the Earth's position. */
-.placeholder {
-  position: absolute;
-  top: 50%;
-  left: 68.5%;
-  z-index: -1;
-  width: min(40vw, 60vh);
-  transform: translate(-50%, -50%);
-}
-
+/* SVG hologram shown while the scene module loads, at the hologram's position. */
 .chapters {
   position: absolute;
   inset: 0;

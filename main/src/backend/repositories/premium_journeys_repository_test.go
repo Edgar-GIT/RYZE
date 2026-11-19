@@ -2,8 +2,6 @@ package repositories_test
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -15,8 +13,7 @@ import (
 )
 
 // TestPremiumJourneyRepository covers the Premium Level 1 pick candidates
-// (published curated packages of the objective the client does not own) and
-// the Premium Level 2 pre-purchase questionnaire upsert.
+// (published curated packages of the objective the client does not own).
 func TestPremiumJourneyRepository(t *testing.T) {
 	config.LoadEnvFile()
 	cfg, err := config.Load()
@@ -78,31 +75,5 @@ func TestPremiumJourneyRepository(t *testing.T) {
 	}
 	if err := repo.CreateMatch(ctx, &models.PremiumLevel1Match{UserID: user.ID, ProgramID: free.ID, Objective: objective, WeightKg: 80, HeightCm: 180, Age: 30}); err != nil {
 		t.Fatalf("CreateMatch: %v", err)
-	}
-
-	offerStatus := models.ProgramStatusPublished
-	offer := &models.Program{Name: "Offer", Type: models.ProgramTypePremium, Status: offerStatus, ProductType: models.ProgramProductTypePremiumLevel2, PriceMinorUnits: models.PremiumLevel2PriceMinorUnits, Currency: "EUR"}
-	if err := tx.Omit("TrainerID", "Weeks", "CuratedNutrition").Create(offer).Error; err != nil {
-		t.Fatalf("create offer: %v", err)
-	}
-	if _, err := repo.FindDraft(ctx, user.ID, offer.ID); !errors.Is(err, repositories.ErrPremiumLevel2DraftNotFound) {
-		t.Fatalf("FindDraft before saving = %v", err)
-	}
-	for _, answers := range []string{`{"primary_goal":"strength"}`, `{"primary_goal":"muscle_gain"}`} {
-		if err := repo.SaveDraft(ctx, &models.PremiumLevel2IntakeDraft{UserID: user.ID, ProgramID: offer.ID, Answers: json.RawMessage(answers)}); err != nil {
-			t.Fatalf("SaveDraft: %v", err)
-		}
-	}
-	draft, err := repo.FindDraft(ctx, user.ID, offer.ID)
-	if err != nil {
-		t.Fatalf("FindDraft: %v", err)
-	}
-	var answers map[string]string
-	_ = json.Unmarshal(draft.Answers, &answers)
-	if answers["primary_goal"] != "muscle_gain" {
-		t.Fatalf("draft not replaced: %s", draft.Answers)
-	}
-	if err := repo.DeleteDraft(ctx, user.ID, offer.ID); err != nil {
-		t.Fatalf("DeleteDraft: %v", err)
 	}
 }

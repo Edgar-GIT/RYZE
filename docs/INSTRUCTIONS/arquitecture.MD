@@ -662,6 +662,12 @@ Layering:
   `/me/premium-level-2/catalog`, admin `/admin/premium-level-2/catalog` and
   trainer `/trainer/premium-level-2/catalog`, each behind its own authentication
   and permission middleware.
+- The post-purchase frontend is split by responsibility: the entry resolver
+  (`/services/premium-level-2/experience`) selects the newest non-cancelled
+  request, the experience page owns preparing/questionnaire/soon/summary, and
+  the request page remains the detailed service view. The academy
+  (`/services/premium-level-2/academy`) is a member-shell page gated on a
+  delivered request; it is presentation and does not read intake answers.
 
 Key decisions:
 
@@ -671,7 +677,10 @@ Key decisions:
   it becomes reachable only through the delivery entitlement.
 - **Purchase before intake.** Unlike legacy Premium Level 1, the Level 2 intake
   requires an active entitlement. This prevents health data from being submitted
-  by users who have not bought the service.
+  by users who have not bought the service. The pre-purchase draft table and
+  endpoints introduced in v2.115.0 were removed in v2.124.0 (migration `000046`);
+  purchase fulfilment no longer converts a draft, and the request's first
+  revision is written only by the authenticated client after purchase.
 - **Versioned intake.** Every submission creates a new revision. Editing is
   allowed only while the request is `awaiting_intake` or
   `awaiting_trainer_assignment`; allocation locks it by state transition, not by
@@ -1467,6 +1476,14 @@ cookies for the persona session (`ryze_test_session`):
 - Exiting restores the stored administrator session and redirects to the
   validated `return_path`. Exit is intentionally not role-guarded so the
   impersonated client can always end the session.
+- Test checkout asks for a real email recipient because persona accounts use
+  non-deliverable `@ryze.local` addresses. The address is validated and stored
+  only on the active `test_sessions` row (`recipient_email`). The notifications
+  service resolves it for that persona, so normal lifecycle emails reach the
+  typed inbox while the session is active; if no recipient exists, emails stay
+  suppressed and in-app notifications are unaffected. Leaving Test Mode
+  soft-deletes the session, so the address is no longer used. It is never
+  logged and never exposed by an API response.
 
 **Modules.** Two auth handlers share the `services/test_mode` `TestModeService`:
 
@@ -1490,6 +1507,10 @@ entitlement lifecycle with a zero-price, already-completed purchase:
   no redirect, no capture — the provider code path is unreachable by design.
 - Session-scoped: the purchase belongs to the persona user; any other identity
   (including the stored admin) is rejected.
+- The handler requires a valid email recipient before completing the purchase,
+  stores it on the active Test Mode session and then runs the normal purchase
+  fulfilment hook. As a result the usual `access_granted` notification and
+  email path is used instead of a Test Mode-specific email branch.
 
 **Observability.** Enter/exit/purchase emit audit log entries
 (`test_mode.entered`, `test_mode.exited`, `test_mode.purchase_completed`) with

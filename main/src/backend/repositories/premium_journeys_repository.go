@@ -2,28 +2,19 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"ryze/backend/models"
 )
 
-// ErrPremiumLevel2DraftNotFound indicates the client has no pre-purchase
-// questionnaire for the offer.
-var ErrPremiumLevel2DraftNotFound = errors.New("premium level 2 intake draft not found")
-
-// PremiumJourneyRepository stores the Premium Level 1 picks and the Premium
-// Level 2 pre-purchase questionnaires. Every query is scoped by the user.
+// PremiumJourneyRepository stores the Premium Level 1 picks. Every query is
+// scoped by the user.
 type PremiumJourneyRepository interface {
 	CountPublishedPackages(ctx context.Context, objective, sex string) (int64, error)
 	ListMatchCandidates(ctx context.Context, userID, objective, sex string) ([]models.Program, error)
 	CreateMatch(ctx context.Context, match *models.PremiumLevel1Match) error
-	FindDraft(ctx context.Context, userID, programID string) (*models.PremiumLevel2IntakeDraft, error)
-	SaveDraft(ctx context.Context, draft *models.PremiumLevel2IntakeDraft) error
-	DeleteDraft(ctx context.Context, userID, programID string) error
 }
 
 type premiumJourneyRepository struct {
@@ -74,43 +65,6 @@ func (r *premiumJourneyRepository) ListMatchCandidates(ctx context.Context, user
 func (r *premiumJourneyRepository) CreateMatch(ctx context.Context, match *models.PremiumLevel1Match) error {
 	if err := r.db.WithContext(ctx).Create(match).Error; err != nil {
 		return fmt.Errorf("failed to record premium level 1 match: %w", err)
-	}
-	return nil
-}
-
-func (r *premiumJourneyRepository) FindDraft(ctx context.Context, userID, programID string) (*models.PremiumLevel2IntakeDraft, error) {
-	var draft models.PremiumLevel2IntakeDraft
-	err := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		Where("program_id = ?", programID).
-		First(&draft).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrPremiumLevel2DraftNotFound
-		}
-		return nil, fmt.Errorf("failed to load premium level 2 intake draft: %w", err)
-	}
-	return &draft, nil
-}
-
-// SaveDraft inserts or replaces the user's draft for the offer.
-func (r *premiumJourneyRepository) SaveDraft(ctx context.Context, draft *models.PremiumLevel2IntakeDraft) error {
-	err := r.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "user_id"}, {Name: "program_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"answers", "complete"}),
-	}).Create(draft).Error
-	if err != nil {
-		return fmt.Errorf("failed to save premium level 2 intake draft: %w", err)
-	}
-	return nil
-}
-
-func (r *premiumJourneyRepository) DeleteDraft(ctx context.Context, userID, programID string) error {
-	if err := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		Where("program_id = ?", programID).
-		Delete(&models.PremiumLevel2IntakeDraft{}).Error; err != nil {
-		return fmt.Errorf("failed to delete premium level 2 intake draft: %w", err)
 	}
 	return nil
 }

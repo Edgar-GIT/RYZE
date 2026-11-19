@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,7 +51,8 @@ func newHarness(t *testing.T) *harness {
 	mailCfg := config.MailConfig{SMTPHost: "smtp.example", SMTPPort: "587", From: "RYZE <no-reply@ryze.example>", PublicAppURL: "https://ryze.example"}
 	mailer := email.NewMailer(mailCfg, repositories.NewEmailOutboxRepository(tx))
 	h := &harness{tx: tx, users: users, clock: time.Now().UTC().Truncate(time.Microsecond)}
-	h.svc = New(repositories.NewNotificationRepository(tx), users, repositories.NewProgramRepository(tx), mailer).(*service)
+	h.svc = New(repositories.NewNotificationRepository(tx), users, repositories.NewProgramRepository(tx), mailer,
+		WithTestRecipients(repositories.NewTestSessionRepository(tx))).(*service)
 	h.svc.now = func() time.Time { return h.clock }
 	return h
 }
@@ -195,6 +197,36 @@ func TestPersonasGetNoEmail(t *testing.T) {
 	}
 	if emails := h.emails(t, persona.ID); len(emails) != 0 {
 		t.Fatalf("expected no email for a Test Mode persona, got %d", len(emails))
+	}
+}
+
+func TestPersonaEmailsGoToTheActiveTestRecipient(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	persona := h.seedUser(t, true)
+	session := &models.TestSession{
+		AdminIdentity:  "ADMIN_1",
+		Persona:        "client",
+		PersonaUserID:  persona.ID,
+		TokenHash:      strings.Repeat("a", 64),
+		RecipientEmail: "qa.tester@example.com",
+	}
+	if err := h.tx.Create(session).Error; err != nil {
+		t.Fatalf("seed test session: %v", err)
+	}
+
+	h.svc.Notify(ctx, Event{
+		UserID:        persona.ID,
+		Kind:          models.NotificationPL2Delivered,
+		Program:       "Plan",
+		Link:          "/x",
+		DedupeKey:     "persona-recipient-" + persona.ID,
+		EmailTemplate: email.TemplateServiceDelivered,
+	})
+
+	emails := h.emails(t, persona.ID)
+	if len(emails) != 1 || emails[0].Recipient != "qa.tester@example.com" {
+		t.Fatalf("expected one email to the test recipient, got %+v", emails)
 	}
 }
 

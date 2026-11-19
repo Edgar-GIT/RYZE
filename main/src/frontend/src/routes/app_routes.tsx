@@ -31,6 +31,7 @@ const PremiumLevel1Route = () =>
 const PremiumLevel2Route = () =>
   hasLegacyParams(window.location.search) ? <PremiumLevel2Page /> : <PremiumLevel2JourneyPage />;
 import { PremiumLevel2RequestPage } from "@/pages/premium_level2_request_page/premium_level2_request_page";
+import { PremiumLevel2ExperienceEntryPage, PremiumLevel2ExperiencePage } from "@/pages/premium_level2_experience/premium_level2_experience_page";
 import { WorkoutSessionPage } from "@/pages/workout_session_page/workout_session_page";
 import { ServicesPage } from "@/pages/services_page/services_page";
 import { UnderDevelopmentPage } from "@/pages/under_development_page/under_development_page";
@@ -57,12 +58,13 @@ const MEMBER_PATHS = [
   "/support",
   "/services/my-programs",
   "/services/my-programs/:programId",
+  "/services/premium-level-2/academy",
   "/services/workout-history",
   "/services/progress",
   "/trainer/apply"
 ];
 
-const memberPathPattern = /^\/(profile|achievements|support|account\/(settings|purchases)|services\/(my-programs(\/[^/]+)?|workout-history|progress)|trainer\/apply)\/?$/;
+const memberPathPattern = /^\/(profile|achievements|support|account\/(settings|purchases)|services\/(my-programs(\/[^/]+)?|premium-level-2\/academy|workout-history|progress)|trainer\/apply)\/?$/;
 
 // The route transition key: one key per area shell, so moving inside the
 // member or trainer area never remounts its shell.
@@ -88,6 +90,8 @@ export const AppRoutes = () => {
         <Route exact path="/services/premium-level-1" component={PremiumLevel1Route} />
         <Route exact path="/services/premium-level-2" component={PremiumLevel2Route} />
         <Route exact path="/services/premium-level-2/requests/:requestID" component={PremiumLevel2RequestPage} />
+        <Route exact path="/services/premium-level-2/experience" component={PremiumLevel2ExperienceEntryPage} />
+        <Route exact path="/services/premium-level-2/experience/:requestID" component={PremiumLevel2ExperiencePage} />
         <Route exact path="/services/generic-program/:programId" component={GenericProgramDetailPage} />
         {/* The configured payment return URLs land here (Stripe appends
             session_id, PayPal appends token, both with purchase_id). They must
@@ -125,6 +129,7 @@ export const AppRoutes = () => {
               eyebrow="Feed"
               title="Feed is under development."
               description="The RYZE activity feed will be introduced after the frontend foundation is ready."
+              visual="feedConstruction"
             />
           )}
         />

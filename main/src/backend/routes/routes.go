@@ -254,15 +254,16 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
 
 	premiumLevel2Repository := repositories.NewPremiumLevel2Repository(db)
-	notificationService := notifications.New(repositories.NewNotificationRepository(db), userRepository, trainerProgramRepository, mailer)
+	testSessionRepository := repositories.NewTestSessionRepository(db)
+	notificationService := notifications.New(repositories.NewNotificationRepository(db), userRepository, trainerProgramRepository, mailer,
+		notifications.WithTestRecipients(testSessionRepository))
 	notificationsHandler := auth.NewNotificationsHandler(notificationService)
 	supportHandler := auth.NewSupportHandler(support.New(repositories.NewSupportRepository(db), notificationService)).
 		WithSessions(tokenService, userRepository)
 	premiumJourneyRepository := repositories.NewPremiumJourneyRepository(db)
 	premiumLevel2Service := premium_level_2.NewService(premiumLevel2Repository, trainerProgramRepository, entitlementRepository,
-		premium_level_2.WithNotifier(notificationService), premium_level_2.WithDrafts(premiumJourneyRepository))
-	premiumLevel2Drafts, _ := premium_level_2.Drafts(premiumLevel2Service)
-	premiumJourneysHandler := auth.NewPremiumJourneysHandler(premium_match.NewService(premiumJourneyRepository), premiumLevel2Drafts)
+		premium_level_2.WithNotifier(notificationService))
+	premiumJourneysHandler := auth.NewPremiumJourneysHandler(premium_match.NewService(premiumJourneyRepository))
 	premiumLevel2Handler := auth.NewPremiumLevel2Handler(premiumLevel2Service)
 
 	publicProgramService := public_programs.NewService(trainerProgramRepository)
@@ -353,9 +354,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 		entitlementRepository,
 		&commissionAdapter{svc: commissionRulesService},
 		methodMap.Resolve,
-		// Legacy Level 1 packages need their questionnaire; Level 2 offers need
-		// the long questionnaire answered before payment.
-		purchases.WithCheckoutPrerequisites(purchases.AllPrerequisites(questionnaireService, premiumLevel2Drafts)),
+		// Legacy Level 1 packages need their questionnaire before payment. The
+		// Premium Level 2 questionnaire belongs to the purchased service.
+		purchases.WithCheckoutPrerequisites(purchases.AllPrerequisites(questionnaireService)),
 		// Completing a purchase delivers what the product owes. Nutrition is the
 		// first such artifact: the hook runs after the entitlement is committed and
 		// its failure never fails the purchase.
@@ -428,7 +429,6 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	)
 	trainerClientInsightHandler := auth.NewTrainerClientInsightsHandler(trainerClientInsightService)
 
-	testSessionRepository := repositories.NewTestSessionRepository(db)
 	testModeService := test_mode.NewService(testModeCfg.Enabled, testSessionRepository, userRepository, trainerRepository, password.Hasher{}, test_mode.WithSessionTTL(jwtCfg.AccessTokenTTL))
 	testModeHandler := auth.NewTestModeHandler(testModeService, tokenService, userRepository, jwtCfg.AccessTokenTTL, jwtCfg.CookieSecure)
 	testModePurchaseHandler := auth.NewTestModePurchaseHandler(testModeService, purchaseService)
@@ -489,8 +489,6 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.POST("/me/programs/:programID/free-activation", middleware.Authenticate(tokenService, userRepository), freeProgramHandler.Activate)
 	v1.GET("/me/free-programs", middleware.Authenticate(tokenService, userRepository), freeProgramHandler.ListActive)
 	v1.GET("/me/premium-level-2/catalog", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.GetCatalog)
-	v1.GET("/me/premium-level-2/offers/:programID/intake-draft", middleware.Authenticate(tokenService, userRepository), premiumJourneysHandler.GetDraft)
-	v1.PUT("/me/premium-level-2/offers/:programID/intake-draft", middleware.Authenticate(tokenService, userRepository), premiumJourneysHandler.SaveDraft)
 	v1.POST("/me/premium-level-1/match", append(limits.chain(scopePremiumMatch), middleware.Authenticate(tokenService, userRepository), premiumJourneysHandler.Match)...)
 	v1.GET("/me/premium-level-2", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.ListClientRequests)
 	v1.GET("/me/premium-level-2/:requestID", middleware.Authenticate(tokenService, userRepository), premiumLevel2Handler.GetClientRequest)

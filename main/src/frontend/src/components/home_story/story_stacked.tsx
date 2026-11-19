@@ -7,12 +7,18 @@ import { BrandGlobe } from "@/components/brand_globe/brand_globe";
 import { LaptopMockup, PhoneMockup } from "@/components/showcase/showcase";
 import { joinClassNames } from "@utils/class_names";
 
-import { CALLOUTS, type StoryChapter, useStory } from "./story_content";
+import { CALLOUTS, SCREENS, type StoryChapter, useStory } from "./story_content";
+import { HeroShowcase } from "./hero_showcase";
 import { ChapterCopy, StartActions, TONE_CLASS } from "./story_parts";
 import styles from "./story_stacked.module.css";
 
 const ChapterVisual = ({ chapter, chapters }: { chapter: StoryChapter; chapters: StoryChapter[] }) => {
   if (chapter.id === "identity") {
+    // The hero's opening, light: the drone projects the phone, a dumbbell and a meal.
+    return <HeroShowcase className={styles.showcase} screen={SCREENS.training} />;
+  }
+  if (chapter.id === "start") {
+    // Planet RYZE: "join planet RYZE".
     return <BrandGlobe className={styles.orb} />;
   }
   if (chapter.id === "platform") {
@@ -41,7 +47,7 @@ const ChapterVisual = ({ chapter, chapters }: { chapter: StoryChapter; chapters:
 };
 
 // StoryStacked tells the same five-chapter story as the desktop 3D experience,
-// as ordinary sections: the RYZE globe, the programs, then the app screens in
+// as ordinary sections: the RYZE hologram, the programs, then the app screens in
 // device frames.
 export const StoryStacked = ({ programs }: { programs: ReactNode }) => {
   const { text, chapters } = useStory();

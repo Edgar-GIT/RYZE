@@ -188,10 +188,10 @@ const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps)
       return;
     }
 
-    // Member accounts sign in with their email; only the configured
-    // administrators have usernames, and they sign in at /admin/login.
+    // The public login accepts member email addresses only. Keep malformed or
+    // non-member identifiers indistinguishable from any other failed login.
     if (!email.includes("@")) {
-      setErrorMessage("Use the email address of your account. Administrators sign in at /admin/login.");
+      setErrorMessage("Invalid email or password.");
       return;
     }
 
@@ -231,9 +231,9 @@ const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps)
           <input
             type="email"
             name="email"
-            placeholder={tr("Email or username")}
+            placeholder={tr("Email")}
             autoComplete="email"
-            aria-label={tr("Email or username")}
+            aria-label={tr("Email")}
           />
         </div>
         <PasswordField id="login-password" placeholder="Password" autoComplete="current-password" />

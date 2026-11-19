@@ -1671,6 +1671,13 @@ system:
   returns `409 DUPLICATE_ENTITLEMENT` and is never double-created. Purchases
   are scoped to the persona user; a stored admin or any third-party identity
   cannot act on them.
+- **The test email recipient is validated server-side.** Test checkout requires
+  one bare email address (maximum 255 characters); display names, comments and
+  malformed values are rejected. It is stored only on the active Test Mode
+  session and is never logged or returned by an API. The endpoint remains
+  ADMIN_1-only and persona-token-bound, so public users cannot cause RYZE email
+  to arbitrary addresses. The address stops being used when the session exits;
+  the normal email outbox still owns delivery attempts and permanent failures.
 - **Security-relevant checks are never client-side.** Renders rely on `HTTPS`
   and the same strict cookie settings (HttpOnly, Secure, SameSite) as the
   production tokens. Return paths are validated as internal paths only, so a
@@ -2997,8 +3004,9 @@ Implemented (v2.109.0):
   minutes, longer only while the relay is down), so database and backup access
   must be restricted. Delivery outcomes apply only to the row a worker still
   holds in `sending`, so a stale retry can never overwrite a sent email.
-  Errors are logged without addresses or bodies. Test Mode personas never
-  receive email.
+  Errors are logged without addresses or bodies. Test Mode personas receive
+  email only through the recipient typed at test checkout, and only while that
+  Test Mode session is active.
 - Emails greet the account by name only after its address is confirmed:
   anyone can register any address with a name of their choosing, so emails to
   unconfirmed addresses carry no text written by someone else.

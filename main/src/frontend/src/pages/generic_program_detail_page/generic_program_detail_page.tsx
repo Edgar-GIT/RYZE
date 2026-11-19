@@ -7,6 +7,8 @@ import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
+import { isValidTestEmail } from "@/components/test_mode/test_mode_email";
+import { TestModeEmailField } from "@/components/test_mode/test_mode_email_field";
 import { useProgramCheckout, type PurchaseState } from "@/hooks/use_program_checkout";
 import {
   fetchMarketplaceProgram,
@@ -61,9 +63,11 @@ interface PurchasePanelProps {
   onBuy: () => void;
   onRetryPurchase: (purchaseId: string) => void;
   testMode?: boolean;
+  testEmail: string;
+  onTestEmailChange: (email: string) => void;
 }
 
-const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, paymentMethods, selectedMethod, onSelectMethod, onBuy, onRetryPurchase, testMode = false }: PurchasePanelProps) => {
+const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, paymentMethods, selectedMethod, onSelectMethod, onBuy, onRetryPurchase, testMode = false, testEmail, onTestEmailChange }: PurchasePanelProps) => {
   const tr = useGettext(COMMERCE_PT);
   const { locale } = useI18n();
   if (state.status === "owned") {
@@ -218,10 +222,14 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
               {tr("Purchase unavailable")}
             </p>
             <p className={styles.purchaseText}>{tr(state.message)}</p>
+            {testMode ? (
+              <TestModeEmailField value={testEmail} onChange={onTestEmailChange} />
+            ) : null}
             <div className={styles.purchaseActions}>
               <Button
                 variant="primary"
                 size="small"
+                disabled={testMode && !isValidTestEmail(testEmail)}
                 onClick={onBuy}
                 icon={<RefreshCw size={15} />}
               >
@@ -247,10 +255,12 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
               <p className={styles.purchaseText}>
                 {tr("Test Mode purchase — this plan is granted instantly at no cost. No real payment is made.")}
               </p>
+              <TestModeEmailField value={testEmail} onChange={onTestEmailChange} />
               <div className={styles.purchaseActions}>
                 <Button
                   variant="primary"
                   size="small"
+                  disabled={!isValidTestEmail(testEmail)}
                   onClick={onBuy}
                   icon={<FlaskConical size={15} />}
                   iconPosition="left"
@@ -571,6 +581,8 @@ export const GenericProgramDetailPage = () => {
                     onBuy={() => void checkout.buy()}
                     onRetryPurchase={(purchaseId) => void checkout.retryPurchase(purchaseId)}
                     testMode={isTestModePurchase}
+                    testEmail={checkout.testEmail}
+                    onTestEmailChange={checkout.setTestEmail}
                   />
                 )}
               </header>

@@ -13,7 +13,7 @@ const (
 )
 
 const (
-	CatalogVersion     = 1
+	CatalogVersion     = 2
 	MaxAnswerLength    = 4000
 	MaxShortTextLength = 160
 )
@@ -64,6 +64,14 @@ func opts(values ...string) []Option {
 	return result
 }
 
+func labeledOpts(labels map[string]string, values ...string) []Option {
+	result := make([]Option, 0, len(values))
+	for _, value := range values {
+		result = append(result, Option{Value: value, Label: labels[value]})
+	}
+	return result
+}
+
 func humanize(value string) string {
 	switch value {
 	case "fat_loss":
@@ -78,6 +86,8 @@ func humanize(value string) string {
 		return "General health"
 	case "strength":
 		return "Strength"
+	case "posture_mobility":
+		return "Posture and mobility"
 	case "beginner":
 		return "Beginner"
 	case "intermediate":
@@ -125,13 +135,29 @@ func humanize(value string) string {
 	case "light":
 		return "Lightly active"
 	case "moderate":
-		return "Moderately active"
+		return "Moderate"
 	case "high":
-		return "Very active"
+		return "High"
 	case "very_high":
-		return "Extremely active"
+		return "Very high"
+	case "very_low":
+		return "Very low"
 	case "low":
 		return "Low"
+	case "poor":
+		return "Poor"
+	case "fair":
+		return "Fair"
+	case "good":
+		return "Good"
+	case "excellent":
+		return "Excellent"
+	case "needs_improvement":
+		return "Needs improvement"
+	case "high_protein":
+		return "High in protein"
+	case "high_fast_food":
+		return "High in fast food"
 	case "balanced":
 		return "Balanced"
 	case "vegetarian":
@@ -166,6 +192,22 @@ func humanize(value string) string {
 		return "Every two weeks"
 	case "monthly":
 		return "Monthly"
+	case "never":
+		return "Never"
+	case "under_6_months":
+		return "Less than 6 months"
+	case "6_12_months":
+		return "6-12 months"
+	case "1_2_years":
+		return "1-2 years"
+	case "2_5_years":
+		return "2-5 years"
+	case "5_plus_years":
+		return "5 or more years"
+	case "female":
+		return "Female"
+	case "male":
+		return "Male"
 	case "not_pregnant":
 		return "Not pregnant"
 	case "pregnant":
@@ -183,31 +225,48 @@ func humanize(value string) string {
 func IntakeCatalog() Catalog {
 	return Catalog{Version: CatalogVersion, Sections: []Section{
 		{
+			Key:         "personal",
+			Title:       "Personal details",
+			Description: "These details identify you to your trainer and help shape the plan around your life.",
+			Questions: []Question{
+				{Key: "full_name", Label: "Full name", Type: QuestionTypeText, Required: true, MaxLength: MaxShortTextLength},
+				{Key: "date_of_birth", Label: "Date of birth", Type: QuestionTypeText, Required: true, MaxLength: 10, Help: "Use the format DD/MM/YYYY."},
+				{Key: "sex", Label: "Sex", Type: QuestionTypeSelect, Required: true, Options: opts("female", "male", "prefer_not_to_say")},
+				{Key: "occupation", Label: "Occupation", Type: QuestionTypeText, Required: true, MaxLength: MaxShortTextLength},
+				{Key: "work_schedule", Label: "Work schedule", Type: QuestionTypeText, Required: true, MaxLength: 200, Help: "For example fixed hours, shifts or the times you usually work."},
+				{Key: "social_media", Label: "Social media", Type: QuestionTypeText, Required: false, MaxLength: 200, Help: "Optional: Instagram, Facebook or TikTok, if you want your trainer to know."},
+			},
+		},
+		{
 			Key:         "goals",
 			Title:       "Goals",
-			Description: "Tell your trainer what you want to achieve and how experienced you are.",
+			Description: "Tell your trainer exactly what you want to achieve.",
 			Questions: []Question{
-				{Key: "primary_goal", Label: "Primary goal", Type: QuestionTypeSelect, Required: true, Options: opts("fat_loss", "muscle_gain", "strength", "recomposition", "athletic_performance", "general_health")},
-				{Key: "secondary_goals", Label: "Secondary goals", Type: QuestionTypeMultiSelect, Required: false, Options: opts("fat_loss", "muscle_gain", "strength", "recomposition", "athletic_performance", "general_health")},
-				{Key: "training_experience", Label: "Training experience", Type: QuestionTypeSelect, Required: true, Options: opts("beginner", "intermediate", "advanced")},
-				{Key: "target_timeline", Label: "Target timeline", Type: QuestionTypeSelect, Required: true, Options: opts("8_weeks", "12_weeks", "16_weeks", "24_weeks", "no_deadline")},
+				{Key: "primary_goal", Label: "Primary goal", Type: QuestionTypeSelect, Required: true, Options: opts("fat_loss", "muscle_gain", "strength", "recomposition", "athletic_performance", "general_health", "posture_mobility", "other")},
+				{Key: "primary_goal_other", Label: "If you chose Other, describe your main goal", Type: QuestionTypeText, Required: false, MaxLength: 200},
+				{Key: "secondary_goals", Label: "Secondary goals", Type: QuestionTypeMultiSelect, Required: false, Options: opts("fat_loss", "muscle_gain", "strength", "recomposition", "athletic_performance", "general_health", "posture_mobility", "other")},
+				{Key: "specific_goal", Label: "What exactly do you want to achieve?", Type: QuestionTypeTextarea, Required: true, MaxLength: 1000, Help: "For example: lose 5 kg, build lower-body muscle or improve posture."},
+				{Key: "target_timeline", Label: "Target timeline", Type: QuestionTypeSelect, Required: false, Options: opts("8_weeks", "12_weeks", "16_weeks", "24_weeks", "no_deadline")},
 				{Key: "motivation", Label: "Why does this goal matter to you?", Type: QuestionTypeTextarea, Required: true, MaxLength: 1000},
 			},
 		},
 		{
 			Key:         "training",
-			Title:       "Training",
+			Title:       "Training history",
 			Description: "Your trainer needs to know how, where and when you can train.",
 			Questions: []Question{
+				{Key: "training_experience", Label: "Training experience", Type: QuestionTypeSelect, Required: true, Options: opts("beginner", "intermediate", "advanced")},
+				{Key: "training_history_duration", Label: "How long have you trained for?", Type: QuestionTypeSelect, Required: true, Options: opts("never", "under_6_months", "6_12_months", "1_2_years", "2_5_years", "5_plus_years")},
+				{Key: "currently_training", Label: "Are you currently training?", Type: QuestionTypeBoolean, Required: true},
 				{Key: "sessions_per_week", Label: "Training sessions per week", Type: QuestionTypeNumber, Required: true, Min: float(1), Max: float(7), Step: float(1)},
 				{Key: "session_minutes", Label: "Minutes per session", Type: QuestionTypeNumber, Required: true, Min: float(20), Max: float(180), Step: float(5)},
 				{Key: "training_location", Label: "Where will you train?", Type: QuestionTypeSelect, Required: true, Options: opts("gym", "home", "hybrid", "outdoors")},
 				{Key: "equipment", Label: "Available equipment", Type: QuestionTypeMultiSelect, Required: false, Options: opts("full_gym", "dumbbells", "barbell_rack", "resistance_bands", "pull_up_bar", "cardio_machines", "kettlebells", "bodyweight_only")},
 				{Key: "preferred_days", Label: "Preferred training days", Type: QuestionTypeMultiSelect, Required: true, Options: opts("mon", "tue", "wed", "thu", "fri", "sat", "sun")},
+				{Key: "split_preference", Label: "Preferred training split", Type: QuestionTypeText, Required: false, MaxLength: 200, Help: "Leave blank if you have no preference."},
 				{Key: "current_training", Label: "Current training routine", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
-				{Key: "injuries", Label: "Injuries or pain", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000, Help: "Describe anything that limits your training. Write none if not applicable."},
-				{Key: "movement_limitations", Label: "Movement limitations", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
-				{Key: "exercise_preferences", Label: "Exercises you enjoy or want to avoid", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
+				{Key: "liked_exercises", Label: "Exercises you enjoy", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
+				{Key: "disliked_exercises", Label: "Exercises you dislike or avoid", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000, Help: "Include anything that feels uncomfortable."},
 			},
 		},
 		{
@@ -228,11 +287,15 @@ func IntakeCatalog() Catalog {
 			Title:       "Lifestyle",
 			Description: "Recovery and daily activity shape the plan as much as training does.",
 			Questions: []Question{
-				{Key: "occupation", Label: "Occupation", Type: QuestionTypeText, Required: true, MaxLength: MaxShortTextLength},
-				{Key: "activity_level", Label: "Daily activity level", Type: QuestionTypeSelect, Required: true, Options: opts("sedentary", "light", "moderate", "high", "very_high")},
-				{Key: "sleep_hours", Label: "Average sleep per night (hours)", Type: QuestionTypeNumber, Required: true, Min: float(3), Max: float(14), Step: float(0.5)},
-				{Key: "stress_level", Label: "Stress level", Type: QuestionTypeSelect, Required: true, Options: opts("low", "moderate", "high", "very_high")},
+				{Key: "activity_level", Label: "Daily activity level", Type: QuestionTypeSelect, Required: true, Options: labeledOpts(map[string]string{"sedentary": "Sedentary", "light": "Lightly active", "moderate": "Moderately active", "high": "Very active", "very_high": "Extremely active"}, "sedentary", "light", "moderate", "high", "very_high")},
 				{Key: "daily_steps", Label: "Average daily steps", Type: QuestionTypeNumber, Required: false, Min: float(0), Max: float(50000), Step: float(500)},
+				{Key: "sleep_hours", Label: "Average sleep per night (hours)", Type: QuestionTypeNumber, Required: true, Min: float(3), Max: float(14), Step: float(0.5)},
+				{Key: "sleep_quality", Label: "How would you rate your sleep?", Type: QuestionTypeSelect, Required: true, Options: opts("poor", "fair", "good", "excellent")},
+				{Key: "stress_level", Label: "Stress level", Type: QuestionTypeSelect, Required: true, Options: opts("very_low", "low", "moderate", "high", "very_high"), Help: "From 1 (very low) to 5 (very high)."},
+				{Key: "alcohol", Label: "Do you drink alcohol?", Type: QuestionTypeBoolean, Required: true},
+				{Key: "alcohol_frequency", Label: "How often do you drink alcohol?", Type: QuestionTypeText, Required: false, MaxLength: 200},
+				{Key: "caffeine", Label: "Do you have caffeine?", Type: QuestionTypeBoolean, Required: true, Help: "For example coffee, cola or pre-workout."},
+				{Key: "caffeine_frequency", Label: "How often do you have caffeine?", Type: QuestionTypeText, Required: false, MaxLength: 200},
 				{Key: "schedule_notes", Label: "Schedule or recovery notes", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
 			},
 		},
@@ -242,13 +305,15 @@ func IntakeCatalog() Catalog {
 			Description: "Your trainer will build an individual plan around these answers.",
 			Questions: []Question{
 				{Key: "dietary_pattern", Label: "Dietary pattern", Type: QuestionTypeSelect, Required: true, Options: opts("balanced", "vegetarian", "vegan", "pescatarian", "halal", "kosher", "other")},
+				{Key: "current_nutrition_quality", Label: "How would you describe your current nutrition?", Type: QuestionTypeSelect, Required: true, Options: opts("balanced", "needs_improvement", "high_protein", "high_fast_food")},
 				{Key: "meals_per_day", Label: "Meals per day", Type: QuestionTypeNumber, Required: true, Min: float(2), Max: float(8), Step: float(1)},
 				{Key: "allergies", Label: "Allergies", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000, Help: "Write none if not applicable."},
-				{Key: "intolerances", Label: "Intolerances", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
-				{Key: "disliked_foods", Label: "Foods you dislike", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
+				{Key: "intolerances", Label: "Intolerances", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000, Help: "Write none if not applicable."},
 				{Key: "preferred_foods", Label: "Foods you enjoy", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
+				{Key: "disliked_foods", Label: "Foods you dislike", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
 				{Key: "cooking_time", Label: "Time available to cook", Type: QuestionTypeSelect, Required: true, Options: opts("minimal", "20_30", "30_60", "60_plus")},
 				{Key: "budget_level", Label: "Food budget", Type: QuestionTypeSelect, Required: true, Options: opts("low", "moderate", "flexible")},
+				{Key: "water_litres", Label: "Water per day (litres)", Type: QuestionTypeNumber, Required: false, Min: float(0.5), Max: float(10), Step: float(0.1)},
 				{Key: "supplements", Label: "Supplements you use", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
 				{Key: "nutrition_notes", Label: "Anything else about your nutrition", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
 			},
@@ -258,10 +323,18 @@ func IntakeCatalog() Catalog {
 			Title:       "Health",
 			Description: "Health answers are private and only used to keep your plan safe.",
 			Questions: []Question{
+				{Key: "has_medical_conditions", Label: "Do you have a diagnosed medical condition?", Type: QuestionTypeBoolean, Required: true},
 				{Key: "medical_conditions", Label: "Medical conditions", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000, Help: "Write none if not applicable."},
+				{Key: "has_injury_history", Label: "Have you had a relevant injury?", Type: QuestionTypeBoolean, Required: true},
+				{Key: "injuries", Label: "Injuries or pain", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000, Help: "Describe anything that limits your training. Write none if not applicable."},
+				{Key: "takes_medication", Label: "Are you taking any medication?", Type: QuestionTypeBoolean, Required: true},
 				{Key: "medications", Label: "Medications", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
+				{Key: "has_movement_limitations", Label: "Do you have any movement restriction or pain when training?", Type: QuestionTypeBoolean, Required: true},
+				{Key: "movement_limitations", Label: "Movement limitations", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
 				{Key: "medical_clearance", Label: "Has a doctor cleared you for exercise?", Type: QuestionTypeBoolean, Required: true},
 				{Key: "pregnancy_status", Label: "Pregnancy status", Type: QuestionTypeSelect, Required: false, Options: opts("not_pregnant", "pregnant", "breastfeeding", "prefer_not_to_say")},
+				{Key: "smoking", Label: "Do you smoke?", Type: QuestionTypeBoolean, Required: true},
+				{Key: "smoking_frequency", Label: "How often do you smoke?", Type: QuestionTypeText, Required: false, MaxLength: 200},
 				{Key: "eating_disorder_history", Label: "History of an eating disorder", Type: QuestionTypeBoolean, Required: false},
 				{Key: "health_notes", Label: "Other health information", Type: QuestionTypeTextarea, Required: false, MaxLength: 1000},
 			},

@@ -443,7 +443,7 @@ travels along it once drawn. Cards are ordered like their elements, so the
 leaders never cross. Phones show two of them (set and rest timer; protein and
 meal) overlapping the phone edges. In Evolve the laptop and phone stand side by
 side under the badge "Synced · phone & laptop" (no connecting line), centred
-over the pair with a soft breathing light, and the Earth leaves the frame. The laptop and the Evolve phone use large-type screens
+over the pair with a soft breathing light, while the hologram's drone is out of the frame. The laptop and the Evolve phone use large-type screens
 designed for the size at which they appear. Product visuals are illustrative RYZE
 screens designed in the app's style after the owner's phone reference, with
 sample data and existing features only (`main/src/resources/img/showcase/`:
@@ -465,9 +465,9 @@ every step is a button with a visible focus ring.
 
 1. Hero — the story steps (01 RYZE, 02 Train, 03 Fuel, 04 Evolve, 05 Start)
    are visible and clickable; step 1 is current. As the hero scrolls away its
-   copy fades and the Earth travels to the upper right corner — part of the
-   journey, with no moment where the Earth stands alone.
-2. Programs — they pass over the stage while the Earth waits in the corner
+   copy fades and the hologram (drone, beam and athlete) travels to the upper
+   right corner — part of the journey.
+2. Programs — they pass over the stage while the hologram waits in the corner
    (tucked a little further in, clear of the section header); the steps step
    aside (hidden and out of the tab order) while the programs fill the screen.
 3. Chapters — the track starts while the programs are still leaving (its top
@@ -485,12 +485,36 @@ every step is a button with a visible focus ring.
 
 Scroll progress drives one Three.js scene (`story_scene.ts`, dynamically
 imported):
-the Earth with real continents and an atmosphere, RYZE routes leaving Lisbon
-(light pulses travel each route) and the official icon on a badge above
-Lisbon — the brand travelling the world (2026-11-14: land drawn as a glowing
-dot matrix, twinkling city lights on the night side, a sun glint on the oceans,
-thin procedural clouds and a brighter atmosphere; no orbit ring); a modelled phone (titanium frame,
-glass, island, buttons, camera module, blue edge light) that flies in with the
+the hero's opening (owner request, 2026-11-15, which replaced the earlier
+hologram athlete and its readout): when the page opens, a scanning drone
+(satin graphite pod with a light ring, ducted rotors and a sensor array) flies
+in from the right with a small overshoot and settle, opens a beam downwards
+(lens flash, scan pulses, particles pouring down, a pool of light) and inside
+it the three things RYZE is about materialise as holograms from the bottom up
+(fresnel rim, scan lines, glowing edges, a bright building edge): the story's
+own phone with the real RYZE training screen shown as a cyan hologram, a hex
+dumbbell and a balanced meal. The beam closes up into the lens with a flash
+and, as the drone leaves to the right, each hologram turns into its solid
+object behind a bright line that climbs it (solid below, hologram above:
+the same geometry clipped by a moving plane), with a flash, a shock ring and
+its contact shadow — about 7 s, procedural, no model files
+(`components/home_story/story_intro.ts`). The final composition stays: the
+phone (natural titanium, frosted blue back, the training screen) in the
+centre, the dumbbell (knurled steel handle, chrome collars, gunmetal hex
+heads with a cyan inlay and the RYZE mark) in front and the meal in a white
+ceramic bowl (grains, salmon with sesame, avocado, cherry tomatoes,
+broccoli, edamame, chickpeas) beside it, with a slow float and turn. The
+opening plays once when the story is first on screen; any scroll jumps to the
+final composition, and it never covers the copy or delays the CTAs. As the
+hero scrolls on, the dumbbell and meal leave up and away and the phone rises
+out of the frame, coming back down for the Train chapter. The last chapter
+("Your next level starts here, join planet RYZE now!") shows planet RYZE
+again: the Earth with RYZE routes leaving Lisbon, restored unchanged from the
+original (`components/home_story/story_planet.ts`). The devices use light
+metals (2026-11-15: natural titanium, silver-blue aluminium, a soft light rim
+and a shadow) so they read as objects on the vivid blue field, where the
+former dark slate looked like holes in it. The opening runs once; a modelled phone (natural titanium frame,
+glass, island, buttons, camera module, a soft light rim and shadow) that flies in with the
 training screen and spins, showing the logo on its back, to reveal the
 nutrition screen; a laptop (black keys with backlit legends, Touch ID and arrow
 keys, glass trackpad, opening scoop, hinge, display notch) that rises with the
@@ -498,14 +522,22 @@ logo on its closed lid and opens square-on to the viewer on the programme
 screen (2026-11-14: the closed lid rests above the keys instead of cutting
 through them; each key size has its own rounded cap, a cyan backlight shows
 between the keys, speaker grilles flank the keyboard and the legends are
-sharper), with the phone standing beside it; then the Earth returns for
-the call to action. The stage backdrop stays in the navy family (only the
+sharper), with the phone standing beside it; then planet RYZE comes down for the call
+to action. Phones, reduced motion and no-WebGL show
+`components/home_story/hero_showcase.tsx` instead: the same opening in HTML,
+SVG and CSS (the drone flies in, opens its beam, the phone with the real
+training screen, the dumbbell and the meal build as cyan holograms from the
+bottom up, the beam closes and the drone leaves as each turns solid behind a
+bright line with a flash; one run of about 7 s; with reduced motion the final
+composition, nothing moving), and `BrandGlobe` (the SVG planet) in the last
+chapter, never downloading
+Three.js. While the 3D scene loads the stage stays empty (the opening starts with an empty stage). The stage backdrop stays in the navy family (only the
 blue light moves) and fades into the page at its base, the chapter copy fades
 in its scroll window (every chapter stays in the accessibility tree; keyboard
 focus inside a faded chapter jumps it into view).
 Device screens are sampled one mip level sharper than default to keep small
 text crisp.
-An SVG globe is shown until the scene is ready. Rendering runs only while the story is on screen and stops on
+Rendering runs only while the story is on screen and stops on
 navigation; any scene failure switches to the stacked layout.
 
 Mobile, tablet, reduced motion and browsers without WebGL2 get the stacked
@@ -543,9 +575,9 @@ plans" → `/services/generic-program` and "See how RYZE works" → `/our-vision
 and five steps on a cyan rail for training plans and Premium Level 1: choose a
 plan, check the details (level, duration, weekly frequency), activate (free)
 or check out (paid), open My Programs, train and log. A note explains that
-Premium Level 2 starts with a detailed questionnaire, payment comes last, and
-a trainer then prepares the programme and nutrition before they appear in My
-Programs.
+Premium Level 2 is paid first; the detailed questionnaire then opens
+immediately after purchase, and a trainer prepares the programme and nutrition
+before they appear in My Programs.
 
 ### Contact preview
 
@@ -853,8 +885,12 @@ require authentication.
     regardless of what the browser saw.
   - Active Test Mode variant — for a paid program, the panel swaps to an amber
     "Get plan in Test Mode" CTA at price "Free" with a note that the purchase
-    completes instantly with no payment. A `409 DUPLICATE_ENTITLEMENT` resolves
-    to the `owned` state (the persona already owns the program).
+    completes instantly with no payment. A required "Test email recipient"
+    field (native email input, visible label and help text, inline invalid
+    message) names the real inbox that receives the normal purchase and
+    lifecycle emails; the CTA stays disabled until it is valid. A
+    `409 DUPLICATE_ENTITLEMENT` resolves to the `owned` state (the persona
+    already owns the program).
 - **Free activation panel** (free programmes only) — resolves the client's Free
   activations. A guest sees "Sign in to activate" with a Sign in button; a
   signed-in unactivated client sees "Activate free plan"; an activated client
@@ -1147,7 +1183,12 @@ Currently routes to an under-development placeholder (`/feed`). The shared
 `UnderDevelopmentPage` placeholder (also used by the `/services/:serviceSlug`
 fallback and the catch-all route) is a navy section with a cyan status label,
 heading, description, "Back Home" → `/`, "View Services" → `/services` and the
-SVG globe.
+SVG globe. The Feed route opts into a separate procedural construction
+hologram: a worker hammers a metal frame while a drone performs the same
+in-and-out reveal timing as the Home introduction. It is desktop-only WebGL,
+loaded lazily, paused off-screen and replaced by a CSS fallback on mobile,
+reduced-motion or unavailable WebGL. Other uses of `UnderDevelopmentPage` keep
+the existing globe.
 
 ---
 
@@ -1302,7 +1343,7 @@ Phones and tablets (below 900px)
 Forms
 
 - Login: "Welcome back." (continuation in cyan), "Log in to continue your
-  journey.", Email or username, Password with show/hide, "Remember me" and
+  journey.", Email, Password with show/hide, "Remember me" and
   "Forgot your password?", primary "Log in", divider "or continue with",
   Google button, "Don't have an account? Create one here".
 - Register: "Create account.", "Join RYZE and start your evolution.", First
@@ -1364,9 +1405,11 @@ through `useMember()` (`user`, `isTrainer`, `reload`). Navigation: Home, Train,
 Progress, History; secondary: Training plans, Exercises, Purchases, Support,
 Account. Phone tabs: Home, Train, Progress, History, Account. The action card
 is "Start workout" (to Train); approved trainers also see a switch to the
-trainer area. `routes/member_routes.tsx` is loaded lazily and keeps one shell
-mounted while moving between member pages. The workout player and the
-Premium Level 2 request page render outside the shell.
+trainer area. The shell also reads the member's Premium Level 2 requests and
+shows the exclusive academy item only when one is delivered.
+`routes/member_routes.tsx` is loaded lazily and keeps one shell mounted while
+moving between member pages. The workout player and the Premium Level 2 request
+and experience pages render outside the shell.
 
 ### Home (`/profile`)
 
@@ -2247,8 +2290,9 @@ Owner request of 2026-11-14. Without any of the legacy parameters (`program`,
 
 The checkout panel (`components/checkout_panel/`) is shared with the Level 2
 journey: order summary with what is included and the total, payment methods
-as radio cards, the Test Mode notice, a plain message when no payment provider
-is configured, cancelled/error states with retry, and the confirmation.
+as radio cards, the Test Mode notice with its required test-email recipient,
+a plain message when no payment provider is configured, cancelled/error states
+with retry, and the confirmation.
 
 The legacy page below still serves `?program=` links (e.g. My Programs) and
 payment returns.
@@ -2381,7 +2425,10 @@ in a long form and should not be asked to redo it. A curated package has no form
 to preserve.
 
 In a Test Mode session a banner states that the purchase completes without
-contacting a payment provider.
+contacting a payment provider, followed by the shared "Test email recipient"
+field. The purchase button reads "Complete Test Mode purchase" and stays
+disabled until the address is valid. The field is also shown with an error so a
+failed attempt remains editable before retrying.
 
 ## Nutrition
 
@@ -2441,29 +2488,23 @@ Premium entitlements, with the same state, readiness and resilience rules.
 
 Route: `/services/premium-level-2`, declared before `/services/:serviceSlug`.
 
-## Service journey (v2.115.0)
+## Service journey (v2.124.0)
 
-Owner request of 2026-11-14. Without the legacy parameters the route opens
-`pages/premium_level2_journey/`: intro (what the service includes, 19,49 €,
-"Learn more") → the main goal as cards (from the intake catalog) → the long
-questionnaire in sections with a section list, progress bar and "Save and
-continue" (each section is saved as a draft through
-`PUT /me/premium-level-2/offers/:programID/intake-draft` and must be valid
-before moving on; answers come back when the client returns) → the offer
-card and the checkout panel. Payment is the last step; the completed purchase
-turns the answers into the request's intake. `?offer=<id>` selects an offer,
-otherwise the first published one is used.
+Without the legacy parameters the route opens
+`pages/premium_level2_journey/`: an intro with what the service includes and its
+price, the steps, the offer card and the checkout panel. The long questionnaire
+is not part of this journey and no answer is collected or stored before payment
+(owner request, 2026-11-15). `?offer=<id>` selects an offer; otherwise the first
+published one is used. A completed purchase hands the buyer to
+`/services/premium-level-2/experience?preparing=1`, where the questionnaire opens
+immediately.
 
-The legacy page below (`?program=`) no longer sells: its purchase panel says
-the questionnaire comes first and links to the journey for that offer, so a
-purchase can never start without the questionnaire. It still shows owned
-services and handles payment returns.
-
-## Legacy detail page
-
-It is a single scrolling detail page, not a wizard. Without a `program` query
-parameter it lists every published Premium Level 2 offer; selecting one adds the
-`program` parameter and shows the product.
+The legacy page below (`?program=`) remains a single scrolling detail page, not a
+wizard. Without a `program` query parameter it lists every published Premium
+Level 2 offer; selecting one adds the `program` parameter and shows the product.
+It shows owned services, handles payment returns and uses the same payment-first
+flow: an editable request links to the experience instead of asking for answers
+before payment.
 
 ## Product presentation
 
@@ -2478,16 +2519,82 @@ the existing zeroed-price treatment without mutating product data.
 ## Purchase and next step
 
 The page reuses `useProgramCheckout` and the existing payment/Test Mode flow.
-After a completed purchase it resolves the service request and routes to
-`/services/premium-level-2/requests/:requestID`; when the request is not yet
-readable it keeps the purchase confirmation and a link to My Programs. The page
-does not collect intake answers before purchase and does not invent a second
-checkout.
+After a completed purchase it routes to the experience entry resolver; when the
+request is not yet readable it keeps the purchase confirmation and a link to My
+Programs. The page does not collect intake answers before purchase and does not
+invent a second checkout.
+
+# Premium Level 2 Experience
+
+Routes:
+
+- `/services/premium-level-2/experience` — entry resolver.
+- `/services/premium-level-2/experience/:requestID` — post-purchase experience.
+
+The entry resolver reads the client's own service requests and forwards to the
+newest non-cancelled one. With no request it returns to
+`/services/premium-level-2`; a missing session goes to `/login`; any other read
+failure shows a retry card. It never guesses a request id or opens another
+client's request.
+
+The detail page loads the intake catalog, the owner-scoped request detail and the
+purchase history together. It renders four server-state-driven views and never
+invents progress:
+
+- **Preparing** — shown immediately after checkout (`?preparing=1`) or when the
+  request is `awaiting_intake` without an intake. A three-step transition
+  (payment confirmed, access linked, questionnaire ready) completes in about
+  3.8 seconds; the primary button skips ahead at any time. The animation stops
+  under reduced motion.
+- **Questionnaire** — the catalog sections with a progress card, section chips, a
+  previous/next action and a final submit. Required answers are checked before
+  advancing; server field errors are mapped back to their fields. Answers live in
+  component state only, never in browser storage.
+- **Soon** — shown after submission while the request is not delivered. A
+  timeline reports the intake revision, trainer allocation, preparation and
+  notification from the real request fields; it never shows a fake percentage.
+  An editable request can reopen the questionnaire. A delivered request opens the
+  summary instead.
+- **Summary** — a deterministic analysis grouped as goal, training, nutrition,
+  recovery, health flags and next step. It is explicitly an automatic summary,
+  not a medical assessment and not the final plan. The purchase receipt is
+  matched to the completed purchase by `program_id`; amount, currency, method,
+  reference, date and Test Mode come from that record. All answers can be
+  expanded, and a print-only sheet contains the answers and receipt.
+
+The download action calls the browser print dialog (`window.print()`); there is
+no PDF dependency. The print stylesheet hides the interactive page and shows only
+the answers and receipt sheet, so "Save as PDF" produces the deliverable. The
+view is bilingual, maps server reason codes to client wording and never displays
+a raw token.
+
+# Premium Level 2 Academy
+
+Route: `/services/premium-level-2/academy`, inside the member shell and listed in
+the member route table. It is exclusive to a client whose Premium Level 2 service
+has been delivered.
+
+`MemberShell` reads the member's own service requests and adds the "Premium L2
+academy" navigation item only while a delivered request exists. The page repeats
+that check independently: it fetches the owner's requests, selects the newest
+delivered one and, without one, renders a restricted explanation instead of the
+content. Loading, read failure and retry are explicit states. The page never
+reads intake answers or exposes another client's data.
+
+The content is a complete bilingual practical guide of 12 chapters — start,
+method, hypertrophy, progression, recovery, nutrition, real cases, common
+mistakes, an 8-week tracker, ten rules, the evidence and a closing — plus the
+source references. A sticky desktop table of contents and mobile topic chips
+navigate the chapters; a reading bar and scroll spy mark the current chapter.
+The delivered date and links back to the experience and service request are
+shown when available.
 
 # Premium Level 2 Request Page
 
 Route: `/services/premium-level-2/requests/:requestID`. The owner is always
-taken from the session; the id in the URL is only an address.
+taken from the session; the id in the URL is only an address. This detailed
+service view remains available from the experience and My Programs; the
+experience is the primary post-purchase path.
 
 - Header shows the offer, status, allocated trainer and delivery date when
   present.

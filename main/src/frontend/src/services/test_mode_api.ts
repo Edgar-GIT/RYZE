@@ -55,7 +55,12 @@ export const exitTestMode = (): Promise<TestModeExitResult> =>
   apiPost<TestModeExitResult>("/admin/auth/test-mode/exit", {});
 
 // Test purchases complete a zero-price purchase and a real entitlement for the
-// persona. They are capped to an active Test Mode session bound to the
-// authenticated persona user and never touch a payment provider.
-export const completeTestPurchase = (programId: string): Promise<Purchase> =>
-  apiPost<Purchase>(`/auth/test-mode/programs/${encodePathSegment(programId)}/purchase`, {});
+// persona. The required email is the real inbox that receives the normal
+// purchase and lifecycle emails for this Test Mode session; personas only own
+// non-deliverable @ryze.local addresses. They are capped to an active Test Mode
+// session bound to the authenticated persona user and never touch a payment
+// provider.
+export const completeTestPurchase = (programId: string, email: string): Promise<Purchase> =>
+  apiPost<Purchase>(`/auth/test-mode/programs/${encodePathSegment(programId)}/purchase`, {
+    email: email.trim()
+  });

@@ -1,0 +1,554 @@
+/* The SVG hologram: a scanning drone reads a training mannequin that
+   alternates dumbbell curls and squats while the worked muscles pulse gold to
+   red, and a card logs each set. Every motion stops with reduced motion. */
+.frame {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.hologram {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.drone {
+  animation: hover 3.2s ease-in-out infinite;
+}
+
+@keyframes hover {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.rotor {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spin 0.16s linear infinite;
+}
+
+@keyframes spin {
+  50% {
+    transform: scaleX(0.55);
+  }
+}
+
+.beam {
+  animation: beam 2.4s ease-in-out infinite;
+}
+
+@keyframes beam {
+  50% {
+    opacity: 0.78;
+  }
+}
+
+/* The platform pulses when a set is logged (the end of every rep). */
+.pulse {
+  transform-box: view-box;
+  transform-origin: 180px 378px;
+  opacity: 0;
+  animation: pulse 12s linear infinite;
+}
+
+@keyframes pulse {
+  0%,
+  15.5%,
+  30.5%,
+  45.5%,
+  65.5%,
+  80.5%,
+  95.5% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+
+  16%,
+  31%,
+  46%,
+  66%,
+  81%,
+  96% {
+    opacity: 0.9;
+    transform: scale(0.18);
+  }
+
+  21%,
+  36%,
+  51%,
+  71%,
+  86%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.athlete {
+  animation: flicker 5s steps(1, end) infinite;
+}
+
+@keyframes flicker {
+  0%,
+  41%,
+  43%,
+  100% {
+    opacity: 1;
+  }
+
+  42% {
+    opacity: 0.72;
+  }
+}
+
+.far {
+  opacity: 0.5;
+}
+
+/* One 12 s cycle: three curls (0–45%), then three squats (50–95%). Each
+   joint turns around its rest position (view-box units), inside its parent,
+   so the squat folds ankle → knee → hip like a body. */
+.shin,
+.thigh,
+.torso,
+.upperArm,
+.forearm {
+  transform-box: view-box;
+  animation-duration: 12s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.shin {
+  transform-origin: 182px 362px;
+  animation-name: shin;
+}
+
+.thigh {
+  transform-origin: 181px 302px;
+  animation-name: thigh;
+}
+
+.torso {
+  transform-origin: 184px 252px;
+  animation-name: torso;
+}
+
+.upperArm {
+  transform-origin: 184px 182px;
+  animation-name: upper-arm;
+}
+
+.forearm {
+  transform-origin: 184px 221px;
+  animation-name: forearm;
+}
+
+@keyframes shin {
+  0%,
+  50%,
+  65%,
+  80%,
+  95%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  57%,
+  59%,
+  72%,
+  74%,
+  87%,
+  89% {
+    transform: rotate(-24deg);
+  }
+}
+
+@keyframes thigh {
+  0%,
+  50%,
+  65%,
+  80%,
+  95%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  57%,
+  59%,
+  72%,
+  74%,
+  87%,
+  89% {
+    transform: rotate(96deg);
+  }
+}
+
+@keyframes torso {
+  0%,
+  50%,
+  65%,
+  80%,
+  95%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  57%,
+  59%,
+  72%,
+  74%,
+  87%,
+  89% {
+    transform: rotate(-104deg);
+  }
+}
+
+/* The arms hang straight down through the squat. */
+@keyframes upper-arm {
+  0%,
+  15%,
+  30%,
+  45%,
+  50%,
+  65%,
+  80%,
+  95%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  7%,
+  9%,
+  22%,
+  24%,
+  37%,
+  39% {
+    transform: rotate(8deg);
+  }
+
+  57%,
+  59%,
+  72%,
+  74%,
+  87%,
+  89% {
+    transform: rotate(32deg);
+  }
+}
+
+@keyframes forearm {
+  0%,
+  15%,
+  30%,
+  45%,
+  100% {
+    transform: rotate(4deg);
+  }
+
+  7%,
+  9%,
+  22%,
+  24%,
+  37%,
+  39% {
+    transform: rotate(138deg);
+  }
+}
+
+/* The stimulus: gold while the muscle works, red at the hardest point. */
+.biceps,
+.quads,
+.glutes {
+  opacity: 0;
+  fill: #ffc23d;
+  animation-duration: 12s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.biceps {
+  animation-name: biceps;
+}
+
+.quads,
+.glutes {
+  animation-name: legs;
+}
+
+@keyframes biceps {
+  0%,
+  45%,
+  100% {
+    opacity: 0;
+    fill: #ffc23d;
+  }
+
+  3%,
+  15%,
+  30%,
+  42% {
+    opacity: 0.4;
+    fill: #ffc23d;
+  }
+
+  8%,
+  23%,
+  38% {
+    opacity: 0.95;
+    fill: #ff3456;
+  }
+}
+
+@keyframes legs {
+  0%,
+  50%,
+  95%,
+  100% {
+    opacity: 0;
+    fill: #ffc23d;
+  }
+
+  53%,
+  65%,
+  80%,
+  92% {
+    opacity: 0.4;
+    fill: #ffc23d;
+  }
+
+  58%,
+  73%,
+  88% {
+    opacity: 0.95;
+    fill: #ff3456;
+  }
+}
+
+/* The scanner's line runs up the body and back down. */
+.scan {
+  animation: scan 2.3s ease-in-out infinite alternate;
+}
+
+@keyframes scan {
+  from {
+    transform: translateY(374px);
+  }
+
+  to {
+    transform: translateY(126px);
+  }
+}
+
+/* The readout card, over the left of the scene: the curl, then the squat
+   (crossfading with the cycle); "logged" lights up at the end of every rep. */
+.readout {
+  position: absolute;
+  top: 17%;
+  left: 0;
+  width: 41%;
+  font-family: var(--r-font, "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif);
+  pointer-events: none;
+}
+
+.card {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem 0.65rem 0.6rem;
+  border: 1px solid rgba(124, 235, 255, 0.22);
+  border-radius: 0.8rem;
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(24, 44, 104, 0.88), rgba(7, 17, 50, 0.92));
+  box-shadow: 0 12px 28px rgba(2, 4, 31, 0.35);
+  animation-duration: 12s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.card p {
+  margin: 0;
+}
+
+.cardCurl {
+  animation-name: card-curl;
+}
+
+.cardSquat {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  opacity: 0;
+  animation-name: card-squat;
+}
+
+@keyframes card-curl {
+  0%,
+  46%,
+  100% {
+    opacity: 1;
+  }
+
+  49%,
+  97% {
+    opacity: 0;
+  }
+}
+
+@keyframes card-squat {
+  0%,
+  46%,
+  100% {
+    opacity: 0;
+  }
+
+  49%,
+  97% {
+    opacity: 1;
+  }
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #7cebff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.live {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  background: #7cebff;
+  box-shadow: 0 0 6px rgba(124, 235, 255, 0.9);
+  animation: live 1.6s ease-in-out infinite;
+}
+
+@keyframes live {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.loadRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+}
+
+.loadRow strong {
+  font-size: 0.98rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pill {
+  padding: 0.18rem 0.42rem;
+  border-radius: 999px;
+  color: #04122e;
+  background: linear-gradient(180deg, #5ee6ff, #18c6f5);
+  font-size: 0.56rem;
+  font-weight: 800;
+  opacity: 0;
+  animation: logged 12s linear infinite;
+}
+
+@keyframes logged {
+  0%,
+  15%,
+  30%,
+  45%,
+  65%,
+  80%,
+  95% {
+    opacity: 0;
+  }
+
+  16%,
+  24%,
+  31%,
+  39%,
+  46%,
+  54%,
+  66%,
+  74%,
+  81%,
+  89%,
+  96%,
+  100% {
+    opacity: 1;
+  }
+
+  26%,
+  41%,
+  56%,
+  76%,
+  91% {
+    opacity: 0;
+  }
+}
+
+.sample {
+  color: rgba(214, 228, 255, 0.5);
+  font-size: 0.5rem;
+}
+
+.floorRings {
+  opacity: 0.9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drone,
+  .rotor,
+  .beam,
+  .pulse,
+  .card,
+  .live,
+  .athlete,
+  .shin,
+  .thigh,
+  .torso,
+  .upperArm,
+  .forearm,
+  .quads,
+  .glutes,
+  .scan {
+    animation: none;
+  }
+
+  /* Still: the curl's card, its set logged. */
+  .pill {
+    animation: none;
+    opacity: 1;
+  }
+
+  .cardSquat {
+    display: none;
+  }
+
+  .scan {
+    transform: translateY(240px);
+  }
+
+  /* Still: the worked muscle keeps a steady glow. */
+  .biceps {
+    animation: none;
+    opacity: 0.6;
+  }
+
+}

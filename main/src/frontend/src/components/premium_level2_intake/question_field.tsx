@@ -67,23 +67,32 @@ export const QuestionField = ({
 
   if (question.type === "boolean") {
     return (
-      <div className={styles.field}>
-        <label className={styles.option}>
-          <input
-            type="checkbox"
-            checked={value === true}
-            disabled={disabled}
-            onChange={(event) => onChange(event.target.checked)}
-          />
-          <span>{tr(question.label)}</span>
-        </label>
+      <fieldset className={styles.field} aria-describedby={describedBy} aria-invalid={Boolean(error)}>
+        <legend className={styles.label}>
+          {tr(question.label)}
+          {question.required ? <span className={styles.required}>{tr("Required")}</span> : null}
+        </legend>
         {question.help ? <p className={styles.help}>{tr(question.help)}</p> : null}
+        <div className={styles.optionGrid}>
+          {[true, false].map((option) => (
+            <label key={String(option)} className={styles.option}>
+              <input
+                type="radio"
+                name={question.key}
+                checked={value === option}
+                disabled={disabled}
+                onChange={() => onChange(option)}
+              />
+              <span>{tr(option ? "Yes" : "No")}</span>
+            </label>
+          ))}
+        </div>
         {error ? (
           <p className={styles.fieldError} id={describedBy}>
             {tr(error)}
           </p>
         ) : null}
-      </div>
+      </fieldset>
     );
   }
 

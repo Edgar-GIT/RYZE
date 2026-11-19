@@ -11,13 +11,10 @@ export const LOGIN_PT: Catalog = {
   "This email is already registered.": "Este email já está registado.",
   "Something went wrong. Please try again.": "Algo correu mal. Tenta novamente.",
   "Please fill in all fields.": "Preenche todos os campos.",
-  "Use the email address of your account. Administrators sign in at /admin/login.":
-    "Usa o email da tua conta. Os administradores entram em /admin/login.",
   "Passwords do not match.": "As passwords não coincidem.",
   Welcome: "Bem-vindo",
   "back.": "de volta.",
   "Log in to continue your journey.": "Entra para continuares o teu percurso.",
-  "Email or username": "Email ou nome de utilizador",
   Password: "Password",
   "Remember me": "Lembrar-me",
   "Forgot your password?": "Esqueceste a password?",

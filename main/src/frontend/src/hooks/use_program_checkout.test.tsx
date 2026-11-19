@@ -208,12 +208,39 @@ describe("useProgramCheckout", () => {
     });
   });
 
+  it("sends the typed recipient with a Test Mode purchase", async () => {
+    mockedCompleteTestPurchase.mockResolvedValue({ ...pendingPurchase("purchase-6"), status: "completed" });
+
+    const { result } = renderCheckout({ testModeActive: true });
+
+    act(() => result.current.setTestEmail("  qa.tester@example.com  "));
+    await act(async () => {
+      await result.current.buy();
+    });
+
+    expect(mockedCompleteTestPurchase).toHaveBeenCalledWith(PROGRAM_ID, "qa.tester@example.com");
+    expect(result.current.state.status).toBe("success");
+  });
+
+  it("refuses a Test Mode purchase without a valid recipient", async () => {
+    const { result } = renderCheckout({ testModeActive: true });
+
+    act(() => result.current.setTestEmail("not-an-email"));
+    await act(async () => {
+      await result.current.buy();
+    });
+
+    expect(mockedCompleteTestPurchase).not.toHaveBeenCalled();
+    expect(result.current.state).toEqual({ status: "error", message: "Enter a valid test email address." });
+  });
+
   it("reflects owned access when a Test Mode purchase conflicts", async () => {
     mockedCompleteTestPurchase.mockRejectedValue(new ApiError(409, "DUPLICATE_ENTITLEMENT", "owned"));
     mockedFetchEntitlements.mockResolvedValue(entitlementsFor(PROGRAM_ID));
 
     const { result } = renderCheckout({ testModeActive: true });
 
+    act(() => result.current.setTestEmail("qa.tester@example.com"));
     await act(async () => {
       await result.current.buy();
     });

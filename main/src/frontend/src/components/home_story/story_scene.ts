@@ -1,25 +1,27 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
-import { GLOBE_CITIES, GLOBE_HOME, GLOBE_ROUTES } from "@/components/brand_globe/globe_data";
+import { INTRO_END, createIntro } from "./story_intro";
+import { createPlanet } from "./story_planet";
 
 /*
  * The Home story scene. One persistent WebGL scene whose state is a function of
- * scroll progress (0..1): the Earth with RYZE routes leaving Lisbon, a phone
- * that presents the training and nutrition screens, and a laptop that opens on
- * the programme page. Loaded with a dynamic import on desktop only.
+ * scroll progress (0..1): the hero's opening, where a drone projects the phone,
+ * a dumbbell and a meal as holograms that turn solid (story_intro.ts), the
+ * phone that then presents the training and nutrition screens, a
+ * laptop that opens on the programme page. Loaded with a dynamic import on
+ * desktop only.
  *
- * Everything is procedural (no model files). The continents come from a small
- * Natural Earth land mask; the device screens are illustrative RYZE screens.
+ * Everything is procedural (no model files); the device screens are
+ * illustrative RYZE screens.
  */
 
 export interface StorySceneAssets {
   logo: string;
-  landMask: string;
   screens: { training: string; nutrition: string; synced: string; platform: string };
   callouts: { train: readonly string[]; fuel: readonly string[]; sync: string };
+  landMask: string; // Natural Earth land mask for planet RYZE
 }
 
 export interface StoryScene {
@@ -40,18 +42,28 @@ const COLORS = {
   cyan: 0x00cbff,
   cyanBright: 0x50e2fe,
   ice: 0x7cebff,
-  titanium: 0x3a4a6a,
-  shell: 0x2e3852
+  // Light device metals (2026-11-15): natural titanium and silver-blue
+  // aluminium read as objects on the vivid blue field, where the former dark
+  // slate looked like holes in it.
+  titanium: 0xdbe3ee,
+  shell: 0x9aa9c2
 } as const;
 
 // --- Scroll keyframes ----------------------------------------------------------
 
 interface SceneState {
-  globeX: number; // fractions of the visible half width
-  globeY: number;
-  globeZ: number;
-  globeScale: number;
-  globeSpin: number;
+  // The hero's composition around the phone (drone, beam, dumbbell, meal).
+  heroX: number; // fractions of the visible half width
+  heroY: number;
+  heroZ: number;
+  heroScale: number;
+  heroSpin: number;
+  // Planet RYZE, for the last chapter.
+  planetX: number;
+  planetY: number;
+  planetZ: number;
+  planetScale: number;
+  planetSpin: number;
   stars: number;
   phoneX: number;
   phoneY: number;
@@ -73,20 +85,28 @@ const TAU = Math.PI * 2;
 const LID_CLOSED = Math.PI / 2;
 const LID_OPEN = -0.3;
 
+// The hero: the phone stands at the centre of its composition, turned towards
+// the copy, with the dumbbell in front and the meal beside it.
 const base: SceneState = {
-  globeX: 0.37,
-  globeY: -0.02,
-  globeZ: 0,
-  globeScale: 0.88,
-  globeSpin: 0,
+  heroX: 0.38,
+  heroY: -1.45,
+  heroZ: 0,
+  heroScale: 1,
+  heroSpin: 0,
+  planetX: 1.2,
+  planetY: 6.5,
+  planetZ: -7,
+  planetScale: 0.62,
+  planetSpin: 0,
   stars: 1,
-  phoneX: 0.62,
-  phoneY: -6.5,
-  phoneZ: 1,
-  phoneRotX: 0.4,
-  phoneRotY: -1.8,
-  phoneRotZ: 0.35,
-  phoneScale: 1.2,
+  // Close to its seat on the hero's surface (the scene locks it there at the top).
+  phoneX: 0.38,
+  phoneY: -0.45,
+  phoneZ: 0.9,
+  phoneRotX: -0.17,
+  phoneRotY: -0.08,
+  phoneRotZ: 0,
+  phoneScale: 1.36,
   laptopX: 0.3,
   laptopY: -7,
   laptopZ: 0,
@@ -98,14 +118,13 @@ const base: SceneState = {
 
 // Right of centre, leaving room on its left for the cards lifted out of its screen.
 const phoneHero = { phoneX: 0.56, phoneY: -0.1, phoneZ: 0.5, phoneRotX: 0.05, phoneRotZ: 0.03, phoneScale: 1.5 };
-// The Earth drifts far back to the upper right while the devices are on stage.
-const globeAway = { globeX: 1.2, globeY: 2.3, globeZ: -7, globeScale: 0.62, globeSpin: 1.4, stars: 0.35 };
-// Further into the corner while the programs pass, clear of their header.
-const globeTucked = { globeX: 1.32, globeY: 2.65 };
-// Laptop and phone side by side, both turned slightly towards the copy; the
-// Earth leaves the frame so the two screens carry the chapter.
+// The dumbbell and the meal leave up and away once the hero scrolls on.
+const heroAway = { heroX: 1.0, heroY: 6, heroZ: -6, heroScale: 0.6, heroSpin: 1, stars: 0.35 };
+// The phone rises out of the frame (up and right) while the programs pass,
+// then comes back down for the Train chapter.
+const phoneTucked = { phoneX: 1.4, phoneY: 4.2, phoneZ: -2, phoneRotX: 0.12, phoneRotY: -0.55, phoneRotZ: 0, phoneScale: 0.7 };
+// Laptop and phone side by side, both turned slightly towards the copy.
 const phoneBesideLaptop = {
-  globeY: 6.5,
   phoneX: 0.71,
   phoneY: -0.38,
   phoneZ: 0.6,
@@ -114,24 +133,26 @@ const phoneBesideLaptop = {
   phoneScale: 0.82,
   laptopX: 0.27
 };
+// Planet RYZE comes down for the last chapter ("join planet RYZE").
+const planetHere = { planetX: 0.37, planetY: -0.02, planetZ: 0, planetScale: 0.88, planetSpin: 0.5, stars: 1 };
 
-// While the hero scrolls away (0 → 0.1) the Earth travels to the upper right
-// corner, where it waits while the programs pass (0.1 → 0.14). The chapters
-// then fly the phone in (0.14 → 0.25) as the programs leave.
+// While the hero scrolls away (0 → 0.1) the phone rises out to the upper
+// right, away while the programs pass (0.1 → 0.14); the chapters then bring it
+// back (0.14 → 0.25) as the programs leave.
 const KEYS: Array<{ at: number; state: SceneState }> = [
   { at: 0, state: base },
-  { at: 0.1, state: { ...base, ...globeAway, ...globeTucked, globeSpin: 1.1 } },
-  { at: 0.14, state: { ...base, ...globeAway, ...globeTucked } },
-  { at: 0.25, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.42 } },
-  { at: 0.36, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.16 } },
-  { at: 0.42, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: -0.16 } },
-  { at: 0.51, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: TAU - 0.16 } },
-  { at: 0.64, state: { ...base, ...globeAway, ...phoneHero, phoneRotY: TAU - 0.3 } },
-  { at: 0.72, state: { ...base, ...globeAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.42, laptopY: -0.9 } },
-  { at: 0.79, state: { ...base, ...globeAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.38, laptopY: -0.9, lid: LID_OPEN } },
-  { at: 0.88, state: { ...base, ...globeAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.34, laptopY: -0.9, laptopRotY: -0.16, lid: LID_OPEN } },
-  { at: 0.95, state: { ...base, globeSpin: 0.5, phoneY: -7, phoneRotY: 2 * TAU, laptopY: -8, lid: LID_OPEN } },
-  { at: 1, state: { ...base, globeSpin: 0.5, phoneY: -7, phoneRotY: 2 * TAU, laptopY: -8, lid: LID_OPEN } }
+  { at: 0.1, state: { ...base, ...heroAway, ...phoneTucked } },
+  { at: 0.14, state: { ...base, ...heroAway, ...phoneTucked } },
+  { at: 0.25, state: { ...base, ...heroAway, ...phoneHero, phoneRotY: -0.42 } },
+  { at: 0.36, state: { ...base, ...heroAway, ...phoneHero, phoneRotY: -0.16 } },
+  { at: 0.42, state: { ...base, ...heroAway, ...phoneHero, phoneRotY: -0.16 } },
+  { at: 0.51, state: { ...base, ...heroAway, ...phoneHero, phoneRotY: TAU - 0.16 } },
+  { at: 0.64, state: { ...base, ...heroAway, ...phoneHero, phoneRotY: TAU - 0.3 } },
+  { at: 0.72, state: { ...base, ...heroAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.42, laptopY: -0.9 } },
+  { at: 0.79, state: { ...base, ...heroAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.38, laptopY: -0.9, lid: LID_OPEN } },
+  { at: 0.88, state: { ...base, ...heroAway, ...phoneBesideLaptop, phoneRotY: 2 * TAU - 0.34, laptopY: -0.9, laptopRotY: -0.16, lid: LID_OPEN } },
+  { at: 0.95, state: { ...base, ...heroAway, ...planetHere, phoneY: -7, phoneRotY: 2 * TAU, laptopY: -8, lid: LID_OPEN } },
+  { at: 1, state: { ...base, ...heroAway, ...planetHere, phoneY: -7, phoneRotY: 2 * TAU, laptopY: -8, lid: LID_OPEN } }
 ];
 
 // The phone shows its back half-way through each spin; the screen is swapped
@@ -141,6 +162,10 @@ const KEYS: Array<{ at: number; state: SceneState }> = [
 type PhoneScreen = "training" | "nutrition" | "synced";
 const screenFor = (progress: number): PhoneScreen =>
   progress >= 0.465 && progress < 0.68 ? "nutrition" : progress >= 0.68 ? "synced" : "training";
+    if (progress < fade.end) return { base: fade.from, next: fade.to, mix: (progress - fade.start) / (fade.end - fade.start) };
+  }
+  return { base: "synced", next: null, mix: 0 };
+};
 
 // Where each lifted card comes from on its phone screen, in screen fractions
 // (left, top, right, bottom), the height of its card and where its leader turns.
@@ -393,268 +418,6 @@ const sheenTexture = () => {
   return texture;
 };
 
-// The home-city marker: the official icon on a navy badge with a ring-blue edge.
-const badgeTexture = (logo: HTMLImageElement, anisotropy: number) => {
-  const size = 256;
-  const { element, context } = canvas2d(size, size);
-  const center = size / 2;
-  const glow = context.createRadialGradient(center, center, size * 0.3, center, center, size * 0.5);
-  glow.addColorStop(0, "rgba(0,203,255,0.55)");
-  glow.addColorStop(1, "rgba(0,203,255,0)");
-  context.fillStyle = glow;
-  context.fillRect(0, 0, size, size);
-  context.beginPath();
-  context.arc(center, center, size * 0.33, 0, TAU);
-  context.fillStyle = "#02041f";
-  context.fill();
-  context.lineWidth = 6;
-  context.strokeStyle = "#0481dc";
-  context.stroke();
-  const logoHeight = size * 0.4;
-  const logoWidth = logoHeight * (logo.width / logo.height);
-  context.drawImage(logo, center - logoWidth / 2, center - logoHeight / 2, logoWidth, logoHeight);
-  return colorTexture(element, anisotropy);
-};
-
-// Matches SphereGeometry's UV layout and an equirectangular texture.
-const latLonToVector = (lat: number, lon: number, radius: number, target = new THREE.Vector3()) => {
-  const phi = ((lon + 180) / 360) * TAU;
-  const theta = ((90 - lat) / 180) * Math.PI;
-  return target.set(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta)).multiplyScalar(radius);
-};
-
-// --- Shaders ---------------------------------------------------------------------
-
-const earthVertex = /* glsl */ `
-  varying vec2 vUv;
-  varying vec3 vNormalW;
-  varying vec3 vPositionW;
-  void main() {
-    vUv = uv;
-    vec4 world = modelMatrix * vec4(position, 1.0);
-    vPositionW = world.xyz;
-    vNormalW = normalize(mat3(modelMatrix) * normal);
-    gl_Position = projectionMatrix * viewMatrix * world;
-  }
-`;
-
-const earthFragment = /* glsl */ `
-  uniform sampler2D uMask;
-  uniform vec3 uSun;
-  uniform vec3 uOceanDeep;
-  uniform vec3 uOceanShallow;
-  uniform vec3 uLandLow;
-  uniform vec3 uLandHigh;
-  uniform vec3 uCoast;
-  uniform vec3 uRim;
-  uniform vec3 uDot;
-  uniform vec3 uCity;
-  uniform vec3 uGlint;
-  uniform float uTime;
-  varying vec2 vUv;
-  varying vec3 vNormalW;
-  varying vec3 vPositionW;
-
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-  }
-
-  void main() {
-    float raw = texture2D(uMask, vUv).r;
-    float land = smoothstep(0.38, 0.62, raw);
-    // A mip-biased sample is a cheap blur: shallow water hugging the coasts.
-    float shelf = texture2D(uMask, vUv, 3.5).r;
-    float coast = clamp(texture2D(uMask, vUv, 1.5).r - land, 0.0, 1.0);
-
-    vec3 normal = normalize(vNormalW);
-    vec3 view = normalize(cameraPosition - vPositionW);
-    float light = dot(normal, uSun);
-    float day = smoothstep(-0.3, 0.5, light);
-
-    vec3 ocean = mix(uOceanDeep, uOceanShallow, clamp(shelf * 1.4, 0.0, 1.0));
-    vec3 ground = mix(uLandLow, uLandHigh, smoothstep(-0.1, 0.9, light));
-    vec3 color = mix(ocean, ground, land) * mix(0.14, 1.0, day);
-
-    color += coast * uCoast * mix(0.2, 0.75, day);
-
-    // Dot matrix over the land. Each row holds fewer dots towards the poles,
-    // so the dots stay round on the sphere; a cell is lit when its centre is
-    // land (sampled at the base level: the cell coordinate is discontinuous).
-    const float PI = 3.14159265;
-    float rows = 150.0;
-    float row = floor(vUv.y * rows);
-    float rowLat = ((row + 0.5) / rows - 0.5) * PI;
-    float cols = max(floor(rows * 2.0 * cos(rowLat)), 1.0);
-    vec2 cell = vec2(vUv.x * cols, vUv.y * rows);
-    vec2 cellId = floor(cell);
-    float d = length(fract(cell) - 0.5);
-    float aa = fwidth(d) * 1.2;
-    float dotMask = 1.0 - smoothstep(0.24 - aa, 0.24 + aa, d);
-    float cellLand = smoothstep(0.45, 0.6, textureLod(uMask, (cellId + 0.5) / vec2(cols, rows), 0.0).r);
-    color += dotMask * cellLand * uDot * mix(0.3, 1.0, day);
-
-    // City lights on the night side: some land cells glow and twinkle.
-    float seed = hash(cellId + vec2(row * 0.37, 0.0));
-    float night = 1.0 - smoothstep(-0.2, 0.22, light);
-    float twinkle = 0.6 + 0.4 * sin(uTime * (0.8 + seed * 1.8) + seed * 40.0);
-    color += step(0.82, seed) * cellLand * night * dotMask * uCity * twinkle * 1.8;
-
-    // Sun glint on the oceans.
-    vec3 halfway = normalize(uSun + view);
-    color += pow(max(dot(normal, halfway), 0.0), 260.0) * (1.0 - land) * day * uGlint;
-
-    float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 3.2);
-    color += fresnel * uRim * mix(0.3, 0.8, day);
-    gl_FragColor = vec4(color, 1.0);
-    #include <colorspace_fragment>
-  }
-`;
-
-const haloVertex = /* glsl */ `
-  varying vec3 vNormal;
-  varying vec3 vView;
-  void main() {
-    vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
-    vNormal = normalize(normalMatrix * normal);
-    vView = normalize(-viewPosition.xyz);
-    gl_Position = projectionMatrix * viewPosition;
-  }
-`;
-
-// Atmosphere drawn from its far side: brightest at the planet's limb (where the
-// shell's normals turn away from the viewer), fading to nothing at its edge.
-const haloFragment = /* glsl */ `
-  uniform vec3 uColor;
-  uniform float uStrength;
-  varying vec3 vNormal;
-  varying vec3 vView;
-  void main() {
-    float facing = dot(normalize(vNormal), normalize(vView));
-    float glow = pow(clamp(-facing / 0.5, 0.0, 1.0), 2.4) * uStrength;
-    gl_FragColor = vec4(uColor * glow, glow);
-    #include <colorspace_fragment>
-  }
-`;
-
-const cloudVertex = /* glsl */ `
-  varying vec3 vObject;
-  varying vec3 vNormalW;
-  varying vec3 vPositionW;
-  void main() {
-    vObject = normalize(position);
-    vec4 world = modelMatrix * vec4(position, 1.0);
-    vPositionW = world.xyz;
-    vNormalW = normalize(mat3(modelMatrix) * normal);
-    gl_Position = projectionMatrix * viewMatrix * world;
-  }
-`;
-
-// Thin procedural clouds (value-noise fbm), lit by the same sun, drifting
-// slowly over the surface.
-const cloudFragment = /* glsl */ `
-  uniform vec3 uSun;
-  uniform vec3 uColor;
-  uniform float uTime;
-  uniform float uOpacity;
-  varying vec3 vObject;
-  varying vec3 vNormalW;
-  varying vec3 vPositionW;
-
-  float hash3(vec3 p) {
-    p = fract(p * 0.3183099 + 0.1);
-    p *= 17.0;
-    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-  }
-
-  float noise(vec3 x) {
-    vec3 i = floor(x);
-    vec3 f = fract(x);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(mix(hash3(i), hash3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 0.0)), hash3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
-      mix(mix(hash3(i + vec3(0.0, 0.0, 1.0)), hash3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 1.0)), hash3(i + vec3(1.0)), f.x), f.y),
-      f.z
-    );
-  }
-
-  float fbm(vec3 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int octave = 0; octave < 5; octave++) {
-      value += amplitude * noise(p);
-      p *= 2.03;
-      amplitude *= 0.5;
-    }
-    return value;
-  }
-
-  void main() {
-    vec3 p = vObject * 3.2 + vec3(uTime * 0.012, 0.0, uTime * 0.006);
-    // Stretched along the latitudes, like weather bands.
-    float n = fbm(vec3(p.x * 1.6, p.y * 3.4, p.z * 1.6));
-    float cover = smoothstep(0.52, 0.76, n);
-    vec3 normal = normalize(vNormalW);
-    float day = smoothstep(-0.25, 0.55, dot(normal, uSun));
-    vec3 view = normalize(cameraPosition - vPositionW);
-    float edge = smoothstep(0.0, 0.35, dot(normal, view));
-    // Additive: clouds only ever brighten the surface below them.
-    float alpha = cover * uOpacity * mix(0.2, 1.0, day) * edge;
-    gl_FragColor = vec4(uColor, alpha);
-    #include <colorspace_fragment>
-  }
-`;
-
-const routeVertex = /* glsl */ `
-  attribute float aPhase;
-  varying float vAlong;
-  varying float vPhase;
-  void main() {
-    vAlong = uv.x;
-    vPhase = aPhase;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-// A light pulse travels each route from origin to destination, then rests.
-const routeFragment = /* glsl */ `
-  uniform float uTime;
-  uniform vec3 uBase;
-  uniform vec3 uHead;
-  varying float vAlong;
-  varying float vPhase;
-  void main() {
-    float head = fract(uTime * 0.12 + vPhase) * 1.5;
-    float tail = 0.34;
-    float pulse = clamp((vAlong - (head - tail)) / tail, 0.0, 1.0) * step(vAlong, head);
-    pulse *= pulse;
-    float alpha = 0.2 + pulse;
-    gl_FragColor = vec4(mix(uBase, uHead, pulse) * alpha, alpha);
-    #include <colorspace_fragment>
-  }
-`;
-
-const cityVertex = /* glsl */ `
-  attribute float aSize;
-  uniform float uPixelRatio;
-  uniform float uScale;
-  void main() {
-    vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * uPixelRatio * uScale / -viewPosition.z;
-    gl_Position = projectionMatrix * viewPosition;
-  }
-`;
-
-const cityFragment = /* glsl */ `
-  uniform vec3 uColor;
-  void main() {
-    float distanceToCenter = length(gl_PointCoord - 0.5);
-    float core = smoothstep(0.5, 0.0, distanceToCenter);
-    float alpha = pow(core, 2.4) + smoothstep(0.16, 0.08, distanceToCenter);
-    gl_FragColor = vec4(uColor * alpha, alpha);
-    #include <colorspace_fragment>
-  }
-`;
-
 // --- Builders ---------------------------------------------------------------------
 
 const starField = (count: number) => {
@@ -672,59 +435,6 @@ const starField = (count: number) => {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  return geometry;
-};
-
-// All routes merged into one geometry (one draw call); each carries its own
-// pulse phase.
-const routesGeometry = (radius: number) => {
-  const byId = new Map(GLOBE_CITIES.map((city) => [city.id, city]));
-  const parts: THREE.BufferGeometry[] = [];
-  const from = new THREE.Vector3();
-  const to = new THREE.Vector3();
-  GLOBE_ROUTES.forEach(([fromId, toId], index) => {
-    const a = byId.get(fromId);
-    const b = byId.get(toId);
-    if (!a || !b) {
-      return;
-    }
-    latLonToVector(a.lat, a.lon, radius, from);
-    latLonToVector(b.lat, b.lon, radius, to);
-    const angle = from.angleTo(to);
-    const lift = 1 + 0.05 + 0.28 * (angle / Math.PI);
-    const control = (t: number) => {
-      const direction = from.clone().normalize().lerp(to.clone().normalize(), t).normalize();
-      return direction.multiplyScalar(radius * lift);
-    };
-    const curve = new THREE.CubicBezierCurve3(from.clone().multiplyScalar(1.002), control(0.3), control(0.7), to.clone().multiplyScalar(1.002));
-    const tube = new THREE.TubeGeometry(curve, 72, 0.0065, 6, false);
-    tube.deleteAttribute("normal");
-    const phases = new Float32Array(tube.attributes.position.count).fill((index * 0.37) % 1);
-    tube.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
-    parts.push(tube);
-  });
-  const merged = mergeGeometries(parts);
-  for (const part of parts) {
-    part.dispose();
-  }
-  if (!merged) {
-    throw new Error("Unable to build the globe routes");
-  }
-  return merged;
-};
-
-const citiesGeometry = (radius: number) => {
-  const positions: number[] = [];
-  const sizes: number[] = [];
-  const point = new THREE.Vector3();
-  for (const city of GLOBE_CITIES) {
-    latLonToVector(city.lat, city.lon, radius * 1.004, point);
-    positions.push(point.x, point.y, point.z);
-    sizes.push(city.id === GLOBE_HOME ? 15 : 9);
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute("aSize", new THREE.Float32BufferAttribute(sizes, 1));
   return geometry;
 };
 
@@ -857,17 +567,17 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
   // The key legends are drawn with the site's typeface once it is available.
   await document.fonts.load('600 48px "RYZE Archivo"').catch(() => undefined);
   // Images first: a failed download must not leave a WebGL context behind.
-  const [logoImage, maskImage, trainingImage, nutritionImage, syncedImage, platformImage, trainCallouts, fuelCallouts, syncImage] =
+  const [logoImage, trainingImage, nutritionImage, syncedImage, platformImage, trainCallouts, fuelCallouts, syncImage, maskImage] =
     await Promise.all([
       loadImage(assets.logo),
-      loadImage(assets.landMask),
       loadImage(assets.screens.training),
       loadImage(assets.screens.nutrition),
       loadImage(assets.screens.synced),
       loadImage(assets.screens.platform),
       Promise.all(assets.callouts.train.map(loadImage)),
       Promise.all(assets.callouts.fuel.map(loadImage)),
-      loadImage(assets.callouts.sync)
+      loadImage(assets.callouts.sync),
+      loadImage(assets.landMask)
     ]);
 
   // Default GPU preference (no forced discrete GPU); high-DPI screens skip MSAA.
@@ -875,6 +585,12 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: window.devicePixelRatio < 1.5, alpha: true });
   try {
     renderer.setPixelRatio(pixelRatio);
+    // The hero's holograms turn solid behind a moving clipping plane.
+    renderer.localClippingEnabled = true;
+    // Real shadows for the hero composition on its surface.
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.autoUpdate = false;
     renderer.setClearColor(0x000000, 0);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
@@ -895,7 +611,22 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     // Key from the upper left (the copy side), cyan rim from behind on the right.
     scene.add(new THREE.HemisphereLight(0xcfe3ff, COLORS.navy, 0.55));
     const key = new THREE.DirectionalLight(0xffffff, 2.2);
-    key.position.set(-4, 5, 6);
+    // It also casts the hero composition's shadows: aimed at the hero, from
+    // the same direction; its shadow camera frames the composition only.
+    key.target.position.set(1.35, -1.6, 0);
+    key.position.copy(key.target.position).add(new THREE.Vector3(-4, 5, 6).normalize().multiplyScalar(14));
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.left = -3.4;
+    key.shadow.camera.right = 3.4;
+    key.shadow.camera.top = 3.4;
+    key.shadow.camera.bottom = -3.4;
+    key.shadow.camera.near = 4;
+    key.shadow.camera.far = 26;
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.02;
+    key.shadow.radius = 4;
+    scene.add(key.target);
     const rim = new THREE.DirectionalLight(COLORS.cyan, 3.4);
     rim.position.set(6, 2, -4);
     const fill = new THREE.PointLight(COLORS.ring, 30, 26);
@@ -918,141 +649,9 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const stars = new THREE.Points(track(starField(1100)), starMaterial);
     scene.add(stars);
 
-    // Earth --------------------------------------------------------------------------
-    const globeRadius = 1.55;
-    const globe = new THREE.Group();
-    const earth = new THREE.Group(); // spins around its own axis
-    const maskTexture = track(new THREE.Texture(maskImage));
-    maskTexture.wrapS = THREE.RepeatWrapping;
-    maskTexture.anisotropy = anisotropy;
-    maskTexture.needsUpdate = true;
-    const sun = new THREE.Vector3(-0.62, 0.42, 0.66).normalize();
-    const surface = new THREE.Mesh(
-      track(new THREE.SphereGeometry(globeRadius, 128, 96)),
-      track(
-        new THREE.ShaderMaterial({
-          uniforms: {
-            uMask: { value: maskTexture },
-            uSun: { value: sun },
-            uOceanDeep: { value: new THREE.Color(0x03113f) },
-            uOceanShallow: { value: new THREE.Color(0x0a3c9a) },
-            uLandLow: { value: new THREE.Color(0x103f9e) },
-            uLandHigh: { value: new THREE.Color(0x4aa6f2) },
-            uCoast: { value: new THREE.Color(COLORS.ice) },
-            uRim: { value: new THREE.Color(0x3fb8ff) },
-            uDot: { value: new THREE.Color(0x4fd2ff).multiplyScalar(0.42) },
-            uCity: { value: new THREE.Color(0xc4f6ff) },
-            uGlint: { value: new THREE.Color(0x8fdcff).multiplyScalar(0.55) },
-            uTime: { value: 0 }
-          },
-          vertexShader: earthVertex,
-          fragmentShader: earthFragment
-        })
-      )
-    );
-    const atmosphere = new THREE.Mesh(
-      track(new THREE.SphereGeometry(globeRadius * 1.16, 96, 64)),
-      track(
-        new THREE.ShaderMaterial({
-          uniforms: { uColor: { value: new THREE.Color(0x22b4ff) }, uStrength: { value: 1.25 } },
-          vertexShader: haloVertex,
-          fragmentShader: haloFragment,
-          side: THREE.BackSide,
-          transparent: true,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending
-        })
-      )
-    );
-
-    const routeMaterial = track(
-      new THREE.ShaderMaterial({
-        uniforms: {
-          uTime: { value: 0 },
-          uBase: { value: new THREE.Color(COLORS.ring) },
-          uHead: { value: new THREE.Color(COLORS.ice) }
-        },
-        vertexShader: routeVertex,
-        fragmentShader: routeFragment,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
-      })
-    );
-    const routes = new THREE.Mesh(track(routesGeometry(globeRadius)), routeMaterial);
-
-    const cityMaterial = track(
-      new THREE.ShaderMaterial({
-        uniforms: {
-          uColor: { value: new THREE.Color(COLORS.cyanBright) },
-          uPixelRatio: { value: pixelRatio },
-          uScale: { value: 1 }
-        },
-        vertexShader: cityVertex,
-        fragmentShader: cityFragment,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
-      })
-    );
-    const cities = new THREE.Points(track(citiesGeometry(globeRadius)), cityMaterial);
-
-    // Home marker: a short stem from Lisbon to the badge, and a pulse ring.
-    const home = GLOBE_CITIES.find((city) => city.id === GLOBE_HOME) ?? GLOBE_CITIES[0];
-    const homeNormal = latLonToVector(home.lat, home.lon, 1);
-    const marker = new THREE.Group();
-    marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), homeNormal);
-    marker.position.copy(homeNormal).multiplyScalar(globeRadius);
-    const stemLength = 0.36;
-    const stem = new THREE.Mesh(
-      track(new THREE.CylinderGeometry(0.005, 0.005, stemLength, 8)),
-      track(new THREE.MeshBasicMaterial({ color: COLORS.cyanBright, transparent: true, opacity: 0.85, toneMapped: false }))
-    );
-    stem.position.y = stemLength / 2;
-    const pulseMaterial = track(
-      new THREE.MeshBasicMaterial({
-        color: COLORS.cyanBright,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-        toneMapped: false
-      })
-    );
-    const pulse = new THREE.Mesh(track(new THREE.RingGeometry(0.035, 0.05, 48)), pulseMaterial);
-    pulse.rotation.x = -Math.PI / 2;
-    pulse.position.y = 0.004;
-    const badge = new THREE.Sprite(
-      track(new THREE.SpriteMaterial({ map: track(badgeTexture(logoImage, anisotropy)), transparent: true, depthWrite: false, toneMapped: false }))
-    );
-    badge.scale.setScalar(0.42);
-    badge.position.y = stemLength + 0.1;
-    marker.add(stem, pulse, badge);
-
-    const cloudMaterial = track(
-      new THREE.ShaderMaterial({
-        uniforms: {
-          uSun: { value: sun },
-          uColor: { value: new THREE.Color(0xe6f6ff) },
-          uTime: { value: 0 },
-          uOpacity: { value: 0.3 }
-        },
-        vertexShader: cloudVertex,
-        fragmentShader: cloudFragment,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
-      })
-    );
-    const clouds = new THREE.Mesh(track(new THREE.SphereGeometry(globeRadius * 1.012, 96, 64)), cloudMaterial);
-
-    earth.add(surface, clouds, routes, cities, marker);
-    globe.add(atmosphere, earth);
-    // Start over the Atlantic so Lisbon and the routes face the viewer.
-    const view = latLonToVector(24, -16, 1);
-    const baseYaw = Math.atan2(-view.x, view.z);
-    const baseTilt = THREE.MathUtils.degToRad(24);
-    scene.add(globe);
+    // Planet RYZE, for the last chapter (it led the hero until 2026-11-15) -------------
+    const planet = createPlanet(track, { maskImage, logoImage, anisotropy, pixelRatio });
+    scene.add(planet.group);
 
     // Phone ----------------------------------------------------------------------------
     const phone = new THREE.Group();
@@ -1069,7 +668,16 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const phoneHeight = screenHeight + bezel * 2 + 0.03;
     const phoneDepth = 0.085;
     const titanium = track(
-      new THREE.MeshPhysicalMaterial({ color: COLORS.titanium, metalness: 1, roughness: 0.24, clearcoat: 0.35, clearcoatRoughness: 0.2 })
+      // White polished metal: part of its whiteness is its own colour, so the
+      // edge stays white whatever light falls on it.
+      new THREE.MeshPhysicalMaterial({
+        color: 0xf2f5fa,
+        metalness: 0.45,
+        roughness: 0.2,
+        clearcoat: 1,
+        clearcoatRoughness: 0.12,
+        envMapIntensity: 1.25
+      })
     );
     const phoneBody = new THREE.Mesh(track(slabGeometry(phoneWidth, phoneHeight, 0.16, phoneDepth, 0.022)), titanium);
     const frontGlass = new THREE.Mesh(
@@ -1080,6 +688,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const screenMaterial = track(sharpen(new THREE.MeshBasicMaterial({ map: screens.training, toneMapped: false })));
     const screen = new THREE.Mesh(track(panelGeometry(screenWidth, screenHeight, 0.12, 16)), screenMaterial);
     screen.position.z = phoneDepth / 2 + 0.0012;
+
     const island = new THREE.Mesh(
       track(panelGeometry(0.28, 0.082, 0.041, 10)),
       track(new THREE.MeshBasicMaterial({ color: 0x000000 }))
@@ -1099,11 +708,40 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       )
     );
     sheen.position.z = phoneDepth / 2 + 0.0024;
+    // A streak of light that crosses the glass every few seconds.
+    const glintMaterial = track(
+      new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+        vertexShader: /* glsl */ `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform float uTime;
+          uniform float uOpacity;
+          varying vec2 vUv;
+          void main() {
+            float cycle = fract(uTime / 7.0);
+            float position = (vUv.x + vUv.y * 0.6) - (cycle * 3.2 - 0.6);
+            float streak = exp(-position * position * 90.0) * smoothstep(0.0, 0.08, cycle) * (1.0 - smoothstep(0.32, 0.4, cycle));
+            gl_FragColor = vec4(vec3(1.0), streak * 0.22 * uOpacity);
+          }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      })
+    );
+    const glint = new THREE.Mesh(track(panelGeometry(screenWidth, screenHeight, 0.12, 16)), glintMaterial);
+    glint.position.z = phoneDepth / 2 + 0.003;
 
     const backGlass = new THREE.Mesh(
       track(panelGeometry(phoneWidth - 0.028, phoneHeight - 0.028, 0.145)),
       track(
-        new THREE.MeshPhysicalMaterial({ color: 0x0d1f52, roughness: 0.48, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.45 })
+        new THREE.MeshPhysicalMaterial({ color: 0x86a9dc, roughness: 0.5, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.4 })
       )
     );
     backGlass.position.z = -phoneDepth / 2 - 0.0006;
@@ -1120,7 +758,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     cameraModule.position.set(phoneWidth / 2 - 0.25, phoneHeight / 2 - 0.25, -phoneDepth / 2);
     const plateau = new THREE.Mesh(
       track(slabGeometry(0.4, 0.4, 0.1, 0.024, 0.008)),
-      track(new THREE.MeshPhysicalMaterial({ color: 0x0b1b48, roughness: 0.2, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08 }))
+      track(new THREE.MeshPhysicalMaterial({ color: 0x9fbbe2, roughness: 0.22, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08 }))
     );
     plateau.position.z = -0.006;
     const lensGlass = track(new THREE.MeshPhysicalMaterial({ color: 0x03050c, roughness: 0.04, metalness: 0.4, clearcoat: 1, clearcoatRoughness: 0.02 }));
@@ -1158,14 +796,15 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     addButton(-1, 0.22, 0.16);
     addButton(1, 0.36, 0.26);
 
-    const glow = edgeGlow(phoneWidth, phoneHeight, 0.16, "rgba(4,150,255,1)");
+    // A soft light rim (light on the blue field, not a darker blue halo).
+    const glow = edgeGlow(phoneWidth, phoneHeight, 0.16, "rgba(170,236,255,1)");
     const phoneGlow = new THREE.Mesh(
       track(new THREE.PlaneGeometry(glow.width, glow.height)),
       track(
         new THREE.MeshBasicMaterial({
           map: track(glow.texture),
           transparent: true,
-          opacity: 0.95,
+          opacity: 0.42,
           depthWrite: false,
           blending: THREE.AdditiveBlending,
           side: THREE.DoubleSide,
@@ -1175,9 +814,56 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     );
     phoneGlow.position.z = -phoneDepth / 2 - 0.03;
     phoneGlow.renderOrder = 2;
-    phonePivot.add(phoneBody, frontGlass, screen, island, sheen, backGlass, backLogo, cameraModule, phoneGlow);
-    phone.add(phonePivot);
+    phonePivot.add(phoneBody, frontGlass, screen, island, sheen, glint, backGlass, backLogo, cameraModule, phoneGlow);
+    // A soft shadow below and behind, so the phone floats over the field.
+    const phoneShadow = new THREE.Mesh(
+      track(new THREE.PlaneGeometry(phoneWidth * 1.9, phoneHeight * 1.35)),
+      track(
+        new THREE.MeshBasicMaterial({
+          map: track(radialTexture("rgba(1,8,40,0.42)", "rgba(1,8,40,0)")),
+          transparent: true,
+          depthWrite: false,
+          toneMapped: false
+        })
+      )
+    );
+    phoneShadow.position.set(0.16, -0.24, -0.55);
+    phoneShadow.renderOrder = -3;
+    phone.add(phonePivot, phoneShadow);
     scene.add(phone);
+
+    // The hero's opening: the drone projects the phone, a dumbbell and a meal,
+    // which then turn solid (story_intro.ts). Built before the cards are joined
+    // to the screen, so the phone's hologram twin has only the phone's parts.
+    const intro = createIntro(
+      track,
+      pixelRatio,
+      {
+        pivot: phonePivot,
+        body: phoneBody,
+        screen,
+        skip: new Set([frontGlass, island, sheen, glint, backLogo, phoneGlow]),
+        screenMap: screens.training,
+        size: { width: phoneWidth, height: phoneHeight, depth: phoneDepth }
+      },
+      logoTexture,
+      logoAspect
+    );
+    // The phone's shadow appears with the solid phone (same clipping plane).
+    phoneShadow.material.clippingPlanes = titanium.clippingPlanes;
+    // The surface tipped towards the viewer: a three-quarter view of the plate.
+    const heroTilt = 0.36;
+    // Turned slightly to the left, towards the copy.
+    const heroYaw = -0.25;
+    const seatMatrix = new THREE.Matrix4();
+    const seatPosition = new THREE.Vector3();
+    const seatQuaternion = new THREE.Quaternion();
+    const seatScale = new THREE.Vector3();
+    const phoneShadowMaterial = phoneShadow.material;
+    scene.add(intro.group);
+    let introTime = 0;
+    let shadowFrame = 0;
+    let introSettled = false;
 
     // Cards lifted out of the phone screen. Each one is joined to the part of
     // the screen it shows: that element is outlined on the screen (so it turns
@@ -1560,7 +1246,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       track(new THREE.PlaneGeometry(6.4, 3.4)),
       track(
         new THREE.MeshBasicMaterial({
-          map: track(radialTexture("rgba(4,129,220,0.5)", "rgba(4,129,220,0)")),
+          map: track(radialTexture("rgba(150,225,255,0.3)", "rgba(150,225,255,0)")),
           transparent: true,
           depthWrite: false,
           blending: THREE.AdditiveBlending,
@@ -1620,24 +1306,44 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
 
     const apply = (elapsed: number) => {
       sampleState(currentProgress, state);
-      globe.position.set(state.globeX * halfWidth, state.globeY, state.globeZ);
-      globe.scale.setScalar(state.globeScale * fit);
-      globe.rotation.set(baseTilt + pointer.y * 0.08, pointer.x * 0.12, 0);
-      // A slow sway keeps the Atlantic routes in view instead of a full spin.
-      earth.rotation.set(0, baseYaw + state.globeSpin + Math.sin(elapsed * 0.05) * 0.35, 0);
-      routeMaterial.uniforms.uTime.value = elapsed;
-      (surface.material as THREE.ShaderMaterial).uniforms.uTime.value = elapsed;
-      cloudMaterial.uniforms.uTime.value = elapsed;
-      cityMaterial.uniforms.uScale.value = state.globeScale * fit * 10;
-      const beat = (elapsed * 0.45) % 1;
-      pulse.scale.setScalar(1 + beat * 3.2);
-      pulseMaterial.opacity = (1 - beat) * 0.9;
+      intro.group.position.set(state.heroX * halfWidth, state.heroY, state.heroZ);
+      intro.group.scale.setScalar(state.heroScale * fit);
+      intro.group.rotation.set(heroTilt, heroYaw + state.heroSpin * 0.35, 0);
+      intro.group.visible = state.heroY < 4;
+      intro.group.updateMatrixWorld(true);
+      // The composition's shadows: redrawn every other frame while the opening
+      // plays or the story scrolls; the still scene keeps its shadow map.
+      shadowFrame += 1;
+      const heroMoving = Math.abs(targetProgress - currentProgress) > 1e-4 || introTime < INTRO_END;
+      renderer.shadowMap.needsUpdate = intro.group.visible && (heroMoving ? shadowFrame % 2 === 0 : shadowFrame === 1);
+      // The opening drives the phone's hologram too, so it runs to its end even
+      // if the hero has already scrolled away; after that only the idle motion.
+      if (!introSettled || intro.group.visible) {
+        intro.update(introTime, elapsed);
+        introSettled = introTime >= INTRO_END;
+      }
+
+      planet.group.position.set(state.planetX * halfWidth, state.planetY, state.planetZ);
+      planet.group.scale.setScalar(state.planetScale * fit);
+      planet.group.visible = state.planetY < 6;
+      if (planet.group.visible) planet.update(elapsed, state.planetSpin, state.planetScale * fit, pointer);
       starMaterial.opacity = state.stars;
       stars.visible = state.stars > 0.02;
 
-      phone.position.set(state.phoneX * halfWidth, state.phoneY + Math.sin(elapsed * 1.1) * 0.03, state.phoneZ);
+      // At the top of the page the phone stands on the hero's surface (its seat
+      // in the composition); as the story scrolls on it eases into its own pose.
+      const seated = 1 - smooth(THREE.MathUtils.clamp(currentProgress / 0.08, 0, 1));
+      phone.position.set(state.phoneX * halfWidth, state.phoneY + Math.sin(elapsed * 1.1) * 0.03 * (1 - seated), state.phoneZ);
       phone.scale.setScalar(state.phoneScale * fit);
       phonePivot.rotation.set(state.phoneRotX + pointer.y * 0.06, state.phoneRotY + pointer.x * 0.12, state.phoneRotZ);
+      if (seated > 0) {
+        seatMatrix.multiplyMatrices(intro.group.matrixWorld, intro.seat);
+        seatMatrix.decompose(seatPosition, seatQuaternion, seatScale);
+        phone.position.lerp(seatPosition, seated);
+        phone.scale.lerp(seatScale, seated);
+        phonePivot.quaternion.slerp(seatQuaternion, seated);
+      }
+      phoneShadowMaterial.opacity = 1 - seated;
       phone.visible = state.phoneY > -6;
 
       const wanted = screenFor(currentProgress);
@@ -1671,8 +1377,13 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       }
       syncHalo.visible = syncBadge.visible;
 
-      camera.position.set(pointer.x * 0.15, pointer.y * 0.1, state.cameraZ);
+      // A slow drift of the camera keeps the scene alive; the pointer adds parallax.
+      camera.position.set(pointer.x * 0.15 + Math.sin(elapsed * 0.13) * 0.12, pointer.y * 0.1 + Math.sin(elapsed * 0.17) * 0.06, state.cameraZ);
       camera.lookAt(0, 0, 0);
+      // The cyan rim light breathes, and a streak of light crosses the phone's glass now and then.
+      rim.intensity = 3.4 * (0.9 + 0.1 * Math.sin(elapsed * 0.5));
+      glintMaterial.uniforms.uTime.value = elapsed;
+      glintMaterial.uniforms.uOpacity.value = introTime >= INTRO_END ? 1 : 0;
     };
 
     // Full frame rate while scroll or pointer is moving; once settled only the
@@ -1685,7 +1396,11 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       const follow = 1 - Math.exp(-delta * 7);
       currentProgress += (targetProgress - currentProgress) * follow;
       pointer.lerp(pointerTarget, 1 - Math.exp(-delta * 3));
-      const settled = Math.abs(targetProgress - currentProgress) < 1e-4 && pointer.distanceToSquared(pointerTarget) < 1e-6;
+      // The opening plays once, from when the story is first on screen; any
+      // scroll jumps to its final composition, so it never holds anything up.
+      introTime = currentProgress > 0.012 ? Math.max(introTime, INTRO_END) : introTime + delta;
+      const settled =
+        introTime >= INTRO_END && Math.abs(targetProgress - currentProgress) < 1e-4 && pointer.distanceToSquared(pointerTarget) < 1e-6;
       sinceRender += delta;
       if (settled && sinceRender < IDLE_FRAME) {
         return;
@@ -1705,7 +1420,6 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       const halfHeight = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * base.cameraZ;
       halfWidth = halfHeight * camera.aspect;
       fit = THREE.MathUtils.clamp(camera.aspect / 1.6, 0.72, 1);
-      cityMaterial.uniforms.uPixelRatio.value = renderer.getPixelRatio() * (height / 900);
     };
 
     const rect = canvas.getBoundingClientRect();
@@ -1714,6 +1428,12 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     // the diagrams and badge never stall the first frame they appear in.
     for (const object of [phone, laptop, trainTree.group, trainTree.outlines, fuelTree.group, fuelTree.outlines, syncBadge, syncHalo]) {
       object.visible = true;
+    }
+    // The opening's drone, beam, flashes and holograms, and the planet.
+    for (const root of [intro.group, phonePivot, planet.group]) {
+      root.traverse((object) => {
+        object.visible = true;
+      });
     }
     for (const { card } of [...trainTree.callouts, ...fuelTree.callouts]) {
       card.visible = true;

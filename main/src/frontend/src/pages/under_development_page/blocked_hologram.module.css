@@ -1,0 +1,114 @@
+.hologram {
+  display: block;
+  width: 100%;
+}
+
+.hologram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.sign {
+  animation:
+    hover 4s ease-in-out infinite,
+    flicker 6s steps(1, end) infinite;
+}
+
+@keyframes hover {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  47%,
+  49%,
+  100% {
+    opacity: 1;
+  }
+
+  48% {
+    opacity: 0.6;
+  }
+}
+
+.beam {
+  animation: beam 2.6s ease-in-out infinite;
+}
+
+@keyframes beam {
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.band {
+  animation: climb 2.8s linear infinite;
+}
+
+@keyframes climb {
+  from {
+    transform: translateY(270px);
+  }
+
+  to {
+    transform: translateY(10px);
+  }
+}
+
+.pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: pulse 2.4s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.4);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+}
+
+.particle {
+  animation: rise 3.5s linear infinite;
+}
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+
+  20% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-230px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sign,
+  .beam,
+  .band,
+  .pulse,
+  .particle {
+    animation: none;
+  }
+
+  .band,
+  .particle {
+    opacity: 0;
+  }
+}

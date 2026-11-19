@@ -1,3 +1,646 @@
+# Version 2.125.0
+
+Title: Test Mode purchases send lifecycle emails to a validated checkout recipient
+
+Date: 2026-11-18
+
+Summary:
+
+Owner request of 2026-11-18: a Test Mode purchase must run the real commerce
+lifecycle and send its emails to an inbox the administrator can read. Test Mode
+personas use non-deliverable `@ryze.local` addresses, so the checkout now asks
+for one bare email address and the backend validates it before completing the
+zero-cost purchase.
+
+The recipient is stored only on the active `test_sessions` row (migration
+`000047`) and is never logged or returned by an API. While the session is
+active, the notifications service uses it for the persona's normal lifecycle
+emails, including `access_granted`; in-app notifications are unchanged. Without
+a typed recipient, emails stay suppressed. Exiting Test Mode soft-deletes the
+session and stops further use of the address.
+
+Test Mode now documents and supports Generic, Premium Level 1 and Premium Level
+2 purchases, and a disabled purchase endpoint answers the documented
+`403 TEST_MODE_DISABLED` instead of the inactive-session code. Invoice
+generation remains out of scope: no numbering, tax fields, PDF or attachment
+was added.
+
+Modified files:
+
+- `main/src/backend/email/address.go`
+- `main/src/backend/email/email_test.go`
+- `main/src/backend/database/migrations/000047_add_test_session_recipient_email.up.sql`
+- `main/src/backend/database/migrations/000047_add_test_session_recipient_email.down.sql`
+- `main/src/backend/models/test_session.go`
+- `main/src/backend/repositories/test_session_repository.go`
+- `main/src/backend/services/test_mode/test_mode.go`
+- `main/src/backend/services/test_mode/test_mode_test.go`
+- `main/src/backend/services/notifications/notifications.go`
+- `main/src/backend/services/notifications/notifications_test.go`
+- `main/src/backend/api/auth/test_mode_purchase_handler.go`
+- `main/src/backend/api/auth/test_mode_handler_test.go`
+- `main/src/backend/api/auth/premium_e2e_test.go`
+- `main/src/backend/routes/routes.go`
+- `main/src/frontend/src/components/test_mode/test_mode_email.ts`
+- `main/src/frontend/src/components/test_mode/test_mode_email.test.ts`
+- `main/src/frontend/src/components/test_mode/test_mode_email_field.tsx`
+- `main/src/frontend/src/components/test_mode/test_mode_email_field.module.css`
+- `main/src/frontend/src/services/test_mode_api.ts`
+- `main/src/frontend/src/hooks/use_program_checkout.ts`
+- `main/src/frontend/src/hooks/use_program_checkout.test.tsx`
+- `main/src/frontend/src/components/checkout_panel/checkout_panel.tsx`
+- `main/src/frontend/src/pages/generic_program_detail_page/generic_program_detail_page.tsx`
+- `main/src/frontend/src/pages/premium_level1_page/premium_level1_page.tsx`
+- `main/src/frontend/src/pages/premium_level1_page/premium_level1_page.pt.ts`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/INSTRUCTIONS/project.MD`
+- `docs/INSTRUCTIONS/security.MD`
+- `docs/DATABASE/database.MD`
+- `docs/PAGES/design.MD`
+- `docs/how_to_run.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+- `package-lock.json`
+
+Reason:
+
+Test Mode purchases previously exercised the lifecycle without leaving the
+persona inbox, so no email could be inspected. A checkout-scoped recipient keeps
+the address out of the account and purchase records while letting the existing
+notification/outbox pipeline deliver the real test emails.
+
+---
+
+# Version 2.124.0
+
+Title: Premium Level 2 pays first, then opens a complete post-purchase experience and academy
+
+Date: 2026-11-16
+
+Summary:
+
+Owner request of 2026-11-15: Premium Level 2 now follows payment first. The
+service page sells the offer and the full questionnaire opens immediately after
+the purchase, instead of being saved as a pre-purchase draft. The pre-purchase
+draft table, model, repository methods, handler and routes were removed.
+
+The post-purchase experience is new: an entry resolver selects the newest
+non-cancelled request; a short preparing moment leads into the expanded
+bilingual intake (catalog version 2, eight sections); after submission the page
+shows an honest plan-on-the-way timeline; and the summary presents a
+deterministic analysis, the completed purchase receipt, every answer and a
+print-only answers/receipt sheet for the browser's Save as PDF. No PDF
+dependency was added and answers are never written to browser storage.
+
+A new exclusive academy is included with a delivered Premium Level 2 service.
+It contains a complete bilingual 12-chapter practical guide with references,
+a desktop table of contents, mobile topic chips, reading progress and a scroll
+spy. The member navigation item and the page itself both require a delivered
+request; the page never reads intake answers.
+
+The intake catalog grew to version 2 with personal details, goals, training
+history, body measurements, lifestyle, nutrition, health and coaching
+preferences. Boolean questions now render as explicit Yes/No choices.
+
+Modified files:
+
+- `main/src/backend/services/premium_level_2/catalog.go`
+- `main/src/backend/services/premium_level_2/service.go`
+- `main/src/backend/services/premium_level_2/validation.go`
+- `main/src/backend/services/premium_level_2/validation_test.go`
+- `main/src/backend/services/premium_level_2/drafts.go` (removed)
+- `main/src/backend/services/premium_level_2/drafts_test.go` (removed)
+- `main/src/backend/api/auth/premium_journeys_handler.go`
+- `main/src/backend/models/premium_journeys.go`
+- `main/src/backend/repositories/premium_journeys_repository.go`
+- `main/src/backend/repositories/premium_journeys_repository_test.go`
+- `main/src/backend/routes/routes.go`
+- `main/src/backend/database/migrations/000046_drop_premium_level_2_intake_drafts.up.sql`
+- `main/src/backend/database/migrations/000046_drop_premium_level_2_intake_drafts.down.sql`
+- `main/src/frontend/src/pages/premium_level2_experience/premium_level2_experience_page.tsx`
+- `main/src/frontend/src/pages/premium_level2_experience/premium_level2_experience_page.module.css`
+- `main/src/frontend/src/pages/premium_level2_academy/premium_level2_academy_page.tsx`
+- `main/src/frontend/src/pages/premium_level2_academy/premium_level2_academy_page.module.css`
+- `main/src/frontend/src/pages/premium_level2_academy/premium_level2_academy_content.ts`
+- `main/src/frontend/src/pages/premium_level2_journey/premium_level2_journey_page.tsx`
+- `main/src/frontend/src/pages/premium_level2_page/premium_level2_page.tsx`
+- `main/src/frontend/src/components/checkout_panel/checkout_panel.tsx`
+- `main/src/frontend/src/components/premium_level2_intake/question_field.tsx`
+- `main/src/frontend/src/components/app_shell/member_shell.tsx`
+- `main/src/frontend/src/routes/app_routes.tsx`
+- `main/src/frontend/src/routes/member_routes.tsx`
+- `main/src/frontend/src/services/premium_journeys_api.ts`
+- `main/src/frontend/src/i18n/catalogs/premium_level2.pt.ts`
+- `main/src/frontend/src/i18n/catalogs/questionnaire.pt.ts`
+- `docs/INSTRUCTIONS/api.MD`
+- `docs/INSTRUCTIONS/arquitecture.MD`
+- `docs/INSTRUCTIONS/project.MD`
+- `docs/DATABASE/database.MD`
+- `docs/PAGES/design.MD`
+- `docs/AI/frontend-revamp.md`
+- `docs/how_to_run.MD`
+- `docs/REGISTRY/update_logs.MD`
+- `package.json`
+- `package-lock.json`
+
+Verification:
+
+- `go build ./...` passes.
+- Full backend suite `DB_NAME=ryze_test go test -count=1 -p 1 ./...` passes on
+  the isolated PostgreSQL test database; migration `000046` applied there.
+- The new pages, member shell and member routes pass TypeScript compilation in
+  isolation.
+- Full frontend `npm run typecheck` remains blocked by the pre-existing syntax
+  error in the user-modified `home_story/story_scene.ts`; that file was not
+  changed in this task.
+
+# Version 2.123.3
+
+Title: Feed construction hologram model quality pass
+
+Date: 2026-11-16
+
+Summary:
+
+The Feed-only construction hologram was refined to match the procedural 3D
+quality of the Home experience. The worker now has recognisable construction
+equipment and layered clothing, the frame uses I-beam geometry with gussets
+and fasteners, and the hammer has a clearer two-material silhouette. The
+scanner drone now uses the site's metallic pod, sensor lens, ducted rotors and
+lighting treatment. The Feed route, timing and fallbacks remain isolated; no
+Home scene or other page was changed.
+
+Verification:
+
+- The Feed scene passes isolated TypeScript compilation.
+- Existing full-project typecheck remains blocked by the pre-existing syntax
+  error in the user-modified `home_story/story_scene.ts`.
+
+# Version 2.123.2
+
+Title: Generic public login failure and Feed construction hologram
+
+Date: 2026-11-16
+
+Summary:
+
+The public login no longer reveals the administrator login route when a
+non-email identifier is entered. Administrator authentication remains a
+separate backend flow; the member login endpoint has no administrator-route
+disclosure and no admin route or authentication contract was changed.
+
+The `/feed` under-development page now has an isolated procedural construction
+hologram. A worker hammers a metal frame while a drone performs the existing
+Home-style spawn-in/reveal timing. The scene is lazy-loaded, desktop-only and
+has mobile, reduced-motion and WebGL fallback behaviour. Other
+under-development pages and the Home scene are unchanged.
+
+Modified files:
+
+- `main/src/frontend/src/pages/login_page/login_page.tsx`
+- `main/src/frontend/src/pages/login_page/login_page.pt.ts`
+- `main/src/frontend/src/pages/under_development_page/under_development_page.tsx`
+- `main/src/frontend/src/pages/under_development_page/feed_construction_hologram.tsx`
+- `main/src/frontend/src/pages/under_development_page/feed_construction_hologram.module.css`
+- `main/src/frontend/src/pages/under_development_page/feed_construction_scene.ts`
+- `main/src/frontend/src/routes/app_routes.tsx`
+- `docs/PAGES/design.MD`
+- `docs/REGISTRY/update_logs.MD`
+
+Verification:
+
+- The isolated Feed scene passes TypeScript compilation.
+- `git diff --check` passes for the changed tracked source files.
+- Full frontend typecheck remains blocked by the pre-existing syntax error in
+  the user-modified `home_story/story_scene.ts`; it was not changed in this
+  task.
+
+# Version 2.123.1
+
+Title: Hero scene without the table, closer and deeper; the phone always faces the visitor
+
+Date: 2026-11-15
+
+Summary:
+
+Owner feedback: no table needed; a perspective with more depth, the scene a
+little to the right and turned slightly to the left, the elements closer
+together (like the reference food-and-fitness photo); and the same phone look
+as on the hero in the other sections, front only, with its brighter edge.
+
+Main changes:
+
+- `home_story/story_intro.ts`: the stone table is gone; an invisible floor
+  only receives the shadows, with a soft contact shade under each object. The
+  composition is held close: the plate in front on the left, on a linen napkin
+  with the fork and knife, overlapping the phone's corner; the phone at the
+  centre; the two dumbbells on the right with their axes towards the visitor
+  (the RYZE end faces in view); the shaker behind them.
+- `story_scene.ts`: the hero group is tilted more (0.36) for depth, turned
+  slightly left (towards the copy) and moved right (`heroX` 0.38). The phone no
+  longer spins in the Train, Nutrition and Evolve chapters: it always faces the
+  visitor and its screens cross-fade (training → nutrition at 0.44–0.49,
+  nutrition → synced at 0.66–0.70). Its titanium edge has a little emissive
+  light, so it reads near-white at every angle, as on the hero.
+
+Verification (short, as asked): typecheck passes; the 3D starts with no
+console errors; the hero checked at 1440 px.
+
+# Version 2.123.0
+
+Title: Hero becomes one scene on a stone table
+
+Date: 2026-11-15
+
+Summary:
+
+Owner feedback: the hero still read as three separate objects by three
+different artists (a quality phone, a blurry plate, a toy dumbbell) over a
+black reflective patch where nothing seemed to rest; it lacked life. Wanted: a
+composed scene like a food and fitness photograph, one continuous surface with
+depth, contact shadows and very subtle reflections, and small signs of life
+(steam, light on the phone, a slight camera drift, discreet particles, light
+that breathes), without turning it into a circus of effects.
+
+Main changes (`home_story/story_intro.ts`, `story_scene.ts`):
+
+- One light stone table (chamfered slab with thickness, cool marble-like
+  texture, a mid-light tone so shadows read), receiving the key light's
+  shadows, with contact shade under each object and a soft shade below it.
+  The dark reflective disc and its reflection pass are gone (also the main
+  cause of the lag).
+- Props redone to one standard: a pair of matte black rubber hex dumbbells
+  (chamfered heads, knurled chrome handle, chrome collars, the RYZE mark
+  printed on the end faces); a plate like a food photograph — grilled chicken
+  breast with grill bars, broccoli florets of many buds, quinoa grain by grain
+  and diced peppers (instanced, one draw call each), herb flakes; a linen
+  napkin under the fork and knife; a RYZE shaker at the back (smoky body,
+  black lid, cyan level line, the mark on a curved label).
+- Life: steam rising from the plate, a streak of light crossing the phone's
+  glass every few seconds, a slow camera drift (the table no longer turns with
+  the pointer, so its shadows stay valid), motes drifting in the light, the
+  cyan rim light breathing. Shadows are redrawn only while the opening plays
+  or the story scrolls.
+- The opening (drone, beam, holograms, change to solid) is unchanged and now
+  materialises the whole scene; hologram twins support instanced parts.
+
+Verification (short, as asked): typecheck passes; the 3D starts with no
+console errors; the hero checked at 1440 px.
+
+# Version 2.122.2
+
+Title: Lifter badges showcase in a modal
+
+Date: 2026-11-15
+
+Summary:
+
+Owner request: the "see all badges" control should match the card's design
+and open a pop-up over a dimmed page showing every badge in colour, animated,
+as a showcase (not greyed out as locked).
+
+Main changes:
+
+- `components/lifter/`: "See all badges ›" is now a link-style button under
+  the level line of the lifter card. It opens a native `<dialog>` (dimmed and
+  blurred backdrop; Esc, the close button or a click outside close it; focus
+  returns to the button) with the 8 levels in a grid — 4 across, 2 on phones —
+  each tile with the badge floating and glowing, its level number, name and
+  starting EXP; the member's own level is tagged. No locked or grey state.
+  Reduced motion stops the animations.
+
+Verification: typecheck passes.
+
+# Version 2.122.1
+
+Title: Hero composition refinements and a lighter 3D frame
+
+Date: 2026-11-15
+
+Summary:
+
+Owner feedback: the opening was laggy, the scene sat too close to the copy,
+the dumbbell should be larger and show its RYZE mark, the plate larger and
+further forward, and the near-white metal of the hero phone should be on the
+phone everywhere on the page.
+
+Main changes:
+
+- Performance: the surface reflection renders at a third of the canvas width
+  (384–640 px) and refreshes every other frame (every third once the opening
+  is over); shadows use a 1024 map and are redrawn every other frame during
+  the opening, every fourth after; small parts (seeds, leaves, lenses) cast no
+  shadow; the dumbbell's and plate's bounds are measured once; after the
+  opening only the steam is updated.
+- Layout: the composition moved right (`heroX` 0.34); the dumbbell is 30%
+  larger, turned so its near end cap — polished steel, a dark face with the
+  RYZE mark and a cyan ring — faces the visitor, with matte rubber hex heads;
+  the plate is 20% larger and further forward, the fork and knife angled
+  beside it.
+- The 3D phone's frame is near-white titanium in every chapter (Train,
+  Nutrition, Evolve), not only on the hero.
+
+Verification (short, as asked): typecheck passes; the 3D starts with no
+console errors; the hero composition checked at 1440 px.
+
+# Version 2.122.0
+
+Title: Hero final composition on one surface; all lifter badges; "no entry" hologram
+
+Date: 2026-11-15
+
+Summary:
+
+Owner requests of 2026-11-15: (1) keep the hero opening but reorganise its
+final composition — the phone as the protagonist standing on a surface, the
+dumbbell resting behind it on the left, a served plate with a fork, a knife
+and a little steam behind it on the right, nothing floating; (2) in the member
+area, a small button that shows all 8 lifter badges in one row, animated, with
+each level's name and EXP; (3) on the under-development page, a hologram of a
+"no entry" sign on a post instead of the planet.
+
+Main changes:
+
+- `home_story/story_intro.ts`: one deep-blue presentation surface (a
+  `Reflector` with a discreet reflection that fades out, a shadow catcher for
+  real shadows from the key light, contact shade); the phone stands on its
+  bottom edge on a clear acrylic stand, leaning back, about 55% of the stage
+  height, its pose locked to the surface at the top of the page and easing into
+  the story pose as it scrolls (`seat`); the dumbbell rests on a flat face of
+  its hex heads, partly behind the phone; the plate (grilled salmon on quinoa,
+  avocado, asparagus, halved cherry tomatoes, lemon) with a fork and a knife
+  beside it and a soft steam once solid. Every object is set on the surface by
+  its lowest point. The opening (drone, beam, holograms, change to solid) is
+  unchanged and ends in this composition; shadows grow with the change line.
+- `story_scene.ts`: shadow map on (the key light frames the composition; drawn
+  only while the hero is on screen); the surface tipped towards the viewer for
+  a three-quarter view.
+- `home_story/hero_showcase.*` (phones): the same arrangement — the phone in
+  front, the dumbbell lying behind on the left, the plate with cutlery and
+  steam on the right, on one surface.
+- `components/lifter/`: "See all badges" on the member home's lifter card
+  opens the 8 level badges in one row (floating, the current one glowing,
+  levels not reached dimmed) with name and starting EXP.
+- `pages/under_development_page/blocked_hologram.*`: a cyan hologram of a
+  "no entry" sign on a post, projected from a floor disc (scan lines, a
+  climbing band, particles); replaces `BrandGlobe` there.
+
+Verification (kept short at the owner's request): typecheck and build pass;
+the desktop 3D starts with no console errors and the final composition was
+checked at 1440 px; the phone layout's final composition at 390 px.
+
+# Version 2.121.0
+
+Title: Home hero opening (drone projection and materialisation), planet RYZE back, lighter devices
+
+Date: 2026-11-15
+
+Summary:
+
+Owner requests of 2026-11-15: (1) restore the planet in the "Get started"
+chapter with "Your next level starts here, join planet RYZE now!"; (2) the
+phone and laptop looked odd against the more vivid background; (3) a new
+cinematic opening for the Home hero: a drone flies in from the right, projects
+the phone (real RYZE interface), a dumbbell and a meal as holograms, closes its
+beam with a flash and leaves as the holograms turn into solid objects that stay
+as the hero's composition — reusing the drone, projection and phone, never
+blocking the CTAs, with reduced motion going straight to the final
+composition and a light version on mobile without WebGL.
+
+Main changes:
+
+- `components/home_story/story_intro.ts` (new): the opening, procedural.
+  Drone in (overshoot and settle) → beam opens (lens flash, scan pulses,
+  particles, light pool) → phone, dumbbell and meal build as holograms from
+  the bottom up (hologram twins with the same geometries: fresnel, scan lines,
+  glowing edges; the phone's screen shown as a cyan hologram of the real
+  training screen) → suspension → beam closes with a flash → drone leaves
+  while each object turns solid behind a bright climbing line (its real
+  materials clipped by a moving plane, the twin above it), with a flash, a
+  shock ring and a contact shadow. About 7 s; plays once when the story is
+  first on screen; any scroll jumps to the final composition; full frame rate
+  while it plays. The dumbbell (knurled steel, chrome collars, gunmetal hex
+  heads with a cyan inlay and the RYZE mark) and the meal (white ceramic bowl
+  with grains, salmon and sesame, avocado, cherry tomatoes, broccoli, edamame,
+  chickpeas) float and turn slowly afterwards.
+- `story_scene.ts`: the hero composition is the story's own phone at the
+  centre, with the dumbbell and meal; as the hero scrolls on they leave up and
+  away and the phone rises out of the frame, coming back for the Train chapter
+  (the rest of the timeline is unchanged). Local clipping on; the device metals
+  are light (natural titanium phone with a frosted blue back and a soft light
+  rim and shadow; silver-blue aluminium laptop; light glows instead of the
+  saturated blue halos). The hologram athlete, its platform and the readout
+  are no longer in the scene.
+- `components/home_story/story_planet.ts` (new): planet RYZE restored from the
+  committed original unchanged (land mask, clouds, routes from Lisbon, cities,
+  the badge), shown in the last chapter; `story_content.ts`: "Your next level
+  starts here, join planet RYZE now!" / "O teu próximo nível começa aqui,
+  junta-te já ao planeta RYZE!".
+- `components/home_story/hero_showcase.tsx` (new, HTML/SVG/CSS): the same
+  opening for phones, reduced motion and no-WebGL (the phone with the real
+  screen in `PhoneMockup`, SVG dumbbell and meal, one run of about 7 s; with
+  reduced motion the final composition). The stacked last chapter shows
+  `BrandGlobe`. `components/showcase/` mockups: natural titanium and silver
+  aluminium frames, light rim and a deeper shadow.
+- The desktop loading placeholder is gone (the opening starts from an empty
+  stage). `story_athlete.ts`, `story_hologram.ts`, `story_readout.tsx` and
+  `components/brand_hologram/` are no longer used; kept in the working tree
+  pending the owner's decision (they were never committed).
+
+Verification: frontend typecheck, 168 tests and the production build pass
+(`story_scene` chunk 60 kB, 20.7 kB gzip). Browser checks on the local stack:
+1440 px software-WebGL frame sequences of the whole opening (drone in, beam,
+holograms, beam closing, the change to solid, the final composition), 1280
+and 1920 (EN) final compositions beside the copy, the hero CTAs on top and
+clickable during the opening, the scroll chapters (phone out and back, lighter
+devices, planet RYZE with the new headline) and no console errors beyond the
+unauthenticated 401s; at 390 px the light opening frozen at several moments,
+the final composition, reduced motion, the lighter mockups, the planet in the
+last chapter (also at 820 px), no Three.js download and no horizontal
+overflow. Real-GPU frame rate was not measured here.
+
+# Version 2.120.0
+
+Title: Home hologram becomes a training analysis that links the scene to the app
+
+Date: 2026-11-15
+
+Summary:
+
+Owner request of 2026-11-15: the hologram should become an analysis — the
+drone takes information while the athlete trains, so the scene connects to the
+app — reusing what exists; with a brief to evolve (not replace) the scene into
+a premium "Human Performance" visual: a translucent holographic body with the
+wireframe as a subtle overlay, a refined scanning device instead of a toy-like
+craft, a platform with depth, reflections and energy pulses, controlled light,
+accurate RYZE interface elements, and no invented biometric or AI body
+analysis (the scan is a visual metaphor). Checked at 1440 px and 390 px.
+
+Main changes:
+
+- What the scan "collects" is only what RYZE records, in the workout player's
+  terms: the set (kg × reps, "Logged"), the exercise's muscles, the rest before
+  the next exercise and, when the routine ends, the saved workout's summary
+  with the EXP the backend awards (workout +100, 5 per set, +50 per record),
+  the Average Lifter level bar and the record medal. Sample data, labelled.
+- `components/home_story/story_readout.tsx` (new) with
+  `story_readout.module.css`: the hero readout in the navy-glass style of the
+  story's callouts — the session card ("Set 2 of 3 · Logging", exercise,
+  kg × reps, a "Logged" pill when the set's data reaches the scanner, set
+  progress, muscles; a rest view with "Up next") and the workout card ("Today's
+  workout", x/12 sets; then "Workout saved", +210 EXP with its breakdown, the
+  level bar and "New medal"). A line joins it to the worked muscle (the side
+  nearer the card) and a dashed data line to the sensor. Placed every frame
+  from anchors the scene projects (no React re-render per frame); it measures
+  the hero copy's real text lines and the story steps and takes the first
+  place that covers neither, sliding down if needed, or steps aside when there
+  is no room (narrow desktop stages around 1024 px). Everything follows from
+  the scene's time, so it cannot drift. Translated (PT/EN copy in
+  `story_content.ts`); `aria-hidden` and pointer-transparent. Leaves as soon
+  as the story scrolls on.
+- `story_hologram.ts`: the drone is now a scanner (satin graphite lens-shaped
+  pod with a dome, a light ring, a sensor array of rings and a core, slim arms
+  to ducted rotors; pitched slightly towards the viewer; its lights brighten
+  when data arrives). The beam is softer; the descending rings gave way to a
+  scan plane that follows the scanner's line up and down the body. Every rep
+  sends a burst of data from the worked muscle to the sensor. The platform is
+  a dark navy disc (unlit top, so the grazing view never mirrors the studio
+  light) with a metal side and bevel, a light rim, a drifting light strip,
+  rings, a pulse when a set is logged, and a faint reflection of the athlete
+  masked by the stencil to the platform.
+- `story_athlete.ts`: translucent material (fresnel rim, inner volume, key
+  light, faint slices) with a crisp scan contour and afterglow; the light
+  network is now a quiet overlay, lit where the scan passes and over the
+  worked muscles; a slow breath and head turn; a short rest after each
+  exercise's last set; the reflection (the same skinned body mirrored in the
+  shader); the state the readout needs (exercise, time into it, round).
+- `story_scene.ts`: stencil buffer on; projects the scanner, worked muscle and
+  platform to stage pixels for the readout every drawn frame; the hologram
+  sits slightly further right (`holoX` 0.41) to leave room for the readout.
+- `components/brand_hologram/` (phones, reduced motion, no-WebGL, loading
+  placeholder): the scanner redrawn, a dark platform that pulses at the end of
+  every rep, a scan line running up and down, and on the phone layout a small
+  readout card (curl, then squat) that lights "Logged" with each rep.
+
+Verification: frontend typecheck, 168 tests and the production build pass
+(`story_scene` chunk 61.5 kB, 21.8 kB gzip). Browser checks on the local stack
+with software WebGL: 1440×900 frame sequences across the routine (logging,
+rest view, the workout summary after the last set, the next round), 1024, 1280
+and 1920 (EN) placements, the scroll chapters (the readout leaves with the
+hero), and no console errors beyond the unauthenticated 401s. At 390 px the
+phone layout shows the SVG scanner and its card, loads no Three.js and has no
+horizontal overflow, also with reduced motion. Real-GPU frame rate was not
+measured here.
+
+# Version 2.119.0
+
+Title: Home hologram: a high-level training mannequin that cycles exercises
+
+Date: 2026-11-15
+
+Summary:
+
+Owner feedback on v2.118.0: the drone, beam and spotlight are right, but the
+athlete looked like "a set of balls stuck together". Requested: a hologram
+that really shows a human, ideally a genderless figure with no defined face,
+like the owner's reference (a glowing triangulated network body); the figure
+should alternate between exercises to fill the space and show progress
+everywhere, and the area being worked should pulse gold or red.
+
+Main changes:
+
+- `components/home_story/story_athlete.ts` (new, procedural, no model files,
+  no new dependency): one continuous faceless mannequin built from signed
+  distance fields (ellipsoids and round cones for pelvis, glutes, ribs, pecs,
+  deltoids, biceps, triceps, forearms, quads, hamstrings, calves, an egg head
+  with a soft jaw) joined with smooth unions, meshed once with surface nets
+  (vertices projected onto the exact surface, normals from the field) into
+  ~17k vertices, and skinned to a 17-bone skeleton with weights from the same
+  fields. The build (~0.6 s of script on a desktop CPU) runs in slices of at
+  most ~12 ms while the SVG placeholder shows. Over the skin, a triangulated
+  light network (~900 nodes, ~2,100 links along the skin only) with twinkling
+  nodes, skinned on the CPU. Exercises with dumbbells, three reps each: biceps
+  curl, shoulder press (racks the dumbbells on the way in and out), squat and
+  Romanian deadlift; the feet stay planted (exact leg solve), and between
+  exercises the figure turns to the angle that shows the next one best. The
+  worked muscles (biceps; deltoids and triceps; quads and glutes; hamstrings
+  and glutes) pulse gold, turning red at the hardest point, with a soft glow
+  over each.
+- `story_hologram.ts`: the sphere athlete and the bench are removed; the
+  drone, beam, scan rings, particles, floor disc and halo stay. The beam now
+  leaves a wide lens (a frustum) so the press and the hip hinge stay inside
+  the light; `createHologram` is async (the scene awaits it). A WebAssembly
+  mesh simplifier was rejected because the production CSP (`script-src
+  'self'`) would block it; the CSP is unchanged.
+- `story_scene.ts`: the hologram's base scale is slightly larger (0.95).
+- `components/brand_hologram/`: the SVG/CSS fallback (phones, reduced motion,
+  no-WebGL, loading placeholder) now shows the same faceless mannequin in
+  profile, covered in a triangle-and-node network pattern, alternating three
+  curls and three squats in a 12 s cycle (the joints fold ankle → knee → hip),
+  with the biceps, then the quads and glutes, pulsing gold to red. With
+  reduced motion it stands still with a steady biceps glow.
+
+Verification: frontend typecheck, 168 tests and the production build pass
+(`story_scene` chunk 53.8 kB, 19.4 kB gzip). A Node check of the athlete
+builder: consistent winding (1 of 33,824 triangles off), no invalid values,
+feet at the same height in every pose. Browser checks on the local stack
+(software WebGL at 1440×900): frame sequences of all four exercises and the
+transitions, the press staying inside the beam, the story chapters (hero,
+corner, out of frame, back for the call to action) and no console errors
+beyond the unauthenticated 401s; the SVG frozen at several points of its
+cycle on a 390 px phone. Real-GPU frame rate was not measured here.
+
+# Version 2.118.0
+
+Title: Home hero: a drone-projected hologram athlete replaces the Earth
+
+Date: 2026-11-15
+
+Summary:
+
+Owner request of 2026-11-15: the planet in the Home story "does not say
+anything"; replace it with a 3D glass hologram of an athlete (suggested: a
+drone projecting, from above, an athlete sitting on a bench doing a dumbbell
+curl), conveying the hero's message — train anywhere, progress your body in
+every way — with the effects proposed (muscles lighting up, light, glass).
+
+Main changes:
+
+- `components/home_story/story_hologram.ts` (new, procedural, no model files):
+  a drone (metal hull, LED strip, spinning rotors, a glowing lens) hovers and
+  projects a cone of light (streaks, three descending scan rings, rising
+  particles) onto a floor disc (rings, a turning dashed ring, a pulse). Inside,
+  the athlete — a V-taper lathe torso with pecs and abs, deltoids, biceps,
+  triceps, forearms, quads and calves on a joint hierarchy — sits on a bench
+  and does alternating dumbbell curls (2.6 s per rep). Hologram shader: bright
+  rim, horizontal scan slices, a light band climbing the body on every rep, a
+  faint flicker and a rare glitch, over a depth pre-pass so only the nearest
+  surface shows; the working biceps light up with each contraction; a soft
+  inner glow; the hologram materialises from the floor up when the scene
+  starts.
+- `story_scene.ts`: the Earth (sphere, continents, clouds, routes, cities,
+  Lisbon badge, their shaders and the land-mask download) is removed; the
+  hologram takes its timeline (`holo*` state keys): hero → corner while the
+  programs pass → flies up out of the frame while the devices are on stage →
+  back for the last chapter. Calmer while in the corner.
+- `components/brand_hologram/` (new): the SVG/CSS equivalent for phones,
+  reduced motion and no-WebGL (drone, beam with descending rings, the athlete
+  in profile curling with alternating arms, a climbing light band); also the
+  placeholder while the 3D scene loads. The SVG globe stays on the
+  under-development pages.
+
+Verification: frontend typecheck, 168 tests and the build pass (the 3D scene
+stays a lazy desktop-only chunk, 37.6 kB). Local site in headless Chromium
+with software WebGL: no shader or page errors; frame sequences show the
+alternating curls, the reveal, the climbing band and the biceps glow; the
+whole story at 1440 px (hero, corner, Train without the drone, return in the
+last chapter) and the hero at 1920 and 1100 px; phones at 390 px show the SVG
+version (no canvas, no Three.js, no overflow) and stay still with reduced
+motion.
+
+---
+
 # Version 2.117.5
 
 Title: Story steps show only the current chapter

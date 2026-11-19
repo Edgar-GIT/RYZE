@@ -119,6 +119,13 @@ export const PremiumLevel2Page = () => {
     [history]
   );
 
+  const goToExperience = useCallback(
+    (request: PremiumLevel2Request) => {
+      history.replace(`/services/premium-level-2/experience/${request.id}?preparing=1`);
+    },
+    [history]
+  );
+
   useEffect(() => {
     if (checkout.state.status !== "success" || !selectedOffer) {
       return;
@@ -128,13 +135,13 @@ export const PremiumLevel2Page = () => {
       if (cancelled) return;
       const created = own.find((request) => request.program_id === selectedOffer.id);
       if (created) {
-        goToRequest(created);
+        goToExperience(created);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [checkout.state, goToRequest, refreshRequests, selectedOffer]);
+  }, [checkout.state, goToExperience, refreshRequests, selectedOffer]);
 
   useEffect(() => {
     if (!returningFromPayment || !selectedOffer || selectedRequest) {
@@ -173,7 +180,7 @@ export const PremiumLevel2Page = () => {
               <h1 className={styles.title}>{tr("One-to-one training, built around you")}</h1>
               <p className={styles.subtitle}>
                 {tr(
-                  "Answer a detailed questionnaire, pay once, and a certified RYZE trainer will author your individual training and nutrition plans."
+                  "Pay once, then answer a detailed questionnaire. A certified RYZE trainer will author your individual training and nutrition plans."
                 )}
               </p>
             </header>
@@ -193,7 +200,7 @@ export const PremiumLevel2Page = () => {
                       <Button
                         variant={editableStatus(request.status) ? "primary" : "secondary"}
                         size="small"
-                        onClick={() => goToRequest(request)}
+                        onClick={() => (editableStatus(request.status) ? goToExperience(request) : goToRequest(request))}
                       >
                         {editableStatus(request.status) ? tr("Continue intake") : tr("View service")}
                       </Button>
@@ -304,12 +311,12 @@ export const PremiumLevel2Page = () => {
                 <h2 className={styles.sectionTitle}>{tr("How it works")}</h2>
                 <ol className={styles.steps}>
                   <li>
-                    <strong>{tr("Complete your intake.")}</strong>{" "}
-                    {tr("Your trainer uses it to build around your goal, experience, schedule and dietary needs.")}
+                    <strong>{tr("Purchase the service.")}</strong>{" "}
+                    {tr("You pay once and the questionnaire opens immediately; your programme is created for you afterwards.")}
                   </li>
                   <li>
-                    <strong>{tr("Purchase the service.")}</strong>{" "}
-                    {tr("You pay once the questionnaire is complete; your programme is created for you afterwards.")}
+                    <strong>{tr("Complete your intake.")}</strong>{" "}
+                    {tr("Your trainer uses it to build around your goal, experience, schedule and dietary needs.")}
                   </li>
                   <li>
                     <strong>{tr("Your trainer builds both plans.")}</strong>{" "}
@@ -336,7 +343,7 @@ export const PremiumLevel2Page = () => {
                       size="small"
                       icon={<ClipboardList size={15} />}
                       iconPosition="left"
-                      onClick={() => goToRequest(selectedRequest)}
+                      onClick={() => (editableStatus(selectedRequest.status) ? goToExperience(selectedRequest) : goToRequest(selectedRequest))}
                     >
                       {editableStatus(selectedRequest.status) ? tr("Complete your intake") : tr("Open service")}
                     </Button>
@@ -356,7 +363,7 @@ export const PremiumLevel2Page = () => {
                       onClick={() => {
                         void refreshRequests().then((own) => {
                           const created = own.find((request) => request.program_id === selectedOffer.id);
-                          if (created) goToRequest(created);
+                          if (created) goToExperience(created);
                         });
                       }}
                     >
@@ -366,7 +373,7 @@ export const PremiumLevel2Page = () => {
                 ) : (
                   <>
                     <p className={styles.sectionText}>
-                      {tr("The questionnaire comes first; payment is the last step.")}
+                      {tr("Pay once and complete the questionnaire afterwards, in your language.")}
                     </p>
                     {checkout.state.status === "error" ? (
                       <div className={styles.actions}>
@@ -387,7 +394,7 @@ export const PremiumLevel2Page = () => {
                         iconPosition="left"
                         to={`/services/premium-level-2?offer=${encodeURIComponent(selectedOffer.id)}`}
                       >
-                        {tr("Start the questionnaire")}
+                        {tr("Buy this service")}
                       </Button>
                     )}
                   </>

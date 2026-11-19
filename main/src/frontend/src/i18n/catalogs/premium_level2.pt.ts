@@ -24,8 +24,8 @@ export const PREMIUM_LEVEL2_PT: Catalog = {
   "Loading Premium Level 2…": "A carregar o Premium Nível 2…",
   "Premium Level 2": "Premium Nível 2",
   "One-to-one training, built around you": "Treino individual, feito à tua medida",
-  "Answer a detailed questionnaire, pay once, and a certified RYZE trainer will author your individual training and nutrition plans.":
-    "Responde a um questionário detalhado, paga uma única vez e um treinador RYZE certificado cria os teus planos individuais de treino e nutrição.",
+  "Pay once, then answer a detailed questionnaire. A certified RYZE trainer will author your individual training and nutrition plans.":
+    "Paga uma única vez e responde depois ao questionário detalhado. Um treinador RYZE certificado cria os teus planos individuais de treino e nutrição.",
   "Your Premium Level 2 services": "Os teus serviços Premium Nível 2",
   "Continue intake": "Continuar questionário",
   "View service": "Ver serviço",
@@ -35,8 +35,8 @@ export const PREMIUM_LEVEL2_PT: Catalog = {
   "What you receive": "O que recebes",
   "How it works": "Como funciona",
   "Purchase the service.": "Compra o serviço.",
-  "You pay once the questionnaire is complete; your programme is created for you afterwards.":
-    "Pagas quando o questionário estiver completo; o teu programa é criado para ti depois.",
+  "You pay once and the questionnaire opens immediately; your programme is created for you afterwards.":
+    "Pagas uma única vez e o questionário abre de imediato; o teu programa é criado para ti depois.",
   "Complete your intake.": "Preenche o teu questionário.",
   "Your trainer uses it to build around your goal, experience, schedule and dietary needs.":
     "O teu treinador usa-o para adaptar tudo ao teu objetivo, experiência, horário e necessidades alimentares.",
@@ -63,6 +63,8 @@ export const PREMIUM_LEVEL2_PT: Catalog = {
   Snack: "Snack",
   Cautions: "Cuidados",
   Required: "Obrigatório",
+  Yes: "Sim",
+  No: "Não",
   "Choose an option": "Escolhe uma opção",
   "This Premium Level 2 service was not found.": "Este serviço Premium Nível 2 não foi encontrado.",
   "We could not load your service. Please try again.": "Não foi possível carregar o teu serviço. Tenta novamente.",
