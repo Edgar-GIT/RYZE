@@ -117,6 +117,10 @@
 46 - Renovar Manualmente.
 
 47 - Emitir fatura só se a pessoa quiser. (pro email)
+     (Atualizado a 2026-11-20 pelo owner: o documento é emitido e enviado
+     automaticamente em todas as compras concluídas, sem opção do cliente.
+     Até haver software certificado é um comprovativo sem valor fiscal,
+     isento de IVA pelo artigo 53.º do CIVA, com NIF opcional no checkout.)
 
 48 - Cancelar.
 

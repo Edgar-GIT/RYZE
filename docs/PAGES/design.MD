@@ -891,6 +891,14 @@ require authentication.
     lifecycle emails; the CTA stays disabled until it is valid. A
     `409 DUPLICATE_ENTITLEMENT` resolves to the `owned` state (the persona
     already owns the program).
+  - Optional NIF (v2.126.0) — every checkout surface (this panel, the shared
+    checkout panel and Premium Level 1), real or Test Mode, shows the same
+    optional "Taxpayer number (NIF)" field (`components/checkout_tax_id/`:
+    visible label, help text, inline error announced politely,
+    `aria-invalid`, numeric keyboard). Empty means the receipt is issued to a
+    final consumer; a typed NIF must pass the check digit, and the pay/retry
+    button stays disabled while it does not. The success state adds a
+    "Purchase receipt" link to the receipt page.
 - **Free activation panel** (free programmes only) — resolves the client's Free
   activations. A guest sees "Sign in to activate" with a Sign in button; a
   signed-in unactivated client sees "Activate free plan"; an activated client
@@ -1057,11 +1065,32 @@ palette and typography of the member area.
     `/services/my-programs/:programId` only when `status === completed` and
     `access === true`;
   - a muted "No longer available" note for completed purchases whose program
-    was retired or deleted (history persists, access is not).
+    was retired or deleted (history persists, access is not);
+  - a ghost "Receipt" button on every completed purchase (v2.126.0), opening
+    its purchase document.
 - **States** — loading (spinner), generic error with a Retry button, empty
   state ("You have not purchased any programs yet") linking to the marketplace.
 - **Responsive** — entries stack vertically on narrow screens with the
   metadata moving under the program text.
+
+### Purchase Receipt (v2.126.0)
+
+- **Route** — `/account/purchases/:purchaseId/receipt`, inside the member app
+  shell; linked from Purchases, from every checkout success state and from the
+  receipt email.
+- **Data** — `GET /api/v1/me/purchases/:purchaseId/invoice` (owner only;
+  401 → `/login`, 404 → "We could not find a receipt for this purchase").
+- **Layout** — a toolbar (back to Purchases, "Print or save as PDF") above a
+  white document card that is readable on a phone first: RYZE, the title
+  "Purchase receipt", number and issue/purchase dates; a Test Mode notice when
+  relevant; seller and customer (name, NIF or "Final consumer"); a one-line
+  item table (item, quantity, unit price, VAT); VAT and total; payment method;
+  the VAT exemption mention (article 53 of the Portuguese VAT Code) and "This
+  document is a purchase receipt and is not a tax invoice." Two columns from
+  640 px. Bilingual (EN/PT).
+- **Print** — while the page is open, printing shows only the document (a
+  body class scopes the print rule to this page), so the browser's "Save as
+  PDF" produces the file. No new dependency.
 
 ---
 
@@ -2301,8 +2330,9 @@ Owner request of 2026-11-14. Without any of the legacy parameters (`program`,
 The checkout panel (`components/checkout_panel/`) is shared with the Level 2
 journey: order summary with what is included and the total, payment methods
 as radio cards, the Test Mode notice with its required test-email recipient,
-a plain message when no payment provider is configured, cancelled/error states
-with retry, and the confirmation.
+the optional NIF field, a plain message when no payment provider is configured,
+cancelled/error states with retry, and the confirmation with a link to the
+purchase receipt.
 
 The legacy page below still serves `?program=` links (e.g. My Programs) and
 payment returns.

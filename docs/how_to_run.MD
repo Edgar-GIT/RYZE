@@ -449,6 +449,26 @@ the API. Delivery is off unless `MAIL_SMTP_HOST`, `MAIL_FROM` and
 Failed sends are retried after 1, 5, 15, 60 and 240 minutes (6 attempts);
 `SELECT status, count(*) FROM email_outbox GROUP BY 1` shows the queue.
 
+## Purchase Documents (Receipts)
+
+Every completed purchase (real or Test Mode) gets one purchase document,
+issued automatically, shown in the account under Purchases → Receipt and
+emailed (template `invoice_issued`). It requires migration `000048`
+(`go run . migrate up`). Until certified invoicing software is connected the
+document is a purchase receipt with no tax value, VAT exempt under article 53
+of the Portuguese VAT Code. The seller identity printed on it:
+
+- `INVOICE_SELLER_NAME` — defaults to `RYZE`.
+- `INVOICE_SELLER_TAX_ID` — the company's taxpayer number (optional; not
+  printed until set).
+- `INVOICE_SELLER_ADDRESS` — the company's address (optional; not printed
+  until set).
+
+The values are copied onto each document when it is issued, so changing them
+never alters documents already issued. A background sweep (every five minutes)
+issues documents still missing and records unrecorded document emails.
+`SELECT series, year, last_number FROM invoice_counters` shows the numbering.
+
 ## Google Sign-In Configuration (Optional)
 
 1. In Google Cloud, create an OAuth client of type "Web application".
@@ -550,7 +570,9 @@ TEST_MODE_ENABLED=true
   standard logging pipeline.
 - Test Mode requires database migrations: run `go run . migrate up` once in
   development. Migration `000023` creates the `test_sessions` table and the
-  `purchases.test` marker; migration `000047` adds the session email recipient.
+  `purchases.test` marker; migration `000047` adds the session email recipient;
+  migration `000048` adds purchase documents (Test Mode ones use the `TEST`
+  series and are emailed to the session recipient).
 
 Real money is never involved and no provider configuration is required for
 Test Mode purchases.

@@ -557,6 +557,24 @@ buyer does not have to trigger generation by hand; the hook is idempotent and it
 failures are logged, not bubbled up to the payment. Curated packages are a no-op
 at fulfilment: their plan is already stored with the package.
 
+**Purchase documents (v2.126.0).** The same fulfilment multiplexer also runs
+`services/invoices`: for every completed purchase of the (user, programme) pair
+without a document it issues one (`repositories.InvoiceRepository.Issue`, gapless
+numbering per series and year in the same transaction as the insert, one per
+purchase by a unique key) and records its email in the outbox (template
+`invoice_issued`, dedupe key `invoice:<id>`). It is idempotent and never fails
+the purchase. Retries: the next delivery of the purchase, the owner opening the
+document (`GET /api/v1/me/purchases/:purchaseID/invoice` issues a missing one)
+and the background sweep (`jobs.go`, every five minutes: issues missing
+documents and records sales-document emails never recorded in the last seven
+days). Persona (Test Mode) documents are numbered in the `TEST` series and
+emailed only at issue, to the current session's recipient
+(`test_mode.RecipientResolver`). The seller identity comes from
+`INVOICE_SELLER_NAME` (default "RYZE"), `INVOICE_SELLER_TAX_ID` and
+`INVOICE_SELLER_ADDRESS` (`config.LoadInvoice`). The document is a purchase
+receipt with no tax value until certified invoicing software is connected;
+handlers: `api/auth/invoice_handler.go`.
+
 Both handlers sit behind `Authenticate` only. There is no trainer ownership to
 verify and no administrator permission involved: the owner is always the
 authenticated client, and the acting user id always comes from the authentication
@@ -1479,9 +1497,12 @@ cookies for the persona session (`ryze_test_session`):
 - Test checkout asks for a real email recipient because persona accounts use
   non-deliverable `@ryze.local` addresses. The address is validated and stored
   only on the active `test_sessions` row (`recipient_email`). The notifications
-  service resolves it for that persona, so normal lifecycle emails reach the
-  typed inbox while the session is active; if no recipient exists, emails stay
-  suppressed and in-app notifications are unaffected. Leaving Test Mode
+  and invoices services resolve it through `test_mode.RecipientResolver`: only
+  the persona's most recent non-deleted session counts, within the session
+  lifetime and while Test Mode is enabled, so normal lifecycle emails and the
+  purchase document reach the typed inbox while the session is active; if no
+  recipient exists, emails stay suppressed and in-app notifications are
+  unaffected. An older or expired session's address is never reused. Leaving Test Mode
   soft-deletes the session, so the address is no longer used. It is never
   logged and never exposed by an API response.
 

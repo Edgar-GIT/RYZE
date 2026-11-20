@@ -964,8 +964,17 @@ Request body:
 
 - `payment_method` (required) — one of `"card"`, `"mbway"` or `"paypal"`,
   matching an advertised method.
+- `tax_id` (optional) — the buyer's Portuguese taxpayer number (NIF) for the
+  purchase document. Spaces and a `PT` prefix are ignored; it must be nine
+  digits with a valid check digit. When present (an empty string clears it)
+  it replaces what the pending purchase held; when absent the purchase keeps
+  its value. It is stored normalised on `purchases.buyer_tax_id` and never
+  logged. Without one the document is issued to a final consumer.
 
 Validation:
+
+- An invalid `tax_id` returns `400 VALIDATION_ERROR` ("Invalid taxpayer
+  number.") before the purchase or any provider is touched.
 
 - `payment_method` is required and must be one of the allowed values. Any other
   value or a missing field returns `400 VALIDATION_ERROR`.
@@ -1264,13 +1273,23 @@ Request body:
 - `email` (required) — one bare, valid email address (maximum 255 characters).
   Display names and mailbox decorations are rejected. The address is sensitive
   session data and is never logged.
+- `tax_id` (optional) — the taxpayer number (NIF) for the purchase document,
+  validated as for `POST /api/v1/me/purchases/:purchaseID/payment`.
+
+The completed test purchase gets its purchase document like any purchase (in
+the separate `TEST` series, see "Purchase documents"); its email goes to the
+`email` above, never to the persona's synthetic address. Only the persona's
+most recent active Test Mode session, within its lifetime and while Test Mode
+is enabled, supplies a recipient: an older or expired session's address is
+never reused.
 
 Responses:
 
 - `201 Created` — `data`: the completed purchase snapshot (same shape as the
   normal capture response), `status` set to `"completed"`,
   `price_minor_units` `0`.
-- `400 VALIDATION_ERROR` — malformed program id or missing/invalid `email`.
+- `400 VALIDATION_ERROR` — malformed program id, missing/invalid `email` or an
+  invalid `tax_id` (nothing is written).
 - `401 AUTHENTICATION_REQUIRED` — no authenticated session.
 - `403 TEST_MODE_INACTIVE` — the authenticated identity is not the active Test
   Mode persona, or the persona session lacks durable ownership (a normal user
@@ -4021,13 +4040,65 @@ Attempts payment again.
 
 ---
 
-## Invoice
+## Purchase documents (invoices)
 
-```
-GET /api/v1/payments/{id}/invoice
-```
+Every completed purchase — real or Test Mode — gets exactly one purchase
+document, issued automatically when the purchase completes (a purchase
+fulfilment hook), shown in the account and emailed without any client action
+(owner requirement, 2026-11-20; there is no opt-in or opt-out). Free
+activations are not purchases and get none. Until certified invoicing
+software is connected the document is a **purchase receipt with no tax
+value** (`document_type: "purchase_receipt"`, `fiscal_value: false`; owner
+decision, 2026-11-20). VAT follows the small-business exemption (article 53 of
+the Portuguese VAT Code, exemption code `M10`): `tax_minor_units` is 0 and the
+document carries the exemption mention.
 
-Downloads the generated invoice.
+The document is a snapshot of the sale at issue time and is immutable: seller
+(name, and the taxpayer number and address once configured), buyer (account
+holder's name, the optional NIF given at checkout, else "final consumer"),
+item (programme name and product type at purchase time), quantity 1, unit
+price, discount 0, VAT, total, currency and payment method. Numbers are
+gapless per series and year: `RYZE YYYY/NNNNNN` for sales, `TEST
+YYYY/NNNNNN` for Test Mode purchases.
+
+Issuing never fails or undoes a purchase: a failure is logged and retried by
+the next delivery of the purchase, by the owner opening the document (issued
+on demand) and by a background sweep every five minutes, which also records a
+sales document email that was never recorded. The email (template
+`invoice_issued`) carries the document and links to its page; a Test Mode
+document goes to the session's validated recipient.
+
+### `GET /api/v1/me/invoices`
+
+Authentication: required. Returns the authenticated user's documents, newest
+first (`data`: array of the document object below). Another account's
+documents are never included.
+
+### `GET /api/v1/me/purchases/:purchaseID/invoice`
+
+Authentication: required. Returns the document of one of the authenticated
+user's purchases. If the purchase is the caller's, completed, and its document
+is missing (an earlier issue failed), it is issued now.
+
+- `200 OK` — `data`: the document object.
+- `401 AUTHENTICATION_REQUIRED`.
+- `404 INVOICE_NOT_FOUND` — unknown purchase, another account's purchase, or a
+  purchase that is not completed (indistinguishable on purpose).
+
+### `GET /api/v1/admin/purchases/:id/invoice`
+
+Administrators with the commerce permission (`PermissionCommerce`, the same
+gate as the other `/admin/purchases` reads). Returns any purchase's document;
+`404 INVOICE_NOT_FOUND` when none was issued. Read-only.
+
+Document object: `id`, `number`, `series` (`"RYZE"` / `"TEST"`), `year`,
+`sequence`, `purchase_id`, `program_id`, `test`, `status` (`"issued"`),
+`issued_at`, `purchased_at`, `seller_name`, `seller_tax_id`, `seller_address`,
+`buyer_name`, `buyer_tax_id`, `description`, `product_type`, `quantity`,
+`unit_price_minor_units`, `discount_minor_units`, `tax_rate_bps`,
+`tax_minor_units`, `tax_exemption_code`, `total_minor_units`, `currency`,
+`payment_method`, `document_type`, `fiscal_value`. The owner's account id is
+never part of it.
 
 ---
 

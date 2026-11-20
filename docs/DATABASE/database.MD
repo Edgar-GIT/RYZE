@@ -550,6 +550,12 @@ The implemented `purchases` table contains:
   provider's hosted Checkout with the `mb_way` payment method type. No schema
   change was needed for MB WAY: the buyer's MB WAY phone number is collected
   solely on the Stripe-hosted page, so RYZE stores no phone number on any table.
+- `buyer_tax_id` — the buyer's optional Portuguese taxpayer number (NIF) for
+  the purchase document (`VARCHAR(9) NULL`, `CHECK` nine digits), added by
+  migration `000048`. It is validated (check digit) and normalised by the
+  server, set at payment initiation while the purchase is pending (or on the
+  Test Mode purchase), copied onto the purchase document and never logged.
+  `NULL` means "final consumer".
 - The schema is unchanged by the Stripe card and MB WAY payment milestones:
   purchase creation, snapshots, status transitions and entitlements already cover
   them. Payment provider identity, amount and currency are all verified against
@@ -831,10 +837,12 @@ The implemented `test_sessions` table contains:
   (`VARCHAR(512) NULL`).
 - `recipient_email` — the real inbox typed at Test Mode checkout
   (`VARCHAR(255) NULL`). Personas have non-deliverable `@ryze.local` accounts,
-  so the notifications service uses this address for the persona's lifecycle
-  emails while the session is active. It is validated server-side, never logged
-  and never returned by an API; exiting soft-deletes the session and stops its
-  use.
+  so the notifications and purchase-document emails use this address while the
+  session is active. Only the persona's most recent non-deleted session counts,
+  and only while it is within the server-side session lifetime and Test Mode is
+  enabled (`test_mode.RecipientResolver`); an older or expired session's address
+  is never reused. It is validated server-side, never logged and never returned
+  by an API; exiting soft-deletes the session and stops its use.
 - `created_at`, `updated_at` — timestamps.
 - `deleted_at` — soft-delete marker (exited sessions are kept for
   auditability).
@@ -2824,3 +2832,43 @@ which stops further use without erasing the audit row.
 
 The down migration drops the column; it cannot restore addresses already
 written.
+
+---
+
+## Migration 000048 — Purchase documents (v2.126.0)
+
+Owner requirement (2026-11-20): every completed purchase, real or Test Mode,
+gets exactly one purchase document, automatically shown to the client and
+emailed. Until certified invoicing software is connected it is a purchase
+receipt with no tax value; VAT follows the small-business exemption (article
+53 of the Portuguese VAT Code, code `M10`). Free activations are not purchases
+and get none.
+
+- `purchases.buyer_tax_id` — see [Purchases](#purchases).
+- `invoice_counters` — `(series, year)` primary key and `last_number`. The
+  issue upserts and increments the row (`INSERT ... ON CONFLICT DO UPDATE ...
+  RETURNING`) in the same transaction as the document insert: concurrent
+  issues queue on the row lock and a rolled-back issue gives its number back,
+  so numbers are gapless per series and year.
+- `invoices` — one row per completed purchase (`uq_invoices_purchase`):
+  `number` (unique, `RYZE YYYY/NNNNNN` or `TEST YYYY/NNNNNN`), `series`
+  (`RYZE` sales / `TEST` Test Mode, `CHECK` that it matches `test`), `year`,
+  `sequence` (unique per series and year), `purchase_id`, `user_id`,
+  `program_id` (foreign keys), `test`, `status` (`issued`), `issued_at`,
+  `purchased_at`, the seller snapshot (`seller_name`, `seller_tax_id`,
+  `seller_address`), the buyer snapshot (`buyer_name`, `buyer_tax_id`), the
+  line (`description`, `product_type`, `quantity`, `unit_price_minor_units`,
+  `discount_minor_units`), VAT (`tax_rate_bps`, `tax_minor_units`,
+  `tax_exemption_code`), `total_minor_units` (`CHECK` total = unit price ×
+  quantity − discount + VAT), `currency`, `payment_method`, `created_at`.
+  Index `idx_invoices_user (user_id, issued_at DESC)`.
+- Immutability: trigger `trg_invoices_immutable` (function
+  `ryze_invoices_immutable()`) rejects every `UPDATE` and `DELETE`; the table
+  has no `updated_at` or soft delete. Corrections would be future credit notes,
+  never edits. Documents are kept even if the buyer's account or the programme
+  is later removed (the issue reads both unscoped).
+- The document's email is an `email_outbox` row with dedupe key
+  `invoice:<invoice id>`, so it is recorded once per document.
+
+The down migration drops the trigger, function, both tables and the
+`purchases.buyer_tax_id` column; it cannot restore issued documents.

@@ -451,6 +451,15 @@ The platform currently includes the following core features:
 - Marketplace
 - Purchase history (client order history with status, Test Mode marker,
   server-verified access states inside the member app shell)
+- Purchase documents: every completed purchase (real or Test Mode) gets one
+  document automatically, shown in the account (Purchases → Receipt, printable
+  and savable as PDF) and emailed with no opt-in or opt-out (owner requirement,
+  2026-11-20, superseding FAQ answer 47 "only if the person wants"). Until
+  certified invoicing software is connected it is a purchase receipt with no
+  tax value; VAT follows the small-business exemption (article 53 of the
+  Portuguese VAT Code). Checkout offers an optional NIF; without it the
+  document is issued to a final consumer. Free activations are not purchases
+  and get none.
 - User authentication
 - PDF export
 - Notifications
@@ -478,7 +487,8 @@ sales tool.
   legacy Premium Level 1 questionnaire. A curated package has no questionnaire
   prerequisite.
 - Test checkout asks for a real email address and sends the normal lifecycle
-  emails there for the rest of the session. Persona accounts themselves use
+  emails and the purchase document (numbered in a separate `TEST` series)
+  there for the rest of the session. Persona accounts themselves use
   non-deliverable `@ryze.local` addresses; without a typed recipient the in-app
   notifications still work and emails stay suppressed.
 - Identity is entirely server-side: the backend mints the persona session

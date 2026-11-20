@@ -1622,6 +1622,26 @@ grant and follow the same model:
 - Completed and abandoned sessions are immutable. A repeat execution creates a
   new session; the client cannot edit or delete a finished one.
 
+### Purchase Document Security
+
+- Every completed purchase gets one immutable document (v2.126.0). A client
+  reads only their own (`GET /api/v1/me/invoices`,
+  `GET /api/v1/me/purchases/:purchaseID/invoice`); another account's purchase
+  answers `404 INVOICE_NOT_FOUND`, indistinguishable from an unknown one, and
+  the owner's account id is never in the response. Administrators read any
+  document only with the commerce permission
+  (`GET /api/v1/admin/purchases/:id/invoice`).
+- The buyer's optional NIF is validated server-side (nine digits, check digit),
+  stored normalised on the purchase and document, never logged and never
+  accepted for another account's purchase (the write is scoped to the owner's
+  pending purchase).
+- The database rejects any update or delete of an issued document (trigger);
+  numbering is server-side and gapless. Issuing never fails or undoes a payment
+  and never changes access.
+- A Test Mode document is emailed only to the current session's validated
+  recipient, never to the persona's synthetic address, and never re-sent by the
+  background sweep (which could reach a later session's mailbox).
+
 ### Test Mode Security
 
 Test Mode impersonates a predefined persona user to exercise the commerce flows
@@ -1676,8 +1696,12 @@ system:
   malformed values are rejected. It is stored only on the active Test Mode
   session and is never logged or returned by an API. The endpoint remains
   ADMIN_1-only and persona-token-bound, so public users cannot cause RYZE email
-  to arbitrary addresses. The address stops being used when the session exits;
+  to arbitrary addresses. The address stops being used when the session exits
+  or outlives its server-side lifetime, and only the persona's current session
+  supplies one (an older session's address is never reused for a newer one);
   the normal email outbox still owns delivery attempts and permanent failures.
+  Since v2.126.0 the outbox redacts addresses from SMTP failure reasons before
+  logging or storing them (a relay reply can quote the rejected address).
 - **Security-relevant checks are never client-side.** Renders rely on `HTTPS`
   and the same strict cookie settings (HttpOnly, Secure, SameSite) as the
   production tokens. Return paths are validated as internal paths only, so a
