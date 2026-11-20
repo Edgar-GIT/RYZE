@@ -114,11 +114,13 @@ const GoogleButton = ({ onMessage }: { onMessage: (message: string) => void }) =
 const PasswordField = ({
   id,
   placeholder,
-  autoComplete
+  autoComplete,
+  describedBy
 }: {
   id: string;
   placeholder: string;
   autoComplete: string;
+  describedBy?: string;
 }) => {
   const tr = useGettext(LOGIN_PT);
   const [isVisible, setIsVisible] = useState(false);
@@ -134,6 +136,7 @@ const PasswordField = ({
         placeholder={tr(placeholder)}
         autoComplete={autoComplete}
         aria-label={tr(placeholder)}
+        aria-describedby={describedBy}
       />
       <button
         className={styles.eyeButton}
@@ -165,6 +168,22 @@ const errorMessageFor = (error: unknown): string => {
     return error.message || "Something went wrong. Please try again.";
   }
   return "Something went wrong. Please try again.";
+};
+
+// The shared password policy (services/password on the backend).
+const PASSWORD_MIN_LENGTH = 12;
+const PASSWORD_MAX_LENGTH = 128;
+
+const registerErrorMessageFor = (error: unknown): string => {
+  if (error instanceof ApiError) {
+    if (error.code === "VALIDATION_ERROR") {
+      return "Check your details: a valid email and a password of 12 to 128 characters.";
+    }
+    if (error.code === "RATE_LIMITED") {
+      return "Too many attempts. Please wait a moment and try again.";
+    }
+  }
+  return errorMessageFor(error);
 };
 
 const LoginForm = ({ onSwitch, headingRef, initialMessage = "" }: AuthFormProps) => {
@@ -309,6 +328,18 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
       return;
     }
 
+    // The shared password policy (backend: 12 to 128 characters). Checked
+    // here too so the reason is shown instead of a generic validation error.
+    const passwordLength = Array.from(password).length;
+    if (passwordLength < PASSWORD_MIN_LENGTH) {
+      setErrorMessage("Password must be at least 12 characters.");
+      return;
+    }
+    if (passwordLength > PASSWORD_MAX_LENGTH) {
+      setErrorMessage("Password must be at most 128 characters.");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setErrorMessage("Passwords do not match.");
       return;
@@ -325,10 +356,20 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
         password,
         language: locale
       });
-      history.push("/profile");
     } catch (error) {
-      setErrorMessage(errorMessageFor(error));
+      setErrorMessage(registerErrorMessageFor(error));
       setSubmitting(false);
+      return;
+    }
+
+    // Registration does not open a session: sign the new account in with the
+    // same credentials, then open the member area.
+    try {
+      await apiPost("/auth/login", { email, password });
+      history.push("/profile");
+    } catch {
+      setSubmitting(false);
+      onSwitch();
     }
   };
 
@@ -375,7 +416,10 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
           <Mail className={styles.fieldIcon} aria-hidden="true" />
           <input type="email" name="email" placeholder={tr("Email")} autoComplete="email" aria-label={tr("Email")} />
         </div>
-        <PasswordField id="register-password" placeholder="Password" autoComplete="new-password" />
+        <PasswordField id="register-password" placeholder="Password" autoComplete="new-password" describedBy="register-password-hint" />
+        <p id="register-password-hint" className={styles.fieldHint}>
+          {tr("At least 12 characters.")}
+        </p>
         <PasswordField id="register-confirm" placeholder="Confirm password" autoComplete="new-password" />
       </FadeItem>
 

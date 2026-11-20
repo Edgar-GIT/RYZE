@@ -517,6 +517,14 @@
   }
 }
 
+/* Phones: tighter vertical rhythm between sections (shorter pages, less
+   scrolling); tablets and desktops keep the full spacing. */
+@media (max-width: 639px) {
+  .page {
+    --r-section-y: 3.25rem;
+  }
+}
+
 @media (min-width: 640px) {
   .actions {
     display: flex;

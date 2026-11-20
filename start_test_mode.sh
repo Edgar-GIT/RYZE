@@ -29,6 +29,13 @@ Starts or reuses PostgreSQL, applies migrations, imports the exercise catalogue,
 starts the local Go API and Vite frontend, then creates/reuses the configured
 test client and approved trainer through the existing API.
 
+Sign-in: public account creation (email + password of 12 to 128 characters)
+is always on. Google sign-in ("Continuar com Google", which also creates the
+account) turns on when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are in .env;
+the script fills GOOGLE_REDIRECT_URL and PUBLIC_APP_URL for localhost. In
+Google Cloud, the OAuth client (type "Web application") must list the redirect
+URI http://localhost:8080/api/v1/auth/google/callback.
+
 --accounts-only  Only checks (and, when needed, repairs) the test accounts
                  against an API that is already running, then exits.
 
@@ -452,6 +459,59 @@ EOF
   die 'PostgreSQL não ficou pronto após iniciar o serviço Docker'
 }
 
+# configure_sign_in prepares account creation and Google sign-in for the local
+# API: PUBLIC_APP_URL (email links and the Google return) defaults to the
+# frontend, and GOOGLE_REDIRECT_URL to the local callback when the Google
+# client id and secret are in .env. A partial Google configuration would stop
+# the API from starting, so it is reported instead.
+configure_sign_in() {
+  export PUBLIC_APP_URL="${PUBLIC_APP_URL:-${FRONTEND_URL}}"
+  if [[ -n "${GOOGLE_CLIENT_ID:-}" || -n "${GOOGLE_CLIENT_SECRET:-}" ]]; then
+    [[ -n "${GOOGLE_CLIENT_ID:-}" && -n "${GOOGLE_CLIENT_SECRET:-}" ]] ||
+      die "Google incompleto: defina GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no .env (os dois) ou remova ambos"
+    export GOOGLE_REDIRECT_URL="${GOOGLE_REDIRECT_URL:-${BACKEND_URL}/api/v1/auth/google/callback}"
+  elif [[ -n "${GOOGLE_REDIRECT_URL:-}" ]]; then
+    printf 'AVISO: GOOGLE_REDIRECT_URL está definido sem GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET; o Google fica desligado.\n' >&2
+    unset GOOGLE_REDIRECT_URL
+  fi
+}
+
+# report_sign_in checks that public registration answers (an empty request,
+# refused by validation: no account is created) and prints how accounts can be
+# created and signed in to.
+report_sign_in() {
+  local response="${RUNTIME_DIR}/sign-in-check.json"
+  local body="${RUNTIME_DIR}/sign-in-check-request.json"
+  printf '{}' >"${body}"
+  request POST /auth/register "${body}" "${response}"
+  printf '\nContas:\n'
+  if [[ "${HTTP_STATUS}" == "400" ]]; then
+    printf '  Criar conta: ativo -> %s/register (password com 12 a 128 caracteres)\n' "${FRONTEND_URL}"
+  else
+    printf '  AVISO: o registo público respondeu HTTP %s a um pedido de verificação.\n' "${HTTP_STATUS}" >&2
+  fi
+  printf '  Entrar com email: %s/login\n' "${FRONTEND_URL}"
+
+  request GET /auth/providers '' "${response}"
+  if [[ "${HTTP_STATUS}" == "200" ]] && python3 - "${response}" <<'PY'
+import json, sys
+sys.exit(0 if json.load(open(sys.argv[1])).get("data", {}).get("google") is True else 1)
+PY
+  then
+    printf '  Entrar ou criar conta com Google: ativo (redirect %s)\n' "${GOOGLE_REDIRECT_URL:-configurado no .env}"
+  else
+    printf '  Entrar ou criar conta com Google: inativo. Para ativar, crie no Google Cloud um cliente OAuth "Web application"\n'
+    printf '    com o redirect URI %s/api/v1/auth/google/callback e ponha GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no .env.\n' "${BACKEND_URL}"
+  fi
+
+  if grep -q 'transactional email delivery enabled' "${RUNTIME_DIR}/backend.log" 2>/dev/null; then
+    printf '  Emails (verificação, recuperação de password): ativos\n'
+  else
+    printf '  Emails: desligados (sem MAIL_SMTP_HOST/MAIL_FROM); as contas entram sem verificar o email.\n'
+  fi
+  rm -f -- "${body}" "${response}"
+}
+
 provision_accounts() {
   admin_login 1
   admin_login 2
@@ -506,10 +566,12 @@ main() {
   if [[ "${accounts_only}" == true ]]; then
     url_responds "${BACKEND_URL}/api/v1/health" || die "O backend não está a responder em ${BACKEND_URL}"
     provision_accounts
+    report_sign_in
     printf '\nContas de teste prontas.\n'
     return 0
   fi
 
+  configure_sign_in
   start_database
 
   (cd "${BACKEND_DIR}" && go run . migrate up) >"${RUNTIME_DIR}/migrations.log" 2>&1 || die "As migrações falharam; consulte ${RUNTIME_DIR}/migrations.log"
@@ -554,6 +616,7 @@ main() {
   provision_accounts
 
   printf '\nRYZE Test Mode pronto.\n'
+  report_sign_in
   printf 'Frontend: %s\n' "${FRONTEND_URL}"
   printf 'Backend:  %s\n' "${BACKEND_URL}"
   printf 'Contas (passwords e códigos de acesso no .env, nunca impressos):\n'

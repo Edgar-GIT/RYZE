@@ -89,6 +89,15 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-20 (v2.126.2) — Owner request: a simple, fast mobile site with no 3D
+  and no SVG stand-ins for it. Below 1024 px the Home story drops the drone
+  opening and planet RYZE (kept as the desktop fallback), is one column up to
+  1023 px, and shows only copy and real app screens; Our Vision has no tunnel
+  stand-in on phones; `Reveal` is static below 1024 px; phones get tighter
+  section spacing. Registration (protected) touched only to fix account
+  creation at the owner's request: password rule shown and checked, clear
+  errors, sign-in after registering. No new dependency; protected parts
+  otherwise untouched.
 - 2026-11-20 (v2.125.1) — Owner request: the Feed's construction hologram in
   "really good 3D" with the Home's drone and a hologram person building. The
   Feed scene now reuses `home_story/story_hologram.ts` (same drone as the Home

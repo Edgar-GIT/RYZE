@@ -610,6 +610,18 @@ stops the launcher with a clear message. Servers left by an interrupted run of
 the launcher are stopped on the next run (their PIDs are kept under
 `.runtime/ryze-test/`).
 
+Sign-in (2026-11-20): public account creation (email and a password of 12 to
+128 characters) is always on. Google sign-in ("Continue with Google", which
+also creates accounts) turns on when `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` are in `.env`: the launcher sets `GOOGLE_REDIRECT_URL`
+to `http://localhost:8080/api/v1/auth/google/callback` (list it as an
+authorised redirect URI on the Google Cloud OAuth client, type "Web
+application") and `PUBLIC_APP_URL` to `http://localhost:5173`, and refuses a
+partial Google configuration. At the end it prints whether account creation,
+Google sign-in and emails are active (the registration check sends an empty
+request that validation refuses; no account is created). Without
+`MAIL_SMTP_HOST`/`MAIL_FROM`, accounts sign in without confirming the address.
+
 To only check (and, when needed, repair) the test accounts against an API that
 is already running:
 

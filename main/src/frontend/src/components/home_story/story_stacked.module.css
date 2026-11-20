@@ -1,16 +1,25 @@
+/* The stacked Home story (phones, tablets, and desktops without WebGL or full
+   motion). Phone first: copy, then the real app screen of the chapter; no
+   stand-ins for the desktop 3D (the drone opening and planet RYZE appear only
+   from 1024 px, see story_stacked.tsx). */
+
 .chapter {
   overflow: hidden;
 }
 
 .layout {
   display: grid;
-  gap: 2.5rem;
+  gap: 1.75rem;
 }
 
+/* One fixed column: a long word in a heading can never widen the copy past
+   its grid area. */
 .text {
   display: grid;
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
   align-content: start;
+  min-width: 0;
 }
 
 .visual {
@@ -19,40 +28,31 @@
   justify-items: center;
 }
 
-.identity .visual {
-  order: 0;
-}
-
-/* "Join planet RYZE": the planet after the call to action on phones, beside it from tablet up. */
-
 /* Phones: Train follows the programs without a double section gap. */
 .chapter.train {
-  padding-top: clamp(1.5rem, 5vw, 2.5rem);
+  padding-top: 1.5rem;
 }
 
-/* Opening chapter: the drone's projection first, so it is the first thing seen on a phone. */
+/* Opening chapter: the copy is the first screen on a phone. */
 .identity {
   padding-top: calc(var(--r-nav-clearance) + 0.75rem);
 }
 
-.identity .layout {
-  gap: 1.75rem;
-}
-
 .orb {
-  width: min(78vw, 20rem);
+  width: min(100%, 30rem);
 }
 
 .showcase {
-  width: min(88vw, 23rem);
+  width: min(100%, 30rem);
 }
 
 .phoneVisual {
   position: relative;
-  width: min(66vw, 18rem);
+  width: min(58vw, 15rem);
 }
 
-/* Cards lifted out of the phone screen (the images carry their own glow). */
+/* Cards lifted out of the phone screen (the images carry their own glow);
+   rendered from 768 px. */
 .callout {
   position: absolute;
   width: 76%;
@@ -83,7 +83,6 @@
   position: relative;
   width: 100%;
   max-width: 34rem;
-  padding: 0 4% 18% 0;
 }
 
 .platformPhone {
@@ -97,43 +96,59 @@
   border-width: 0.18rem;
 }
 
-/* Chapters alternate the visual side from tablet up. */
+/* Tablets (768-1023 px): still one column, so headings keep their size and
+   never crowd a half-width column; larger screens and the lifted cards. */
 @media (min-width: 768px) {
+  .layout {
+    gap: 2.25rem;
+  }
+
+  .text {
+    gap: 1.5rem;
+    max-width: 40rem;
+  }
+
+  .chapter.train {
+    padding-top: clamp(1.5rem, 5vw, 2.5rem);
+  }
+
+  .phoneVisual {
+    width: min(100%, 18rem);
+  }
+
+  .platformVisual {
+    padding: 0 4% 18% 0;
+  }
+}
+
+/* Desktop fallback (WebGL or full motion off): two columns, the visual side
+   alternating; the opening's drone and planet RYZE beside the copy. */
+@media (min-width: 1024px) {
   .layout {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: clamp(2.5rem, 6vw, 5.5rem);
     align-items: center;
   }
 
+  .text {
+    max-width: none;
+  }
+
   .fuel .visual {
     order: 0;
-  }
-
-  .identity .layout {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  }
-
-  .identity .visual {
-    order: 2;
-  }
-
-  .orb {
-    width: min(100%, 30rem);
-  }
-
-  .showcase {
-    width: min(100%, 30rem);
   }
 
   .phoneVisual {
     width: min(100%, 20rem);
   }
-}
 
-@media (min-width: 1024px) {
   .identity {
     display: grid;
     min-height: min(56rem, 100svh);
     align-items: center;
+  }
+
+  .identity .layout {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   }
 }

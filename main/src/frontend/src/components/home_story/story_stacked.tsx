@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import type { ReactNode } from "react";
 
 import { Reveal } from "@/components/reveal/reveal";
+import { useMediaQuery } from "@/hooks/use_media_query";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { BrandGlobe } from "@/components/brand_globe/brand_globe";
 import { LaptopMockup, PhoneMockup } from "@/components/showcase/showcase";
@@ -12,7 +13,17 @@ import { HeroShowcase } from "./hero_showcase";
 import { ChapterCopy, StartActions, TONE_CLASS } from "./story_parts";
 import styles from "./story_stacked.module.css";
 
-const ChapterVisual = ({ chapter, chapters }: { chapter: StoryChapter; chapters: StoryChapter[] }) => {
+// Phones and tablets get the plain version: copy and the real app screens, no
+// stand-ins for the desktop 3D (the drone opening and planet RYZE render only
+// as the desktop fallback, from 1024 px, when WebGL or full motion is off).
+const DESKTOP_QUERY = "(min-width: 1024px)";
+// The decorative cards lifted out of the screens join from tablet width.
+const TABLET_QUERY = "(min-width: 768px)";
+
+const hasVisual = (chapter: StoryChapter, desktop: boolean) =>
+  chapter.id === "identity" || chapter.id === "start" ? desktop : Boolean(chapter.screen);
+
+const ChapterVisual = ({ chapter, chapters, tablet }: { chapter: StoryChapter; chapters: StoryChapter[]; tablet: boolean }) => {
   if (chapter.id === "identity") {
     // The hero's opening, light: the drone projects the phone, a dumbbell and a meal.
     return <HeroShowcase className={styles.showcase} screen={SCREENS.training} />;
@@ -26,8 +37,8 @@ const ChapterVisual = ({ chapter, chapters }: { chapter: StoryChapter; chapters:
     return (
       <Reveal className={styles.platformVisual} y={24}>
         {chapter.screen ? <LaptopMockup src={chapter.screen.src} alt={chapter.screen.alt} /> : null}
-        {training ? <PhoneMockup className={styles.platformPhone} src={training.src} alt="" /> : null}
-        <img className={styles.syncBadge} src={CALLOUTS.sync} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+        {tablet && training ? <PhoneMockup className={styles.platformPhone} src={training.src} alt="" /> : null}
+        {tablet ? <img className={styles.syncBadge} src={CALLOUTS.sync} alt="" aria-hidden="true" loading="lazy" decoding="async" /> : null}
       </Reveal>
     );
   }
@@ -38,8 +49,12 @@ const ChapterVisual = ({ chapter, chapters }: { chapter: StoryChapter; chapters:
     return (
       <Reveal className={styles.phoneVisual} y={24}>
         <PhoneMockup src={chapter.screen.src} alt={chapter.screen.alt} />
-        <img className={joinClassNames(styles.callout, styles.calloutTop)} src={first} alt="" aria-hidden="true" loading="lazy" decoding="async" />
-        <img className={joinClassNames(styles.callout, styles.calloutBottom)} src={second} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+        {tablet ? (
+          <>
+            <img className={joinClassNames(styles.callout, styles.calloutTop)} src={first} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+            <img className={joinClassNames(styles.callout, styles.calloutBottom)} src={second} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+          </>
+        ) : null}
       </Reveal>
     );
   }
@@ -51,6 +66,8 @@ const ChapterVisual = ({ chapter, chapters }: { chapter: StoryChapter; chapters:
 // device frames.
 export const StoryStacked = ({ programs }: { programs: ReactNode }) => {
   const { text, chapters } = useStory();
+  const desktop = useMediaQuery(DESKTOP_QUERY);
+  const tablet = useMediaQuery(TABLET_QUERY);
   return (
   <>
     {chapters.map((chapter, index) => (
@@ -65,9 +82,11 @@ export const StoryStacked = ({ programs }: { programs: ReactNode }) => {
         aria-labelledby={`story-${chapter.id}`}
       >
         <div className={joinClassNames(ui.container, styles.layout)}>
-          <div className={styles.visual}>
-            <ChapterVisual chapter={chapter} chapters={chapters} />
-          </div>
+          {hasVisual(chapter, desktop) ? (
+            <div className={styles.visual}>
+              <ChapterVisual chapter={chapter} chapters={chapters} tablet={tablet} />
+            </div>
+          ) : null}
           <div className={styles.text}>
             <ChapterCopy chapter={chapter} headingId={`story-${chapter.id}`} as={index === 0 ? "h1" : "h2"} />
             {chapter.id === "identity" || chapter.id === "start" ? (

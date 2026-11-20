@@ -12,6 +12,12 @@ export const LOGIN_PT: Catalog = {
   "Something went wrong. Please try again.": "Algo correu mal. Tenta novamente.",
   "Please fill in all fields.": "Preenche todos os campos.",
   "Passwords do not match.": "As passwords não coincidem.",
+  "At least 12 characters.": "Mínimo de 12 caracteres.",
+  "Password must be at least 12 characters.": "A password tem de ter pelo menos 12 caracteres.",
+  "Password must be at most 128 characters.": "A password pode ter no máximo 128 caracteres.",
+  "Check your details: a valid email and a password of 12 to 128 characters.":
+    "Confirma os dados: um email válido e uma password com 12 a 128 caracteres.",
+  "Too many attempts. Please wait a moment and try again.": "Demasiadas tentativas. Espera um pouco e tenta de novo.",
   Welcome: "Bem-vindo",
   "back.": "de volta.",
   "Log in to continue your journey.": "Entra para continuares o teu percurso.",

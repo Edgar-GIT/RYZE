@@ -7,7 +7,6 @@ import { type Catalog, useGettext } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 
 import { BlockedHologram } from "./blocked_hologram";
-import { FeedConstructionHologram } from "./feed_construction_hologram";
 import styles from "./under_development_page.module.css";
 
 // Portuguese for this page and the texts the routes pass to it.
@@ -32,7 +31,6 @@ interface UnderDevelopmentPageProps {
   title: string;
   description: string;
   eyebrow?: string;
-  visual?: "blocked" | "feedConstruction";
   // "notFound" marks an address RYZE does not have (a missing page), as
   // opposed to a feature that is planned but not built yet.
   kind?: "inProgress" | "notFound";
@@ -42,8 +40,7 @@ export const UnderDevelopmentPage = ({
   title,
   description,
   eyebrow = "In progress",
-  kind = "inProgress",
-  visual = "blocked"
+  kind = "inProgress"
 }: UnderDevelopmentPageProps) => {
   const tr = useGettext(UNDER_DEVELOPMENT_PT);
   return (
@@ -68,11 +65,7 @@ export const UnderDevelopmentPage = ({
             </PublicAction>
           </div>
         </div>
-        {visual === "feedConstruction" ? (
-          <FeedConstructionHologram className={joinClassNames(styles.orb, styles.feedStage)} />
-        ) : (
-          <BlockedHologram className={styles.orb} />
-        )}
+        <BlockedHologram className={styles.orb} />
       </div>
     </section>
   </PageWrapper>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 
+import { useMediaQuery } from "@/hooks/use_media_query";
 import { useGettext } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 
@@ -41,6 +42,8 @@ export const VisionHeroVisual = ({ className }: { className?: string }) => {
   const [stage, setStage] = useState(qualifies);
   const [failed, setFailed] = useState(false);
   const fail = useCallback(() => setFailed(true), []);
+  // Phones get the copy alone: no stand-in for the 3D tunnel.
+  const phone = useMediaQuery("(max-width: 767px)");
 
   useEffect(() => {
     const queries = [window.matchMedia(STAGE_QUERY), window.matchMedia(REDUCED_MOTION_QUERY)];
@@ -49,6 +52,9 @@ export const VisionHeroVisual = ({ className }: { className?: string }) => {
     return () => queries.forEach((query) => query.removeEventListener("change", update));
   }, []);
 
+  if (phone) {
+    return null;
+  }
   if (!stage || failed) {
     return <StandoutVisual className={className} />;
   }

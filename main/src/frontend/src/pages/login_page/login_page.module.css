@@ -564,3 +564,11 @@
     transition: none;
   }
 }
+
+/* The password rule under the registration password field. */
+.fieldHint {
+  margin: -0.35rem 0 0 0.25rem;
+  color: #a9bbdc;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}

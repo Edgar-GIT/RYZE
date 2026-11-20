@@ -1,3 +1,144 @@
+# Version 2.126.2
+
+Title: Simple mobile site without 3D stand-ins; registration fixed; sign-in in the start script
+
+Date: 2026-11-20
+
+Summary:
+
+- Mobile/tablet: the Home story no longer renders the drone opening or planet
+  RYZE below 1024 px (only as the desktop fallback); phones get copy plus the
+  real app screens (no lifted cards, from 768 px only). The stacked story is one
+  column up to 1023 px (fixes a heading/paragraph overflow in two columns at
+  768-1023 px). Our Vision shows no tunnel stand-in on phones. `Reveal` is
+  static below 1024 px. Phones get tighter section spacing (`--r-section-y`
+  3.25rem). `useMediaQuery` now reads the query on the first render.
+- Registration: the backend requires 12-128 character passwords, but the form
+  neither said so nor checked it and showed "Validation failed."; it also
+  opened /profile without a session. The form now shows the rule, checks it,
+  explains validation/rate-limit errors and signs the new account in after
+  registering (owner request; login/registration area touched only for this).
+- `start_test_mode.sh`: sets PUBLIC_APP_URL and GOOGLE_REDIRECT_URL for
+  localhost when GOOGLE_CLIENT_ID/SECRET are in .env, refuses a partial Google
+  config, and prints whether account creation, Google sign-in and emails are
+  active. `.env.example` documents this.
+
+Verification: typecheck passes; `npm run test` 26 files, 175 tests pass; Home
+and Our Vision checked at 390 px and 820 px (screens and lifted cards load);
+the start script's sign-in report run against the local API. Docs:
+`docs/PAGES/design.MD`, `docs/how_to_run.MD`, `docs/AI/frontend-revamp.md`,
+`CLAUDE.md`.
+
+# Version 2.126.1
+
+Title: The Feed page drops its 3D scene
+
+Date: 2026-11-20
+
+Summary:
+
+Owner request: remove the Feed's 3D animation and keep a simple "in
+development" scene. `/feed` now uses the shared under-development placeholder
+with the "no entry" sign hologram, like the other unfinished pages. Removed
+`feed_construction_scene.ts`, `feed_construction_hologram.*` and the larger
+Feed stage. `home_story/story_hologram.ts` and `story_athlete.ts` are again
+unused (kept, as before). Docs: `docs/PAGES/design.MD`.
+
+Verification: typecheck passes.
+
+# Version 2.126.0
+
+Title: Automatic purchase documents for every completed purchase; Test Mode recipient review
+
+Date: 2026-11-20
+
+Summary:
+
+Owner requirement: every completed purchase gets a document automatically,
+shown to the client and emailed, mandatory and without opt-in or opt-out
+(this supersedes FAQ answer 47, "only if the person wants"). Real and Test
+Mode purchases are covered; free activations are not purchases and get none.
+Owner decisions of 2026-11-20: until certified invoicing software is
+connected the document is a purchase receipt with no tax value (an
+app-generated document is not a valid Portuguese tax invoice); VAT follows the
+small-business exemption (article 53 of the VAT Code); checkout offers an
+optional, server-validated NIF; the format is an HTML page with a print layout
+(Save as PDF) plus an email carrying the document, with no new dependency.
+
+Backend:
+
+- Migration `000048_create_invoices`: `purchases.buyer_tax_id`,
+  `invoice_counters` (gapless numbering per series and year in the issuing
+  transaction) and `invoices` (one per purchase, full snapshot of seller,
+  buyer, item, amounts, VAT treatment, currency and payment method; a trigger
+  rejects every update and delete). Series `RYZE` for sales and `TEST` for
+  Test Mode.
+- `services/invoices`: a purchase fulfilment hook (idempotent, never fails or
+  undoes the purchase), on-demand issue when the owner opens a missing
+  document, and a background sweep every five minutes (`jobs.go`) that issues
+  missing documents and records sales-document emails never recorded. Email
+  template `invoice_issued` (EN/PT) carries the document and links to its page;
+  a Test Mode document goes to the session's validated recipient.
+- Endpoints: `GET /api/v1/me/invoices`, `GET /api/v1/me/purchases/:purchaseID/invoice`
+  (owner only, 404 for anything else) and `GET /api/v1/admin/purchases/:id/invoice`
+  (commerce permission). Optional `tax_id` on
+  `POST /api/v1/me/purchases/:purchaseID/payment` and on the Test Mode purchase
+  (`services/taxid`, check digit). Seller identity from `INVOICE_SELLER_NAME`
+  (default "RYZE"), `INVOICE_SELLER_TAX_ID`, `INVOICE_SELLER_ADDRESS`.
+
+Test Mode review (fixes):
+
+- The persona email recipient ignored the session lifetime and fell back to an
+  older session's address: a newer session without an address, or an expired
+  but not exited one, could still send a persona's emails to someone else's
+  inbox. `test_mode.RecipientResolver` now uses only the persona's most recent
+  active session, within its lifetime and while Test Mode is enabled; the
+  repository method became `FindLatestActiveByPersona`.
+- The handler validated the email before trimming it; it now validates the
+  normalised address like the service.
+- SMTP failure reasons are stored and logged with addresses redacted.
+- The persona notification test no longer depends on the shared test
+  database's seeded persona. Migration `000047` reviewed; `000046` unchanged.
+
+Frontend:
+
+- `components/checkout_tax_id/`: the optional NIF field (label, hint, inline
+  error announced politely) on the shared checkout panel, the generic plan
+  page and Premium Level 1, real and Test Mode; the pay/retry buttons stay
+  disabled while a typed NIF is invalid.
+- `pages/account_receipt_page/`: the receipt page
+  (`/account/purchases/:purchaseId/receipt`) with a print layout; a "Receipt"
+  button on completed purchases in Purchases; receipt links on every checkout
+  success state. The Test Mode email field now announces its error and says the
+  receipt goes to that address.
+
+Docs: `api.MD`, `database.MD`, `arquitecture.MD`, `security.MD`,
+`project.MD`, `PAGES/design.MD`, `how_to_run.MD`, `FAQ/respostas.MD` (dated
+note on answer 47), `CLAUDE.md` (latest migration). Package version 2.2.61.
+
+Verification:
+
+- `go build ./...` and `go vet ./...` pass; `gofmt` clean.
+- New tests: invoice repository (sequential numbering, one document per
+  purchase, separate test series, owner-scoped reads, immutability; concurrent
+  issues giving one document per purchase and gapless numbers) on `ryze_test`;
+  invoice service (idempotent issue and email, Test Mode recipient,
+  suppression without one, owner-only on-demand issue, retries); invoice
+  handler (owner only, no account id); NIF validation (backend and frontend);
+  payment and Test Mode handlers with `tax_id`; recipient resolver; invoice
+  email rendering; address redaction.
+- Passing on `ryze_test`: `./email`, `./services/...` except
+  `services/registration`, `./repositories`, `./api/webhooks`, `./routes`.
+  `./api/auth` keeps only its four known failures from data seeded in
+  `ryze_test` (public programme counts, reserved Test Mode emails);
+  `services/registration` `TestRegisterRejectsReservedTestModePersonas` fails
+  for the same seeded-persona reason (untouched code).
+- `npm run typecheck` passes (the `story_scene.ts` syntax error noted in
+  2.125.0 was fixed in 2.125.1); `npm run test`: 26 files, 175 tests pass.
+- Migration `000048` applied to `ryze_test`; the development database still
+  needs `go run . migrate up` (`000047` and `000048`). Real email delivery was
+  not verified (no SMTP credentials configured).
+
 # Version 2.125.1
 
 Title: Hero scene: nothing touches the phone, dumbbells sideways and more detailed; the phone spins again

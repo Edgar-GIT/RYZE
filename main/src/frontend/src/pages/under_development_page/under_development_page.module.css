@@ -63,14 +63,6 @@
   }
 }
 
-/* The Feed's construction hologram needs room for the person, the drone and
-   the Feed column (from 768 px, where the 3D scene runs). */
-@media (min-width: 768px) {
-  .feedStage {
-    width: min(100%, 30rem);
-  }
-}
-
 @media (min-width: 1024px) {
   .layout {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
@@ -82,11 +74,5 @@
     order: 0;
     width: min(100%, 26rem);
     justify-self: center;
-  }
-}
-
-@media (min-width: 1024px) {
-  .feedStage {
-    width: min(100%, 34rem);
   }
 }

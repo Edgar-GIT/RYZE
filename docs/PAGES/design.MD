@@ -523,7 +523,7 @@ screen (2026-11-14: the closed lid rests above the keys instead of cutting
 through them; each key size has its own rounded cap, a cyan backlight shows
 between the keys, speaker grilles flank the keyboard and the legends are
 sharper), with the phone standing beside it; then planet RYZE comes down for the call
-to action. Phones, reduced motion and no-WebGL show
+to action. Desktops (from 1024 px) with reduced motion or no WebGL show
 `components/home_story/hero_showcase.tsx` instead: the same opening in HTML,
 SVG and CSS (the drone flies in, opens its beam, the phone with the real
 training screen, the dumbbell and the meal build as cyan holograms from the
@@ -541,9 +541,18 @@ Rendering runs only while the story is on screen and stops on
 navigation; any scene failure switches to the stacked layout.
 
 Mobile, tablet, reduced motion and browsers without WebGL2 get the stacked
-layout: each chapter is a normal section with the SVG globe (identity: the same
-continents and routes, animated pulses) or phone and laptop frames showing the
-same screens. Three.js is never downloaded there.
+layout (`components/home_story/story_stacked.tsx`); Three.js is never
+downloaded there. Since 2026-11-20 (owner request: a simple, fast mobile site
+with no 3D and no SVG stand-ins for it) phones and tablets get only the copy
+and the real app screens: the opening chapter is text and actions, the last
+chapter has no planet, Train and Nutrition show the phone with its screen
+(the two lifted cards join from 768 px), Platform shows the laptop (the phone
+and sync badge join from 768 px). The layout is one column up to 1023 px (a
+long heading word can no longer widen the copy past the screen) and two
+alternating columns from 1024 px, where the desktop fallback also shows the
+drone opening and the SVG planet. Content appears without entrance animation
+below 1024 px (`components/reveal/`), and public sections use a tighter
+vertical rhythm on phones (`--r-section-y` 3.25rem below 640 px).
 
 ### Programs
 
@@ -1212,22 +1221,9 @@ Currently routes to an under-development placeholder (`/feed`). The shared
 `UnderDevelopmentPage` placeholder (also used by the `/services/:serviceSlug`
 fallback and the catch-all route) is a navy section with a cyan status label,
 heading, description, "Back Home" → `/`, "View Services" → `/services` and a
-cyan "no entry" sign hologram (`blocked_hologram.tsx`). The Feed route opts
-into its own construction hologram (owner request, 2026-11-20), in a larger
-stage (30rem from 768 px, 34rem from 1024 px): the Home's scanning drone flies
-in from the right, opens its beam over a platform and projects a hologram of a
-person building the Feed. The person is the continuous, skinned hologram body
-of `home_story/story_athlete.ts` (building routine): they take a post card from
-a floating stack, turn, and push it into a Feed column; when its four slots
-are full the column completes with a sweep and clears, and the building starts
-again. The installation (drone, beam, platform with reflection, opening) is
-`home_story/story_hologram.ts`; the Feed props are
-`pages/under_development_page/feed_construction_scene.ts`. It is procedural
-(no model files), desktop-only WebGL (from 768 px), loaded lazily, paused
-off-screen and disposed on unmount. Phones, reduced motion and unavailable
-WebGL get a light SVG version: the same drone projecting the Feed column while
-its cards build in (with reduced motion, the complete column, still). Other
-uses of `UnderDevelopmentPage` keep the "no entry" hologram.
+cyan "no entry" sign hologram (`blocked_hologram.tsx`). The Feed route uses
+the same simple placeholder: its 3D construction scene was removed at the
+owner's request (2026-11-20).
 
 ---
 
@@ -1271,6 +1267,10 @@ preview with short copy, three channel buttons and two CTAs: `Join for Free` →
 ## Our Vision
 
 Route: `/our-vision`
+
+Phones (below 768 px) show the hero copy alone: no stand-in for the desktop
+tunnel (2026-11-20); tablets and desktops without WebGL or full motion keep the
+static RYZE card stream (`StandoutVisual`).
 
 Purpose: sell the RYZE platform vision — not founder biographies.
 
@@ -1338,13 +1338,20 @@ Purpose: authenticate existing accounts and create new ones. Both forms send
 data to the backend (`POST /api/v1/auth/login` and
 `POST /api/v1/auth/register`). Login stores the `ryze_access_token` HttpOnly
 cookie in the browser; no JWT is ever handled in JavaScript. On success
-registration redirects to `/profile`; login (and Google sign-in, through its
+registration signs the new account in with the same credentials and
+redirects to `/profile` (2026-11-20; registration opens no session itself);
+login (and Google sign-in, through its
 `return` path) goes to `/app`, which sends approved trainers to
 `/trainer/dashboard` and everyone else to `/profile` (owner request,
 2026-11-14 — the only change to this protected page: fields, validation,
 messages and API calls are unchanged). Backend and
 network errors are shown inside the card as a compact inline alert above the
-submit button.
+submit button. Owner request of 2026-11-20 ("I can't create an account"): the
+registration form shows the password rule under the password field ("At least
+12 characters.", linked with `aria-describedby`), checks 12 to 128 characters
+before sending, and explains `VALIDATION_ERROR` ("a valid email and a password
+of 12 to 128 characters") and `RATE_LIMITED` instead of the generic
+"Validation failed."
 
 Single page component (`LoginPage`) rendering both forms — LOGIN and CREATE
 ACCOUNT — in one card on the public navy page (no background image since the
