@@ -3,6 +3,7 @@ import { Route, Switch } from "react-router-dom";
 import { MemberShell } from "@/components/app_shell/member_shell";
 import { TrainerSessionProvider } from "@/components/trainer/trainer_session_context";
 import { AccountPurchaseHistoryPage } from "@/pages/account_purchase_history_page/account_purchase_history_page";
+import { AccountReceiptPage } from "@/pages/account_receipt_page/account_receipt_page";
 import { AccountSettingsPage } from "@/pages/account_settings_page/account_settings_page";
 import { AchievementsPage } from "@/pages/achievements_page/achievements_page";
 import { MemberDashboardPage } from "@/pages/member_dashboard_page/member_dashboard_page";
@@ -24,6 +25,7 @@ const MemberRoutes = () => (
       <Route exact path="/achievements" component={AchievementsPage} />
       <Route exact path="/account/settings" component={AccountSettingsPage} />
       <Route exact path="/account/purchases" component={AccountPurchaseHistoryPage} />
+      <Route exact path="/account/purchases/:purchaseId/receipt" component={AccountReceiptPage} />
       <Route exact path="/support" component={SupportPage} />
       <Route exact path="/services/my-programs" component={MyProgramsPage} />
       <Route exact path="/services/my-programs/:programId" component={ProgramAccessPage} />

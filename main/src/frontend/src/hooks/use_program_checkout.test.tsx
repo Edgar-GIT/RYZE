@@ -153,7 +153,7 @@ describe("useProgramCheckout", () => {
     });
 
     expect(result.current.state.status).toBe("owned");
-    expect(mockedInitiatePayment).toHaveBeenCalledWith("purchase-3", "card");
+    expect(mockedInitiatePayment).toHaveBeenCalledWith("purchase-3", "card", "");
   });
 
   it("returns to the ready state when the provider reports a cancellation", async () => {
@@ -194,7 +194,7 @@ describe("useProgramCheckout", () => {
       await result.current.buy();
     });
 
-    expect(mockedInitiatePayment).toHaveBeenCalledWith("purchase-5", "card");
+    expect(mockedInitiatePayment).toHaveBeenCalledWith("purchase-5", "card", "");
   });
 
   it("refreshes ownership after an external purchase event", async () => {
@@ -218,7 +218,30 @@ describe("useProgramCheckout", () => {
       await result.current.buy();
     });
 
-    expect(mockedCompleteTestPurchase).toHaveBeenCalledWith(PROGRAM_ID, "qa.tester@example.com");
+    expect(mockedCompleteTestPurchase).toHaveBeenCalledWith(PROGRAM_ID, "qa.tester@example.com", "");
+    expect(result.current.state.status).toBe("success");
+  });
+
+  it("sends the optional NIF for the purchase receipt and refuses an invalid one", async () => {
+    mockedCompleteTestPurchase.mockResolvedValue({ ...pendingPurchase("purchase-7"), status: "completed" });
+
+    const { result } = renderCheckout({ testModeActive: true });
+
+    act(() => {
+      result.current.setTestEmail("qa.tester@example.com");
+      result.current.setTaxId("123456780");
+    });
+    await act(async () => {
+      await result.current.buy();
+    });
+    expect(mockedCompleteTestPurchase).not.toHaveBeenCalled();
+    expect(result.current.state.status).toBe("error");
+
+    act(() => result.current.setTaxId("PT 123 456 789"));
+    await act(async () => {
+      await result.current.buy();
+    });
+    expect(mockedCompleteTestPurchase).toHaveBeenCalledWith(PROGRAM_ID, "qa.tester@example.com", "PT 123 456 789");
     expect(result.current.state.status).toBe("success");
   });
 

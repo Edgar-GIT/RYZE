@@ -179,6 +179,7 @@ export const pt: Messages = {
       card: "Cartão",
       test: "Compra de teste",
       open: "Abrir programa",
+      receipt: "Comprovativo",
       unavailable: "Já não está disponível"
     },
     progress: {

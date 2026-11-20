@@ -55,6 +55,7 @@ const MEMBER_PATHS = [
   "/achievements",
   "/account/settings",
   "/account/purchases",
+  "/account/purchases/:purchaseId/receipt",
   "/support",
   "/services/my-programs",
   "/services/my-programs/:programId",
@@ -64,7 +65,7 @@ const MEMBER_PATHS = [
   "/trainer/apply"
 ];
 
-const memberPathPattern = /^\/(profile|achievements|support|account\/(settings|purchases)|services\/(my-programs(\/[^/]+)?|premium-level-2\/academy|workout-history|progress)|trainer\/apply)\/?$/;
+const memberPathPattern = /^\/(profile|achievements|support|account\/(settings|purchases(\/[^/]+\/receipt)?)|services\/(my-programs(\/[^/]+)?|premium-level-2\/academy|workout-history|progress)|trainer\/apply)\/?$/;
 
 // The route transition key: one key per area shell, so moving inside the
 // member or trainer area never remounts its shell.

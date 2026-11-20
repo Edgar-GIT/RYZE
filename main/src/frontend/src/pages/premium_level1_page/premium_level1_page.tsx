@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, CheckCircle2, Dumbbell, Flame, FlaskConical, Sparkles, Trophy } from "lucide-react";
+import { Activity, ArrowLeft, CheckCircle2, Dumbbell, FileText, Flame, FlaskConical, Sparkles, Trophy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useHistory, useLocation } from "react-router-dom";
 
@@ -7,7 +7,10 @@ import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
+import { CheckoutTaxIdField } from "@/components/checkout_tax_id/checkout_tax_id_field";
+import { isValidOptionalTaxId } from "@/components/checkout_tax_id/tax_id";
 import { isValidTestEmail } from "@/components/test_mode/test_mode_email";
+import { receiptPath } from "@/services/invoices_api";
 import { TestModeEmailField } from "@/components/test_mode/test_mode_email_field";
 import { useProgramCheckout, type PurchaseState } from "@/hooks/use_program_checkout";
 import {
@@ -396,6 +399,9 @@ export const PremiumLevel1Page = () => {
             >
               {tr("Go to my package")}
             </Button>
+            <Button variant="ghost" size="small" to={receiptPath(checkout.state.purchase.id)} icon={<FileText size={15} />} iconPosition="left">
+              {tr("Purchase receipt")}
+            </Button>
           </div>
         </div>
       ) : checkout.state.status === "error" ? (
@@ -404,11 +410,12 @@ export const PremiumLevel1Page = () => {
           {testModeActive ? (
             <TestModeEmailField value={checkout.testEmail} onChange={checkout.setTestEmail} />
           ) : null}
+          <CheckoutTaxIdField value={checkout.taxId} onChange={checkout.setTaxId} />
           <div className={styles.actions}>
             <Button
               variant="secondary"
               size="small"
-              disabled={testModeActive && !isValidTestEmail(checkout.testEmail)}
+              disabled={!isValidOptionalTaxId(checkout.taxId) || (testModeActive && !isValidTestEmail(checkout.testEmail))}
               onClick={() => void checkout.buy()}
             >
               {tr("Try again")}
@@ -475,11 +482,16 @@ export const PremiumLevel1Page = () => {
             </p>
           )}
 
+          {testModeActive || checkout.paymentMethods.length > 0 ? (
+            <CheckoutTaxIdField value={checkout.taxId} onChange={checkout.setTaxId} />
+          ) : null}
+
           <div className={styles.actions}>
             <Button
               variant="primary"
               size="small"
               disabled={
+                !isValidOptionalTaxId(checkout.taxId) ||
                 (!testModeActive && checkout.paymentMethods.length === 0) ||
                 (testModeActive && !isValidTestEmail(checkout.testEmail)) ||
                 ["creating", "negotiating", "redirecting", "processing"].includes(checkout.state.status)

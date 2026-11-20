@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { isValidOptionalTaxId } from "@/components/checkout_tax_id/tax_id";
 import { isValidTestEmail } from "@/components/test_mode/test_mode_email";
 import { ApiError } from "@utils/http_client";
 import {
@@ -63,6 +64,9 @@ export interface ProgramCheckout {
   /** The real inbox that receives Test Mode emails for this session. */
   testEmail: string;
   setTestEmail: (email: string) => void;
+  /** The buyer's optional NIF for the purchase receipt (empty: final consumer). */
+  taxId: string;
+  setTaxId: (taxId: string) => void;
   buy: () => Promise<void>;
   retryPurchase: (purchaseId: string) => Promise<void>;
   /** Re-reads the ownership state after an external event (for example a
@@ -95,6 +99,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodInfo[]>([]);
   const [selectedMethod, setSelectedMethod] = useState("");
   const [testEmail, setTestEmail] = useState("");
+  const [taxId, setTaxId] = useState("");
   // Guards the PURCHASE_EXPIRED recovery so a checkout freshens its intent at
   // most once, keeping the auto-recovery bounded instead of recursive.
   const freshenedIntent = useRef(false);
@@ -190,7 +195,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       return;
     }
     try {
-      const initiation = await initiatePayment(purchaseId, method);
+      const initiation = await initiatePayment(purchaseId, method, taxId);
       if (!initiation.checkout_url) {
         setState({ status: "error", message: "Checkout is temporarily unavailable. Please try again." });
         return;
@@ -228,7 +233,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       }
       setState({ status: "error", message: "We could not start the checkout. No money was taken at this point." });
     }
-  }, [programId, recoverOwnershipOrFail, resolveMethodForPurchase]);
+  }, [programId, recoverOwnershipOrFail, resolveMethodForPurchase, taxId]);
 
   const runTestModePurchase = useCallback(async () => {
     if (!isValidTestEmail(testEmail)) {
@@ -237,7 +242,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
     }
     setState({ status: "creating" });
     try {
-      const purchase = await completeTestPurchase(programId, testEmail.trim());
+      const purchase = await completeTestPurchase(programId, testEmail.trim(), taxId);
       setState({ status: "success", purchase });
     } catch (error) {
       // 409 DUPLICATE_ENTITLEMENT: the persona already owns the program
@@ -249,9 +254,13 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       }
       setState({ status: "error", message: "We could not complete this Test Mode purchase. Please try again." });
     }
-  }, [programId, recoverOwnershipOrFail, testEmail]);
+  }, [programId, recoverOwnershipOrFail, taxId, testEmail]);
 
   const buy = useCallback(async () => {
+    if (!isValidOptionalTaxId(taxId)) {
+      setState({ status: "error", message: "Enter a valid NIF or leave it empty." });
+      return;
+    }
     if (testModeActive) {
       await runTestModePurchase();
       return;
@@ -284,7 +293,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       }
       setState({ status: "error", message: "We could not start your purchase. No money was taken at this point." });
     }
-  }, [programId, negotiatePayment, recoverOwnershipOrFail, resolveMethodForPurchase, runTestModePurchase, testModeActive]);
+  }, [programId, negotiatePayment, recoverOwnershipOrFail, resolveMethodForPurchase, runTestModePurchase, taxId, testModeActive]);
 
   const retryPurchase = useCallback(
     async (purchaseId: string) => {
@@ -386,6 +395,8 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
     selectMethod: setSelectedMethod,
     testEmail,
     setTestEmail,
+    taxId,
+    setTaxId,
     buy,
     retryPurchase,
     refreshOwnership: resolveOwnership

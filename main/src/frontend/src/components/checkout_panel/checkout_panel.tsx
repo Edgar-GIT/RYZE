@@ -1,13 +1,16 @@
-import { CheckCircle2, CreditCard, FlaskConical, Loader2, Lock, RefreshCw, ShieldCheck, Smartphone, Wallet } from "lucide-react";
+import { CheckCircle2, CreditCard, FileText, FlaskConical, Loader2, Lock, RefreshCw, ShieldCheck, Smartphone, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
+import { CheckoutTaxIdField } from "@/components/checkout_tax_id/checkout_tax_id_field";
+import { isValidOptionalTaxId } from "@/components/checkout_tax_id/tax_id";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { isValidTestEmail } from "@/components/test_mode/test_mode_email";
 import { TestModeEmailField } from "@/components/test_mode/test_mode_email_field";
 import { useProgramCheckout } from "@/hooks/use_program_checkout";
 import { rememberAfterLogin } from "@/services/after_login";
+import { receiptPath } from "@/services/invoices_api";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 
@@ -58,6 +61,7 @@ const COPY: Copy<{
   cancelledText: string;
   resume: string;
   retry: string;
+  receipt: string;
   errors: Record<string, string>;
 }> = {
   en: {
@@ -87,6 +91,7 @@ const COPY: Copy<{
     cancelledText: "No money was taken. You can try again whenever you want.",
     resume: "Resume payment",
     retry: "Try again",
+    receipt: "View purchase receipt",
     errors: {}
   },
   pt: {
@@ -116,7 +121,9 @@ const COPY: Copy<{
     cancelledText: "Não foi cobrado nenhum valor. Podes tentar outra vez quando quiseres.",
     resume: "Retomar pagamento",
     retry: "Tentar de novo",
+    receipt: "Ver comprovativo de compra",
     errors: {
+      "Enter a valid NIF or leave it empty.": "Introduz um NIF válido ou deixa o campo vazio.",
       "We could not start your purchase. No money was taken at this point.": "Não foi possível iniciar a compra. Não foi cobrado nenhum valor.",
       "We could not start the checkout. No money was taken at this point.": "Não foi possível iniciar o pagamento. Não foi cobrado nenhum valor.",
       "We could not confirm your payment.": "Não foi possível confirmar o pagamento.",
@@ -144,9 +151,8 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
   const price = new Intl.NumberFormat(locale === "pt" ? "pt-PT" : "en-IE", { style: "currency", currency: "EUR" }).format(priceMinor / 100);
   const state = checkout.state;
   const busy = ["creating", "negotiating", "redirecting", "processing"].includes(state.status);
-  const canPay = testModeActive
-    ? isValidTestEmail(checkout.testEmail)
-    : checkout.paymentMethods.length > 0;
+  const taxIdValid = isValidOptionalTaxId(checkout.taxId);
+  const canPay = taxIdValid && (testModeActive ? isValidTestEmail(checkout.testEmail) : checkout.paymentMethods.length > 0);
   const translate = (message: string) => text.errors[message] ?? message;
   const successHandled = useRef(false);
 
@@ -170,6 +176,11 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
         <Link className={styles.primary} to={done.to}>
           {done.label}
         </Link>
+        {success ? (
+          <Link className={styles.secondary} to={receiptPath(state.purchase.id)}>
+            <FileText aria-hidden="true" /> {text.receipt}
+          </Link>
+        ) : null}
       </section>
     );
   }
@@ -232,10 +243,11 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
           {testModeActive ? (
             <TestModeEmailField value={checkout.testEmail} onChange={checkout.setTestEmail} />
           ) : null}
+          <CheckoutTaxIdField value={checkout.taxId} onChange={checkout.setTaxId} />
           <button
             type="button"
             className={styles.secondary}
-            disabled={testModeActive && !isValidTestEmail(checkout.testEmail)}
+            disabled={!taxIdValid || (testModeActive && !isValidTestEmail(checkout.testEmail))}
             onClick={() => void checkout.buy()}
           >
             <RefreshCw aria-hidden="true" /> {text.retry}
@@ -279,6 +291,10 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
               <p>{text.unavailableText}</p>
             </div>
           )}
+
+          {testModeActive || checkout.paymentMethods.length > 0 ? (
+            <CheckoutTaxIdField value={checkout.taxId} onChange={checkout.setTaxId} disabled={busy} />
+          ) : null}
 
           <button type="button" className={styles.primary} disabled={!canPay || busy} onClick={() => void checkout.buy()}>
             {busy ? <Loader2 className={styles.spin} aria-hidden="true" /> : <Lock aria-hidden="true" />}

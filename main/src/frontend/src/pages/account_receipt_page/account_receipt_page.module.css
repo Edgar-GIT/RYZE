@@ -1,0 +1,219 @@
+/* The purchase receipt: a white document on the member area, readable on a
+   phone first, and the only thing printed (the browser's "Save as PDF"). */
+
+.page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stateCard {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+  padding: 1.25rem;
+  border: 1px solid rgba(124, 200, 255, 0.25);
+  border-radius: 18px;
+  color: var(--text-secondary);
+  background: rgba(10, 24, 70, 0.6);
+}
+
+.stateCard p {
+  margin: 0;
+}
+
+.stateTitle {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.document {
+  display: grid;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 48rem;
+  padding: clamp(1.1rem, 4vw, 2.25rem);
+  border-radius: 18px;
+  color: #0b1638;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(2, 4, 31, 0.35);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.documentHead {
+  display: grid;
+  gap: 1rem;
+}
+
+.brand {
+  margin: 0;
+  color: #072a77;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+}
+
+.documentTitle {
+  margin: 0.15rem 0 0;
+  font-size: clamp(1.35rem, 5vw, 1.75rem);
+  line-height: 1.15;
+}
+
+.facts,
+.totals {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.facts div,
+.totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.facts dt,
+.totals dt {
+  color: #4a5878;
+}
+
+.facts dd,
+.totals dd {
+  margin: 0;
+  text-align: right;
+}
+
+.number {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.testNote {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  color: #6a4500;
+  background: #fff3d6;
+  font-size: 0.85rem;
+}
+
+.parties {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid #dde3ee;
+  border-bottom: 1px solid #dde3ee;
+}
+
+.parties h2 {
+  margin: 0 0 0.25rem;
+  color: #4a5878;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.parties p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.lines {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.lines th {
+  padding: 0 0.5rem 0.5rem 0;
+  color: #4a5878;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.lines td {
+  padding: 0.6rem 0.5rem 0.6rem 0;
+  border-top: 1px solid #dde3ee;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.lines th:not(:first-child),
+.lines td:not(:first-child) {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.totals {
+  justify-self: end;
+  width: min(100%, 20rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.grandTotal {
+  padding-top: 0.35rem;
+  border-top: 1px solid #0b1638;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.grandTotal dt {
+  color: #0b1638;
+}
+
+.notes {
+  display: grid;
+  gap: 0.25rem;
+  color: #4a5878;
+  font-size: 0.8rem;
+}
+
+.notes p {
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .documentHead,
+  .parties {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .facts {
+    align-self: start;
+  }
+}
+
+/* Print only the document (the class is on <body> while this page is open). */
+@media print {
+  :global(body.ryze-receipt-print) * {
+    visibility: hidden;
+  }
+
+  :global(body.ryze-receipt-print) .document,
+  :global(body.ryze-receipt-print) .document * {
+    visibility: visible;
+  }
+
+  :global(body.ryze-receipt-print) .document {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: none;
+    box-shadow: none;
+  }
+}

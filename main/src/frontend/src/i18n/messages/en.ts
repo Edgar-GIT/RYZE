@@ -180,6 +180,7 @@ export const en = {
       card: "Card",
       test: "Test purchase",
       open: "Open program",
+      receipt: "Receipt",
       unavailable: "No longer available"
     },
     progress: {

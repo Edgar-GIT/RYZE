@@ -1,4 +1,4 @@
-import { ArrowLeft, BarChart3, CreditCard, Dumbbell, FlaskConical, Lock, LogIn, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, BarChart3, CheckCircle2, CreditCard, Dumbbell, FileText, FlaskConical, Lock, LogIn, RefreshCw, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useHistory, useParams } from "react-router-dom";
 
@@ -7,7 +7,10 @@ import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
+import { CheckoutTaxIdField } from "@/components/checkout_tax_id/checkout_tax_id_field";
+import { isValidOptionalTaxId } from "@/components/checkout_tax_id/tax_id";
 import { isValidTestEmail } from "@/components/test_mode/test_mode_email";
+import { receiptPath } from "@/services/invoices_api";
 import { TestModeEmailField } from "@/components/test_mode/test_mode_email_field";
 import { useProgramCheckout, type PurchaseState } from "@/hooks/use_program_checkout";
 import {
@@ -65,9 +68,11 @@ interface PurchasePanelProps {
   testMode?: boolean;
   testEmail: string;
   onTestEmailChange: (email: string) => void;
+  taxId: string;
+  onTaxIdChange: (taxId: string) => void;
 }
 
-const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, paymentMethods, selectedMethod, onSelectMethod, onBuy, onRetryPurchase, testMode = false, testEmail, onTestEmailChange }: PurchasePanelProps) => {
+const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, paymentMethods, selectedMethod, onSelectMethod, onBuy, onRetryPurchase, testMode = false, testEmail, onTestEmailChange, taxId, onTaxIdChange }: PurchasePanelProps) => {
   const tr = useGettext(COMMERCE_PT);
   const { locale } = useI18n();
   if (state.status === "owned") {
@@ -181,6 +186,9 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
               <Button to="/services/my-programs" variant="ghost" size="small">
                 {tr("My Programs")}
               </Button>
+              <Button to={receiptPath(state.purchase.id)} variant="ghost" size="small" icon={<FileText size={15} />} iconPosition="left">
+                {tr("Purchase receipt")}
+              </Button>
             </div>
           </div>
         </aside>
@@ -225,11 +233,12 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
             {testMode ? (
               <TestModeEmailField value={testEmail} onChange={onTestEmailChange} />
             ) : null}
+            <CheckoutTaxIdField value={taxId} onChange={onTaxIdChange} />
             <div className={styles.purchaseActions}>
               <Button
                 variant="primary"
                 size="small"
-                disabled={testMode && !isValidTestEmail(testEmail)}
+                disabled={!isValidOptionalTaxId(taxId) || (testMode && !isValidTestEmail(testEmail))}
                 onClick={onBuy}
                 icon={<RefreshCw size={15} />}
               >
@@ -256,11 +265,12 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
                 {tr("Test Mode purchase — this plan is granted instantly at no cost. No real payment is made.")}
               </p>
               <TestModeEmailField value={testEmail} onChange={onTestEmailChange} />
+              <CheckoutTaxIdField value={taxId} onChange={onTaxIdChange} />
               <div className={styles.purchaseActions}>
                 <Button
                   variant="primary"
                   size="small"
-                  disabled={!isValidTestEmail(testEmail)}
+                  disabled={!isValidTestEmail(testEmail) || !isValidOptionalTaxId(taxId)}
                   onClick={onBuy}
                   icon={<FlaskConical size={15} />}
                   iconPosition="left"
@@ -322,10 +332,12 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
                 ))}
               </fieldset>
             ) : null}
+            <CheckoutTaxIdField value={taxId} onChange={onTaxIdChange} />
             <div className={styles.purchaseActions}>
               <Button
                 variant="primary"
                 size="small"
+                disabled={!isValidOptionalTaxId(taxId)}
                 onClick={onBuy}
                 icon={<CreditCard size={15} />}
                 iconPosition="left"
@@ -583,6 +595,8 @@ export const GenericProgramDetailPage = () => {
                     testMode={isTestModePurchase}
                     testEmail={checkout.testEmail}
                     onTestEmailChange={checkout.setTestEmail}
+                    taxId={checkout.taxId}
+                    onTaxIdChange={checkout.setTaxId}
                   />
                 )}
               </header>

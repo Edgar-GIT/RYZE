@@ -14,12 +14,12 @@ interface TestModeEmailFieldProps {
 const COPY = {
   en: {
     label: "Test email recipient",
-    hint: "The purchase confirmation and the rest of the Test Mode emails are sent to this address. Use a real inbox you can open.",
+    hint: "The purchase confirmation, the purchase receipt and the rest of the Test Mode emails are sent to this address. Use a real inbox you can open.",
     invalid: "Enter a valid email address, for example you@example.com."
   },
   pt: {
     label: "Email de teste",
-    hint: "A confirmação da compra e os restantes emails do Modo de Teste são enviados para este endereço. Usa um email real que consigas abrir.",
+    hint: "A confirmação da compra, o comprovativo e os restantes emails do Modo de Teste são enviados para este endereço. Usa um email real que consigas abrir.",
     invalid: "Introduz um email válido, por exemplo you@example.com."
   }
 } as const;
@@ -54,7 +54,7 @@ export const TestModeEmailField = ({ value, onChange, disabled = false }: TestMo
         placeholder="you@example.com"
         onChange={(event) => onChange(event.target.value)}
       />
-      <p id={hintId} className={invalid ? styles.error : styles.hint}>
+      <p id={hintId} className={invalid ? styles.error : styles.hint} aria-live="polite">
         {invalid ? text.invalid : text.hint}
       </p>
     </div>

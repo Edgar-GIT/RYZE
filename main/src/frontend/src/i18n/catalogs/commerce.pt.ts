@@ -4,6 +4,8 @@ import type { Catalog } from "@/i18n/i18n";
 // the checkout hook's messages, program metadata chips and objectives.
 export const COMMERCE_PT: Catalog = {
   // Checkout states and actions
+  "Purchase receipt": "Comprovativo de compra",
+  "Enter a valid NIF or leave it empty.": "Introduz um NIF válido ou deixa o campo vazio.",
   "You have access": "Já tens acesso",
   "You already own this training plan.": "Este plano de treino já é teu.",
   "Open program": "Abrir programa",

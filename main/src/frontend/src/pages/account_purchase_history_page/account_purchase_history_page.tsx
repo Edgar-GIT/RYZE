@@ -1,4 +1,4 @@
-import { CalendarDays, CreditCard, FlaskConical, RefreshCw } from "lucide-react";
+import { CalendarDays, CreditCard, FileText, FlaskConical, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
 
@@ -6,6 +6,7 @@ import { Button } from "@/components/button/button";
 import { AppLoading } from "@/components/app_shell/app_loading";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { useI18n } from "@/i18n/i18n";
+import { receiptPath } from "@/services/invoices_api";
 import { fetchMyPurchases, type PurchaseHistoryEntry } from "@/services/purchases_api";
 import { ApiError } from "@utils/http_client";
 import { joinClassNames } from "@utils/class_names";
@@ -156,6 +157,12 @@ export const AccountPurchaseHistoryPage = () => {
                           size="small"
                         >
                           {t("account.purchases.open")}
+                        </Button>
+                      ) : null}
+
+                      {entry.status === "completed" ? (
+                        <Button to={receiptPath(entry.id)} variant="ghost" size="small" icon={<FileText size={15} />} iconPosition="left">
+                          {t("account.purchases.receipt")}
                         </Button>
                       ) : null}
 

@@ -189,12 +189,16 @@ export interface ProgramAccessSet {
 export const createPurchaseIntent = (programId: string): Promise<Purchase> =>
   apiPost<Purchase>(`/me/programs/${encodePathSegment(programId)}/purchase`, {});
 
+/** `taxId` is the buyer's optional NIF for the purchase document: when given
+ *  (even empty) it replaces what the pending purchase held. */
 export const initiatePayment = (
   purchaseId: string,
-  paymentMethod: string
+  paymentMethod: string,
+  taxId?: string
 ): Promise<PaymentInitiation> =>
   apiPost<PaymentInitiation>(`/me/purchases/${encodePathSegment(purchaseId)}/payment`, {
-    payment_method: paymentMethod
+    payment_method: paymentMethod,
+    ...(taxId === undefined ? {} : { tax_id: taxId.trim() })
   });
 
 /**
