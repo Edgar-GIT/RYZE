@@ -539,31 +539,63 @@ const hexagon = (radius: number) => {
   return shape;
 };
 
+// The hex head's side face that looks up and towards the visitor (its normal
+// at 150° in the head's frame): its print reads along the dumbbell's axis.
+const PRINT_NORMAL = new THREE.Vector3(-Math.cos(Math.PI / 6), 0.5, 0);
+const PRINT_BASIS = new THREE.Quaternion().setFromRotationMatrix(
+  new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0.5, Math.cos(Math.PI / 6), 0), PRINT_NORMAL)
+);
+// Distance from the axis to a side face (the hexagon's apothem plus the bevel).
+const HEAD_APOTHEM = 0.27 * Math.cos(Math.PI / 6) + 0.035;
+
 // A hex dumbbell along x, as found in a gym: matte black rubber heads with
-// chamfered edges, chrome collars, a knurled chrome handle, the RYZE mark
-// printed on each end face.
+// chamfered edges, a cyan band and the RYZE mark with "10 KG" printed on the
+// side, chrome flanges and collars, a knurled grip between smooth chrome
+// sleeves, the RYZE mark on each end face.
 const buildDumbbell = (track: Track, materials: DumbbellMaterials) => {
   const group = new THREE.Group();
-  const handle = new THREE.Mesh(materials.handleGeometry, materials.steel);
-  handle.rotation.z = Math.PI / 2;
-  group.add(handle);
+  const grip = new THREE.Mesh(materials.handleGeometry, materials.steel);
+  grip.rotation.z = Math.PI / 2;
+  group.add(grip);
   const headDepth = 0.32;
   for (const side of [-1, 1]) {
+    const sleeve = new THREE.Mesh(materials.sleeveGeometry, materials.chrome);
+    sleeve.rotation.z = Math.PI / 2;
+    sleeve.position.x = side * 0.345;
+    const groove = new THREE.Mesh(materials.grooveGeometry, materials.chrome);
+    groove.rotation.y = Math.PI / 2;
+    groove.position.x = side * 0.29;
     const inner = new THREE.Mesh(materials.collarGeometry, materials.chrome);
     inner.rotation.z = Math.PI / 2;
     inner.position.x = side * 0.43;
+    const flange = new THREE.Mesh(materials.flangeGeometry, materials.chrome);
+    flange.rotation.z = Math.PI / 2;
+    flange.position.x = side * 0.462;
     const head = new THREE.Group();
     head.position.x = side * (0.47 + headDepth / 2 + 0.035);
     head.rotation.y = Math.PI / 2;
     head.add(new THREE.Mesh(materials.headGeometry, materials.rubber));
+    // The cyan band near the handle, all round the head.
+    const band = new THREE.Mesh(materials.bandGeometry, materials.band);
+    band.position.z = -side * 0.1 - 0.007;
+    // The print on the side face: the mark over "10 KG".
+    const print = new THREE.Group();
+    print.quaternion.copy(PRINT_BASIS);
+    print.position.copy(PRINT_NORMAL).multiplyScalar(HEAD_APOTHEM + 0.003);
+    print.position.z = side * 0.02;
+    const printMark = new THREE.Mesh(materials.printMarkGeometry, materials.logo);
+    printMark.position.y = 0.05;
+    const weight = new THREE.Mesh(materials.weightGeometry, materials.weight);
+    weight.position.y = -0.075;
+    print.add(printMark, weight);
     const face = side * (headDepth / 2 + 0.031);
     const ring = new THREE.Mesh(materials.capGeometry, materials.chrome);
     ring.position.z = face + side * 0.003;
     const mark = new THREE.Mesh(materials.logoGeometry, materials.logo);
     mark.position.z = face + side * 0.008;
     if (side < 0) mark.rotation.y = Math.PI;
-    head.add(ring, mark);
-    group.add(inner, head);
+    head.add(band, print, ring, mark);
+    group.add(sleeve, groove, inner, flange, head);
   }
   return group;
 };
@@ -573,12 +605,32 @@ interface DumbbellMaterials {
   chrome: THREE.Material;
   rubber: THREE.Material;
   logo: THREE.Material;
+  band: THREE.Material;
+  weight: THREE.Material;
   handleGeometry: THREE.BufferGeometry;
+  sleeveGeometry: THREE.BufferGeometry;
+  grooveGeometry: THREE.BufferGeometry;
   collarGeometry: THREE.BufferGeometry;
+  flangeGeometry: THREE.BufferGeometry;
   headGeometry: THREE.BufferGeometry;
+  bandGeometry: THREE.BufferGeometry;
   capGeometry: THREE.BufferGeometry;
   logoGeometry: THREE.BufferGeometry;
+  printMarkGeometry: THREE.BufferGeometry;
+  weightGeometry: THREE.BufferGeometry;
 }
+
+// "10 KG" in raised light grey, as moulded into the rubber.
+const weightTexture = () =>
+  canvasTexture(256, 96, (context) => {
+    context.font = "800 64px Archivo, 'Google Sans', Inter, Arial, sans-serif";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillStyle = "rgba(0,0,0,0.55)";
+    context.fillText("10 KG", 130, 52);
+    context.fillStyle = "#dfe6f0";
+    context.fillText("10 KG", 128, 49);
+  });
 
 const dumbbellMaterials = (track: Track, logo: THREE.Texture, logoAspect: number): DumbbellMaterials => {
   const knurl = track(knurlTexture());
@@ -587,7 +639,20 @@ const dumbbellMaterials = (track: Track, logo: THREE.Texture, logoAspect: number
   );
   headGeometry.translate(0, 0, -0.16);
   const capGeometry = track(new THREE.RingGeometry(0.105, 0.125, 48));
+  // The band: a hexagonal ring standing just proud of the side faces.
+  const bandShape = hexagon(HEAD_APOTHEM / Math.cos(Math.PI / 6) + 0.005);
+  bandShape.holes.push(hexagon(HEAD_APOTHEM / Math.cos(Math.PI / 6) - 0.02));
+  const bandGeometry = track(new THREE.ExtrudeGeometry(bandShape, { depth: 0.014, bevelEnabled: false }));
+  const markHeight = Math.min(0.11, 0.22 / logoAspect);
   return {
+    band: track(new THREE.MeshBasicMaterial({ color: 0x50e2fe })),
+    weight: track(new THREE.MeshBasicMaterial({ map: track(weightTexture()), transparent: true, depthWrite: false })),
+    sleeveGeometry: track(new THREE.CylinderGeometry(0.071, 0.071, 0.11, 40)),
+    grooveGeometry: track(new THREE.TorusGeometry(0.07, 0.006, 8, 40)),
+    flangeGeometry: track(new THREE.CylinderGeometry(0.15, 0.15, 0.016, 48)),
+    bandGeometry,
+    printMarkGeometry: track(new THREE.PlaneGeometry(markHeight * logoAspect, markHeight)),
+    weightGeometry: track(new THREE.PlaneGeometry(0.17, 0.064)),
     steel: track(new THREE.MeshPhysicalMaterial({ color: 0xd8dee8, metalness: 1, roughness: 0.28, bumpMap: knurl, bumpScale: 1.4 })),
     chrome: track(new THREE.MeshPhysicalMaterial({ color: 0xf4f7fb, metalness: 1, roughness: 0.07, side: THREE.DoubleSide })),
     rubber: track(
@@ -602,7 +667,7 @@ const dumbbellMaterials = (track: Track, logo: THREE.Texture, logoAspect: number
       })
     ),
     logo: track(new THREE.MeshBasicMaterial({ map: logo, transparent: true, depthWrite: false })),
-    handleGeometry: track(new THREE.CylinderGeometry(0.068, 0.068, 0.84, 40)),
+    handleGeometry: track(new THREE.CylinderGeometry(0.068, 0.068, 0.58, 40)),
     collarGeometry: track(new THREE.CylinderGeometry(0.098, 0.098, 0.06, 40)),
     headGeometry,
     capGeometry,
@@ -950,20 +1015,22 @@ const makeGhost = (
 // --- Builder --------------------------------------------------------------------------------
 
 // The composition, in the group's frame (the floor is y = 0), like a food and
-// fitness photograph, held close together: the phone at the centre; the plate
-// in front on the left on a napkin with a fork and a knife, overlapping the
-// phone's corner; a pair of dumbbells on the right; the RYZE shaker behind them.
+// fitness photograph, held close together but with nothing touching the phone
+// (checked in screen space at the hero's camera): the phone at the centre; the
+// plate in front on the left, the RYZE shaker behind it; a napkin with a fork
+// and a knife in front of the phone, under the plate's rim; a pair of
+// dumbbells lying sideways on the right, one in front of the other.
 const LAYOUT = {
   phone: { x: 0.12, z: 0, scale: 1.36, lean: 0.44, yaw: -0.06 },
-  // Axes towards the visitor, so the near end face (the RYZE mark) shows.
+  // Sideways to the visitor (the group turns -0.25), the side print showing.
   dumbbells: [
-    { x: 1.1, z: 0.25, yaw: -1.25, scale: 1.08 },
-    { x: 1.62, z: -0.05, yaw: -1.25, scale: 1.08 }
+    { x: 1.35, z: 1.15, yaw: 0.5, scale: 0.72 },
+    { x: 1.72, z: 0.1, yaw: 0.8, scale: 0.72 }
   ],
-  plate: { x: -1.08, z: 0.8, yaw: 0.1, scale: 1.22 },
-  napkin: { x: -1.32, z: 0.86, yaw: 0.35, scale: 1.45 },
-  cutlery: { x: -1.95, z: 0.66, yaw: 1.3, scale: 1.05 },
-  shaker: { x: 0.95, z: -1.55, yaw: 0.35, scale: 0.95 },
+  plate: { x: -1.44, z: 1.02, yaw: 0.1, scale: 1.18 },
+  napkin: { x: -0.5, z: 1.18, yaw: 1.1, scale: 1 },
+  cutlery: { x: -0.46, z: 1.18, yaw: 1.1, scale: 1 },
+  shaker: { x: -1.38, z: -0.32, yaw: 0.35, scale: 0.95 },
   floor: { width: 7, depth: 4.6 }
 } as const;
 
@@ -1131,11 +1198,8 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
   // Contact shade under each object.
   const shades = {
     phone: contact(lipAt.x, lipAt.z - 0.12, phone.size.width * phoneScale * 1.25, 0.55, yaw),
-    dumbbells: [
-      contact(LAYOUT.dumbbells[0].x, LAYOUT.dumbbells[0].z, 2.1, 0.8, LAYOUT.dumbbells[0].yaw),
-      contact(LAYOUT.dumbbells[1].x, LAYOUT.dumbbells[1].z, 2.1, 0.8, LAYOUT.dumbbells[1].yaw)
-    ],
-    plate: contact(plate.position.x, plate.position.z, 1.9, 1.85, 0),
+    dumbbells: LAYOUT.dumbbells.map((spec) => contact(spec.x, spec.z, 1.95 * spec.scale, 0.75 * spec.scale, spec.yaw)),
+    plate: contact(plate.position.x, plate.position.z, 1.85, 1.8, 0),
     napkin: contact(napkin.position.x, napkin.position.z, 1.25 * LAYOUT.napkin.scale, 0.8 * LAYOUT.napkin.scale, LAYOUT.napkin.yaw),
     shaker: contact(shaker.position.x, shaker.position.z, 1.0, 1.0, 0)
   };
@@ -1253,7 +1317,7 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
   const beamTop = HOVER.y - LENS_DROP;
   const beamHeight = beamTop - FLOOR;
   const TOP_RADIUS = 0.3;
-  const BOTTOM_RADIUS = 2.3;
+  const BOTTOM_RADIUS = 2.55;
   const beamMaterial = track(
     new THREE.ShaderMaterial({
       uniforms: {

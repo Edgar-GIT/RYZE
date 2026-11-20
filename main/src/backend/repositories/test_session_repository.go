@@ -20,7 +20,7 @@ var ErrTestSessionNotFound = errors.New("test session not found")
 type TestSessionRepository interface {
 	Create(ctx context.Context, session *models.TestSession) error
 	FindActiveByTokenHash(ctx context.Context, tokenHash string) (*models.TestSession, error)
-	FindActiveRecipientByPersona(ctx context.Context, personaUserID string) (string, error)
+	FindLatestActiveByPersona(ctx context.Context, personaUserID string) (*models.TestSession, error)
 	SetRecipientEmail(ctx context.Context, id, recipient string) error
 	SoftDelete(ctx context.Context, id string) error
 }
@@ -57,23 +57,24 @@ func (r *testSessionRepository) FindActiveByTokenHash(ctx context.Context, token
 	return &session, nil
 }
 
-// FindActiveRecipientByPersona returns the most recently opened active
-// session's deliverable recipient for a persona. An empty result means no
-// active session has provided one, so notification delivery stays suppressed.
-func (r *testSessionRepository) FindActiveRecipientByPersona(ctx context.Context, personaUserID string) (string, error) {
+// FindLatestActiveByPersona returns the persona's most recently opened
+// session that has not been ended (soft-deleted), or ErrTestSessionNotFound.
+// Only this session may supply a recipient: an older session's address is
+// never reused (see test_mode.RecipientResolver, which also applies the
+// server-side lifetime).
+func (r *testSessionRepository) FindLatestActiveByPersona(ctx context.Context, personaUserID string) (*models.TestSession, error) {
 	var session models.TestSession
 	err := r.db.WithContext(ctx).
-		Select("recipient_email").
-		Where("persona_user_id = ? AND recipient_email <> ''", personaUserID).
+		Where("persona_user_id = ?", personaUserID).
 		Order("created_at DESC").
 		First(&session).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", nil
+			return nil, ErrTestSessionNotFound
 		}
-		return "", fmt.Errorf("failed to find test session recipient: %w", err)
+		return nil, fmt.Errorf("failed to find test session: %w", err)
 	}
-	return session.RecipientEmail, nil
+	return &session, nil
 }
 
 // SetRecipientEmail records the mailbox typed at Test Mode checkout on the

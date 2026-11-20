@@ -138,12 +138,13 @@ func main() {
 		port = "8080"
 	}
 
-	router := routes.Setup(db, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg, mediaCfg, evidenceCfg, uploadsCfg, contactCfg, mailCfg, googleCfg)
+	invoiceCfg := config.LoadInvoice()
+	router := routes.Setup(db, invoiceCfg, jwtCfg, corsCfg, adminCfg, pricingCfg, commissionCfg, stripeCfg, paypalCfg, webhookCfg, testModeCfg, serverCfg, rateLimitCfg, mediaCfg, evidenceCfg, uploadsCfg, contactCfg, mailCfg, googleCfg)
 
 	// Background jobs (email delivery, retention) stop with the server.
 	jobsCtx, stopJobs := context.WithCancel(context.Background())
 	defer stopJobs()
-	startBackgroundJobs(jobsCtx, db, mailCfg)
+	startBackgroundJobs(jobsCtx, db, mailCfg, invoiceCfg, testModeCfg.Enabled, jwtCfg.AccessTokenTTL)
 
 	server := &http.Server{
 		Addr:              ":" + port,

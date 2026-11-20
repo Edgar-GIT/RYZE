@@ -1182,13 +1182,23 @@ Public activity feed for RYZE community updates.
 Currently routes to an under-development placeholder (`/feed`). The shared
 `UnderDevelopmentPage` placeholder (also used by the `/services/:serviceSlug`
 fallback and the catch-all route) is a navy section with a cyan status label,
-heading, description, "Back Home" → `/`, "View Services" → `/services` and the
-SVG globe. The Feed route opts into a separate procedural construction
-hologram: a worker hammers a metal frame while a drone performs the same
-in-and-out reveal timing as the Home introduction. It is desktop-only WebGL,
-loaded lazily, paused off-screen and replaced by a CSS fallback on mobile,
-reduced-motion or unavailable WebGL. Other uses of `UnderDevelopmentPage` keep
-the existing globe.
+heading, description, "Back Home" → `/`, "View Services" → `/services` and a
+cyan "no entry" sign hologram (`blocked_hologram.tsx`). The Feed route opts
+into its own construction hologram (owner request, 2026-11-20), in a larger
+stage (30rem from 768 px, 34rem from 1024 px): the Home's scanning drone flies
+in from the right, opens its beam over a platform and projects a hologram of a
+person building the Feed. The person is the continuous, skinned hologram body
+of `home_story/story_athlete.ts` (building routine): they take a post card from
+a floating stack, turn, and push it into a Feed column; when its four slots
+are full the column completes with a sweep and clears, and the building starts
+again. The installation (drone, beam, platform with reflection, opening) is
+`home_story/story_hologram.ts`; the Feed props are
+`pages/under_development_page/feed_construction_scene.ts`. It is procedural
+(no model files), desktop-only WebGL (from 768 px), loaded lazily, paused
+off-screen and disposed on unmount. Phones, reduced motion and unavailable
+WebGL get a light SVG version: the same drone projecting the Feed column while
+its cards build in (with reduced motion, the complete column, still). Other
+uses of `UnderDevelopmentPage` keep the "no entry" hologram.
 
 ---
 

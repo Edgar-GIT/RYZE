@@ -328,7 +328,48 @@ func (s *service) SetRecipientEmail(ctx context.Context, rawToken, recipient str
 // expired reports whether a session has outlived its configured server-side
 // lifetime. A zero TTL means no limit.
 func (s *service) expired(session *models.TestSession) bool {
-	return s.sessionTTL > 0 && time.Since(session.CreatedAt) > s.sessionTTL
+	return sessionExpired(session, s.sessionTTL)
+}
+
+func sessionExpired(session *models.TestSession, ttl time.Duration) bool {
+	return ttl > 0 && time.Since(session.CreatedAt) > ttl
+}
+
+// RecipientResolver resolves the mailbox that receives a persona's emails
+// (lifecycle notifications and purchase invoices) during Test Mode. Only the
+// persona's most recent active session counts, and only while Test Mode is
+// enabled and that session is within its server-side lifetime. An empty
+// result means the email is suppressed: an older or expired session's address
+// is never reused, and the persona's synthetic @ryze.local address is never a
+// recipient.
+type RecipientResolver struct {
+	enabled  bool
+	sessions repositories.TestSessionRepository
+	ttl      time.Duration
+}
+
+// NewRecipientResolver builds the resolver with the same kill switch and
+// session lifetime as the Test Mode service.
+func NewRecipientResolver(enabled bool, sessions repositories.TestSessionRepository, ttl time.Duration) *RecipientResolver {
+	return &RecipientResolver{enabled: enabled, sessions: sessions, ttl: ttl}
+}
+
+// FindActiveRecipientByPersona returns the current session's recipient, or "".
+func (r *RecipientResolver) FindActiveRecipientByPersona(ctx context.Context, personaUserID string) (string, error) {
+	if r == nil || !r.enabled || r.sessions == nil || personaUserID == "" {
+		return "", nil
+	}
+	session, err := r.sessions.FindLatestActiveByPersona(ctx, personaUserID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrTestSessionNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+	if sessionExpired(session, r.ttl) {
+		return "", nil
+	}
+	return session.RecipientEmail, nil
 }
 
 // IsValidPersona reports whether persona is one of the predefined identities.

@@ -38,6 +38,8 @@ type Request struct {
 	// ValidFor bounds how long the email may still be delivered (for example
 	// a reset link that expires). Zero means no bound.
 	ValidFor time.Duration
+	// Invoice is the purchase document an invoice_issued email carries.
+	Invoice *InvoiceData
 }
 
 // Mailer records transactional emails in the outbox. It never sends inline,
@@ -64,7 +66,10 @@ func (m *mailer) Enqueue(ctx context.Context, request Request) error {
 	if _, ok := copies[request.Template]; !ok {
 		return fmt.Errorf("unknown email template %q", request.Template)
 	}
-	data := Data{Name: plainText(request.Name, 120), Program: plainText(request.Program, 160)}
+	data := Data{Name: plainText(request.Name, 120), Program: plainText(request.Program, 160), Invoice: cleanInvoice(request.Invoice)}
+	if request.Template == TemplateInvoiceIssued && data.Invoice == nil {
+		return fmt.Errorf("email template %q needs an invoice", request.Template)
+	}
 	if request.Path != "" && m.config.PublicAppURL != "" {
 		link, err := joinAppLink(m.config.PublicAppURL, request.Path)
 		if err != nil {
@@ -146,4 +151,23 @@ func plainText(value string, max int) string {
 		cleaned = string([]rune(cleaned)[:max])
 	}
 	return cleaned
+}
+
+// cleanInvoice bounds and strips control characters from the document's text.
+func cleanInvoice(invoice *InvoiceData) *InvoiceData {
+	if invoice == nil {
+		return nil
+	}
+	clean := *invoice
+	clean.Number = plainText(clean.Number, 32)
+	clean.IssuedAt = plainText(clean.IssuedAt, 10)
+	clean.SellerName = plainText(clean.SellerName, 160)
+	clean.SellerTaxID = plainText(clean.SellerTaxID, 32)
+	clean.SellerAddress = plainText(clean.SellerAddress, 255)
+	clean.BuyerName = plainText(clean.BuyerName, 255)
+	clean.BuyerTaxID = plainText(clean.BuyerTaxID, 9)
+	clean.Description = plainText(clean.Description, 255)
+	clean.TaxExemption = plainText(clean.TaxExemption, 8)
+	clean.Currency = plainText(clean.Currency, 3)
+	return &clean
 }

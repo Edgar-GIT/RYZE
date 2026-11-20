@@ -15,7 +15,11 @@ import (
 func TestRenderEveryTemplateInBothLocales(t *testing.T) {
 	for template := range copies {
 		for _, locale := range []string{LocaleEnglish, LocalePortuguese} {
-			message, err := Render(template, locale, Data{Name: "Alex", Program: "Hypertrophy Foundations", Link: "https://ryze.example/x"})
+			data := Data{Name: "Alex", Program: "Hypertrophy Foundations", Link: "https://ryze.example/x"}
+			if template == TemplateInvoiceIssued {
+				data.Invoice = &InvoiceData{Number: "RYZE 2026/000001", IssuedAt: "2026-11-20", SellerName: "RYZE", BuyerName: "Alex Costa", Description: "Hypertrophy Foundations", Quantity: 1, UnitPrice: 2500, Total: 2500, Currency: "EUR", TaxExemption: "M10"}
+			}
+			message, err := Render(template, locale, data)
 			if err != nil {
 				t.Fatalf("%s/%s: %v", template, locale, err)
 			}
@@ -183,5 +187,47 @@ func TestWorkerSendsRetriesAndFails(t *testing.T) {
 	NewWorker(outbox, &fakeSender{err: errors.New("smtp relay unreachable")}).RunOnce(context.Background())
 	if len(outbox.failed) != 1 || len(outbox.retried) != 0 {
 		t.Fatalf("an email out of attempts must fail, got failed=%v retried=%v", outbox.failed, outbox.retried)
+	}
+}
+
+func TestRedactAddressesRemovesRecipientsFromFailureReasons(t *testing.T) {
+	got := redactAddresses("550 5.1.1 <qa.tester@example.com>: Recipient address rejected")
+	if strings.Contains(got, "qa.tester") || strings.Contains(got, "example.com") {
+		t.Fatalf("address not redacted: %q", got)
+	}
+	if !strings.Contains(got, "550 5.1.1") || !strings.Contains(got, "[address]") {
+		t.Fatalf("reason lost its context: %q", got)
+	}
+}
+
+func TestInvoiceEmailCarriesTheDocument(t *testing.T) {
+	data := Data{Name: "Rita", Program: "Plan <b>", Link: "https://ryze.example/account/purchases/p1/receipt", Invoice: &InvoiceData{
+		Number: "TEST 2026/000007", IssuedAt: "2026-11-20", Test: true, SellerName: "RYZE", BuyerName: "Rita <Costa>", BuyerTaxID: "123456789",
+		Description: "Plan <b>", Quantity: 1, UnitPrice: 2500, Total: 2500, Currency: "EUR", TaxExemption: "M10",
+	}}
+	pt, err := Render(TemplateInvoiceIssued, LocalePortuguese, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"TEST 2026/000007", "25,00 €", "123456789", "artigo 53.º do CIVA", "não tem valor fiscal", "Modo de Teste", "Rita &lt;Costa&gt;"} {
+		if !strings.Contains(pt.HTML, want) {
+			t.Fatalf("Portuguese HTML misses %q", want)
+		}
+	}
+	if strings.Contains(pt.HTML, "<b>") || !strings.Contains(pt.Text, "25,00 €") || !strings.Contains(pt.Subject, "TEST 2026/000007") {
+		t.Fatalf("unexpected Portuguese message: %+v", pt)
+	}
+	data.Invoice.BuyerTaxID = ""
+	en, err := Render(TemplateInvoiceIssued, LocaleEnglish, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"€25.00", "Final consumer", "not a tax invoice"} {
+		if !strings.Contains(en.HTML, want) || !strings.Contains(en.Text, want) {
+			t.Fatalf("English message misses %q", want)
+		}
+	}
+	if FormatMoney(123456, "USD", LocaleEnglish) != "1234.56 USD" {
+		t.Fatal("other currencies keep their code")
 	}
 }

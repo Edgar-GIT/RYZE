@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"regexp"
 	"time"
 
 	"ryze/backend/models"
@@ -96,12 +97,22 @@ func (w *Worker) deliver(ctx context.Context, record models.EmailOutbox) {
 	}
 
 	if errors.Is(err, ErrPermanent) || record.Attempts >= maxAttempts {
-		w.fail(ctx, record, err.Error())
+		w.fail(ctx, record, redactAddresses(err.Error()))
 		return
 	}
-	if markErr := w.outbox.MarkRetry(ctx, record.ID, w.now().Add(retryDelay(record.Attempts)), err.Error()); markErr != nil {
+	if markErr := w.outbox.MarkRetry(ctx, record.ID, w.now().Add(retryDelay(record.Attempts)), redactAddresses(err.Error())); markErr != nil {
 		slog.Error("email retry not recorded", slog.String("email_id", record.ID), slog.String("error", markErr.Error()))
 	}
+}
+
+// emailLike matches an address inside a server's reply (for example
+// "550 5.1.1 <someone@example.com>: Recipient address rejected").
+var emailLike = regexp.MustCompile(`[^\s<>()\[\],;:"']+@[^\s<>()\[\],;:"']+`)
+
+// redactAddresses keeps recipient addresses out of logs and stored failure
+// reasons: an SMTP reply can quote the address it rejected.
+func redactAddresses(reason string) string {
+	return emailLike.ReplaceAllString(reason, "[address]")
 }
 
 func (w *Worker) fail(ctx context.Context, record models.EmailOutbox, reason string) {

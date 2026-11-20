@@ -113,6 +113,7 @@ type stubPurchaseService struct {
 	gotUser       string
 	gotProg       string
 	gotPurchaseID string
+	gotDetails    []purchases.CheckoutDetails
 }
 
 func (s *stubPurchaseService) CreatePurchaseIntent(_ context.Context, userID, programID string) (*purchases.Purchase, error) {
@@ -121,9 +122,10 @@ func (s *stubPurchaseService) CreatePurchaseIntent(_ context.Context, userID, pr
 	return s.purchase, s.err
 }
 
-func (s *stubPurchaseService) InitiatePayment(_ context.Context, userID, purchaseID, paymentMethod string) (*purchases.PaymentResult, error) {
+func (s *stubPurchaseService) InitiatePayment(_ context.Context, userID, purchaseID, paymentMethod string, details ...purchases.CheckoutDetails) (*purchases.PaymentResult, error) {
 	s.gotUser = userID
 	s.gotPurchaseID = purchaseID
+	s.gotDetails = details
 	return s.paymentResult, s.err
 }
 
@@ -156,7 +158,7 @@ func (s *stubPurchaseService) CompletePurchaseWithCapture(_ context.Context, _, 
 	return s.purchase, s.err
 }
 
-func (s *stubPurchaseService) CompleteTestPurchase(_ context.Context, userID, programID string) (*purchases.Purchase, error) {
+func (s *stubPurchaseService) CompleteTestPurchase(_ context.Context, userID, programID string, _ ...purchases.CheckoutDetails) (*purchases.Purchase, error) {
 	s.gotUser = userID
 	s.gotProg = programID
 	return s.purchase, s.err
@@ -1727,5 +1729,29 @@ func TestCaptureIntegrationNotPending(t *testing.T) {
 	}
 	if !strings.Contains(raw, `"code":"PURCHASE_NOT_PENDING"`) {
 		t.Fatalf("expected PURCHASE_NOT_PENDING, got %s", raw)
+	}
+}
+
+// The optional taxpayer number for the purchase document is validated at the
+// boundary (an invalid one never reaches the service) and forwarded as given.
+func TestInitiatePaymentTaxID(t *testing.T) {
+	svc := &stubPurchaseService{paymentResult: &purchases.PaymentResult{PaymentID: "pay-1", PurchaseID: "purchase-001"}}
+	router := newPurchaseHandlerRouter(svc, "33333333-3333-3333-3333-333333333333")
+	send := func(body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/me/purchases/purchase-001/payment", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	if code := send(`{"payment_method":"card","tax_id":"123456780"}`); code != http.StatusBadRequest || svc.gotPurchaseID != "" {
+		t.Fatalf("an invalid NIF must be rejected before the service, got %d", code)
+	}
+	if code := send(`{"payment_method":"card","tax_id":"PT 123 456 789"}`); code != http.StatusOK || len(svc.gotDetails) != 1 || svc.gotDetails[0].TaxID != "PT 123 456 789" {
+		t.Fatalf("a valid NIF must reach the service, got %d %+v", code, svc.gotDetails)
+	}
+	if code := send(`{"payment_method":"card"}`); code != http.StatusOK || len(svc.gotDetails) != 0 {
+		t.Fatalf("no NIF leaves the purchase unchanged, got %d %+v", code, svc.gotDetails)
 	}
 }

@@ -29,6 +29,9 @@ func (f *fakeSessions) Create(_ context.Context, session *models.TestSession) er
 	if session.ID == "" {
 		session.ID = "session-id"
 	}
+	if session.CreatedAt.IsZero() {
+		session.CreatedAt = time.Now()
+	}
 	f.byHash[session.TokenHash] = session
 	f.byID[session.ID] = session
 	return nil
@@ -42,13 +45,17 @@ func (f *fakeSessions) FindActiveByTokenHash(_ context.Context, tokenHash string
 	return session, nil
 }
 
-func (f *fakeSessions) FindActiveRecipientByPersona(_ context.Context, personaUserID string) (string, error) {
+func (f *fakeSessions) FindLatestActiveByPersona(_ context.Context, personaUserID string) (*models.TestSession, error) {
+	var latest *models.TestSession
 	for _, session := range f.byID {
-		if session.PersonaUserID == personaUserID {
-			return session.RecipientEmail, nil
+		if session.PersonaUserID == personaUserID && (latest == nil || session.CreatedAt.After(latest.CreatedAt)) {
+			latest = session
 		}
 	}
-	return "", nil
+	if latest == nil {
+		return nil, repositories.ErrTestSessionNotFound
+	}
+	return latest, nil
 }
 
 func (f *fakeSessions) SetRecipientEmail(_ context.Context, id, recipient string) error {
@@ -520,9 +527,45 @@ func TestSetRecipientEmailStoresAValidatedAddress(t *testing.T) {
 	if err := svc.SetRecipientEmail(ctx, entered.Token, "  Qa.Tester@example.com  "); err != nil {
 		t.Fatalf("SetRecipientEmail: %v", err)
 	}
-	recipient, err := sessions.FindActiveRecipientByPersona(ctx, entered.PersonaUserID)
+	resolver := test_mode.NewRecipientResolver(true, sessions, time.Hour)
+	recipient, err := resolver.FindActiveRecipientByPersona(ctx, entered.PersonaUserID)
 	if err != nil || recipient != "Qa.Tester@example.com" {
 		t.Fatalf("stored recipient = %q (%v)", recipient, err)
+	}
+}
+
+// Only the persona's latest active session, within its lifetime and while Test
+// Mode is enabled, supplies a recipient; an older session's address is never
+// reused for a newer session that has none.
+func TestRecipientResolverUsesOnlyTheCurrentSession(t *testing.T) {
+	ctx := context.Background()
+	sessions := newFakeSessions()
+	now := time.Now()
+	older := &models.TestSession{ID: "older", PersonaUserID: "persona", TokenHash: "a", RecipientEmail: "old@example.com", CreatedAt: now.Add(-10 * time.Minute)}
+	_ = sessions.Create(ctx, older)
+
+	resolver := test_mode.NewRecipientResolver(true, sessions, time.Hour)
+	if recipient, err := resolver.FindActiveRecipientByPersona(ctx, "persona"); err != nil || recipient != "old@example.com" {
+		t.Fatalf("current session recipient = %q (%v)", recipient, err)
+	}
+
+	newer := &models.TestSession{ID: "newer", PersonaUserID: "persona", TokenHash: "b", CreatedAt: now}
+	_ = sessions.Create(ctx, newer)
+	if recipient, err := resolver.FindActiveRecipientByPersona(ctx, "persona"); err != nil || recipient != "" {
+		t.Fatalf("a newer session without an address must suppress email, got %q (%v)", recipient, err)
+	}
+
+	newer.RecipientEmail = "new@example.com"
+	if recipient, _ := test_mode.NewRecipientResolver(false, sessions, time.Hour).FindActiveRecipientByPersona(ctx, "persona"); recipient != "" {
+		t.Fatalf("disabled Test Mode must suppress email, got %q", recipient)
+	}
+	newer.CreatedAt = now.Add(-2 * time.Hour)
+	older.CreatedAt = now.Add(-3 * time.Hour)
+	if recipient, _ := resolver.FindActiveRecipientByPersona(ctx, "persona"); recipient != "" {
+		t.Fatalf("an expired session must suppress email, got %q", recipient)
+	}
+	if recipient, err := resolver.FindActiveRecipientByPersona(ctx, "nobody"); err != nil || recipient != "" {
+		t.Fatalf("no session must suppress email, got %q (%v)", recipient, err)
 	}
 }
 

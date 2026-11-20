@@ -69,7 +69,7 @@ export const UnderDevelopmentPage = ({
           </div>
         </div>
         {visual === "feedConstruction" ? (
-          <FeedConstructionHologram className={styles.orb} />
+          <FeedConstructionHologram className={joinClassNames(styles.orb, styles.feedStage)} />
         ) : (
           <BlockedHologram className={styles.orb} />
         )}

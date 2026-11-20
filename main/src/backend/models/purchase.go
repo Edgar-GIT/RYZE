@@ -41,13 +41,17 @@ type Purchase struct {
 	// (Test Mode purchases, legacy pending purchases); the pointer keeps the
 	// empty string out of the database so the CHECK constraint only ever sees
 	// NULL or one of the allowlisted values.
-	PaymentMethod *string        `gorm:"column:payment_method;type:varchar(20)" json:"payment_method"`
-	Test          bool           `gorm:"column:test;not null;default:false" json:"-"`
-	User          User           `gorm:"foreignKey:UserID;references:ID" json:"-"`
-	Program       Program        `gorm:"foreignKey:ProgramID;references:ID" json:"-"`
-	CreatedAt     time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
-	UpdatedAt     time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"-"`
+	PaymentMethod *string `gorm:"column:payment_method;type:varchar(20)" json:"payment_method"`
+	Test          bool    `gorm:"column:test;not null;default:false" json:"-"`
+	// BuyerTaxID is the optional Portuguese taxpayer number (NIF) the buyer
+	// gave at checkout, validated by the server; printed on the purchase
+	// document. NULL means "final consumer". Never logged.
+	BuyerTaxID *string        `gorm:"column:buyer_tax_id;type:varchar(9)" json:"-"`
+	User       User           `gorm:"foreignKey:UserID;references:ID" json:"-"`
+	Program    Program        `gorm:"foreignKey:ProgramID;references:ID" json:"-"`
+	CreatedAt  time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
+	UpdatedAt  time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"-"`
 }
 
 func (p *Purchase) BeforeCreate(_ *gorm.DB) error {

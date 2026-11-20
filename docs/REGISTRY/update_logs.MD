@@ -1,3 +1,61 @@
+# Version 2.125.1
+
+Title: Hero scene: nothing touches the phone, dumbbells sideways and more detailed; the phone spins again
+
+Date: 2026-11-20
+
+Summary:
+
+Owner feedback on the hero: the phone looked as if it stood inside the plate;
+the dumbbells should lie sideways, the shaker should stand behind the plate and
+the dumbbells need more detail. The phone's spins in the story chapters, removed
+in 2.123.1, are back, and its frame is white metal again rather than a lit edge.
+
+Main changes:
+
+- `home_story/story_intro.ts`: a new layout, checked in screen space at the
+  hero camera so that nothing overlaps the phone: the plate further left and
+  forward (about 30 px clear of the phone at 1440 px), the RYZE shaker behind
+  it, a smaller napkin with the fork and knife in front of the phone (under the
+  plate's rim), and the two dumbbells lying sideways on the right, one in front
+  of the other. Each dumbbell now has a cyan band round both heads, the RYZE
+  mark with "10 KG" on the side face in view, chrome flanges, and a knurled
+  grip between smooth chrome sleeves with grooves. The beam is a little wider so
+  it covers the whole composition.
+- `home_story/story_scene.ts`: the phone spins in the Train, Nutrition and
+  Evolve chapters again, with the screen swapped while its back is in view
+  (the cross-fade overlay is gone); the frame is white polished metal
+  (`#f2f5fa`, clearcoat); the hero sits slightly higher (`heroY` -1.32). A
+  leftover fragment of the removed cross-fade function, which broke the full
+  typecheck, was removed.
+
+Verification (short, as asked): typecheck passes; one hero screenshot at
+1440 px with the 3D running.
+
+Also in this version — the Feed's construction hologram (owner request,
+2026-11-20: the Home's drone doing the hologram scene, "really good 3D", a
+hologram person building the platform):
+
+- `pages/under_development_page/feed_construction_scene.ts` (rewritten): the
+  Home's scanning drone flies in, opens its beam over a platform and projects
+  a hologram person who takes post cards from a floating stack and pushes them
+  into a four-slot Feed column; the full column completes with a sweep and
+  clears, and the loop starts again. The former boxy worker is gone.
+- `home_story/story_hologram.ts`: options for an opening (drone fly-in, beam
+  opening from the sensor down, the hologram building up) and a building mode;
+  exposes its rig, floor, scale and the stack's pick point. Unused by the Home.
+- `home_story/story_athlete.ts`: a building routine (reach, lift, carry, push,
+  rest) and the fists' position; no dumbbells or muscle glow while building.
+  Unused by the Home.
+- `feed_construction_hologram.*`: the light version is now an SVG of the same
+  drone projecting the Feed column while its cards build in (still, complete,
+  with reduced motion); `under_development_page.*`: a larger stage for the
+  Feed only.
+- Docs: `docs/PAGES/design.MD` (Feed), `docs/AI/frontend-revamp.md`.
+
+Verification: typecheck passes; the Feed checked at 1440 px through a full
+card cycle and at 390 px (light version); no console errors.
+
 # Version 2.125.0
 
 Title: Test Mode purchases send lifecycle emails to a validated checkout recipient

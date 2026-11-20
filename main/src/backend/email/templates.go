@@ -21,6 +21,7 @@ const (
 	TemplateRequestAssigned     = "pl2_request_assigned"
 	TemplateServiceDelivered    = "pl2_delivered"
 	TemplateSupportReply        = "support_reply"
+	TemplateInvoiceIssued       = "invoice_issued"
 )
 
 // Supported locales. Anything else falls back to English.
@@ -164,6 +165,20 @@ var copies = map[string]map[string]copyText{
 			Action: "Abrir o programa", NeedsLink: true,
 		},
 	},
+	TemplateInvoiceIssued: {
+		LocaleEnglish: {
+			Subject: "Your RYZE purchase receipt {{.Invoice.Number}}", Heading: "Purchase receipt",
+			Body:   "Hi{{if .Name}} {{.Name}}{{end}}, thank you for your purchase of {{.Program}}. Your receipt is below and is always available in your account under Purchases.",
+			Action: "View the receipt", Footnote: "You can print it or save it as a PDF from the receipt page.",
+			NeedsLink: true,
+		},
+		LocalePortuguese: {
+			Subject: "O teu comprovativo de compra RYZE {{.Invoice.Number}}", Heading: "Comprovativo de compra",
+			Body:   "Olá{{if .Name}} {{.Name}}{{end}}, obrigado pela tua compra de {{.Program}}. O comprovativo está abaixo e fica sempre disponível na tua conta, em Compras.",
+			Action: "Ver o comprovativo", Footnote: "Na página do comprovativo podes imprimi-lo ou guardá-lo em PDF.",
+			NeedsLink: true,
+		},
+	},
 	TemplateSupportReply: {
 		LocaleEnglish: {
 			Subject: "RYZE support replied", Heading: "New reply from RYZE support",
@@ -184,6 +199,95 @@ type Data struct {
 	Name    string `json:"name"`
 	Program string `json:"program,omitempty"`
 	Link    string `json:"link,omitempty"`
+	// Invoice is the purchase document an invoice_issued email carries.
+	Invoice *InvoiceData `json:"invoice,omitempty"`
+}
+
+// InvoiceData is the snapshot of a purchase document shown in its email.
+// Amounts are minor units; the email formats them in its own language.
+type InvoiceData struct {
+	Number        string `json:"number"`
+	IssuedAt      string `json:"issued_at"` // YYYY-MM-DD
+	Test          bool   `json:"test,omitempty"`
+	SellerName    string `json:"seller_name"`
+	SellerTaxID   string `json:"seller_tax_id,omitempty"`
+	SellerAddress string `json:"seller_address,omitempty"`
+	BuyerName     string `json:"buyer_name"`
+	BuyerTaxID    string `json:"buyer_tax_id,omitempty"`
+	Description   string `json:"description"`
+	Quantity      int    `json:"quantity"`
+	UnitPrice     int64  `json:"unit_price"`
+	Tax           int64  `json:"tax"`
+	TaxExemption  string `json:"tax_exemption,omitempty"`
+	Total         int64  `json:"total"`
+	Currency      string `json:"currency"`
+}
+
+// invoiceLabels is the wording of the document block, per language.
+var invoiceLabels = map[string]map[string]string{
+	LocaleEnglish: {
+		"title": "Purchase receipt", "number": "Number", "date": "Date", "seller": "Seller", "buyer": "Customer",
+		"taxID": "Taxpayer no.", "consumer": "Final consumer", "item": "Item", "qty": "Qty", "unit": "Unit price",
+		"vat": "VAT", "total": "Total", "M10": "VAT exempt under article 53 of the Portuguese VAT Code (small-business scheme).",
+		"noTax": "This document is a purchase receipt and is not a tax invoice.",
+		"test":  "Test Mode purchase: no payment was taken.",
+	},
+	LocalePortuguese: {
+		"title": "Comprovativo de compra", "number": "Número", "date": "Data", "seller": "Vendedor", "buyer": "Cliente",
+		"taxID": "NIF", "consumer": "Consumidor final", "item": "Artigo", "qty": "Qtd.", "unit": "Preço unitário",
+		"vat": "IVA", "total": "Total", "M10": "IVA - regime de isenção (artigo 53.º do CIVA).",
+		"noTax": "Este documento é um comprovativo de compra e não tem valor fiscal.",
+		"test":  "Compra do Modo de Teste: não foi cobrado nenhum pagamento.",
+	},
+}
+
+// FormatMoney writes minor units in a language's style: "25,00 €" in
+// Portuguese, "€25.00" in English (other currencies keep their code).
+func FormatMoney(minorUnits int64, currency, locale string) string {
+	sign := ""
+	if minorUnits < 0 {
+		sign = "-"
+		minorUnits = -minorUnits
+	}
+	whole, cents := minorUnits/100, minorUnits%100
+	symbol := strings.ToUpper(currency)
+	if symbol == "EUR" {
+		symbol = "€"
+	}
+	if NormalizeLocale(locale) == LocalePortuguese {
+		return fmt.Sprintf("%s%d,%02d %s", sign, whole, cents, symbol)
+	}
+	if symbol == "€" {
+		return fmt.Sprintf("%s€%d.%02d", sign, whole, cents)
+	}
+	return fmt.Sprintf("%s%d.%02d %s", sign, whole, cents, symbol)
+}
+
+// invoiceRows is the document block's content in one language.
+type invoiceView struct {
+	Labels                                        map[string]string
+	Number, Date, Seller, SellerTaxID, SellerAddr string
+	Buyer, BuyerTaxID, Description                string
+	Quantity                                      int
+	Unit, Tax, Total, Exemption                   string
+	Test                                          bool
+}
+
+func newInvoiceView(data *InvoiceData, locale string) *invoiceView {
+	if data == nil {
+		return nil
+	}
+	labels := invoiceLabels[NormalizeLocale(locale)]
+	view := &invoiceView{
+		Labels: labels, Number: data.Number, Date: data.IssuedAt, Seller: data.SellerName, SellerTaxID: data.SellerTaxID,
+		SellerAddr: data.SellerAddress, Buyer: data.BuyerName, BuyerTaxID: data.BuyerTaxID, Description: data.Description,
+		Quantity: data.Quantity, Unit: FormatMoney(data.UnitPrice, data.Currency, locale), Tax: FormatMoney(data.Tax, data.Currency, locale),
+		Total: FormatMoney(data.Total, data.Currency, locale), Test: data.Test,
+	}
+	if data.TaxExemption != "" {
+		view.Exemption = labels[data.TaxExemption]
+	}
+	return view
 }
 
 var layout = htmltemplate.Must(htmltemplate.New("layout").Parse(`<!doctype html>
@@ -197,6 +301,18 @@ var layout = htmltemplate.Must(htmltemplate.New("layout").Parse(`<!doctype html>
 <tr><td style="font-size:16px;line-height:1.6;color:#c9d5ec;padding-bottom:24px">{{.Body}}</td></tr>
 {{if .Link}}<tr><td style="padding-bottom:24px"><a href="{{.Link}}" style="display:inline-block;background:#00cbff;color:#02041f;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:12px">{{.Action}}</a></td></tr>
 <tr><td style="font-size:12px;line-height:1.5;color:#93a4c8;padding-bottom:16px;word-break:break-all">{{.Link}}</td></tr>{{end}}
+{{with .Invoice}}<tr><td style="padding-bottom:24px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;color:#0b1638;font-size:14px;line-height:1.5">
+<tr><td colspan="2" style="padding:20px 20px 4px;font-size:18px;font-weight:700">{{.Labels.title}}</td></tr>
+<tr><td style="padding:0 20px;color:#4a5878">{{.Labels.number}}</td><td align="right" style="padding:0 20px;font-weight:700">{{.Number}}</td></tr>
+<tr><td style="padding:0 20px 12px;color:#4a5878">{{.Labels.date}}</td><td align="right" style="padding:0 20px 12px">{{.Date}}</td></tr>
+<tr><td colspan="2" style="padding:12px 20px;border-top:1px solid #dde3ee"><strong>{{.Labels.seller}}:</strong> {{.Seller}}{{if .SellerTaxID}} · {{.Labels.taxID}} {{.SellerTaxID}}{{end}}{{if .SellerAddr}}<br>{{.SellerAddr}}{{end}}<br>
+<strong>{{.Labels.buyer}}:</strong> {{.Buyer}} · {{.Labels.taxID}} {{if .BuyerTaxID}}{{.BuyerTaxID}}{{else}}{{.Labels.consumer}}{{end}}</td></tr>
+<tr><td style="padding:12px 20px 0;border-top:1px solid #dde3ee"><strong>{{.Description}}</strong><br><span style="color:#4a5878">{{.Labels.qty}} {{.Quantity}} × {{.Unit}}</span></td><td align="right" style="padding:12px 20px 0;border-top:1px solid #dde3ee">{{.Unit}}</td></tr>
+<tr><td style="padding:4px 20px 0;color:#4a5878">{{.Labels.vat}}</td><td align="right" style="padding:4px 20px 0">{{.Tax}}</td></tr>
+<tr><td style="padding:8px 20px 16px;font-size:16px;font-weight:700">{{.Labels.total}}</td><td align="right" style="padding:8px 20px 16px;font-size:16px;font-weight:700">{{.Total}}</td></tr>
+<tr><td colspan="2" style="padding:12px 20px 20px;border-top:1px solid #dde3ee;font-size:12px;color:#4a5878">{{if .Exemption}}{{.Exemption}}<br>{{end}}{{if .Test}}{{.Labels.test}}<br>{{end}}{{.Labels.noTax}}</td></tr>
+</table></td></tr>{{end}}
 {{if .Footnote}}<tr><td style="font-size:13px;line-height:1.5;color:#93a4c8">{{.Footnote}}</td></tr>{{end}}
 </table></td></tr></table></body></html>`))
 
@@ -243,12 +359,31 @@ func Render(template, locale string, data Data) (Message, error) {
 	if err := layout.Execute(&html, map[string]any{
 		"Lang": NormalizeLocale(locale), "Subject": subject, "Heading": heading, "Body": body,
 		"Action": wording.Action, "Link": data.Link, "Footnote": wording.Footnote,
+		"Invoice": newInvoiceView(data.Invoice, locale),
 	}); err != nil {
 		return Message{}, fmt.Errorf("render email layout: %w", err)
 	}
 
 	var text strings.Builder
 	text.WriteString(heading + "\n\n" + body + "\n")
+	if view := newInvoiceView(data.Invoice, locale); view != nil {
+		l := view.Labels
+		buyerTax := view.BuyerTaxID
+		if buyerTax == "" {
+			buyerTax = l["consumer"]
+		}
+		fmt.Fprintf(&text, "\n%s\n%s: %s\n%s: %s\n%s: %s\n%s: %s (%s %s)\n%s: %d × %s\n%s: %s\n%s: %s\n",
+			l["title"], l["number"], view.Number, l["date"], view.Date, l["seller"], view.Seller,
+			l["buyer"], view.Buyer, l["taxID"], buyerTax, view.Description, view.Quantity, view.Unit,
+			l["vat"], view.Tax, l["total"], view.Total)
+		if view.Exemption != "" {
+			text.WriteString(view.Exemption + "\n")
+		}
+		if view.Test {
+			text.WriteString(l["test"] + "\n")
+		}
+		text.WriteString(l["noTax"] + "\n")
+	}
 	if data.Link != "" {
 		text.WriteString("\n" + wording.Action + ": " + data.Link + "\n")
 	}

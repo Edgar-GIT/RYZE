@@ -89,7 +89,7 @@ const LID_OPEN = -0.3;
 // the copy, with the dumbbell in front and the meal beside it.
 const base: SceneState = {
   heroX: 0.38,
-  heroY: -1.45,
+  heroY: -1.32,
   heroZ: 0,
   heroScale: 1,
   heroSpin: 0,
@@ -162,10 +162,6 @@ const KEYS: Array<{ at: number; state: SceneState }> = [
 type PhoneScreen = "training" | "nutrition" | "synced";
 const screenFor = (progress: number): PhoneScreen =>
   progress >= 0.465 && progress < 0.68 ? "nutrition" : progress >= 0.68 ? "synced" : "training";
-    if (progress < fade.end) return { base: fade.from, next: fade.to, mix: (progress - fade.start) / (fade.end - fade.start) };
-  }
-  return { base: "synced", next: null, mix: 0 };
-};
 
 // Where each lifted card comes from on its phone screen, in screen fractions
 // (left, top, right, bottom), the height of its card and where its leader turns.

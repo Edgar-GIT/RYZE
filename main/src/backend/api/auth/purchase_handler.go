@@ -10,6 +10,7 @@ import (
 
 	"ryze/backend/middleware/authcontext"
 	"ryze/backend/services/purchases"
+	"ryze/backend/services/taxid"
 )
 
 // purchaseResponse is the safe representation of a pending purchase
@@ -226,6 +227,10 @@ func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
 
 	var body struct {
 		PaymentMethod string `json:"payment_method"`
+		// TaxID is the buyer's optional taxpayer number (NIF) for the
+		// purchase document. Present (even empty) replaces what the pending
+		// purchase held; absent leaves it unchanged.
+		TaxID *string `json:"tax_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
@@ -237,7 +242,18 @@ func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.InitiatePayment(c.Request.Context(), userID, purchaseID, body.PaymentMethod)
+	var details []purchases.CheckoutDetails
+	if body.TaxID != nil {
+		if strings.TrimSpace(*body.TaxID) != "" {
+			if _, ok := taxid.Normalize(*body.TaxID); !ok {
+				RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid taxpayer number.", nil)
+				return
+			}
+		}
+		details = append(details, purchases.CheckoutDetails{TaxID: *body.TaxID})
+	}
+
+	result, err := h.service.InitiatePayment(c.Request.Context(), userID, purchaseID, body.PaymentMethod, details...)
 	if err != nil {
 		h.respondError(c, err)
 		return

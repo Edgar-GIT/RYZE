@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { type AthleteState, ROUTINE_REP_SECONDS, ROUTINE_SETS, createAthlete } from "./story_athlete";
+import { type AthleteState, type BuildOptions, BUILD, ROUTINE_REP_SECONDS, ROUTINE_SETS, createAthlete } from "./story_athlete";
 
 /*
  * The Home story's hero object (owner requests, 2026-11-15): a scanning drone
@@ -36,7 +36,28 @@ export interface Hologram {
   // elapsed: seconds since the scene started; emphasis: 1 on the hero, lower
   // while it waits in the corner.
   update: (elapsed: number, emphasis: number) => HologramState;
+  rig: THREE.Group; // the installation's frame, for props placed around it
+  floorY: number; // the platform's top in the rig
+  athleteScale: number;
+  pickPoint: THREE.Vector3; // building only: where the fists take a card, in the rig
 }
+
+export interface HologramOptions {
+  // The building routine (the Feed's construction hologram) instead of the
+  // exercises: the athlete takes cards from a stack and pushes them into a wall.
+  build?: BuildOptions;
+  // The opening: the drone flies in from the right, opens its beam and the
+  // hologram builds up from the platform; then the routine starts.
+  intro?: boolean;
+}
+
+// The opening, in seconds (with `intro`).
+export const HOLOGRAM_INTRO = {
+  droneIn: [0, 1.9],
+  beamOpen: [2.0, 2.6],
+  reveal: 2.5,
+  routine: 4.6
+} as const;
 
 type Track = <T extends { dispose: () => void }>(item: T) => T;
 
@@ -80,18 +101,23 @@ const beamFragment = /* glsl */ `
   uniform vec3 uColor;
   uniform float uTime;
   uniform float uOpacity;
+  uniform float uExtend;
   varying vec2 vUv;
   varying vec3 vNormal;
   varying vec3 vViewDir;
 
   void main() {
+    // While it opens, the light runs down from the sensor with a bright front.
+    float travelled = 1.0 - vUv.y;
+    if (travelled > uExtend) discard;
+    float front = exp(-pow((travelled - uExtend) * 14.0, 2.0)) * step(uExtend, 0.999);
     float edge = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewDir))), 1.5);
     // uv.y is 1 at the sensor and 0 on the platform.
     float strength = mix(0.12, 1.0, pow(vUv.y, 0.8));
     float angle = vUv.x * 6.28318;
     float streaks = 0.5 + 0.5 * sin(angle * 14.0 + sin(angle * 3.0 + uTime * 0.4) * 1.6);
     float flow = 0.8 + 0.2 * sin(vUv.y * 10.0 + uTime * 2.2);
-    float alpha = (0.025 + edge * 0.24 + streaks * 0.025) * strength * flow * uOpacity;
+    float alpha = (0.025 + edge * 0.24 + streaks * 0.025) * strength * flow * uOpacity + front * 0.35 * uOpacity;
     gl_FragColor = vec4(uColor, alpha);
     #include <colorspace_fragment>
   }
@@ -260,7 +286,8 @@ const smooth = (t: number) => t * t * (3 - 2 * t);
 const clamp01 = (t: number) => Math.min(Math.max(t, 0), 1);
 const beamRadiusAt = (y: number) => LENS_RADIUS + ((LENS_Y - y) / (LENS_Y - FLOOR_Y)) * (BEAM_RADIUS - LENS_RADIUS);
 
-export const createHologram = async (track: Track, pixelRatio: number): Promise<Hologram> => {
+export const createHologram = async (track: Track, pixelRatio: number, options: HologramOptions = {}): Promise<Hologram> => {
+  const { build, intro = false } = options;
   const group = new THREE.Group();
   const rig = new THREE.Group();
   rig.position.y = CENTRE_OFFSET;
@@ -269,7 +296,7 @@ export const createHologram = async (track: Track, pixelRatio: number): Promise<
   const additive = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending } as const;
 
   // --- Athlete ---------------------------------------------------------------------
-  const athlete = await createAthlete(track, pixelRatio, glow, PLATFORM_RADIUS);
+  const athlete = await createAthlete(track, pixelRatio, glow, PLATFORM_RADIUS, build);
   athlete.group.position.y = FLOOR_Y;
   athlete.group.scale.setScalar(ATHLETE_SCALE);
   rig.add(athlete.group);
@@ -358,7 +385,7 @@ export const createHologram = async (track: Track, pixelRatio: number): Promise<
   const beamHeight = LENS_Y - FLOOR_Y;
   const beamMaterial = track(
     new THREE.ShaderMaterial({
-      uniforms: { uColor: { value: ICE.clone() }, uTime: timeUniform, uOpacity: { value: 1 } },
+      uniforms: { uColor: { value: ICE.clone() }, uTime: timeUniform, uOpacity: { value: 1 }, uExtend: { value: 1 } },
       vertexShader: beamVertex,
       fragmentShader: beamFragment,
       side: THREE.DoubleSide,
@@ -567,8 +594,23 @@ export const createHologram = async (track: Track, pixelRatio: number): Promise<
   let glitchUntil = 0;
   let glitchY = 0;
 
+  // The opening's path: in from the right and above, settling over the platform.
+  const HOVER_Y = LENS_Y + 0.14;
+  const entry = new THREE.Vector3(4.6, HOVER_Y + 1.1, -0.8);
+  const hover = new THREE.Vector3(0, HOVER_Y, 0);
+  const span = (t: number, [a, b]: readonly [number, number]) => clamp01((t - a) / (b - a));
+  const easeOutBack = (t: number) => 1 + 2.25 * Math.pow(t - 1, 3) + 1.25 * Math.pow(t - 1, 2);
+  // The flash at the sensor as the beam opens.
+  const lensFlash = new THREE.Sprite(
+    track(new THREE.SpriteMaterial({ map: glow, color: 0xe8fdff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }))
+  );
+  lensFlash.position.y = LENS_Y - 0.02;
+  rig.add(lensFlash);
+  const dustUniforms = (dust.material as THREE.ShaderMaterial).uniforms;
+
   const update = (elapsed: number, emphasis: number): HologramState => {
     group.updateMatrixWorld(true);
+    const open = intro ? smooth(span(elapsed, HOLOGRAM_INTRO.beamOpen)) : 1;
 
     // The scanner's line runs up the body and back down.
     const phase = (elapsed % SCAN_SECONDS) / SCAN_SECONDS;
@@ -578,8 +620,8 @@ export const createHologram = async (track: Track, pixelRatio: number): Promise<
     scanPlane.position.y = scanLocal;
     scanPlane.scale.setScalar(beamRadiusAt(scanLocal));
 
-    // Materialises from the floor in the first seconds.
-    const reveal = smooth(clamp01((elapsed - 0.25) / 1.8));
+    // Materialises from the floor (with the opening, once the beam is down).
+    const reveal = smooth(clamp01((elapsed - (intro ? HOLOGRAM_INTRO.reveal : 0.25)) / 1.8));
     rig.localToWorld(revealPoint.set(0, FLOOR_Y + reveal * (ATHLETE_TOP + 0.2), 0));
 
     if (elapsed > nextGlitch) {
@@ -601,57 +643,83 @@ export const createHologram = async (track: Track, pixelRatio: number): Promise<
       glitch: elapsed < glitchUntil ? 1 : 0,
       glitchY,
       mirror,
-      floorInverse
+      floorInverse,
+      routineTime: intro ? elapsed - HOLOGRAM_INTRO.routine : elapsed
     });
 
-    // Each completed set sends a burst of data from the worked muscle to the
-    // sensor; it is logged when it arrives. All of it follows from the time
-    // into the exercise, so the readout can never drift from the scene.
-    const bursts = Math.min(ROUTINE_SETS, Math.floor(state.time / ROUTINE_REP_SECONDS));
-    const sinceBurst = bursts > 0 ? state.time - bursts * ROUTINE_REP_SECONDS : Infinity;
-    const landed = sinceBurst >= LOG_DELAY;
-    const arrived = landed ? bursts : Math.max(0, bursts - 1);
-    const logged = arrived === 0 ? -1 : landed ? sinceBurst - LOG_DELAY : sinceBurst + ROUTINE_REP_SECONDS - LOG_DELAY;
-    rig.worldToLocal(from.copy(state.muscle));
-    control.copy(from).lerp(to, 0.5);
-    control.x += from.x * 0.6;
-    control.z += from.z * 0.6;
-    for (let index = 0; index < DATA_POINTS; index += 1) {
-      const t = clamp01((sinceBurst - dataDelay[index]) / DATA_TRAVEL);
-      const s = smooth(t);
-      // Quadratic Bézier, with a little spread around the path.
-      const a = (1 - s) * (1 - s);
-      const b = 2 * (1 - s) * s;
-      const c = s * s;
-      const spread = Math.sin(s * Math.PI) * 0.09;
-      dataPositions[index * 3] = a * from.x + b * control.x + c * to.x + dataSpread[index * 2] * spread;
-      dataPositions[index * 3 + 1] = a * from.y + b * control.y + c * to.y;
-      dataPositions[index * 3 + 2] = a * from.z + b * control.z + c * to.z + dataSpread[index * 2 + 1] * spread;
-      dataAlpha[index] = t > 0 && t < 1 ? Math.sin(t * Math.PI) * reveal * emphasis : 0;
+    let arrived = 0;
+    let logged = -1;
+    if (build) {
+      // Building: the platform pulses as each card lands in the wall.
+      const landed = state.time - BUILD.release - 0.55;
+      pulseUniform.value = landed >= 0 ? Math.min(landed, 10) : 10;
+      dataAlpha.fill(0);
+      dataOpacity.needsUpdate = true;
+    } else {
+      // Each completed set sends a burst of data from the worked muscle to the
+      // sensor; it is logged when it arrives. All of it follows from the time
+      // into the exercise, so the readout can never drift from the scene.
+      const bursts = Math.min(ROUTINE_SETS, Math.floor(state.time / ROUTINE_REP_SECONDS));
+      const sinceBurst = bursts > 0 ? state.time - bursts * ROUTINE_REP_SECONDS : Infinity;
+      const landed = sinceBurst >= LOG_DELAY;
+      arrived = landed ? bursts : Math.max(0, bursts - 1);
+      logged = arrived === 0 ? -1 : landed ? sinceBurst - LOG_DELAY : sinceBurst + ROUTINE_REP_SECONDS - LOG_DELAY;
+      rig.worldToLocal(from.copy(state.muscle));
+      control.copy(from).lerp(to, 0.5);
+      control.x += from.x * 0.6;
+      control.z += from.z * 0.6;
+      for (let index = 0; index < DATA_POINTS; index += 1) {
+        const t = clamp01((sinceBurst - dataDelay[index]) / DATA_TRAVEL);
+        const s = smooth(t);
+        // Quadratic Bézier, with a little spread around the path.
+        const a = (1 - s) * (1 - s);
+        const b = 2 * (1 - s) * s;
+        const c = s * s;
+        const spread = Math.sin(s * Math.PI) * 0.09;
+        dataPositions[index * 3] = a * from.x + b * control.x + c * to.x + dataSpread[index * 2] * spread;
+        dataPositions[index * 3 + 1] = a * from.y + b * control.y + c * to.y;
+        dataPositions[index * 3 + 2] = a * from.z + b * control.z + c * to.z + dataSpread[index * 2 + 1] * spread;
+        dataAlpha[index] = t > 0 && t < 1 ? Math.sin(t * Math.PI) * reveal * emphasis : 0;
+      }
+      dataPosition.needsUpdate = true;
+      dataOpacity.needsUpdate = true;
+      // The data reaches the sensor; the platform pulses and the readout logs it.
+      pulseUniform.value = logged >= 0 ? Math.min(logged, 10) : 10;
     }
-    dataPosition.needsUpdate = true;
-    dataOpacity.needsUpdate = true;
-    // The data reaches the sensor; the platform pulses and the readout logs it.
-    pulseUniform.value = logged >= 0 ? Math.min(logged, 10) : 10;
 
     timeUniform.value = elapsed;
     beamMaterial.uniforms.uOpacity.value = 0.55 + 0.45 * emphasis;
-    floorMaterial.uniforms.uOpacity.value = 0.7 + 0.3 * emphasis;
+    beamMaterial.uniforms.uExtend.value = open;
+    beam.visible = open > 0;
+    dust.visible = open > 0;
+    dustUniforms.uOpacity.value = 0.8 * open;
+    floorMaterial.uniforms.uOpacity.value = (0.7 + 0.3 * emphasis) * open;
     planeMaterial.uniforms.uOpacity.value = 0.14 * reveal;
     scanRingMaterial.opacity = 0.6 * reveal;
 
-    // The scanner hovers with a slow, small sway; its lights brighten as data arrives.
-    drone.position.y = LENS_Y + 0.14 + Math.sin(elapsed * 1.3) * 0.025;
-    // Pitched a little towards the viewer, so its sensor array reads.
-    drone.rotation.set(-0.24 + Math.sin(elapsed * 0.7) * 0.02, Math.sin(elapsed * 0.23) * 0.12, Math.cos(elapsed * 0.9) * 0.018);
+    // The scanner flies in (with the opening), then hovers with a slow, small
+    // sway; its lights brighten as data arrives.
+    const arrive = intro ? span(elapsed, HOLOGRAM_INTRO.droneIn) : 1;
+    drone.position.copy(entry).lerp(hover, easeOutBack(smooth(arrive) * 0.35 + arrive * 0.65));
+    const settle = intro ? Math.exp(-Math.max(0, elapsed - HOLOGRAM_INTRO.droneIn[1]) * 2.5) : 0;
+    drone.position.y += Math.sin(elapsed * 1.3) * 0.025 + Math.sin(elapsed * 9) * 0.02 * settle * (arrive >= 1 ? 1 : 0);
+    const speedIn = arrive < 1 ? (1 - arrive) * 1.2 : 0;
+    // Pitched a little towards the viewer, so its sensor array reads; banked while it arrives.
+    drone.rotation.set(-0.24 + Math.sin(elapsed * 0.7) * 0.02 + 0.12 * speedIn, Math.sin(elapsed * 0.23) * 0.12, Math.cos(elapsed * 0.9) * 0.018 + 0.28 * speedIn);
     rotors.forEach((rotor, index) => {
       rotor.rotation.y = elapsed * (index % 2 === 0 ? 40 : -40);
     });
     const arrival = logged >= 0 ? 1 - smooth(clamp01(logged / 0.6)) : 0;
     lightMaterial.opacity = Math.min(1, 0.75 + 0.12 * Math.sin(elapsed * 2.4) + arrival * 0.25);
-    aperture.scale.setScalar(1 + arrival * 0.04);
-    lensGlow.material.opacity = 0.6 + Math.sin(elapsed * 3) * 0.08 + arrival * 0.4;
+    aperture.scale.setScalar(1 + arrival * 0.04 + open * 0.02);
+    lensGlow.material.opacity = (0.6 + Math.sin(elapsed * 3) * 0.08 + arrival * 0.4) * (intro ? 0.45 + 0.55 * open : 1);
     halo.material.opacity = (0.12 + 0.1 * state.stimulus) * reveal;
+    const burst = intro ? Math.exp(-Math.pow((elapsed - HOLOGRAM_INTRO.beamOpen[0] - 0.05) * 9, 2)) : 0;
+    lensFlash.visible = burst > 0.002;
+    lensFlash.material.opacity = burst * 0.95;
+    lensFlash.scale.setScalar(1.3 + burst * 0.8);
+    lensFlash.position.x = drone.position.x;
+    lensFlash.position.z = drone.position.z;
 
     drone.updateMatrixWorld(true);
     drone.localToWorld(lens.set(0, -0.06, 0));
@@ -659,6 +727,8 @@ export const createHologram = async (track: Track, pixelRatio: number): Promise<
     return { ...state, presence: reveal, lens, base, arrived, logged };
   };
 
+  // Where the fists take a card, in the rig (the athlete stands at its centre on the floor).
+  const pickPoint = athlete.pickPoint.clone().multiplyScalar(ATHLETE_SCALE).add(new THREE.Vector3(0, FLOOR_Y, 0));
   update(0, 1);
-  return { group, update };
+  return { group, update, rig, floorY: FLOOR_Y, athleteScale: ATHLETE_SCALE, pickPoint };
 };

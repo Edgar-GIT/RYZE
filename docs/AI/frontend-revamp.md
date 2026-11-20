@@ -89,6 +89,15 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-20 (v2.125.1) — Owner request: the Feed's construction hologram in
+  "really good 3D" with the Home's drone and a hologram person building. The
+  Feed scene now reuses `home_story/story_hologram.ts` (same drone as the Home
+  hero, beam, platform; new opening and building mode) and
+  `home_story/story_athlete.ts` (new building routine: take a card, turn, push
+  it into the Feed column); the CSS worker fallback became an SVG of the drone
+  projecting the Feed column. Only `/feed` changes; the Home does not import
+  either module. No new dependency; lazy desktop-only Three.js, fallback,
+  reduced motion and disposal kept. Protected parts untouched.
 - 2026-11-16 (v2.124.0) — Owner request: payment first for Premium Level 2.
   New `pages/premium_level2_experience/` (entry resolver, preparing moment,
   full bilingual intake, plan-on-the-way timeline and printable summary with

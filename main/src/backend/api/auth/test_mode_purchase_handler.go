@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -11,11 +12,14 @@ import (
 	"ryze/backend/logs"
 	"ryze/backend/middleware/authcontext"
 	"ryze/backend/services/purchases"
+	"ryze/backend/services/taxid"
 	"ryze/backend/services/test_mode"
 )
 
 type testModePurchaseRequest struct {
 	Email string `json:"email"`
+	// TaxID is the optional taxpayer number (NIF) for the purchase document.
+	TaxID string `json:"tax_id"`
 }
 
 // TestModePurchaseHandler provisions completed test purchases for a persona
@@ -68,16 +72,22 @@ func (h *TestModePurchaseHandler) Purchase(c *gin.Context) {
 	}
 
 	var req testModePurchaseRequest
-	if err := c.ShouldBindJSON(&req); err != nil || !email.IsValidAddress(req.Email) {
+	if err := c.ShouldBindJSON(&req); err != nil || !email.IsValidAddress(email.NormalizeAddress(req.Email)) {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "A valid email address is required.", nil)
 		return
+	}
+	if strings.TrimSpace(req.TaxID) != "" {
+		if _, ok := taxid.Normalize(req.TaxID); !ok {
+			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid taxpayer number.", nil)
+			return
+		}
 	}
 	if err := h.testMode.SetRecipientEmail(c.Request.Context(), rawToken, req.Email); err != nil {
 		h.respondRecipientError(c, err)
 		return
 	}
 
-	purchase, err := h.purchases.CompleteTestPurchase(c.Request.Context(), userID, programID)
+	purchase, err := h.purchases.CompleteTestPurchase(c.Request.Context(), userID, programID, purchases.CheckoutDetails{TaxID: req.TaxID})
 	if err != nil {
 		h.respondError(c, err)
 		return

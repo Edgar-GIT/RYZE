@@ -159,6 +159,15 @@ type MailConfig struct {
 	PublicAppURL string
 }
 
+// InvoiceConfig is the seller identity printed on purchase documents. Only
+// the name has a default ("RYZE"); the taxpayer number and address are shown
+// once the owner configures them (INVOICE_SELLER_*), and are never invented.
+type InvoiceConfig struct {
+	SellerName    string
+	SellerTaxID   string
+	SellerAddress string
+}
+
 // Enabled reports whether transactional email delivery is fully configured.
 func (c MailConfig) Enabled() bool {
 	return c.SMTPHost != "" && c.From != "" && c.PublicAppURL != ""

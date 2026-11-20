@@ -94,6 +94,7 @@ type PurchaseRepository interface {
 	// initiation. It is only called after the method has been validated and a
 	// configured provider has been resolved for it.
 	SetPaymentMethod(ctx context.Context, purchaseID, method string) error
+	SetBuyerTaxID(ctx context.Context, purchaseID, userID string, taxID *string) error
 	// Fail transitions a pending purchase to the failed status. The
 	// `status = 'pending'` guard makes the transition single-writer: a
 	// concurrently completed purchase is left untouched and maps to
@@ -323,6 +324,23 @@ func (r *purchaseRepository) SetPaymentMethod(ctx context.Context, purchaseID, m
 		Update("payment_method", method)
 	if result.Error != nil {
 		return fmt.Errorf("failed to set payment method: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrPurchaseNotFound
+	}
+	return nil
+}
+
+// SetBuyerTaxID records (or clears, with nil) the buyer's taxpayer number on
+// their own pending purchase. Another account's purchase, or one that is no
+// longer pending, maps to ErrPurchaseNotFound.
+func (r *purchaseRepository) SetBuyerTaxID(ctx context.Context, purchaseID, userID string, taxID *string) error {
+	result := r.db.WithContext(ctx).
+		Model(&models.Purchase{}).
+		Where("id = ? AND user_id = ? AND status = ?", purchaseID, userID, models.PurchaseStatusPending).
+		Update("buyer_tax_id", taxID)
+	if result.Error != nil {
+		return fmt.Errorf("failed to set buyer tax id: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return ErrPurchaseNotFound

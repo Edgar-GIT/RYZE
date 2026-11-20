@@ -350,6 +350,27 @@ func LoadContact() (ContactConfig, error) {
 // startup. With delivery disabled, emails are recorded as skipped and the
 // flows that need them (for example password recovery) still answer the same
 // way, so the API never reveals whether an address exists.
+// LoadInvoice reads the seller identity for purchase documents. Values are
+// trimmed and bounded to the document's columns.
+func LoadInvoice() InvoiceConfig {
+	bound := func(value string, limit int) string {
+		value = strings.TrimSpace(value)
+		if len([]rune(value)) > limit {
+			value = string([]rune(value)[:limit])
+		}
+		return value
+	}
+	cfg := InvoiceConfig{
+		SellerName:    bound(os.Getenv("INVOICE_SELLER_NAME"), 160),
+		SellerTaxID:   bound(os.Getenv("INVOICE_SELLER_TAX_ID"), 32),
+		SellerAddress: bound(os.Getenv("INVOICE_SELLER_ADDRESS"), 255),
+	}
+	if cfg.SellerName == "" {
+		cfg.SellerName = "RYZE"
+	}
+	return cfg
+}
+
 func LoadMail() (MailConfig, error) {
 	cfg := MailConfig{
 		SMTPHost:     strings.TrimSpace(os.Getenv("MAIL_SMTP_HOST")),

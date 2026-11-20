@@ -59,6 +59,7 @@ import (
 	"ryze/backend/services/programs"
 	"ryze/backend/services/public_programs"
 	uploads "ryze/backend/services/public_uploads"
+	"ryze/backend/services/invoices"
 	"ryze/backend/services/purchase_fulfillment"
 	"ryze/backend/services/purchases"
 	"ryze/backend/services/questionnaires"
@@ -101,7 +102,7 @@ const contactUploadPath = "/api/v1/contact"
 const contactUploadOverhead = 64 << 10
 
 // Setup wires all dependencies and registers the API routes.
-func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig, evidenceCfg config.EvidenceConfig, uploadsCfg config.UploadsConfig, contactCfg config.ContactConfig, mailCfg config.MailConfig, googleCfg config.GoogleConfig) *gin.Engine {
+func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, adminCfg config.AdminConfig, pricingCfg config.PricingConfig, commissionCfg config.CommissionConfig, stripeCfg config.StripeConfig, paypalCfg config.PayPalConfig, webhookCfg config.WebhookConfig, testModeCfg config.TestModeConfig, serverCfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, mediaCfg config.ExerciseMediaConfig, evidenceCfg config.EvidenceConfig, uploadsCfg config.UploadsConfig, contactCfg config.ContactConfig, mailCfg config.MailConfig, googleCfg config.GoogleConfig) *gin.Engine {
 	router := gin.Default()
 	// Only the configured proxies may set the client address from forwarded
 	// headers; with the default (no trusted proxies) ClientIP is the socket
@@ -255,8 +256,13 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 
 	premiumLevel2Repository := repositories.NewPremiumLevel2Repository(db)
 	testSessionRepository := repositories.NewTestSessionRepository(db)
+	// Persona emails go only to the current Test Mode session's recipient
+	// (same kill switch and session lifetime as the Test Mode service).
+	testRecipients := test_mode.NewRecipientResolver(testModeCfg.Enabled, testSessionRepository, jwtCfg.AccessTokenTTL)
 	notificationService := notifications.New(repositories.NewNotificationRepository(db), userRepository, trainerProgramRepository, mailer,
-		notifications.WithTestRecipients(testSessionRepository))
+		notifications.WithTestRecipients(testRecipients))
+	invoiceService := invoices.New(repositories.NewInvoiceRepository(db), mailer, testRecipients, invoiceCfg)
+	invoiceHandler := auth.NewInvoiceHandler(invoiceService)
 	notificationsHandler := auth.NewNotificationsHandler(notificationService)
 	supportHandler := auth.NewSupportHandler(support.New(repositories.NewSupportRepository(db), notificationService)).
 		WithSessions(tokenService, userRepository)
@@ -360,7 +366,9 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 		// Completing a purchase delivers what the product owes. Nutrition is the
 		// first such artifact: the hook runs after the entitlement is committed and
 		// its failure never fails the purchase.
-		purchases.WithFulfillment(purchase_fulfillment.New(nutritionAssignmentService, premiumLevel2Service, notificationService)),
+		// The purchase document is issued (and emailed) the same way, for
+		// every completed purchase, real or Test Mode.
+		purchases.WithFulfillment(purchase_fulfillment.New(nutritionAssignmentService, premiumLevel2Service, notificationService, invoiceService)),
 	)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)
@@ -500,6 +508,8 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	v1.GET("/me/programs/:programID/nutrition", middleware.Authenticate(tokenService, userRepository), nutritionHandler.GetStatus)
 	v1.POST("/me/programs/:programID/nutrition/generate", append(limits.chain(scopeNutritionGenerate), middleware.Authenticate(tokenService, userRepository), nutritionHandler.Generate)...)
 	v1.GET("/me/purchases", middleware.Authenticate(tokenService, userRepository), purchaseHandler.ListPurchases)
+	v1.GET("/me/invoices", middleware.Authenticate(tokenService, userRepository), invoiceHandler.List)
+	v1.GET("/me/purchases/:purchaseID/invoice", middleware.Authenticate(tokenService, userRepository), invoiceHandler.ForPurchase)
 	v1.POST("/me/programs/:programID/purchase", append(limits.chain(scopePurchase), middleware.Authenticate(tokenService, userRepository), purchaseHandler.CreatePurchase)...)
 	v1.POST("/me/purchases/:purchaseID/payment", append(limits.chain(scopePurchase), middleware.Authenticate(tokenService, userRepository), purchaseHandler.InitiatePayment)...)
 	v1.POST("/me/purchases/:purchaseID/capture", append(limits.chain(scopePurchase), middleware.Authenticate(tokenService, userRepository), purchaseHandler.CapturePayment)...)
@@ -773,6 +783,7 @@ func Setup(db *gorm.DB, jwtCfg config.JWTConfig, corsCfg config.CORSConfig, admi
 	adminCommerce.GET("/purchases/reconciliation-events", adminCommerceHandler.ListReconciliationEvents)
 	adminCommerce.GET("/purchases", adminCommerceHandler.ListPurchases)
 	adminCommerce.GET("/purchases/:id", adminCommerceHandler.GetPurchase)
+	adminCommerce.GET("/purchases/:id/invoice", invoiceHandler.ForPurchaseAdmin)
 
 	// The Stripe webhook follows the same complete-configuration rule as the
 	// provider: without both Stripe secrets no Checkout Session can exist, so

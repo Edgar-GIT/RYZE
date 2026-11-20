@@ -29,6 +29,7 @@ export interface AthleteFrame {
   glitchY: number;
   mirror: THREE.Matrix4; // reflects world points across the platform's top
   floorInverse: THREE.Matrix4; // world → platform space (y up from its top)
+  routineTime?: number; // seconds into the routine (default: elapsed); below 0 it stands ready
 }
 
 // What the athlete is doing, for the scanner's readout. Each rep stands for a
@@ -41,11 +42,23 @@ export interface AthleteState {
   time: number; // seconds into this exercise
   round: number; // how many times the whole routine has already run
   muscle: THREE.Vector3; // world position of the main worked muscle, on the side towards the readout (left)
+  hands: THREE.Vector3; // world position between the two fists
+  yaw: number; // the body's turn (rad, 0 = facing +z)
 }
 
 export interface Athlete {
   group: THREE.Group;
   update: (frame: AthleteFrame) => AthleteState;
+  // Building routine only: where the fists meet when the athlete reaches down
+  // for a card, in the athlete group's space, for the stack's top.
+  pickPoint: THREE.Vector3;
+}
+
+// The building routine (the Feed's construction hologram): the athlete takes a
+// card from a stack, turns, and pushes it into a wall.
+export interface BuildOptions {
+  stackYaw: number; // the turn that faces the stack
+  wallYaw: number; // the turn that faces the wall
 }
 
 type Track = <T extends { dispose: () => void }>(item: T) => T;
@@ -908,6 +921,46 @@ const mixPose = (a: Pose, b: Pose, t: number) => {
   return out;
 };
 
+// --- Building -------------------------------------------------------------------
+
+// One card per cycle (seconds into it): reach down to the stack and close the
+// hands on a card, stand and turn with it held at the chest, push it out
+// towards the wall (it leaves the hands for its slot), come back to rest.
+export const BUILD = {
+  cycle: 5,
+  grip: 1.05,
+  lift: [1.25, 2.35],
+  release: 2.8,
+  restYaw: 0.15
+} as const;
+
+const READY: Pose = { ...STANDING, armFlex: -0.08, elbowFlex: -0.32 };
+const PICK: Pose = { lean: 0.95, armAbd: 0.06, armFlex: -1.0, armForward: 0, elbowFlex: -0.12, elbowUp: 0, handTurn: 0, hip: -0.5, knee: 0.75 };
+const CARRY: Pose = { ...STANDING, lean: 0.04, armAbd: 0.06, armFlex: -0.75, elbowFlex: -1.45 };
+const PUSH: Pose = { ...STANDING, lean: 0.12, armAbd: 0.06, armFlex: -1.4, elbowFlex: -0.2, hip: -0.1, knee: 0.15 };
+
+type Facing = "rest" | "stack" | "wall";
+const BUILD_KEYS: Array<{ at: number; pose: Pose; facing: Facing }> = [
+  { at: 0, pose: READY, facing: "rest" },
+  { at: 0.95, pose: PICK, facing: "stack" },
+  { at: BUILD.lift[0], pose: PICK, facing: "stack" },
+  { at: BUILD.lift[1], pose: CARRY, facing: "wall" },
+  { at: 2.85, pose: PUSH, facing: "wall" },
+  { at: 3.85, pose: READY, facing: "rest" },
+  { at: BUILD.cycle, pose: READY, facing: "rest" }
+];
+
+const buildPose = (time: number, yaws: Record<Facing, number>) => {
+  if (time < 0) return { pose: READY, yaw: yaws.rest };
+  const t = time % BUILD.cycle;
+  let index = 0;
+  while (index < BUILD_KEYS.length - 2 && t >= BUILD_KEYS[index + 1].at) index += 1;
+  const from = BUILD_KEYS[index];
+  const to = BUILD_KEYS[index + 1];
+  const k = smooth(clamp01((t - from.at) / (to.at - from.at)));
+  return { pose: mixPose(from.pose, to.pose, k), yaw: yaws[from.facing] + (yaws[to.facing] - yaws[from.facing]) * k };
+};
+
 // From one exercise's start to the next one's, through a racked position when either needs it.
 const switchPose = (from: Exercise, to: Exercise, t: number) => {
   const via = to.via ?? from.via;
@@ -945,7 +998,14 @@ const glowAnchors = (): Array<{ region: number; bone: BoneName; at: Vec; side: n
 
 // floorRadius: the platform's radius in the installation's units (the
 // reflection fades out before its edge).
-export const createAthlete = async (track: Track, pixelRatio: number, glow: THREE.Texture, floorRadius: number): Promise<Athlete> => {
+// build: the building routine (no dumbbells, no muscle glow) instead of the exercises.
+export const createAthlete = async (
+  track: Track,
+  pixelRatio: number,
+  glow: THREE.Texture,
+  floorRadius: number,
+  build?: BuildOptions
+): Promise<Athlete> => {
   const prims = buildPrimitives();
   const breathe = breather();
   const surface = track(await buildSurface(prims, 0.021));
@@ -1013,8 +1073,9 @@ export const createAthlete = async (track: Track, pixelRatio: number, glow: THRE
   const uniforms = {
     uColor: { value: new THREE.Color(0x36d6ff) },
     uHot: { value: new THREE.Color(0xf2fdff) },
-    uGold: { value: new THREE.Color(0xffc23d) },
-    uRed: { value: new THREE.Color(0xff3456) },
+    // Building has no muscle work: its colours stay in the hologram's light.
+    uGold: { value: new THREE.Color(build ? 0x36d6ff : 0xffc23d) },
+    uRed: { value: new THREE.Color(build ? 0xf2fdff : 0xff3456) },
     uTime: { value: 0 },
     uScan: { value: -10 },
     uScanDir: { value: 1 },
@@ -1076,7 +1137,7 @@ export const createAthlete = async (track: Track, pixelRatio: number, glow: THRE
     turn.add(object);
   }
 
-  // Dumbbells (they follow the hand bones).
+  // Dumbbells (they follow the hand bones); none while building.
   const gearMaterial = track(
     new THREE.ShaderMaterial({
       uniforms: { uColor: { value: new THREE.Color(0x9af3ff) }, uReveal: uniforms.uReveal, uOpacity: uniforms.uOpacity },
@@ -1088,7 +1149,7 @@ export const createAthlete = async (track: Track, pixelRatio: number, glow: THRE
   const handle = track(new THREE.CylinderGeometry(0.021, 0.021, 0.32, 12));
   const plate = track(new THREE.CylinderGeometry(0.095, 0.095, 0.07, 6));
   const outer = track(new THREE.CylinderGeometry(0.075, 0.075, 0.05, 6));
-  for (const [side, s] of SIDES) {
+  for (const [side, s] of build ? [] : SIDES) {
     // The handle runs across the fist, along the elbow's hinge.
     const grip = new THREE.Group();
     grip.position.set(...scale(armDir(side), 0.095));
@@ -1124,7 +1185,7 @@ export const createAthlete = async (track: Track, pixelRatio: number, glow: THRE
   );
   // The readout points at the worked muscle on the side nearer to it (screen left).
   const focusPoints: Partial<Record<number, THREE.Object3D[]>> = {};
-  for (const anchor of glowAnchors()) {
+  for (const anchor of build ? [] : glowAnchors()) {
     const sprite = new THREE.Sprite(glowMaterials[anchor.region]);
     sprite.position.set(...sub(anchor.at, JOINTS[anchor.bone]));
     sprite.scale.setScalar(anchor.region === M.glutes || anchor.region === M.quads || anchor.region === M.hamstrings ? 0.5 : 0.4);
@@ -1194,6 +1255,24 @@ export const createAthlete = async (track: Track, pixelRatio: number, glow: THRE
     nodePosition.needsUpdate = true;
   };
 
+  // The point between the fists (the middle of each fist, along the forearm).
+  const fist = SIDES.map(([side]) => new THREE.Vector3(...scale(armDir(side), 0.095)));
+  const fistPoint = new THREE.Vector3();
+  const handsAt = (out: THREE.Vector3) => {
+    out.set(0, 0, 0);
+    SIDES.forEach(([, s], index) => out.add(bones[B[`hand${s}`]].localToWorld(fistPoint.copy(fist[index]))));
+    return out.multiplyScalar(0.5);
+  };
+  const yaws = { rest: BUILD.restYaw, stack: build?.stackYaw ?? 0, wall: build?.wallYaw ?? 0 };
+  // Measured once in the group's own space (it has no parent or transform yet).
+  const pickPoint = new THREE.Vector3();
+  if (build) {
+    applyPose(buildPose(BUILD.grip, yaws).pose);
+    group.updateMatrixWorld(true);
+    handsAt(pickPoint);
+  }
+  const hands = new THREE.Vector3();
+
   const targets = EXERCISES.map((exercise) => targetVectors(exercise.targets));
   const gold = new THREE.Color(0xffc23d);
   const red = new THREE.Color(0xff3456);
@@ -1203,6 +1282,7 @@ export const createAthlete = async (track: Track, pixelRatio: number, glow: THRE
 
   const update = (frame: AthleteFrame) => {
     const { elapsed } = frame;
+    if (build) return updateBuild(frame);
     const cycle = elapsed % (SEGMENT * EXERCISES.length);
     const index = Math.floor(cycle / SEGMENT);
     const local = cycle - index * SEGMENT;
@@ -1262,9 +1342,51 @@ export const createAthlete = async (track: Track, pixelRatio: number, glow: THRE
       rest: working ? 0 : clamp01((local - WORK) / (HOLD + SWITCH)),
       time: local,
       round: Math.floor(elapsed / (SEGMENT * EXERCISES.length)),
-      muscle
+      muscle,
+      hands: handsAt(hands),
+      yaw: turn.rotation.y
     };
   };
 
-  return { group, update };
+  // The building routine: `exercise` counts the cards taken so far and `time`
+  // is the time into the current card's cycle.
+  const zero = new THREE.Vector4();
+  const updateBuild = (frame: AthleteFrame): AthleteState => {
+    const { elapsed } = frame;
+    const routine = frame.routineTime ?? elapsed;
+    const { pose, yaw } = buildPose(routine, yaws);
+    applyPose(pose);
+    turn.rotation.y = yaw;
+    const breath = Math.sin(elapsed * 1.5);
+    bones[B.spine].rotation.set(0.01 * breath, 0, 0);
+    bones[B.chest].rotation.set(-0.018 * breath, 0, 0);
+    // The head follows the work: down to the stack, then to the wall.
+    bones[B.neck].rotation.set(0.012 * breath + 0.18 * pose.lean, 0.06 * Math.sin(elapsed * 0.31), 0);
+    uniforms.uStimA.value.copy(zero);
+    uniforms.uStimB.value.copy(zero);
+    uniforms.uTime.value = elapsed;
+    uniforms.uScan.value = frame.scanY;
+    uniforms.uScanDir.value = frame.scanDir;
+    uniforms.uMirror.value.copy(frame.mirror);
+    uniforms.uFloorInverse.value.copy(frame.floorInverse);
+    uniforms.uReveal.value = frame.reveal;
+    uniforms.uGlitch.value = frame.glitch;
+    uniforms.uGlitchY.value = frame.glitchY;
+    prepass.visible = frame.presence >= 1;
+    reflection.visible = frame.presence >= 1;
+    skinNetwork();
+    return {
+      stimulus: 0,
+      exercise: routine < 0 ? 0 : Math.floor(routine / BUILD.cycle),
+      sets: 0,
+      rest: 0,
+      time: routine < 0 ? routine : routine % BUILD.cycle,
+      round: 0,
+      muscle,
+      hands: handsAt(hands),
+      yaw
+    };
+  };
+
+  return { group, update, pickPoint };
 };

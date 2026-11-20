@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/payments"
+	"ryze/backend/services/taxid"
 )
 
 var (
@@ -100,6 +102,9 @@ type PurchaseRepository interface {
 	CompleteWithRestoredEntitlement(ctx context.Context, purchaseID string, entitlement *models.Entitlement) error
 	CompleteTestPurchase(ctx context.Context, purchase *models.Purchase, entitlement *models.Entitlement) error
 	SetPaymentMethod(ctx context.Context, purchaseID, method string) error
+	// SetBuyerTaxID records (or clears, with nil) the buyer's taxpayer number
+	// on their own pending purchase; any other purchase is left untouched.
+	SetBuyerTaxID(ctx context.Context, purchaseID, userID string, taxID *string) error
 	// Fail transitions a pending purchase to the failed status. The
 	// `status = 'pending'` guard makes the transition single-writer: a
 	// concurrently completed purchase is left untouched and maps to
@@ -198,13 +203,15 @@ type PaymentResult struct {
 // the authentication context.
 type Service interface {
 	CreatePurchaseIntent(ctx context.Context, userID, programID string) (*Purchase, error)
-	InitiatePayment(ctx context.Context, userID, purchaseID, paymentMethod string) (*PaymentResult, error)
+	// details (optional) carries the buyer's taxpayer number for the purchase
+	// document; when given it replaces what the pending purchase held.
+	InitiatePayment(ctx context.Context, userID, purchaseID, paymentMethod string, details ...CheckoutDetails) (*PaymentResult, error)
 	CompletePurchase(ctx context.Context, purchaseID string) (*Purchase, error)
 	GetPurchaseByID(ctx context.Context, purchaseID string) (*Purchase, error)
 	ListPurchases(ctx context.Context, userID string) ([]Purchase, error)
 	CapturePayment(ctx context.Context, userID, purchaseID, providerPaymentID string) (*Purchase, error)
 	CompletePurchaseWithCapture(ctx context.Context, purchaseID, providerPaymentID string) (*Purchase, error)
-	CompleteTestPurchase(ctx context.Context, userID, programID string) (*Purchase, error)
+	CompleteTestPurchase(ctx context.Context, userID, programID string, details ...CheckoutDetails) (*Purchase, error)
 	// ReconcilePurchase completes a purchase whose provider-verified payment
 	// arrived after the purchase left the pending state. It is the recovery
 	// path for a late settlement and is intended exclusively for the verified
@@ -256,6 +263,25 @@ type PurchaseFulfiller interface {
 	// more than once — a provider webhook, a client capture callback or Test Mode
 	// — and every delivery calls it.
 	FulfillPurchase(ctx context.Context, userID, programID string) error
+}
+
+// CheckoutDetails is what the buyer may add at checkout for their purchase
+// document: an optional Portuguese taxpayer number (NIF). Empty means "final
+// consumer"; anything else must pass taxid.Normalize.
+type CheckoutDetails struct {
+	TaxID string
+}
+
+// buyerTaxID validates the optional taxpayer number of the checkout details.
+func buyerTaxID(details []CheckoutDetails) (*string, error) {
+	if len(details) == 0 || strings.TrimSpace(details[0].TaxID) == "" {
+		return nil, nil
+	}
+	normalized, ok := taxid.Normalize(details[0].TaxID)
+	if !ok {
+		return nil, ErrInvalidInput
+	}
+	return &normalized, nil
 }
 
 // Option configures an optional service collaborator.
@@ -508,11 +534,15 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 // ErrPaymentMethodMismatch and never rebinds the purchase.
 // The purchase status is NOT modified during initiation — it remains "pending"
 // until a verified provider event flows through CompletePurchase().
-func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, paymentMethod string) (*PaymentResult, error) {
+func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, paymentMethod string, details ...CheckoutDetails) (*PaymentResult, error) {
 	if err := validateUserID(userID); err != nil {
 		return nil, err
 	}
 	if err := validatePurchaseID(purchaseID); err != nil {
+		return nil, err
+	}
+	taxID, err := buyerTaxID(details)
+	if err != nil {
 		return nil, err
 	}
 
@@ -544,6 +574,14 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 	// the expired purchase.
 	if s.isExpired(purchase) {
 		return nil, ErrPurchaseExpired
+	}
+
+	// The buyer's taxpayer number for the purchase document, recorded while
+	// the purchase is still pending (a concurrent completion keeps what it had).
+	if len(details) > 0 {
+		if err := s.purchases.SetBuyerTaxID(ctx, purchase.ID, userID, taxID); err != nil && !errors.Is(err, repositories.ErrPurchaseNotFound) {
+			return nil, fmt.Errorf("failed to record buyer tax id: %w", err)
+		}
 	}
 
 	// The program must still be published and not soft-deleted before a new
@@ -751,11 +789,15 @@ func (s *service) completeAndCreateEntitlement(ctx context.Context, purchase *mo
 // so it can never be confused with a paid sale. An already-owned program
 // (active entitlement or an existing completed purchase) reports
 // ErrDuplicateEntitlement.
-func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID string) (*Purchase, error) {
+func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID string, details ...CheckoutDetails) (*Purchase, error) {
 	if err := validateUserID(userID); err != nil {
 		return nil, err
 	}
 	if err := validateProgramID(programID); err != nil {
+		return nil, err
+	}
+	taxID, err := buyerTaxID(details)
+	if err != nil {
 		return nil, err
 	}
 
@@ -792,6 +834,7 @@ func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID st
 		Currency:        program.Currency,
 		Status:          models.PurchaseStatusCompleted,
 		Test:            true,
+		BuyerTaxID:      taxID,
 	}
 	entitlement := &models.Entitlement{
 		UserID:    userID,

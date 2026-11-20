@@ -42,7 +42,7 @@ func (s *stubPurchaseService) CreatePurchaseIntent(_ context.Context, _, _ strin
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubPurchaseService) InitiatePayment(_ context.Context, _, _, _ string) (*purchases.PaymentResult, error) {
+func (s *stubPurchaseService) InitiatePayment(_ context.Context, _, _, _ string, _ ...purchases.CheckoutDetails) (*purchases.PaymentResult, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -83,7 +83,7 @@ func (s *stubPurchaseService) CompletePurchaseWithCapture(_ context.Context, _, 
 	return s.purchase, nil
 }
 
-func (s *stubPurchaseService) CompleteTestPurchase(_ context.Context, _, _ string) (*purchases.Purchase, error) {
+func (s *stubPurchaseService) CompleteTestPurchase(_ context.Context, _, _ string, _ ...purchases.CheckoutDetails) (*purchases.Purchase, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -760,7 +760,7 @@ type completionCountingService struct {
 func (s *completionCountingService) CreatePurchaseIntent(_ context.Context, _, _ string) (*purchases.Purchase, error) {
 	return nil, errors.New("not implemented")
 }
-func (s *completionCountingService) InitiatePayment(_ context.Context, _, _, _ string) (*purchases.PaymentResult, error) {
+func (s *completionCountingService) InitiatePayment(_ context.Context, _, _, _ string, _ ...purchases.CheckoutDetails) (*purchases.PaymentResult, error) {
 	return nil, errors.New("not implemented")
 }
 func (s *completionCountingService) CompletePurchase(_ context.Context, _ string) (*purchases.Purchase, error) {
@@ -787,7 +787,7 @@ func (s *completionCountingService) CompletePurchaseWithCapture(_ context.Contex
 	return s.purchase, nil
 }
 
-func (s *completionCountingService) CompleteTestPurchase(_ context.Context, _, _ string) (*purchases.Purchase, error) {
+func (s *completionCountingService) CompleteTestPurchase(_ context.Context, _, _ string, _ ...purchases.CheckoutDetails) (*purchases.Purchase, error) {
 	if s.err != nil {
 		return nil, s.err
 	}

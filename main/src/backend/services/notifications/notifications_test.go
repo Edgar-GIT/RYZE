@@ -15,6 +15,7 @@ import (
 	"ryze/backend/email"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	"ryze/backend/services/test_mode"
 )
 
 type harness struct {
@@ -52,7 +53,7 @@ func newHarness(t *testing.T) *harness {
 	mailer := email.NewMailer(mailCfg, repositories.NewEmailOutboxRepository(tx))
 	h := &harness{tx: tx, users: users, clock: time.Now().UTC().Truncate(time.Microsecond)}
 	h.svc = New(repositories.NewNotificationRepository(tx), users, repositories.NewProgramRepository(tx), mailer,
-		WithTestRecipients(repositories.NewTestSessionRepository(tx))).(*service)
+		WithTestRecipients(test_mode.NewRecipientResolver(true, repositories.NewTestSessionRepository(tx), time.Hour))).(*service)
 	h.svc.now = func() time.Time { return h.clock }
 	return h
 }
@@ -63,6 +64,12 @@ func (h *harness) seedUser(t *testing.T, persona bool) *models.User {
 	if persona {
 		value := "client"
 		user.TestPersona = &value
+		// One account per persona: a persona left in the shared test database
+		// (by a Test Mode end-to-end run) is released inside this rolled-back
+		// transaction, so the test does not depend on seeded data.
+		if err := h.tx.Model(&models.User{}).Where("test_persona = ?", value).Update("test_persona", nil).Error; err != nil {
+			t.Fatalf("release persona: %v", err)
+		}
 	}
 	if err := h.users.Create(context.Background(), user); err != nil {
 		t.Fatalf("create user: %v", err)
