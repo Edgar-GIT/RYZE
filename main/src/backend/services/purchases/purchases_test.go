@@ -121,7 +121,9 @@ func (s *stubPurchaseRepository) CompleteTestPurchase(_ context.Context, purchas
 	return nil
 }
 
-func (*stubPurchaseRepository) SetBuyerTaxID(_ context.Context, _, _ string, _ *string) error { return nil }
+func (*stubPurchaseRepository) SetBuyerTaxID(_ context.Context, _, _ string, _ *string) error {
+	return nil
+}
 
 func (s *stubPurchaseRepository) SetPaymentMethod(_ context.Context, purchaseID, method string) error {
 	s.setMethodID = purchaseID
@@ -1027,7 +1029,9 @@ func (r *completionPurchaseRepo) CompleteTestPurchase(_ context.Context, purchas
 	return r.completeWithEntErr
 }
 
-func (*completionPurchaseRepo) SetBuyerTaxID(_ context.Context, _, _ string, _ *string) error { return nil }
+func (*completionPurchaseRepo) SetBuyerTaxID(_ context.Context, _, _ string, _ *string) error {
+	return nil
+}
 
 func (r *completionPurchaseRepo) SetPaymentMethod(_ context.Context, _, _ string) error { return nil }
 func (r *completionPurchaseRepo) Fail(_ context.Context, _ string) error                { return nil }
@@ -2679,7 +2683,9 @@ func (r *raceCompletionPurchaseRepo) CompleteWithEntitlement(_ context.Context, 
 func (r *raceCompletionPurchaseRepo) CompleteTestPurchase(_ context.Context, _ *models.Purchase, _ *models.Entitlement) error {
 	return nil
 }
-func (*raceCompletionPurchaseRepo) SetBuyerTaxID(_ context.Context, _, _ string, _ *string) error { return nil }
+func (*raceCompletionPurchaseRepo) SetBuyerTaxID(_ context.Context, _, _ string, _ *string) error {
+	return nil
+}
 
 func (r *raceCompletionPurchaseRepo) SetPaymentMethod(_ context.Context, _, _ string) error {
 	return nil

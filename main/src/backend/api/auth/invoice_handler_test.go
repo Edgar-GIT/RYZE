@@ -22,7 +22,7 @@ type stubInvoiceService struct {
 }
 
 func (s *stubInvoiceService) FulfillPurchase(context.Context, string, string) error { return nil }
-func (s *stubInvoiceService) Sweep(context.Context) error                          { return nil }
+func (s *stubInvoiceService) Sweep(context.Context) error                           { return nil }
 func (s *stubInvoiceService) ForPurchase(_ context.Context, userID, purchaseID string) (*models.Invoice, error) {
 	if userID != s.owner || purchaseID != s.invoice.PurchaseID {
 		return nil, invoices.ErrNotFound

@@ -586,6 +586,42 @@ func TestTestModePurchaseRequiresAValidRecipientEmail(t *testing.T) {
 	}
 }
 
+// The optional taxpayer number is validated before anything is written and is
+// stored on the test purchase for its document.
+func TestTestModePurchaseTaxID(t *testing.T) {
+	router, _, tx, tokenSvc := newTestModeTestRouter(t, true)
+
+	cookies, _ := enterTestMode(t, router, tokenSvc, "client")
+	program, _ := seedPurchasableProgram(t, tx, models.ProgramTypePremium, models.ProgramStatusPublished)
+	path := "/api/v1/auth/test-mode/programs/" + program.ID + "/purchase"
+	requestCookies := map[string]string{
+		auth.AccessTokenCookieName:      cookies[auth.AccessTokenCookieName],
+		auth.TestSessionTokenCookieName: cookies[auth.TestSessionTokenCookieName],
+	}
+
+	rec, _, raw := testModeRequest(router, http.MethodPost, path, `{"email":"qa@example.com","tax_id":"123456780"}`, requestCookies)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(raw, `"code":"VALIDATION_ERROR"`) {
+		t.Fatalf("an invalid NIF must be refused, got %d (body: %s)", rec.Code, raw)
+	}
+	var count int64
+	tx.Model(&models.Purchase{}).Where("program_id = ?", program.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("a refused NIF must not create a purchase, got %d", count)
+	}
+
+	rec, _, raw = testModeRequest(router, http.MethodPost, path, `{"email":"qa@example.com","tax_id":"PT 123 456 789"}`, requestCookies)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d (body: %s)", rec.Code, raw)
+	}
+	var purchase models.Purchase
+	if err := tx.Where("program_id = ?", program.ID).First(&purchase).Error; err != nil {
+		t.Fatalf("load purchase: %v", err)
+	}
+	if purchase.BuyerTaxID == nil || *purchase.BuyerTaxID != "123456789" || !purchase.Test {
+		t.Fatalf("expected the normalized NIF on the test purchase, got %+v", purchase.BuyerTaxID)
+	}
+}
+
 func TestTestModePurchaseDuplicateEntitlement(t *testing.T) {
 	router, _, tx, tokenSvc := newTestModeTestRouter(t, true)
 
