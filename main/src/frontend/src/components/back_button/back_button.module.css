@@ -12,6 +12,7 @@
   backdrop-filter: blur(12px);
   font: inherit;
   font-weight: 700;
+  text-decoration: none;
   cursor: pointer;
   transition:
     background-color 160ms ease,

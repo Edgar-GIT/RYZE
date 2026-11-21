@@ -59,6 +59,9 @@ interface AppShellProps {
   // when the tab has no earlier RYZE page.
   homePath: string;
   backLabel: string;
+  // The named page above the current one: the back button goes straight
+  // there instead of one step back in the history (personal area).
+  parentOf?: (pathname: string) => { path: string; label: string };
   // Hides the language and notification controls (admin consoles).
   compactTopbar?: boolean;
   children: ReactNode;
@@ -90,6 +93,7 @@ export const AppShell = ({
   backToSite,
   homePath,
   backLabel,
+  parentOf,
   compactTopbar = false,
   children
 }: AppShellProps) => {
@@ -196,7 +200,9 @@ export const AppShell = ({
 
       <div className={styles.body}>
         <header className={styles.topbar}>
-          {pathname === homePath ? null : (
+          {pathname === homePath ? null : parentOf ? (
+            <BackButton to={parentOf(pathname).path} label={parentOf(pathname).label} className={styles.historyBack} />
+          ) : (
             <BackButton fallback={homePath} label={backLabel} className={styles.historyBack} />
           )}
           <Link className={styles.topBrand} to={brandTo} aria-label={backToSite}>

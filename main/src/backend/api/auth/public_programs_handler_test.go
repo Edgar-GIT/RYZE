@@ -93,6 +93,10 @@ func (s *stubPublicProgramsService) ListPublishedPrograms(_ context.Context, pag
 	return s.listResult, s.err
 }
 
+func (s *stubPublicProgramsService) GetPublishedProgramOutline(_ context.Context, _ string) (*public_programs.Outline, error) {
+	return nil, public_programs.ErrProgramNotFound
+}
+
 func (s *stubPublicProgramsService) GetPublishedProgram(_ context.Context, programID string) (*public_programs.Program, error) {
 	s.gotID = programID
 	if s.program == nil {

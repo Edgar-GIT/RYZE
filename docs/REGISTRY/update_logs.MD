@@ -1,3 +1,58 @@
+# Version 2.127.0
+
+Title: Explicit back buttons, free plan overview, public profile, complete trainer application with document screening, muscle recovery and body measurements
+
+Date: 2026-11-21
+
+Summary:
+
+Owner requests of 2026-11-20, in the agreed order (quick fixes first).
+
+- Navigation: the navbar and member-shell back buttons open the named parent
+  page ("Voltar à Área pessoal", "Voltar aos Planos de treino", ...) in one
+  click instead of stepping back through history. The free and premium
+  detail pages no longer sit under the navbar.
+- Password: the current-password fields (change password, delete account) no
+  longer autofill and have no reveal button. Re-entering the password stays,
+  because it is what protects the account if a session is stolen.
+- Free plans: the detail page shows the plan's weeks, day titles, focus and
+  exercise counts (`GET /programs/:id/outline`, free plans only, no
+  exercises), and "Obter plano grátis" opens a checkout-like get step without
+  payment or purchase document.
+- Public profile (migration 000049): unique @username (generated for every
+  account, optional at registration, editable), display name and photo
+  (re-encoded to a 512 px JPEG). Shown in the account settings, the dashboard
+  and the user menu; coach names use the display name.
+- Trainer application (migration 000050): one complete multipart submission:
+  personal details, work history, education, a free text and the documents
+  (certification and identification required). Every file is screened
+  locally: declared AI generation, AI generator metadata, unsafe PDF content
+  or a file another account submitted refuse the submission with the reason;
+  softer signals are flagged for the reviewer. The admin review shows the
+  form and the screening, and admins can make a user a trainer by @username.
+  `start_test_mode.sh` promotes its trainer that way.
+- Statistics (migration 000051): the progress page has Training / Muscles /
+  Measurements tabs. Muscles: an estimate of each of 16 groups' recovery from
+  the last 7 days of sets (`GET /me/statistics/muscles`), shown on a front and
+  back body map beside the list with percentages. Measurements: weight, body
+  fat and 13 circumferences, logged per day, with the latest values, an
+  evolution chart and the history (`/me/measurements`). Dashboard shortcuts
+  open both.
+- Email verification (question answered): the flow is implemented end to
+  end (sent after registration, `/verify-email`, resend); without SMTP
+  credentials the emails are recorded as skipped and not sent.
+
+Verification: typecheck passes; `npm run test` 26 files, 175 tests pass; new
+Go tests for the outline, profile, avatars, screening, submission, promotion,
+recovery and measurements pass (`ryze_test` for SQL); the `api/auth` and
+`registration` packages keep their known failures from seeded `ryze_test`
+data (public program counts, reserved Test Mode addresses). Progress tabs and
+the application form checked with Playwright against mocked APIs at 390 px
+and 1366 px (no horizontal overflow). Docs: `docs/INSTRUCTIONS/api.MD`,
+`docs/INSTRUCTIONS/security.MD`, `docs/DATABASE/database.MD`,
+`docs/PAGES/design.MD`, `docs/how_to_run.MD`, `docs/AI/frontend-revamp.md`,
+`CLAUDE.md`. Apply migrations 000047-000051 with `go run . migrate up`.
+
 # Version 2.126.2
 
 Title: Simple mobile site without 3D stand-ins; registration fixed; sign-in in the start script

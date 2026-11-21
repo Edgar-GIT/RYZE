@@ -5,6 +5,7 @@ interface ApiEnvelope<T> {
   error?: {
     code: string;
     details: string[];
+    [key: string]: unknown;
   };
 }
 
@@ -12,13 +13,17 @@ export class ApiError extends Error {
   status: number;
   code: string;
   details: string[];
+  /** The whole error object of the envelope, for endpoints that add fields
+   *  (for example `rejections` on a refused trainer application). */
+  payload: Record<string, unknown>;
 
-  constructor(status: number, code: string, message: string, details: string[] = []) {
+  constructor(status: number, code: string, message: string, details: string[] = [], payload: Record<string, unknown> = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.details = details;
+    this.payload = payload;
   }
 }
 
@@ -226,7 +231,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
       response.status,
       envelope.error?.code ?? "API_ERROR",
       envelope.message,
-      envelope.error?.details ?? []
+      envelope.error?.details ?? [],
+      envelope.error ?? {}
     );
   }
 

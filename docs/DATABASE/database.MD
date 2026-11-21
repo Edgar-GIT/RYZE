@@ -2872,3 +2872,76 @@ and get none.
 
 The down migration drops the trigger, function, both tables and the
 `purchases.buyer_tax_id` column; it cannot restore issued documents.
+
+---
+
+## Migration 000049 — Public profile: @username, display name, photo (v2.127.0)
+
+Owner request (2026-11-20): every account keeps a unique reference (the
+@username, for example `teste2`) and may show a different display name (for
+example "Edgar") and a photo.
+
+- `users.username VARCHAR(30) NOT NULL`, `CHECK` `^[a-z0-9][a-z0-9._]{2,29}$`.
+  Existing rows were backfilled from the email's local part; duplicates got a
+  `.N` suffix.
+- `users.display_name VARCHAR(40) NULL` (`CHECK` 1-40 characters once trimmed).
+- `users.avatar_key VARCHAR(80) NULL` (`CHECK` `^avatars/<uuid>.jpg$`): the key
+  of the re-encoded photo under `UPLOADS_DIR`, never exposed raw (responses
+  carry `avatar_url`).
+- One active owner per username: stored generated column
+  `active_username` (`username` while `deleted_at IS NULL`) with
+  `uq_users_active_username`, the same one-active rule as e-mail.
+- Functions `ryze_username_base(address)` and `ryze_free_username(base, id)`
+  and the `BEFORE INSERT` trigger `trg_users_default_username`
+  (`ryze_users_default_username()`) generate a free username when an insert
+  has none. The GORM model omits an empty username (`default:null`) and reads
+  the generated one back. Restoring a soft-deleted account recomputes its
+  username with `ryze_free_username` in case another account took it.
+
+The down migration drops the trigger, functions, constraint and columns.
+
+---
+
+## Migration 000050 — Complete trainer application and document screening (v2.127.0)
+
+Owner request (2026-11-20): the trainer application collects the applicant's
+details and screened evidence.
+
+- `trainer_applications`: `full_name VARCHAR(120)`, `birth_date DATE`,
+  `city VARCHAR(80)`, `profession VARCHAR(120)`, `years_experience SMALLINT`
+  (`CHECK` 0-60), `work_history JSONB NOT NULL DEFAULT '[]'`
+  (`[{organization, role, start_year, end_year}]`), `education JSONB NOT NULL
+  DEFAULT '[]'` (`[{institution, qualification, year}]`) and `about TEXT`
+  (`CHECK` up to 4000). Nullable so earlier applications and direct
+  promotions stay valid; the service requires them on new submissions.
+- `trainer_application_documents`: `screening_status VARCHAR(16) NOT NULL
+  DEFAULT 'not_screened'` (`CHECK` `not_screened`, `passed`, `flagged`) and
+  `screening_signals JSONB NOT NULL DEFAULT '[]'`.
+- `idx_trainer_application_documents_sha256` serves the check that refuses a
+  file another account already submitted.
+
+The down migration drops the index, constraints and columns.
+
+---
+
+## Migration 000051 — Body measurements (v2.127.0)
+
+Owner request (2026-11-20, as in Lyfta): members log body measurements.
+
+- `body_measurements`: `id VARCHAR(36)` primary key, `user_id` (foreign key to
+  `users`), `kind VARCHAR(24)` (`CHECK` `weight`, `body_fat`, `neck`,
+  `shoulders`, `chest`, `biceps_left`, `biceps_right`, `forearm_left`,
+  `forearm_right`, `waist`, `hips`, `thigh_left`, `thigh_right`, `calf_left`,
+  `calf_right`), `value NUMERIC(6,2)` (`CHECK` above 0 and below 1000; the
+  service applies the per-kind ranges), `measured_on DATE`, `created_at`,
+  `updated_at` (`trg_body_measurements_touch_updated_at`).
+- `uq_body_measurements_entry (user_id, kind, measured_on)`: one value per kind
+  and day; saving again upserts (`ON CONFLICT ... DO UPDATE`).
+- `idx_body_measurements_user (user_id, kind, measured_on DESC)`.
+- Hard deletes: a member's own measurement is personal data they remove, with
+  no audit value.
+
+The muscle recovery estimate (`GET /me/statistics/muscles`) needs no table: it
+reads completed `workout_session_sets` with their exercise's muscle fields.
+
+The down migration drops the table.

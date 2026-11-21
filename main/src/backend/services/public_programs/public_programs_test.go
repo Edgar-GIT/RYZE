@@ -547,3 +547,39 @@ func TestSearchPublishedProgramsRejectsInvalidListFilters(t *testing.T) {
 		})
 	}
 }
+
+type stubOutlines []repositories.ProgramOutlineDay
+
+func (s stubOutlines) Outline(_ context.Context, _ string) ([]repositories.ProgramOutlineDay, error) {
+	return s, nil
+}
+
+// A free programme shows its weeks and days (titles and exercise counts); a
+// paid one keeps its structure private and answers like an unknown programme.
+func TestGetPublishedProgramOutline(t *testing.T) {
+	id := "11111111-1111-1111-1111-111111111111"
+	focus := "upper"
+	days := stubOutlines{
+		{WeekNumber: 1, Position: 1, Name: "Upper body", Focus: &focus, ExerciseCount: 6},
+		{WeekNumber: 1, Position: 2, Name: "Lower body", ExerciseCount: 5},
+		{WeekNumber: 2, Position: 1, Name: "Full body", ExerciseCount: 7},
+	}
+	repo := &stubProgramRepo{program: &models.Program{ID: id, Type: models.ProgramTypeFree, Status: models.ProgramStatusPublished}}
+	svc := public_programs.NewService(repo, public_programs.WithOutlines(days))
+
+	outline, err := svc.GetPublishedProgramOutline(context.Background(), id)
+	if err != nil {
+		t.Fatalf("outline: %v", err)
+	}
+	if len(outline.Weeks) != 2 || len(outline.Weeks[0].Days) != 2 || outline.TotalDays != 3 || outline.TotalExercises != 18 {
+		t.Fatalf("unexpected outline: %+v", outline)
+	}
+	if outline.Weeks[0].Days[0].Title != "Upper body" || outline.Weeks[0].Days[0].ExerciseCount != 6 {
+		t.Fatalf("unexpected first day: %+v", outline.Weeks[0].Days[0])
+	}
+
+	repo.program.Type = models.ProgramTypePremium
+	if _, err := svc.GetPublishedProgramOutline(context.Background(), id); !errors.Is(err, public_programs.ErrProgramNotFound) {
+		t.Fatalf("a paid programme must keep its structure private, got %v", err)
+	}
+}

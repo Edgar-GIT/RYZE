@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -193,7 +194,7 @@ func TestTrainerApplicationLifecycleE2E(t *testing.T) {
 
 	// --- Scenario 1: ADMIN_1 approves a fresh application ---
 	userCookie := e2eRegisterUser(t, router, e2eUniqueEmail())
-	rec, raw := e2eRequest(router, auth.AccessTokenCookieName, userCookie, http.MethodPost, "/api/v1/trainer/apply", "")
+	rec, raw := e2eApply(t, router, userCookie)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("apply: expected 201, got %d (body: %s)", rec.Code, raw)
 	}
@@ -249,7 +250,7 @@ func TestTrainerApplicationLifecycleE2E(t *testing.T) {
 
 	// --- Scenario 2: ADMIN_2 rejects, the user reapplies, ADMIN_2 approves ---
 	secondCookie := e2eRegisterUser(t, router, e2eUniqueEmail())
-	rec, raw = e2eRequest(router, auth.AccessTokenCookieName, secondCookie, http.MethodPost, "/api/v1/trainer/apply", "")
+	rec, raw = e2eApply(t, router, secondCookie)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("apply (second user): expected 201, got %d (body: %s)", rec.Code, raw)
 	}
@@ -265,7 +266,7 @@ func TestTrainerApplicationLifecycleE2E(t *testing.T) {
 		t.Fatal("a rejection must never create a trainer profile")
 	}
 
-	rec, raw = e2eRequest(router, auth.AccessTokenCookieName, secondCookie, http.MethodPost, "/api/v1/trainer/apply", "")
+	rec, raw = e2eApply(t, router, secondCookie)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("re-apply: expected 201, got %d (body: %s)", rec.Code, raw)
 	}
@@ -338,7 +339,7 @@ func TestTrainerEvidenceUploadBodyLimitE2E(t *testing.T) {
 	router, _, _ := newE2ERouter(t)
 	cookie := e2eRegisterUser(t, router, e2eUniqueEmail())
 
-	rec, raw := e2eRequest(router, auth.AccessTokenCookieName, cookie, http.MethodPost, "/api/v1/trainer/apply", "")
+	rec, raw := e2eApply(t, router, cookie)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("apply: expected 201, got %d (body: %s)", rec.Code, raw)
 	}
@@ -358,4 +359,32 @@ func TestTrainerEvidenceUploadBodyLimitE2E(t *testing.T) {
 	if rec.Code != http.StatusRequestEntityTooLarge || !strings.Contains(raw, `"code":"DOCUMENT_TOO_LARGE"`) {
 		t.Fatalf("oversized upload: expected 413 DOCUMENT_TOO_LARGE, got %d (body: %s)", rec.Code, raw)
 	}
+}
+
+// e2eApply submits a complete trainer application (form and unique
+// certification and identification documents) as the signed-in user.
+func e2eApply(t *testing.T, router http.Handler, cookie string) (*httptest.ResponseRecorder, string) {
+	t.Helper()
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	work, _ := json.Marshal([]map[string]any{{"organization": "Ginásio Central", "role": "Personal trainer", "start_year": 2018, "end_year": nil}})
+	education, _ := json.Marshal([]map[string]any{{"institution": "Faculdade de Motricidade Humana", "qualification": "Licenciatura em Desporto", "year": 2017}})
+	for key, value := range map[string]string{
+		"full_name": "Rita Costa", "birth_date": "1992-04-15", "city": "Lisboa", "profession": "Personal trainer",
+		"years_experience": "6", "work_history": string(work), "education": string(education),
+		"about": "Treino força e condição física há seis anos, com foco em iniciantes e reabilitação de lesões ligeiras.",
+	} {
+		_ = writer.WriteField(key, value)
+	}
+	for _, kind := range []string{"certification", "identification"} {
+		part, _ := writer.CreateFormFile(kind, kind+".pdf")
+		_, _ = part.Write([]byte("%PDF-1.4\n% " + uuid.NewString() + "\n1 0 obj << /Producer (Scanner) >>\nendobj\n%%EOF\n"))
+	}
+	_ = writer.Close()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/trainer/apply", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: auth.AccessTokenCookieName, Value: cookie})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec, rec.Body.String()
 }

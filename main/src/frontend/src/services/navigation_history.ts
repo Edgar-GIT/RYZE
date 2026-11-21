@@ -62,8 +62,47 @@ export const startNavigationTracking = (history: AppHistory): (() => void) => {
 
 export const canGoBackInApp = () => index > 0;
 
+// back is the whole button text: Portuguese contracts the preposition with
+// the article ("Voltar à Área pessoal", "Voltar aos Planos de treino"), so it
+// cannot be composed from the page name.
+export interface ParentPage {
+  path: string;
+  back: { en: string; pt: string };
+}
+
+// The page "above" a personal-area page, with its name: the back button goes
+// straight there (one click from any depth).
+export const memberParent = (pathname: string): ParentPage => {
+  if (/^\/services\/my-programs\/[^/]+/.test(pathname)) {
+    return { path: "/services/my-programs", back: { en: "Back to My programs", pt: "Voltar aos Meus programas" } };
+  }
+  if (/^\/account\/purchases\/[^/]+\/receipt/.test(pathname)) {
+    return { path: "/account/purchases", back: { en: "Back to Purchases", pt: "Voltar às Compras" } };
+  }
+  return { path: "/profile", back: { en: "Back to Personal area", pt: "Voltar à Área pessoal" } };
+};
+
+const PUBLIC_PARENT_BACK: Record<string, { en: string; pt: string }> = {
+  "/services/generic-program": { en: "Back to Training plans", pt: "Voltar aos Planos de treino" },
+  "/exercises": { en: "Back to Exercises", pt: "Voltar aos Exercícios" },
+  "/services": { en: "Back to Services", pt: "Voltar aos Serviços" },
+  "/": { en: "Back to Home", pt: "Voltar ao Início" }
+};
+
+// The page "above" a public page, with its name.
+export const publicParent = (pathname: string): ParentPage => {
+  const path = publicParentPath(pathname);
+  if (/^\/services\/generic-program\/[^/]+$/.test(path)) {
+    return { path, back: { en: "Back to the plan", pt: "Voltar ao plano" } };
+  }
+  return { path, back: PUBLIC_PARENT_BACK[path] ?? PUBLIC_PARENT_BACK["/"] };
+};
+
 // The page "above" a public page, used when there is nothing to go back to.
 export const publicParentPath = (pathname: string): string => {
+  // Getting a free plan returns to that plan's overview.
+  const getPlan = /^(\/services\/generic-program\/[^/]+)\/get\/?$/.exec(pathname);
+  if (getPlan) return getPlan[1];
   if (pathname.startsWith("/services/generic-program/")) return "/services/generic-program";
   if (pathname.startsWith("/coaches/")) return "/services/generic-program";
   if (pathname.startsWith("/exercises/")) return "/exercises";

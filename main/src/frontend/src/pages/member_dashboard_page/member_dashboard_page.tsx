@@ -1,4 +1,5 @@
 import {
+  Activity,
   ArrowRight,
   BookOpen,
   CalendarCheck,
@@ -11,6 +12,7 @@ import {
   MailWarning,
   Play,
   ReceiptText,
+  Ruler,
   ShoppingBag,
   Timer,
   Trophy,
@@ -29,6 +31,8 @@ import { fetchAchievements, type Achievements } from "@/services/achievements_ap
 import { fetchFreeActivations } from "@/services/free_programs_api";
 import { fetchEntitlements, fetchProgramAccess, type ProgramAccessDetail, type ProgramAccessWorkout } from "@/services/purchases_api";
 import { fetchClientStatistics, type ClientStatistics } from "@/services/statistics_api";
+import { ProfileAvatar } from "@/pages/account_settings_page/public_profile_card";
+import { publicNameOf } from "@/services/profile_api";
 import {
   currentStreakWeeks,
   estimatedOneRepMax,
@@ -106,6 +110,10 @@ interface DashboardText {
   purchasesText: string;
   support: string;
   supportText: string;
+  muscles: string;
+  musclesText: string;
+  measurements: string;
+  measurementsText: string;
   loadError: string;
 }
 
@@ -167,6 +175,10 @@ const COPY: Copy<DashboardText> = {
     purchasesText: "Orders and receipts",
     support: "Support",
     supportText: "Talk to the RYZE team",
+    muscles: "Muscle recovery",
+    musclesText: "See which muscles are ready to train",
+    measurements: "Body measurements",
+    measurementsText: "Log your weight and measurements",
     loadError: "Some of your data could not be loaded."
   },
   pt: {
@@ -226,6 +238,10 @@ const COPY: Copy<DashboardText> = {
     purchasesText: "Encomendas e recibos",
     support: "Suporte",
     supportText: "Fala com a equipa RYZE",
+    muscles: "Recuperação muscular",
+    musclesText: "Vê que músculos estão prontos a treinar",
+    measurements: "Medições corporais",
+    measurementsText: "Regista o teu peso e as tuas medidas",
     loadError: "Não foi possível carregar alguns dos teus dados."
   }
 };
@@ -478,7 +494,8 @@ export const MemberDashboardPage = () => {
     }
   }, [active, plan, next, history, text.startError]);
 
-  const firstName = user?.first_name || "";
+  // The display name when set (owner request, 2026-11-20), else the first name.
+  const firstName = user?.display_name?.trim() || user?.first_name || "";
   const loading = sessions === null || programs === null;
   const hasPlan = (programs?.length ?? 0) > 0;
 
@@ -487,6 +504,15 @@ export const MemberDashboardPage = () => {
       <header className={styles.header}>
         <div>
           <p className={styles.date}>{formatDate(new Date().toISOString(), { weekday: "long", day: "numeric", month: "long" })}</p>
+          {user ? (
+            <div className={styles.identity}>
+              <ProfileAvatar user={user} className={styles.identityAvatar} />
+              <span className={styles.identityText}>
+                <strong>{publicNameOf(user)}</strong>
+                <span>@{user.username}</span>
+              </span>
+            </div>
+          ) : null}
           <h1 className={styles.title}>
             {text.hello}
             {firstName ? (
@@ -831,6 +857,8 @@ export const MemberDashboardPage = () => {
         {/* Shortcuts. */}
         <nav className={styles.shortcuts} aria-label={text.shortcuts}>
           {[
+            { to: "/services/progress?tab=muscles", icon: Activity, title: text.muscles, body: text.musclesText },
+            { to: "/services/progress?tab=measurements", icon: Ruler, title: text.measurements, body: text.measurementsText },
             { to: "/services/generic-program", icon: ShoppingBag, title: text.plans, body: text.plansText },
             { to: "/exercises", icon: BookOpen, title: text.library, body: text.libraryText },
             { to: "/account/purchases", icon: ReceiptText, title: text.purchases, body: text.purchasesText },

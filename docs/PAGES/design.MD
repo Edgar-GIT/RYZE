@@ -345,6 +345,18 @@ exercise detail → library, everything else → Home.
   falling back to it; an arrow only before the logo on phones.
 - The button always has an accessible name and a visible focus ring.
 
+Explicit parent links (v2.127.0, owner request 2026-11-20: after five clicks in
+the personal area, five "Back" clicks to return made no sense). The navbar and
+the member shell no longer step back through history: the button names and
+opens the page above (`BackButton to`, `memberParent` / `publicParent` in
+`services/navigation_history.ts`), one click from any depth. Member area:
+"Voltar à Área pessoal" (`/profile`), a plan's page → "Voltar aos Meus
+programas", a receipt → "Voltar às Compras". Public pages: plan detail →
+"Voltar aos Planos de treino", getting a free plan → "Voltar ao plano", other
+`/services/...` → "Voltar aos Serviços", exercise detail → "Voltar aos
+Exercícios", everything else → "Voltar ao Início". The text is stored whole
+per page, because Portuguese contracts the preposition with the article.
+
 The six links occupy the flexible middle column and are spread evenly between
 the brand and the auth actions, so the group stays balanced instead of leaving
 a gap before the first link. At `1360px` and below the labels collapse and the
@@ -847,6 +859,18 @@ programmes expose a single in-page purchase panel with no separate checkout
 page. The public metadata always remains viewable, but activation and payment
 require authentication.
 
+Free plans (v2.127.0, owner request 2026-11-20) show an overview instead of a
+bare "you can activate it" panel: the description and, from
+`GET /programs/:programID/outline`, every week as an expandable group with
+each day's title, focus and number of exercises, and the totals. Exercises are
+never shown before the plan is taken. "Obter plano grátis" opens
+`/services/generic-program/:programId/get`, a checkout-like step: order
+summary, "Grátis", what is included, a note that there is no payment and no
+purchase document, and a final "Obter plano grátis" that activates it
+(`POST /me/programs/:programID/free-activation`), then "Abrir o plano". A
+visitor is asked to sign in and brought back. The page clears the navbar
+(`--r-nav-clearance`); the premium detail pages got the same fix.
+
 - **Top bar** — a back Button (arrow in a dark pill) that returns to the
   marketplace (`/services/generic-program`).
 - **Header** — the program name as the page title, the description as a muted
@@ -1043,6 +1067,21 @@ The interactive execution surface for one prescribed workout.
   sessions, abandoned sessions, completed/skipped sets and active time.
 - **States** — loading, generic retryable error and an empty state that links
   back to My Programs.
+- **Views** (v2.127.0, owner request 2026-11-20, modelled on Lyfta) — three
+  tabs, kept in the address (`?tab=muscles`, `?tab=measurements`):
+  - **Training** — the existing tiles and charts (workouts per week, volume
+    per workout, per-exercise best weight / estimated 1RM / volume).
+  - **Muscles** — a body map (front and back, `components/training/muscle_map`)
+    painted by each muscle group's recovery from
+    `GET /me/statistics/muscles`, beside the list of the 16 groups with their
+    percentage, a bar, "recovered in N hours" or "trained N days ago" and the
+    week's sets, ready groups first. Green "Pronto" (85%+), amber "A
+    recuperar" (50-84%), red "Cansado" (below 50%), always with the word and a
+    legend. Tapping a muscle or a row highlights both. Two columns from 960px
+    (the map stays in view), stacked below. Marked as an estimate.
+  - **Measurements** — log weight, body fat and 13 circumferences (value, date
+    up to today), the latest value of each kind with its change, an evolution
+    line chart and the history (delete asks first) for the selected kind.
 
 ---
 
@@ -1483,7 +1522,10 @@ data shows an honest empty state.
 - **Activity** — sessions per week over the last 8 weeks.
 - **Current plan** — completion ring and per-week bars, linking to the plan.
 - **Recent workouts** and **personal bests** (the best completed set per
-  exercise), plus shortcuts.
+  exercise), plus shortcuts (v2.127.0 adds "Recuperação muscular" and
+  "Medições corporais", opening those progress tabs).
+- **Identity** (v2.127.0) — photo (or initials), public name (display name
+  when set) and @username.
 - **Layout** — a twelve-column grid on desktop, stacked below 1024px.
 - An email-verification notice appears when the email is not verified.
 
@@ -1501,7 +1543,12 @@ written from the `rules` the API returns. Two columns from 1024px.
 
 Profile details, language preference, sign-in methods, email verification,
 password change, trainer status (apply or open the trainer area), sign-out and
-account deletion. These panels moved from the old profile page with their
+account deletion. Since v2.127.0 a public profile card sets the photo
+(upload or remove), the display name and the @username, and shows how others
+see the account (name on top, @username below). The current-password fields
+(password change and account deletion) never autofill and have no reveal
+button: re-entering the password protects against a stolen session, so the
+field stays, but it no longer shows anything. These panels moved from the old profile page with their
 behaviour, API calls and confirmations unchanged. Two columns on desktop, one
 on phones.
 
@@ -1590,9 +1637,18 @@ Apply page (`/trainer/apply`)
 - Presentational states derived from the access payload: no application (the
   form), `PENDING` (waiting for review), `REJECTED` (reapply is allowed),
   or an existing trainer (link into the trainer area).
-- The application collects no screening fields today; the backend endpoint
-  accepts no body, so the page submits and explains the review step instead of
-  inventing personal-data collection.
+- The application (v2.127.0, owner request 2026-11-20) is a complete form laid
+  out like the contact page: about you (full name, date of birth, city,
+  profession, years of experience), where you worked (1-10 rows: workplace,
+  role, from, to), education and courses (1-10 rows), a free text about you as
+  a trainer (50-4000 characters, counted), and documents by kind
+  (certifications and identification required, insurance and other optional,
+  PDF/JPEG/PNG, up to 10 MB each and 6 in total) with a notice that files are
+  checked for AI generation, unsafe content and reuse. A consent checkbox
+  enables "Enviar candidatura". Everything is sent in one request; invalid
+  fields are highlighted from the server's list, and refused files are listed
+  by name with the reason in plain words. A rejected application shows the
+  form again. One column on phones, two from 640px; inputs use 16px text.
 - While the application is `PENDING`, the review state includes an optional
   supporting-documents panel: a document-type select (Certification,
   Identification, Insurance, Other), a file picker restricted to PDF/JPEG/PNG,
@@ -1919,7 +1975,12 @@ Pages implemented in the current cycle:
   endpoints: documents can be downloaded (never edited), the history shows each
   transition, reviewer note and timestamp, and the reviewer can approve or
   reject with an optional decision note. The quick row actions remain
-  reason-less shortcuts.
+  reason-less shortcuts. Since v2.127.0 the panel starts with the applicant's
+  form (name, @username, age, city, profession and experience, work history,
+  education, about) and each document shows "Screening passed" or "Check:"
+  with the screening signals in plain words. "Add a trainer by username" above
+  the list makes an account a trainer directly (`@username` and an optional
+  reason; recorded as an approval).
 - **ADMIN_1 System, Technical configuration** — live values (v2.110.0).
   **Development** — placeholder page.
 - **ADMIN_1 Audit log** (`/admin/audit`, v2.111.0) — newest-first list of

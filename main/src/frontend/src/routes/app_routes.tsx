@@ -8,6 +8,7 @@ import { ExerciseDetailPage } from "@/pages/exercise_detail_page/exercise_detail
 import { ExerciseLibraryPage } from "@/pages/exercise_library_page/exercise_library_page";
 import { FeedbackPage } from "@/pages/feedback_page/feedback_page";
 import { GenericPlanMarketplacePage } from "@/pages/generic_plan_marketplace_page/generic_plan_marketplace_page";
+import { FreePlanGetPage } from "@/pages/free_plan_get_page/free_plan_get_page";
 import { GenericProgramDetailPage } from "@/pages/generic_program_detail_page/generic_program_detail_page";
 import { HomePage } from "@/pages/home_page/home_page";
 import { LoginPage } from "@/pages/login_page/login_page";
@@ -94,6 +95,7 @@ export const AppRoutes = () => {
         <Route exact path="/services/premium-level-2/experience" component={PremiumLevel2ExperienceEntryPage} />
         <Route exact path="/services/premium-level-2/experience/:requestID" component={PremiumLevel2ExperiencePage} />
         <Route exact path="/services/generic-program/:programId" component={GenericProgramDetailPage} />
+        <Route exact path="/services/generic-program/:programId/get" component={FreePlanGetPage} />
         {/* The configured payment return URLs land here (Stripe appends
             session_id, PayPal appends token, both with purchase_id). They must
             be declared before the dynamic /services/:serviceSlug route so the

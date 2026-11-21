@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,17 +25,22 @@ const (
 // unvalidated payload. Soft-deleted rows are preserved so a withdrawn upload
 // never destroys the review trail; the file itself is kept on disk.
 type TrainerApplicationDocument struct {
-	ID               string         `gorm:"type:varchar(36);primaryKey" json:"id"`
-	ApplicationID    string         `gorm:"column:application_id;type:varchar(36);not null" json:"application_id"`
-	Kind             string         `gorm:"column:kind;type:varchar(40);not null" json:"kind"`
-	OriginalFilename string         `gorm:"column:original_filename;type:varchar(255);not null" json:"original_filename"`
-	StorageKey       string         `gorm:"column:storage_key;type:varchar(255);not null" json:"storage_key"`
-	ContentType      string         `gorm:"column:content_type;type:varchar(100);not null" json:"content_type"`
-	ByteSize         int64          `gorm:"column:byte_size;type:bigint unsigned;not null" json:"byte_size"`
-	SHA256           string         `gorm:"column:sha256;type:char(64);not null" json:"sha256"`
-	CreatedAt        time.Time      `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
-	UpdatedAt        time.Time      `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
-	DeletedAt        gorm.DeletedAt `gorm:"column:deleted_at;type:datetime(6)" json:"deleted_at"`
+	ID               string `gorm:"type:varchar(36);primaryKey" json:"id"`
+	ApplicationID    string `gorm:"column:application_id;type:varchar(36);not null" json:"application_id"`
+	Kind             string `gorm:"column:kind;type:varchar(40);not null" json:"kind"`
+	OriginalFilename string `gorm:"column:original_filename;type:varchar(255);not null" json:"original_filename"`
+	StorageKey       string `gorm:"column:storage_key;type:varchar(255);not null" json:"storage_key"`
+	ContentType      string `gorm:"column:content_type;type:varchar(100);not null" json:"content_type"`
+	ByteSize         int64  `gorm:"column:byte_size;type:bigint unsigned;not null" json:"byte_size"`
+	SHA256           string `gorm:"column:sha256;type:char(64);not null" json:"sha256"`
+	// ScreeningStatus is "passed" or "flagged" (automatic screening, migration
+	// 000050; "not_screened" before it) and ScreeningSignals the reasons the
+	// reviewer should look at.
+	ScreeningStatus  string          `gorm:"column:screening_status;type:varchar(16);not null;default:not_screened" json:"screening_status"`
+	ScreeningSignals json.RawMessage `gorm:"column:screening_signals;type:jsonb;not null;default:'[]'" json:"screening_signals"`
+	CreatedAt        time.Time       `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
+	UpdatedAt        time.Time       `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`
+	DeletedAt        gorm.DeletedAt  `gorm:"column:deleted_at;type:datetime(6)" json:"deleted_at"`
 }
 
 func (d *TrainerApplicationDocument) BeforeCreate(_ *gorm.DB) error {

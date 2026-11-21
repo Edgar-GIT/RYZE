@@ -1,11 +1,16 @@
 package trainer_applications
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -15,6 +20,7 @@ import (
 
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	"ryze/backend/services/document_screening"
 	"ryze/backend/services/trainer_evidence"
 )
 
@@ -53,6 +59,9 @@ const (
 	maxOriginalFilenameLength = 255
 	maxAdminIDLength          = 40
 	maxDecisionReasonLength   = 500
+	// maxScreenedDocumentBytes bounds a document read for the screening (the
+	// evidence store applies TRAINER_EVIDENCE_MAX_BYTES, at most 25 MiB).
+	maxScreenedDocumentBytes = 25 << 20
 )
 
 // UploadDocument stores one validated evidence document for the caller's
@@ -79,7 +88,38 @@ func (s *service) UploadDocument(ctx context.Context, userID, kind, originalFile
 		return nil, ErrApplicationStateConflict
 	}
 
-	storageKey, saved, err := s.evidence.Save(ctx, application.ID, content)
+	// A document added later goes through the same screening as the
+	// complete application (read in full, bounded; the evidence store
+	// applies its own limit again).
+	data, err := io.ReadAll(io.LimitReader(content, maxScreenedDocumentBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read trainer application document: %w", err)
+	}
+	if len(data) > maxScreenedDocumentBytes {
+		return nil, ErrDocumentTooLarge
+	}
+	contentType := http.DetectContentType(data)
+	if contentType != "application/pdf" && contentType != "image/jpeg" && contentType != "image/png" {
+		return nil, ErrDocumentUnsupportedType
+	}
+	verdict := document_screening.Screen(contentType, data)
+	if s.hashes != nil {
+		sum := sha256.Sum256(data)
+		used, err := s.hashes.HashUsedByAnotherUser(ctx, hex.EncodeToString(sum[:]), userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check document history: %w", err)
+		}
+		if used {
+			verdict.Rejected = true
+			verdict.Reasons = append(verdict.Reasons, ReasonDuplicateDocument)
+		}
+	}
+	if verdict.Rejected {
+		return nil, &DocumentsRejectedError{Rejections: []DocumentRejection{{Filename: sanitizeOriginalFilename(originalFilename), Reasons: verdict.Reasons}}}
+	}
+	signals, _ := json.Marshal(nonNil(verdict.Signals))
+
+	storageKey, saved, err := s.evidence.Save(ctx, application.ID, bytes.NewReader(data))
 	if err != nil {
 		switch {
 		case errors.Is(err, trainer_evidence.ErrUnsupportedContentType):
@@ -101,6 +141,8 @@ func (s *service) UploadDocument(ctx context.Context, userID, kind, originalFile
 		ContentType:      saved.ContentType,
 		ByteSize:         saved.ByteSize,
 		SHA256:           saved.SHA256,
+		ScreeningStatus:  verdict.Status(),
+		ScreeningSignals: signals,
 	}
 	if err := s.documents.Create(ctx, document); err != nil {
 		// The file is kept: the metadata row can be reconstructed from it and a

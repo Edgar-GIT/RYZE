@@ -39,6 +39,10 @@ const documentErrorMessage = (reason: unknown, fallback: string, t: ReturnType<t
         return t("account.trainerApply.errState");
       case "APPLICATION_NOT_FOUND":
         return t("account.trainerApply.errMissing");
+      case "DOCUMENTS_REJECTED":
+        // The automatic screening refused the file (signs of AI, unsafe
+        // content or a file already used by another account).
+        return t("account.trainerApply.errRejected");
       default:
         return fallback;
     }

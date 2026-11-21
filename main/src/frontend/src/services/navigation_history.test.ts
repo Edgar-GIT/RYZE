@@ -54,6 +54,7 @@ describe("navigation history", () => {
 
   it("knows the parent of public pages", () => {
     expect(publicParentPath("/services/generic-program/123")).toBe("/services/generic-program");
+    expect(publicParentPath("/services/generic-program/123/get")).toBe("/services/generic-program/123");
     expect(publicParentPath("/services/premium-level-1")).toBe("/services");
     expect(publicParentPath("/exercises/abc")).toBe("/exercises");
     expect(publicParentPath("/coaches/42")).toBe("/services/generic-program");

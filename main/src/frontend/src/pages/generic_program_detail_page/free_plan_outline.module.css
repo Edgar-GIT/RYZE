@@ -1,0 +1,152 @@
+/* A free plan's weeks and training days (no exercises): glass cards on the
+   public blue, phone first. */
+.outline {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.1rem, 4vw, 1.75rem);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 1.375rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+}
+
+.head {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.title {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(1.3rem, 3vw, 1.6rem);
+  font-weight: 800;
+}
+
+.lead,
+.state {
+  margin: 0;
+  color: #bccdf0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.totals li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(124, 235, 255, 0.35);
+  border-radius: 999px;
+  color: #e8fdff;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.totals svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: #7cebff;
+}
+
+.weeks,
+.days {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week details {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 1rem;
+  background: rgba(2, 8, 38, 0.35);
+}
+
+.weekSummary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.weekSummary:focus-visible {
+  outline: 2.5px solid #7cebff;
+  outline-offset: 2px;
+  border-radius: 1rem;
+}
+
+.weekMeta {
+  color: #bccdf0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.days {
+  padding: 0 0.75rem 0.75rem;
+}
+
+.day {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.15rem 0.75rem;
+  align-items: baseline;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dayNumber {
+  grid-row: span 2;
+  color: #7cebff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dayTitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+  color: #ffffff;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.focus {
+  color: #bccdf0;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.dayCount {
+  color: #bccdf0;
+  font-size: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .day {
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  }
+
+  .dayNumber {
+    grid-row: auto;
+  }
+}

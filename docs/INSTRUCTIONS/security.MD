@@ -2326,6 +2326,56 @@ follows the rules above strictly:
   `PENDING`; after review the submission is locked. Reviewer decisions are
   append-only and never editable.
 
+## Trainer evidence screening (v2.127.0)
+
+Owner requirement (2026-11-20): fake trainers must not reach the platform.
+The complete application (`POST /trainer/apply`, multipart) and later
+uploads (`POST /trainer/application/documents`) screen every file before
+anything is stored (`services/document_screening`). This is a set of local
+heuristics, not proof of authenticity, and needs no external service: a
+person reviews every application and the evidence before any decision.
+
+Refused (the whole submission fails with `422 DOCUMENTS_REJECTED`, naming the
+file and the reasons, and nothing is stored):
+
+- `ai_provenance` — the file declares AI generation: a C2PA / JUMBF manifest
+  naming an AI generator, or the IPTC digital source type
+  `trainedAlgorithmicMedia` / `compositeSynthetic` /
+  `algorithmicMedia`.
+- `ai_generator_metadata` — an AI generator's name (for example DALL·E,
+  Midjourney, Stable Diffusion, Firefly, ChatGPT) in PDF Info/XMP or image
+  metadata, or PNG text chunks typical of generation tools (`parameters`,
+  `prompt`, `workflow`).
+- `unsafe_pdf_content` — PDF JavaScript, launch actions, embedded files, rich
+  media or XFA forms, looked for outside content streams so compressed page
+  data cannot trigger it.
+- `duplicate_document` — the file's SHA-256 was already submitted by another
+  account (the same person may reuse their own file).
+
+Flagged for the reviewer (stored as `screening_status = "flagged"` with
+`screening_signals`, shown in the admin review): modified after creation,
+incremental PDF edits, last saved by an image or PDF editor, low resolution,
+no camera or scanner metadata, content credentials present. These do not
+refuse a file because genuine scans and exports often show them.
+
+Limits: metadata can be stripped, so a clean result proves nothing; the
+review, the identification document and, where needed, contacting the issuer
+remain the decision. Screening reasons never include file contents, and the
+hash and storage key are never exposed.
+
+## Profile photos and @usernames (v2.127.0)
+
+- Profile photos (`POST /me/avatar`) are public. They are never stored as
+  uploaded: the server decodes JPEG or PNG within the upload size bound and
+  6000 x 6000 px (decompression-bomb guard), crops and scales to 512 px and
+  re-encodes to JPEG, which drops EXIF/GPS and any embedded payload. The key
+  is server-generated (`avatars/<uuid>.jpg`, checked by a database
+  constraint) and the read route serves only that shape, with `nosniff`.
+- The @username is public by design and unique among active accounts.
+  Reserved words (for example `admin`, `ryze`, `support`) cannot be chosen,
+  so no account can pass for the platform. The display name is plain text
+  (control characters refused) and React escapes it on output.
+
 ## Implemented contact attachments (v2.98.0)
 
 The public contact form accepts one optional attachment and treats it as

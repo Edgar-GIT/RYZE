@@ -92,6 +92,20 @@ func (h *UploadsHandler) saveCover(c *gin.Context, folder string) {
 // store-generated shape are resolved, so no other file under the uploads
 // directory (or outside it) can ever be reached. Keys are unique per upload,
 // which makes the response safe to cache for a long time.
+// ServeAvatar serves a profile photo (always a re-encoded JPEG).
+func (h *UploadsHandler) ServeAvatar(c *gin.Context) {
+	key := "avatars" + c.Param("filepath")
+	if !uploads.AvatarKeyPattern.MatchString(key) || !h.store.AvatarExists(key) {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	c.Header("Content-Type", "image/jpeg")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
+	c.Header("Cache-Control", "public, max-age=31536000, immutable")
+	c.File(h.store.Path(key))
+}
+
 func (h *UploadsHandler) ServeProgramImage(c *gin.Context) {
 	key := "programs" + c.Param("filepath")
 	if !uploads.ServedKeyPattern.MatchString(key) || !h.store.Exists(key) {

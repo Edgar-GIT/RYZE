@@ -18,9 +18,11 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { useHistory } from "react-router-dom";
 
 import { type Copy, useI18n } from "@/i18n/i18n";
+import { memberParent } from "@/services/navigation_history";
+import { publicNameOf } from "@/services/profile_api";
 import { fetchMyPremiumLevel2Requests } from "@/services/premium_level_2_api";
 import { fetchTrainerAccess } from "@/services/trainer_api";
-import { ApiError, apiGet, apiPost } from "@utils/http_client";
+import { ApiError, apiGet, apiPost, publicFileUrl } from "@utils/http_client";
 
 import { AppShell, type ShellNavItem, type UserMenuItem } from "./app_shell";
 
@@ -35,6 +37,12 @@ export interface MemberUser {
   password_set: boolean;
   sex?: "female" | "male" | null;
   plan_audience_filter?: boolean | null;
+  /** The unique @username (public reference). */
+  username: string;
+  /** The name people see; null: the registered name. */
+  display_name: string | null;
+  /** Public path of the profile photo; null without one. */
+  avatar_url: string | null;
 }
 
 interface MemberContextValue {
@@ -204,7 +212,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     history.replace("/login");
   };
 
-  const name = user ? `${user.first_name} ${user.last_name}`.trim() || user.email : "";
+  const name = user ? publicNameOf(user) : "";
 
   return (
     <MemberContext.Provider value={{ user, isTrainer, reload: () => setVersion((value) => value + 1) }}>
@@ -215,7 +223,17 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
         tabs={items}
         moreLabel={text.more}
         closeLabel={text.close}
-        user={user ? { name, email: user.email, role: isTrainer ? undefined : text.member } : null}
+        user={
+          user
+            ? {
+                name,
+                email: user.email,
+                handle: user.username,
+                avatarUrl: user.avatar_url ? publicFileUrl(user.avatar_url) : undefined,
+                role: isTrainer ? undefined : text.member
+              }
+            : null
+        }
         menu={{
           label: text.menu,
           items: menuItems,
@@ -228,6 +246,10 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
         backToSite={text.back}
         homePath="/profile"
         backLabel={text.goBack}
+        parentOf={(pathname) => {
+          const parent = memberParent(pathname);
+          return { path: parent.path, label: parent.back[locale] };
+        }}
       >
         {children}
       </AppShell>

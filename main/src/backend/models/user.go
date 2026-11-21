@@ -40,6 +40,31 @@ type User struct {
 	// made for their sex first; nil means the question was not answered yet.
 	Sex                *string `gorm:"column:sex;type:varchar(10)" json:"sex"`
 	PlanAudienceFilter *bool   `gorm:"column:plan_audience_filter" json:"plan_audience_filter"`
+	// Username is the account's unique public reference (@username, migration
+	// 000049): lowercase letters, digits, dots and underscores, 3-30
+	// characters. Left empty on create, the database generates one from the
+	// email (default:null keeps it out of the INSERT and reads it back).
+	Username string `gorm:"column:username;type:varchar(30);default:null" json:"username"`
+	// DisplayName is the name people see (nil: the registered first and last
+	// name). AvatarKey is the profile photo under the public uploads.
+	DisplayName *string `gorm:"column:display_name;type:varchar(40)" json:"display_name"`
+	AvatarKey   *string `gorm:"column:avatar_key;type:varchar(80)" json:"-"`
+}
+
+// PublicName is the name other people see: the display name, else the
+// registered first and last name.
+func (u *User) PublicName() string {
+	if u.DisplayName != nil && *u.DisplayName != "" {
+		return *u.DisplayName
+	}
+	name := u.FirstName
+	if u.LastName != "" {
+		if name != "" {
+			name += " "
+		}
+		name += u.LastName
+	}
+	return name
 }
 
 func (u *User) BeforeCreate(_ *gorm.DB) error {

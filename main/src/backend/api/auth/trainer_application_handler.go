@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,22 +21,70 @@ import (
 
 // applicationResponse only exposes safe application information.
 type applicationResponse struct {
-	ID        string       `json:"id"`
-	Status    string       `json:"status"`
-	UserID    string       `json:"user_id"`
-	User      userResponse `json:"user"`
-	CreatedAt time.Time    `json:"created_at"`
-	UpdatedAt time.Time    `json:"updated_at"`
+	ID     string       `json:"id"`
+	Status string       `json:"status"`
+	UserID string       `json:"user_id"`
+	User   userResponse `json:"user"`
+	// Username is the applicant's @username (their account reference).
+	Username  string    `json:"username"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	// The applicant's details (complete application form, migration 000050);
+	// null on older applications and administrator promotions.
+	FullName        *string         `json:"full_name"`
+	BirthDate       *string         `json:"birth_date"`
+	City            *string         `json:"city"`
+	Profession      *string         `json:"profession"`
+	YearsExperience *int            `json:"years_experience"`
+	WorkHistory     json.RawMessage `json:"work_history"`
+	Education       json.RawMessage `json:"education"`
+	About           *string         `json:"about"`
 }
 
 func newApplicationResponse(application *models.TrainerApplication) applicationResponse {
-	return applicationResponse{
-		ID:        application.ID,
-		Status:    application.Status,
-		UserID:    application.UserID,
-		User:      newUserResponse(&application.User),
-		CreatedAt: application.CreatedAt,
-		UpdatedAt: application.UpdatedAt,
+	response := applicationResponse{
+		ID:              application.ID,
+		Status:          application.Status,
+		UserID:          application.UserID,
+		User:            newUserResponse(&application.User),
+		Username:        application.User.Username,
+		CreatedAt:       application.CreatedAt,
+		UpdatedAt:       application.UpdatedAt,
+		FullName:        application.FullName,
+		City:            application.City,
+		Profession:      application.Profession,
+		YearsExperience: application.YearsExperience,
+		WorkHistory:     jsonOrEmptyList(application.WorkHistory),
+		Education:       jsonOrEmptyList(application.Education),
+		About:           application.About,
+	}
+	if application.BirthDate != nil {
+		date := application.BirthDate.Format("2006-01-02")
+		response.BirthDate = &date
+	}
+	return response
+}
+
+func jsonOrEmptyList(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return json.RawMessage("[]")
+	}
+	return raw
+}
+
+// reviewDocumentResponse is a document as the reviewers see it: the metadata
+// plus the automatic screening result. Applicants never see the signals.
+type reviewDocumentResponse struct {
+	applicationDocumentResponse
+	ScreeningStatus  string          `json:"screening_status"`
+	ScreeningSignals json.RawMessage `json:"screening_signals"`
+}
+
+func newReviewDocumentResponse(document *models.TrainerApplicationDocument) reviewDocumentResponse {
+	return reviewDocumentResponse{
+		applicationDocumentResponse: newApplicationDocumentResponse(document),
+		ScreeningStatus:             document.ScreeningStatus,
+		ScreeningSignals:            jsonOrEmptyList(document.ScreeningSignals),
 	}
 }
 
@@ -261,9 +310,9 @@ func (h *AdminTrainerApplicationHandler) ListDocuments(c *gin.Context) {
 		return
 	}
 
-	responses := make([]applicationDocumentResponse, 0, len(documents))
+	responses := make([]reviewDocumentResponse, 0, len(documents))
 	for i := range documents {
-		responses = append(responses, newApplicationDocumentResponse(&documents[i]))
+		responses = append(responses, newReviewDocumentResponse(&documents[i]))
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -320,10 +369,20 @@ func (h *AdminTrainerApplicationHandler) ListDecisions(c *gin.Context) {
 // session; the request body can never influence it.
 type TrainerApplicationHandler struct {
 	service trainer_applications.Service
+	// maxDocumentBytes bounds each attached file read for the screening.
+	maxDocumentBytes int64
 }
 
 func NewTrainerApplicationHandler(svc trainer_applications.Service) *TrainerApplicationHandler {
-	return &TrainerApplicationHandler{service: svc}
+	return &TrainerApplicationHandler{service: svc, maxDocumentBytes: 10 << 20}
+}
+
+// WithMaxDocumentBytes sets the per-file bound (TRAINER_EVIDENCE_MAX_BYTES).
+func (h *TrainerApplicationHandler) WithMaxDocumentBytes(limit int64) *TrainerApplicationHandler {
+	if limit > 0 {
+		h.maxDocumentBytes = limit
+	}
+	return h
 }
 
 // ownApplicationResponse is the applicant's view of their own trainer
@@ -353,9 +412,35 @@ func (h *TrainerApplicationHandler) Apply(c *gin.Context) {
 		return
 	}
 
-	application, err := h.service.Apply(c.Request.Context(), userID)
+	// The complete application (owner request, 2026-11-20): the form fields
+	// and the evidence files in one multipart submission.
+	form, documents, ok := h.readApplication(c)
+	if !ok {
+		return
+	}
+	application, err := h.service.SubmitApplication(c.Request.Context(), userID, form, documents)
 	if err != nil {
+		var formErr *trainer_applications.FormError
+		var rejected *trainer_applications.DocumentsRejectedError
 		switch {
+		case errors.As(err, &formErr):
+			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Some fields are missing or invalid.", formErr.Fields)
+		case errors.As(err, &rejected):
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"success": false,
+				"message": "Some documents were refused.",
+				"error": gin.H{
+					"code":       "DOCUMENTS_REJECTED",
+					"details":    []string{},
+					"rejections": rejected.Rejections,
+				},
+			})
+		case errors.Is(err, trainer_applications.ErrMissingDocuments):
+			RespondError(c, http.StatusBadRequest, "DOCUMENTS_REQUIRED", "Attach at least one certification and one identification document.", nil)
+		case errors.Is(err, trainer_applications.ErrDocumentUnsupportedType):
+			RespondError(c, http.StatusBadRequest, "DOCUMENT_TYPE_NOT_ALLOWED", "Documents must be PDF, JPEG or PNG files.", nil)
+		case errors.Is(err, trainer_applications.ErrDocumentTooLarge):
+			RespondError(c, http.StatusRequestEntityTooLarge, "DOCUMENT_TOO_LARGE", "A document is too large.", nil)
 		case errors.Is(err, trainer_applications.ErrUserNotFound):
 			RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
 		case errors.Is(err, trainer_applications.ErrAlreadyTrainer):
@@ -439,6 +524,7 @@ func (h *TrainerApplicationHandler) UploadDocument(c *gin.Context) {
 
 	document, err := h.service.UploadDocument(c.Request.Context(), userID, kind, fileHeader.Filename, file)
 	if err != nil {
+		var rejected *trainer_applications.DocumentsRejectedError
 		switch {
 		case errors.Is(err, trainer_applications.ErrInvalidInput):
 			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
@@ -446,6 +532,12 @@ func (h *TrainerApplicationHandler) UploadDocument(c *gin.Context) {
 			RespondError(c, http.StatusNotFound, "APPLICATION_NOT_FOUND", "Trainer application not found.", nil)
 		case errors.Is(err, trainer_applications.ErrApplicationStateConflict):
 			RespondError(c, http.StatusConflict, "APPLICATION_STATE_CONFLICT", "Trainer application is not pending.", nil)
+		case errors.As(err, &rejected):
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"success": false,
+				"message": "The document was refused.",
+				"error":   gin.H{"code": "DOCUMENTS_REJECTED", "details": []string{}, "rejections": rejected.Rejections},
+			})
 		case errors.Is(err, trainer_applications.ErrDocumentUnsupportedType):
 			RespondError(c, http.StatusBadRequest, "DOCUMENT_TYPE_NOT_ALLOWED", "Only PDF, JPEG and PNG documents are accepted.", nil)
 		case errors.Is(err, trainer_applications.ErrDocumentTooLarge):
@@ -590,4 +682,113 @@ func respondDocumentDownload(c *gin.Context, document *models.TrainerApplication
 	c.Header("Cache-Control", "private, no-store")
 	c.Status(http.StatusOK)
 	_, _ = io.Copy(c.Writer, content)
+}
+
+// applicationDocumentFields are the multipart file fields, one per kind.
+var applicationDocumentFields = []string{"certification", "identification", "insurance", "other"}
+
+// readApplication reads the multipart application: the form fields and the
+// files (each read in full, bounded, for the screening). It answers the
+// request itself when the body is unusable.
+func (h *TrainerApplicationHandler) readApplication(c *gin.Context) (trainer_applications.ApplicationForm, []trainer_applications.SubmittedDocument, bool) {
+	var form trainer_applications.ApplicationForm
+	multipartForm, err := c.MultipartForm()
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Send the application form with its documents.", nil)
+		return form, nil, false
+	}
+	value := func(key string) string {
+		if values := multipartForm.Value[key]; len(values) > 0 {
+			return values[0]
+		}
+		return ""
+	}
+	form.FullName = value("full_name")
+	form.BirthDate = value("birth_date")
+	form.City = value("city")
+	form.Profession = value("profession")
+	form.About = value("about")
+	years, err := strconv.Atoi(strings.TrimSpace(value("years_experience")))
+	if err != nil {
+		years = -1
+	}
+	form.YearsExperience = years
+	if raw := value("work_history"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &form.WorkHistory); err != nil {
+			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Some fields are missing or invalid.", []string{"work_history"})
+			return form, nil, false
+		}
+	}
+	if raw := value("education"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &form.Education); err != nil {
+			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Some fields are missing or invalid.", []string{"education"})
+			return form, nil, false
+		}
+	}
+
+	var documents []trainer_applications.SubmittedDocument
+	for _, kind := range applicationDocumentFields {
+		for _, header := range multipartForm.File[kind] {
+			if len(documents) >= trainer_applications.MaxSubmittedDocuments {
+				RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Too many documents.", []string{"documents"})
+				return form, nil, false
+			}
+			if header.Size > h.maxDocumentBytes {
+				RespondError(c, http.StatusRequestEntityTooLarge, "DOCUMENT_TOO_LARGE", "A document is too large.", nil)
+				return form, nil, false
+			}
+			file, err := header.Open()
+			if err != nil {
+				RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "A document could not be read.", nil)
+				return form, nil, false
+			}
+			data, err := io.ReadAll(io.LimitReader(file, h.maxDocumentBytes+1))
+			file.Close()
+			if err != nil || int64(len(data)) > h.maxDocumentBytes {
+				RespondError(c, http.StatusRequestEntityTooLarge, "DOCUMENT_TOO_LARGE", "A document is too large.", nil)
+				return form, nil, false
+			}
+			documents = append(documents, trainer_applications.SubmittedDocument{Kind: kind, Filename: header.Filename, Data: data})
+		}
+	}
+	return form, documents, true
+}
+
+type promoteTrainerRequest struct {
+	Username string `json:"username"`
+	Reason   string `json:"reason"`
+}
+
+// PromoteUser makes the account with the given @username a trainer directly
+// (administrators who manage trainer applications).
+func (h *AdminTrainerApplicationHandler) PromoteUser(c *gin.Context) {
+	adminID, err := adminauthcontext.AdminIdentityFromContext(c)
+	if err != nil {
+		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
+		return
+	}
+	var req promoteTrainerRequest
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Username) == "" || len(req.Reason) > 500 {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+	application, err := h.service.PromoteUser(c.Request.Context(), req.Username, adminID, req.Reason)
+	if err != nil {
+		switch {
+		case errors.Is(err, trainer_applications.ErrUserNotFound):
+			RespondError(c, http.StatusNotFound, "USER_NOT_FOUND", "No active account has this username.", nil)
+		case errors.Is(err, trainer_applications.ErrAlreadyTrainer):
+			RespondError(c, http.StatusConflict, "USER_ALREADY_TRAINER", "User is already a trainer.", nil)
+		case errors.Is(err, trainer_applications.ErrInvalidInput):
+			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		default:
+			RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
+		}
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "User promoted to trainer.",
+		"data":    newApplicationResponse(application),
+	})
 }

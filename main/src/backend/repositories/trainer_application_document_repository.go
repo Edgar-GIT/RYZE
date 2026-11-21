@@ -94,3 +94,26 @@ func (r *trainerApplicationDocumentRepository) SoftDelete(ctx context.Context, d
 	}
 	return nil
 }
+
+// DocumentHashLookup answers whether a file (by its SHA-256) was already
+// submitted with another account's trainer application.
+type DocumentHashLookup struct {
+	db *gorm.DB
+}
+
+func NewDocumentHashLookup(db *gorm.DB) *DocumentHashLookup {
+	return &DocumentHashLookup{db: db}
+}
+
+func (l *DocumentHashLookup) HashUsedByAnotherUser(ctx context.Context, sha256, userID string) (bool, error) {
+	var count int64
+	err := l.db.WithContext(ctx).
+		Table("trainer_application_documents AS d").
+		Joins("JOIN trainer_applications a ON a.id = d.application_id").
+		Where("d.sha256 = ? AND a.user_id <> ?", sha256, userID).
+		Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("failed to check document hash: %w", err)
+	}
+	return count > 0, nil
+}

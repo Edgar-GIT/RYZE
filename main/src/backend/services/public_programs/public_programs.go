@@ -152,14 +152,92 @@ type Service interface {
 	// platform-owned programs; sortBy and order control deterministic sorting
 	// with safe defaults.
 	SearchPublishedPrograms(ctx context.Context, filter ProgramFilter, page, limit int) (ListProgramsResult, error)
+	// GetPublishedProgramOutline returns the shape of a published FREE
+	// programme (owner request, 2026-11-20): its weeks and training days with
+	// each day's title, focus and number of exercises, never the exercises.
+	// Paid programmes keep their structure private (ErrProgramNotFound).
+	GetPublishedProgramOutline(ctx context.Context, programID string) (*Outline, error)
+}
+
+// OutlineReader reads a programme's structure shape.
+type OutlineReader interface {
+	Outline(ctx context.Context, programID string) ([]repositories.ProgramOutlineDay, error)
+}
+
+// Outline is the public shape of a free programme.
+type Outline struct {
+	ProgramID      string
+	Weeks          []OutlineWeek
+	TotalDays      int
+	TotalExercises int
+}
+
+// OutlineWeek groups a week's training days.
+type OutlineWeek struct {
+	WeekNumber int
+	Days       []OutlineDay
+}
+
+// OutlineDay is one training day: its order, title, focus and exercise count.
+type OutlineDay struct {
+	Position      int
+	Title         string
+	Focus         *string
+	ExerciseCount int
 }
 
 type service struct {
 	programs ProgramRepository
+	outlines OutlineReader
 }
 
-func NewService(programs ProgramRepository) Service {
-	return &service{programs: programs}
+// Option configures an optional collaborator.
+type Option func(*service)
+
+// WithOutlines enables GetPublishedProgramOutline.
+func WithOutlines(outlines OutlineReader) Option {
+	return func(s *service) { s.outlines = outlines }
+}
+
+func NewService(programs ProgramRepository, opts ...Option) Service {
+	s := &service{programs: programs}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+func (s *service) GetPublishedProgramOutline(ctx context.Context, programID string) (*Outline, error) {
+	if err := validateProgramID(programID); err != nil {
+		return nil, err
+	}
+	model, err := s.programs.FindPublishedByID(ctx, programID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to find published program: %w", err)
+	}
+	// Only free programmes show their shape before access; a paid one answers
+	// exactly like an unknown programme.
+	if model.Type != models.ProgramTypeFree || s.outlines == nil {
+		return nil, ErrProgramNotFound
+	}
+	days, err := s.outlines.Outline(ctx, model.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read program outline: %w", err)
+	}
+	outline := &Outline{ProgramID: model.ID, Weeks: []OutlineWeek{}}
+	for _, day := range days {
+		if len(outline.Weeks) == 0 || outline.Weeks[len(outline.Weeks)-1].WeekNumber != day.WeekNumber {
+			outline.Weeks = append(outline.Weeks, OutlineWeek{WeekNumber: day.WeekNumber})
+		}
+		week := &outline.Weeks[len(outline.Weeks)-1]
+		week.Days = append(week.Days, OutlineDay{Position: day.Position, Title: day.Name, Focus: day.Focus, ExerciseCount: day.ExerciseCount})
+		outline.TotalDays++
+		outline.TotalExercises += day.ExerciseCount
+	}
+	return outline, nil
 }
 
 // ListPublishedPrograms returns one page of published programs ordered by

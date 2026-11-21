@@ -1,0 +1,14 @@
+DROP INDEX IF EXISTS idx_trainer_application_documents_sha256;
+ALTER TABLE trainer_application_documents DROP CONSTRAINT IF EXISTS chk_trainer_application_documents_screening;
+ALTER TABLE trainer_application_documents DROP COLUMN IF EXISTS screening_signals;
+ALTER TABLE trainer_application_documents DROP COLUMN IF EXISTS screening_status;
+ALTER TABLE trainer_applications DROP CONSTRAINT IF EXISTS chk_trainer_applications_about;
+ALTER TABLE trainer_applications DROP CONSTRAINT IF EXISTS chk_trainer_applications_years_experience;
+ALTER TABLE trainer_applications DROP COLUMN IF EXISTS about;
+ALTER TABLE trainer_applications DROP COLUMN IF EXISTS education;
+ALTER TABLE trainer_applications DROP COLUMN IF EXISTS work_history;
+ALTER TABLE trainer_applications DROP COLUMN IF EXISTS years_experience;
+ALTER TABLE trainer_applications DROP COLUMN IF EXISTS profession;
+ALTER TABLE trainer_applications DROP COLUMN IF EXISTS city;
+ALTER TABLE trainer_applications DROP COLUMN IF EXISTS birth_date;
+ALTER TABLE trainer_applications DROP COLUMN IF EXISTS full_name;

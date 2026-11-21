@@ -89,6 +89,21 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-21 (v2.127.0) — Owner requests of 2026-11-20. Back buttons in the
+  navbar and member shell now name and open the parent page ("Voltar à Área
+  pessoal"), one click from any depth. Free plans show an overview (weeks,
+  day titles, exercise counts, no exercises) and a separate get step; the
+  free/premium detail pages clear the navbar. Account settings: public
+  profile card (photo, display name, @username); current-password fields no
+  longer autofill or reveal. Registration (protected) gained one optional
+  @username field; nothing else in it changed. The trainer application is a
+  complete contact-style form with screened documents; the admin review
+  shows the form and the screening and can promote by @username. Progress has
+  Training / Muscles / Measurements tabs: an SVG body map (front and back,
+  status colours with words and a legend) beside the muscle list, and body
+  measurements with a chart. Checked with Playwright against mocked APIs at
+  390 px and 1366 px (no horizontal overflow). No new dependency, no 3D;
+  other protected parts untouched.
 - 2026-11-20 (v2.126.2) — Owner request: a simple, fast mobile site with no 3D
   and no SVG stand-ins for it. Below 1024 px the Home story drops the drone
   opening and planet RYZE (kept as the desktop fallback), is one column up to

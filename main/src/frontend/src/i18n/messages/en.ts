@@ -367,6 +367,7 @@ export const en = {
       errSize: "This file is larger than the allowed document size.",
       errState: "The application is no longer pending, so documents can no longer be changed.",
       errMissing: "No pending application was found for your account.",
+      errRejected: "The document was refused: it shows signs of being made or altered with AI, has unsafe content or was already submitted by another account. Attach the original document.",
       errLoad: "Unable to load your documents.",
       errUpload: "Unable to upload the document.",
       errDownload: "Unable to download the document.",

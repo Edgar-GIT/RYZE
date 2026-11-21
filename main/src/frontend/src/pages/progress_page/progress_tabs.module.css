@@ -1,0 +1,40 @@
+/* The three views of the progress page. Scrolls sideways on the narrowest
+   phones rather than wrapping. */
+.tabs {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.3rem;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
+  border-radius: 999px;
+  background: rgba(2, 8, 38, 0.45);
+  scrollbar-width: none;
+}
+
+.tab {
+  flex: 1 0 auto;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 999px;
+  color: var(--app-text-2, #c9d5ec);
+  background: transparent;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tabActive {
+  color: #02041f;
+  background: linear-gradient(135deg, #18d8ff, #2a8cff);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--app-accent, #00cbff);
+  outline-offset: 2px;
+}
+
+.panel {
+  display: grid;
+  gap: inherit;
+}

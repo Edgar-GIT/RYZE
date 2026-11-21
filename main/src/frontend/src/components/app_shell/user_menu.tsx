@@ -9,6 +9,9 @@ import styles from "./user_menu.module.css";
 export interface ShellUser {
   name: string;
   email?: string;
+  // The @username shown under the name, and the profile photo URL.
+  handle?: string;
+  avatarUrl?: string;
   // A short role line under the name (e.g. "Coach", "Management").
   role?: string;
 }
@@ -177,12 +180,12 @@ export const UserMenu = ({
         }}
       >
         <span className={styles.avatar} aria-hidden="true">
-          {initials}
+          {user?.avatarUrl ? <img className={styles.avatarImage} src={user.avatarUrl} alt="" /> : initials}
         </span>
         {variant === "card" ? (
           <span className={styles.cardText}>
             <strong>{user?.name ?? "…"}</strong>
-            {user?.email ? <span>{user.email}</span> : null}
+            {user?.handle ? <span>@{user.handle}</span> : user?.email ? <span>{user.email}</span> : null}
           </span>
         ) : null}
       </button>
@@ -199,10 +202,11 @@ export const UserMenu = ({
         >
           <div className={styles.head}>
             <span className={styles.headAvatar} aria-hidden="true">
-              {initials}
+              {user?.avatarUrl ? <img className={styles.avatarImage} src={user.avatarUrl} alt="" /> : initials}
             </span>
             <span className={styles.headText}>
               <strong>{user?.name ?? "…"}</strong>
+              {user?.handle ? <span>@{user.handle}</span> : null}
               {user?.email ? <span>{user.email}</span> : null}
               {user?.role ? <em>{user.role}</em> : null}
             </span>

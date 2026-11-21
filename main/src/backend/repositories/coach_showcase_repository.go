@@ -86,7 +86,10 @@ SELECT p.id, p.name, COALESCE(p.description, '') AS description, p.type, p.statu
        p.duration_weeks, p.frequency_per_week, p.training_type, p.cover_image, p.audience, p.price_minor_units,
        p.currency, p.product_type, p.created_at, p.updated_at,
        COALESCE(v.view_count, 0) AS view_count,
-       t.id AS coach_id, u.first_name AS coach_first_name, u.last_name AS coach_last_name
+       t.id AS coach_id,
+       -- The display name people see (migration 000049), else the registered name.
+       COALESCE(NULLIF(btrim(u.display_name), ''), u.first_name) AS coach_first_name,
+       CASE WHEN NULLIF(btrim(u.display_name), '') IS NULL THEN u.last_name ELSE '' END AS coach_last_name
 FROM programs p` + publicCoachJoin + `
 LEFT JOIN program_view_stats v ON v.program_id = p.id`
 
@@ -152,7 +155,8 @@ LIMIT ?`, limit).Scan(&rows).Error
 func (r *coachShowcaseRepository) FindPublicCoach(ctx context.Context, trainerID string) (*PublicCoachRow, error) {
 	var rows []PublicCoachRow
 	err := r.db.WithContext(ctx).Raw(`
-SELECT t.id, u.first_name, u.last_name, t.created_at
+SELECT t.id, COALESCE(NULLIF(btrim(u.display_name), ''), u.first_name) AS first_name,
+       CASE WHEN NULLIF(btrim(u.display_name), '') IS NULL THEN u.last_name ELSE '' END AS last_name, t.created_at
 FROM trainers t
 JOIN users u ON u.id = t.user_id AND u.deleted_at IS NULL AND u.test_persona IS NULL
 WHERE t.id = ? AND t.deleted_at IS NULL

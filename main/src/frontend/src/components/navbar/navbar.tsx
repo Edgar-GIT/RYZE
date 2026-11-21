@@ -19,7 +19,7 @@ import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { LanguageSwitcher } from "@/components/language_switcher/language_switcher";
 import { PUBLIC_NAVIGATION_ITEMS } from "@/constants/navigation";
 import { useI18n } from "@/i18n/i18n";
-import { publicParentPath } from "@/services/navigation_history";
+import { publicParent } from "@/services/navigation_history";
 import { joinClassNames } from "@utils/class_names";
 import { apiGet } from "@utils/http_client";
 
@@ -38,7 +38,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
 };
 
 export const Navbar = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
@@ -130,7 +130,11 @@ export const Navbar = () => {
       <nav className={styles.navbar} aria-label={t("publicNav.primary")}>
         <div className={styles.start}>
           {location.pathname === "/" ? null : (
-            <BackButton variant="icon" fallback={() => publicParentPath(location.pathname)} />
+            <BackButton
+              variant="icon"
+              to={publicParent(location.pathname).path}
+              label={publicParent(location.pathname).back[locale]}
+            />
           )}
           <Link className={styles.brand} to="/" aria-label={t("publicNav.home")}>
             <BrandMark size="navigation" />

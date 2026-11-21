@@ -32,6 +32,7 @@ import (
 	"ryze/backend/services/admin_program_pricing"
 	"ryze/backend/services/admin_trainers"
 	"ryze/backend/services/admin_users"
+	"ryze/backend/services/body_measurements"
 	"ryze/backend/services/change_password"
 	"ryze/backend/services/client_programs"
 	"ryze/backend/services/coach_showcase"
@@ -46,6 +47,7 @@ import (
 	"ryze/backend/services/invoices"
 	"ryze/backend/services/login"
 	"ryze/backend/services/member_feedback"
+	"ryze/backend/services/muscle_recovery"
 	"ryze/backend/services/notifications"
 	"ryze/backend/services/nutrition_assignment"
 	"ryze/backend/services/password"
@@ -53,6 +55,7 @@ import (
 	"ryze/backend/services/plan_preferences"
 	"ryze/backend/services/premium_level_2"
 	"ryze/backend/services/premium_match"
+	"ryze/backend/services/profile"
 	"ryze/backend/services/program_access"
 	"ryze/backend/services/program_assignments"
 	"ryze/backend/services/program_details"
@@ -92,6 +95,8 @@ const evidenceUploadOverhead = 64 << 10
 const (
 	adminCoverUploadPath   = "/api/v1/admin/uploads/program-cover"
 	trainerCoverUploadPath = "/api/v1/trainer/uploads/program-cover"
+	avatarUploadPath       = "/api/v1/me/avatar"
+	trainerApplyPath       = "/api/v1/trainer/apply"
 )
 
 // contactUploadPath is the public contact form. It accepts one optional
@@ -140,6 +145,15 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 			Path:     trainerCoverUploadPath,
 			MaxBytes: uploadsCfg.MaxImageBytes + evidenceUploadOverhead,
 		},
+		middleware.BodyLimitException{
+			Path:     avatarUploadPath,
+			MaxBytes: uploadsCfg.MaxImageBytes + evidenceUploadOverhead,
+		},
+		// The complete trainer application carries up to six documents.
+		middleware.BodyLimitException{
+			Path:     trainerApplyPath,
+			MaxBytes: evidenceCfg.MaxBytes*trainer_applications.MaxSubmittedDocuments + evidenceUploadOverhead,
+		},
 	))
 
 	// Public uploads (programme cover images). The layout is created at start
@@ -152,6 +166,8 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	uploadsHandler := auth.NewUploadsHandler(uploadsStore)
 	router.GET(program_details.PublicUploadsPrefix+"/programs/*filepath", uploadsHandler.ServeProgramImage)
 	router.HEAD(program_details.PublicUploadsPrefix+"/programs/*filepath", uploadsHandler.ServeProgramImage)
+	router.GET(program_details.PublicUploadsPrefix+"/avatars/*filepath", uploadsHandler.ServeAvatar)
+	router.HEAD(program_details.PublicUploadsPrefix+"/avatars/*filepath", uploadsHandler.ServeAvatar)
 
 	userRepository := repositories.NewUserRepository(db)
 
@@ -228,9 +244,11 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 		trainerApplicationDocumentRepository,
 		trainerApplicationDecisionRepository,
 		evidenceStore,
+		trainer_applications.WithDocumentHashes(repositories.NewDocumentHashLookup(db)),
+		trainer_applications.WithUsernames(repositories.NewProfileRepository(db)),
 	)
 	adminTrainerApplicationHandler := auth.NewAdminTrainerApplicationHandler(trainerApplicationService)
-	trainerApplicationHandler := auth.NewTrainerApplicationHandler(trainerApplicationService)
+	trainerApplicationHandler := auth.NewTrainerApplicationHandler(trainerApplicationService).WithMaxDocumentBytes(evidenceCfg.MaxBytes)
 
 	trainerProfileService := trainer_profile.NewService(trainerRepository)
 	trainerProfileHandler := auth.NewTrainerProfileHandler(trainerProfileService)
@@ -272,7 +290,7 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	premiumJourneysHandler := auth.NewPremiumJourneysHandler(premium_match.NewService(premiumJourneyRepository))
 	premiumLevel2Handler := auth.NewPremiumLevel2Handler(premiumLevel2Service)
 
-	publicProgramService := public_programs.NewService(trainerProgramRepository)
+	publicProgramService := public_programs.NewService(trainerProgramRepository, public_programs.WithOutlines(repositories.NewProgramOutlineRepository(db)))
 	// Program views count once per viewer and program every 30 minutes; the
 	// dedupe keys share the rate limiter's bound and eviction.
 	programViewDedupe := middleware.NewLimiter(middleware.RateLimitPolicy{Limit: 1, Window: 30 * time.Minute}, rateLimitCfg.MaxKeys)
@@ -465,6 +483,7 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	v1.GET("/exercises/:exerciseID", exercisesHandler.GetExercise)
 	v1.GET("/programs", publicProgramHandler.ListPublishedPrograms)
 	v1.GET("/programs/:programID", publicProgramHandler.GetPublishedProgram)
+	v1.GET("/programs/:programID/outline", publicProgramHandler.GetPublishedProgramOutline)
 	v1.POST("/programs/:programID/views", append(limits.chain(scopeProgramView), publicCoachesHandler.RecordView)...)
 	v1.GET("/coaches/featured-programs", publicCoachesHandler.FeaturedPrograms)
 	v1.GET("/coaches/:trainerID", publicCoachesHandler.GetCoach)
@@ -476,6 +495,10 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	v1.POST("/auth/change-password", append(limits.chain(scopeAuthChangePassword), middleware.Authenticate(tokenService, userRepository), changePasswordHandler.ChangePassword)...)
 	v1.POST("/auth/delete-account", append(limits.chain(scopeAuthDeleteAccount), middleware.Authenticate(tokenService, userRepository), deleteAccountHandler.DeleteAccount)...)
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
+	profileHandler := auth.NewProfileHandler(profile.New(repositories.NewProfileRepository(db), uploadsStore))
+	v1.PATCH("/me/profile", middleware.Authenticate(tokenService, userRepository), profileHandler.Update)
+	v1.POST("/me/avatar", middleware.Authenticate(tokenService, userRepository), profileHandler.SetAvatar)
+	v1.DELETE("/me/avatar", middleware.Authenticate(tokenService, userRepository), profileHandler.RemoveAvatar)
 	v1.POST("/me/email/verification", append(limits.chain(scopeEmailResend), middleware.Authenticate(tokenService, userRepository), accountHandler.ResendVerification)...)
 	v1.PATCH("/me/preferences", middleware.Authenticate(tokenService, userRepository), accountHandler.UpdatePreferences)
 	v1.PATCH("/me/plan-preferences", middleware.Authenticate(tokenService, userRepository), planPreferencesHandler.Save)
@@ -525,6 +548,14 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	v1.POST("/me/workouts/:workoutID/complete", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.CompleteWorkout)
 	v1.GET("/me/workouts/history", middleware.Authenticate(tokenService, userRepository), workoutHistoryHandler.ListHistory)
 	v1.GET("/me/statistics", middleware.Authenticate(tokenService, userRepository), statisticsHandler.GetStatistics)
+	bodyStatisticsHandler := auth.NewBodyStatisticsHandler(
+		muscle_recovery.NewService(repositories.NewMuscleLoadRepository(db)),
+		body_measurements.NewService(repositories.NewBodyMeasurementRepository(db)),
+	)
+	v1.GET("/me/statistics/muscles", middleware.Authenticate(tokenService, userRepository), bodyStatisticsHandler.MuscleRecovery)
+	v1.GET("/me/measurements", middleware.Authenticate(tokenService, userRepository), bodyStatisticsHandler.ListMeasurements)
+	v1.POST("/me/measurements", middleware.Authenticate(tokenService, userRepository), bodyStatisticsHandler.SaveMeasurement)
+	v1.DELETE("/me/measurements/:measurementID", middleware.Authenticate(tokenService, userRepository), bodyStatisticsHandler.DeleteMeasurement)
 	v1.GET("/me/achievements", middleware.Authenticate(tokenService, userRepository), achievementsHandler.Summary)
 	v1.GET("/me/achievements/sessions/:sessionID", middleware.Authenticate(tokenService, userRepository), achievementsHandler.Session)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
@@ -710,6 +741,7 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	adminApplicationMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionTrainerApplicationsManage))
 	adminApplicationMutate.POST("/trainer-applications/:id/approve", adminTrainerApplicationHandler.ApproveApplication)
 	adminApplicationMutate.POST("/trainer-applications/:id/reject", adminTrainerApplicationHandler.RejectApplication)
+	adminApplicationMutate.POST("/trainer-applications/promote", adminTrainerApplicationHandler.PromoteUser)
 
 	// Member feedback is published only after an administrator approves it.
 	adminFeedbackRead := admin.Group("")

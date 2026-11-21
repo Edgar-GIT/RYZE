@@ -207,8 +207,60 @@ export interface TrainerPrescriptionInput {
 export const fetchTrainerAccess = (): Promise<TrainerAccessStatus> =>
   apiGet<TrainerAccessStatus>("/trainer/access");
 
-export const submitTrainerApplication = (): Promise<TrainerOwnApplication> =>
-  apiPost<TrainerOwnApplication>("/trainer/apply", {});
+/** One place the applicant worked (end_year null: still there). */
+export interface TrainerWorkEntry {
+  organization: string;
+  role: string;
+  start_year: number;
+  end_year: number | null;
+}
+
+/** One school, course or qualification. */
+export interface TrainerEducationEntry {
+  institution: string;
+  qualification: string;
+  year: number;
+}
+
+export interface TrainerApplicationForm {
+  full_name: string;
+  birth_date: string;
+  city: string;
+  profession: string;
+  years_experience: number;
+  work_history: TrainerWorkEntry[];
+  education: TrainerEducationEntry[];
+  about: string;
+}
+
+/** Files by kind: at least one certification and one identification. */
+export type TrainerApplicationFiles = Partial<Record<"certification" | "identification" | "insurance" | "other", File[]>>;
+
+/** A file the screening refused, with the reason codes. */
+export interface TrainerDocumentRejection {
+  filename: string;
+  reasons: string[];
+}
+
+/** The complete application (owner request, 2026-11-20): the form and the
+ *  evidence in one multipart submission. Every file is screened by the
+ *  server; one refused file refuses the submission (422 DOCUMENTS_REJECTED,
+ *  `error.rejections`). */
+export const submitTrainerApplication = (form: TrainerApplicationForm, files: TrainerApplicationFiles): Promise<TrainerOwnApplication> => {
+  const body = new FormData();
+  body.append("full_name", form.full_name);
+  body.append("birth_date", form.birth_date);
+  body.append("city", form.city);
+  body.append("profession", form.profession);
+  body.append("years_experience", String(form.years_experience));
+  body.append("work_history", JSON.stringify(form.work_history));
+  body.append("education", JSON.stringify(form.education));
+  body.append("about", form.about);
+  for (const [kind, list] of Object.entries(files)) {
+    for (const file of list ?? []) body.append(kind, file);
+  }
+  return apiUpload<TrainerOwnApplication>("/trainer/apply", body);
+};
 
 // Optional evidence documents attached to a PENDING application. Kinds are the
 // backend's controlled vocabulary; the server validates the file itself, the

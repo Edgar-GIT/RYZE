@@ -1,0 +1,64 @@
+/* The recovery body map: status colours with a text legend beside them
+   (ready / recovering / fatigued), never colour alone. */
+.map {
+  display: block;
+  width: 100%;
+  max-width: 26rem;
+  height: auto;
+  margin: 0 auto;
+}
+
+.body {
+  fill: rgba(124, 200, 255, 0.14);
+}
+
+.region {
+  cursor: pointer;
+}
+
+.muscle {
+  stroke: #02041f;
+  stroke-width: 1.5;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.ready {
+  fill: #2fe3a8;
+}
+
+.recovering {
+  fill: #ffc857;
+}
+
+.fatigued {
+  fill: #ff6b7a;
+}
+
+.region:hover .muscle,
+.active {
+  stroke: #ffffff;
+  stroke-width: 2.5;
+}
+
+.detail path {
+  fill: none;
+  stroke: #02041f;
+  stroke-linecap: round;
+  stroke-opacity: 0.55;
+  stroke-width: 1.2;
+  pointer-events: none;
+}
+
+.caption {
+  fill: #9fb3d9;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muscle {
+    transition: none;
+  }
+}

@@ -598,9 +598,10 @@ database tables directly and does not print credentials.
 Accounts are checked before anything is changed: an account whose `.env`
 password already signs in is left untouched (its browser sessions stay
 valid). Otherwise the client is registered or has its password reset by
-ADMIN_1, and the trainer is reset, reactivated, approved through the normal
-application flow (when the email belongs to a plain account) or created by
-ADMIN_1. The administrative lookups walk every page of the listings, so a
+ADMIN_1, and the trainer is reset, reactivated, promoted by ADMIN_1 through
+`POST /admin/trainer-applications/promote` with its @username (when the email
+belongs to a plain account; since v2.127.0 applying needs the complete form and
+real documents, so the script no longer applies) or created by ADMIN_1. The administrative lookups walk every page of the listings, so a
 database with many accounts is handled.
 
 The API is built once and run as a binary, so Ctrl-C really stops it. When a
@@ -959,9 +960,12 @@ Current API surface (versioned under `/api/v1`):
 - `POST /api/v1/admin/users/{id}/password` — administrative password reset
   (invalidates all sessions); requires `users.manage` (Technical Administrator
   only).
-- `POST /api/v1/trainer/apply` — submits a trainer application for the
+- `POST /api/v1/trainer/apply` — submits the complete trainer application
+  (multipart: the form and the evidence files, every file screened) for the
   authenticated user (requires the `ryze_access_token` cookie); the applicant
   is always resolved from the session.
+- `POST /api/v1/admin/trainer-applications/promote` — makes the account with
+  `{"username"}` a trainer directly, recorded as an approval (v2.127.0).
 - `POST/GET /api/v1/trainer/application/documents` — uploads or lists the
   applicant's own evidence documents; upload is allowed only while the latest
   application is PENDING. `GET

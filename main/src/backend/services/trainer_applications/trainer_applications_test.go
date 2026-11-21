@@ -712,7 +712,7 @@ func TestUploadDocumentSuccess(t *testing.T) {
 	apps, documents, decisions, evidence := pendingEvidenceSet()
 	service := newTestServiceWithEvidence(apps, stubUserRepo{users: []models.User{activeUser()}}, stubTrainerRepo{}, documents, decisions, evidence)
 
-	document, err := service.UploadDocument(context.Background(), activeUserID, "certification", "../../etc/passwd.jpg", strings.NewReader("ignored-by-stub"))
+	document, err := service.UploadDocument(context.Background(), activeUserID, "certification", "../../etc/passwd.jpg", strings.NewReader("%PDF-1.4\n%%EOF\n"))
 	if err != nil {
 		t.Fatalf("UploadDocument: %v", err)
 	}
@@ -761,7 +761,7 @@ func TestUploadDocumentValidatesInputBeforeStoring(t *testing.T) {
 		{name: "empty", userID: activeUserID, kind: "other", store: trainer_evidence.ErrEmptyContent, want: trainer_applications.ErrInvalidInput},
 	} {
 		evidence.saveErr = tc.store
-		_, err := service.UploadDocument(context.Background(), tc.userID, tc.kind, "scan.pdf", strings.NewReader("data"))
+		_, err := service.UploadDocument(context.Background(), tc.userID, tc.kind, "scan.pdf", strings.NewReader("%PDF-1.4\n%%EOF\n"))
 		if !errors.Is(err, tc.want) {
 			t.Fatalf("%s: expected %v, got %v", tc.name, tc.want, err)
 		}

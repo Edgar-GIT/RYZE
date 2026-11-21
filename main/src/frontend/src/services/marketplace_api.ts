@@ -174,6 +174,27 @@ export const fetchAllMarketplacePrograms = async (
 
 export const fetchMarketplaceProgram = (id: string): Promise<MarketplaceProgramDetail> =>
   apiGet<MarketplaceProgramDetail>(`/programs/${encodePathSegment(id)}`);
+
+/** One training day of a free plan's outline: title, focus and how many
+ *  exercises it has (never the exercises). */
+export interface ProgramOutlineDay {
+  position: number;
+  title: string;
+  focus: string | null;
+  exercise_count: number;
+}
+
+export interface ProgramOutline {
+  program_id: string;
+  weeks: Array<{ week_number: number; days: ProgramOutlineDay[] }>;
+  total_days: number;
+  total_exercises: number;
+}
+
+/** The public shape of a published FREE plan (`GET /programs/:id/outline`);
+ *  paid plans answer 404. */
+export const fetchProgramOutline = (id: string): Promise<ProgramOutline> =>
+  apiGet<ProgramOutline>(`/programs/${encodePathSegment(id)}/outline`);
 // PREMIUM_SCOPE is the catalog scope for the Premium Level 1 product family.
 const PREMIUM_SCOPE = "premium_level_1";
 const PREMIUM_LEVEL_2_SCOPE = "premium_level_2";

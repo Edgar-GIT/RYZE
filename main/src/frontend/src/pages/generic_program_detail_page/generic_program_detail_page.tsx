@@ -1,6 +1,6 @@
-import { ArrowLeft, BarChart3, CheckCircle2, CreditCard, Dumbbell, FileText, FlaskConical, Lock, LogIn, RefreshCw, XCircle } from "lucide-react";
+import { ArrowLeft, BarChart3, CheckCircle2, CreditCard, Dumbbell, FileText, FlaskConical, Gift, Lock, LogIn, RefreshCw, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useHistory, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
@@ -22,7 +22,6 @@ import {
 import type { PaymentMethodInfo } from "@/services/purchases_api";
 import { coachInitials, recordProgramView } from "@/services/coaches_api";
 import {
-  activateFreeProgram,
   fetchFreeActivations,
   type FreeProgramActivation
 } from "@/services/free_programs_api";
@@ -31,6 +30,7 @@ import { type Catalog, useGettext, useI18n } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
 import { ApiError } from "@utils/http_client";
 
+import { FreePlanOutline } from "./free_plan_outline";
 import styles from "./generic_program_detail_page.module.css";
 
 const PAGE_PT: Catalog = {
@@ -45,6 +45,7 @@ const PAGE_PT: Catalog = {
   "We could not activate this plan. Please try again.": "Não foi possível ativar este plano. Tenta novamente.",
   "Activating…": "A ativar…",
   "Activate free plan": "Ativar plano gratuito",
+  "Get free plan": "Obter plano grátis",
   "This training plan is not available through the marketplace.": "Este plano de treino não está disponível no catálogo.",
   "Loading training plan…": "A carregar o plano de treino…",
   "Full training structure": "Estrutura de treino completa",
@@ -360,12 +361,9 @@ interface FreeAccessPanelProps {
 // public catalog only supplies metadata, never the programme structure.
 const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
   const tr = useGettext(PAGE_PT, COMMERCE_PT);
-  const history = useHistory();
   const [activation, setActivation] = useState<FreeProgramActivation | null>(null);
   const [checking, setChecking] = useState(true);
-  const [activating, setActivating] = useState(false);
   const [guest, setGuest] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -388,22 +386,6 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
     };
   }, [programId]);
 
-  const handleActivate = async () => {
-    setActivating(true);
-    setErrorMessage("");
-    try {
-      await activateFreeProgram(programId);
-      history.push(`/services/my-programs/${programId}`);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        history.push("/login");
-        return;
-      }
-      setErrorMessage(tr("We could not activate this plan. Please try again."));
-      setActivating(false);
-    }
-  };
-
   return (
     <aside className={styles.purchase}>
       <div className={styles.purchaseCard}>
@@ -418,11 +400,6 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
               ? tr("You have activated {name}.", { name: programName })
               : tr("Activate {name} to unlock the full training structure and workout player.", { name: programName })}
         </p>
-        {errorMessage ? (
-          <p className={styles.purchaseErrorText} role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
         <div className={styles.purchaseActions}>
           {guest ? (
             <Button to="/login" variant="primary" size="small" icon={<LogIn size={15} />} iconPosition="left">
@@ -433,8 +410,17 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
               {tr("Open program")}
             </Button>
           ) : (
-            <Button variant="primary" size="small" disabled={checking || activating} onClick={() => void handleActivate()}>
-              {activating ? tr("Activating…") : tr("Activate free plan")}
+            // The next step is the order summary of the free plan (owner
+            // request, 2026-11-20), not an immediate activation.
+            <Button
+              to={`/services/generic-program/${encodeURIComponent(programId)}/get`}
+              variant="primary"
+              size="small"
+              disabled={checking}
+              icon={<Gift size={15} />}
+              iconPosition="left"
+            >
+              {tr("Get free plan")}
             </Button>
           )}
           <Button to="/services/generic-program" variant="secondary" size="small">
@@ -601,6 +587,9 @@ export const GenericProgramDetailPage = () => {
                 )}
               </header>
 
+              {isFreeProgram ? <FreePlanOutline programId={programId} /> : null}
+
+              {isFreeProgram ? null : (
               <section className={styles.locked} aria-labelledby="plan-contents">
                 <div className={styles.lockedIcon}>
                   <Lock size={20} aria-hidden="true" />
@@ -622,6 +611,7 @@ export const GenericProgramDetailPage = () => {
                   </ul>
                 </div>
               </section>
+              )}
             </>
           )}
         </Container>

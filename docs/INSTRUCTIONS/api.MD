@@ -618,6 +618,70 @@ Responses: `200 OK`, `401 AUTHENTICATION_REQUIRED`.
 
 ---
 
+### Muscle recovery (v2.127.0)
+
+#### `GET /api/v1/me/statistics/muscles`
+
+Authentication required. Estimates, for the authenticated member only, how
+recovered each of 16 muscle groups is (owner request, modelled on Lyfta and
+Fitbod). It is an estimate computed on every read, never stored:
+
+- the member's completed sets of the last 7 days count (sets of deleted
+  sessions or exercises do not);
+- each set loads the exercise's primary muscle with 1 set and each secondary
+  muscle with 0.5. The primary muscle is the first known name in the
+  exercise's `target_muscles`; the other targets, `primary_muscle_group` and
+  `secondary_muscle_groups` are secondary (the imported dataset stores a
+  secondary muscle in `primary_muscle_group`). With no known target,
+  `primary_muscle_group` is the primary;
+- the load fades linearly to zero over 72 h (chest, lats, upper back, lower
+  back, glutes, quads, hamstrings, adductors) or 48 h (the others);
+- 10 sets of remaining load is 0%; `recovery` = 100 x (1 - load/10), clamped;
+- `status` is `ready` from 85%, `recovering` from 50%, `fatigued` below.
+
+Response `data`: `window_days` (7), `generated_at` and `muscles`, one entry per
+group in the order `chest`, `shoulders`, `biceps`, `triceps`, `forearms`,
+`abs`, `obliques`, `traps`, `lats`, `upper_back`, `lower_back`, `glutes`,
+`quads`, `hamstrings`, `adductors`, `calves`:
+
+```json
+{ "muscle": "chest", "recovery": 50, "status": "recovering", "weekly_sets": 10,
+  "last_trained_at": "2026-11-19T00:00:00Z", "recovered_at": "2026-11-22T00:00:00Z" }
+```
+
+`weekly_sets` is the 7-day load (secondary work counts half);
+`recovered_at` is when the group is estimated fully recovered, `null` when it
+already is. Errors: `401 AUTHENTICATION_REQUIRED`, `500 INTERNAL_ERROR`.
+
+### Body measurements (v2.127.0)
+
+The member's own body measurements (table `body_measurements`, migration
+000051). Kinds: `weight` (kg, 20-500), `body_fat` (%, 2-75) and the
+circumferences in cm (10-300) `neck`, `shoulders`, `chest`, `biceps_left`,
+`biceps_right`, `forearm_left`, `forearm_right`, `waist`, `hips`,
+`thigh_left`, `thigh_right`, `calf_left`, `calf_right`. One value per kind and
+day. Every endpoint requires authentication and acts only on the
+authenticated member's rows.
+
+#### `GET /api/v1/me/measurements`
+
+`data.measurements`: the member's latest 3000 entries, oldest first, each
+`{ "id", "kind", "value", "measured_on": "YYYY-MM-DD" }`.
+
+#### `POST /api/v1/me/measurements`
+
+Body `{ "kind", "value", "measured_on": "YYYY-MM-DD" }`. Logs the value; the
+same kind on the same day replaces the earlier value (same `id`). The value is
+rounded to 2 decimals; the date must be from 1950 and not later than the
+server's tomorrow (the member's day may be ahead). Returns `200` with the
+entry. Errors: `400 VALIDATION_ERROR` with `error.details` `["kind"]`,
+`["value"]` or `["measured_on"]`; `401`; `500`.
+
+#### `DELETE /api/v1/me/measurements/:measurementID`
+
+Deletes one of the member's entries. Another member's id, a malformed id or
+an unknown id all answer `404 MEASUREMENT_NOT_FOUND`.
+
 ### Client Free Program Activation
 
 Free generic programmes do not use checkout. The authenticated client activates
@@ -3003,6 +3067,27 @@ Public endpoint.
 
 ---
 
+## Public profile, photo and @username (v2.127.0)
+
+Every account has a unique @username (the reference people see, for example
+`@teste2`) and may set a display name (for example "Edgar") and a photo. The
+public name is the display name when set, otherwise the first and last name;
+the @username is shown under it. Identity comes only from the session.
+
+- `PATCH /api/v1/me/profile` — body `{ "display_name", "username" }`.
+  `display_name` up to 40 characters (empty clears it; control characters
+  refused, `INVALID_DISPLAY_NAME`); `username` optional, same rule as at
+  registration (`INVALID_USERNAME`, `409 USERNAME_TAKEN`). Returns the account.
+- `POST /api/v1/me/avatar` — multipart field `file`, JPEG or PNG within the
+  public upload size bound and 6000 x 6000 px. The server decodes the image,
+  crops the centre square, scales it to 512 px and re-encodes it as JPEG
+  (dropping all metadata) to `uploads/avatars/<uuid>.jpg`; the previous photo
+  is removed. Errors: `400 INVALID_IMAGE`, `413 IMAGE_TOO_LARGE`,
+  `503 UPLOADS_UNAVAILABLE`. Returns the account with `avatar_url`.
+- `DELETE /api/v1/me/avatar` — removes the photo.
+- `GET|HEAD /uploads/avatars/<uuid>.jpg` — public, served only for names
+  matching that pattern.
+
 ## Register
 
 ```
@@ -3017,6 +3102,14 @@ Accounts are inactive until email verification is completed.
 
 The `password` must satisfy the shared password policy (12 to 128 characters);
 a shorter or longer password returns HTTP 400 `VALIDATION_ERROR`.
+
+Optional `username` (v2.127.0): the account's public @username, lower case,
+3-30 characters `^[a-z0-9][a-z0-9._]{2,29}$` (a leading `@` is ignored) and
+not a reserved word. Invalid answers HTTP 400 `INVALID_USERNAME`; one held by
+another active account answers HTTP 409 `USERNAME_TAKEN`. Without it the
+database generates one from the email (`ryze_free_username`, a `.N` suffix
+when taken). Account responses include `username`, `display_name` and
+`avatar_url`.
 
 If the email belongs to a soft-deleted (previously deleted) account, the same
 registration restores that account instead of creating a duplicate: the
@@ -3409,6 +3502,24 @@ Response `data`:
   public): `{ "id", "name" }` — the trainer id used by the public coach profile
   and the name the trainer registered with. Never an email or user id. A
   disabled trainer or a Test Mode persona leaves the program unattributed.
+
+### `GET /api/v1/programs/:programID/outline` (v2.127.0)
+
+Public. The overview shown before a member gets a **free** plan: the shape of
+the plan without its content. Paid, draft, soft-deleted and unknown programs
+answer the same generic `404 PROGRAM_NOT_FOUND`; exercises, prescriptions and
+media are never part of an outline.
+
+Response `data`:
+
+```json
+{ "program_id": "...", "total_days": 12, "total_exercises": 64,
+  "weeks": [ { "week_number": 1,
+               "days": [ { "position": 1, "title": "Upper A", "focus": "upper_body", "exercise_count": 6 } ] } ] }
+```
+
+`focus` may be `null`. Days and weeks come in order; deleted days and
+exercises are not counted.
 
 ---
 
@@ -5510,10 +5621,36 @@ POST /api/v1/trainer/apply
 
 Authentication required (user cookie `ryze_access_token`).
 
-Submits a trainer application for the authenticated user. The request body is
-intentionally not trusted: the applicant is resolved exclusively from the
-authenticated session, so no `user_id` and no `status` are ever accepted from
-the client. The application is created with status `PENDING`.
+Submits a trainer application for the authenticated user. The applicant is
+resolved exclusively from the authenticated session, so no `user_id` and no
+`status` are ever accepted from the client. The application is created with
+status `PENDING`.
+
+Since v2.127.0 the application is complete (owner request): one
+`multipart/form-data` request carries the form and the evidence.
+
+- Fields: `full_name` (3-120), `birth_date` (`YYYY-MM-DD`, age 18-100),
+  `city` (2-80), `profession` (2-120), `years_experience` (0-60),
+  `work_history` (JSON array of 1-10 `{ "organization", "role", "start_year",
+  "end_year" | null }`, years from 1950, end not before start nor in the
+  future), `education` (JSON array of 1-10 `{ "institution",
+  "qualification", "year" }`, year from 1950 to next year) and `about`
+  (50-4000). Text is trimmed; control characters are refused.
+- Files: `certification` (at least one), `identification` (at least one),
+  `insurance` and `other` (optional), 6 files at most, PDF, JPEG or PNG
+  (sniffed from the content), each within the evidence size bound.
+- Every file is screened before anything is stored (see `security.MD`,
+  "Trainer evidence screening"). A file declaring AI generation (C2PA or IPTC
+  `trainedAlgorithmicMedia`), carrying an AI generator's metadata, a PDF with
+  scripts, launch actions or embedded files outside streams, or a file whose
+  SHA-256 another account already submitted refuses the **whole** submission.
+  Softer signals (edited after creation, edited in an editor, low resolution,
+  no camera data, content credentials) are stored for the reviewer as
+  `screening_status = "flagged"`. Screening is a set of local heuristics, not
+  proof: a person reviews every application.
+- The form, the application and the files are saved together: if storing a
+  file fails, the application is closed (rejected without a decision) and the
+  error is returned.
 
 Success returns HTTP 201 with the safe application representation:
 
@@ -5539,6 +5676,20 @@ Errors:
 - HTTP 409 `ALREADY_TRAINER` — the user already owns a trainer profile.
 - HTTP 409 `APPLICATION_ALREADY_EXISTS` — the user already has an active
   (PENDING or APPROVED) application.
+- HTTP 400 `VALIDATION_ERROR` — `error.details` lists the invalid fields
+  (`full_name`, `birth_date`, `city`, `profession`, `years_experience`,
+  `work_history`, `education`, `about`, or `documents` for more than 6
+  files).
+- HTTP 400 `DOCUMENTS_REQUIRED` — no certification or no identification.
+- HTTP 400 `DOCUMENT_TYPE_NOT_ALLOWED`; HTTP 413 `DOCUMENT_TOO_LARGE`.
+- HTTP 422 `DOCUMENTS_REJECTED` — `error.rejections` is
+  `[{ "filename", "reasons": [...] }]` with the reasons `ai_provenance`,
+  `ai_generator_metadata`, `unsafe_pdf_content` and `duplicate_document`.
+
+The application representation adds `username` and the form fields
+(`full_name`, `birth_date`, `city`, `profession`, `years_experience`,
+`work_history`, `education`, `about`; `null` on applications made before
+v2.127.0 and on direct promotions).
 
 A rejected application stays in history; the user can apply again. An approved
 application is final.
@@ -5612,6 +5763,8 @@ Errors:
 - HTTP 404 `APPLICATION_NOT_FOUND` — no application exists for the caller.
 - HTTP 409 `APPLICATION_STATE_CONFLICT` — the application is no longer
   `PENDING`.
+- HTTP 422 `DOCUMENTS_REJECTED` (v2.127.0) — the screening refused the file,
+  with `error.rejections` as for `POST /trainer/apply`.
 
 ### `GET /api/v1/trainer/application/documents`
 
@@ -5743,8 +5896,12 @@ append-only decision history. Both surfaces require
 
 Returns the active evidence documents of the application as
 `data.documents`. Each document exposes only `id`, `kind`,
-`original_filename`, `content_type`, `byte_size` and `created_at`; the storage
-key and hash are never projected. Malformed ids return
+`original_filename`, `content_type`, `byte_size` and `created_at`, and since
+v2.127.0 `screening_status` (`passed`, `flagged` or `not_screened` for files
+uploaded before screening existed) and `screening_signals` (for example
+`modified_after_creation`, `incremental_edits`, `edited_with_editor`,
+`low_resolution`, `no_camera_metadata`, `content_credentials_present`); the
+storage key and hash are never projected. Malformed ids return
 `400 VALIDATION_ERROR`; unknown applications return
 `404 APPLICATION_NOT_FOUND`.
 
@@ -5760,6 +5917,17 @@ Returns the application's decision history, in chronological order (oldest
 first), as `data.decisions`. Each decision exposes `id`, `application_id`,
 `admin_id`, `from_status`, `to_status`, `reason` and `created_at`. Decisions
 are audit facts: they are never updated or deleted.
+
+### `POST /api/v1/admin/trainer-applications/promote` (v2.127.0)
+
+Makes an existing account a trainer directly by its @username (owner
+request). Same permission as approve/reject. Body `{ "username", "reason" }`
+(a leading `@` is ignored; `reason` optional). The user's pending application
+is approved, or one is created and approved, through the normal approval, so
+the trainer profile and the decision (with the admin and reason) are recorded
+as for any approval. Returns `201` with the application. Errors:
+`404 USER_NOT_FOUND` (no active account with this username),
+`409 USER_ALREADY_TRAINER`.
 
 ---
 

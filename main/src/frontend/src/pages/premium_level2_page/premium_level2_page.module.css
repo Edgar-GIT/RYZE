@@ -2,8 +2,9 @@
   /* inherits the RYZE dark canvas from PageWrapper */
 }
 
+/* Clears the floating navbar like every public page. */
 .detail {
-  padding: 2.5rem 0 4.5rem;
+  padding: calc(var(--r-nav-clearance) + 1rem) 0 4.5rem;
 }
 
 .container {

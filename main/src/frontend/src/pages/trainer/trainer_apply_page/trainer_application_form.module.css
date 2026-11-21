@@ -1,0 +1,289 @@
+/* The complete trainer application, laid out like the contact form: grouped
+   fields on the app's glass card, one column on phones. */
+.form {
+  display: grid;
+  gap: 1.25rem;
+  width: 100%;
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+  border: 1px solid rgba(24, 216, 255, 0.16);
+  border-radius: 20px;
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
+}
+
+.head {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary, #ffffff);
+  font-size: clamp(1.5rem, 3.4vw, 2rem);
+  font-weight: 800;
+}
+
+.lead,
+.hint {
+  margin: 0;
+  color: var(--text-secondary, #93a4c8);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.group {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid rgba(124, 200, 255, 0.2);
+  border-radius: 14px;
+}
+
+.group legend {
+  padding: 0 0.4rem;
+  color: #7cebff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.groupError {
+  border-color: #ff8a8a;
+}
+
+.grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--text-secondary, #93a4c8);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.fieldError span {
+  color: #ffb4b4;
+}
+
+/* 1rem text in every control: smaller text makes iOS zoom on focus. */
+.field input,
+.entry input,
+.textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(124, 200, 255, 0.35);
+  border-radius: 12px;
+  color: #ffffff;
+  background: rgba(2, 8, 38, 0.6);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.entryField {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  color: var(--text-secondary, #93a4c8);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.fieldError input,
+.textarea[aria-invalid="true"] {
+  border-color: #ff8a8a;
+}
+
+.field input:focus-visible,
+.entry input:focus-visible,
+.textarea:focus-visible,
+.uploadButton:focus-within,
+.iconButton:focus-visible {
+  outline: 2px solid rgba(0, 203, 255, 0.6);
+  outline-offset: 1px;
+}
+
+.textarea {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.entry .entryField {
+  grid-column: 1;
+}
+
+.entry .iconButton {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: #ffffff;
+  background: transparent;
+  cursor: pointer;
+}
+
+.iconButton svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.upload {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.uploadLabel {
+  color: var(--text-primary, #ffffff);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.uploadButton {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px dashed rgba(124, 235, 255, 0.55);
+  border-radius: 12px;
+  color: #e8fdff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.uploadButton input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.uploadButton svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.files {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.files li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+  border-radius: 10px;
+  color: #dbe6fb;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.integrity {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  color: #bccdf0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.integrity svg {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #7cebff;
+}
+
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  color: #dbe6fb;
+  font-size: 0.9rem;
+}
+
+.consent input {
+  accent-color: #18d8ff;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.1rem;
+}
+
+.alert {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255, 138, 138, 0.5);
+  border-radius: 12px;
+  color: #ffd2d2;
+  background: rgba(120, 20, 30, 0.25);
+  font-size: 0.9rem;
+}
+
+.alert p {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.alert svg {
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.alert ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .entry {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 0.8fr) auto;
+    align-items: end;
+  }
+
+  .entryThree {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 0.6fr) auto;
+  }
+
+  .entry .entryField,
+  .entry .iconButton {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}

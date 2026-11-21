@@ -9,10 +9,15 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/password"
+	"ryze/backend/services/profile"
 	"ryze/backend/services/test_mode"
 )
 
-var ErrInvalidInput = errors.New("invalid registration input")
+var (
+	ErrInvalidInput    = errors.New("invalid registration input")
+	ErrInvalidUsername = errors.New("invalid username")
+	ErrUsernameTaken   = errors.New("username taken")
+)
 
 // PasswordHasher is the hashing dependency required by the registration flow.
 type PasswordHasher interface {
@@ -31,6 +36,8 @@ type RegisterInput struct {
 	Password  string
 	FirstName string
 	LastName  string
+	// Username is the chosen @username; empty lets the database generate one.
+	Username string
 }
 
 type registrationService struct {
@@ -52,6 +59,15 @@ func (s *registrationService) Register(ctx context.Context, input RegisterInput)
 	// or learn whether a persona account currently exists.
 	if test_mode.IsReservedEmail(input.Email) {
 		return nil, repositories.ErrDuplicateEmail
+	}
+
+	username := ""
+	if strings.TrimSpace(input.Username) != "" {
+		normalized, ok := profile.NormalizeUsername(input.Username)
+		if !ok || profile.IsReserved(normalized) {
+			return nil, ErrInvalidUsername
+		}
+		username = normalized
 	}
 
 	email := strings.TrimSpace(input.Email)
@@ -94,11 +110,15 @@ func (s *registrationService) Register(ctx context.Context, input RegisterInput)
 		PasswordHash: hash,
 		FirstName:    firstName,
 		LastName:     lastName,
+		Username:     username,
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
 		if errors.Is(err, repositories.ErrDuplicateEmail) {
 			return nil, err
+		}
+		if errors.Is(err, repositories.ErrUsernameTaken) {
+			return nil, ErrUsernameTaken
 		}
 		return nil, fmt.Errorf("failed to register user: %w", err)
 	}

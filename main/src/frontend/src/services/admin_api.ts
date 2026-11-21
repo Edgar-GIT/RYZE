@@ -40,8 +40,20 @@ export interface AdminTrainerApplication {
   status: string;
   user_id: string;
   user: AdminUser;
+  /** The applicant's @username. */
+  username?: string;
   created_at: string;
   updated_at: string;
+  // The complete application form (null on older applications and on
+  // direct promotions).
+  full_name?: string | null;
+  birth_date?: string | null;
+  city?: string | null;
+  profession?: string | null;
+  years_experience?: number | null;
+  work_history?: Array<{ organization: string; role: string; start_year: number; end_year: number | null }>;
+  education?: Array<{ institution: string; qualification: string; year: number }>;
+  about?: string | null;
 }
 
 export interface AdminUsersList {
@@ -68,6 +80,10 @@ export interface AdminApplicationDocument {
   content_type: string;
   byte_size: number;
   created_at: string;
+  /** Automatic screening: "passed", "flagged" (signals to look at) or
+   *  "not_screened" (uploaded before the screening existed). */
+  screening_status?: "passed" | "flagged" | "not_screened";
+  screening_signals?: string[];
 }
 
 export interface AdminApplicationDecision {
@@ -134,6 +150,10 @@ export const fetchAdminDeletedTrainers = (page: number, limit: number) =>
 export const disableAdminTrainer = (id: string) => apiPatch<never>(`/admin/trainers/${encodePathSegment(id)}/disable`, {});
 
 export const reactivateAdminTrainer = (id: string) => apiPost<AdminTrainer>(`/admin/trainers/${encodePathSegment(id)}/reactivate`, {});
+
+/** Makes the account with this @username a trainer directly. */
+export const promoteUserToTrainer = (username: string, reason: string) =>
+  apiPost<AdminTrainerApplication>("/admin/trainer-applications/promote", { username: username.trim().replace(/^@/, ""), reason: reason.trim() });
 
 export const fetchAdminTrainerApplications = (page: number, limit: number, status?: string) => {
   const statusQuery = status && status !== "ALL" ? `&status=${status}` : "";

@@ -25,6 +25,9 @@ type registerRequest struct {
 	// Language is the interface language at sign-up ("en" or "pt"); it
 	// becomes the language of the account's emails. Optional.
 	Language string `json:"language"`
+	// Username is the chosen @username (optional: generated from the email
+	// when empty).
+	Username string `json:"username"`
 }
 
 // userResponse only exposes safe public user information.
@@ -52,6 +55,11 @@ type accountResponse struct {
 	// Sex and PlanAudienceFilter are the plan preferences (nil: not asked).
 	Sex                *string `json:"sex"`
 	PlanAudienceFilter *bool   `json:"plan_audience_filter"`
+	// Username is the unique @username; DisplayName the name people see
+	// (nil: the registered name); AvatarURL the profile photo (nil: none).
+	Username    string  `json:"username"`
+	DisplayName *string `json:"display_name"`
+	AvatarURL   *string `json:"avatar_url"`
 }
 
 // AfterRegister runs after a successful registration (store the language,
@@ -86,11 +94,16 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 		Password:  req.Password,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
+		Username:  req.Username,
 	})
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrDuplicateEmail):
 			RespondError(c, http.StatusConflict, "EMAIL_ALREADY_REGISTERED", "Email already in use.", nil)
+		case errors.Is(err, registration.ErrUsernameTaken):
+			RespondError(c, http.StatusConflict, "USERNAME_TAKEN", "This username is already in use.", nil)
+		case errors.Is(err, registration.ErrInvalidUsername):
+			RespondError(c, http.StatusBadRequest, "INVALID_USERNAME", "Usernames have 3 to 30 lowercase letters, digits, dots or underscores.", nil)
 		case errors.Is(err, registration.ErrInvalidInput), password.IsPolicyError(err):
 			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		default:
@@ -136,7 +149,19 @@ func newAccountResponse(user *models.User) accountResponse {
 		PasswordSet:        user.PasswordSet,
 		Sex:                user.Sex,
 		PlanAudienceFilter: user.PlanAudienceFilter,
+		Username:           user.Username,
+		DisplayName:        user.DisplayName,
+		AvatarURL:          AvatarURL(user.AvatarKey),
 	}
+}
+
+// AvatarURL is the public path of a profile photo key (nil without one).
+func AvatarURL(key *string) *string {
+	if key == nil || *key == "" {
+		return nil
+	}
+	url := "/uploads/" + *key
+	return &url
 }
 
 // RespondError writes an API error response using the project's envelope.

@@ -70,12 +70,34 @@ describe("access and application", () => {
     expect(result).toEqual({ is_trainer: false, application: null });
   });
 
-  it("submits the application without a body", async () => {
-    mockedPost.mockResolvedValue({ id: "app-1", status: "PENDING" });
+  it("submits the complete application as one multipart form", async () => {
+    mockedUpload.mockResolvedValue({ id: "app-1", status: "PENDING" });
+    const certification = new File(["%PDF-1.4"], "cert.pdf", { type: "application/pdf" });
+    const identification = new File(["%PDF-1.4"], "id.pdf", { type: "application/pdf" });
 
-    await submitTrainerApplication();
+    await submitTrainerApplication(
+      {
+        full_name: "Rita Costa",
+        birth_date: "1992-04-15",
+        city: "Lisboa",
+        profession: "Personal trainer",
+        years_experience: 6,
+        work_history: [{ organization: "Ginásio", role: "PT", start_year: 2018, end_year: null }],
+        education: [{ institution: "FMH", qualification: "Desporto", year: 2017 }],
+        about: "Texto"
+      },
+      { certification: [certification], identification: [identification] }
+    );
 
-    expect(mockedPost).toHaveBeenCalledWith("/trainer/apply", {});
+    expect(mockedUpload).toHaveBeenCalledTimes(1);
+    const [path, body] = mockedUpload.mock.calls[0] as [string, FormData];
+    expect(path).toBe("/trainer/apply");
+    expect(body.get("full_name")).toBe("Rita Costa");
+    expect(body.get("years_experience")).toBe("6");
+    expect(JSON.parse(String(body.get("work_history")))[0].organization).toBe("Ginásio");
+    expect(body.getAll("certification")).toHaveLength(1);
+    expect(body.getAll("identification")).toHaveLength(1);
+    expect(mockedPost).not.toHaveBeenCalled();
   });
 });
 

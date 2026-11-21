@@ -179,6 +179,15 @@ func applyRequest(router http.Handler, cookieValue, method, path, body string) (
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	// Applying is the complete multipart application; a JSON body only adds
+	// fields (which the server must ignore).
+	if method == http.MethodPost && path == applyRoute {
+		extra := map[string]string{}
+		_ = json.Unmarshal([]byte(body), &extra)
+		multipartBody, contentType := validApplicationMultipart(testingTB{}, extra)
+		req = httptest.NewRequest(method, path, multipartBody)
+		req.Header.Set("Content-Type", contentType)
+	}
 	if cookieValue != "" {
 		req.AddCookie(&http.Cookie{Name: auth.AccessTokenCookieName, Value: cookieValue})
 	}
@@ -1137,6 +1146,12 @@ func TestTrainerApplicationsInternalError(t *testing.T) {
 		{method: http.MethodPost, path: "/apply", admin: false},
 	} {
 		req := httptest.NewRequest(tc.method, tc.path, bytes.NewBufferString(""))
+		if tc.path == "/apply" {
+			// A complete application reaches the failing repository.
+			body, contentType := validApplicationMultipart(t, nil)
+			req = httptest.NewRequest(tc.method, tc.path, body)
+			req.Header.Set("Content-Type", contentType)
+		}
 		if tc.cookie != "" {
 			name := auth.AdminAccessTokenCookieName
 			if !tc.admin {
@@ -1492,3 +1507,9 @@ func TestAdminRejectReasonRecorded(t *testing.T) {
 		t.Fatalf("a rejected review must leave the application PENDING, got %q", persisted.Status)
 	}
 }
+
+// testingTB lets the request helper build the multipart body without a *testing.T.
+type testingTB struct{ testing.TB }
+
+func (testingTB) Helper()           {}
+func (testingTB) Fatal(args ...any) { panic(args) }

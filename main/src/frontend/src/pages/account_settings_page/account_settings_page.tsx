@@ -10,10 +10,12 @@ import { LanguageSwitcher } from "@/components/language_switcher/language_switch
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { SignInMethods } from "@/pages/profile_page/sign_in_methods";
+import { publicNameOf } from "@/services/profile_api";
 import { joinClassNames } from "@utils/class_names";
 import { ApiError, apiPost } from "@utils/http_client";
 
 import styles from "./account_settings_page.module.css";
+import { ProfileAvatar, PublicProfileCard } from "./public_profile_card";
 
 const COPY: Copy<{
   kicker: string;
@@ -169,6 +171,30 @@ const PasswordField = ({
   );
 };
 
+// CurrentPasswordField is the re-authentication input (owner request,
+// 2026-11-20): it always starts empty and can never be revealed. Browsers do
+// not autofill a read-only field, so it only becomes editable when the person
+// focuses it and types (or picks a saved password themselves). Asking for it
+// is what stops someone holding a stolen session from changing the password
+// or deleting the account.
+const CurrentPasswordField = ({ name, placeholder }: { name: string; placeholder: string }) => {
+  const [editable, setEditable] = useState(false);
+  return (
+    <div className={styles.field}>
+      <Lock className={styles.fieldIcon} aria-hidden="true" />
+      <input
+        type="password"
+        name={name}
+        placeholder={placeholder}
+        autoComplete="off"
+        readOnly={!editable}
+        onFocus={() => setEditable(true)}
+        aria-label={placeholder}
+      />
+    </div>
+  );
+};
+
 interface AccountPanelProps {
   onCancel: () => void;
   onSuccess: () => void;
@@ -223,11 +249,7 @@ const ChangePasswordPanel = ({ onCancel, onSuccess }: AccountPanelProps) => {
       <h2>{t("account.profile.changePassword")}</h2>
       <p className={styles.panelHint}>{t("account.profile.changePasswordHint")}</p>
       <form className={styles.panelForm} onSubmit={handleSubmit} noValidate>
-        <PasswordField
-          name="current_password"
-          placeholder={t("account.profile.currentPassword")}
-          autoComplete="current-password"
-        />
+        <CurrentPasswordField name="current_password" placeholder={t("account.profile.currentPassword")} />
         <PasswordField name="new_password" placeholder={t("account.profile.newPassword")} autoComplete="new-password" />
         <PasswordField
           name="confirm_password"
@@ -311,7 +333,7 @@ const DeleteAccountPanel = ({ onCancel, onSuccess, passwordSet }: AccountPanelPr
       <h2>{t("account.profile.deleteAccount")}</h2>
       <p className={styles.panelHint}>{t("account.profile.deleteHint")}</p>
       <form className={styles.panelForm} onSubmit={handleSubmit} noValidate>
-        <PasswordField name="password" placeholder={t("account.profile.currentPassword")} autoComplete="current-password" />
+        <CurrentPasswordField name="password" placeholder={t("account.profile.currentPassword")} />
         {errorMessage ? (
           <p className={styles.formError} role="alert">
             {errorMessage}
@@ -341,7 +363,7 @@ export const AccountSettingsPage = () => {
   const { t, locale, formatDate } = useI18n();
   const text = COPY[locale];
   const history = useHistory();
-  const { user, isTrainer } = useMember();
+  const { user, isTrainer, reload } = useMember();
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [activePanel, setActivePanel] = useState<AccountPanel>(null);
@@ -369,7 +391,7 @@ export const AccountSettingsPage = () => {
     }
   };
 
-  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : "";
+  const fullName = user ? publicNameOf(user) : "";
 
   return (
     <PageWrapper className={styles.page}>
@@ -386,13 +408,12 @@ export const AccountSettingsPage = () => {
         <div className={styles.grid}>
           <div className={styles.column}>
             <section className={joinClassNames(styles.card, styles.profile)} aria-labelledby="account-profile">
-              <span className={styles.avatar} aria-hidden="true">
-                {initialsOf(user.first_name, user.last_name)}
-              </span>
+              <ProfileAvatar user={user} className={styles.avatar} />
               <div className={styles.identity}>
                 <h2 id="account-profile" className={styles.name}>
                   {fullName}
                 </h2>
+                <p className={styles.line}>@{user.username}</p>
                 <p className={styles.line}>
                   <Mail aria-hidden="true" />
                   {user.email}
@@ -404,6 +425,8 @@ export const AccountSettingsPage = () => {
                 <EmailVerificationStatus verified={user.email_verified} />
               </div>
             </section>
+
+            <PublicProfileCard user={user} onChanged={reload} />
 
             <section className={styles.card} aria-labelledby="account-preferences">
               <h2 id="account-preferences" className={styles.cardTitle}>

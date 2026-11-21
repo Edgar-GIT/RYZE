@@ -13,6 +13,10 @@ export const LOGIN_PT: Catalog = {
   "Please fill in all fields.": "Preenche todos os campos.",
   "Passwords do not match.": "As passwords não coincidem.",
   "At least 12 characters.": "Mínimo de 12 caracteres.",
+  "Username (optional)": "Nome de utilizador (opcional)",
+  "Your @username on RYZE. Left empty, one is made from your email.": "O teu @username na RYZE. Se o deixares vazio, é criado a partir do teu email.",
+  "Usernames have 3 to 30 lowercase letters, digits, dots or underscores.": "O nome de utilizador tem 3 a 30 letras minúsculas, algarismos, pontos ou underscores.",
+  "This username is already in use.": "Este nome de utilizador já está a ser usado.",
   "Password must be at least 12 characters.": "A password tem de ter pelo menos 12 caracteres.",
   "Password must be at most 128 characters.": "A password pode ter no máximo 128 caracteres.",
   "Check your details: a valid email and a password of 12 to 128 characters.":

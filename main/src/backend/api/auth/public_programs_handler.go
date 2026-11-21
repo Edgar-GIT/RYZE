@@ -211,6 +211,47 @@ func (h *PublicProgramsHandler) GetPublishedProgram(c *gin.Context) {
 	})
 }
 
+type outlineDayResponse struct {
+	Position      int     `json:"position"`
+	Title         string  `json:"title"`
+	Focus         *string `json:"focus"`
+	ExerciseCount int     `json:"exercise_count"`
+}
+
+type outlineWeekResponse struct {
+	WeekNumber int                  `json:"week_number"`
+	Days       []outlineDayResponse `json:"days"`
+}
+
+// GetPublishedProgramOutline serves the shape of a published free programme:
+// weeks, training days (title, focus) and exercise counts — never the
+// exercises. A paid, draft or unknown programme answers the same 404.
+func (h *PublicProgramsHandler) GetPublishedProgramOutline(c *gin.Context) {
+	outline, err := h.service.GetPublishedProgramOutline(c.Request.Context(), c.Param("programID"))
+	if err != nil {
+		h.respondPublicProgramsError(c, err)
+		return
+	}
+	weeks := make([]outlineWeekResponse, 0, len(outline.Weeks))
+	for _, week := range outline.Weeks {
+		days := make([]outlineDayResponse, 0, len(week.Days))
+		for _, day := range week.Days {
+			days = append(days, outlineDayResponse{Position: day.Position, Title: day.Title, Focus: day.Focus, ExerciseCount: day.ExerciseCount})
+		}
+		weeks = append(weeks, outlineWeekResponse{WeekNumber: week.WeekNumber, Days: days})
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Program outline retrieved successfully.",
+		"data": gin.H{
+			"program_id":      outline.ProgramID,
+			"weeks":           weeks,
+			"total_days":      outline.TotalDays,
+			"total_exercises": outline.TotalExercises,
+		},
+	})
+}
+
 // queryCSV parses a comma-separated query parameter into trimmed, non-empty
 // values. Empty entries are ignored; validation of each value belongs to the
 // service.

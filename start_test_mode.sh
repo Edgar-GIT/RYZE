@@ -188,6 +188,12 @@ import json, os, sys
 json.dump({"email": os.environ["TEST_TRAINER_EMAIL"], "password": os.environ["TEST_TRAINER_PASSWORD"]}, open(sys.argv[1], "w"), separators=(",", ":"))
 PY
       ;;
+    promote-trainer)
+      python3 - "${output}" <<'PY'
+import json, os, sys
+json.dump({"username": os.environ["RYZE_PROMOTE_USERNAME"], "reason": "Test trainer provisioned by start_test_mode.sh"}, open(sys.argv[1], "w"), separators=(",", ":"))
+PY
+      ;;
     test-mode-client|test-mode-trainer)
       local persona="${kind#test-mode-}"
       python3 - "${output}" "${persona}" <<'PY'
@@ -350,24 +356,25 @@ ensure_client() {
   printf 'Cliente normal reutilizado (password do .env aplicada): %s\n' "${TEST_USER_EMAIL}"
 }
 
-# approve_own_application submits a trainer application as the signed-in
-# trainer account and approves it as ADMIN_1, through the normal review flow.
+# approve_own_application makes the signed-in trainer account a trainer: ADMIN_1
+# promotes it by its @username (applying needs the complete form and real
+# documents, which a script does not have).
 approve_own_application() {
   local response="${RUNTIME_DIR}/apply-response.json"
-  local application_id=""
+  local request_body="${RUNTIME_DIR}/promote-request.json"
 
-  request POST /trainer/apply '' "${response}" "${RUNTIME_DIR}/cookies/trainer.jar"
-  [[ "${HTTP_STATUS}" == "201" || "${HTTP_STATUS}" == "409" ]] || die "Candidatura de treinador falhou (HTTP ${HTTP_STATUS})"
-  request GET /trainer/access '' "${response}" "${RUNTIME_DIR}/cookies/trainer.jar"
-  application_id="$(python3 - "${response}" <<'PY'
+  request GET /me '' "${response}" "${RUNTIME_DIR}/cookies/trainer.jar"
+  [[ "${HTTP_STATUS}" == "200" ]] || die "Não foi possível ler a conta do treinador (HTTP ${HTTP_STATUS})"
+  RYZE_PROMOTE_USERNAME="$(python3 - "${response}" <<'PY'
 import json, sys
-application = json.load(open(sys.argv[1])).get("data", {}).get("application") or {}
-print(application.get("id", "") if application.get("status") == "PENDING" else "")
+print(json.load(open(sys.argv[1])).get("data", {}).get("username", ""))
 PY
 )"
-  [[ -n "${application_id}" ]] || die "Não foi encontrada uma candidatura pendente para aprovar"
-  request POST "/admin/trainer-applications/${application_id}/approve" '' "${response}" "${RUNTIME_DIR}/cookies/admin-1.jar"
-  [[ "${HTTP_STATUS}" == "200" ]] || die "Aprovação da candidatura falhou (HTTP ${HTTP_STATUS})"
+  export RYZE_PROMOTE_USERNAME
+  [[ -n "${RYZE_PROMOTE_USERNAME}" ]] || die "A conta do treinador não tem @username"
+  json_file "${request_body}" promote-trainer
+  request POST /admin/trainer-applications/promote "${request_body}" "${response}" "${RUNTIME_DIR}/cookies/admin-1.jar"
+  [[ "${HTTP_STATUS}" == "201" ]] || die "A promoção do treinador falhou (HTTP ${HTTP_STATUS})"
 }
 
 # ensure_trainer makes the .env trainer sign in as an approved trainer: it is

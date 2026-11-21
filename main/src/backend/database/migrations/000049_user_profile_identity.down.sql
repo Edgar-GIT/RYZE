@@ -1,0 +1,12 @@
+DROP TRIGGER IF EXISTS trg_users_default_username ON users;
+DROP FUNCTION IF EXISTS ryze_users_default_username();
+DROP FUNCTION IF EXISTS ryze_free_username(TEXT, VARCHAR);
+DROP FUNCTION IF EXISTS ryze_username_base(TEXT);
+ALTER TABLE users DROP CONSTRAINT IF EXISTS uq_users_active_username;
+ALTER TABLE users DROP COLUMN IF EXISTS active_username;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_avatar_key;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_display_name;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_username;
+ALTER TABLE users DROP COLUMN IF EXISTS avatar_key;
+ALTER TABLE users DROP COLUMN IF EXISTS display_name;
+ALTER TABLE users DROP COLUMN IF EXISTS username;

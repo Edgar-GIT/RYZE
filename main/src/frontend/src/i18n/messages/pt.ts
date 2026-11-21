@@ -366,6 +366,7 @@ export const pt: Messages = {
       errSize: "Este ficheiro é maior do que o tamanho permitido.",
       errState: "A candidatura já não está pendente, por isso os documentos já não podem ser alterados.",
       errMissing: "Não foi encontrada nenhuma candidatura pendente na tua conta.",
+      errRejected: "O documento foi recusado: tem sinais de ter sido criado ou alterado com IA, conteúdo perigoso ou já foi submetido por outra conta. Anexa o documento original.",
       errLoad: "Não foi possível carregar os teus documentos.",
       errUpload: "Não foi possível enviar o documento.",
       errDownload: "Não foi possível transferir o documento.",

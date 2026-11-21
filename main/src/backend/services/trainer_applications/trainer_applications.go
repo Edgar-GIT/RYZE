@@ -91,6 +91,11 @@ type AccessStatus struct {
 // this service only implements the domain rules.
 type Service interface {
 	Apply(ctx context.Context, userID string) (*models.TrainerApplication, error)
+	// SubmitApplication is the applicant's complete application: the form and
+	// the evidence, screened and stored together (see submission.go).
+	SubmitApplication(ctx context.Context, userID string, form ApplicationForm, documents []SubmittedDocument) (*models.TrainerApplication, error)
+	// PromoteUser makes the account with this @username a trainer directly.
+	PromoteUser(ctx context.Context, username, adminID, reason string) (*models.TrainerApplication, error)
 	ListApplications(ctx context.Context, page, limit int, status string) (ListApplicationsResult, error)
 	GetApplication(ctx context.Context, id string) (*models.TrainerApplication, error)
 	GetAccessStatus(ctx context.Context, userID string) (AccessStatus, error)
@@ -120,6 +125,8 @@ type service struct {
 	documents    DocumentRepository
 	decisions    DecisionRepository
 	evidence     trainer_evidence.Store
+	hashes       DocumentHashes
+	usernames    UsernameLookup
 }
 
 func NewService(
@@ -129,8 +136,9 @@ func NewService(
 	documents DocumentRepository,
 	decisions DecisionRepository,
 	evidence trainer_evidence.Store,
+	opts ...Option,
 ) Service {
-	return &service{
+	s := &service{
 		applications: applications,
 		users:        users,
 		trainers:     trainers,
@@ -138,6 +146,10 @@ func NewService(
 		decisions:    decisions,
 		evidence:     evidence,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // Apply creates a PENDING application for the authenticated user. The user ID

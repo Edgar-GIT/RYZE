@@ -1,5 +1,5 @@
-import { Check, ChevronDown, ChevronUp, Download, FileText, X } from "lucide-react";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, Download, FileText, ShieldCheck, UserPlus, X } from "lucide-react";
+import { type FormEvent, Fragment, useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/button/button";
 import {
@@ -11,6 +11,7 @@ import {
   fetchAdminTrainerApplications,
   formatAdminDate,
   fullName,
+  promoteUserToTrainer,
   rejectAdminTrainerApplication,
   type AdminApplicationDecision,
   type AdminApplicationDocument,
@@ -18,6 +19,7 @@ import {
 } from "@/services/admin_api";
 import { APPLICATION_DOCUMENT_KIND_LABELS, type ApplicationDocumentKindValue } from "@/services/trainer_api";
 import { joinClassNames } from "@utils/class_names";
+import { ApiError } from "@utils/http_client";
 import { formatBytes } from "@utils/format_bytes";
 
 import styles from "./admin_trainer_applications_page.module.css";
@@ -36,6 +38,143 @@ interface ApplicationDetail {
 
 const kindLabel = (kind: string): string =>
   APPLICATION_DOCUMENT_KIND_LABELS[kind as ApplicationDocumentKindValue] ?? kind;
+
+// What each screening signal means for the reviewer.
+const SIGNAL_LABELS: Record<string, string> = {
+  modified_after_creation: "Modified after it was created",
+  incremental_edits: "Edited in place after it was saved",
+  edited_with_editor: "Last saved by an image or PDF editor",
+  low_resolution: "Low resolution",
+  no_camera_metadata: "No camera or scanner data",
+  content_credentials_present: "Carries content credentials (C2PA) — check the issuer"
+};
+
+const ageFrom = (birthDate: string): number => {
+  const birth = new Date(`${birthDate}T00:00:00`);
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  if (now < new Date(now.getFullYear(), birth.getMonth(), birth.getDate())) age -= 1;
+  return age;
+};
+
+// ApplicantDetails shows the complete application form to the reviewer.
+const ApplicantDetails = ({ application }: { application: AdminTrainerApplication }) => {
+  if (!application.full_name) {
+    return <p className={styles.detailState}>This application has no form (made before the complete form, or a direct promotion).</p>;
+  }
+  return (
+    <dl className={styles.applicantFacts}>
+      <div>
+        <dt>Name</dt>
+        <dd>
+          {application.full_name}
+          {application.username ? <span className={styles.documentMeta}> · @{application.username}</span> : null}
+        </dd>
+      </div>
+      {application.birth_date ? (
+        <div>
+          <dt>Born</dt>
+          <dd>
+            {formatAdminDate(application.birth_date)} ({ageFrom(application.birth_date)} years)
+          </dd>
+        </div>
+      ) : null}
+      <div>
+        <dt>City</dt>
+        <dd>{application.city}</dd>
+      </div>
+      <div>
+        <dt>Profession</dt>
+        <dd>
+          {application.profession} · {application.years_experience ?? 0} years of experience
+        </dd>
+      </div>
+      <div>
+        <dt>Worked at</dt>
+        <dd>
+          <ul className={styles.plainList}>
+            {(application.work_history ?? []).map((entry, index) => (
+              <li key={index}>
+                {entry.role}, {entry.organization} ({entry.start_year}–{entry.end_year ?? "now"})
+              </li>
+            ))}
+          </ul>
+        </dd>
+      </div>
+      <div>
+        <dt>Education</dt>
+        <dd>
+          <ul className={styles.plainList}>
+            {(application.education ?? []).map((entry, index) => (
+              <li key={index}>
+                {entry.qualification}, {entry.institution} ({entry.year})
+              </li>
+            ))}
+          </ul>
+        </dd>
+      </div>
+      <div>
+        <dt>About</dt>
+        <dd className={styles.about}>{application.about}</dd>
+      </div>
+    </dl>
+  );
+};
+
+// PromoteByUsername makes an existing account a trainer directly (owner
+// request, 2026-11-20): the decision is recorded like an approval.
+const PromoteByUsername = ({ onPromoted }: { onPromoted: () => void }) => {
+  const [username, setUsername] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!username.trim()) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await promoteUserToTrainer(username, reason);
+      setMessage({ ok: true, text: `@${username.trim().replace(/^@/, "")} is now a trainer.` });
+      setUsername("");
+      setReason("");
+      onPromoted();
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : "";
+      setMessage({
+        ok: false,
+        text: code === "USER_NOT_FOUND" ? "No active account has this username." : code === "USER_ALREADY_TRAINER" ? "This account is already a trainer." : "Unable to promote this account."
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form className={styles.promote} onSubmit={(event) => void submit(event)}>
+      <h2 className={styles.detailTitle}>
+        <UserPlus size={16} aria-hidden="true" /> Add a trainer by username
+      </h2>
+      <div className={styles.promoteFields}>
+        <label>
+          <span>Username</span>
+          <input value={username} placeholder="@username" autoCapitalize="none" spellCheck={false} maxLength={31} onChange={(event) => setUsername(event.target.value)} />
+        </label>
+        <label>
+          <span>Reason (optional)</span>
+          <input value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} />
+        </label>
+        <Button type="submit" variant="primary" size="small" disabled={busy || !username.trim()}>
+          {busy ? "Promoting…" : "Make trainer"}
+        </Button>
+      </div>
+      {message ? (
+        <p className={message.ok ? styles.promoteOk : styles.errorBanner} role={message.ok ? "status" : "alert"}>
+          {message.text}
+        </p>
+      ) : null}
+    </form>
+  );
+};
 
 const statusBadgeClass = (status: string): string => {
   if (status === ApplicationStatus.PENDING) {
@@ -199,6 +338,8 @@ export const AdminTrainerApplicationsPage = () => {
         ))}
       </div>
 
+      <PromoteByUsername onPromoted={() => void load(page, statusFilter)} />
+
       {error ? (
         <p className={styles.errorBanner} role="alert">{error}</p>
       ) : null}
@@ -290,6 +431,10 @@ export const AdminTrainerApplicationsPage = () => {
                             <p className={styles.detailState}>{detail.error}</p>
                           ) : (
                             <div className={styles.detailPanel}>
+                              <div className={joinClassNames(styles.detailColumn, styles.detailWide)}>
+                                <h2 className={styles.detailTitle}>Applicant</h2>
+                                <ApplicantDetails application={application} />
+                              </div>
                               <div className={styles.detailColumn}>
                                 <h2 className={styles.detailTitle}>Evidence documents</h2>
                                 {detail.documents.length === 0 ? (
@@ -307,6 +452,16 @@ export const AdminTrainerApplicationsPage = () => {
                                             {kindLabel(document.kind)} · {formatBytes(document.byte_size)} ·{" "}
                                             {formatAdminDate(document.created_at)}
                                           </span>
+                                          {document.screening_status === "passed" ? (
+                                            <span className={styles.screenPassed}>
+                                              <ShieldCheck size={13} aria-hidden="true" /> Screening passed
+                                            </span>
+                                          ) : document.screening_status === "flagged" ? (
+                                            <span className={styles.screenFlagged}>
+                                              <AlertTriangle size={13} aria-hidden="true" /> Check:{" "}
+                                              {(document.screening_signals ?? []).map((signal) => SIGNAL_LABELS[signal] ?? signal).join("; ")}
+                                            </span>
+                                          ) : null}
                                         </span>
                                         <button
                                           type="button"

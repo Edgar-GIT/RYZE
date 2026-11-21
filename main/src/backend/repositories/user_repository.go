@@ -47,6 +47,9 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 
 func (r *userRepository) Create(ctx context.Context, user *models.User) error {
 	if err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error { return tx.Create(user).Error }); err != nil {
+		if isDuplicateEntry(err) && violatedConstraint(err) == "uq_users_active_username" {
+			return ErrUsernameTaken
+		}
 		if isDuplicateEntry(err) {
 			return ErrDuplicateEmail
 		}
@@ -264,6 +267,8 @@ func (r *userRepository) Reactivate(ctx context.Context, user *models.User) erro
 				"password_hash": user.PasswordHash,
 				"password_set":  true,
 				"deleted_at":    nil,
+				// The old @username may belong to someone else by now.
+				"username": gorm.Expr("ryze_free_username(username, id)"),
 			})
 		affected = result.RowsAffected
 		if result.Error != nil || affected == 0 {
@@ -299,6 +304,8 @@ func (r *userRepository) ClearDeletedAt(ctx context.Context, id string) error {
 		Updates(map[string]any{
 			"deleted_at": nil,
 			"updated_at": time.Now(),
+			// The old @username may belong to someone else by now.
+			"username": gorm.Expr("ryze_free_username(username, id)"),
 		})
 	if result.Error != nil {
 		return fmt.Errorf("failed to reactivate user: %w", result.Error)
@@ -341,4 +348,76 @@ func (r *userRepository) DeleteAccount(ctx context.Context, id string) error {
 		return ErrUserNotFound
 	}
 	return nil
+}
+
+// ErrUsernameTaken is an @username already used by another active account.
+var ErrUsernameTaken = errors.New("username taken")
+
+// ProfileRepository is the profile identity surface (@username, display
+// name, photo) of the users table.
+type ProfileRepository interface {
+	FindByID(ctx context.Context, id string) (*models.User, error)
+	FindByUsername(ctx context.Context, username string) (*models.User, error)
+	UpdateProfile(ctx context.Context, id string, displayName *string, username string) error
+	SetAvatar(ctx context.Context, id string, key *string) (*string, error)
+}
+
+func NewProfileRepository(db *gorm.DB) ProfileRepository {
+	return &userRepository{db: db}
+}
+
+// FindByUsername returns the active account with this @username.
+func (r *userRepository) FindByUsername(ctx context.Context, username string) (*models.User, error) {
+	var user models.User
+	if err := r.db.WithContext(ctx).First(&user, "username = ?", username).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to find user by username: %w", err)
+	}
+	return &user, nil
+}
+
+// UpdateProfile sets the display name (nil clears it) and the @username of an
+// active account. A username used by another active account maps to
+// ErrUsernameTaken.
+func (r *userRepository) UpdateProfile(ctx context.Context, id string, displayName *string, username string) error {
+	var affected int64
+	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		result := tx.Model(&models.User{}).Where("id = ?", id).
+			Updates(map[string]any{"display_name": displayName, "username": username})
+		affected = result.RowsAffected
+		return result.Error
+	})
+	if err != nil {
+		if isDuplicateEntry(err) && violatedConstraint(err) == "uq_users_active_username" {
+			return ErrUsernameTaken
+		}
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+	if affected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// SetAvatar records the profile photo key (nil removes it) and returns the
+// previous key so its file can be deleted.
+func (r *userRepository) SetAvatar(ctx context.Context, id string, key *string) (*string, error) {
+	var previous *string
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user models.User
+		if err := tx.Clauses(clause.Locking{Strength: "NO KEY UPDATE"}).Select("id", "avatar_key").Take(&user, "id = ?", id).Error; err != nil {
+			return err
+		}
+		previous = user.AvatarKey
+		return tx.Model(&models.User{}).Where("id = ?", id).Update("avatar_key", key).Error
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to set avatar: %w", err)
+	}
+	return previous, nil
 }
