@@ -89,6 +89,10 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-21 (v2.130.1) — Level-up restraints redrawn as light (bands and a
+  hexagonal seal) after owner feedback; the preview button removed; a Home hero
+  picture test in place of the 3D composition (`/?hero=3d` for the 3D). The
+  picture is a functional product image requested by the owner for this test.
 - 2026-11-21 (v2.130.0) — Owner requests: trainer profile grid spacing and a
   views card; trainer dashboard earnings; Recovery as its own member page with
   a compact side and a more detailed body map; the level-up animation (CSS

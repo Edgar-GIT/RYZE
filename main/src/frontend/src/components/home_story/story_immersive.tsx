@@ -5,11 +5,16 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { joinClassNames } from "@utils/class_names";
 import earthLandMask from "@resources/img/globe/earth_land_mask.webp";
+import heroPicture from "@resources/img/hero/main_hero_replace.png";
 
 import { CALLOUTS, SCREENS, STORY_CHAPTER_IDS, type StoryChapterId, useStory } from "./story_content";
 import { ChapterCopy, StartActions, TONE_CLASS } from "./story_parts";
 import type { StoryScene } from "./story_scene";
 import styles from "./story_immersive.module.css";
+
+// Owner test (2026-11-21): the hero shows the picture instead of the 3D
+// composition; open /?hero=3d to compare with the 3D.
+const HERO_IMAGE = typeof window === "undefined" || new URLSearchParams(window.location.search).get("hero") !== "3d";
 
 /*
  * Desktop Home: one 3D stage stays pinned behind the hero, the programs and
@@ -317,7 +322,8 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
             platform: SCREENS.platform
           },
           callouts: CALLOUTS,
-          landMask: earthLandMask
+          landMask: earthLandMask,
+          heroImage: HERO_IMAGE
         });
       })
       .then((created) => {
@@ -438,6 +444,7 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
             <StartActions withEntryPoints />
           </div>
         </div>
+        {HERO_IMAGE ? <img className={styles.heroPicture} src={heroPicture} alt="" aria-hidden="true" decoding="async" /> : null}
         <p className={styles.scrollCue} aria-hidden="true">
           <ChevronsDown />
           {text.scrollCue}

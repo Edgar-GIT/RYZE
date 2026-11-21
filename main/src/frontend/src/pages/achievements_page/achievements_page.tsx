@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { LEVEL_NAMES, LevelBadge, MedalItem, XpBar } from "@/components/lifter/lifter";
-import { RankUpTester } from "@/components/lifter/rank_up_tester";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { fetchAchievements, type Achievements } from "@/services/achievements_api";
@@ -124,8 +123,6 @@ export const AchievementsPage = () => {
           <span className={styles.stop}>.</span>
         </h1>
         <p className={styles.lead}>{text.lead}</p>
-        {/* Local development only: preview the level-up animation (v2.130.0). */}
-        {import.meta.env.DEV ? <RankUpTester /> : null}
       </header>
 
       {failed ? (

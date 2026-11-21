@@ -1,10 +1,10 @@
 /* Level-up celebration (v2.130.0). One CSS timeline, in milliseconds:
      0     the screen darkens
      500   the new badge appears, blurred and dark
-     1100  the chains cross over it; 1700 the padlock drops in
+     1100  two bands of light cross over it; 1700 the seal drops in
      2300  everything shakes, harder and harder, while the light builds
-     3900  the first chain snaps; 4300 the second
-     4750  the padlock explodes: flash, shock wave, shards and sparks
+     3100  the seal cracks; 3900 the first band snaps; 4300 the second
+     4750  the seal bursts: flash, shock wave, shards and sparks
      4800  the badge is revealed, then floats and glows
      5100  the name and the level appear; 5900 "Continue" */
 
@@ -139,14 +139,14 @@
     badgeReveal 1000ms 4800ms cubic-bezier(0.2, 1.6, 0.4, 1) forwards;
 }
 
-/* Chains, crossed over the badge. */
+/* Bands of light, crossed over the badge. */
 .chain {
   --rot: 32deg;
   --from: -130%;
   width: 135%;
   height: auto;
   overflow: visible;
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 0 6px var(--rank)) drop-shadow(0 0 18px var(--rank-2));
   animation: chainIn 550ms 1100ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
 }
 
@@ -173,8 +173,10 @@
 }
 
 .snap {
-  fill: var(--rank);
-  filter: blur(4px);
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px var(--rank)) drop-shadow(0 0 14px var(--rank-2));
   opacity: 0;
   transform-box: fill-box;
   transform-origin: center;
@@ -185,14 +187,40 @@
   animation-delay: 4300ms;
 }
 
-/* The padlock. */
+/* The seal. */
 .lock {
-  width: 24%;
+  width: 34%;
   height: auto;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.7));
+  overflow: visible;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--rank) 70%, transparent));
   animation:
     lockIn 520ms 1700ms cubic-bezier(0.3, 1.5, 0.5, 1) both,
     lockBoom 320ms 4750ms ease-in forwards;
+}
+
+.sealRing {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spin 6s linear infinite;
+}
+
+.glyph {
+  filter: drop-shadow(0 0 4px var(--rank));
+}
+
+.cracks path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 3px var(--rank));
+  animation: crack 380ms 3100ms ease-out forwards;
+}
+
+.cracks path:nth-child(2) {
+  animation-delay: 3650ms;
+}
+
+.cracks path:nth-child(3) {
+  animation-delay: 4200ms;
 }
 
 .shards,
@@ -211,11 +239,12 @@
 }
 
 .shards span {
-  width: 18px;
-  height: 14px;
-  margin: -7px 0 0 -9px;
-  background: linear-gradient(135deg, #fff1b8, #e7b33c 55%, #8a5a12);
-  clip-path: polygon(0 0, 100% 35%, 30% 100%);
+  width: 26px;
+  height: 9px;
+  margin: -4px 0 0 -13px;
+  background: linear-gradient(90deg, #ffffff, var(--rank) 60%, var(--rank-2));
+  clip-path: polygon(0 50%, 100% 0, 80% 100%);
+  filter: drop-shadow(0 0 4px var(--rank));
   animation: shard 1000ms 4750ms cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
 }
 
@@ -540,6 +569,12 @@
     opacity: 0;
     transform: scale(0.2);
     filter: brightness(3);
+  }
+}
+
+@keyframes crack {
+  to {
+    stroke-dashoffset: 0;
   }
 }
 

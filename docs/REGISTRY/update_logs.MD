@@ -1,3 +1,28 @@
+# Version 2.130.1
+
+Title: Level-up seal of light, no preview button, Home hero picture test
+
+Date: 2026-11-21
+
+Summary:
+
+- Level-up animation (owner feedback: the chains and padlock looked like two
+  emojis): the badge is now held by two crossed, segmented bands of light in
+  the level's colour and a hexagonal seal with a line lock and a turning ring;
+  the seal cracks, the bands snap (a ring of light at the break) and the seal
+  bursts into slivers of light. The rest of the timeline is unchanged.
+- The "Testar subida de nível" button is gone everywhere (Test Mode banner and
+  local development): what development shows is what production shows. EXP for
+  tests is set with `go run . set-xp`.
+- Home hero test (owner request): the picture `main_hero_replace.png` stands
+  where the 3D composition stood, right of the copy; the 3D opening and table
+  are hidden and the phone grows in as the hero scrolls away. `/?hero=3d`
+  shows the 3D for comparison. If the picture is kept, the drone opening can
+  be redone around it and the 3D hero removed.
+
+Verification: typecheck passes; Playwright at 1440 px (a temporary harness,
+removed) showed the seal and bands and the hero picture.
+
 # Version 2.130.0
 
 Title: Trainer earnings and views, Recovery page, level-up animation, Home hero composition

@@ -22,6 +22,10 @@ export interface StorySceneAssets {
   screens: { training: string; nutrition: string; synced: string; platform: string };
   callouts: { train: readonly string[]; fuel: readonly string[]; sync: string };
   landMask: string; // Natural Earth land mask for planet RYZE
+  // Owner test (2026-11-21): a picture replaces the 3D composition in the
+  // hero. The opening and the table are hidden; the phone appears only once
+  // the story scrolls past the hero.
+  heroImage?: boolean;
 }
 
 export interface StoryScene {
@@ -857,7 +861,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const seatScale = new THREE.Vector3();
     const phoneShadowMaterial = phoneShadow.material;
     scene.add(intro.group);
-    let introTime = 0;
+    let introTime = assets.heroImage ? INTRO_END : 0;
     let shadowFrame = 0;
     let introSettled = false;
 
@@ -1305,7 +1309,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       intro.group.position.set(state.heroX * halfWidth, state.heroY, state.heroZ);
       intro.group.scale.setScalar(state.heroScale * fit);
       intro.group.rotation.set(heroTilt, heroYaw + state.heroSpin * 0.35, 0);
-      intro.group.visible = state.heroY < 4;
+      intro.group.visible = !assets.heroImage && state.heroY < 4;
       intro.group.updateMatrixWorld(true);
       // The composition's shadows: redrawn every other frame while the opening
       // plays or the story scrolls; the still scene keeps its shadow map.
@@ -1341,6 +1345,13 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       }
       phoneShadowMaterial.opacity = 1 - seated;
       phone.visible = state.phoneY > -6;
+      if (assets.heroImage) {
+        // The picture stands for the hero; the phone grows in as it scrolls away.
+        const shown = smooth(THREE.MathUtils.clamp((currentProgress - 0.015) / 0.07, 0, 1));
+        phone.scale.multiplyScalar(Math.max(shown, 1e-3));
+        phone.visible = phone.visible && shown > 0.001;
+        phoneShadowMaterial.opacity *= shown;
+      }
 
       const wanted = screenFor(currentProgress);
       if (wanted !== activeScreen) {

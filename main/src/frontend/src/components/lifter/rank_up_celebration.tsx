@@ -52,37 +52,71 @@ const SHARDS = Array.from({ length: 12 }, (_, index) => ({
   spin: (index % 2 ? 1 : -1) * (220 + index * 25)
 }));
 
-const LINKS = 9;
-const STEP = 52;
+const BAND = 520;
+const NOTCH = 26;
 
-// A chain of steel links. It looks whole until it snaps after `breakAt`
-// links: the two parts fly apart and a spark marks the break.
-const Chain = ({ className, breakAt }: { className: string; breakAt: number }) => {
-  const link = (index: number) => {
-    const x = index * STEP;
-    return (
-      <g key={index}>
-        <rect x={x + 4} y="16" width="46" height="28" rx="14" fill="none" stroke="url(#rank-steel)" strokeWidth="7" />
-        {index < LINKS - 1 ? <rect x={x + 34} y="26" width="38" height="8" rx="4" fill="url(#rank-steel)" /> : null}
-      </g>
-    );
-  };
-  const indexes = Array.from({ length: LINKS }, (_, index) => index);
+// A restraint of light: a segmented energy band with bracket caps. It looks
+// whole until it snaps at `breakAt` (a share of its length): the two parts
+// retract and fade, and a spark marks the break.
+const Band = ({ className, breakAt }: { className: string; breakAt: number }) => {
+  const cut = Math.round(BAND * breakAt);
+  const part = (from: number, to: number) => (
+    <>
+      <rect x={from} y="13" width={to - from} height="10" rx="5" fill="url(#rank-band)" />
+      {Array.from({ length: Math.floor((to - from) / NOTCH) }, (_, index) => (
+        <rect key={index} x={from + 12 + index * NOTCH} y="13" width="3" height="10" fill="#02041f" opacity="0.55" />
+      ))}
+    </>
+  );
   return (
-    <svg className={className} viewBox={`0 0 ${LINKS * STEP + 6} 60`} aria-hidden="true">
-      <g className={styles.chainLeft}>{indexes.slice(0, breakAt).map(link)}</g>
-      <g className={styles.chainRight}>{indexes.slice(breakAt).map(link)}</g>
-      <circle className={styles.snap} cx={breakAt * STEP + 2} cy="30" r="22" />
+    <svg className={className} viewBox={`0 0 ${BAND} 36`} aria-hidden="true">
+      <g className={styles.chainLeft}>
+        <rect x="1" y="6" width="14" height="24" rx="4" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.85" />
+        {part(8, cut - 3)}
+      </g>
+      <g className={styles.chainRight}>
+        <rect x={BAND - 15} y="6" width="14" height="24" rx="4" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.85" />
+        {part(cut + 3, BAND - 8)}
+      </g>
+      <circle className={styles.snap} cx={cut} cy="18" r="16" />
     </svg>
   );
 };
 
+const hexagon = (radius: number) =>
+  Array.from({ length: 6 }, (_, index) => {
+    const angle = (Math.PI / 3) * index - Math.PI / 2;
+    return `${(80 + radius * Math.cos(angle)).toFixed(1)},${(80 + radius * Math.sin(angle)).toFixed(1)}`;
+  }).join(" ");
+
+// The seal in the middle: a hexagon with a line lock (the app's icon style),
+// a turning ring of light and cracks that spread before it bursts.
+const Seal = () => (
+  <svg className={styles.lock} viewBox="0 0 160 160" aria-hidden="true">
+    <circle className={styles.sealRing} cx="80" cy="80" r="74" fill="none" stroke="var(--rank)" strokeWidth="2" strokeDasharray="2 8" />
+    <circle cx="80" cy="80" r="65" fill="none" stroke="#ffffff" strokeOpacity="0.25" strokeWidth="1" />
+    <polygon points={hexagon(54)} fill="#02041f" fillOpacity="0.88" stroke="var(--rank)" strokeWidth="3" strokeLinejoin="round" />
+    <polygon points={hexagon(45)} fill="none" stroke="#ffffff" strokeOpacity="0.22" strokeWidth="1.2" />
+    <g className={styles.glyph} fill="none" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M66 76 V67 a14 14 0 0 1 28 0 V76" />
+      <rect x="58" y="76" width="44" height="32" rx="8" />
+      <path d="M80 88 V96" />
+    </g>
+    <g className={styles.cracks} fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path pathLength={1} d="M80 80 L92 70 L97 72 L112 52 L118 50" />
+      <path pathLength={1} d="M80 80 L68 92 L70 99 L55 112" />
+      <path pathLength={1} d="M80 80 L95 92 L104 90 L121 103" />
+    </g>
+  </svg>
+);
+
 /**
  * RankUpCelebration plays the level-up moment (owner request, 2026-11-21):
  * the screen darkens, the new badge appears blurred and locked under two
- * crossed chains and a padlock, everything shakes harder and harder, the
- * chains snap one after the other, the padlock explodes and the new level is
- * revealed, glowing. Reduced motion shows the reveal directly. "Skip" jumps
+ * crossed bands of light and a hexagonal seal, everything shakes harder and
+ * harder, the bands snap one after the other, the seal cracks and bursts and
+ * the new level is revealed, glowing (v2.130.1: light restraints instead of
+ * realistic chains and a padlock, owner feedback). Reduced motion shows the reveal directly. "Skip" jumps
  * to the reveal; Escape or "Continue" closes it.
  */
 export const RankUpCelebration = ({ level, onClose }: { level: Pick<LifterLevel, "rank" | "key">; onClose: () => void }) => {
@@ -119,15 +153,12 @@ export const RankUpCelebration = ({ level, onClose }: { level: Pick<LifterLevel,
     >
       <svg width="0" height="0" aria-hidden="true" className={styles.defs}>
         <defs>
-          <linearGradient id="rank-steel" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#f2f6fc" />
-            <stop offset="0.45" stopColor="#8d9bb5" />
-            <stop offset="1" stopColor="#2b3550" />
-          </linearGradient>
-          <linearGradient id="rank-gold" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#fff1b8" />
-            <stop offset="0.5" stopColor="#e7b33c" />
-            <stop offset="1" stopColor="#8a5a12" />
+          <linearGradient id="rank-band" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style={{ stopColor: "var(--rank-2)" }} />
+            <stop offset="0.38" style={{ stopColor: "var(--rank)" }} />
+            <stop offset="0.5" stopColor="#ffffff" />
+            <stop offset="0.62" style={{ stopColor: "var(--rank)" }} />
+            <stop offset="1" style={{ stopColor: "var(--rank-2)" }} />
           </linearGradient>
         </defs>
       </svg>
@@ -146,14 +177,9 @@ export const RankUpCelebration = ({ level, onClose }: { level: Pick<LifterLevel,
           <div className={styles.float}>
             <img className={styles.badge} src={BADGE_ART[level.key]} alt="" draggable={false} />
           </div>
-          <Chain className={joinClassNames(styles.chain, styles.chainA)} breakAt={3} />
-          <Chain className={joinClassNames(styles.chain, styles.chainB)} breakAt={6} />
-          <svg className={styles.lock} viewBox="0 0 120 150">
-            <path d="M32 72 V46 a28 28 0 0 1 56 0 V72" fill="none" stroke="url(#rank-steel)" strokeWidth="13" strokeLinecap="round" />
-            <rect x="12" y="66" width="96" height="78" rx="16" fill="url(#rank-gold)" stroke="#5c3b08" strokeWidth="3" />
-            <circle cx="60" cy="98" r="10" fill="#2a1a03" />
-            <rect x="55" y="102" width="10" height="24" rx="4" fill="#2a1a03" />
-          </svg>
+          <Band className={joinClassNames(styles.chain, styles.chainA)} breakAt={0.3} />
+          <Band className={joinClassNames(styles.chain, styles.chainB)} breakAt={0.7} />
+          <Seal />
         </div>
         <div className={styles.shards}>
           {SHARDS.map((shard, index) => (

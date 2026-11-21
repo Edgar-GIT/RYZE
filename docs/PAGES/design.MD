@@ -2820,11 +2820,17 @@ visually only.
   The drawing has more detail lines and a soft volume light; colours keep
   their text legend.
 - Level up (`components/lifter/rank_up_celebration.tsx`): a full-screen
-  dialog — darkness, the new badge blurred under two crossed steel chains and
-  a padlock, shaking that grows, the chains snap one after the other, the
-  padlock explodes (flash, shock wave, shards, sparks), then the badge, rays
-  and name are revealed in the level's own colour with "Continuar". It plays
-  once after the workout that reaches a new level. "Saltar" jumps to the
-  reveal; Escape closes; reduced motion shows the reveal without movement.
-  "Testar subida de nível" (Test Mode banner; Achievements in local
-  development only) previews it for all eight levels.
+  dialog — darkness, the new badge blurred under two crossed bands of light
+  and a hexagonal seal with a line lock (v2.130.1; realistic chains and a
+  padlock were rejected as emoji-like), shaking that grows, the seal cracks,
+  the bands snap one after the other, the seal bursts (flash, shock wave,
+  slivers, sparks), then the badge, rays and name are revealed in the level's
+  own colour with "Continuar". It plays once after the workout that reaches a
+  new level. "Saltar" jumps to the reveal; Escape closes; reduced motion shows
+  the reveal without movement. There is no preview button (owner decision:
+  development shows what production shows); `go run . set-xp` sets EXP for
+  tests.
+- Home hero picture test (v2.130.1): `main_hero_replace.png` replaces the 3D
+  composition in the desktop hero (`/?hero=3d` shows the 3D); the phone of
+  the story appears as the hero scrolls away. A test pending the owner's
+  choice; phones keep the stacked story.
