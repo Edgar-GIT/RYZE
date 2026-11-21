@@ -968,3 +968,13 @@
   color: var(--text-secondary, #93a4c8);
   font-size: 0.88rem;
 }
+
+/* Link from the identity block to the public profile (v2.128.0). */
+.identityLink {
+  justify-self: start;
+  color: #7cebff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

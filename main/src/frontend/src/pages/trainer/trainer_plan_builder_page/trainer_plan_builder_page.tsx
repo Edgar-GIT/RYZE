@@ -98,7 +98,10 @@ const COPY: Copy<{
 };
 
 const TYPE_PRICE: Record<TrainerProgramTypeValue, number> = { free: 0, premium: 1499, personalized: 1949 };
-const TYPES: TrainerProgramTypeValue[] = [TrainerProgramType.FREE, TrainerProgramType.PREMIUM, TrainerProgramType.PERSONALIZED];
+// Trainers sell free and Premium Level 1 plans only (owner decision,
+// 2026-11-21): Level 2 is the personalised service, prepared by the trainer
+// a request is allocated to. An older personalised plan keeps its type.
+const TYPES: TrainerProgramTypeValue[] = [TrainerProgramType.FREE, TrainerProgramType.PREMIUM];
 
 // toDetail presents a trainer programme and its structure in the shape the
 // shared plan draft mapping reads.
@@ -315,7 +318,9 @@ export default function TrainerPlanBuilderPage() {
     return <p role="alert">{text.loadError}</p>;
   }
 
-  const categories: BuilderCategory[] = TYPES.map((id) => ({
+  // An older personalised plan still shows (and keeps) its own type.
+  const types = draft.type === TrainerProgramType.PERSONALIZED ? [...TYPES, TrainerProgramType.PERSONALIZED] : TYPES;
+  const categories: BuilderCategory[] = types.map((id) => ({
     id,
     label: text.categories[id].label,
     description: text.categories[id].description,

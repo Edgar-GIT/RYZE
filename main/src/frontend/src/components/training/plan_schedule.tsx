@@ -111,7 +111,10 @@ export const PlanSchedule = ({ weeks, sessions, activeWorkoutId, startingWorkout
           const open = openId === workout.id;
           const names = workout.exercises.map((exercise) => exercise.exercise.name);
           return (
-            <li key={workout.id} className={joinClassNames(styles.day, (active || next) && styles.dayHighlight)}>
+            <li
+              key={workout.id}
+              className={joinClassNames(styles.day, (active || next) && styles.dayHighlight, done && !active && styles.dayDone)}
+            >
               <button
                 type="button"
                 className={styles.dayHead}
@@ -125,12 +128,7 @@ export const PlanSchedule = ({ weeks, sessions, activeWorkoutId, startingWorkout
                   </span>
                   {active ? <span className={styles.badgeActive}>{t("account.training.inProgress")}</span> : null}
                   {next ? <span className={styles.badgeNext}>{t("training.plan.upNext")}</span> : null}
-                  {done && !active ? (
-                    <span className={styles.badgeDone}>
-                      <CheckCircle2 aria-hidden="true" />
-                      {t("training.plan.doneOn", { date: formatDate(done, { day: "numeric", month: "short" }) })}
-                    </span>
-                  ) : null}
+
                 </span>
                 <span className={styles.dayMeta}>
                   {exerciseCount === 1 ? t("training.plan.exercise") : t("training.plan.exercises", { count: exerciseCount })}
@@ -175,7 +173,14 @@ export const PlanSchedule = ({ weeks, sessions, activeWorkoutId, startingWorkout
                 </ol>
               ) : null}
 
-              {exerciseCount > 0 ? (
+              {done && !active ? (
+                // A completed day is done once (owner rule, 2026-11-21; the
+                // server refuses to start it again).
+                <p className={styles.doneBar}>
+                  <CheckCircle2 aria-hidden="true" />
+                  {t("training.plan.doneLocked", { date: formatDate(done, { day: "numeric", month: "short" }) })}
+                </p>
+              ) : exerciseCount > 0 ? (
                 <button
                   type="button"
                   className={joinClassNames(styles.start, !(active || next || open) && styles.startQuiet)}

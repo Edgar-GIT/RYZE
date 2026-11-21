@@ -134,3 +134,10 @@
 .error {
   color: #ffb4b4;
 }
+
+.profileLink {
+  color: #7cebff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

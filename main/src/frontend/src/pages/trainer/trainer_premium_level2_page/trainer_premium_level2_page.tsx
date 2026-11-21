@@ -1,6 +1,7 @@
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { PremiumLevel2OffersPanel } from "./premium_level2_offers_panel";
 
 import { Button } from "@/components/button/button";
 import { Admin2StatusBadge, type Admin2BadgeTone } from "@/components/admin2/admin2_status_badge/admin2_status_badge";
@@ -75,6 +76,8 @@ export const TrainerPremiumLevel2Page = () => {
           <option value="delivered">{PREMIUM_LEVEL_2_STATUS_LABELS.delivered}</option>
         </select>
       </header>
+
+      <PremiumLevel2OffersPanel />
 
       {loading ? (
         <p className={styles.muted}>Loading your services…</p>

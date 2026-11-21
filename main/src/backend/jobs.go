@@ -13,6 +13,7 @@ import (
 	"ryze/backend/repositories"
 	"ryze/backend/services/invoices"
 	"ryze/backend/services/notifications"
+	"ryze/backend/services/premium_level_2"
 	"ryze/backend/services/test_mode"
 )
 
@@ -37,6 +38,34 @@ func startBackgroundJobs(ctx context.Context, db *gorm.DB, mailCfg config.MailCo
 	mailer := email.NewMailer(mailCfg, repositories.NewEmailOutboxRepository(db))
 	recipients := test_mode.NewRecipientResolver(testModeEnabled, repositories.NewTestSessionRepository(db), testSessionTTL)
 	go runInvoiceSweep(ctx, invoices.New(repositories.NewInvoiceRepository(db), mailer, recipients, invoiceCfg))
+	notifier := notifications.New(repositories.NewNotificationRepository(db), repositories.NewUserRepository(db),
+		repositories.NewProgramRepository(db), mailer, notifications.WithTestRecipients(recipients))
+	go runPremiumLevel2OfferSweep(ctx, premium_level_2.NewService(repositories.NewPremiumLevel2Repository(db),
+		repositories.NewProgramRepository(db), repositories.NewEntitlementRepository(db),
+		premium_level_2.WithNotifier(notifier), premium_level_2.WithOffers(repositories.NewPremiumLevel2OfferRepository(db))))
+}
+
+// premiumLevel2OfferSweepInterval is how often Premium Level 2 offers past
+// their 24 hours expire and waiting requests are offered to the next trainer.
+const premiumLevel2OfferSweepInterval = 5 * time.Minute
+
+func runPremiumLevel2OfferSweep(ctx context.Context, service premium_level_2.Service) {
+	offers, ok := service.(premium_level_2.OfferService)
+	if !ok {
+		return
+	}
+	ticker := time.NewTicker(premiumLevel2OfferSweepInterval)
+	defer ticker.Stop()
+	for {
+		if err := offers.SweepOffers(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("premium level 2 offer sweep failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 // runInvoiceSweep issues the documents still missing for completed purchases

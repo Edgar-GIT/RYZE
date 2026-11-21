@@ -497,8 +497,10 @@ activation still requires a published program.
 Starts or resumes the session for the requested workout. Starting the same
 workout while its session is already active is idempotent and returns that
 session. Starting a different workout while another session is active answers
-`409 WORKOUT_SESSION_ACTIVE`. A completed or abandoned session may be repeated:
-a new execution is created.
+`409 WORKOUT_SESSION_ACTIVE`. An abandoned session may be repeated: a new
+execution is created. Since v2.128.0 a training day the member completed is
+done once (owner rule, 2026-11-21): starting it again answers
+`409 WORKOUT_ALREADY_COMPLETED`.
 
 Response `data` — the full session:
 
@@ -1982,7 +1984,9 @@ Request body:
 
 - `name` — required, trimmed, max 255 characters.
 - `description` — optional, max 5000 characters.
-- `type` — one of `free`, `premium`, `personalized`.
+- `type` — `free` or `premium` (v2.128.0, owner decision: trainers sell free
+  and Premium Level 1 plans only; Level 2 is the personalised service). An
+  older `personalized` plan keeps its type and can still be saved with it.
 - `status` — one of `draft`, `published`; defaults to `draft` when omitted.
 - `price_minor_units`, `currency` — accepted for compatibility and ignored
   (v2.114.0): the price follows the type's catalogue category — `free` 0,
@@ -3070,9 +3074,43 @@ Public endpoint.
 ## Public profile, photo and @username (v2.127.0)
 
 Every account has a unique @username (the reference people see, for example
-`@teste2`) and may set a display name (for example "Edgar") and a photo. The
-public name is the display name when set, otherwise the first and last name;
-the @username is shown under it. Identity comes only from the session.
+`@teste2`) and may set a nickname (`display_name`, "alcunha", for example
+"Edgar") and a photo. Since v2.128.0 (owner decision, 2026-11-21) the name
+the platform shows is the nickname, else the @username — never the email or
+the registered first and last name (coach names included). The @username is
+required at registration and chosen by the person: accounts whose @username
+was generated (Google sign-up, accounts made before v2.127.0 or by an
+administrator) carry `needs_username: true` in account responses until the
+person chooses one (never for a Test Mode persona). Identity comes only from
+the session.
+
+- `GET /api/v1/me/profile/details` and `PUT /api/v1/me/profile/details`
+  (v2.129.0) — the optional public "about": `{ "bio", "birth_date",
+  "training_since", "weight_kg", "socials": { "<platform>": "@handle or
+  link" } }` (PUT replaces it all; an empty value clears a field or a
+  network). Biography up to 500 characters (line breaks allowed), age 13-100
+  from `birth_date`, `training_since` a year from 1950 to now, weight 20-400
+  kg (one decimal). Networks: `instagram`, `tiktok`, `youtube`, `x`,
+  `facebook`, `strava`; a handle or a link on that network's own domain is
+  accepted and only the handle is stored, the server builds the link.
+  Invalid fields answer `400 VALIDATION_ERROR` with `error.details` (for
+  example `["bio", "socials.instagram"]`). Responses return `{ bio,
+  birth_date, training_since, weight_kg, socials: [{ platform, handle, url
+  }] }`.
+- `GET /api/v1/trainer/earnings` (v2.130.0, trainer `trainer.profile`) —
+  the authenticated trainer's earnings from the sales of their plans:
+  `{ "totals": [{ "currency", "sales", "gross", "net", "commission" }] }` in
+  minor units, one entry per currency (empty before the first sale). Only
+  completed, non-Test-Mode purchases of programs the trainer owns count, with
+  the split captured at purchase time (`price_minor_units`, `trainer_amount`,
+  `platform_amount`). The trainer dashboard shows "Ganho total", "Lucro" and
+  "Comissões".
+- `GET /api/v1/profiles/:username` also returns `stats.views` (v2.130.0): a
+  coach's reach, the total views of their published plans (the same number
+  as the coach page); `null` for accounts that are not public coaches.
+- `PUT /api/v1/me/username` (v2.128.0) — body `{ "username" }`: records the
+  @username the person chose (or confirms); same rule and errors as below.
+  Changing the @username in `PATCH /me/profile` also counts as choosing it.
 
 - `PATCH /api/v1/me/profile` — body `{ "display_name", "username" }`.
   `display_name` up to 40 characters (empty clears it; control characters
@@ -3087,6 +3125,31 @@ the @username is shown under it. Identity comes only from the session.
 - `DELETE /api/v1/me/avatar` — removes the photo.
 - `GET|HEAD /uploads/avatars/<uuid>.jpg` — public, served only for names
   matching that pattern.
+
+## Public profiles and following (v2.128.0)
+
+Owner request (2026-11-21); profiles are open to everyone, visitors included.
+A profile shows the nickname (else the @username), the @username, the photo,
+member since, completed workouts, followers, following, the lifter level and
+the record medal count, and a link to the public coach profile of a trainer
+who has one. Never the email, the registered name, body data, measurements
+or anything health-related. Deleted accounts and Test Mode personas have no
+profile.
+
+- `GET /api/v1/profiles/:username` — public; reads the session cookie only to
+  fill `viewer`. `data`: `{ username, nickname, avatar_url, member_since,
+  stats: { workouts, followers, following, level: { rank, key }, medals },
+  coach_id, about, viewer: { signed_in, is_self, following } }`. Since
+  v2.129.0 `about` is `{ bio, age, training_years, weight_kg, socials: [{
+  platform, handle, url }] }` with only what the person filled in (the date
+  of birth itself is never returned).
+  `404 PROFILE_NOT_FOUND`.
+- `GET /api/v1/profiles/:username/followers` and `.../following` — public,
+  newest first, at most 100: `data.people: [{ username, nickname,
+  avatar_url }]`.
+- `POST /api/v1/me/following/:username` and `DELETE ...` — authenticated,
+  idempotent; the follower is the session's account. `400
+  CANNOT_FOLLOW_SELF`, `404 PROFILE_NOT_FOUND`.
 
 ## Register
 
@@ -3103,13 +3166,19 @@ Accounts are inactive until email verification is completed.
 The `password` must satisfy the shared password policy (12 to 128 characters);
 a shorter or longer password returns HTTP 400 `VALIDATION_ERROR`.
 
-Optional `username` (v2.127.0): the account's public @username, lower case,
-3-30 characters `^[a-z0-9][a-z0-9._]{2,29}$` (a leading `@` is ignored) and
-not a reserved word. Invalid answers HTTP 400 `INVALID_USERNAME`; one held by
-another active account answers HTTP 409 `USERNAME_TAKEN`. Without it the
-database generates one from the email (`ryze_free_username`, a `.N` suffix
-when taken). Account responses include `username`, `display_name` and
-`avatar_url`.
+Optional `display_name` (v2.129.0): the nickname, up to 40 characters
+(`400 INVALID_DISPLAY_NAME`).
+
+`username` (v2.127.0, required since v2.128.0): the account's public
+@username, lower case, 3-30 characters `^[a-z0-9][a-z0-9._]{2,29}$` (a
+leading `@` is ignored) and not a reserved word. Missing answers HTTP 400
+`INVALID_USERNAME`. Invalid answers HTTP 400 `INVALID_USERNAME`; one held by
+another active account answers HTTP 409 `USERNAME_TAKEN`. Only accounts made
+without the form (Google sign-up, administrators) get a generated placeholder
+(`ryze_free_username`, a `.N` suffix when taken) and `needs_username`. A
+restored account takes the chosen @username when it is free. Account
+responses include `username`, `display_name`, `avatar_url` and
+`needs_username`.
 
 If the email belongs to a soft-deleted (previously deleted) account, the same
 registration restores that account instead of creating a duplicate: the
@@ -4797,7 +4866,25 @@ Protected by `AdminAuthenticate` + `RequireAdminPermission(plans)`.
 - `POST .../requests/:requestID/trainer` accepts `{ "trainer_id": "..." }`.
   The trainer must be active. Allocation moves the request to `in_progress`;
   reallocation is allowed before delivery, clears the previously attached
-  training programme and records the transition.
+  training programme and records the transition. Since v2.128.0 it also
+  withdraws the request's open offer (allocation by hand stays the fallback
+  of allocation by offer).
+
+### Allocation by offer (v2.128.0)
+
+Owner decision (2026-11-21), until AI exists: once the intake is submitted
+the request is offered to one available trainer — an active trainer who
+turned on "accepts Premium Level 2 requests", who is not the client, with the
+fewest open requests (allocated `in_progress` / `ready_for_delivery` plus open
+offers), oldest trainer first on a tie; Test Mode requests only go to Test
+Mode trainers and real requests only to real trainers. The trainer is
+notified (`pl2_request_offered`, with email). Accepting allocates the request
+exactly like ADMIN_2 (event actor `trainer`) and notifies the client;
+declining, or 24 hours without an answer (a sweep every 5 minutes), offers it
+to the next trainer not yet asked. With nobody left the request waits in
+`awaiting_trainer_assignment` for ADMIN_2, and a trainer turning availability
+on receives waiting requests. Events `trainer_offered`, `offer_declined` and
+`offer_expired` are recorded without intake content.
 
 ## Trainer Endpoints
 
@@ -4812,6 +4899,24 @@ POST /api/v1/trainer/premium-level-2/requests/:requestID/deliver
 
 Protected by `RequireTrainerPermission`; the acting trainer always comes from
 the session. A trainer can only see and modify requests allocated to them.
+
+Offers (v2.128.0, `clients` permission):
+
+```
+GET  /api/v1/trainer/premium-level-2/offers
+POST /api/v1/trainer/premium-level-2/offers/:offerID/accept
+POST /api/v1/trainer/premium-level-2/offers/:offerID/decline
+PUT  /api/v1/trainer/premium-level-2/availability
+```
+
+- `GET .../offers` returns `{ offers: [{ id, request_id, offer_name,
+  request_created_at, offered_at, expires_at }], accepts_requests }`. Before
+  accepting the trainer sees only the service and the dates: the intake
+  answers are sensitive and open with the allocation.
+- `accept` returns `{ request_id }`; `decline` returns `null`. Errors:
+  `404 OFFER_NOT_FOUND` (not the trainer's open offer), `409 OFFER_EXPIRED`
+  (the 24 hours ended; the request moves on), `409 REQUEST_NOT_AVAILABLE`.
+- `availability` takes `{ "accepts_requests": true|false }`.
 
 - The list accepts `page`, `limit` and `status`, and returns the same queue
   shape as the admin list without client email or answers.

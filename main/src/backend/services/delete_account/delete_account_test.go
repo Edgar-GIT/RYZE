@@ -243,6 +243,7 @@ func TestDeleteAccountPreservesRowForReactivation(t *testing.T) {
 	regSvc := registration.NewRegistrationService(repo, password.Hasher{})
 	reactivated, err := regSvc.Register(ctx, registration.RegisterInput{
 		Email:     email,
+		Username:  uniqueTestUsername(),
 		Password:  "NewPassword456!",
 		FirstName: "New",
 		LastName:  "Name",
@@ -356,4 +357,9 @@ func (failingRepo) DeleteAccount(_ context.Context, _ string) error {
 }
 func (failingRepo) ClearDeletedAt(_ context.Context, _ string) error {
 	return errRepositoryFailure
+}
+
+// uniqueTestUsername is a free @username for one test registration.
+func uniqueTestUsername() string {
+	return fmt.Sprintf("t%d", time.Now().UnixNano()%100000000000)
 }

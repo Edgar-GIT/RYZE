@@ -107,6 +107,16 @@
   line-height: 1.05;
 }
 
+/* The plan's cover under its title (owner request, 2026-11-21). */
+.cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
+  border-radius: 14px;
+}
+
 .subtitle {
   max-width: 46rem;
   margin: 0;

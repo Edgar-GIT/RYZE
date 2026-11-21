@@ -103,6 +103,19 @@ func (r *workoutSessionRepository) Create(ctx context.Context, session *models.W
 
 // FindActiveByUser returns the user's in-progress or paused session, or
 // ErrWorkoutSessionNotFound when none exists.
+// HasCompletedWorkout reports whether the member completed this training day
+// of this plan (a completed day is not started again).
+func (r *workoutSessionRepository) HasCompletedWorkout(ctx context.Context, userID, programID, workoutID string) (bool, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&models.WorkoutSession{}).
+		Where("user_id = ? AND program_id = ? AND program_workout_id = ? AND status = ?",
+			userID, programID, workoutID, models.WorkoutSessionStatusCompleted).
+		Count(&count).Error; err != nil {
+		return false, fmt.Errorf("failed to check completed workout: %w", err)
+	}
+	return count > 0, nil
+}
+
 func (r *workoutSessionRepository) FindActiveByUser(ctx context.Context, userID string) (*models.WorkoutSession, error) {
 	var session models.WorkoutSession
 	if err := sessionPreloads(r.db.WithContext(ctx)).

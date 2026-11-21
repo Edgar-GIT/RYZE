@@ -6,6 +6,7 @@ import { type Copy, useI18n } from "@/i18n/i18n";
 import { fetchSessionAward, type SessionAward } from "@/services/achievements_api";
 
 import { LEVEL_NAMES, LevelBadge, MedalItem, XpBar } from "./lifter";
+import { RankUpCelebration } from "./rank_up_celebration";
 import styles from "./session_rewards.module.css";
 
 const COPY: Copy<{
@@ -51,6 +52,23 @@ export const SessionRewards = ({ sessionId }: { sessionId: string }) => {
   const text = COPY[locale];
   const names = LEVEL_NAMES[locale];
   const [award, setAward] = useState<SessionAward | null>(null);
+  // The level-up celebration plays once per workout (v2.130.0).
+  const seenKey = `ryze.levelUpSeen.${sessionId}`;
+  const [celebrated, setCelebrated] = useState(() => {
+    try {
+      return window.sessionStorage.getItem(seenKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const closeCelebration = () => {
+    setCelebrated(true);
+    try {
+      window.sessionStorage.setItem(seenKey, "1");
+    } catch {
+      // The celebration may play again after a reload; nothing else breaks.
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +115,7 @@ export const SessionRewards = ({ sessionId }: { sessionId: string }) => {
         <p className={styles.note}>{text.notCounted(award.rules.sessions_per_day)}</p>
       ) : null}
 
+      {leveledUp && !celebrated ? <RankUpCelebration level={after} onClose={closeCelebration} /> : null}
       {leveledUp ? (
         <div className={styles.levelUp} role="status">
           <PartyPopper className={styles.party} aria-hidden="true" />

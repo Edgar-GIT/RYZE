@@ -337,7 +337,10 @@ link or typed address) they go to the page's parent instead of leaving RYZE:
 plan detail → training plans, other `/services/...` pages → Services,
 exercise detail → library, everything else → Home.
 
-- Public navbar: round button before the logo (not on Home).
+- Public navbar: round button before the logo (not on Home). Signed in
+  (v2.128.0), the navbar shows the notification bell (before the menu button
+  on phones) and the account as its photo (or initial) and public name
+  instead of "My account".
 - Login/registration, password recovery and admin login: round button before
   the logo (recovery falls back to the login page).
 - App shell (member, trainer, ADMIN_1, ADMIN_2): "Back" / "Voltar" before
@@ -356,6 +359,19 @@ programas", a receipt → "Voltar às Compras". Public pages: plan detail →
 `/services/...` → "Voltar aos Serviços", exercise detail → "Voltar aos
 Exercícios", everything else → "Voltar ao Início". The text is stored whole
 per page, because Portuguese contracts the preposition with the article.
+
+Back to where you came from (v2.128.0, owner report 2026-11-21: from the
+personal area into the training plans, "back" led to Services). `resolveBack`
+now reads where the person came from (the tab history keeps each page's
+path): coming from another area (personal area, trainer area, administration
+or the public site) or from the page above, the button returns to exactly
+that page ("Voltar à Área pessoal", "Voltar ao plano"…); after moving between
+pages of the same area it goes up to the parent page, so returning never
+takes one click per page; with nothing before (a link from outside) or after
+signing in, it goes to the parent page. The navbar, the member shell and the
+in-page back links of the plan, Premium Level 1, coach and profile pages use
+the same decision (`useBackTarget`). The protected Exercise Library is
+unchanged.
 
 The six links occupy the flexible middle column and are spread evenly between
 the brand and the auth actions, so the group stays balanced instead of leaving
@@ -1004,7 +1020,11 @@ trainer assignment or Free activation. It is only reachable from My Programs.
 - **Actions** — an active session banner offers Resume. Every workout row has a
   Start action (or Resume when that workout owns the active session); starting a
   different workout while one is live surfaces the server conflict instead of
-  discarding the live session. History and Progress links are available from
+  discarding the live session. Since v2.128.0 (owner rule, 2026-11-21) a day
+  the member completed is done once: its whole card turns green and the Start
+  action becomes "Concluído a <date> · não se repete" (the server refuses a
+  restart with `WORKOUT_ALREADY_COMPLETED`). The plan's cover image shows under
+  its title. History and Progress links are available from
   this page.
 - **Shared structure** — `ProgramStructure` is access-only and is not reused by
   the public marketplace detail, which is metadata-only.
@@ -1496,6 +1516,22 @@ shows the exclusive academy item only when one is delivered.
 moving between member pages. The workout player and the Premium Level 2 request
 and experience pages render outside the shell.
 
+### Public profile (`/u/:username`, v2.128.0)
+
+Owner request (2026-11-21); open to everyone, in the public layout. A glass
+hero with the photo (or initial), the nickname (else the @username, shown
+once) with the @username under it, member since, the lifter level badge and,
+for a trainer with a public profile, a "Treinador RYZE" link. Since v2.129.0
+the hero also shows what the person filled in: the biography, chips for the
+age, years of training and weight, and round social icons that open their
+profiles in a new tab. Actions: Seguir
+/ A seguir (signed in), "Inicia sessão para seguir" (visitor; returns to the
+profile after signing in) or "Editar o meu perfil" (own profile). Four numbers:
+Treinos, Seguidores, A seguir (both open the list of people, each linking to
+their profile) and Medalhas de recorde. One column on phones, the hero in a
+row and four numbers from 720px. Linked from the user menu ("O meu perfil
+público"), the dashboard identity and Account.
+
 ### Home (`/profile`)
 
 The member's dashboard. Every value comes from existing endpoints
@@ -1539,11 +1575,20 @@ levels with their badges and thresholds: reached, current, and locked with a
 grey badge); and how EXP is earned,
 written from the `rules` the API returns. Two columns from 1024px.
 
+First visit (v2.128.0): an account whose @username was generated (Google
+sign-up, older or administrator-made accounts) sees a dialog "Escolhe a tua
+@referência" over the personal area until it saves one (`PUT /me/username`);
+it cannot be dismissed and keeps the keyboard inside.
+
 ### Account (`/account/settings`)
 
 Profile details, language preference, sign-in methods, email verification,
 password change, trainer status (apply or open the trainer area), sign-out and
-account deletion. Since v2.127.0 a public profile card sets the photo
+account deletion. Since v2.129.0 an "Sobre ti" card sets the biography, the
+date of birth (only the age is shown), the year training started, the weight
+and the social networks: a row of network icons, each opening a field for the
+@username or link; filled networks are highlighted. Since v2.127.0 a public
+profile card sets the photo
 (upload or remove), the display name and the @username, and shows how others
 see the account (name on top, @username below). The current-password fields
 (password change and account deletion) never autofill and have no reveal
@@ -1720,13 +1765,19 @@ Programs (`/trainer/programs`) — v2.114.0
 Plan builder (`/trainer/programs/new`, `/trainer/programs/:programId`)
 
 - The shared plan builder (see "Plan builder" under the Admin Console). The
-  categories are the trainer types: Free, Premium (14.99 EUR, the Level 1
-  price) and Personalized (19.49 EUR, the Level 2 price); the price is shown,
-  never typed. Saving stores the details and the whole structure; Publish
+  categories are the trainer types: Free and Premium (14.99 EUR, the Level 1
+  price); the price is shown, never typed. Since v2.128.0 (owner decision)
+  Personalized is no longer offered; an older personalised plan still shows
+  and keeps its type. Saving stores the details and the whole structure; Publish
   publishes a draft; Delete removes the programme.
 
 Premium L2 (`/trainer/premium-level-2`)
 
+- Since v2.128.0 the page opens with "Pedidos à espera da tua resposta": the
+  switch "Aceito pedidos Premium Nível 2" and each request offered to the
+  trainer (service, request date, time left of the 24 hours) with Aceitar
+  (opens the request) and Recusar. Before accepting only the service and the
+  dates are shown.
 - One card list of requests allocated to the signed-in trainer, with status and
   pagination. Only allocated requests are returned; the page never exposes a
   client directory.
@@ -1748,9 +1799,19 @@ Premium L2 (`/trainer/premium-level-2`)
 
 Profile (`/trainer/profile`)
 
-- View-only summary of the trainer identity (name, email, member since) with a
-  note that trainer profile editing is not available yet. No invented editable
-  fields.
+- Since v2.129.0 (owner report, 2026-11-21: the page showed the registered
+  name and the email) it shows the person's one RYZE identity — photo, nickname
+  (else the @username) with the @username, biography, social links, member
+  since and status — with "Editar perfil" (Account, shared with the member
+  area) and "Ver perfil público", and a card for the public coach profile
+  (live with the first published plan, never for Test Mode accounts). The
+  trainer and member shells show the public name and the @username, never the
+  email.
+- Since v2.130.0 (owner report, 2026-11-21: the cards touched) the page is one
+  grid with spacing; on desktop the identity card sits beside a
+  "Visualizações" card (the views of the coach's published plans, the stat
+  only coaches have) and the coach card. The trainer dashboard adds "Ganhos":
+  "Ganho total", "Lucro" and "Comissões" (`GET /trainer/earnings`).
 
 ---
 
@@ -2747,3 +2808,23 @@ by keyboard with a visible focus ring, every icon is decorative and hidden from
 assistive technology, state changes are announced through `role="alert"` for errors
 and `role="note"` for cautions, and the required-field marker is duplicated
 visually only.
+
+## Recovery and the level-up animation (v2.130.0)
+
+- Recovery (`/services/recovery`, member menu "Recuperação", owner request
+  2026-11-21) holds the muscle recovery map that was a Progress tab
+  (`/services/progress?tab=muscles` redirects). Beside the body map (below it
+  on phones): a detail card for the selected muscle (by default the least
+  recovered) and compact chips grouped "Cansados", "A recuperar", "Prontos a
+  treinar", two or three per row, so the side stays about as tall as the map.
+  The drawing has more detail lines and a soft volume light; colours keep
+  their text legend.
+- Level up (`components/lifter/rank_up_celebration.tsx`): a full-screen
+  dialog — darkness, the new badge blurred under two crossed steel chains and
+  a padlock, shaking that grows, the chains snap one after the other, the
+  padlock explodes (flash, shock wave, shards, sparks), then the badge, rays
+  and name are revealed in the level's own colour with "Continuar". It plays
+  once after the workout that reaches a new level. "Saltar" jumps to the
+  reveal; Escape closes; reduced motion shows the reveal without movement.
+  "Testar subida de nível" (Test Mode banner; Achievements in local
+  development only) previews it for all eight levels.

@@ -359,6 +359,9 @@ type ProfileRepository interface {
 	FindByID(ctx context.Context, id string) (*models.User, error)
 	FindByUsername(ctx context.Context, username string) (*models.User, error)
 	UpdateProfile(ctx context.Context, id string, displayName *string, username string) error
+	// ChooseUsername sets the @username the person chose and records the
+	// choice (ErrUsernameTaken when another active account holds it).
+	ChooseUsername(ctx context.Context, id, username string) error
 	SetAvatar(ctx context.Context, id string, key *string) (*string, error)
 }
 
@@ -385,7 +388,13 @@ func (r *userRepository) UpdateProfile(ctx context.Context, id string, displayNa
 	var affected int64
 	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		result := tx.Model(&models.User{}).Where("id = ?", id).
-			Updates(map[string]any{"display_name": displayName, "username": username})
+			Updates(map[string]any{
+				"display_name": displayName,
+				"username":     username,
+				// Changing the @username is choosing it (the old value is read
+				// by the UPDATE before the new one is set).
+				"username_chosen": gorm.Expr("username_chosen OR username <> ?", username),
+			})
 		affected = result.RowsAffected
 		return result.Error
 	})
@@ -394,6 +403,26 @@ func (r *userRepository) UpdateProfile(ctx context.Context, id string, displayNa
 			return ErrUsernameTaken
 		}
 		return fmt.Errorf("failed to update profile: %w", err)
+	}
+	if affected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *userRepository) ChooseUsername(ctx context.Context, id, username string) error {
+	var affected int64
+	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		result := tx.Model(&models.User{}).Where("id = ? AND deleted_at IS NULL", id).
+			Updates(map[string]any{"username": username, "username_chosen": true})
+		affected = result.RowsAffected
+		return result.Error
+	})
+	if err != nil {
+		if isDuplicateEntry(err) && violatedConstraint(err) == "uq_users_active_username" {
+			return ErrUsernameTaken
+		}
+		return fmt.Errorf("failed to choose username: %w", err)
 	}
 	if affected == 0 {
 		return ErrUserNotFound

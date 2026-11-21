@@ -11,10 +11,13 @@ import (
 // Notification kinds. The web app turns kind + params into text in the
 // reader's language.
 const (
-	NotificationAccessGranted       = "access_granted"
-	NotificationPL2IntakeReceived   = "pl2_intake_received"
-	NotificationPL2TrainerAssigned  = "pl2_trainer_assigned"
-	NotificationPL2RequestAssigned  = "pl2_request_assigned"
+	NotificationAccessGranted      = "access_granted"
+	NotificationPL2IntakeReceived  = "pl2_intake_received"
+	NotificationPL2TrainerAssigned = "pl2_trainer_assigned"
+	NotificationPL2RequestAssigned = "pl2_request_assigned"
+	// NotificationPL2RequestOffered asks a trainer to accept a request
+	// (allocation by offer, v2.128.0).
+	NotificationPL2RequestOffered   = "pl2_request_offered"
 	NotificationPL2Delivered        = "pl2_delivered"
 	NotificationSupportReply        = "support_reply"
 	NotificationSupportNewMessage   = "support_new_message"

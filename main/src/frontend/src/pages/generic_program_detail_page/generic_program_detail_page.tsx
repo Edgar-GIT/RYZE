@@ -32,6 +32,7 @@ import { ApiError } from "@utils/http_client";
 
 import { FreePlanOutline } from "./free_plan_outline";
 import styles from "./generic_program_detail_page.module.css";
+import { useBackTarget } from "@/hooks/use_back_target";
 
 const PAGE_PT: Catalog = {
   "Created by": "Criado por",
@@ -433,6 +434,7 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
 };
 
 export const GenericProgramDetailPage = () => {
+  const back = useBackTarget();
   const tr = useGettext(PAGE_PT, COMMERCE_PT);
   const { locale } = useI18n();
   const { programId } = useParams<{ programId: string }>();
@@ -486,14 +488,8 @@ export const GenericProgramDetailPage = () => {
       <section className={styles.detail}>
         <Container size="wide" className={styles.container}>
           <div className={styles.back}>
-            <Button
-              to="/services/generic-program"
-              variant="ghost"
-              size="small"
-              icon={<ArrowLeft size={15} />}
-              iconPosition="left"
-            >
-              {tr("Back to Training plans")}
+            <Button to={back.to} onClick={back.onClick} variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
+              {back.label}
             </Button>
           </div>
 

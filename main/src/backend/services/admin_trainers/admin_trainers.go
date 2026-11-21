@@ -210,6 +210,8 @@ func (s *adminTrainerService) CreateTrainer(ctx context.Context, input CreateTra
 		Password:  input.Password,
 		FirstName: input.FirstName,
 		LastName:  input.LastName,
+		// The person chooses their @username on the first visit.
+		GenerateUsername: true,
 	})
 	if err != nil {
 		switch {

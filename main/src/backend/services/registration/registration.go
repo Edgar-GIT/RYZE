@@ -16,7 +16,10 @@ import (
 var (
 	ErrInvalidInput    = errors.New("invalid registration input")
 	ErrInvalidUsername = errors.New("invalid username")
-	ErrUsernameTaken   = errors.New("username taken")
+	// ErrInvalidDisplayName: the optional nickname is too long or has
+	// control characters.
+	ErrInvalidDisplayName = errors.New("invalid display name")
+	ErrUsernameTaken      = errors.New("username taken")
 )
 
 // PasswordHasher is the hashing dependency required by the registration flow.
@@ -36,8 +39,21 @@ type RegisterInput struct {
 	Password  string
 	FirstName string
 	LastName  string
-	// Username is the chosen @username; empty lets the database generate one.
+	// Username is the chosen @username, required (owner decision,
+	// 2026-11-21: the reference is created by the person, never derived from
+	// the email).
 	Username string
+	// DisplayName is the optional nickname.
+	DisplayName string
+	// GenerateUsername is for accounts an administrator creates (they have no
+	// @username field): with no Username, the database generates a
+	// placeholder and the person chooses theirs on the first visit.
+	GenerateUsername bool
+}
+
+// usernameChooser is implemented by the user repository.
+type usernameChooser interface {
+	ChooseUsername(ctx context.Context, id, username string) error
 }
 
 type registrationService struct {
@@ -62,12 +78,21 @@ func (s *registrationService) Register(ctx context.Context, input RegisterInput)
 	}
 
 	username := ""
-	if strings.TrimSpace(input.Username) != "" {
+	if !input.GenerateUsername || strings.TrimSpace(input.Username) != "" {
 		normalized, ok := profile.NormalizeUsername(input.Username)
 		if !ok || profile.IsReserved(normalized) {
 			return nil, ErrInvalidUsername
 		}
 		username = normalized
+	}
+
+	nickname, ok := profile.NormalizeDisplayName(input.DisplayName)
+	if !ok {
+		return nil, ErrInvalidDisplayName
+	}
+	var displayName *string
+	if nickname != "" {
+		displayName = &nickname
 	}
 
 	email := strings.TrimSpace(input.Email)
@@ -96,6 +121,17 @@ func (s *registrationService) Register(ctx context.Context, input RegisterInput)
 		if err := s.repo.Reactivate(ctx, existing); err != nil {
 			return nil, fmt.Errorf("failed to reactivate user: %w", err)
 		}
+		// The restored account takes the @username chosen now. If another
+		// account holds it, the account keeps its earlier one and the person
+		// is asked to choose on the next visit.
+		if chooser, ok := s.repo.(usernameChooser); ok && username != "" {
+			if err := chooser.ChooseUsername(ctx, existing.ID, username); err == nil {
+				existing.Username = username
+				existing.UsernameChosen = true
+			} else if !errors.Is(err, repositories.ErrUsernameTaken) {
+				return nil, fmt.Errorf("failed to set username: %w", err)
+			}
+		}
 		existing.PasswordHash = ""
 		return existing, nil
 	}
@@ -106,11 +142,13 @@ func (s *registrationService) Register(ctx context.Context, input RegisterInput)
 	}
 
 	user := &models.User{
-		Email:        email,
-		PasswordHash: hash,
-		FirstName:    firstName,
-		LastName:     lastName,
-		Username:     username,
+		Email:          email,
+		PasswordHash:   hash,
+		FirstName:      firstName,
+		LastName:       lastName,
+		Username:       username,
+		UsernameChosen: username != "",
+		DisplayName:    displayName,
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {

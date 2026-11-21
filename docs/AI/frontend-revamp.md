@@ -89,6 +89,33 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-21 (v2.130.0) — Owner requests: trainer profile grid spacing and a
+  views card; trainer dashboard earnings; Recovery as its own member page with
+  a compact side and a more detailed body map; the level-up animation (CSS
+  timeline, reduced motion respected) with a Test Mode preview; the Home hero
+  3D composition moved to the owner's reference (positions only, in
+  `story_intro.ts` `LAYOUT`; desktop only as before). Checked with one
+  Playwright pass against mocked APIs at 1440 px.
+- 2026-11-21 (v2.129.0) — Owner request: the trainer profile page and the
+  trainer/member shells show the one RYZE identity (photo, nickname or
+  @username, the @username; never the email). Account gains "Sobre ti"
+  (biography, age, training years, weight, social networks with drawn line
+  icons — the installed icon set has no brand marks); the public profile shows
+  them. Registration (protected) gains the optional nickname field next to the
+  required @username (owner decision); nothing else changed there. Checked with
+  Playwright against mocked APIs at 390 px and 1440 px.
+- 2026-11-21 (v2.128.0) — Owner requests of 2026-11-21. Back buttons return to
+  the page the person came from across areas and go up within an area
+  (`resolveBack`, `useBackTarget`); the protected Exercise Library is
+  untouched. Completed plan days are green and locked; the plan cover shows
+  under its title. Public pages (`ui.page`) are at least as tall as `<main>`
+  (no dark band before the footer); the coach page clears the navbar and
+  explains a hidden own profile. Public navbar signed in: bell and the account
+  photo and name. Registration (protected) now requires the @username (owner
+  decision); nothing else changed there. New: public profile `/u/:username`,
+  first-visit @username dialog, trainer Premium Level 2 offers panel. Checked
+  with Playwright against mocked APIs at 390 px and 1440 px (no horizontal
+  overflow). No new dependency.
 - 2026-11-21 (v2.127.0) — Owner requests of 2026-11-20. Back buttons in the
   navbar and member shell now name and open the parent page ("Voltar à Área
   pessoal"), one click from any depth. Free plans show an overview (weeks,

@@ -100,3 +100,13 @@ func TestLevels(t *testing.T) {
 		}
 	}
 }
+
+// EXP adjustments (v2.130.0) start the total; a negative sum never goes below 0.
+func TestComputeFromStartsAtTheAdjustment(t *testing.T) {
+	if got := achievements.ComputeFrom(39999, nil); got.XP != 39999 || got.Level.Key != "master" || got.NextLevel == nil || got.NextLevel.MinXP-got.XP != 1 {
+		t.Fatalf("unexpected summary: xp=%d level=%s", got.XP, got.Level.Key)
+	}
+	if got := achievements.ComputeFrom(-500, nil); got.XP != 0 {
+		t.Fatalf("negative adjustments must not go below zero, got %d", got.XP)
+	}
+}

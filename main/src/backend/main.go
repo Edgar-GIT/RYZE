@@ -18,6 +18,7 @@ import (
 	"ryze/backend/database"
 	"ryze/backend/repositories"
 	"ryze/backend/routes"
+	"ryze/backend/services/achievements"
 	"ryze/backend/services/exercise_import"
 )
 
@@ -129,6 +130,12 @@ func main() {
 
 	if len(os.Args) > 1 && os.Args[1] == "import-exercises" {
 		runImportExercisesCommand(db, os.Args[2:])
+		_ = sqlDB.Close()
+		return
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "set-xp" {
+		runSetXPCommand(db, os.Args[2:])
 		_ = sqlDB.Close()
 		return
 	}
@@ -290,4 +297,51 @@ func runMigrateCommand(cfg config.DatabaseConfig, args []string) {
 func fail(message string, args ...any) {
 	fmt.Fprintf(os.Stderr, message+"\n", args...)
 	os.Exit(1)
+}
+
+// runSetXPCommand sets an account's total EXP by recording an EXP adjustment
+// (owner request, 2026-11-21: put a test account one EXP short of the top
+// level to see the level-up animation). --short-of-top N puts the account N
+// EXP below the highest level; --xp N sets the total directly.
+func runSetXPCommand(db *gorm.DB, args []string) {
+	flags := flag.NewFlagSet("set-xp", flag.ContinueOnError)
+	username := flags.String("username", "", "the account's @username")
+	target := flags.Int("xp", -1, "the total EXP to reach")
+	shortOfTop := flags.Int("short-of-top", 0, "EXP missing to reach the highest level")
+	if err := flags.Parse(args); err != nil {
+		fail("invalid set-xp arguments: %v", err)
+	}
+	if *shortOfTop > 0 {
+		*target = achievements.Levels[len(achievements.Levels)-1].MinXP - *shortOfTop
+	}
+	if *username == "" || *target < 0 {
+		fail("usage: go run . set-xp --username <username> (--xp <total> | --short-of-top <n>)")
+	}
+	ctx := context.Background()
+	var userID string
+	if err := db.WithContext(ctx).Raw(`SELECT id FROM users WHERE username = ? AND deleted_at IS NULL`, *username).Scan(&userID).Error; err != nil || userID == "" {
+		var similar []string
+		_ = db.WithContext(ctx).Raw(`SELECT username || ' (' || first_name || ' ' || last_name || ')' FROM users WHERE deleted_at IS NULL AND (username ILIKE ? OR first_name ILIKE ?) ORDER BY username LIMIT 10`,
+			"%"+*username+"%", "%"+*username+"%").Scan(&similar).Error
+		fail("no active account with the @username %q (similar: %v)", *username, similar)
+	}
+	repo := repositories.NewAchievementsRepository(db)
+	summary, err := achievements.NewService(repo).Summary(ctx, userID)
+	if err != nil {
+		fail("failed to compute EXP: %v", err)
+	}
+	if delta := *target - summary.XP; delta != 0 {
+		adder := repo.(interface {
+			AddXPAdjustment(ctx context.Context, userID string, xp int, reason string) error
+		})
+		if err := adder.AddXPAdjustment(ctx, userID, delta, fmt.Sprintf("set-xp command: total set to %d", *target)); err != nil {
+			fail("%v", err)
+		}
+	}
+	level, next := achievements.LevelFor(*target)
+	fmt.Printf("@%s: %d EXP -> %d EXP (level %d %s", *username, summary.XP, *target, level.Rank, level.Key)
+	if next != nil {
+		fmt.Printf(", %d EXP to %s", next.MinXP-*target, next.Key)
+	}
+	fmt.Println(")")
 }

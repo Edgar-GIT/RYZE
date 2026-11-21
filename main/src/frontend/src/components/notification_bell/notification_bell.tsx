@@ -27,6 +27,7 @@ const KNOWN_KINDS = [
   "pl2_intake_received",
   "pl2_trainer_assigned",
   "pl2_request_assigned",
+  "pl2_request_offered",
   "pl2_delivered",
   "support_reply",
   "support_new_message"

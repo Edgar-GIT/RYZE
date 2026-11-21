@@ -651,3 +651,19 @@ export const removeTrainerClientProgram = (userId: string, assignmentId: string)
   apiDelete<never>(
     `/trainer/clients/${encodeURIComponent(userId)}/programs/${encodeURIComponent(assignmentId)}`
   );
+
+// Earnings of one currency, in minor units (cents): the gross sales of the
+// trainer's plans, the trainer's share (profit) and the commission RYZE kept.
+export interface TrainerEarningsTotals {
+  currency: string;
+  sales: number;
+  gross: number;
+  net: number;
+  commission: number;
+}
+
+export interface TrainerEarnings {
+  totals: TrainerEarningsTotals[];
+}
+
+export const fetchTrainerEarnings = (): Promise<TrainerEarnings> => apiGet<TrainerEarnings>("/trainer/earnings");

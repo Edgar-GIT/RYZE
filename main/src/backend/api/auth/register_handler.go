@@ -25,9 +25,10 @@ type registerRequest struct {
 	// Language is the interface language at sign-up ("en" or "pt"); it
 	// becomes the language of the account's emails. Optional.
 	Language string `json:"language"`
-	// Username is the chosen @username (optional: generated from the email
-	// when empty).
+	// Username is the chosen @username: the unique reference, required.
 	Username string `json:"username"`
+	// DisplayName is the optional nickname (shown instead of the @username).
+	DisplayName string `json:"display_name"`
 }
 
 // userResponse only exposes safe public user information.
@@ -60,6 +61,10 @@ type accountResponse struct {
 	Username    string  `json:"username"`
 	DisplayName *string `json:"display_name"`
 	AvatarURL   *string `json:"avatar_url"`
+	// NeedsUsername: the @username was generated (Google sign-up, older or
+	// administrator-made accounts) and the person must choose one. Never for
+	// a Test Mode persona.
+	NeedsUsername bool `json:"needs_username"`
 }
 
 // AfterRegister runs after a successful registration (store the language,
@@ -90,11 +95,12 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	}
 
 	user, err := h.registration.Register(c.Request.Context(), registration.RegisterInput{
-		Email:     req.Email,
-		Password:  req.Password,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Username:  req.Username,
+		Email:       req.Email,
+		Password:    req.Password,
+		FirstName:   req.FirstName,
+		LastName:    req.LastName,
+		Username:    req.Username,
+		DisplayName: req.DisplayName,
 	})
 	if err != nil {
 		switch {
@@ -102,6 +108,8 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 			RespondError(c, http.StatusConflict, "EMAIL_ALREADY_REGISTERED", "Email already in use.", nil)
 		case errors.Is(err, registration.ErrUsernameTaken):
 			RespondError(c, http.StatusConflict, "USERNAME_TAKEN", "This username is already in use.", nil)
+		case errors.Is(err, registration.ErrInvalidDisplayName):
+			RespondError(c, http.StatusBadRequest, "INVALID_DISPLAY_NAME", "A nickname has 1 to 40 characters.", nil)
 		case errors.Is(err, registration.ErrInvalidUsername):
 			RespondError(c, http.StatusBadRequest, "INVALID_USERNAME", "Usernames have 3 to 30 lowercase letters, digits, dots or underscores.", nil)
 		case errors.Is(err, registration.ErrInvalidInput), password.IsPolicyError(err):
@@ -152,6 +160,7 @@ func newAccountResponse(user *models.User) accountResponse {
 		Username:           user.Username,
 		DisplayName:        user.DisplayName,
 		AvatarURL:          AvatarURL(user.AvatarKey),
+		NeedsUsername:      !user.UsernameChosen && user.TestPersona == nil,
 	}
 }
 

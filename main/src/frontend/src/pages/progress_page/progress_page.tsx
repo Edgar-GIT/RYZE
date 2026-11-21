@@ -1,6 +1,6 @@
 import { CalendarCheck, Dumbbell, Flame, RefreshCw, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useHistory, useLocation } from "react-router-dom";
+import { Link, Redirect, useHistory, useLocation } from "react-router-dom";
 
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { BarChart, LineChart, type ChartPoint } from "@/components/training/charts";
@@ -20,17 +20,16 @@ import { joinClassNames } from "@utils/class_names";
 import { ApiError } from "@utils/http_client";
 
 import { MeasurementsPanel } from "./measurements_panel";
-import { MuscleRecoveryPanel } from "./muscle_recovery_panel";
 import tabStyles from "./progress_tabs.module.css";
 
-// The progress page has three views (owner request, 2026-11-20): training
-// charts, the muscle recovery body map and body measurements. The view is in
-// the address (?tab=) so it survives a reload and can be linked to.
-type Tab = "training" | "muscles" | "measurements";
-const TABS: Tab[] = ["training", "muscles", "measurements"];
+// The progress page has two views: training charts and body measurements
+// (muscle recovery moved to its own Recovery page on 2026-11-21). The view is
+// in the address (?tab=) so it survives a reload and can be linked to.
+type Tab = "training" | "measurements";
+const TABS: Tab[] = ["training", "measurements"];
 const TAB_LABELS = {
-  en: { training: "Training", muscles: "Muscles", measurements: "Measurements" },
-  pt: { training: "Treino", muscles: "Músculos", measurements: "Medições" }
+  en: { training: "Training", measurements: "Measurements" },
+  pt: { training: "Treino", measurements: "Medições" }
 } as const;
 
 type Metric = "weight" | "e1rm" | "volume";
@@ -112,6 +111,9 @@ export const ProgressPage = () => {
     .reduce((sum, session) => sum + summarizeSession(session).volumeKg, 0);
   const streak = currentStreakWeeks(completed);
 
+  // The old "Muscles" tab now lives on the Recovery page.
+  if (new URLSearchParams(location.search).get("tab") === "muscles") return <Redirect to="/services/recovery" />;
+
   return (
     <PageWrapper className={styles.page}>
 
@@ -138,11 +140,6 @@ export const ProgressPage = () => {
           ))}
         </div>
 
-        {tab === "muscles" ? (
-          <div role="tabpanel" id="progress-panel-muscles" aria-labelledby="progress-tab-muscles">
-            <MuscleRecoveryPanel />
-          </div>
-        ) : null}
         {tab === "measurements" ? (
           <div role="tabpanel" id="progress-panel-measurements" aria-labelledby="progress-tab-measurements">
             <MeasurementsPanel />

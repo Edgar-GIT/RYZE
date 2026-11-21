@@ -3,7 +3,8 @@
 .container {
   display: grid;
   gap: 1.75rem;
-  padding-top: 1.25rem;
+  /* Clear the fixed navbar (the back link sat behind it). */
+  padding-top: calc(var(--r-nav-clearance, 5.75rem) + 1rem);
   padding-bottom: 4rem;
 }
 

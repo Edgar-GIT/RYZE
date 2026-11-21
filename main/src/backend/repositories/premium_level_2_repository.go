@@ -191,62 +191,82 @@ func (r *premiumLevel2Repository) FindLatestIntake(ctx context.Context, requestI
 func (r *premiumLevel2Repository) AssignTrainer(ctx context.Context, requestID, trainerID, actorID string) (*models.PremiumLevel2Request, error) {
 	var request models.PremiumLevel2Request
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockPremiumLevel2Request(tx, requestID, &request); err != nil {
+		if err := assignPremiumLevel2Trainer(tx, requestID, trainerID, "admin", actorID, &request); err != nil {
 			return err
 		}
-		if request.Status == models.PremiumLevel2StatusDelivered || request.Status == models.PremiumLevel2StatusCancelled {
-			return ErrPremiumLevel2InvalidState
-		}
-		if request.IntakeVersion == 0 {
-			return ErrPremiumLevel2InvalidState
-		}
-		var trainer models.Trainer
-		if err := tx.First(&trainer, "id = ?", trainerID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrPremiumLevel2InvalidState
-			}
-			return fmt.Errorf("failed to verify trainer: %w", err)
-		}
-		var relation models.TrainerClient
-		err := tx.Unscoped().Where("trainer_id = ? AND user_id = ?", trainerID, request.UserID).First(&relation).Error
-		switch {
-		case err == nil:
-			if relation.DeletedAt.Valid {
-				if err := tx.Unscoped().Model(&models.TrainerClient{}).Where("id = ?", relation.ID).Updates(map[string]any{"deleted_at": nil, "updated_at": time.Now()}).Error; err != nil {
-					return fmt.Errorf("failed to restore trainer-client relationship: %w", err)
-				}
-			}
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			relation = models.TrainerClient{TrainerID: trainerID, UserID: request.UserID}
-			if err := tx.Create(&relation).Error; err != nil {
-				return fmt.Errorf("failed to create trainer-client relationship: %w", err)
-			}
-		default:
-			return fmt.Errorf("failed to inspect trainer-client relationship: %w", err)
-		}
-		from := request.Status
-		updates := map[string]any{
-			"trainer_id": trainerID,
-			"status":     models.PremiumLevel2StatusInProgress,
-		}
-		// A reassignment must not carry the previous trainer's programme into
-		// delivery. The old programme belongs to another owner and cannot be
-		// edited by the new trainer, so the new trainer starts by attaching
-		// their own draft. Keeping the existing trainer leaves their work intact.
-		if request.TrainerID == nil || *request.TrainerID != trainerID {
-			updates["training_program_id"] = nil
-		}
-		request.TrainerID = &trainerID
-		request.Status = models.PremiumLevel2StatusInProgress
-		if err := tx.Model(&models.PremiumLevel2Request{}).Where("id = ?", requestID).Updates(updates).Error; err != nil {
-			return fmt.Errorf("failed to assign premium level 2 trainer: %w", err)
-		}
-		return createPremiumLevel2Event(tx, requestID, "admin", actorID, "trainer_assigned", from, request.Status)
+		// An allocation by hand withdraws the open offer (v2.128.0).
+		return withdrawPremiumLevel2Offers(tx, requestID)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &request, nil
+}
+
+// assignPremiumLevel2Trainer allocates the request to the trainer inside the
+// caller's transaction: an administrator's choice or a trainer accepting an
+// offer. It creates or restores the trainer-client relationship and records
+// the event.
+func assignPremiumLevel2Trainer(tx *gorm.DB, requestID, trainerID, actorKind, actorID string, request *models.PremiumLevel2Request) error {
+	if err := lockPremiumLevel2Request(tx, requestID, request); err != nil {
+		return err
+	}
+	if request.Status == models.PremiumLevel2StatusDelivered || request.Status == models.PremiumLevel2StatusCancelled {
+		return ErrPremiumLevel2InvalidState
+	}
+	if request.IntakeVersion == 0 {
+		return ErrPremiumLevel2InvalidState
+	}
+	var trainer models.Trainer
+	if err := tx.First(&trainer, "id = ?", trainerID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrPremiumLevel2InvalidState
+		}
+		return fmt.Errorf("failed to verify trainer: %w", err)
+	}
+	var relation models.TrainerClient
+	err := tx.Unscoped().Where("trainer_id = ? AND user_id = ?", trainerID, request.UserID).First(&relation).Error
+	switch {
+	case err == nil:
+		if relation.DeletedAt.Valid {
+			if err := tx.Unscoped().Model(&models.TrainerClient{}).Where("id = ?", relation.ID).Updates(map[string]any{"deleted_at": nil, "updated_at": time.Now()}).Error; err != nil {
+				return fmt.Errorf("failed to restore trainer-client relationship: %w", err)
+			}
+		}
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		relation = models.TrainerClient{TrainerID: trainerID, UserID: request.UserID}
+		if err := tx.Create(&relation).Error; err != nil {
+			return fmt.Errorf("failed to create trainer-client relationship: %w", err)
+		}
+	default:
+		return fmt.Errorf("failed to inspect trainer-client relationship: %w", err)
+	}
+	from := request.Status
+	updates := map[string]any{
+		"trainer_id": trainerID,
+		"status":     models.PremiumLevel2StatusInProgress,
+	}
+	// A reassignment must not carry the previous trainer's programme into
+	// delivery. The old programme belongs to another owner and cannot be
+	// edited by the new trainer, so the new trainer starts by attaching
+	// their own draft. Keeping the existing trainer leaves their work intact.
+	if request.TrainerID == nil || *request.TrainerID != trainerID {
+		updates["training_program_id"] = nil
+	}
+	request.TrainerID = &trainerID
+	request.Status = models.PremiumLevel2StatusInProgress
+	if err := tx.Model(&models.PremiumLevel2Request{}).Where("id = ?", requestID).Updates(updates).Error; err != nil {
+		return fmt.Errorf("failed to assign premium level 2 trainer: %w", err)
+	}
+	return createPremiumLevel2Event(tx, requestID, actorKind, actorID, "trainer_assigned", from, request.Status)
+}
+
+func withdrawPremiumLevel2Offers(tx *gorm.DB, requestID string) error {
+	if err := tx.Exec(`UPDATE premium_level_2_offers SET status = 'withdrawn', responded_at = CURRENT_TIMESTAMP
+		WHERE request_id = ? AND status = 'offered'`, requestID).Error; err != nil {
+		return fmt.Errorf("failed to withdraw premium level 2 offers: %w", err)
+	}
+	return nil
 }
 
 func (r *premiumLevel2Repository) SetTrainingProgram(ctx context.Context, requestID, trainerID, programID string) (*models.PremiumLevel2Request, error) {

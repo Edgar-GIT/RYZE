@@ -9,7 +9,7 @@ import {
 } from "@/services/workout_sessions_api";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { useI18n } from "@/i18n/i18n";
-import { ApiError } from "@utils/http_client";
+import { ApiError, publicFileUrl } from "@utils/http_client";
 import { fetchProgramAccess, type ProgramAccessDetail } from "@/services/purchases_api";
 import {
   fetchNutritionAssignment,
@@ -113,8 +113,12 @@ export const ProgramAccessPage = () => {
       try {
         const session = await startWorkoutSession(programId, workoutId);
         history.push(`/services/workout-sessions/${session.id}`);
-      } catch {
-        setSessionError(t("account.training.otherSessionActive"));
+      } catch (error) {
+        setSessionError(
+          error instanceof ApiError && error.code === "WORKOUT_ALREADY_COMPLETED"
+            ? t("account.training.alreadyCompleted")
+            : t("account.training.otherSessionActive")
+        );
         await loadActiveSession();
         setStartingWorkoutId(null);
       }
@@ -230,6 +234,7 @@ export const ProgramAccessPage = () => {
 
             <header className={styles.heading}>
               <h1 className={styles.title}>{detail.name}</h1>
+              {detail.cover_image_url ? <img className={styles.cover} src={publicFileUrl(detail.cover_image_url)} alt="" /> : null}
               {detail.description ? <p className={styles.subtitle}>{detail.description}</p> : null}
 
               <div className={styles.chips}>

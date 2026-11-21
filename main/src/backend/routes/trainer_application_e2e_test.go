@@ -65,7 +65,8 @@ func e2eRegisterUser(t *testing.T, router http.Handler, email string) string {
 	t.Helper()
 
 	rec, raw := e2eRequest(router, "", "", http.MethodPost, "/api/v1/auth/register", fmt.Sprintf(
-		`{"email": %q, "password": "Password123!", "first_name": "E2E", "last_name": "Trainer"}`, email))
+		`{"email": %q, "username": %q, "password": "Password123!", "first_name": "E2E", "last_name": "Trainer"}`,
+		email, fmt.Sprintf("e%d", time.Now().UnixNano()%100000000000)))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("register: expected 201, got %d (body: %s)", rec.Code, raw)
 	}

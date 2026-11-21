@@ -1,10 +1,12 @@
 import { AtSign, Camera, Trash2, UserRound } from "lucide-react";
+import { Link } from "react-router-dom";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/button/button";
 import { type MemberUser } from "@/components/app_shell/member_shell";
 import { useI18n } from "@/i18n/i18n";
 import { isValidUsername, publicNameOf, removeAvatar, updateProfile, uploadAvatar } from "@/services/profile_api";
+import { profilePath } from "@/services/public_profiles_api";
 import { ApiError, publicFileUrl } from "@utils/http_client";
 
 import styles from "./public_profile_card.module.css";
@@ -12,22 +14,23 @@ import styles from "./public_profile_card.module.css";
 const COPY = {
   en: {
     title: "Public profile",
-    lead: "How other people see you on RYZE. Your @username stays your account's reference.",
+    view: "View my public profile",
+    lead: "How other people see you on RYZE: your nickname, or your @username when you have none.",
     photo: "Profile photo",
     change: "Change photo",
     remove: "Remove photo",
     photoHint: "JPEG or PNG. It is cropped to a square and its hidden details (such as location) are removed.",
-    displayName: "Display name",
-    displayHint: "Up to 40 characters. Leave it empty to show your registered name.",
-    username: "Username",
+    displayName: "Nickname",
+    displayHint: "Up to 40 characters. Leave it empty to show your @username.",
+    username: "@username",
     usernameHint: "3 to 30 lowercase letters, digits, dots or underscores.",
     save: "Save profile",
     saved: "Profile saved.",
     photoSaved: "Photo updated.",
     errors: {
-      USERNAME_TAKEN: "This username is already in use.",
-      INVALID_USERNAME: "Usernames have 3 to 30 lowercase letters, digits, dots or underscores.",
-      INVALID_DISPLAY_NAME: "Display names have 1 to 40 characters.",
+      USERNAME_TAKEN: "This @username is already in use.",
+      INVALID_USERNAME: "An @username has 3 to 30 lowercase letters, digits, dots or underscores.",
+      INVALID_DISPLAY_NAME: "A nickname has 1 to 40 characters.",
       INVALID_IMAGE: "The photo must be a JPEG or PNG image.",
       IMAGE_TOO_LARGE: "The photo is too large.",
       generic: "Something went wrong. Please try again."
@@ -35,22 +38,23 @@ const COPY = {
   },
   pt: {
     title: "Perfil público",
-    lead: "Como os outros te veem na RYZE. O teu @username continua a ser a referência da tua conta.",
+    view: "Ver o meu perfil público",
+    lead: "Como os outros te veem na RYZE: a tua alcunha ou, se não tiveres, a tua @referência.",
     photo: "Foto de perfil",
     change: "Mudar foto",
     remove: "Remover foto",
     photoHint: "JPEG ou PNG. É recortada em quadrado e os dados escondidos (como a localização) são removidos.",
-    displayName: "Nome de display",
-    displayHint: "Até 40 caracteres. Deixa vazio para mostrar o teu nome de registo.",
-    username: "Nome de utilizador",
-    usernameHint: "3 a 30 letras minúsculas, algarismos, pontos ou underscores.",
+    displayName: "Alcunha",
+    displayHint: "Até 40 caracteres. Deixa vazio para mostrar a tua @referência.",
+    username: "@referência",
+    usernameHint: "3 a 30 letras minúsculas, números, pontos ou underscores.",
     save: "Guardar perfil",
     saved: "Perfil guardado.",
     photoSaved: "Foto atualizada.",
     errors: {
-      USERNAME_TAKEN: "Este nome de utilizador já está a ser usado.",
-      INVALID_USERNAME: "O nome de utilizador tem 3 a 30 letras minúsculas, algarismos, pontos ou underscores.",
-      INVALID_DISPLAY_NAME: "O nome de display tem de 1 a 40 caracteres.",
+      USERNAME_TAKEN: "Esta @referência já está a ser usada.",
+      INVALID_USERNAME: "A @referência tem 3 a 30 letras minúsculas, números, pontos ou underscores.",
+      INVALID_DISPLAY_NAME: "A alcunha tem de 1 a 40 caracteres.",
       INVALID_IMAGE: "A foto tem de ser uma imagem JPEG ou PNG.",
       IMAGE_TOO_LARGE: "A foto é demasiado grande.",
       generic: "Algo correu mal. Tenta de novo."
@@ -130,7 +134,12 @@ export const PublicProfileCard = ({ user, onChanged }: { user: MemberUser; onCha
       <h2 id={`${ids}-title`} className={styles.title}>
         <UserRound aria-hidden="true" /> {text.title}
       </h2>
-      <p className={styles.lead}>{text.lead}</p>
+      <p className={styles.lead}>
+        {text.lead}{" "}
+        <Link className={styles.profileLink} to={profilePath(user.username)}>
+          {text.view}
+        </Link>
+      </p>
 
       <div className={styles.photoRow}>
         <ProfileAvatar user={user} className={styles.avatar} />

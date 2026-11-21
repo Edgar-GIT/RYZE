@@ -26,6 +26,9 @@ var (
 	ErrSessionNotFound = errors.New("workout session not found")
 	// ErrSessionConflict indicates another workout is already active.
 	ErrSessionConflict = errors.New("another workout session is already active")
+	// ErrWorkoutAlreadyCompleted: a training day of a plan is done once
+	// (owner rule, 2026-11-21); a completed day cannot be started again.
+	ErrWorkoutAlreadyCompleted = errors.New("workout already completed")
 	// ErrSessionNotActive indicates the session is already finished.
 	ErrSessionNotActive = errors.New("workout session is not active")
 	// ErrSetNotFound indicates the set does not belong to the session.
@@ -111,6 +114,12 @@ type Session struct {
 }
 
 // Service implements the authenticated workout execution lifecycle.
+// completedChecker is implemented by the session repository: whether the
+// member already completed this training day of this plan.
+type completedChecker interface {
+	HasCompletedWorkout(ctx context.Context, userID, programID, workoutID string) (bool, error)
+}
+
 type Service interface {
 	Start(ctx context.Context, userID, programID, workoutID string) (*Session, error)
 	Active(ctx context.Context, userID string) (*Session, error)
@@ -164,6 +173,16 @@ func (s *service) Start(ctx context.Context, userID, programID, workoutID string
 	}
 	if !errors.Is(err, repositories.ErrWorkoutSessionNotFound) {
 		return nil, fmt.Errorf("failed to check active workout session: %w", err)
+	}
+
+	if checker, ok := s.sessions.(completedChecker); ok {
+		done, err := checker.HasCompletedWorkout(ctx, userID, program.ID, workoutID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check completed workout: %w", err)
+		}
+		if done {
+			return nil, ErrWorkoutAlreadyCompleted
+		}
 	}
 
 	week, workout, ok := findWorkout(program, workoutID)

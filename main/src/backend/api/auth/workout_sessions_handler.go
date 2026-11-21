@@ -296,6 +296,8 @@ func (h *WorkoutSessionsHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusNotFound, "WORKOUT_SESSION_NOT_FOUND", "Workout session not found.", nil)
 	case errors.Is(err, workout_sessions.ErrSessionConflict):
 		RespondError(c, http.StatusConflict, "WORKOUT_SESSION_ACTIVE", "Another workout session is already active.", nil)
+	case errors.Is(err, workout_sessions.ErrWorkoutAlreadyCompleted):
+		RespondError(c, http.StatusConflict, "WORKOUT_ALREADY_COMPLETED", "This training day is already completed.", nil)
 	case errors.Is(err, workout_sessions.ErrSessionNotActive):
 		RespondError(c, http.StatusConflict, "WORKOUT_SESSION_NOT_ACTIVE", "Workout session is not active.", nil)
 	case errors.Is(err, workout_sessions.ErrSetNotFound):

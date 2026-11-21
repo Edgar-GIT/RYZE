@@ -18,7 +18,9 @@ import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { useTrainerSession } from "@/components/trainer/trainer_session_context";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { fetchTrainerProfile } from "@/services/trainer_api";
-import { apiPost } from "@utils/http_client";
+import type { MemberUser } from "@/components/app_shell/member_shell";
+import { publicNameOf } from "@/services/profile_api";
+import { apiGet, apiPost, publicFileUrl } from "@utils/http_client";
 
 interface TrainerLayoutProps {
   children: React.ReactNode;
@@ -105,7 +107,7 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
   const { locale } = useI18n();
   const text = COPY[locale];
   const history = useHistory();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; email: string; handle?: string; avatarUrl?: string } | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
 
   const isTrainer = access?.is_trainer ?? false;
@@ -113,11 +115,17 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
   useEffect(() => {
     if (!isTrainer) return;
     let cancelled = false;
-    fetchTrainerProfile()
-      .then((profile) => {
+    // The shell shows the person's one RYZE identity: photo, nickname (else
+    // the @username) and the @username, never the email as a name.
+    Promise.all([fetchTrainerProfile(), apiGet<MemberUser>("/me")])
+      .then(([profile, me]) => {
         if (!cancelled) {
-          const name = [profile.user.first_name, profile.user.last_name].filter(Boolean).join(" ");
-          setUser({ name: name || profile.user.email, email: profile.user.email });
+          setUser({
+            name: publicNameOf(me),
+            email: me.email,
+            handle: me.username,
+            avatarUrl: me.avatar_url ? publicFileUrl(me.avatar_url) : undefined
+          });
           setProfileId(profile.id);
         }
       })

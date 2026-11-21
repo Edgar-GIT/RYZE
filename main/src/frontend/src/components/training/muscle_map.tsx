@@ -1,4 +1,6 @@
 import type { MuscleName, MuscleRecovery } from "@/services/body_stats_api";
+import { useId } from "react";
+
 import { joinClassNames } from "@utils/class_names";
 
 import { BACK, BACK_LINES, FRONT, FRONT_LINES, SILHOUETTE, type DetailLine, type MuscleShape } from "./muscle_map_shapes";
@@ -21,6 +23,8 @@ interface MuscleMapProps {
 // selects it in the list; the list is the keyboard and screen reader route.
 export const MuscleMap = ({ muscles, label, frontLabel, backLabel, active, onSelect }: MuscleMapProps) => {
   const byName = new Map(muscles.map((muscle) => [muscle.muscle, muscle]));
+  // A soft light from the upper left gives each muscle some volume.
+  const sheen = `muscle-sheen-${useId().replace(/:/g, "")}`;
 
   const figure = (shapes: MuscleShape[], lines: DetailLine[], x: number, caption: string) => (
     <g transform={`translate(${x} 0)`}>
@@ -33,7 +37,13 @@ export const MuscleMap = ({ muscles, label, frontLabel, backLabel, active, onSel
         return (
           <g key={`${shape.muscle}-${index}`} className={styles.region} onClick={() => onSelect(shape.muscle)}>
             <path className={className} d={shape.d} />
-            {shape.mirror ? <path className={className} d={shape.d} transform={MIRROR} /> : null}
+            <path className={styles.sheen} d={shape.d} fill={`url(#${sheen})`} />
+            {shape.mirror ? (
+              <>
+                <path className={className} d={shape.d} transform={MIRROR} />
+                <path className={styles.sheen} d={shape.d} transform={MIRROR} fill={`url(#${sheen})`} />
+              </>
+            ) : null}
           </g>
         );
       })}
@@ -51,6 +61,13 @@ export const MuscleMap = ({ muscles, label, frontLabel, backLabel, active, onSel
 
   return (
     <svg className={styles.map} viewBox="0 0 420 445" role="img" aria-label={label}>
+      <defs>
+        <radialGradient id={sheen} cx="35%" cy="25%" r="80%">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.38" />
+          <stop offset="0.55" stopColor="#ffffff" stopOpacity="0.06" />
+          <stop offset="1" stopColor="#02041f" stopOpacity="0.28" />
+        </radialGradient>
+      </defs>
       {figure(FRONT, FRONT_LINES, 0, frontLabel)}
       {figure(BACK, BACK_LINES, 220, backLabel)}
     </svg>

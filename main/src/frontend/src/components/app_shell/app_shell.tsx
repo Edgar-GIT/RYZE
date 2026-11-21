@@ -61,7 +61,7 @@ interface AppShellProps {
   backLabel: string;
   // The named page above the current one: the back button goes straight
   // there instead of one step back in the history (personal area).
-  parentOf?: (pathname: string) => { path: string; label: string };
+  parentOf?: (pathname: string) => { path: string; label: string; viaHistory?: boolean };
   // Hides the language and notification controls (admin consoles).
   compactTopbar?: boolean;
   children: ReactNode;
@@ -201,7 +201,12 @@ export const AppShell = ({
       <div className={styles.body}>
         <header className={styles.topbar}>
           {pathname === homePath ? null : parentOf ? (
-            <BackButton to={parentOf(pathname).path} label={parentOf(pathname).label} className={styles.historyBack} />
+            <BackButton
+              to={parentOf(pathname).path}
+              viaHistory={parentOf(pathname).viaHistory}
+              label={parentOf(pathname).label}
+              className={styles.historyBack}
+            />
           ) : (
             <BackButton fallback={homePath} label={backLabel} className={styles.historyBack} />
           )}

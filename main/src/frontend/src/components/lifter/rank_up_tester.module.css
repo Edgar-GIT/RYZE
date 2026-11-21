@@ -1,0 +1,78 @@
+.tester {
+  position: relative;
+  display: inline-grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 36px;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.panel {
+  display: grid;
+  gap: 0.5rem;
+  width: min(100%, 34rem);
+}
+
+.hint {
+  margin: 0;
+  color: #c9d5ec;
+  font-size: 0.78rem;
+}
+
+.levels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.level {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--rank) 60%, transparent);
+  border-radius: 10px;
+  color: #ffffff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rank) 26%, transparent), color-mix(in srgb, var(--rank-2) 14%, transparent));
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.level b {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #02041f;
+  background: var(--rank);
+}
+
+.toggle:focus-visible,
+.level:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}

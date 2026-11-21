@@ -10,15 +10,20 @@ import { ProgramCard } from "@/components/program_card/program_card";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { coachInitials, fetchCoachProfile, type CoachProfile } from "@/services/coaches_api";
+import { fetchTrainerProfile } from "@/services/trainer_api";
 import { ApiError } from "@utils/http_client";
 
 import styles from "./coach_profile_page.module.css";
 import { joinClassNames } from "@utils/class_names";
+import { useBackTarget } from "@/hooks/use_back_target";
 
 interface CoachText {
   back: string;
   loading: string;
   notFound: string;
+  ownHidden: string;
+  ownTestMode: string;
+  ownAction: string;
   loadError: string;
   retry: string;
   verified: string;
@@ -34,6 +39,9 @@ const COPY: Copy<CoachText> = {
     back: "Training plans",
     loading: "Loading coach…",
     notFound: "This coach has no public profile.",
+    ownHidden: "This is your coach profile, and it is not public yet: it appears once you publish your first plan.",
+    ownTestMode: "This is your Test Mode coach profile. Test accounts never appear in public, so nobody else sees it.",
+    ownAction: "Go to my plans",
     loadError: "Unable to load this coach. Please try again.",
     retry: "Retry",
     verified: "Verified RYZE coach",
@@ -47,6 +55,9 @@ const COPY: Copy<CoachText> = {
     back: "Planos de treino",
     loading: "A carregar o treinador…",
     notFound: "Este treinador não tem um perfil público.",
+    ownHidden: "Este é o teu perfil de treinador e ainda não é público: aparece quando publicares o teu primeiro plano.",
+    ownTestMode: "Este é o teu perfil de treinador do Test Mode. As contas de teste nunca aparecem em público, por isso mais ninguém o vê.",
+    ownAction: "Ir para os meus planos",
     loadError: "Não foi possível carregar este treinador. Tenta novamente.",
     retry: "Tentar novamente",
     verified: "Treinador RYZE verificado",
@@ -62,12 +73,13 @@ const COPY: Copy<CoachText> = {
 // every program they published. Only the coach's registered name is shown;
 // contact details are never public.
 export const CoachProfilePage = () => {
+  const back = useBackTarget();
   const { trainerId } = useParams<{ trainerId: string }>();
   const { locale, formatDate, formatNumber } = useI18n();
   const text = COPY[locale];
   const { isActive: testModeActive } = useTestMode();
   const [profile, setProfile] = useState<CoachProfile | null>(null);
-  const [state, setState] = useState<"loading" | "ready" | "missing" | "error">("loading");
+  const [state, setState] = useState<"loading" | "ready" | "missing" | "own" | "error">("loading");
 
   const load = useCallback(async () => {
     setState("loading");
@@ -76,7 +88,16 @@ export const CoachProfilePage = () => {
       setState("ready");
     } catch (error) {
       setProfile(null);
-      setState(error instanceof ApiError && (error.status === 404 || error.status === 400) ? "missing" : "error");
+      if (!(error instanceof ApiError && (error.status === 404 || error.status === 400))) {
+        setState("error");
+        return;
+      }
+      // The coach opening their own link (trainer area) learns why it is not
+      // public instead of a bare "no public profile" (owner report, 2026-11-21).
+      const own = await fetchTrainerProfile()
+        .then((mine) => mine.id === trainerId)
+        .catch(() => false);
+      setState(own ? "own" : "missing");
     }
   }, [trainerId]);
 
@@ -88,8 +109,8 @@ export const CoachProfilePage = () => {
     <PageWrapper className={joinClassNames(ui.page, styles.page)}>
       <Container size="wide" className={styles.container}>
         <div className={styles.back}>
-          <Button to="/services/generic-program" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
-            {text.back}
+          <Button to={back.to} onClick={back.onClick} variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
+            {back.label}
           </Button>
         </div>
 
@@ -99,7 +120,12 @@ export const CoachProfilePage = () => {
           </div>
         ) : state !== "ready" || !profile ? (
           <div className={styles.state}>
-            <p>{state === "missing" ? text.notFound : text.loadError}</p>
+            <p>{state === "own" ? (testModeActive ? text.ownTestMode : text.ownHidden) : state === "missing" ? text.notFound : text.loadError}</p>
+            {state === "own" && !testModeActive ? (
+              <Button to="/trainer/programs" variant="secondary" size="small">
+                {text.ownAction}
+              </Button>
+            ) : null}
             {state === "error" ? (
               <Button variant="secondary" size="small" onClick={() => void load()} icon={<RefreshCw size={15} />}>
                 {text.retry}

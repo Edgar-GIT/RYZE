@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
+import { RankUpTester } from "@/components/lifter/rank_up_tester";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 
 import styles from "./test_mode_banner.module.css";
@@ -59,6 +60,7 @@ export const TestModeBanner = () => {
           <p className={styles.subtitle}>
             Purchases are completed instantly at no cost. No real payments are made.
           </p>
+          <RankUpTester className={styles.tester} />
           {errorMessage ? (
             <p className={styles.error}>
               <ShieldAlert size={13} aria-hidden="true" />

@@ -81,3 +81,20 @@ func (r *achievementsRepository) SessionStatus(ctx context.Context, userID, sess
 	}
 	return session.Status, nil
 }
+
+// XPAdjustment returns the sum of the user's EXP adjustments (0 when none).
+func (r *achievementsRepository) XPAdjustment(ctx context.Context, userID string) (int, error) {
+	var total int
+	if err := r.db.WithContext(ctx).Raw(`SELECT COALESCE(SUM(xp), 0) FROM xp_adjustments WHERE user_id = ?`, userID).Scan(&total).Error; err != nil {
+		return 0, fmt.Errorf("failed to load EXP adjustments: %w", err)
+	}
+	return total, nil
+}
+
+// AddXPAdjustment records an EXP adjustment with its reason.
+func (r *achievementsRepository) AddXPAdjustment(ctx context.Context, userID string, xp int, reason string) error {
+	if err := r.db.WithContext(ctx).Exec(`INSERT INTO xp_adjustments (user_id, xp, reason) VALUES (?, ?, ?)`, userID, xp, reason).Error; err != nil {
+		return fmt.Errorf("failed to add EXP adjustment: %w", err)
+	}
+	return nil
+}

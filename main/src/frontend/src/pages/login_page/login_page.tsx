@@ -1,5 +1,5 @@
 import { motion, type Variants } from "framer-motion";
-import { ArrowRight, AtSign, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import { ArrowRight, AtSign, Eye, EyeOff, Lock, Mail, Smile, User } from "lucide-react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
@@ -189,6 +189,9 @@ const registerErrorMessageFor = (error: unknown): string => {
     if (error.code === "INVALID_USERNAME") {
       return "Usernames have 3 to 30 lowercase letters, digits, dots or underscores.";
     }
+    if (error.code === "INVALID_DISPLAY_NAME") {
+      return "A nickname has up to 40 characters.";
+    }
   }
   return errorMessageFor(error);
 };
@@ -328,15 +331,18 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
     const lastName = String(form.get("last_name") ?? "");
     const email = String(form.get("email") ?? "");
     const username = String(form.get("username") ?? "").trim().replace(/^@/, "").toLowerCase();
+    const nickname = String(form.get("display_name") ?? "").trim();
     const password = String(form.get("register-password") ?? "");
     const confirmPassword = String(form.get("register-confirm") ?? "");
 
-    if (!firstName || !lastName || !email || !password || !confirmPassword) {
+    if (!firstName || !lastName || !email || !username || !password || !confirmPassword) {
       setErrorMessage("Please fill in all fields.");
       return;
     }
 
-    if (username && !isValidUsername(username)) {
+    // The @username is required (owner decision, 2026-11-21): it is the
+    // person's reference and the name shown when they set no nickname.
+    if (!isValidUsername(username)) {
       setErrorMessage("Usernames have 3 to 30 lowercase letters, digits, dots or underscores.");
       return;
     }
@@ -368,7 +374,9 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
         email,
         password,
         language: locale,
-        ...(username ? { username } : {})
+        username,
+        // The nickname is optional; without it the @username is shown.
+        ...(nickname ? { display_name: nickname } : {})
       });
     } catch (error) {
       setErrorMessage(registerErrorMessageFor(error));
@@ -435,17 +443,30 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
           <input
             type="text"
             name="username"
-            placeholder={tr("Username (optional)")}
+            placeholder={tr("@username")}
             autoComplete="username"
             autoCapitalize="none"
             spellCheck={false}
             maxLength={31}
-            aria-label={tr("Username (optional)")}
+            required
+            aria-label={tr("@username")}
+            aria-describedby="register-username-hint"
+          />
+        </div>
+        <div className={styles.field}>
+          <Smile className={styles.fieldIcon} aria-hidden="true" />
+          <input
+            type="text"
+            name="display_name"
+            placeholder={tr("Nickname (optional)")}
+            autoComplete="nickname"
+            maxLength={40}
+            aria-label={tr("Nickname (optional)")}
             aria-describedby="register-username-hint"
           />
         </div>
         <p id="register-username-hint" className={styles.fieldHint}>
-          {tr("Your @username on RYZE. Left empty, one is made from your email.")}
+          {tr("Your @username is your unique reference on RYZE (3 to 30 lowercase letters, digits, dots or underscores). The nickname is optional and is shown instead of it.")}
         </p>
         <PasswordField id="register-password" placeholder="Password" autoComplete="new-password" describedBy="register-password-hint" />
         <p id="register-password-hint" className={styles.fieldHint}>

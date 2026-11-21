@@ -382,3 +382,156 @@
     grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   }
 }
+
+/* Recovery side (v2.130.0, owner report 2026-11-21: the long list ran far
+   below the map). A detail card for one muscle, then compact chips grouped
+   by status, in two columns, so the side stays about as tall as the map. */
+.recoverySide {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.focusCard {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
+  border-left: 4px solid var(--focus-tone, #2fe3a8);
+  border-radius: var(--app-radius, 16px);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
+}
+
+.focus_ready {
+  --focus-tone: #2fe3a8;
+}
+
+.focus_recovering {
+  --focus-tone: #ffc857;
+}
+
+.focus_fatigued {
+  --focus-tone: #ff6b7a;
+}
+
+.focusKicker {
+  color: var(--app-text-2, #c9d5ec);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.focusTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.focusName {
+  color: var(--app-text, #ffffff);
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.focusPercent {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.muscleGroup {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--app-text, #ffffff);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.groupCount {
+  color: var(--app-text-2, #c9d5ec);
+  font-weight: 700;
+}
+
+.muscleChips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.muscleChip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.3rem 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
+  border-radius: 10px;
+  color: var(--app-text, #ffffff);
+  background: rgba(255, 255, 255, 0.03);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.muscleChip:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.muscleChip:focus-visible {
+  outline: 2px solid var(--app-accent, #00cbff);
+  outline-offset: 2px;
+}
+
+.chipName {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.chipPercent {
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.chipBar {
+  grid-column: 1 / -1;
+  height: 0.3rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.chipBar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+@media (min-width: 1200px) {
+  .muscleChips {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 340px) {
+  .muscleChips {
+    grid-template-columns: 1fr;
+  }
+}

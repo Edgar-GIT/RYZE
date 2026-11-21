@@ -2376,6 +2376,35 @@ hash and storage key are never exposed.
   so no account can pass for the platform. The display name is plain text
   (control characters refused) and React escapes it on output.
 
+## Public profiles, following and the shown name (v2.128.0)
+
+- Public profiles are open to everyone (owner decision, 2026-11-21) and are
+  a fixed projection: nickname or @username, photo, member since, completed
+  workout count, followers, following, lifter level, record medal count and
+  the public coach link. Never the email, the registered first and last name,
+  body measurements, recovery estimates, sessions, purchases or any intake
+  data. Deleted accounts and Test Mode personas have no profile.
+- The platform shows the nickname, else the @username, never the email (the
+  generated placeholder is replaced by a chosen @username on the next visit).
+- The optional "about" (v2.129.0) shows the age, never the date of birth.
+  Social networks store only a handle validated against each network's
+  format (a pasted link must be on that network's own domain); the server
+  builds the `https` link, so a profile can never carry an arbitrary or
+  `javascript:` URL. Links open with `rel="noopener noreferrer nofollow
+  ugc"`.
+- Following is the session's account only (no client-supplied follower id);
+  following yourself is refused by the service and a database `CHECK`.
+
+## Premium Level 2 offers (v2.128.0)
+
+- A trainer offered a request sees only the service name and the dates; the
+  intake answers (sensitive health data) open only after the trainer accepts
+  and the request is allocated to them, as before.
+- Offers are answered only by the offered trainer (trainer context), within
+  24 hours; accepting allocates in the same transaction. Test Mode requests
+  never reach real trainers, and a trainer is never offered their own
+  request.
+
 ## Implemented contact attachments (v2.98.0)
 
 The public contact form accepts one optional attachment and treats it as

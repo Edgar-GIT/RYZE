@@ -19,6 +19,7 @@ const (
 	TemplateIntakeReceived      = "pl2_intake_received"
 	TemplateTrainerAssigned     = "pl2_trainer_assigned"
 	TemplateRequestAssigned     = "pl2_request_assigned"
+	TemplateRequestOffered      = "pl2_request_offered"
 	TemplateServiceDelivered    = "pl2_delivered"
 	TemplateSupportReply        = "support_reply"
 	TemplateInvoiceIssued       = "invoice_issued"
@@ -151,6 +152,18 @@ var copies = map[string]map[string]copyText{
 			Subject: "Novo pedido Premium Level 2 atribuído a ti", Heading: "Novo pedido atribuído",
 			Body:   "Olá{{if .Name}} {{.Name}}{{end}}, a RYZE atribuiu-te um pedido Premium Level 2. Abre-o para leres o questionário e preparares o programa e o plano de nutrição.",
 			Action: "Abrir o pedido", NeedsLink: true,
+		},
+	},
+	TemplateRequestOffered: {
+		LocaleEnglish: {
+			Subject: "A Premium Level 2 request is waiting for you", Heading: "Will you take this request?",
+			Body:   "Hi{{if .Name}} {{.Name}}{{end}}, RYZE is offering you a {{.Program}} request. Accept it within 24 hours to prepare the client's programme and nutrition plan; otherwise it goes to another trainer.",
+			Action: "See the request", NeedsLink: true,
+		},
+		LocalePortuguese: {
+			Subject: "Um pedido Premium Nível 2 está à tua espera", Heading: "Aceitas este pedido?",
+			Body:   "Olá{{if .Name}} {{.Name}}{{end}}, a RYZE está a oferecer-te um pedido {{.Program}}. Aceita-o nas próximas 24 horas para preparares o programa e o plano de nutrição do cliente; caso contrário, passa para outro treinador.",
+			Action: "Ver o pedido", NeedsLink: true,
 		},
 	},
 	TemplateServiceDelivered: {

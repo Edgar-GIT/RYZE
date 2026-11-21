@@ -60,6 +60,8 @@ const COPY = {
     trained: "trained",
     notTrained: "Not trained in the last 7 days",
     sets: (value: string) => `${value} sets this week`,
+    groups: { fatigued: "Fatigued", recovering: "Recovering", ready: "Ready to train" } as Record<RecoveryStatus, string>,
+    selected: "Selected muscle",
     loadError: "We could not load your muscle recovery.",
     retry: "Try again",
     loading: "Loading…",
@@ -77,6 +79,8 @@ const COPY = {
     trained: "treinado",
     notTrained: "Sem treino nos últimos 7 dias",
     sets: (value: string) => `${value} séries esta semana`,
+    groups: { fatigued: "Cansados", recovering: "A recuperar", ready: "Prontos a treinar" } as Record<RecoveryStatus, string>,
+    selected: "Músculo selecionado",
     loadError: "Não foi possível carregar a tua recuperação muscular.",
     retry: "Tentar de novo",
     loading: "A carregar…",
@@ -129,8 +133,19 @@ export const MuscleRecoveryPanel = () => {
   if (!report) return <p className={styles.muted}>{text.loading}</p>;
 
   const now = new Date(report.generated_at).getTime();
-  const sorted = [...report.muscles].sort((a, b) => b.recovery - a.recovery || names[a.muscle].localeCompare(names[b.muscle]));
+  const sorted = [...report.muscles].sort((a, b) => a.recovery - b.recovery || names[a.muscle].localeCompare(names[b.muscle]));
   const ready = sorted.filter((muscle) => muscle.status === "ready");
+  // The detail card shows the chosen muscle, or the least recovered one.
+  const shown = sorted.find((muscle) => muscle.muscle === active) ?? sorted[0];
+  const toggle = (muscle: MuscleName) => setActive(active === muscle ? null : muscle);
+  const metaOf = (muscle: (typeof sorted)[number]) =>
+    `${
+      muscle.recovered_at
+        ? `${text.fullAt} ${relative(muscle.recovered_at, intlLocale, now)}`
+        : muscle.last_trained_at
+          ? `${text.trained} ${relative(muscle.last_trained_at, intlLocale, now)}`
+          : text.notTrained
+    }${muscle.weekly_sets > 0 ? ` · ${text.sets(formatNumber(muscle.weekly_sets, { maximumFractionDigits: 1 }))}` : ""}`;
 
   return (
     <section className={styles.recovery} aria-labelledby="muscle-recovery-title">
@@ -150,7 +165,7 @@ export const MuscleRecoveryPanel = () => {
             frontLabel={text.front}
             backLabel={text.back}
             active={active}
-            onSelect={(muscle) => setActive(active === muscle ? null : muscle)}
+            onSelect={toggle}
           />
           <ul className={styles.legend} aria-label={text.title}>
             {(["ready", "recovering", "fatigued"] as const).map((status) => (
@@ -162,34 +177,55 @@ export const MuscleRecoveryPanel = () => {
           </ul>
         </div>
 
-        <ol className={styles.muscleList}>
-          {sorted.map((muscle) => (
-            <li key={muscle.muscle}>
-              <button
-                type="button"
-                className={joinClassNames(styles.muscleRow, active === muscle.muscle && styles.muscleRowActive)}
-                aria-pressed={active === muscle.muscle}
-                onClick={() => setActive(active === muscle.muscle ? null : muscle.muscle)}
-              >
-                <span className={styles.muscleName}>{names[muscle.muscle]}</span>
-                <span className={joinClassNames(styles.percent, styles[`text_${muscle.status}`])}>
-                  {muscle.recovery}% <span className={styles.statusWord}>{text.status[muscle.status]}</span>
-                </span>
-                <span className={styles.bar} aria-hidden="true">
-                  <span className={styles[muscle.status]} style={{ width: `${Math.max(2, muscle.recovery)}%` }} />
-                </span>
-                <span className={styles.muscleMeta}>
-                  {muscle.recovered_at
-                    ? `${text.fullAt} ${relative(muscle.recovered_at, intlLocale, now)}`
-                    : muscle.last_trained_at
-                      ? `${text.trained} ${relative(muscle.last_trained_at, intlLocale, now)}`
-                      : text.notTrained}
-                  {muscle.weekly_sets > 0 ? ` · ${text.sets(formatNumber(muscle.weekly_sets, { maximumFractionDigits: 1 }))}` : ""}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ol>
+        <div className={styles.recoverySide}>
+          {shown ? (
+            <div className={joinClassNames(styles.focusCard, styles[`focus_${shown.status}`])} aria-live="polite">
+              <span className={styles.focusKicker}>{text.selected}</span>
+              <div className={styles.focusTop}>
+                <strong className={styles.focusName}>{names[shown.muscle]}</strong>
+                <span className={joinClassNames(styles.focusPercent, styles[`text_${shown.status}`])}>{shown.recovery}%</span>
+              </div>
+              <span className={styles.bar} aria-hidden="true">
+                <span className={styles[shown.status]} style={{ width: `${Math.max(2, shown.recovery)}%` }} />
+              </span>
+              <span className={styles.muscleMeta}>
+                <b className={styles[`text_${shown.status}`]}>{text.status[shown.status]}</b> · {metaOf(shown)}
+              </span>
+            </div>
+          ) : null}
+
+          {(["fatigued", "recovering", "ready"] as const).map((status) => {
+            const group = sorted.filter((muscle) => muscle.status === status);
+            if (group.length === 0) return null;
+            return (
+              <div key={status} className={styles.muscleGroup}>
+                <h3 className={styles.groupTitle}>
+                  <span className={joinClassNames(styles.swatch, styles[status])} aria-hidden="true" />
+                  {text.groups[status]} <span className={styles.groupCount}>{group.length}</span>
+                </h3>
+                <ul className={styles.muscleChips}>
+                  {group.map((muscle) => (
+                    <li key={muscle.muscle}>
+                      <button
+                        type="button"
+                        className={joinClassNames(styles.muscleChip, active === muscle.muscle && styles.muscleRowActive)}
+                        aria-pressed={active === muscle.muscle}
+                        aria-label={`${names[muscle.muscle]}: ${muscle.recovery}%, ${text.status[muscle.status]}. ${metaOf(muscle)}`}
+                        onClick={() => toggle(muscle.muscle)}
+                      >
+                        <span className={styles.chipName}>{names[muscle.muscle]}</span>
+                        <span className={joinClassNames(styles.chipPercent, styles[`text_${muscle.status}`])}>{muscle.recovery}%</span>
+                        <span className={styles.chipBar} aria-hidden="true">
+                          <span className={styles[muscle.status]} style={{ width: `${Math.max(2, muscle.recovery)}%` }} />
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
       </div>
       <p className={styles.muted}>{text.estimate}</p>
     </section>

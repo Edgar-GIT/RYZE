@@ -117,6 +117,7 @@ func (failingRepository) ClearDeletedAt(_ context.Context, _ string) error {
 }
 
 func register(router http.Handler, body string) (*httptest.ResponseRecorder, map[string]any, string) {
+	body = withTestUsername(body)
 	req := httptest.NewRequest(http.MethodPost, registerRoute, bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -344,4 +345,26 @@ func TestRegisterReactivatesSoftDeletedUser(t *testing.T) {
 	if strings.Contains(raw, "NewP@ssw0rd!") {
 		t.Fatal("response must never contain the plaintext password")
 	}
+}
+
+// withTestUsername adds a free @username (required since 2026-11-21) to a
+// registration body that has an email and no username; other bodies are
+// sent as written.
+func withTestUsername(body string) string {
+	var fields map[string]any
+	if err := json.Unmarshal([]byte(body), &fields); err != nil {
+		return body
+	}
+	if _, hasEmail := fields["email"]; !hasEmail {
+		return body
+	}
+	if _, has := fields["username"]; has {
+		return body
+	}
+	fields["username"] = fmt.Sprintf("h%d", time.Now().UnixNano()%100000000000)
+	out, err := json.Marshal(fields)
+	if err != nil {
+		return body
+	}
+	return string(out)
 }

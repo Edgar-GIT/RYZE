@@ -473,3 +473,110 @@
     font-size: 1.3rem;
   }
 }
+
+/* Earnings (v2.130.0): total earned, profit and the commissions deducted. */
+.earnings {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.9rem;
+}
+
+.earningsHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.earningsHead p {
+  margin: 0;
+}
+
+.money {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.moneyCard {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  overflow: hidden;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--app-line);
+  border-top-color: rgba(160, 225, 255, 0.24);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+}
+
+.moneyCard::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--money-tone);
+  content: "";
+}
+
+.moneyGross {
+  --money-tone: #18d8ff;
+}
+
+.moneyNet {
+  --money-tone: #34d399;
+}
+
+.moneyFee {
+  --money-tone: #fbbf24;
+}
+
+.moneyLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--app-text-2);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.moneyLabel svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--money-tone);
+}
+
+.moneyValue {
+  color: var(--app-text, #fff);
+  font-size: clamp(1.5rem, 4vw, 1.9rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.moneyNet .moneyValue {
+  color: #6ee7b7;
+}
+
+.moneyHint {
+  color: var(--app-text-2);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 760px) {
+  .money {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .moneyCard {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .moneyHint {
+    grid-column: 1 / -1;
+  }
+}

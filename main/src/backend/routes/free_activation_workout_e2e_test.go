@@ -239,6 +239,11 @@ func TestFreeActivationWorkoutSessionE2E(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(raw, `"status":"completed"`) {
 		t.Fatalf("complete: expected completed, got %d (body: %s)", rec.Code, raw)
 	}
+	// A completed training day is not started again (owner rule, 2026-11-21).
+	rec, raw = e2eRequest(router, auth.AccessTokenCookieName, clientCookie, http.MethodPost, startPath, "")
+	if rec.Code != http.StatusConflict || !strings.Contains(raw, `"code":"WORKOUT_ALREADY_COMPLETED"`) {
+		t.Fatalf("restarting a completed day: expected 409 WORKOUT_ALREADY_COMPLETED, got %d (body: %s)", rec.Code, raw)
+	}
 	rec, raw = e2eRequest(router, auth.AccessTokenCookieName, clientCookie, http.MethodGet, "/api/v1/me/workout-sessions?limit=10", "")
 	if rec.Code != http.StatusOK || !strings.Contains(raw, session.ID) {
 		t.Fatalf("history: expected the completed session, got %d (body: %s)", rec.Code, raw)

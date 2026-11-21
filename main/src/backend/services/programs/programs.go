@@ -336,8 +336,11 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 		updates["description"] = *input.Description
 	}
 	if input.Type != nil {
-		if err := validateType(*input.Type); err != nil {
-			return nil, err
+		// An existing personalised plan may be saved with its own type.
+		if *input.Type != existing.Type {
+			if err := validateType(*input.Type); err != nil {
+				return nil, err
+			}
 		}
 		updates["type"] = *input.Type
 	}
@@ -662,10 +665,13 @@ func validateDescription(description string) error {
 	return nil
 }
 
-// validateType rejects any program type outside the official product set.
+// validateType accepts the types a trainer may give a plan: free and premium
+// (the Level 1 price). Owner decision (2026-11-21): Level 2 is the
+// personalised service, prepared by the trainer a request is allocated to,
+// never a plan a trainer sells; existing personalised plans keep their type.
 func validateType(programType string) error {
 	switch programType {
-	case models.ProgramTypeFree, models.ProgramTypePremium, models.ProgramTypePersonalized:
+	case models.ProgramTypeFree, models.ProgramTypePremium:
 		return nil
 	default:
 		return fmt.Errorf("%w: invalid program type", ErrInvalidInput)

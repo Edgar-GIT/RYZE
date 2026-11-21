@@ -1,0 +1,405 @@
+/* A person's public profile on the public field: a light-glass hero, four
+   numbers and the followers / following list. Mobile first. */
+.container {
+  display: grid;
+  gap: 1.25rem;
+  padding-top: calc(var(--r-nav-clearance, 5.75rem) + 1rem);
+  padding-bottom: 4rem;
+}
+
+.state {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  margin: 0;
+  padding: 4rem 1rem;
+  color: var(--r-on-dark-2, #e2ebff);
+  text-align: center;
+}
+
+.state p {
+  margin: 0;
+}
+
+.hero {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  padding: 1.75rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 24px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 30px 80px -40px rgba(2, 4, 31, 0.8);
+}
+
+.avatar {
+  display: grid;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #02041f;
+  background: linear-gradient(135deg, #7cebff, #00cbff 55%, #2a8cff);
+  font-weight: 800;
+  object-fit: cover;
+}
+
+.avatarLarge {
+  width: 6.5rem;
+  height: 6.5rem;
+  font-size: 2.4rem;
+  box-shadow:
+    0 0 0 5px rgba(255, 255, 255, 0.18),
+    0 18px 40px -12px rgba(0, 203, 255, 0.7);
+}
+
+.identity {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: #ffffff;
+  font-size: clamp(1.6rem, 6vw, 2.2rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.handle {
+  margin: 0;
+  color: #7cebff;
+  font-weight: 700;
+}
+
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--r-on-dark-2, #e2ebff);
+  font-size: 0.88rem;
+}
+
+.meta svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.levelChip,
+.coachChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0.2rem 0.8rem 0.2rem 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(2, 4, 31, 0.25);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.coachChip {
+  padding-left: 0.7rem;
+  color: #02041f;
+  background: #7cebff;
+}
+
+.coachChip svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.about {
+  display: grid;
+  justify-items: center;
+  gap: 0.7rem;
+  width: 100%;
+}
+
+.bio {
+  max-width: 40rem;
+  margin: 0;
+  color: #ffffff;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.facts,
+.socials {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.facts li {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(2, 4, 31, 0.22);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.social {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.social:hover {
+  color: #02041f;
+  background: #7cebff;
+}
+
+.social:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.social svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+}
+
+.follow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0 1.4rem;
+  border: 0;
+  border-radius: 999px;
+  color: #02041f;
+  background: linear-gradient(180deg, #50e2fe, #00cbff);
+  box-shadow: 0 0 22px rgba(0, 203, 255, 0.35);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.follow svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.following {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+.follow:focus-visible,
+.statButton:focus-visible,
+.person:focus-visible,
+.coachChip:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.follow:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.error {
+  margin: 0;
+  color: #ffd2d8;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.stat {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.statOpen {
+  border-color: #7cebff;
+}
+
+.stat dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--r-on-dark-2, #e2ebff);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.stat dt svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.stat dd {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.statButton {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: none;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgba(124, 235, 255, 0.6);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.people {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 18px;
+  background: rgba(2, 4, 31, 0.28);
+}
+
+.peopleTitle {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.muted {
+  margin: 0;
+  color: var(--r-on-dark-2, #e2ebff);
+}
+
+.peopleList {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 12px;
+  color: #ffffff;
+}
+
+.person:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.personText {
+  display: grid;
+  min-width: 0;
+}
+
+.personText strong,
+.personText span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.personText span {
+  color: #7cebff;
+  font-size: 0.85rem;
+}
+
+@media (min-width: 720px) {
+  .hero {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    justify-items: start;
+    align-items: center;
+    padding: 2rem;
+    text-align: left;
+  }
+
+  .identity,
+  .chips {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+
+  /* The about spans the hero under the photo, name and action. */
+  .about {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-items: start;
+  }
+
+  .facts,
+  .socials {
+    justify-content: flex-start;
+  }
+
+  .error {
+    grid-column: 1 / -1;
+  }
+
+  .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* v2.130.0: a coach's views, the one stat only trainers have. */
+.statCoach {
+  grid-column: 1 / -1;
+  border-color: rgba(0, 203, 255, 0.55);
+  background: linear-gradient(135deg, rgba(0, 203, 255, 0.22), rgba(42, 140, 255, 0.12));
+}
+
+.statCoach dt svg {
+  color: #00cbff;
+}

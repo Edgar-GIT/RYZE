@@ -105,6 +105,9 @@ type service struct {
 	programs     ProgramRepository
 	entitlements EntitlementRepository
 	notifier     notifications.Notifier
+	// offers enables allocation by offer (nil: ADMIN_2 allocates by hand).
+	offers repositories.PremiumLevel2OfferRepository
+	now    func() time.Time
 }
 
 // ServiceOption configures an optional collaborator.
@@ -226,6 +229,9 @@ func (s *service) SubmitIntake(ctx context.Context, userID, requestID string, an
 		return nil, nil, fmt.Errorf("failed to submit premium level 2 intake: %w", err)
 	}
 	s.notifyIntakeReceived(ctx, requestID, intake)
+	// Offer the request to an available trainer; if this fails, the periodic
+	// sweep offers it within minutes.
+	_ = s.offerNext(ctx, requestID)
 	return updated, intake, nil
 }
 
@@ -290,9 +296,16 @@ func (s *service) AssignTrainer(ctx context.Context, requestID, trainerID, admin
 			return nil, fmt.Errorf("failed to assign trainer: %w", err)
 		}
 	}
+	s.notifyAssigned(ctx, request.ID, trainerID)
+	return request, nil
+}
+
+// notifyAssigned tells the client and the trainer about an allocation (by
+// ADMIN_2 or by the trainer accepting an offer).
+func (s *service) notifyAssigned(ctx context.Context, requestID, trainerID string) {
 	// Each assignment is its own event (identified by the request's update
 	// time), so assigning a request back to an earlier trainer notifies again.
-	s.notifyTransition(ctx, request.ID, func(current *models.PremiumLevel2Request) []notifications.Event {
+	s.notifyTransition(ctx, requestID, func(current *models.PremiumLevel2Request) []notifications.Event {
 		events := []notifications.Event{{
 			UserID:        current.UserID,
 			Kind:          models.NotificationPL2TrainerAssigned,
@@ -313,7 +326,6 @@ func (s *service) AssignTrainer(ctx context.Context, requestID, trainerID, admin
 		}
 		return events
 	})
-	return request, nil
 }
 
 func (s *service) ListTrainerRequests(ctx context.Context, trainerID string, filter repositories.PremiumLevel2Filter, page, limit int) ([]models.PremiumLevel2Request, int64, error) {

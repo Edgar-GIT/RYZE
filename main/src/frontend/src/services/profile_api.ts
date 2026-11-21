@@ -1,4 +1,4 @@
-import { apiDelete, apiPatch, apiUpload } from "@utils/http_client";
+import { apiDelete, apiGet, apiPatch, apiPut, apiUpload } from "@utils/http_client";
 
 import type { MemberUser } from "@/components/app_shell/member_shell";
 
@@ -15,9 +15,19 @@ export const uploadAvatar = (file: File): Promise<MemberUser> => {
 
 export const removeAvatar = (): Promise<MemberUser> => apiDelete<MemberUser>("/me/avatar");
 
-// The name people see: the display name, else the registered name.
-export const publicNameOf = (user: Pick<MemberUser, "display_name" | "first_name" | "last_name" | "email">): string =>
-  user.display_name?.trim() || `${user.first_name} ${user.last_name}`.trim() || user.email;
+// The name people see (owner decision, 2026-11-21): the nickname, else the
+// @username, never the email or the registered first and last name.
+export const publicNameOf = (user: Pick<MemberUser, "display_name" | "username">): string =>
+  user.display_name?.trim() || user.username;
+
+/** Whether the person set a nickname (the @username is then shown under it;
+ *  without one the @username is the name, shown once). */
+export const hasNickname = (user: Pick<MemberUser, "display_name">): boolean => Boolean(user.display_name?.trim());
+
+/** Records the @username the person chose (first visit of an account whose
+ *  @username was generated, or a later change). */
+export const chooseUsername = (username: string): Promise<MemberUser> =>
+  apiPut<MemberUser>("/me/username", { username: username.trim().replace(/^@/, "").toLowerCase() });
 
 export const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._]{2,29}$/;
 
@@ -25,3 +35,33 @@ export const isValidUsername = (value: string): boolean => {
   const name = value.trim().replace(/^@/, "").toLowerCase();
   return USERNAME_PATTERN.test(name) && !name.includes("..") && !name.endsWith(".");
 };
+
+/** A social network on a profile: the stored handle and the link the server
+ *  builds from it. */
+export interface SocialLink {
+  platform: import("@/components/social_icons/social_icons").SocialPlatform;
+  handle: string;
+  url: string;
+}
+
+/** The public "about" of the account, as its owner edits it. */
+export interface ProfileDetails {
+  bio: string;
+  /** YYYY-MM-DD or "" (only the age is shown). */
+  birth_date: string;
+  /** The year the person started training (shown as years of training). */
+  training_since: number | null;
+  weight_kg: number | null;
+  socials: SocialLink[];
+}
+
+export const fetchProfileDetails = (): Promise<ProfileDetails> => apiGet<ProfileDetails>("/me/profile/details");
+
+/** Replaces the whole "about"; an empty value clears a field or a network. */
+export const saveProfileDetails = (details: {
+  bio: string;
+  birth_date: string;
+  training_since: number | null;
+  weight_kg: number | null;
+  socials: Record<string, string>;
+}): Promise<ProfileDetails> => apiPut<ProfileDetails>("/me/profile/details", details);

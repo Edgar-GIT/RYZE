@@ -330,7 +330,9 @@ identity (same UUID, email and password) — it never creates a second account.
 
 Trainers can:
 
-- Create packs
+- Create packs (since v2.128.0, owner decision: free generic plans and
+  Premium Level 1 plans only; Premium Level 2 is the personalised service a
+  trainer prepares when a request is allocated to them)
 - Edit packs
 - Publish packs
 - View statistics
@@ -588,6 +590,16 @@ Certified trainers may also participate in community discussions.
 
 The community is not intended to replace professional coaching.
 
+Public profiles (v2.128.0, owner request 2026-11-21): every account has a
+public profile at `/u/<@username>`, open to everyone, showing the photo, the
+nickname ("alcunha", else the @username), member since, completed workouts,
+followers, following, lifter level and record medals, and, when the person
+fills them in (v2.129.0), a biography, age, years of training, weight and
+links to their social networks. The @username is the unique identifier
+chosen at registration; the nickname is optional. Members follow each
+other from the profile. The name shown across the platform is the nickname,
+else the @username the person chose, never the email.
+
 ---
 
 # Gamification
@@ -823,6 +835,15 @@ creates one service request. The client completes a detailed intake, ADMIN_2
 allocates an active trainer, and that trainer attaches one of their own draft
 programmes and authors the nutrition plan before delivery. Delivery creates the
 training entitlement and releases the nutrition plan to the client.
+
+Since v2.128.0 (owner decision, 2026-11-21, until AI exists) the trainer is
+found by offer instead of waiting for ADMIN_2: after the intake the request is
+offered to an available trainer (one who turned on "accepts Premium Level 2
+requests", with the fewest open requests), who is notified and accepts or
+declines; declining or 24 hours without an answer passes it to the next
+trainer, and with nobody left ADMIN_2 allocates it by hand. The accepting
+trainer prepares the programme and the nutrition plan and delivers them to the
+client's personal area; the client is notified on allocation and delivery.
 
 Since v2.124.0 (owner request, 2026-11-15) the order is: the service is
 explained, the client pays, and the full questionnaire opens immediately after

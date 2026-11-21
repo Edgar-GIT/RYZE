@@ -134,6 +134,8 @@ export interface ProgramAccessDetail {
   training_type?: string | null;
   price_minor_units: number;
   currency: string;
+  /** Uploads path of the plan's cover; empty when it has none. */
+  cover_image_url?: string;
   created_at: string;
   updated_at: string;
   weeks: ProgramAccessWeek[];

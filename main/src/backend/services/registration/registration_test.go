@@ -29,6 +29,7 @@ func TestRegisterSuccess(t *testing.T) {
 
 	user, err := svc.Register(ctx, registration.RegisterInput{
 		Email:     email,
+		Username:  uniqueTestUsername(),
 		Password:  plaintext,
 		FirstName: "Alice",
 		LastName:  "Example",
@@ -84,6 +85,7 @@ func TestRegisterDuplicateEmail(t *testing.T) {
 
 	if _, err := svc.Register(ctx, registration.RegisterInput{
 		Email:     email,
+		Username:  uniqueTestUsername(),
 		Password:  "Password123!",
 		FirstName: "First",
 		LastName:  "Last",
@@ -93,6 +95,7 @@ func TestRegisterDuplicateEmail(t *testing.T) {
 
 	_, err := svc.Register(ctx, registration.RegisterInput{
 		Email:     email,
+		Username:  uniqueTestUsername(),
 		Password:  "Password123!",
 		FirstName: "First",
 		LastName:  "Last",
@@ -118,6 +121,7 @@ func TestRegisterRejectsReservedTestModePersonas(t *testing.T) {
 	for _, email := range reserved {
 		_, err := svc.Register(ctx, registration.RegisterInput{
 			Email:     email,
+			Username:  uniqueTestUsername(),
 			Password:  "Password123!",
 			FirstName: "First",
 			LastName:  "Last",
@@ -141,6 +145,7 @@ func TestRegisterEmptyPassword(t *testing.T) {
 
 	_, err := svc.Register(context.Background(), registration.RegisterInput{
 		Email:     "empty-password@ryze.local",
+		Username:  uniqueTestUsername(),
 		Password:  "",
 		FirstName: "First",
 		LastName:  "Last",
@@ -175,6 +180,7 @@ func TestRegisterRepositoryErrorPropagation(t *testing.T) {
 
 	_, err := svc.Register(context.Background(), registration.RegisterInput{
 		Email:     "repo-error@ryze.local",
+		Username:  uniqueTestUsername(),
 		Password:  "Password123!",
 		FirstName: "First",
 		LastName:  "Last",
@@ -199,6 +205,7 @@ func TestRegisterReactivateSoftDeletedUser(t *testing.T) {
 
 	first, err := svc.Register(ctx, registration.RegisterInput{
 		Email:     email,
+		Username:  uniqueTestUsername(),
 		Password:  oldPassword,
 		FirstName: "First",
 		LastName:  "User",
@@ -213,6 +220,7 @@ func TestRegisterReactivateSoftDeletedUser(t *testing.T) {
 
 	reactivated, err := svc.Register(ctx, registration.RegisterInput{
 		Email:     email,
+		Username:  uniqueTestUsername(),
 		Password:  newPassword,
 		FirstName: "Second",
 		LastName:  "Name",
@@ -268,6 +276,7 @@ func TestRegisterReactivationFailure(t *testing.T) {
 
 	_, err := svc.Register(context.Background(), registration.RegisterInput{
 		Email:     "reactivate-fail@ryze.local",
+		Username:  uniqueTestUsername(),
 		Password:  "Password123!",
 		FirstName: "First",
 		LastName:  "Last",
@@ -397,4 +406,26 @@ func (reactivationFailRepo) DeleteAccount(_ context.Context, _ string) error {
 }
 func (reactivationFailRepo) ClearDeletedAt(_ context.Context, _ string) error {
 	return errRepositoryFailure
+}
+
+// uniqueTestUsername is a free @username for one test registration.
+func uniqueTestUsername() string {
+	return fmt.Sprintf("t%d", time.Now().UnixNano()%100000000000)
+}
+
+// The @username is required at registration (owner decision, 2026-11-21).
+func TestRegisterRequiresUsername(t *testing.T) {
+	repo, close := newTestRepository(t)
+	defer close()
+
+	svc := registration.NewRegistrationService(repo, password.Hasher{})
+	_, err := svc.Register(context.Background(), registration.RegisterInput{
+		Email:     fmt.Sprintf("no-username-%d@ryze.local", time.Now().UnixNano()),
+		Password:  "Password123!",
+		FirstName: "First",
+		LastName:  "Last",
+	})
+	if !errors.Is(err, registration.ErrInvalidUsername) {
+		t.Fatalf("expected ErrInvalidUsername, got %v", err)
+	}
 }

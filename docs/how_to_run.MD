@@ -601,7 +601,9 @@ valid). Otherwise the client is registered or has its password reset by
 ADMIN_1, and the trainer is reset, reactivated, promoted by ADMIN_1 through
 `POST /admin/trainer-applications/promote` with its @username (when the email
 belongs to a plain account; since v2.127.0 applying needs the complete form and
-real documents, so the script no longer applies) or created by ADMIN_1. The administrative lookups walk every page of the listings, so a
+real documents, so the script no longer applies) or created by ADMIN_1. The
+client is registered with an @username (required since v2.128.0) made from
+the address plus a random suffix. The administrative lookups walk every page of the listings, so a
 database with many accounts is handled.
 
 The API is built once and run as a binary, so Ctrl-C really stops it. When a
@@ -1077,6 +1079,14 @@ Run all pending migrations:
 ```bash
 cd main/src/backend
 go run . migrate up
+```
+
+Set an account's EXP (v2.130.0; it records an EXP adjustment, for example to
+see the level-up animation on the next workout):
+
+```bash
+go run . set-xp --username <username> --short-of-top 1   # one EXP below the top level
+go run . set-xp --username <username> --xp 1500          # an exact total
 ```
 
 Roll back all applied migrations:

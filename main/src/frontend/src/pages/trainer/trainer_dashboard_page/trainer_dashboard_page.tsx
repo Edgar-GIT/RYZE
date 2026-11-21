@@ -1,7 +1,9 @@
 import {
   ArrowRight,
   ChevronRight,
+  BadgePercent,
   ClipboardList,
+  Coins,
   Dumbbell,
   Eye,
   FileEdit,
@@ -9,7 +11,8 @@ import {
   Plus,
   RefreshCw,
   UserPlus,
-  Users
+  Users,
+  Wallet
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -26,10 +29,12 @@ import {
 } from "@/services/premium_level_2_api";
 import {
   fetchTrainerClients,
+  fetchTrainerEarnings,
   fetchTrainerPrograms,
   fetchTrainerProfile,
   TrainerProgramStatus,
   type TrainerClient,
+  type TrainerEarningsTotals,
   type TrainerProfile,
   type TrainerProgram
 } from "@/services/trainer_api";
@@ -46,6 +51,7 @@ interface DashboardData {
   requests: StaffPremiumLevel2Request[];
   requestTotal: number;
   views: number | null;
+  earnings: TrainerEarningsTotals | null;
 }
 
 type State = { status: "loading" } | { status: "error" } | { status: "ready"; data: DashboardData };
@@ -78,6 +84,15 @@ const COPY: Copy<{
   queue: string;
   noRequests: string;
   seeAll: string;
+  earnings: string;
+  earningsLead: string;
+  gross: string;
+  grossHint: (sales: number) => string;
+  net: string;
+  netHint: string;
+  commission: string;
+  commissionHint: string;
+  earningsError: string;
   status: Record<PremiumLevel2RequestStatus, string>;
   loadError: string;
   retry: string;
@@ -110,6 +125,15 @@ const COPY: Copy<{
     queue: "Premium Level 2 requests",
     noRequests: "No requests allocated to you.",
     seeAll: "See all",
+    earnings: "Earnings",
+    earningsLead: "From the sales of your plans, with the split recorded at each purchase.",
+    gross: "Total earned",
+    grossHint: (sales) => `${sales} ${sales === 1 ? "sale" : "sales"}, before commissions`,
+    net: "Profit",
+    netHint: "What is yours after the RYZE commission",
+    commission: "Commissions",
+    commissionHint: "Already deducted for RYZE",
+    earningsError: "Your earnings could not be loaded right now.",
     status: {
       awaiting_intake: "Awaiting intake",
       awaiting_trainer_assignment: "Awaiting allocation",
@@ -149,6 +173,15 @@ const COPY: Copy<{
     queue: "Pedidos Premium Nível 2",
     noRequests: "Nenhum pedido atribuído a ti.",
     seeAll: "Ver todos",
+    earnings: "Ganhos",
+    earningsLead: "Das vendas dos teus planos, com a divisão registada em cada compra.",
+    gross: "Ganho total",
+    grossHint: (sales) => `${sales} ${sales === 1 ? "venda" : "vendas"}, antes das comissões`,
+    net: "Lucro",
+    netHint: "O que fica para ti depois da comissão da RYZE",
+    commission: "Comissões",
+    commissionHint: "Já descontado para a RYZE",
+    earningsError: "Não foi possível carregar os teus ganhos agora.",
     status: {
       awaiting_intake: "À espera do questionário",
       awaiting_trainer_assignment: "À espera de atribuição",
@@ -169,7 +202,7 @@ const initials = (first: string, last: string, fallback: string) =>
 // programmes, the public profile reach and the Premium Level 2 queue. Every
 // number comes from the trainer endpoints; nothing is estimated.
 export const TrainerDashboardPage = () => {
-  const { locale, formatDate, formatNumber } = useI18n();
+  const { locale, formatDate, formatNumber, formatMoney } = useI18n();
   const text = COPY[locale];
   const [state, setState] = useState<State>({ status: "loading" });
   const [retry, setRetry] = useState(0);
@@ -183,6 +216,9 @@ export const TrainerDashboardPage = () => {
         fetchTrainerPrograms(1, 50),
         fetchTrainerPremiumLevel2Requests(1, 5).catch(() => null)
       ]);
+      const earnings = await fetchTrainerEarnings()
+        .then((report) => report.totals[0] ?? { currency: "EUR", sales: 0, gross: 0, net: 0, commission: 0 })
+        .catch(() => null);
       const views = await fetchCoachProfile(profile.id)
         .then((coach) => coach.coach.total_views)
         .catch(() => null);
@@ -196,7 +232,8 @@ export const TrainerDashboardPage = () => {
           programTotal: programs.pagination.total,
           requests: requests?.requests ?? [],
           requestTotal: requests?.pagination.total ?? 0,
-          views
+          views,
+          earnings
         }
       });
     } catch {
@@ -221,7 +258,7 @@ export const TrainerDashboardPage = () => {
     );
   }
 
-  const { profile, clients, clientTotal, programs, programTotal, requests, requestTotal, views } = state.data;
+  const { profile, clients, clientTotal, programs, programTotal, requests, requestTotal, views, earnings } = state.data;
   const published = programs.filter((program) => program.status === TrainerProgramStatus.PUBLISHED).length;
   const drafts = programs.length - published;
   const firstName = profile.user.first_name;
@@ -280,6 +317,35 @@ export const TrainerDashboardPage = () => {
           ) : (
             <p className={styles.muted}>{text.notPublic}</p>
           )}
+        </section>
+
+        <section className={styles.earnings} aria-labelledby="trainer-earnings">
+          <div className={styles.earningsHead}>
+            <h2 id="trainer-earnings" className={styles.cardTitle}>
+              <Wallet aria-hidden="true" /> {text.earnings}
+            </h2>
+            <p className={styles.muted}>{earnings ? text.earningsLead : text.earningsError}</p>
+          </div>
+          {earnings ? (
+            <div className={styles.money}>
+              {[
+                { icon: Coins, label: text.gross, value: earnings.gross, hint: text.grossHint(earnings.sales), tone: styles.moneyGross, deducted: false },
+                { icon: Wallet, label: text.net, value: earnings.net, hint: text.netHint, tone: styles.moneyNet, deducted: false },
+                { icon: BadgePercent, label: text.commission, value: earnings.commission, hint: text.commissionHint, tone: styles.moneyFee, deducted: true }
+              ].map(({ icon: Icon, label, value, hint, tone, deducted }) => (
+                <div key={label} className={joinClassNames(styles.moneyCard, tone)}>
+                  <span className={styles.moneyLabel}>
+                    <Icon aria-hidden="true" /> {label}
+                  </span>
+                  <strong className={styles.moneyValue}>
+                    {deducted && value > 0 ? "− " : ""}
+                    {formatMoney(value, earnings.currency)}
+                  </strong>
+                  <span className={styles.moneyHint}>{hint}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className={styles.tiles} aria-label={text.kicker}>

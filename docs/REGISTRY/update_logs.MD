@@ -1,3 +1,126 @@
+# Version 2.130.0
+
+Title: Trainer earnings and views, Recovery page, level-up animation, Home hero composition
+
+Date: 2026-11-21
+
+Summary:
+
+- Trainer profile: the cards no longer touch (one grid with spacing; on
+  desktop the identity beside a "Visualizações" card and the coach card).
+- Trainer earnings (`GET /trainer/earnings`): the dashboard shows "Ganho
+  total" (gross sales), "Lucro" (the trainer's share) and "Comissões" (what
+  RYZE kept), from completed, non-Test-Mode purchases of the trainer's plans.
+- Views, the stat only coaches have: on the trainer profile page and as
+  `stats.views` on the public profile (`/u/:username`), from the views of the
+  coach's published plans.
+- Recovery has its own page and menu entry (`/services/recovery`, "Recuperação"),
+  out of Progress (`?tab=muscles` redirects). The side of the body map is a
+  detail card for the selected (or least recovered) muscle and compact chips
+  grouped by status, so it stays about as tall as the map; the body drawing
+  has more detail (muscle heads, tendons, knees, Achilles, a soft volume
+  light).
+- Level-up animation: the screen darkens, the new badge appears blurred under
+  two crossed chains and a padlock, everything shakes harder, the chains snap,
+  the padlock explodes (flash, shock wave, shards, sparks) and the new level
+  is revealed glowing in its own colour. It plays once after the workout that
+  levels up; "Saltar" jumps to the reveal; reduced motion shows the reveal.
+  Test Mode (banner) and local development (Achievements) have "Testar subida
+  de nível" with the eight levels (preview only).
+- EXP adjustments (migration 000056, `go run . set-xp`); @edgar ("teste1") is
+  at 39,999 EXP, one short of Lifter Lendário.
+- Home hero: the 3D composition follows the owner's reference (shaker behind
+  on the left, the plate in front of it, the phone large at the centre, the
+  dumbbells on its right); napkin and cutlery sit under the plate.
+
+Verification: typecheck passes; focused Vitest (navigation history, Test
+Mode) passes; Go tests for EXP adjustments and the earnings query pass on
+`ryze_test`. One Playwright pass with mocked APIs at 1440 px: Home hero,
+Recovery and the level-up animation. Docs: `api.MD`, `database.MD`,
+`how_to_run.MD`, `PAGES/design.MD`, `docs/AI/frontend-revamp.md`,
+`CLAUDE.md`. Migration 000056 applied to `ryze_test` and the dev database.
+
+# Version 2.129.0
+
+Title: Trainer profile shows the one identity; profile "about" with social networks; nickname at registration
+
+Date: 2026-11-21
+
+Summary:
+
+- The trainer profile page no longer shows the registered name and the email
+  or says the profile cannot be edited: it shows the photo, nickname (else the
+  @username), the @username, biography and social links, with "Editar perfil"
+  and "Ver perfil público". Both shells show the @username, never the email.
+- Profile "about" (migration 000055): biography (500 characters), date of
+  birth (only the age is public), training start year (years of training),
+  weight and social networks (Instagram, TikTok, YouTube, X, Facebook,
+  Strava) — `GET/PUT /me/profile/details`, edited in Account, shown on the
+  public profile. Only handles are stored; links are built by the server.
+- Registration: the @username stays required and unique (the database
+  refuses two active accounts with the same one); the nickname is an optional
+  field (`display_name`).
+
+Verification: typecheck passes; `npm run test` 26 files, 179 tests pass; Go
+tests for handle normalisation, details validation and the details
+repository pass on `ryze_test`; `api/auth` and `registration` keep their known
+failures from seeded data. Playwright with mocked APIs at 390 px and 1440 px:
+trainer profile, public profile, Account, registration. Docs: `api.MD`,
+`security.MD`, `project.MD`, `database.MD`, `PAGES/design.MD`,
+`docs/AI/frontend-revamp.md`, `CLAUDE.md`. Migration 000055 applied with
+`go run . migrate up`.
+
+# Version 2.128.0
+
+Title: Back to where you came from, locked completed days, nickname and chosen @username, public profiles with following, Premium Level 2 allocation by offer
+
+Date: 2026-11-21
+
+Summary:
+
+Owner requests of 2026-11-21.
+
+- Back buttons: coming from another area (personal area → training plans) or
+  from the page above, "back" returns to exactly that page; within an area it
+  goes up to the parent. Navbar, member shell and in-page back links share
+  `resolveBack` / `useBackTarget`.
+- My plan: a completed day is done once — the card turns green with
+  "Concluído a <date> · não se repete" and the server refuses a restart
+  (`409 WORKOUT_ALREADY_COMPLETED`). The plan cover shows under the title.
+- Fixes: short public pages no longer leave a dark band before the footer;
+  the coach page clears the navbar and, for the coach themselves, explains why
+  the profile is not public (no published plan, or a Test Mode account).
+- Name: the platform shows the nickname ("alcunha"), else the @username —
+  never the email or the registered name (coach names included). The
+  @username is required at registration; generated ones (Google, older and
+  administrator-made accounts) are replaced through a first-visit dialog
+  (`PUT /me/username`, migration 000052).
+- Public profiles at `/u/:username`, open to everyone: photo, nickname,
+  member since, workouts, followers, following, level, record medals; follow
+  and unfollow (migration 000053). Signed in, the public navbar shows the
+  bell and the account photo and name.
+- Trainers create free and Premium Level 1 plans only; older personalised
+  plans keep their type.
+- Premium Level 2 allocation by offer (migration 000054): after the intake
+  the request is offered to the available trainer with the fewest open
+  requests; accept allocates it, decline or 24 hours without an answer passes
+  it to the next trainer; with nobody left ADMIN_2 allocates by hand. New
+  trainer panel with the availability switch, notification
+  `pl2_request_offered` with email.
+- Answers: the password-reset email depends on the SMTP credentials (recorded
+  as skipped without them); profile photos exist since v2.127.0.
+
+Verification: typecheck passes; `npm run test` 26 files, 179 tests pass; Go
+build and vet pass; new tests for the completed-day rule (route test),
+required @username, following, Premium Level 2 offers (pick, one open offer,
+decline → next, expiry, accept) and trainer plan types pass on `ryze_test`;
+`api/auth` and `registration` keep their known failures from seeded data.
+Playwright with mocked APIs at 390 px and 1440 px: plan page, public profile,
+coach page, @username dialog, no horizontal overflow. Docs: `api.MD`,
+`security.MD`, `project.MD`, `database.MD`, `PAGES/design.MD`,
+`how_to_run.MD`, `docs/AI/frontend-revamp.md`, `CLAUDE.md`. Apply migrations
+000047-000054 with `go run . migrate up`.
+
 # Version 2.127.0
 
 Title: Explicit back buttons, free plan overview, public profile, complete trainer application with document screening, muscle recovery and body measurements

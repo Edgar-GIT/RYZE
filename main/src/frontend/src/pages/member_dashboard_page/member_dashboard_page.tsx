@@ -32,7 +32,8 @@ import { fetchFreeActivations } from "@/services/free_programs_api";
 import { fetchEntitlements, fetchProgramAccess, type ProgramAccessDetail, type ProgramAccessWorkout } from "@/services/purchases_api";
 import { fetchClientStatistics, type ClientStatistics } from "@/services/statistics_api";
 import { ProfileAvatar } from "@/pages/account_settings_page/public_profile_card";
-import { publicNameOf } from "@/services/profile_api";
+import { hasNickname, publicNameOf } from "@/services/profile_api";
+import { profilePath } from "@/services/public_profiles_api";
 import {
   currentStreakWeeks,
   estimatedOneRepMax,
@@ -110,6 +111,7 @@ interface DashboardText {
   purchasesText: string;
   support: string;
   supportText: string;
+  publicProfile: string;
   muscles: string;
   musclesText: string;
   measurements: string;
@@ -175,6 +177,7 @@ const COPY: Copy<DashboardText> = {
     purchasesText: "Orders and receipts",
     support: "Support",
     supportText: "Talk to the RYZE team",
+    publicProfile: "View my public profile",
     muscles: "Muscle recovery",
     musclesText: "See which muscles are ready to train",
     measurements: "Body measurements",
@@ -238,6 +241,7 @@ const COPY: Copy<DashboardText> = {
     purchasesText: "Encomendas e recibos",
     support: "Suporte",
     supportText: "Fala com a equipa RYZE",
+    publicProfile: "Ver o meu perfil público",
     muscles: "Recuperação muscular",
     musclesText: "Vê que músculos estão prontos a treinar",
     measurements: "Medições corporais",
@@ -509,7 +513,10 @@ export const MemberDashboardPage = () => {
               <ProfileAvatar user={user} className={styles.identityAvatar} />
               <span className={styles.identityText}>
                 <strong>{publicNameOf(user)}</strong>
-                <span>@{user.username}</span>
+                {hasNickname(user) ? <span>@{user.username}</span> : null}
+                <Link className={styles.identityLink} to={profilePath(user.username)}>
+                  {text.publicProfile}
+                </Link>
               </span>
             </div>
           ) : null}
@@ -857,7 +864,7 @@ export const MemberDashboardPage = () => {
         {/* Shortcuts. */}
         <nav className={styles.shortcuts} aria-label={text.shortcuts}>
           {[
-            { to: "/services/progress?tab=muscles", icon: Activity, title: text.muscles, body: text.musclesText },
+            { to: "/services/recovery", icon: Activity, title: text.muscles, body: text.musclesText },
             { to: "/services/progress?tab=measurements", icon: Ruler, title: text.measurements, body: text.measurementsText },
             { to: "/services/generic-program", icon: ShoppingBag, title: text.plans, body: text.plansText },
             { to: "/exercises", icon: BookOpen, title: text.library, body: text.libraryText },

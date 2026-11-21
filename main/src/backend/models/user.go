@@ -45,6 +45,9 @@ type User struct {
 	// characters. Left empty on create, the database generates one from the
 	// email (default:null keeps it out of the INSERT and reads it back).
 	Username string `gorm:"column:username;type:varchar(30);default:null" json:"username"`
+	// UsernameChosen: the person chose the @username (registration, a change
+	// or a confirmation); false while it is a generated placeholder.
+	UsernameChosen bool `gorm:"column:username_chosen;not null;default:false" json:"-"`
 	// DisplayName is the name people see (nil: the registered first and last
 	// name). AvatarKey is the profile photo under the public uploads.
 	DisplayName *string `gorm:"column:display_name;type:varchar(40)" json:"display_name"`
@@ -54,17 +57,12 @@ type User struct {
 // PublicName is the name other people see: the display name, else the
 // registered first and last name.
 func (u *User) PublicName() string {
+	// The nickname, else the @username (owner decision, 2026-11-21: never the
+	// email, nor the registered first and last name).
 	if u.DisplayName != nil && *u.DisplayName != "" {
 		return *u.DisplayName
 	}
-	name := u.FirstName
-	if u.LastName != "" {
-		if name != "" {
-			name += " "
-		}
-		name += u.LastName
-	}
-	return name
+	return u.Username
 }
 
 func (u *User) BeforeCreate(_ *gorm.DB) error {

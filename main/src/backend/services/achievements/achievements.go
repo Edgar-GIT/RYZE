@@ -137,6 +137,12 @@ type Summary struct {
 
 // Compute applies the rules to the completed sets (oldest session first).
 func Compute(rows []repositories.CompletedSetRow) Summary {
+	return ComputeFrom(0, rows)
+}
+
+// ComputeFrom applies the rules starting from base EXP (the sum of the
+// member's EXP adjustments; never below zero).
+func ComputeFrom(base int, rows []repositories.CompletedSetRow) Summary {
 	type exerciseBest struct {
 		weight float64
 		reps   int
@@ -146,7 +152,7 @@ func Compute(rows []repositories.CompletedSetRow) Summary {
 	var sessions []SessionAward
 	var medals []Medal
 	perDay := map[string]int{}
-	total := 0
+	total := max(base, 0)
 	counted := 0
 
 	for start := 0; start < len(rows); {
@@ -235,6 +241,12 @@ func Compute(rows []repositories.CompletedSetRow) Summary {
 	}
 }
 
+// XPAdjustmentReader is implemented by repositories that store EXP
+// adjustments (optional, so test fakes keep compiling).
+type XPAdjustmentReader interface {
+	XPAdjustment(ctx context.Context, userID string) (int, error)
+}
+
 type Service interface {
 	Summary(ctx context.Context, userID string) (*Summary, error)
 	// Session returns what one completed session earned; a completed
@@ -258,7 +270,13 @@ func (s *service) Summary(ctx context.Context, userID string) (*Summary, error) 
 	if err != nil {
 		return nil, err
 	}
-	summary := Compute(rows)
+	base := 0
+	if adjustments, ok := s.repo.(XPAdjustmentReader); ok {
+		if base, err = adjustments.XPAdjustment(ctx, userID); err != nil {
+			return nil, err
+		}
+	}
+	summary := ComputeFrom(base, rows)
 	return &summary, nil
 }
 

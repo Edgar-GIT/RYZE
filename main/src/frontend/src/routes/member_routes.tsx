@@ -11,6 +11,7 @@ import { MyProgramsPage } from "@/pages/my_programs_page/my_programs_page";
 import { PremiumLevel2AcademyPage } from "@/pages/premium_level2_academy/premium_level2_academy_page";
 import { ProgramAccessPage } from "@/pages/program_access_page/program_access_page";
 import { ProgressPage } from "@/pages/progress_page/progress_page";
+import { RecoveryPage } from "@/pages/recovery_page/recovery_page";
 import { SupportPage } from "@/pages/support_page/support_page";
 import { TrainerApplyPage } from "@/pages/trainer/trainer_apply_page/trainer_apply_page";
 import { WorkoutHistoryPage } from "@/pages/workout_history_page/workout_history_page";
@@ -32,6 +33,7 @@ const MemberRoutes = () => (
       <Route exact path="/services/premium-level-2/academy" component={PremiumLevel2AcademyPage} />
       <Route exact path="/services/workout-history" component={WorkoutHistoryPage} />
       <Route exact path="/services/progress" component={ProgressPage} />
+      <Route exact path="/services/recovery" component={RecoveryPage} />
       <Route
         exact
         path="/trainer/apply"

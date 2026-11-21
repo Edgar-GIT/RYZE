@@ -1,0 +1,616 @@
+/* Level-up celebration (v2.130.0). One CSS timeline, in milliseconds:
+     0     the screen darkens
+     500   the new badge appears, blurred and dark
+     1100  the chains cross over it; 1700 the padlock drops in
+     2300  everything shakes, harder and harder, while the light builds
+     3900  the first chain snaps; 4300 the second
+     4750  the padlock explodes: flash, shock wave, shards and sparks
+     4800  the badge is revealed, then floats and glows
+     5100  the name and the level appear; 5900 "Continue" */
+
+.overlay {
+  --rank: #18d8ff;
+  --rank-2: #2a8cff;
+  position: fixed;
+  z-index: 2000;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  overflow: hidden;
+  padding: 1rem;
+  color: #ffffff;
+  outline: none;
+}
+
+.overlay::before {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--rank-2) 22%, transparent), transparent 55%),
+    rgba(2, 4, 31, 0.96);
+  content: "";
+  animation: fadeIn 700ms ease-out both;
+}
+
+.defs {
+  position: absolute;
+}
+
+.skip {
+  position: absolute;
+  z-index: 3;
+  top: max(1rem, env(safe-area-inset-top));
+  right: 1rem;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  animation: fadeOut 300ms 4700ms forwards;
+}
+
+.skip:focus-visible,
+.next:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+/* The stage. */
+.stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(78vw, 44vh, 400px);
+  aspect-ratio: 1;
+  place-items: center;
+}
+
+.stage > *,
+.shaker > * {
+  grid-area: 1 / 1;
+}
+
+.rays {
+  width: 175%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--rank) 55%, transparent) 0deg 5deg, transparent 5deg 20deg);
+  opacity: 0;
+  mask: radial-gradient(circle, #000 12%, transparent 68%);
+  animation:
+    raysIn 900ms 4850ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards,
+    spin 26s 4850ms linear infinite;
+}
+
+.glow {
+  width: 115%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0%, var(--rank) 22%, var(--rank-2) 42%, transparent 70%);
+  filter: blur(18px);
+  opacity: 0;
+  animation:
+    glowBuild 2450ms 2300ms ease-in both,
+    glowPulse 2.6s 5600ms ease-in-out infinite;
+}
+
+.shockwave {
+  width: 40%;
+  aspect-ratio: 1;
+  border: 4px solid var(--rank);
+  border-radius: 50%;
+  box-shadow: 0 0 30px var(--rank);
+  opacity: 0;
+  animation: shockwave 950ms 4750ms cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+}
+
+.shaker {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  animation:
+    shakeS 100ms 2300ms 8 linear,
+    shakeM 90ms 3100ms 9 linear,
+    shakeL 70ms 3910ms 12 linear;
+}
+
+.float {
+  display: grid;
+  place-items: center;
+  animation: float 3.2s 5800ms ease-in-out infinite;
+}
+
+.badge {
+  width: 88%;
+  max-width: 360px;
+  height: auto;
+  user-select: none;
+  animation:
+    badgeIn 1300ms 500ms ease-out both,
+    badgeReveal 1000ms 4800ms cubic-bezier(0.2, 1.6, 0.4, 1) forwards;
+}
+
+/* Chains, crossed over the badge. */
+.chain {
+  --rot: 32deg;
+  --from: -130%;
+  width: 135%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+  animation: chainIn 550ms 1100ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+
+.chainB {
+  --rot: -32deg;
+  --from: 130%;
+  animation-delay: 1350ms;
+}
+
+.chainLeft,
+.chainRight {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: breakLeft 850ms 3900ms cubic-bezier(0.3, 0.6, 0.4, 1) forwards;
+}
+
+.chainRight {
+  animation-name: breakRight;
+}
+
+.chainB .chainLeft,
+.chainB .chainRight {
+  animation-delay: 4300ms;
+}
+
+.snap {
+  fill: var(--rank);
+  filter: blur(4px);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: snap 480ms 3900ms ease-out forwards;
+}
+
+.chainB .snap {
+  animation-delay: 4300ms;
+}
+
+/* The padlock. */
+.lock {
+  width: 24%;
+  height: auto;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.7));
+  animation:
+    lockIn 520ms 1700ms cubic-bezier(0.3, 1.5, 0.5, 1) both,
+    lockBoom 320ms 4750ms ease-in forwards;
+}
+
+.shards,
+.sparks {
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+.shards span,
+.sparks span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+}
+
+.shards span {
+  width: 18px;
+  height: 14px;
+  margin: -7px 0 0 -9px;
+  background: linear-gradient(135deg, #fff1b8, #e7b33c 55%, #8a5a12);
+  clip-path: polygon(0 0, 100% 35%, 30% 100%);
+  animation: shard 1000ms 4750ms cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
+.sparks span {
+  width: var(--size);
+  height: var(--size);
+  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 0 8px 2px var(--rank),
+    0 0 18px 4px var(--rank-2);
+  animation: spark 1300ms calc(4750ms + var(--delay)) cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
+.flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 42%, #ffffff, color-mix(in srgb, var(--rank) 60%, transparent) 45%, transparent 75%);
+  opacity: 0;
+  pointer-events: none;
+  animation: flash 650ms 4750ms ease-out forwards;
+}
+
+/* The reveal. */
+.reveal {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  text-align: center;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--rank);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  animation: rise 600ms 5100ms ease-out both;
+}
+
+.name {
+  margin: 0;
+  padding: 0 0.2em;
+  background: linear-gradient(100deg, #ffffff 20%, var(--rank) 40%, #ffffff 50%, var(--rank) 60%, #ffffff 80%) 0 0 / 250% 100%;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(2rem, 9vw, 3.6rem);
+  font-weight: 900;
+  line-height: 1.05;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--rank) 70%, transparent));
+  animation:
+    nameIn 900ms 5300ms cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    shimmer 3.5s 6300ms linear infinite;
+}
+
+.rank {
+  margin: 0;
+  color: #dbe6ff;
+  font-weight: 700;
+  animation: rise 600ms 5550ms ease-out both;
+}
+
+.next {
+  min-height: 48px;
+  margin-top: 0.8rem;
+  padding: 0 2rem;
+  border: 0;
+  border-radius: 999px;
+  color: #02041f;
+  background: linear-gradient(135deg, #ffffff, var(--rank));
+  box-shadow: 0 10px 40px -8px var(--rank);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  animation: nextIn 500ms 5900ms ease-out both;
+}
+
+/* "Skip" and reduced motion jump to the end of the timeline. */
+.skipped,
+.skipped::before,
+.skipped * {
+  animation-delay: -20s !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .overlay::before,
+  .overlay * {
+    animation-delay: -20s !important;
+  }
+
+  .rays,
+  .float,
+  .name {
+    animation: none;
+  }
+
+  .rays {
+    opacity: 0.45;
+  }
+
+  .name {
+    color: #ffffff;
+    background: none;
+  }
+
+  .glow {
+    animation: glowBuild 1ms -20s both;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes raysIn {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+  to {
+    opacity: 0.55;
+    scale: 1;
+  }
+}
+
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes glowBuild {
+  0% {
+    opacity: 0;
+    scale: 0.4;
+  }
+  85% {
+    opacity: 0.55;
+    scale: 0.9;
+  }
+  100% {
+    opacity: 0.85;
+    scale: 1.1;
+  }
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    opacity: 0.85;
+    scale: 1.1;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.22;
+  }
+}
+
+@keyframes shockwave {
+  from {
+    opacity: 1;
+    scale: 0.3;
+  }
+  to {
+    opacity: 0;
+    scale: 4.5;
+  }
+}
+
+@keyframes shakeS {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-2px, 1px) rotate(-0.6deg);
+  }
+  75% {
+    transform: translate(2px, -1px) rotate(0.6deg);
+  }
+}
+
+@keyframes shakeM {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-5px, 3px) rotate(-1.5deg);
+  }
+  75% {
+    transform: translate(5px, -2px) rotate(1.5deg);
+  }
+}
+
+@keyframes shakeL {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1.02);
+  }
+  25% {
+    transform: translate(-10px, 5px) rotate(-3deg) scale(1.03);
+  }
+  75% {
+    transform: translate(10px, -6px) rotate(3deg) scale(1.03);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -8px;
+  }
+}
+
+@keyframes badgeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.75);
+    filter: blur(22px) brightness(0.3) saturate(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(7px) brightness(0.8) saturate(0.6);
+  }
+}
+
+@keyframes badgeReveal {
+  from {
+    opacity: 1;
+    transform: scale(1.45);
+    filter: blur(6px) brightness(2.2) saturate(1.4) drop-shadow(0 0 0 transparent);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0) brightness(1.08) saturate(1.15) drop-shadow(0 0 26px var(--rank));
+  }
+}
+
+@keyframes chainIn {
+  from {
+    opacity: 0;
+    transform: rotate(var(--rot)) translateX(var(--from));
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--rot)) translateX(0);
+  }
+}
+
+@keyframes breakLeft {
+  to {
+    opacity: 0;
+    transform: translate(-190px, 70px) rotate(-38deg);
+  }
+}
+
+@keyframes breakRight {
+  to {
+    opacity: 0;
+    transform: translate(190px, 70px) rotate(38deg);
+  }
+}
+
+@keyframes snap {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@keyframes lockIn {
+  from {
+    opacity: 0;
+    transform: translateY(-140px) scale(1.3);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes lockBoom {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+    filter: brightness(2.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.2);
+    filter: brightness(3);
+  }
+}
+
+@keyframes shard {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--spin));
+  }
+}
+
+@keyframes spark {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.4);
+  }
+  70% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.3);
+  }
+}
+
+@keyframes flash {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes nameIn {
+  from {
+    opacity: 0;
+    letter-spacing: 0.5em;
+    transform: scale(1.25);
+    filter: blur(10px) drop-shadow(0 0 18px transparent);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -250% 0;
+  }
+}
+
+@keyframes nextIn {
+  from {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+}

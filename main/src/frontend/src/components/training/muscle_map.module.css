@@ -40,6 +40,10 @@
   stroke-width: 2.5;
 }
 
+.sheen {
+  pointer-events: none;
+}
+
 .detail path {
   fill: none;
   stroke: #02041f;

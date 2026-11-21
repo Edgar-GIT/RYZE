@@ -782,7 +782,6 @@ func TestCreateProgramUsesCatalogPrice(t *testing.T) {
 	}{
 		{models.ProgramTypeFree, 100, 0},
 		{models.ProgramTypePremium, 50, 1499},
-		{models.ProgramTypePersonalized, 99999, 1949},
 	}
 	for _, tc := range cases {
 		svc := newService(&stubProgramRepo{})
@@ -798,6 +797,19 @@ func TestCreateProgramUsesCatalogPrice(t *testing.T) {
 		if program.PriceMinorUnits != tc.want || program.Currency != "EUR" {
 			t.Fatalf("%s: price = %d %s, want %d EUR", tc.programType, program.PriceMinorUnits, program.Currency, tc.want)
 		}
+	}
+}
+
+// Trainers sell free and Premium Level 1 plans only (owner decision,
+// 2026-11-21); Level 2 is the personalised service.
+func TestCreateProgramRefusesPersonalizedType(t *testing.T) {
+	svc := newService(&stubProgramRepo{})
+	_, err := svc.CreateProgram(context.Background(), trainerID, programs.CreateProgramInput{
+		Name: "Program",
+		Type: models.ProgramTypePersonalized,
+	})
+	if !errors.Is(err, programs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for a personalised plan, got %v", err)
 	}
 }
 

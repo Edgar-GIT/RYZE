@@ -2945,3 +2945,80 @@ The muscle recovery estimate (`GET /me/statistics/muscles`) needs no table: it
 reads completed `workout_session_sets` with their exercise's muscle fields.
 
 The down migration drops the table.
+
+---
+
+## Migration 000052 — Chosen @username (v2.128.0)
+
+Owner decision (2026-11-21): the @username is the person's reference and the
+name shown when they set no nickname, so it is chosen by the person, never
+derived from the email. `users.username_chosen BOOLEAN NOT NULL DEFAULT
+false` records that it was: true from registration (where it is now
+required), from `PUT /me/username` and whenever `PATCH /me/profile` changes it
+(`username_chosen OR username <> new`). Generated placeholders (Google
+sign-up, accounts made before 000049, accounts created by administrators)
+stay false and the person is asked to choose on the next visit.
+
+The down migration drops the column.
+
+---
+
+## Migration 000053 — Following (v2.128.0)
+
+`user_follows`: `follower_id`, `followee_id` (both foreign keys to `users`),
+`created_at`; primary key `(follower_id, followee_id)` (following again
+changes nothing), `CHECK` follower ≠ followee, index
+`idx_user_follows_followee (followee_id, created_at DESC)`. Unfollowing
+deletes the row (a preference, not an audit fact). Counts and lists only
+include active accounts that are not Test Mode personas.
+
+The down migration drops the table.
+
+---
+
+## Migration 000054 — Premium Level 2 allocation by offer (v2.128.0)
+
+- `trainers.accepts_level2_requests BOOLEAN NOT NULL DEFAULT false`: the
+  trainer takes Premium Level 2 requests.
+- `premium_level_2_offers`: `id`, `request_id`, `trainer_id` (foreign keys),
+  `status` (`CHECK` `offered`, `accepted`, `declined`, `expired`,
+  `withdrawn`), `offered_at`, `expires_at` (`CHECK` after `offered_at`; 24
+  hours), `responded_at`, `created_at`, `updated_at`
+  (`trg_premium_level_2_offers_touch_updated_at`). One open offer per request:
+  stored generated `open_request_id` (the request while `offered`) with
+  `uq_premium_level_2_offers_open`. Indexes by trainer and status, by
+  request, and by status and expiry (the sweep).
+- Accepting locks the offer, closes it and allocates the request in the same
+  transaction as an ADMIN_2 allocation (shared
+  `assignPremiumLevel2Trainer`); an ADMIN_2 allocation withdraws the open
+  offer. Answered offers stay as history.
+
+The down migration drops the table and the column.
+
+---
+
+## Migration 000055 — Profile "about" (v2.129.0)
+
+Owner request (2026-11-21). `user_profile_details`, one optional row per
+account (`user_id` primary key and foreign key to `users`): `bio TEXT`
+(`CHECK` up to 500 characters), `birth_date DATE` (only the age is shown),
+`training_since SMALLINT` (`CHECK` 1950-2100; shown as years of training),
+`weight_kg NUMERIC(5,1)` (`CHECK` 20-400), `social_links JSONB NOT NULL
+DEFAULT '{}'` (`CHECK` object; platform → handle, never a URL), `created_at`,
+`updated_at` (`trg_user_profile_details_touch_updated_at`). Saving upserts the
+whole row.
+
+The down migration drops the table.
+
+## Migration 000056 — EXP adjustments (v2.130.0)
+
+Owner request (2026-11-21: put a test account one EXP short of the top level
+to see the level-up animation). `xp_adjustments`: `id VARCHAR(36)` primary key
+(`gen_random_uuid()`), `user_id` (foreign key to `users`, indexed), `xp
+INTEGER` (`CHECK` non-zero, within ±1,000,000), `reason VARCHAR(200)` (`CHECK`
+not blank), `created_at`. EXP stays derived from the workout history; the sum
+of a member's adjustments is its starting point and the total never goes
+below zero. Only the `set-xp` command writes the table (`go run . set-xp
+--username <u> --short-of-top 1` or `--xp <total>`); there is no API.
+
+The down migration drops the table.

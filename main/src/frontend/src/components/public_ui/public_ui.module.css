@@ -65,6 +65,11 @@
   --r-radius-sm: 0.75rem;
   --r-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
+  /* At least as tall as the layout's <main> (70vh): a short page (a
+     questionnaire step, an empty state) otherwise left a dark band of the
+     site background between it and the footer (owner report, 2026-11-21). */
+  min-height: 70vh;
+
   /* Layers, top to bottom: a fine sparkle (three tile sizes, so it never reads
      as a grid), the bright first screen, then a rhythm of light, haze and
      deep pools repeating every 125rem (each glow stays inside its tile, so the

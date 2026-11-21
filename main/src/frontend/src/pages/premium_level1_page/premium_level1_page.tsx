@@ -45,6 +45,7 @@ import { PremiumQuestionnaireForm } from "./premium_questionnaire_form";
 import styles from "./premium_level1_page.module.css";
 import { PREMIUM_LEVEL1_PT } from "./premium_level1_page.pt";
 import { joinClassNames } from "@utils/class_names";
+import { useBackTarget } from "@/hooks/use_back_target";
 
 // The step the client is on. The backend owns every gate that matters — this
 // only decides what is worth rendering.
@@ -113,6 +114,7 @@ const OBJECTIVE_META: Record<
 };
 
 export const PremiumLevel1Page = () => {
+  const back = useBackTarget();
   const tr = useGettext(PREMIUM_LEVEL1_PT, COMMERCE_PT);
   const { locale } = useI18n();
   const objectiveLabel = (objective: string) => tr(programObjectiveLabel(objective));
@@ -554,8 +556,8 @@ export const PremiumLevel1Page = () => {
       <section className={styles.detail}>
         <Container size="wide" className={styles.container}>
           <div className={styles.back}>
-            <Button to="/services" variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
-              {tr("Back to Services")}
+            <Button to={back.to} onClick={back.onClick} variant="ghost" size="small" icon={<ArrowLeft size={15} />} iconPosition="left">
+              {back.label}
             </Button>
             {product && selectedObjective ? (
               <Button

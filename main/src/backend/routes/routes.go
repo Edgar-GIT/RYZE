@@ -61,6 +61,7 @@ import (
 	"ryze/backend/services/program_details"
 	"ryze/backend/services/program_structure"
 	"ryze/backend/services/programs"
+	"ryze/backend/services/public_profiles"
 	"ryze/backend/services/public_programs"
 	uploads "ryze/backend/services/public_uploads"
 	"ryze/backend/services/purchase_fulfillment"
@@ -74,6 +75,7 @@ import (
 	"ryze/backend/services/trainer_applications"
 	"ryze/backend/services/trainer_client_insights"
 	"ryze/backend/services/trainer_clients"
+	"ryze/backend/services/trainer_earnings"
 	"ryze/backend/services/trainer_evidence"
 	"ryze/backend/services/trainer_profile"
 	"ryze/backend/services/workout_exercises"
@@ -286,7 +288,8 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 		WithSessions(tokenService, userRepository)
 	premiumJourneyRepository := repositories.NewPremiumJourneyRepository(db)
 	premiumLevel2Service := premium_level_2.NewService(premiumLevel2Repository, trainerProgramRepository, entitlementRepository,
-		premium_level_2.WithNotifier(notificationService))
+		premium_level_2.WithNotifier(notificationService),
+		premium_level_2.WithOffers(repositories.NewPremiumLevel2OfferRepository(db)))
 	premiumJourneysHandler := auth.NewPremiumJourneysHandler(premium_match.NewService(premiumJourneyRepository))
 	premiumLevel2Handler := auth.NewPremiumLevel2Handler(premiumLevel2Service)
 
@@ -443,7 +446,8 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	statisticsRepository := repositories.NewStatisticsRepository(db)
 	statisticsService := statistics.NewService(statisticsRepository)
 	statisticsHandler := auth.NewStatisticsHandler(statisticsService)
-	achievementsHandler := auth.NewAchievementsHandler(achievements.NewService(repositories.NewAchievementsRepository(db)))
+	achievementsService := achievements.NewService(repositories.NewAchievementsRepository(db))
+	achievementsHandler := auth.NewAchievementsHandler(achievementsService)
 	planPreferencesHandler := auth.NewPlanPreferencesHandler(plan_preferences.NewService(repositories.NewPlanPreferencesRepository(db)))
 
 	trainerClientInsightRepository := repositories.NewTrainerClientInsightRepository(db)
@@ -497,6 +501,22 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	v1.GET("/me", middleware.Authenticate(tokenService, userRepository), meHandler.GetMe)
 	profileHandler := auth.NewProfileHandler(profile.New(repositories.NewProfileRepository(db), uploadsStore))
 	v1.PATCH("/me/profile", middleware.Authenticate(tokenService, userRepository), profileHandler.Update)
+	v1.PUT("/me/username", middleware.Authenticate(tokenService, userRepository), profileHandler.ChooseUsername)
+	// The public "about" (biography, age, training, weight, networks).
+	profileDetailsService := profile.NewDetailsService(repositories.NewProfileDetailsRepository(db))
+	profileDetailsHandler := auth.NewProfileDetailsHandler(profileDetailsService)
+	v1.GET("/me/profile/details", middleware.Authenticate(tokenService, userRepository), profileDetailsHandler.Get)
+	v1.PUT("/me/profile/details", middleware.Authenticate(tokenService, userRepository), profileDetailsHandler.Save)
+	// Public profiles: open to everyone (owner decision, 2026-11-21).
+	publicProfilesHandler := auth.NewPublicProfilesHandler(
+		public_profiles.NewService(repositories.NewPublicProfileRepository(db), achievementsService, coachShowcaseService, profileDetailsService),
+		tokenService,
+	)
+	v1.GET("/profiles/:username", publicProfilesHandler.Get)
+	v1.GET("/profiles/:username/followers", publicProfilesHandler.Followers)
+	v1.GET("/profiles/:username/following", publicProfilesHandler.Following)
+	v1.POST("/me/following/:username", middleware.Authenticate(tokenService, userRepository), publicProfilesHandler.Follow)
+	v1.DELETE("/me/following/:username", middleware.Authenticate(tokenService, userRepository), publicProfilesHandler.Unfollow)
 	v1.POST("/me/avatar", middleware.Authenticate(tokenService, userRepository), profileHandler.SetAvatar)
 	v1.DELETE("/me/avatar", middleware.Authenticate(tokenService, userRepository), profileHandler.RemoveAvatar)
 	v1.POST("/me/email/verification", append(limits.chain(scopeEmailResend), middleware.Authenticate(tokenService, userRepository), accountHandler.ResendVerification)...)
@@ -588,9 +608,19 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	trainer.Use(middleware.Authenticate(tokenService, userRepository))
 	trainer.Use(middleware.TrainerAuthenticate(trainerRepository))
 	trainer.GET("/profile", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerProfileHandler.GetProfile)
+	trainerEarningsHandler := auth.NewTrainerEarningsHandler(trainer_earnings.NewService(repositories.NewTrainerEarningsRepository(db)))
+	trainer.GET("/earnings", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerEarningsHandler.Get)
 	trainer.POST("/uploads/program-cover", append(limits.chain(scopeImageUpload), middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), uploadsHandler.TrainerProgramCover)...)
 	trainer.GET("/premium-level-2/catalog", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.GetStaffCatalog)
 	trainer.GET("/premium-level-2/requests", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.ListTrainerRequests)
+	// Allocation by offer (v2.128.0).
+	if offerService, ok := premiumLevel2Service.(premium_level_2.OfferService); ok {
+		premiumLevel2Offers := auth.NewPremiumLevel2OffersHandler(offerService)
+		trainer.GET("/premium-level-2/offers", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Offers.List)
+		trainer.POST("/premium-level-2/offers/:offerID/accept", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Offers.Accept)
+		trainer.POST("/premium-level-2/offers/:offerID/decline", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Offers.Decline)
+		trainer.PUT("/premium-level-2/availability", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Offers.SetAvailability)
+	}
 	trainer.GET("/premium-level-2/requests/:requestID", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.GetTrainerRequest)
 	trainer.PUT("/premium-level-2/requests/:requestID/training-program", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), premiumLevel2Handler.AttachTrainingProgram)
 	trainer.PUT("/premium-level-2/requests/:requestID/nutrition", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.SaveNutrition)

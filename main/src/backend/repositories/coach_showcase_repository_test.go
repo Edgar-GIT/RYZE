@@ -111,11 +111,13 @@ func TestCoachShowcaseRepository(t *testing.T) {
 	if !okPopular || !okFresh || popularAt > freshAt {
 		t.Fatalf("most viewed must rank first: %+v", featured)
 	}
-	if row := featured[popularAt]; row.ViewCount != 3 || row.CoachID != coach.ID || row.CoachFirstName != "Ana" {
+	// Coaches show their nickname, else their @username (owner decision,
+	// 2026-11-21); this coach has no nickname.
+	if row := featured[popularAt]; row.ViewCount != 3 || row.CoachID != coach.ID || row.CoachFirstName != ownerUser.Username {
 		t.Fatalf("unexpected featured row: %+v", row)
 	}
 
-	if found, err := showcase.FindPublicCoach(ctx, coach.ID); err != nil || found.FirstName != "Ana" {
+	if found, err := showcase.FindPublicCoach(ctx, coach.ID); err != nil || found.FirstName != ownerUser.Username {
 		t.Fatalf("FindPublicCoach = %+v, %v", found, err)
 	}
 	for _, hidden := range []string{quietCoach.ID, personaCoach.ID} {

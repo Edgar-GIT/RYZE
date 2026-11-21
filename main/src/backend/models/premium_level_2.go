@@ -184,3 +184,30 @@ func (e *PremiumLevel2RequestEvent) BeforeCreate(_ *gorm.DB) error {
 	}
 	return nil
 }
+
+// Premium Level 2 offer statuses (allocation by offer, v2.128.0).
+const (
+	PremiumLevel2OfferOffered   = "offered"
+	PremiumLevel2OfferAccepted  = "accepted"
+	PremiumLevel2OfferDeclined  = "declined"
+	PremiumLevel2OfferExpired   = "expired"
+	PremiumLevel2OfferWithdrawn = "withdrawn"
+)
+
+// PremiumLevel2OfferWindow is how long a trainer has to answer an offer.
+const PremiumLevel2OfferWindow = 24 * time.Hour
+
+// PremiumLevel2Offer asks one trainer to take one request.
+type PremiumLevel2Offer struct {
+	ID          string     `gorm:"type:varchar(36);primaryKey" json:"id"`
+	RequestID   string     `gorm:"column:request_id;type:varchar(36);not null" json:"request_id"`
+	TrainerID   string     `gorm:"column:trainer_id;type:varchar(36);not null" json:"trainer_id"`
+	Status      string     `gorm:"column:status;type:varchar(16);not null" json:"status"`
+	OfferedAt   time.Time  `gorm:"column:offered_at;autoCreateTime" json:"offered_at"`
+	ExpiresAt   time.Time  `gorm:"column:expires_at;not null" json:"expires_at"`
+	RespondedAt *time.Time `gorm:"column:responded_at" json:"responded_at"`
+	CreatedAt   time.Time  `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt   time.Time  `gorm:"column:updated_at" json:"updated_at"`
+}
+
+func (PremiumLevel2Offer) TableName() string { return "premium_level_2_offers" }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { canGoBackInApp, publicParentPath, startNavigationTracking } from "./navigation_history";
+import { canGoBackInApp, publicParentPath, resolveBack, startNavigationTracking } from "./navigation_history";
 
 type Listener = (location: { key?: string }, action: "PUSH" | "POP" | "REPLACE") => void;
 
@@ -59,5 +59,62 @@ describe("navigation history", () => {
     expect(publicParentPath("/exercises/abc")).toBe("/exercises");
     expect(publicParentPath("/coaches/42")).toBe("/services/generic-program");
     expect(publicParentPath("/contact")).toBe("/");
+  });
+});
+
+// The router history with paths, for the back-button decisions.
+const pathHistory = (initialPath: string) => {
+  let listener: (location: { key?: string; pathname?: string }, action: "PUSH" | "POP" | "REPLACE") => void = () => undefined;
+  let counter = 0;
+  const history = {
+    location: { key: "start", pathname: initialPath },
+    listen: (next: typeof listener) => {
+      listener = next;
+      return () => undefined;
+    }
+  };
+  return {
+    history: history as unknown as Parameters<typeof startNavigationTracking>[0],
+    push: (pathname: string) => {
+      counter += 1;
+      listener({ key: `k${counter}`, pathname }, "PUSH");
+    }
+  };
+};
+
+describe("back target", () => {
+  beforeEach(() => sessionStorage.clear());
+
+  it("returns to the personal area page the person came from", () => {
+    const { history, push } = pathHistory("/profile");
+    startNavigationTracking(history);
+    push("/services/generic-program");
+    expect(resolveBack("/services/generic-program")).toMatchObject({ path: "/profile", viaHistory: true });
+    expect(resolveBack("/services/generic-program").back.pt).toBe("Voltar à Área pessoal");
+  });
+
+  it("goes up instead of through every sibling page of an area", () => {
+    const { history, push } = pathHistory("/profile");
+    startNavigationTracking(history);
+    push("/services/progress");
+    push("/services/workout-history");
+    push("/achievements");
+    expect(resolveBack("/achievements")).toMatchObject({ path: "/profile", viaHistory: false });
+  });
+
+  it("steps back to the page above when that is where the person was", () => {
+    const { history, push } = pathHistory("/services");
+    startNavigationTracking(history);
+    push("/services/generic-program");
+    push("/services/generic-program/p1");
+    expect(resolveBack("/services/generic-program/p1")).toMatchObject({ path: "/services/generic-program", viaHistory: true });
+  });
+
+  it("uses the parent page when the tab has nothing before or came from the login", () => {
+    const { history, push } = pathHistory("/login");
+    startNavigationTracking(history);
+    expect(resolveBack("/login")).toMatchObject({ viaHistory: false });
+    push("/services/generic-program/p1");
+    expect(resolveBack("/services/generic-program/p1")).toMatchObject({ path: "/services/generic-program", viaHistory: false });
   });
 });

@@ -1,8 +1,10 @@
 import { AnimatePresence } from "framer-motion";
 import { lazy, Suspense } from "react";
 import { Redirect, Route, Switch, useLocation } from "react-router-dom";
+import { MEMBER_PATH } from "@/services/navigation_history";
 
 import { CoachProfilePage } from "@/pages/coach_profile_page/coach_profile_page";
+import { PublicProfilePage } from "@/pages/public_profile_page/public_profile_page";
 import { ContactPage } from "@/pages/contact_page/contact_page";
 import { ExerciseDetailPage } from "@/pages/exercise_detail_page/exercise_detail_page";
 import { ExerciseLibraryPage } from "@/pages/exercise_library_page/exercise_library_page";
@@ -63,10 +65,11 @@ const MEMBER_PATHS = [
   "/services/premium-level-2/academy",
   "/services/workout-history",
   "/services/progress",
+  "/services/recovery",
   "/trainer/apply"
 ];
 
-const memberPathPattern = /^\/(profile|achievements|support|account\/(settings|purchases(\/[^/]+\/receipt)?)|services\/(my-programs(\/[^/]+)?|premium-level-2\/academy|workout-history|progress)|trainer\/apply)\/?$/;
+const memberPathPattern = MEMBER_PATH;
 
 // The route transition key: one key per area shell, so moving inside the
 // member or trainer area never remounts its shell.
@@ -87,6 +90,7 @@ export const AppRoutes = () => {
         <Route exact path="/services" component={ServicesPage} />
         <Route exact path="/services/generic-program" component={GenericPlanMarketplacePage} />
         <Route exact path="/coaches/:trainerId" component={CoachProfilePage} />
+        <Route exact path="/u/:username" component={PublicProfilePage} />
         {/* Premium Level 1 must be declared before the dynamic /services/:serviceSlug
             route, otherwise the slug route would swallow it. */}
         <Route exact path="/services/premium-level-1" component={PremiumLevel1Route} />

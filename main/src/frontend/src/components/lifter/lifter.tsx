@@ -108,7 +108,7 @@ const COPY: Copy<{
 
 // The owner's level artwork (main/src/resources/img/badges/badges.png), cut
 // into one picture per level, in rank order.
-const BADGE_ART: Record<LifterLevelKey, string> = {
+export const BADGE_ART: Record<LifterLevelKey, string> = {
   rookie: rookieBadge,
   beginner: beginnerBadge,
   average: averageBadge,

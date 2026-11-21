@@ -174,6 +174,8 @@ func (s *adminUserService) CreateUser(ctx context.Context, input CreateUserInput
 		Password:  input.Password,
 		FirstName: input.FirstName,
 		LastName:  input.LastName,
+		// The person chooses their @username on the first visit.
+		GenerateUsername: true,
 	})
 	if err != nil {
 		switch {

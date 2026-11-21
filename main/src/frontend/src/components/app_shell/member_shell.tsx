@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  HeartPulse,
   BookOpen,
   Dumbbell,
   History,
@@ -12,19 +13,22 @@ import {
   Settings,
   ShoppingBag,
   Trophy,
+  UserRound,
   Users
 } from "lucide-react";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useHistory } from "react-router-dom";
 
 import { type Copy, useI18n } from "@/i18n/i18n";
-import { memberParent } from "@/services/navigation_history";
+import { resolveBack } from "@/services/navigation_history";
 import { publicNameOf } from "@/services/profile_api";
+import { profilePath } from "@/services/public_profiles_api";
 import { fetchMyPremiumLevel2Requests } from "@/services/premium_level_2_api";
 import { fetchTrainerAccess } from "@/services/trainer_api";
 import { ApiError, apiGet, apiPost, publicFileUrl } from "@utils/http_client";
 
 import { AppShell, type ShellNavItem, type UserMenuItem } from "./app_shell";
+import { ChooseUsernameDialog } from "./choose_username_dialog";
 
 export interface MemberUser {
   id: string;
@@ -43,6 +47,8 @@ export interface MemberUser {
   display_name: string | null;
   /** Public path of the profile photo; null without one. */
   avatar_url: string | null;
+  /** The @username was generated: the person is asked to choose one. */
+  needs_username?: boolean;
 }
 
 interface MemberContextValue {
@@ -61,6 +67,7 @@ const COPY: Copy<{
   home: string;
   train: string;
   progress: string;
+  recovery: string;
   achievements: string;
   history: string;
   library: string;
@@ -68,6 +75,7 @@ const COPY: Copy<{
   purchases: string;
   support: string;
   account: string;
+  publicProfile: string;
   more: string;
   menu: string;
   signOut: string;
@@ -87,6 +95,7 @@ const COPY: Copy<{
     home: "Home",
     train: "Train",
     progress: "Progress",
+    recovery: "Recovery",
     achievements: "Achievements",
     history: "History",
     library: "Exercises",
@@ -94,6 +103,7 @@ const COPY: Copy<{
     purchases: "Purchases",
     support: "Support",
     account: "Account",
+    publicProfile: "My public profile",
     more: "More",
     menu: "Account menu",
     signOut: "Sign out",
@@ -113,6 +123,7 @@ const COPY: Copy<{
     home: "Início",
     train: "Treinar",
     progress: "Progresso",
+    recovery: "Recuperação",
     achievements: "Conquistas",
     history: "Histórico",
     library: "Exercícios",
@@ -120,6 +131,7 @@ const COPY: Copy<{
     purchases: "Compras",
     support: "Suporte",
     account: "Conta",
+    publicProfile: "O meu perfil público",
     more: "Mais",
     menu: "Menu da conta",
     signOut: "Terminar sessão",
@@ -181,6 +193,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     { to: "/profile", label: text.home, icon: LayoutDashboard, match: (pathname) => pathname === "/profile" },
     { to: "/services/my-programs", label: text.train, icon: Dumbbell, match: isTrainPath },
     { to: "/services/progress", label: text.progress, icon: BarChart3 },
+    { to: "/services/recovery", label: text.recovery, icon: HeartPulse },
     { to: "/services/workout-history", label: text.history, icon: History }
   ];
   const secondaryItems: ShellNavItem[] = [
@@ -193,6 +206,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     { to: "/account/settings", label: text.account, icon: Settings }
   ];
   const menuItems: UserMenuItem[] = [
+    ...(user ? [{ to: profilePath(user.username), label: text.publicProfile, icon: UserRound }] : []),
     { to: "/account/settings", label: text.account, icon: Settings },
     { to: "/account/purchases", label: text.purchases, icon: ReceiptText },
     ...(hasPremiumLevel2Academy ? [{ to: "/services/premium-level-2/academy", label: text.academy, icon: GraduationCap }] : []),
@@ -216,6 +230,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
 
   return (
     <MemberContext.Provider value={{ user, isTrainer, reload: () => setVersion((value) => value + 1) }}>
+      {user?.needs_username ? <ChooseUsernameDialog onChosen={() => setVersion((value) => value + 1)} /> : null}
       <AppShell
         area="member"
         navLabel={text.nav}
@@ -228,6 +243,8 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
             ? {
                 name,
                 email: user.email,
+                // The @username, the unique reference, under the shown name
+                // (the email is never shown as the account's identity).
                 handle: user.username,
                 avatarUrl: user.avatar_url ? publicFileUrl(user.avatar_url) : undefined,
                 role: isTrainer ? undefined : text.member
@@ -247,8 +264,8 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
         homePath="/profile"
         backLabel={text.goBack}
         parentOf={(pathname) => {
-          const parent = memberParent(pathname);
-          return { path: parent.path, label: parent.back[locale] };
+          const target = resolveBack(pathname);
+          return { path: target.path, label: target.back[locale], viaHistory: target.viaHistory };
         }}
       >
         {children}

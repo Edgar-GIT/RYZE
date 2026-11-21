@@ -47,6 +47,30 @@ func (h *ProfileHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Profile updated.", "data": newAccountResponse(user)})
 }
 
+// ChooseUsername handles PUT /me/username: the person chooses (or confirms)
+// their @username, typically on the first visit of an account whose
+// @username was generated.
+func (h *ProfileHandler) ChooseUsername(c *gin.Context) {
+	userID, err := authcontext.UserIDFromContext(c)
+	if err != nil {
+		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
+		return
+	}
+	var req struct {
+		Username string `json:"username"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request body.", nil)
+		return
+	}
+	user, err := h.service.ChooseUsername(c.Request.Context(), userID, req.Username)
+	if err != nil {
+		h.respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Username saved.", "data": newAccountResponse(user)})
+}
+
 // SetAvatar stores a new profile photo (multipart field "file").
 func (h *ProfileHandler) SetAvatar(c *gin.Context) {
 	userID, err := authcontext.UserIDFromContext(c)

@@ -15,6 +15,7 @@ import { joinClassNames } from "@utils/class_names";
 import { ApiError, apiPost } from "@utils/http_client";
 
 import styles from "./account_settings_page.module.css";
+import { ProfileDetailsCard } from "./profile_details_card";
 import { ProfileAvatar, PublicProfileCard } from "./public_profile_card";
 
 const COPY: Copy<{
@@ -427,6 +428,7 @@ export const AccountSettingsPage = () => {
             </section>
 
             <PublicProfileCard user={user} onChanged={reload} />
+            <ProfileDetailsCard />
 
             <section className={styles.card} aria-labelledby="account-preferences">
               <h2 id="account-preferences" className={styles.cardTitle}>

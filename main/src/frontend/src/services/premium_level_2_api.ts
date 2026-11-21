@@ -332,3 +332,32 @@ export const setTypeLabel = (type: WorkoutSetTypeValue): string => {
       return type;
   }
 };
+
+/** An open Premium Level 2 offer as the trainer sees it before accepting:
+ *  the service and the dates, never the intake answers. */
+export interface PremiumLevel2Offer {
+  id: string;
+  request_id: string;
+  offer_name: string;
+  request_created_at: string;
+  offered_at: string;
+  expires_at: string;
+}
+
+export interface PremiumLevel2Offers {
+  offers: PremiumLevel2Offer[];
+  /** Whether the trainer takes new requests. */
+  accepts_requests: boolean;
+}
+
+export const fetchTrainerPremiumLevel2Offers = (): Promise<PremiumLevel2Offers> =>
+  apiGet<PremiumLevel2Offers>("/trainer/premium-level-2/offers");
+
+export const acceptPremiumLevel2Offer = (offerId: string): Promise<{ request_id: string }> =>
+  apiPost<{ request_id: string }>(`/trainer/premium-level-2/offers/${encodePathSegment(offerId)}/accept`, {});
+
+export const declinePremiumLevel2Offer = (offerId: string): Promise<null> =>
+  apiPost<null>(`/trainer/premium-level-2/offers/${encodePathSegment(offerId)}/decline`, {});
+
+export const setPremiumLevel2Availability = (accepts: boolean): Promise<{ accepts_requests: boolean }> =>
+  apiPut<{ accepts_requests: boolean }>("/trainer/premium-level-2/availability", { accepts_requests: accepts });

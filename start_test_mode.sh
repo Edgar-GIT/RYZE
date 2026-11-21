@@ -133,8 +133,16 @@ PY
     register-client)
       python3 - "${output}" <<'PY'
 import json, os, sys
+import random, re
+# The @username is required at registration (since v2.128.0): one made from
+# the address with a random suffix, so it is free.
+local = re.sub(r"[^a-z0-9._]", ".", os.environ["TEST_USER_EMAIL"].split("@")[0].lower()).strip("._") or "client"
+local = re.sub(r"[._]{2,}", ".", local)
+if not local[0].isalnum():
+    local = "c" + local
 json.dump({
     "email": os.environ["TEST_USER_EMAIL"],
+    "username": f"{local[:22].rstrip('._')}.{random.randint(1000, 9999)}",
     "password": os.environ["TEST_USER_PASSWORD"],
     "first_name": "Test",
     "last_name": "Client",

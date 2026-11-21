@@ -1014,23 +1014,24 @@ const makeGhost = (
 
 // --- Builder --------------------------------------------------------------------------------
 
-// The composition, in the group's frame (the floor is y = 0), like a food and
-// fitness photograph, held close together but with nothing touching the phone
-// (checked in screen space at the hero's camera): the phone at the centre; the
-// plate in front on the left, the RYZE shaker behind it; a napkin with a fork
-// and a knife in front of the phone, under the plate's rim; a pair of
-// dumbbells lying sideways on the right, one in front of the other.
+// The composition, in the group's frame (the floor is y = 0), after the
+// owner's reference picture (2026-11-21): the phone, big, at the centre on its
+// clear stand; the RYZE shaker tall behind on the left; the bowl in front of
+// the shaker, left of the phone; the dumbbells lying on the right of the phone,
+// one behind the other. The napkin and the cutlery sit under the bowl (the
+// reference shows the bowl alone). Nothing touches the phone (checked in
+// screen space at the hero's camera).
 const LAYOUT = {
-  phone: { x: 0.12, z: 0, scale: 1.36, lean: 0.44, yaw: -0.06 },
+  phone: { x: 0.32, z: 0.05, scale: 1.42, lean: 0.4, yaw: -0.06 },
   // Sideways to the visitor (the group turns -0.25), the side print showing.
   dumbbells: [
-    { x: 1.35, z: 1.15, yaw: 0.5, scale: 0.72 },
-    { x: 1.72, z: 0.1, yaw: 0.8, scale: 0.72 }
+    { x: 1.48, z: 0.5, yaw: 0.95, scale: 0.8 },
+    { x: 1.86, z: -0.65, yaw: 0.95, scale: 0.8 }
   ],
-  plate: { x: -1.44, z: 1.02, yaw: 0.1, scale: 1.18 },
-  napkin: { x: -0.5, z: 1.18, yaw: 1.1, scale: 1 },
-  cutlery: { x: -0.46, z: 1.18, yaw: 1.1, scale: 1 },
-  shaker: { x: -1.38, z: -0.32, yaw: 0.35, scale: 0.95 },
+  plate: { x: -1.1, z: 0.9, yaw: 0.1, scale: 1.12 },
+  napkin: { x: -1.1, z: 0.9, yaw: 0.1, scale: 0.85 },
+  cutlery: { x: -1.1, z: 0.9, yaw: 1.1, scale: 0.8 },
+  shaker: { x: -1.2, z: -0.6, yaw: 0.35, scale: 1.12 },
   floor: { width: 7, depth: 4.6 }
 } as const;
 

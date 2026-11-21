@@ -49,6 +49,9 @@ type Images interface {
 // Service is the profile contract.
 type Service interface {
 	UpdateProfile(ctx context.Context, userID, displayName, username string) (*models.User, error)
+	// ChooseUsername records the @username the person chose (first visit of
+	// an account whose @username was generated, or any later change).
+	ChooseUsername(ctx context.Context, userID, username string) (*models.User, error)
 	SetAvatar(ctx context.Context, userID string, content io.Reader) (*models.User, error)
 	RemoveAvatar(ctx context.Context, userID string) (*models.User, error)
 }
@@ -122,6 +125,26 @@ func (s *service) UpdateProfile(ctx context.Context, userID, displayName, userna
 		display = &name
 	}
 	if err := s.users.UpdateProfile(ctx, userID, display, handle); err != nil {
+		switch {
+		case errors.Is(err, repositories.ErrUsernameTaken):
+			return nil, ErrUsernameTaken
+		case errors.Is(err, repositories.ErrUserNotFound):
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return s.load(ctx, userID)
+}
+
+func (s *service) ChooseUsername(ctx context.Context, userID, username string) (*models.User, error) {
+	if _, err := s.load(ctx, userID); err != nil {
+		return nil, err
+	}
+	handle, ok := NormalizeUsername(username)
+	if !ok || reserved[handle] {
+		return nil, ErrInvalidUsername
+	}
+	if err := s.users.ChooseUsername(ctx, userID, handle); err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrUsernameTaken):
 			return nil, ErrUsernameTaken

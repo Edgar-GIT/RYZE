@@ -17,11 +17,13 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { BackButton } from "@/components/back_button/back_button";
 import { BrandMark } from "@/components/brand_mark/brand_mark";
 import { LanguageSwitcher } from "@/components/language_switcher/language_switcher";
+import { NotificationBell } from "@/components/notification_bell/notification_bell";
+import { useMediaQuery } from "@/hooks/use_media_query";
 import { PUBLIC_NAVIGATION_ITEMS } from "@/constants/navigation";
 import { useI18n } from "@/i18n/i18n";
-import { publicParent } from "@/services/navigation_history";
+import { resolveBack } from "@/services/navigation_history";
 import { joinClassNames } from "@utils/class_names";
-import { apiGet } from "@utils/http_client";
+import { apiGet, publicFileUrl } from "@utils/http_client";
 
 import styles from "./navbar.module.css";
 
@@ -43,26 +45,47 @@ export const Navbar = () => {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
   const location = useLocation();
+  const backTarget = resolveBack(location.pathname);
   const scrollIdleTimeout = useRef<number | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Signed-in visitors get a way back to their area instead of "Log in" and
   // "Start free". The answer comes from the session cookie (/me); a visitor
   // without a session simply keeps the sign-in buttons.
-  const [signedIn, setSignedIn] = useState(false);
+  // Signed in, the account shows as its photo and public name (the nickname,
+  // else the @username) with the notification bell, as in the personal area
+  // (owner request, 2026-11-21).
+  const [account, setAccount] = useState<{ name: string; avatarUrl: string } | null>(null);
+  const signedIn = account !== null;
+  const compact = useMediaQuery("(max-width: 820px)");
 
   useEffect(() => {
     let cancelled = false;
-    apiGet("/me")
-      .then(() => {
-        if (!cancelled) setSignedIn(true);
+    apiGet<{ username?: string; display_name?: string | null; first_name?: string; avatar_url?: string | null }>("/me")
+      .then((me) => {
+        if (cancelled) return;
+        const name = me.display_name?.trim() || me.username || me.first_name || "";
+        setAccount({ name, avatarUrl: me.avatar_url ? publicFileUrl(me.avatar_url) : "" });
       })
       .catch(() => {
-        if (!cancelled) setSignedIn(false);
+        if (!cancelled) setAccount(null);
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const accountLink = account ? (
+    <Link className={styles.accountLink} to="/profile" aria-label={`${account.name} · ${t("publicNav.myAccount")}`}>
+      {account.avatarUrl ? (
+        <img className={styles.accountAvatar} src={account.avatarUrl} alt="" />
+      ) : (
+        <span className={styles.accountAvatar} aria-hidden="true">
+          {account.name.charAt(0).toUpperCase() || "R"}
+        </span>
+      )}
+      <span className={styles.accountName}>{account.name}</span>
+    </Link>
+  ) : null;
 
   useEffect(() => {
     setIsMenuOpen(false);
@@ -127,13 +150,14 @@ export const Navbar = () => {
       )}
       style={{ "--nav-scroll": String(scrollProgress) } as CSSProperties}
     >
-      <nav className={styles.navbar} aria-label={t("publicNav.primary")}>
+      <nav className={joinClassNames(styles.navbar, signedIn && compact && styles.navbarWithBell)} aria-label={t("publicNav.primary")}>
         <div className={styles.start}>
           {location.pathname === "/" ? null : (
             <BackButton
               variant="icon"
-              to={publicParent(location.pathname).path}
-              label={publicParent(location.pathname).back[locale]}
+              to={backTarget.path}
+              viaHistory={backTarget.viaHistory}
+              label={backTarget.back[locale]}
             />
           )}
           <Link className={styles.brand} to="/" aria-label={t("publicNav.home")}>
@@ -168,10 +192,10 @@ export const Navbar = () => {
 
         <div className={styles.authActions}>
           {signedIn ? (
-            <Link className={styles.startButton} to="/profile">
-              <UserRound aria-hidden="true" strokeWidth={1.9} />
-              <span>{t("publicNav.myAccount")}</span>
-            </Link>
+            <>
+              {compact ? null : <NotificationBell />}
+              {accountLink}
+            </>
           ) : (
             <>
               <Link className={styles.loginButton} to="/login">
@@ -185,6 +209,8 @@ export const Navbar = () => {
             </>
           )}
         </div>
+
+        {signedIn && compact ? <NotificationBell /> : null}
 
         <button
           ref={menuButtonRef}
@@ -221,10 +247,7 @@ export const Navbar = () => {
         })}
         <div className={joinClassNames(styles.mobileAuth, signedIn && styles.mobileAuthSingle)}>
           {signedIn ? (
-            <Link className={styles.startButton} to="/profile">
-              <UserRound aria-hidden="true" strokeWidth={1.9} />
-              <span>{t("publicNav.myAccount")}</span>
-            </Link>
+            accountLink
           ) : (
             <>
               <Link className={styles.loginButton} to="/login">

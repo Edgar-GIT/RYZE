@@ -63,6 +63,39 @@
   background: var(--app-surface, rgba(10, 22, 69, 0.78));
 }
 
+/* A completed day: the whole card turns green and the start button becomes
+   a status bar (it is done once). */
+.dayDone {
+  border-color: rgba(94, 230, 168, 0.55);
+  background: linear-gradient(180deg, rgba(20, 120, 84, 0.42), rgba(10, 70, 52, 0.5));
+}
+
+.dayDone .dayMeta,
+.dayDone .dayNames {
+  color: #d3f7e6;
+}
+
+.doneBar {
+  display: flex;
+  min-height: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0 1rem;
+  border-radius: 999px;
+  color: #04261a;
+  background: #5ee6a8;
+  font-weight: 800;
+  text-align: center;
+}
+
+.doneBar svg {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 .dayHighlight {
   border-color: var(--app-line-strong, rgba(0, 203, 255, 0.45));
   box-shadow: 0 0 0 1px rgba(0, 203, 255, 0.12) inset;

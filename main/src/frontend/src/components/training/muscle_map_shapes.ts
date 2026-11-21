@@ -42,17 +42,59 @@ export const BACK: MuscleShape[] = [
   { muscle: "calves", d: "M68 324 Q59 350 68 384 Q77 388 83 378 Q89 350 84 326 Q76 318 68 324 Z", mirror: true }
 ];
 
+// Detail lines (v2.130.0, owner request 2026-11-21: "a bit more detail"):
+// muscle heads, tendons and separations drawn over the colour.
 export const FRONT_LINES: DetailLine[] = [
+  // Abdominals: linea alba and the tendinous bands of a six-pack.
   { d: "M100 134 L100 206", mirror: false },
   { d: "M88 150 Q100 154 112 150", mirror: false },
   { d: "M88 168 Q100 172 112 168", mirror: false },
   { d: "M88 186 Q100 190 112 186", mirror: false },
+  // Chest: sternum and the fibres of the pectorals.
+  { d: "M98 90 L98 124", mirror: false },
+  { d: "M74 96 Q86 100 96 98", mirror: true },
+  { d: "M68 108 Q82 114 96 110", mirror: true },
+  // Neck (sternocleidomastoid) and collarbone.
+  { d: "M92 62 Q95 74 98 86", mirror: true },
+  { d: "M70 84 Q84 82 97 87", mirror: true },
+  // Deltoid heads, biceps heads and the forearm split.
+  { d: "M58 88 Q53 102 52 122", mirror: true },
+  { d: "M52 136 Q50 152 51 168", mirror: true },
+  { d: "M47 182 Q41 202 35 222", mirror: true },
+  // Serratus and obliques.
+  { d: "M68 136 L76 140", mirror: true },
+  { d: "M67 148 L77 153", mirror: true },
+  { d: "M68 160 L79 166", mirror: true },
+  // V-line, quadriceps heads (rectus, vastus medialis teardrop), knee.
+  { d: "M72 204 Q86 214 96 228", mirror: true },
   { d: "M81 222 Q75 262 81 302", mirror: true },
-  { d: "M98 90 L98 124", mirror: false }
+  { d: "M90 272 Q83 286 85 304", mirror: true },
+  { d: "M70 312 Q77 306 84 312 Q77 320 70 312", mirror: true },
+  // Shin (tibialis) and the inner calf.
+  { d: "M75 330 Q73 358 73 386", mirror: true }
 ];
 
 export const BACK_LINES: DetailLine[] = [
+  // Spine and the erectors.
+  { d: "M100 64 L100 134", mirror: false },
+  { d: "M95 146 L95 202", mirror: true },
+  // Trapezius (upper and middle) and the rear deltoid.
+  { d: "M70 84 Q84 92 92 106", mirror: true },
+  { d: "M57 89 Q51 104 49 120", mirror: true },
+  // Teres and infraspinatus; the lat sweep.
+  { d: "M69 116 Q79 114 89 122", mirror: true },
+  { d: "M73 146 Q80 164 88 182", mirror: true },
+  // Triceps horseshoe and the forearm.
+  { d: "M51 134 Q48 150 51 164", mirror: true },
+  { d: "M46 162 Q51 170 57 162", mirror: true },
+  { d: "M47 182 Q41 202 35 222", mirror: true },
+  // Glutes (medius and the fold) and the hamstrings.
+  { d: "M72 214 Q84 208 96 214", mirror: true },
+  { d: "M73 246 Q86 254 98 248", mirror: true },
   { d: "M82 262 Q79 290 80 314", mirror: true },
+  // Back of the knee, the two calf heads and the Achilles tendon.
+  { d: "M70 318 Q77 322 84 318", mirror: true },
   { d: "M76 330 Q75 356 76 380", mirror: true },
-  { d: "M100 64 L100 134", mirror: false }
+  { d: "M70 366 Q76 376 83 366", mirror: true },
+  { d: "M76 384 L77 404", mirror: true }
 ];
