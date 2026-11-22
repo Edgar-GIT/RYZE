@@ -1,0 +1,128 @@
+/* The member's workout photo (v2.130.6). */
+.photo {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--app-text, #ffffff);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.title svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: #00cbff;
+}
+
+.input {
+  display: none;
+}
+
+.drop {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 1.5rem 1rem;
+  border: 1.5px dashed rgba(0, 203, 255, 0.55);
+  border-radius: var(--app-radius-sm, 14px);
+  color: var(--app-text, #ffffff);
+  background: rgba(0, 203, 255, 0.06);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.drop svg {
+  width: 2rem;
+  height: 2rem;
+  color: #00cbff;
+}
+
+.drop span {
+  max-width: 26rem;
+  color: var(--app-text-2, #c9d5ec);
+  font-size: 0.85rem;
+}
+
+.drop:hover:not(:disabled) {
+  background: rgba(0, 203, 255, 0.12);
+}
+
+.frame {
+  overflow: hidden;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.18));
+  border-radius: var(--app-radius-sm, 14px);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.frame img {
+  display: block;
+  width: 100%;
+  max-height: 28rem;
+  object-fit: contain;
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.private {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.8rem;
+}
+
+.private svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.actions {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--app-line-strong, rgba(124, 200, 255, 0.35));
+  border-radius: 999px;
+  color: var(--app-text, #ffffff);
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.drop:focus-visible,
+.action:focus-visible {
+  outline: 2px solid #00cbff;
+  outline-offset: 2px;
+}
+
+.error {
+  margin: 0;
+  color: #ff8d99;
+  font-size: 0.85rem;
+}

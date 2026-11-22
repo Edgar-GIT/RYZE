@@ -3099,6 +3099,17 @@ the session.
   example `["bio", "socials.instagram"]`). Responses return `{ bio,
   birth_date, training_since, weight_kg, socials: [{ platform, handle, url
   }] }`.
+- `POST|GET|DELETE /api/v1/me/workout-sessions/:sessionID/photo` (v2.130.6) —
+  the member's photo of their own workout. POST takes multipart `file` (JPEG
+  or PNG, the image size bound; `400 INVALID_IMAGE`, `413 IMAGE_TOO_LARGE`),
+  only for an in-progress or completed workout (`409
+  WORKOUT_PHOTO_NOT_ALLOWED` for an abandoned one) and replaces any earlier
+  photo; GET streams it (`private` cache); another member's workout answers
+  `404`. Session responses carry `has_photo`.
+- `GET /api/v1/me/achievements/rankings` (v2.130.6) — for every exercise the
+  member completed, their best working set (`best_weight_kg`, `best_reps`,
+  `best_e1rm_kg`) and its `rank` among the `participants` (every member's best
+  estimated 1RM), `top_percent` and `beats_percent`. No other member's data.
 - `GET /api/v1/me/plan-focus` and `PUT /api/v1/me/plan-focus` (v2.130.4) — the
   plan the member chose for the home ("Trocar plano"): `{ "program_id",
   "chosen_at" }` or `null`. PUT takes `{ "program_id" }` and only accepts a

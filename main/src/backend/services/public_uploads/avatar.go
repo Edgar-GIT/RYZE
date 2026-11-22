@@ -35,35 +35,48 @@ var AvatarKeyPattern = regexp.MustCompile(`^avatars/[0-9a-f]{8}-[0-9a-f]{4}-[0-9
 // SaveAvatar stores one profile photo (JPEG or PNG) and returns its key
 // ("avatars/<uuid>.jpg").
 func (s *Store) SaveAvatar(ctx context.Context, content io.Reader) (string, error) {
-	if err := ctx.Err(); err != nil {
+	source, err := s.decodeUpload(ctx, content)
+	if err != nil {
 		return "", err
+	}
+	return s.storeJPEG("avatars", squareThumbnail(source, AvatarSize))
+}
+
+// decodeUpload reads a bounded JPEG or PNG upload and decodes it.
+func (s *Store) decodeUpload(ctx context.Context, content io.Reader) (image.Image, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	data, err := io.ReadAll(io.LimitReader(bufio.NewReader(content), s.maxBytes+1))
 	if err != nil {
-		return "", fmt.Errorf("failed to read image: %w", err)
+		return nil, fmt.Errorf("failed to read image: %w", err)
 	}
 	if len(data) == 0 {
-		return "", ErrEmpty
+		return nil, ErrEmpty
 	}
 	if int64(len(data)) > s.maxBytes {
-		return "", ErrTooLarge
+		return nil, ErrTooLarge
 	}
 	switch http.DetectContentType(data) {
 	case "image/jpeg", "image/png":
 	default:
-		return "", ErrUnsupportedType
+		return nil, ErrUnsupportedType
 	}
 	config, _, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil || config.Width <= 0 || config.Height <= 0 || config.Width > MaxAvatarDimension || config.Height > MaxAvatarDimension {
-		return "", ErrInvalidImage
+		return nil, ErrInvalidImage
 	}
 	source, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
-		return "", ErrInvalidImage
+		return nil, ErrInvalidImage
 	}
-	square := squareThumbnail(source, AvatarSize)
+	return source, nil
+}
 
-	directory := filepath.Join(s.root, "avatars")
+// storeJPEG re-encodes a picture as a JPEG in folder (no original metadata)
+// and returns its key ("<folder>/<uuid>.jpg").
+func (s *Store) storeJPEG(folder string, picture image.Image) (string, error) {
+	directory := filepath.Join(s.root, folder)
 	if err := os.MkdirAll(directory, 0o750); err != nil {
 		return "", fmt.Errorf("failed to prepare uploads: %w", err)
 	}
@@ -79,7 +92,7 @@ func (s *Store) SaveAvatar(ctx context.Context, content io.Reader) (string, erro
 		}
 	}()
 	defer temporary.Close()
-	if err := jpeg.Encode(temporary, square, &jpeg.Options{Quality: 86}); err != nil {
+	if err := jpeg.Encode(temporary, picture, &jpeg.Options{Quality: 86}); err != nil {
 		return "", fmt.Errorf("failed to store image: %w", err)
 	}
 	if err := temporary.Sync(); err != nil {
@@ -93,7 +106,7 @@ func (s *Store) SaveAvatar(ctx context.Context, content io.Reader) (string, erro
 		return "", fmt.Errorf("failed to finalize image: %w", err)
 	}
 	keep = true
-	return "avatars/" + name, nil
+	return folder + "/" + name, nil
 }
 
 // DeleteAvatar removes a stored photo. An unknown or malformed key is ignored.

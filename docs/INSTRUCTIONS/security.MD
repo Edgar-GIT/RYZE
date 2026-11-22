@@ -3893,3 +3893,13 @@ path.
   content type, `nosniff` and a sandboxing CSP.
 - Plan writes accept a cover key only in the folder of the plan's category.
 - Uploads are rate limited and admin uploads are recorded in the audit log.
+
+## Workout photos and lift rankings (v2.130.6)
+
+- Workout photos are personal: stored under the private `session_photos`
+  folder (no public uploads route serves it), re-encoded without metadata, read
+  and changed only through the owner's authenticated endpoints, sent with
+  `Cache-Control: private`.
+- Lift rankings expose only the member's own lifts and aggregate counts (rank,
+  participants, percentages), never another member's identity or numbers.
+

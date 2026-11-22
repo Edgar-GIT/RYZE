@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { LEVEL_NAMES, LevelBadge, MedalItem, XpBar } from "@/components/lifter/lifter";
+import { LiftRankings } from "@/components/lifter/lift_rankings";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { fetchAchievements, type Achievements } from "@/services/achievements_api";
@@ -229,6 +230,8 @@ export const AchievementsPage = () => {
           </div>
         </>
       )}
+      {/* Compare with RYZE: independent of the summary above. */}
+      <LiftRankings />
     </PageWrapper>
   );
 };

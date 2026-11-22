@@ -324,3 +324,9 @@
     gap: 0.15rem;
   }
 }
+
+/* The request list's body: the search, the filter and the list keep clear
+   of the card edges (owner report, 2026-11-22). */
+.requestsSection > div:last-child {
+  padding: 1rem 1.1rem 1.15rem;
+}

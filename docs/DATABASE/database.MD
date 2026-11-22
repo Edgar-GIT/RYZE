@@ -3041,3 +3041,10 @@ Owner request (2026-11-22). `user_plan_focus`: one row per member —
 after the program access check; a chosen plan the member can no longer open is
 ignored on read. The down migration drops the table.
 
+## Migration 000059 — Workout photo (v2.130.6)
+
+Owner request (2026-11-22, as in Lyfta). `workout_sessions.photo_key
+VARCHAR(80) NULL` with `chk_workout_sessions_photo_key` (`session_photos/<uuid>.jpg`).
+The file lives in the private `session_photos` uploads folder (no public route)
+and is served to the session owner only. The down migration drops the column.
+

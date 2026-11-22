@@ -110,7 +110,9 @@ type Session struct {
 	TotalSets        int
 	CompletedSets    int
 	SkippedSets      int
-	Exercises        []Exercise
+	// HasPhoto: the member added a photo to this workout.
+	HasPhoto  bool
+	Exercises []Exercise
 }
 
 // Service implements the authenticated workout execution lifecycle.
@@ -435,6 +437,7 @@ func (s *service) toSession(model *models.WorkoutSession) *Session {
 		CompletedAt:      model.CompletedAt,
 		AbandonedAt:      model.AbandonedAt,
 		ElapsedSeconds:   model.AccumulatedSeconds,
+		HasPhoto:         model.PhotoKey != nil,
 		Exercises:        make([]Exercise, 0, len(model.Exercises)),
 	}
 	if model.Status == models.WorkoutSessionStatusInProgress && model.LastResumedAt != nil {

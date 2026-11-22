@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 
@@ -15,7 +16,10 @@ import (
 // legitimately carries more than the global JSON body limit; every other route
 // keeps the global bound.
 type BodyLimitException struct {
-	Path     string
+	Path string
+	// Pattern, when set instead of Path, matches paths with an id in them
+	// (for example a workout photo upload).
+	Pattern  *regexp.Regexp
 	MaxBytes int64
 }
 
@@ -35,8 +39,16 @@ type BodyLimitException struct {
 // configuration always supplies a positive value.
 func BodyLimit(maxBytes int64, exceptions ...BodyLimitException) gin.HandlerFunc {
 	limits := make(map[string]int64, len(exceptions))
+	var patterns []BodyLimitException
 	for _, exception := range exceptions {
-		if exception.Path == "" || exception.MaxBytes <= 0 {
+		if exception.MaxBytes <= 0 {
+			continue
+		}
+		if exception.Pattern != nil {
+			patterns = append(patterns, exception)
+			continue
+		}
+		if exception.Path == "" {
 			continue
 		}
 		limits[exception.Path] = exception.MaxBytes
@@ -46,6 +58,13 @@ func BodyLimit(maxBytes int64, exceptions ...BodyLimitException) gin.HandlerFunc
 		limit := maxBytes
 		if exceptionLimit, ok := limits[c.Request.URL.Path]; ok {
 			limit = exceptionLimit
+		} else {
+			for _, exception := range patterns {
+				if exception.Pattern.MatchString(c.Request.URL.Path) {
+					limit = exception.MaxBytes
+					break
+				}
+			}
 		}
 		if c.Request.Body == nil || limit <= 0 {
 			c.Next()

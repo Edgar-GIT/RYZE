@@ -183,6 +183,7 @@ export default function Admin2PremiumLevel2Page() {
 
       <div className={styles.layout}>
         <Admin2Section
+          className={styles.requestsSection}
           title="Requests"
           subtitle={loading ? "Loading…" : `${pagination?.total ?? 0} requests`}
         >

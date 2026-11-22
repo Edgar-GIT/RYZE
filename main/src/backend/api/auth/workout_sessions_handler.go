@@ -57,6 +57,7 @@ type workoutSessionResponse struct {
 	TotalSets        int                              `json:"total_sets"`
 	CompletedSets    int                              `json:"completed_sets"`
 	SkippedSets      int                              `json:"skipped_sets"`
+	HasPhoto         bool                             `json:"has_photo"`
 	Exercises        []workoutSessionExerciseResponse `json:"exercises"`
 }
 
@@ -85,6 +86,7 @@ func newWorkoutSessionResponse(session *workout_sessions.Session) workoutSession
 		TotalSets:        session.TotalSets,
 		CompletedSets:    session.CompletedSets,
 		SkippedSets:      session.SkippedSets,
+		HasPhoto:         session.HasPhoto,
 		Exercises:        make([]workoutSessionExerciseResponse, 0, len(session.Exercises)),
 	}
 	for i := range session.Exercises {

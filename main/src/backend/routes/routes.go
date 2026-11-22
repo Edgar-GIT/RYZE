@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -68,7 +69,9 @@ import (
 	"ryze/backend/services/purchase_fulfillment"
 	"ryze/backend/services/purchases"
 	"ryze/backend/services/questionnaires"
+	"ryze/backend/services/rankings"
 	"ryze/backend/services/registration"
+	"ryze/backend/services/session_photos"
 	"ryze/backend/services/statistics"
 	"ryze/backend/services/support"
 	"ryze/backend/services/test_mode"
@@ -101,6 +104,9 @@ const (
 	avatarUploadPath       = "/api/v1/me/avatar"
 	trainerApplyPath       = "/api/v1/trainer/apply"
 )
+
+// sessionPhotoUploadPattern is the workout photo upload (one image).
+var sessionPhotoUploadPattern = regexp.MustCompile(`^/api/v1/me/workout-sessions/[0-9a-fA-F-]{36}/photo$`)
 
 // contactUploadPath is the public contact form. It accepts one optional
 // attachment, so its multipart envelope gets a bounded exception over the
@@ -150,6 +156,10 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 		},
 		middleware.BodyLimitException{
 			Path:     avatarUploadPath,
+			MaxBytes: uploadsCfg.MaxImageBytes + evidenceUploadOverhead,
+		},
+		middleware.BodyLimitException{
+			Pattern:  sessionPhotoUploadPattern,
 			MaxBytes: uploadsCfg.MaxImageBytes + evidenceUploadOverhead,
 		},
 		// The complete trainer application carries up to six documents.
@@ -565,6 +575,11 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	v1.GET("/me/workout-sessions/active", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Active)
 	v1.GET("/me/workout-sessions", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.History)
 	v1.GET("/me/workout-sessions/:sessionID", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Get)
+	// The member's photo of a workout (v2.130.6): owner only, private storage.
+	sessionPhotoHandler := auth.NewSessionPhotoHandler(session_photos.NewService(repositories.NewSessionPhotoRepository(db), uploadsStore))
+	v1.GET("/me/workout-sessions/:sessionID/photo", middleware.Authenticate(tokenService, userRepository), sessionPhotoHandler.Serve)
+	v1.POST("/me/workout-sessions/:sessionID/photo", append(limits.chain(scopeImageUpload), middleware.Authenticate(tokenService, userRepository), sessionPhotoHandler.Upload)...)
+	v1.DELETE("/me/workout-sessions/:sessionID/photo", middleware.Authenticate(tokenService, userRepository), sessionPhotoHandler.Remove)
 	v1.PATCH("/me/workout-sessions/:sessionID/sets/:setID", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.UpdateSet)
 	v1.POST("/me/workout-sessions/:sessionID/pause", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Pause)
 	v1.POST("/me/workout-sessions/:sessionID/resume", middleware.Authenticate(tokenService, userRepository), workoutSessionHandler.Resume)
@@ -583,6 +598,9 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	v1.DELETE("/me/measurements/:measurementID", middleware.Authenticate(tokenService, userRepository), bodyStatisticsHandler.DeleteMeasurement)
 	v1.GET("/me/achievements", middleware.Authenticate(tokenService, userRepository), achievementsHandler.Summary)
 	v1.GET("/me/achievements/sessions/:sessionID", middleware.Authenticate(tokenService, userRepository), achievementsHandler.Session)
+	// How the member's best lifts compare with the platform (v2.130.6).
+	rankingsHandler := auth.NewRankingsHandler(rankings.NewService(repositories.NewRankingRepository(db)))
+	v1.GET("/me/achievements/rankings", middleware.Authenticate(tokenService, userRepository), rankingsHandler.List)
 	v1.POST("/trainer/apply", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.Apply)
 	v1.GET("/trainer/access", middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.GetAccessStatus)
 	v1.POST("/trainer/application/documents", append(limits.chain(scopeDocumentUpload), middleware.Authenticate(tokenService, userRepository), trainerApplicationHandler.UploadDocument)...)

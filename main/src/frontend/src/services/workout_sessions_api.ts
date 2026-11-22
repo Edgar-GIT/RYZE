@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, encodePathSegment } from "@utils/http_client";
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, apiUrl, encodePathSegment } from "@utils/http_client";
 
 export type WorkoutSetStatus = "pending" | "completed" | "skipped";
 export type WorkoutSessionStatus = "in_progress" | "paused" | "completed" | "abandoned";
@@ -48,6 +48,8 @@ export interface WorkoutSession {
   total_sets: number;
   completed_sets: number;
   skipped_sets: number;
+  /** The member added a photo to this workout (v2.130.6). */
+  has_photo?: boolean;
   exercises: WorkoutSessionExercise[];
 }
 
@@ -101,3 +103,19 @@ export const abandonWorkoutSession = (sessionId: string): Promise<WorkoutSession
 
 export const fetchWorkoutHistory = (limit = 20): Promise<WorkoutSession[]> =>
   apiGet<WorkoutSession[]>(`/me/workout-sessions?limit=${limit}`);
+
+// The member's photo of a workout (owner request, 2026-11-22): JPEG or PNG,
+// stored privately and served to its owner only.
+export const uploadWorkoutPhoto = (sessionId: string, file: File): Promise<{ has_photo: boolean }> => {
+  const body = new FormData();
+  body.append("file", file);
+  return apiUpload<{ has_photo: boolean }>(`${sessionPath(sessionId)}/photo`, body);
+};
+
+export const removeWorkoutPhoto = (sessionId: string): Promise<{ has_photo: boolean }> =>
+  apiDelete<{ has_photo: boolean }>(`${sessionPath(sessionId)}/photo`);
+
+// workoutPhotoUrl is the photo's address; version busts the browser cache
+// after a change.
+export const workoutPhotoUrl = (sessionId: string, version = 0): string =>
+  `${apiUrl(`${sessionPath(sessionId)}/photo`)}${version ? `?v=${version}` : ""}`;

@@ -22,7 +22,8 @@ interface CommerceSettings {
 }
 
 const PAGE_SIZE = 50;
-const QUICK_PERCENTAGES = [20, 25, 30, 35];
+// 0 % = no commission: the trainer receives the whole sale.
+const QUICK_PERCENTAGES = [0, 5, 10, 20, 25, 30, 35];
 
 // Commission is shown and typed as a plain percentage ("30" = 30 %); the API
 // keeps basis points (1 % = 100 bps).
@@ -136,7 +137,7 @@ const CommissionEditor = ({
             aria-pressed={value === String(percent)}
             onClick={() => setValue(String(percent))}
           >
-            {percent}%
+            {percent === 0 ? "No commission" : `${percent}%`}
           </button>
         ))}
       </div>

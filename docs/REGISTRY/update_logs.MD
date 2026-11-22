@@ -1,3 +1,46 @@
+# Version 2.130.6
+
+Title: Workout photo; compare your lifts with RYZE
+
+Date: 2026-11-22
+
+Summary:
+
+- Workout photo (owner request, as in Lyfta; migration 000059): before saving a
+  workout — or later, opening it from the history — the member can add a photo
+  of themselves (JPEG or PNG, re-encoded without metadata, longest side 1280
+  px). It is stored in the private `session_photos` folder, never served
+  publicly: `GET/POST/DELETE /me/workout-sessions/:id/photo`, owner only,
+  `private` cache. The history marks workouts with a photo. Abandoned workouts
+  take none.
+- "Compara-te com a RYZE" in Achievements (like Lyfta's Lyftoff): pick an
+  exercise and see where your best lift (estimated 1RM, Epley, reps capped at
+  12) stands among every member who trained it — "Top 1%", rank, the share of
+  other lifters you beat. `GET /me/achievements/rankings` returns only the
+  member's own numbers and aggregates.
+- The request body limit accepts a path pattern (for the photo upload).
+
+Verification: typecheck passes; Go tests for the image store, ranking score
+and the ranking query (on `ryze_test`) pass. Playwright with mocked APIs at
+1440 px (rankings) and 390 px (workout photo box). Migration 000059 applied to
+`ryze_test` and the dev database.
+
+# Version 2.130.5
+
+Title: ADMIN_2 request list spacing; commission quick values 0, 5 and 10 %
+
+Date: 2026-11-22
+
+Summary:
+
+- Premium Level 2 requests (ADMIN_2): the search, status filter and empty
+  message no longer touch the card edges.
+- Trainers & commissions: quick values "No commission" (0 %: the trainer
+  receives the whole sale), 5 % and 10 % join 20-35 %. The server already
+  accepted 0 %.
+
+Verification: typecheck passes.
+
 # Version 2.130.4
 
 Title: The plan in focus on the home, "Trocar plano", other plans, "Começar treino" opens the next workout

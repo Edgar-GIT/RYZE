@@ -39,6 +39,8 @@ type WorkoutSession struct {
 	CompletedAt        *time.Time               `gorm:"column:completed_at;type:datetime(6)" json:"completed_at"`
 	AbandonedAt        *time.Time               `gorm:"column:abandoned_at;type:datetime(6)" json:"abandoned_at"`
 	AccumulatedSeconds int                      `gorm:"column:accumulated_seconds;not null;default:0" json:"elapsed_seconds"`
+	// PhotoKey is the member's photo of this workout (private storage key).
+	PhotoKey *string `gorm:"column:photo_key;type:varchar(80)" json:"-"`
 	Exercises          []WorkoutSessionExercise `gorm:"foreignKey:WorkoutSessionID" json:"-"`
 	CreatedAt          time.Time                `gorm:"column:created_at;type:datetime(6)" json:"created_at"`
 	UpdatedAt          time.Time                `gorm:"column:updated_at;type:datetime(6)" json:"updated_at"`

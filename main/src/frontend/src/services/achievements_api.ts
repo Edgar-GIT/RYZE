@@ -78,3 +78,22 @@ export const levelProgress = (xp: number, level: LifterLevel, next: LifterLevel 
   if (span <= 0) return 1;
   return Math.min(1, Math.max(0, (xp - level.min_xp) / span));
 };
+
+// How the member's best lift on each exercise compares with every member of
+// RYZE (owner request, 2026-11-22, like Lyfta's "Lyftoff"). Only the member's
+// own numbers and aggregates.
+export interface LiftRanking {
+  exercise_id: string;
+  exercise_name: string;
+  best_e1rm_kg: number;
+  best_weight_kg: number;
+  best_reps: number;
+  rank: number;
+  participants: number;
+  /** The member is in the top top_percent % (1-100). */
+  top_percent: number;
+  /** The share of the other members the member lifts more than. */
+  beats_percent: number;
+}
+
+export const fetchLiftRankings = () => apiGet<LiftRanking[]>("/me/achievements/rankings");

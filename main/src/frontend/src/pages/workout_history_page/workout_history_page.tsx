@@ -1,4 +1,4 @@
-import { CalendarCheck, ChevronRight, Clock3, Dumbbell, ListChecks, RefreshCw, Trophy } from "lucide-react";
+import { CalendarCheck, Camera, ChevronRight, Clock3, Dumbbell, ListChecks, RefreshCw, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
 
@@ -195,6 +195,11 @@ export const WorkoutHistoryPage = () => {
                                 </span>
                               ) : null}
                               {session.status === "abandoned" ? <span className={cards.abandoned}>{t("training.history.abandoned")}</span> : null}
+                              {session.has_photo ? (
+                                <span className={cards.photo} aria-label={locale === "pt" ? "Com foto" : "With photo"}>
+                                  <Camera aria-hidden="true" />
+                                </span>
+                              ) : null}
                             </span>
                             <span className={cards.bar} aria-hidden="true">
                               <span style={{ width: `${summary.totalSets > 0 ? Math.round((summary.completedSets / summary.totalSets) * 100) : 0}%` }} />

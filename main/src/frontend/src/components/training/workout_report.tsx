@@ -7,6 +7,7 @@ import { formatClock, formatWeight, personalRecords, summarizeSession } from "@/
 import type { WorkoutSession } from "@/services/workout_sessions_api";
 import { joinClassNames } from "@utils/class_names";
 
+import { WorkoutPhoto } from "./workout_photo";
 import styles from "./workout_report.module.css";
 
 interface WorkoutReportProps {
@@ -107,6 +108,8 @@ export const WorkoutReport = ({ session, history, mode, busy = false, onSave, on
           <dd>{summary.reps}</dd>
         </div>
       </dl>
+
+      <WorkoutPhoto sessionId={session.id} hasPhoto={Boolean(session.has_photo)} editable={!abandoned} />
 
       {rewards}
 
