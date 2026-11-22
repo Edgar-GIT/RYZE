@@ -1,87 +1,270 @@
-/* End-of-workout summary. Mobile first; one column that widens on desktop. */
+/* End-of-workout summary (redesigned v2.130.2, owner request 2026-11-21).
+   Mobile first: a headline card, four stat tiles, records, then every
+   exercise with each set as a chip; wider and in two columns on desktop. */
 
 .report {
   display: grid;
   gap: 1.25rem;
   width: 100%;
-  max-width: 40rem;
+  max-width: 56rem;
   margin: 0 auto;
 }
 
 .head {
+  position: relative;
   display: grid;
   justify-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  overflow: hidden;
+  padding: 1.75rem 1.25rem 1.5rem;
+  border: 1px solid rgba(0, 203, 255, 0.35);
+  border-radius: var(--app-radius, 20px);
+  background:
+    radial-gradient(28rem 14rem at 50% 0%, rgba(0, 203, 255, 0.28), transparent 70%),
+    linear-gradient(160deg, #0a2a7a 0%, #061547 100%);
   text-align: center;
 }
 
-.headIcon {
-  width: 3.25rem;
-  height: 3.25rem;
-  margin-bottom: 0.25rem;
-  color: var(--app-success, #5ee6a8);
+.headMuted {
+  border-color: var(--app-line, rgba(124, 200, 255, 0.18));
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
 }
 
-.headIconMuted {
-  color: var(--app-text-3, #93a4c8);
+.headIcon {
+  display: grid;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 0.35rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #02041f;
+  background: linear-gradient(135deg, #5ee6a8, #18d8ff);
+  box-shadow: 0 0 0 6px rgba(94, 230, 168, 0.14), 0 12px 30px -10px rgba(24, 216, 255, 0.8);
+}
+
+.headMuted .headIcon {
+  color: var(--app-text-2, #c9d5ec);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.headIcon svg {
+  width: 1.8rem;
+  height: 1.8rem;
 }
 
 .kicker {
   margin: 0;
-  color: var(--app-text-3, #93a4c8);
-  font-size: 0.82rem;
+  color: #7cebff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .title {
   margin: 0;
-  color: var(--app-text, #fff);
-  font-size: clamp(1.6rem, 6vw, 2.1rem);
+  color: #ffffff;
+  font-size: clamp(1.7rem, 6vw, 2.3rem);
   font-weight: 800;
   line-height: 1.1;
 }
 
 .lead {
+  max-width: 34rem;
   margin: 0;
   color: var(--app-text-2, #c9d5ec);
-  font-size: 0.95rem;
 }
 
 .stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 0.65rem;
   margin: 0;
 }
 
 .stats > div {
   display: grid;
-  gap: 0.25rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
-  border-radius: var(--app-radius, 16px);
+  gap: 0.4rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.18));
+  border-radius: var(--app-radius-sm, 14px);
   background: var(--app-surface, rgba(10, 22, 69, 0.78));
 }
 
 .stats dt {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
   color: var(--app-text-3, #93a4c8);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.stats dt svg {
-  width: 0.95rem;
-  height: 0.95rem;
-  color: var(--app-accent, #00cbff);
+.statIcon {
+  display: grid;
+  width: 1.9rem;
+  height: 1.9rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 10px;
+  color: #00cbff;
+  background: rgba(0, 203, 255, 0.12);
+}
+
+.statIcon svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .stats dd {
   margin: 0;
-  color: var(--app-text, #fff);
-  font-size: 1.35rem;
+  color: var(--app-text, #ffffff);
+  font-size: clamp(1.4rem, 5vw, 1.75rem);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+/* Exercises: one card each, the sets as chips. */
+.exercises {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exercise {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.18));
+  border-radius: var(--app-radius-sm, 14px);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
+}
+
+.exerciseTop {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.exerciseIndex {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #02041f;
+  background: #00cbff;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.exerciseName {
+  min-width: 0;
+  flex: 1 1 auto;
+  color: var(--app-text, #ffffff);
+  font-weight: 800;
+  text-transform: capitalize;
+  overflow-wrap: anywhere;
+}
+
+.prBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  color: #2a1a03;
+  background: linear-gradient(135deg, #ffe08a, #f5b82e);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.prBadge svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.exerciseMeta {
+  margin: 0;
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.82rem;
+}
+
+.setChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem 0.3rem 0.3rem;
+  border: 1px solid rgba(94, 230, 168, 0.35);
+  border-radius: 999px;
+  color: var(--app-text, #ffffff);
+  background: rgba(94, 230, 168, 0.1);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.setChip svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: #ffd166;
+  fill: #ffd166;
+}
+
+.setChipIndex {
+  display: grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #02041f;
+  background: #5ee6a8;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.setChipOff {
+  border-color: var(--app-line, rgba(124, 200, 255, 0.18));
+  color: var(--app-text-3, #93a4c8);
+  background: transparent;
+}
+
+.setChipOff .setChipIndex {
+  color: var(--app-text-2, #c9d5ec);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.setChipBest {
+  border-color: rgba(255, 209, 102, 0.6);
+  background: rgba(255, 209, 102, 0.12);
+}
+
+@media (min-width: 640px) {
+  .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .exercises {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .warning {
@@ -115,8 +298,7 @@
   color: var(--app-warning, #ffcf7a);
 }
 
-.records,
-.exercises {
+.records {
   display: grid;
   gap: 0.5rem;
   margin: 0;
@@ -124,31 +306,32 @@
   list-style: none;
 }
 
-.records li,
-.exercises li {
+.records li {
   display: grid;
   gap: 0.15rem;
   padding: 0.75rem 0.9rem;
-  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
-  border-radius: var(--app-radius-sm, 10px);
-  background: var(--app-surface, rgba(10, 22, 69, 0.78));
+  border: 1px solid rgba(255, 207, 122, 0.45);
+  border-radius: var(--app-radius-sm, 12px);
+  background: linear-gradient(135deg, rgba(255, 209, 102, 0.14), rgba(245, 184, 46, 0.04));
 }
 
-.records li {
-  border-color: rgba(255, 207, 122, 0.35);
-}
-
-.records strong,
-.exerciseName {
+.records strong {
   overflow-wrap: anywhere;
   color: var(--app-text, #fff);
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.records span {
+  color: #ffe08a;
+  font-size: 0.86rem;
   font-weight: 700;
 }
 
-.records span,
-.exerciseMeta {
-  color: var(--app-text-2, #c9d5ec);
-  font-size: 0.86rem;
+@media (min-width: 640px) {
+  .records {
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  }
 }
 
 .actions {

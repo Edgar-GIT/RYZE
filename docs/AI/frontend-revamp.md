@@ -89,6 +89,10 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-21 (v2.130.2) — Owner requests: Home hero picture moved right (only
+  the hero's 3D hidden); workout player with the looping demonstration beside
+  the description and the sets below; numeric-only set inputs; redesigned
+  summary and history. Playwright with mocked APIs at 390/1440 px.
 - 2026-11-21 (v2.130.1) — Level-up restraints redrawn as light (bands and a
   hexagonal seal) after owner feedback; the preview button removed; a Home hero
   picture test in place of the 3D composition (`/?hero=3d` for the 3D). The

@@ -308,6 +308,7 @@ func runSetXPCommand(db *gorm.DB, args []string) {
 	username := flags.String("username", "", "the account's @username")
 	target := flags.Int("xp", -1, "the total EXP to reach")
 	shortOfTop := flags.Int("short-of-top", 0, "EXP missing to reach the highest level")
+	freeToday := flags.Bool("free-today", false, "move today's (UTC) completed workouts to the day before, so the next workouts earn EXP again (testing)")
 	if err := flags.Parse(args); err != nil {
 		fail("invalid set-xp arguments: %v", err)
 	}
@@ -315,7 +316,7 @@ func runSetXPCommand(db *gorm.DB, args []string) {
 		*target = achievements.Levels[len(achievements.Levels)-1].MinXP - *shortOfTop
 	}
 	if *username == "" || *target < 0 {
-		fail("usage: go run . set-xp --username <username> (--xp <total> | --short-of-top <n>)")
+		fail("usage: go run . set-xp --username <username> (--xp <total> | --short-of-top <n>) [--free-today]")
 	}
 	ctx := context.Background()
 	var userID string
@@ -324,6 +325,18 @@ func runSetXPCommand(db *gorm.DB, args []string) {
 		_ = db.WithContext(ctx).Raw(`SELECT username || ' (' || first_name || ' ' || last_name || ')' FROM users WHERE deleted_at IS NULL AND (username ILIKE ? OR first_name ILIKE ?) ORDER BY username LIMIT 10`,
 			"%"+*username+"%", "%"+*username+"%").Scan(&similar).Error
 		fail("no active account with the @username %q (similar: %v)", *username, similar)
+	}
+	if *freeToday {
+		// Only SessionsPerDay workouts a day earn EXP: moving today's to the
+		// day before frees today again (owner request, 2026-11-21, testing).
+		result := db.WithContext(ctx).Exec(`UPDATE workout_sessions
+SET started_at = started_at - INTERVAL '1 day', completed_at = completed_at - INTERVAL '1 day'
+WHERE user_id = ? AND status = 'completed' AND deleted_at IS NULL
+  AND COALESCE(completed_at, updated_at) >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, userID)
+		if result.Error != nil {
+			fail("failed to free today: %v", result.Error)
+		}
+		fmt.Printf("@%s: %d workout(s) of today moved to yesterday\n", *username, result.RowsAffected)
 	}
 	repo := repositories.NewAchievementsRepository(db)
 	summary, err := achievements.NewService(repo).Summary(ctx, userID)

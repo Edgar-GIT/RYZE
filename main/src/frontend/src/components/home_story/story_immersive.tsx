@@ -210,6 +210,11 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
         const away = progress / HERO_END;
         heroCopyRef.current.style.opacity = (1 - smoothstep(0.2, 0.8, away)).toFixed(3);
       }
+      // Hero picture test: no 3D in the hero; the 3D (the same as the 3D hero)
+      // fades in as the hero scrolls away.
+      if (HERO_IMAGE && canvasHostRef.current) {
+        canvasHostRef.current.style.opacity = smoothstep(0.3, 0.85, progress / HERO_END).toFixed(3);
+      }
 
       const [a, b, glow] = paletteAt(progress);
       if (backdropRef.current) {

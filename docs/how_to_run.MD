@@ -1081,12 +1081,23 @@ cd main/src/backend
 go run . migrate up
 ```
 
+Open the dev site on a phone on the same Wi-Fi (v2.130.2): start a second Vite
+server that proxies the API and uploads to the local backend, then open
+`http://<computer-ip>:5175` on the phone (`ip -4 addr` shows the IP):
+
+```bash
+RYZE_LAN=true VITE_API_BASE_URL=/api/v1 EXERCISE_MEDIA_ENABLED=true \
+  EXERCISE_MEDIA_BASE_PATH=/dev-exercise-media \
+  ./node_modules/.bin/vite --host 0.0.0.0 --port 5175 --strictPort
+```
+
 Set an account's EXP (v2.130.0; it records an EXP adjustment, for example to
 see the level-up animation on the next workout):
 
 ```bash
 go run . set-xp --username <username> --short-of-top 1   # one EXP below the top level
 go run . set-xp --username <username> --xp 1500          # an exact total
+go run . set-xp --username <username> --short-of-top 1 --free-today  # also move today's workouts to yesterday (only 2 a day earn EXP)
 ```
 
 Roll back all applied migrations:

@@ -1,12 +1,12 @@
 import { formatDuration } from "@/components/plan_builder/duration";
-import { ArrowLeft, CheckCircle2, Info, Pause, Play, RefreshCw, Timer } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle2, Dumbbell, Info, Pause, Play, RefreshCw, Target, Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useHistory, useParams } from "react-router-dom";
 
 import { SessionRewards } from "@/components/lifter/session_rewards";
 import { WorkoutReport } from "@/components/training/workout_report";
-import { ExerciseThumb, fromCatalogEntry, type BuilderExercise } from "@/components/plan_builder/exercise_media";
-import { fetchExerciseDetail } from "@/services/exercise_library";
+import { capitalise, ExerciseThumb, fromCatalogEntry, type BuilderExercise } from "@/components/plan_builder/exercise_media";
+import { exerciseMediaView, fetchExerciseDetail } from "@/services/exercise_library";
 import { fetchProgramAccess } from "@/services/purchases_api";
 import { useI18n } from "@/i18n/i18n";
 import { formatClock, previousSets } from "@/services/training_insights";
@@ -32,6 +32,39 @@ import { SetRow } from "./set_row";
 import styles from "./workout_session_page.module.css";
 
 type LoadState = "loading" | "ready" | "error" | "missing";
+
+const FOCUS_COPY = {
+  en: { muscle: "Muscle", equipment: "Equipment", howTo: "How to do it", more: "Full instructions", noMedia: "No demonstration for this exercise" },
+  pt: { muscle: "Músculo", equipment: "Equipamento", howTo: "Como fazer", more: "Instruções completas", noMedia: "Sem demonstração para este exercício" }
+} as const;
+
+// ExerciseMovie plays the current exercise's demonstration (the GIF or the
+// video) in a loop beside its description (owner request, 2026-11-21).
+const ExerciseMovie = ({ exercise, empty }: { exercise: BuilderExercise | undefined; empty: string }) => {
+  if (!exercise) return <span className={joinClassNames(styles.movie, styles.movieLoading)} aria-hidden="true" />;
+  const view = exerciseMediaView(exercise);
+  if (view.kind === "video") {
+    return (
+      <span className={styles.movie}>
+        <video src={view.url} autoPlay loop muted playsInline aria-hidden="true" />
+      </span>
+    );
+  }
+  if (view.kind === "image") {
+    return (
+      <span className={styles.movie}>
+        <img src={view.url} alt="" decoding="async" />
+        {view.attribution ? <small className={styles.movieCredit}>{view.attribution}</small> : null}
+      </span>
+    );
+  }
+  return (
+    <span className={joinClassNames(styles.movie, styles.movieEmpty)}>
+      <Dumbbell aria-hidden="true" />
+      <small>{empty}</small>
+    </span>
+  );
+};
 
 // A short line describing what the trainer prescribed for an exercise.
 const usePrescription = () => {
@@ -70,7 +103,8 @@ const activeRestSet = (session: WorkoutSession, now: number, dismissed: string |
 // exercises where every set is logged as it is done, with a running clock,
 // rest timers, the previous performance and an end-of-workout summary.
 export const WorkoutSessionPage = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const focusText = FOCUS_COPY[locale];
   const prescription = usePrescription();
   const { sessionId } = useParams<{ sessionId: string }>();
   const history = useHistory();
@@ -371,41 +405,103 @@ export const WorkoutSessionPage = () => {
               id={`exercise-${exercise.id}`}
               className={joinClassNames(styles.exerciseCard, isCurrent && styles.exerciseCurrent, exerciseDone && styles.exerciseDone)}
             >
-              <header className={styles.exerciseHead}>
-                <button
-                  type="button"
-                  className={styles.exerciseThumb}
-                  onClick={() => setInfoFor(exercise)}
-                  aria-label={t("training.player.info", { name: exercise.name })}
-                >
-                  <ExerciseThumb exercise={media[exercise.exercise_id]} size="md" />
-                  <span className={styles.exerciseBadge} aria-hidden="true">
-                    {exerciseDone ? <CheckCircle2 /> : exercise.position}
-                  </span>
-                </button>
-                <div className={styles.exerciseTitle}>
-                  {isCurrent ? <span className={styles.currentTag}>{t("training.player.current")}</span> : null}
-                  <h2>
-                    <button type="button" onClick={() => setInfoFor(exercise)}>
-                      {exercise.name}
+              {isCurrent ? (
+                <div className={styles.focus}>
+                  <button
+                    type="button"
+                    className={styles.focusMedia}
+                    onClick={() => setInfoFor(exercise)}
+                    aria-label={t("training.player.info", { name: exercise.name })}
+                  >
+                    <ExerciseMovie exercise={media[exercise.exercise_id]} empty={focusText.noMedia} />
+                  </button>
+                  <div className={styles.focusInfo}>
+                    <span className={styles.currentTag}>{t("training.player.current")}</span>
+                    <h2 className={styles.focusName}>{exercise.name}</h2>
+                    <p className={styles.focusPrescription}>{prescription(exercise)}</p>
+                    <ul className={styles.focusChips}>
+                      {media[exercise.exercise_id]?.primary_muscle_group ? (
+                        <li>
+                          <Target aria-hidden="true" />
+                          <span className={styles.srOnly}>{focusText.muscle}: </span>
+                          {capitalise(media[exercise.exercise_id].primary_muscle_group)}
+                        </li>
+                      ) : null}
+                      {media[exercise.exercise_id]?.equipment ? (
+                        <li>
+                          <Dumbbell aria-hidden="true" />
+                          <span className={styles.srOnly}>{focusText.equipment}: </span>
+                          {capitalise(media[exercise.exercise_id].equipment)}
+                        </li>
+                      ) : null}
+                      {rest != null ? (
+                        <li>
+                          <Timer aria-hidden="true" /> {t("training.player.restLabel")} {formatDuration(rest)}
+                        </li>
+                      ) : null}
+                    </ul>
+                    {exercise.instructions ? <p className={styles.focusTrainer}>{exercise.instructions}</p> : null}
+                    {(() => {
+                      const steps = media[exercise.exercise_id]?.instruction_steps?.filter(Boolean) ?? [];
+                      const text = media[exercise.exercise_id]?.description || media[exercise.exercise_id]?.instructions || "";
+                      if (steps.length === 0 && !text) return null;
+                      return (
+                        <div className={styles.focusHowTo}>
+                          <h3>{focusText.howTo}</h3>
+                          {steps.length > 0 ? (
+                            <ol>
+                              {steps.slice(0, 4).map((step) => (
+                                <li key={step}>{step}</li>
+                              ))}
+                            </ol>
+                          ) : (
+                            <p>{text}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <button type="button" className={styles.focusMore} onClick={() => setInfoFor(exercise)}>
+                      <BookOpen aria-hidden="true" /> {focusText.more}
                     </button>
-                  </h2>
-                  <p>{prescription(exercise)}</p>
-                  {rest != null ? (
-                    <span className={styles.restChip}>
-                      <Timer aria-hidden="true" /> {t("training.player.restLabel")} {formatDuration(rest)}
-                    </span>
-                  ) : null}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  className={styles.iconButton}
-                  onClick={() => setInfoFor(exercise)}
-                  aria-label={t("training.player.info", { name: exercise.name })}
-                >
-                  <Info aria-hidden="true" />
-                </button>
-              </header>
+              ) : (
+                <header className={styles.exerciseHead}>
+                  <button
+                    type="button"
+                    className={styles.exerciseThumb}
+                    onClick={() => setInfoFor(exercise)}
+                    aria-label={t("training.player.info", { name: exercise.name })}
+                  >
+                    <ExerciseThumb exercise={media[exercise.exercise_id]} size="md" />
+                    <span className={styles.exerciseBadge} aria-hidden="true">
+                      {exerciseDone ? <CheckCircle2 /> : exercise.position}
+                    </span>
+                  </button>
+                  <div className={styles.exerciseTitle}>
+                    {isCurrent ? <span className={styles.currentTag}>{t("training.player.current")}</span> : null}
+                    <h2>
+                      <button type="button" onClick={() => setInfoFor(exercise)}>
+                        {exercise.name}
+                      </button>
+                    </h2>
+                    <p>{prescription(exercise)}</p>
+                    {rest != null ? (
+                      <span className={styles.restChip}>
+                        <Timer aria-hidden="true" /> {t("training.player.restLabel")} {formatDuration(rest)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    onClick={() => setInfoFor(exercise)}
+                    aria-label={t("training.player.info", { name: exercise.name })}
+                  >
+                    <Info aria-hidden="true" />
+                  </button>
+                </header>
+              )}
               {exercise.notes ? <p className={styles.exerciseNote}>{exercise.notes}</p> : null}
 
               <div className={styles.setTable}>

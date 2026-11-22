@@ -23,16 +23,42 @@ interface SetRowProps {
   onSave: (input: WorkoutSetInput) => Promise<void>;
 }
 
-const toNumber = (value: string): number | null => {
-  const parsed = Number(value.replace(",", "."));
-  return value.trim() === "" || !Number.isFinite(parsed) || parsed < 0 ? null : parsed;
+// What a typed value means: empty (use the target or last time), a number,
+// or invalid. Letters and other text are an error, never a guess
+// (owner report, 2026-11-21: typing letters logged some weight).
+type Parsed = { ok: true; value: number | null } | { ok: false };
+
+export const parseWeight = (raw: string): Parsed => {
+  const value = raw.trim().replace(",", ".");
+  if (!value) return { ok: true, value: null };
+  if (!/^\d{1,4}(\.\d{1,2})?$/.test(value)) return { ok: false };
+  const amount = Number(value);
+  return amount <= 1000 ? { ok: true, value: amount } : { ok: false };
 };
+
+export const parseReps = (raw: string): Parsed => {
+  const value = raw.trim();
+  if (!value) return { ok: true, value: null };
+  if (!/^\d{1,3}$/.test(value)) return { ok: false };
+  return { ok: true, value: Number(value) };
+};
+
+const INVALID = {
+  en: {
+    weight: "Weight must be a number, for example 60 or 62.5 (up to 1000 kg).",
+    reps: "Reps must be a whole number, for example 10."
+  },
+  pt: {
+    weight: "O peso tem de ser um número, por exemplo 60 ou 62,5 (até 1000 kg).",
+    reps: "As repetições têm de ser um número inteiro, por exemplo 10."
+  }
+} as const;
 
 // SetRow is one line of the workout table. Inputs show the target (or what
 // was done last time) as a placeholder; ticking the set saves the typed
 // values, or the placeholders when nothing was typed.
 export const SetRow = ({ set, previous, disabled, onSave }: SetRowProps) => {
-  const { t, intlLocale } = useI18n();
+  const { t, intlLocale, locale } = useI18n();
   const [weight, setWeight] = useState(set.actual_weight_kg == null ? "" : String(set.actual_weight_kg));
   const [reps, setReps] = useState(set.actual_reps == null ? "" : String(set.actual_reps));
   const [saving, setSaving] = useState(false);
@@ -63,6 +89,10 @@ export const SetRow = ({ set, previous, disabled, onSave }: SetRowProps) => {
   const placeholderWeight = set.prescribed_weight_kg ?? previousWeight;
   const placeholderReps = set.prescribed_reps ?? previousReps;
 
+  const parsedWeight = parseWeight(weight);
+  const parsedReps = parseReps(reps);
+  const invalidText = !parsedWeight.ok ? INVALID[locale].weight : !parsedReps.ok ? INVALID[locale].reps : "";
+
   const save = async (status: WorkoutSetInput["status"], values?: { weight: number | null; reps: number | null }) => {
     setSaving(true);
     setError("");
@@ -70,8 +100,8 @@ export const SetRow = ({ set, previous, disabled, onSave }: SetRowProps) => {
     try {
       await onSave({
         status,
-        actual_weight_kg: values ? values.weight : toNumber(weight),
-        actual_reps: values ? values.reps : toNumber(reps)
+        actual_weight_kg: values ? values.weight : parsedWeight.ok ? parsedWeight.value : null,
+        actual_reps: values ? values.reps : parsedReps.ok ? parsedReps.value : null
       });
     } catch {
       setError(t("training.player.saveError"));
@@ -85,12 +115,16 @@ export const SetRow = ({ set, previous, disabled, onSave }: SetRowProps) => {
       void save("pending");
       return;
     }
-    const finalReps = toNumber(reps) ?? placeholderReps;
+    if (!parsedWeight.ok || !parsedReps.ok) {
+      setError("");
+      return;
+    }
+    const finalReps = parsedReps.value ?? placeholderReps;
     if (finalReps == null) {
       setError(t("account.training.enterReps"));
       return;
     }
-    const finalWeight = toNumber(weight) ?? placeholderWeight;
+    const finalWeight = parsedWeight.value ?? placeholderWeight;
     setReps(String(finalReps));
     if (finalWeight != null) {
       setWeight(String(finalWeight));
@@ -159,20 +193,22 @@ export const SetRow = ({ set, previous, disabled, onSave }: SetRowProps) => {
       ) : (
         <>
           <input
-            className={styles.setInput}
+            className={joinClassNames(styles.setInput, !parsedWeight.ok && styles.setInputInvalid)}
             type="text"
             inputMode="decimal"
             value={weight}
+            aria-invalid={!parsedWeight.ok}
             placeholder={placeholderWeight == null ? "–" : formatWeight(placeholderWeight, intlLocale)}
             disabled={locked || done}
             onChange={(event) => setWeight(event.target.value)}
             aria-label={t("account.training.actualWeight", { set: set.set_number })}
           />
           <input
-            className={styles.setInput}
+            className={joinClassNames(styles.setInput, !parsedReps.ok && styles.setInputInvalid)}
             type="text"
             inputMode="numeric"
             value={reps}
+            aria-invalid={!parsedReps.ok}
             placeholder={placeholderReps == null ? "–" : String(placeholderReps)}
             disabled={locked || done}
             onChange={(event) => setReps(event.target.value)}
@@ -188,7 +224,7 @@ export const SetRow = ({ set, previous, disabled, onSave }: SetRowProps) => {
           type="button"
           className={joinClassNames(styles.checkButton, done && styles.checkButtonDone)}
           onClick={toggleDone}
-          disabled={locked}
+          disabled={locked || (!done && invalidText !== "")}
           aria-pressed={done}
           aria-label={done ? t("training.player.undo", { set: set.set_number }) : t("training.player.markDone", { set: set.set_number })}
         >
@@ -196,9 +232,9 @@ export const SetRow = ({ set, previous, disabled, onSave }: SetRowProps) => {
         </button>
       )}
 
-      {error ? (
+      {invalidText || error ? (
         <p className={styles.setError} role="alert">
-          {error}
+          {invalidText || error}
         </p>
       ) : null}
     </div>

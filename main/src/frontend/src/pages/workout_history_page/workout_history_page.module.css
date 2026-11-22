@@ -1,0 +1,227 @@
+/* Workout history (redesigned v2.130.2, owner request 2026-11-21): the last
+   30 days at a glance, then each month's workouts as cards — date, plan day,
+   the first exercises, time, volume, sets (with a bar) and records. */
+
+.kpis {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.kpiTitle {
+  margin: 0;
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.kpis dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.kpis dl > div {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.18));
+  border-radius: var(--app-radius-sm, 14px);
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
+}
+
+.kpis dt {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.kpis dt svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: #00cbff;
+}
+
+.kpis dd {
+  margin: 0;
+  color: var(--app-text, #ffffff);
+  font-size: 1.45rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.monthTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+  color: var(--app-text, #ffffff);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.monthTitle span {
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: 3.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.18));
+  border-left: 4px solid #5ee6a8;
+  border-radius: var(--app-radius-sm, 14px);
+  color: inherit;
+  background: var(--app-surface, rgba(10, 22, 69, 0.78));
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.card:hover {
+  border-color: rgba(124, 200, 255, 0.45);
+  border-left-color: #5ee6a8;
+  transform: translateY(-1px);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--app-accent, #00cbff);
+  outline-offset: 2px;
+}
+
+.cardAbandoned,
+.cardAbandoned:hover {
+  border-left-color: rgba(201, 213, 236, 0.35);
+}
+
+.date {
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+  padding: 0.45rem 0;
+  border-radius: 12px;
+  background: rgba(0, 203, 255, 0.1);
+}
+
+.date strong {
+  color: var(--app-text, #ffffff);
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.date span {
+  color: #7cebff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.body {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  color: var(--app-text, #ffffff);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exercises {
+  overflow: hidden;
+  color: var(--app-text-2, #c9d5ec);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+  color: var(--app-text-3, #93a4c8);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.meta svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.record {
+  color: #ffd166;
+}
+
+.abandoned {
+  color: var(--app-text-2, #c9d5ec);
+}
+
+.bar {
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #00cbff, #5ee6a8);
+}
+
+.chevron {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--app-text-3, #93a4c8);
+}
+
+@media (min-width: 640px) {
+  .kpis dl {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+}

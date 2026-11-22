@@ -2830,7 +2830,21 @@ visually only.
   the reveal without movement. There is no preview button (owner decision:
   development shows what production shows); `go run . set-xp` sets EXP for
   tests.
-- Home hero picture test (v2.130.1): `main_hero_replace.png` replaces the 3D
-  composition in the desktop hero (`/?hero=3d` shows the 3D); the phone of
-  the story appears as the hero scrolls away. A test pending the owner's
+- Home hero picture test (v2.130.1, moved right in v2.130.2):
+  `main_hero_replace.png` replaces the 3D composition in the desktop hero, its
+  objects past the middle of the screen (`/?hero=3d` shows the 3D); only the
+  hero's 3D is hidden, the phone of the story appears as the hero scrolls
+  away and the later chapters keep their 3D. A test pending the owner's
   choice; phones keep the stacked story.
+
+## Workout player, summary and history (v2.130.2)
+
+- Player: the current exercise shows its demonstration (GIF or video, looping)
+  beside the description (name, prescription, muscle, equipment, rest, the
+  trainer's note, the first steps) with the sets below; other exercises keep
+  the compact header. Weight and reps accept numbers only: anything else marks
+  the field invalid with an explanation and blocks ticking the set.
+- Summary: headline card, stat tiles, gold record cards, exercises as cards
+  with set chips (best set starred, skipped dimmed, PR badge).
+- History: last-30-days tiles, months with a count, workout cards with the
+  first exercises, time, volume, sets bar and records.

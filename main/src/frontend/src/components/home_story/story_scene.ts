@@ -23,8 +23,8 @@ export interface StorySceneAssets {
   callouts: { train: readonly string[]; fuel: readonly string[]; sync: string };
   landMask: string; // Natural Earth land mask for planet RYZE
   // Owner test (2026-11-21): a picture replaces the 3D composition in the
-  // hero. The opening and the table are hidden; the phone appears only once
-  // the story scrolls past the hero.
+  // hero, so the opening's table and drone are hidden. Everything else plays
+  // as in the 3D hero; the page fades the canvas in as the hero scrolls away.
   heroImage?: boolean;
 }
 
@@ -861,7 +861,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const seatScale = new THREE.Vector3();
     const phoneShadowMaterial = phoneShadow.material;
     scene.add(intro.group);
-    let introTime = assets.heroImage ? INTRO_END : 0;
+    let introTime = 0;
     let shadowFrame = 0;
     let introSettled = false;
 
@@ -1315,7 +1315,9 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       // plays or the story scrolls; the still scene keeps its shadow map.
       shadowFrame += 1;
       const heroMoving = Math.abs(targetProgress - currentProgress) > 1e-4 || introTime < INTRO_END;
-      renderer.shadowMap.needsUpdate = intro.group.visible && (heroMoving ? shadowFrame % 2 === 0 : shadowFrame === 1);
+      // The first frame always draws it: with the hero picture the table is
+      // never shown, and a shadow map never drawn darkens the phone's frame.
+      renderer.shadowMap.needsUpdate = shadowFrame === 1 || (intro.group.visible && (heroMoving ? shadowFrame % 2 === 0 : shadowFrame === 1));
       // The opening drives the phone's hologram too, so it runs to its end even
       // if the hero has already scrolled away; after that only the idle motion.
       if (!introSettled || intro.group.visible) {
@@ -1345,13 +1347,6 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       }
       phoneShadowMaterial.opacity = 1 - seated;
       phone.visible = state.phoneY > -6;
-      if (assets.heroImage) {
-        // The picture stands for the hero; the phone grows in as it scrolls away.
-        const shown = smooth(THREE.MathUtils.clamp((currentProgress - 0.015) / 0.07, 0, 1));
-        phone.scale.multiplyScalar(Math.max(shown, 1e-3));
-        phone.visible = phone.visible && shown > 0.001;
-        phoneShadowMaterial.opacity *= shown;
-      }
 
       const wanted = screenFor(currentProgress);
       if (wanted !== activeScreen) {

@@ -1,3 +1,39 @@
+# Version 2.130.2
+
+Title: Workout player shows the exercise; set inputs validated; new summary and history
+
+Date: 2026-11-21
+
+Summary:
+
+- Home hero picture test: the picture moved well to the right (objects past
+  the middle of the screen) and is centred on the screen height; only the
+  hero's 3D (the opening and the table) stays hidden, the rest of the story
+  keeps its 3D (phone, computer, planet). `/?hero=3d` shows the 3D hero.
+  The scene plays exactly as with the 3D hero (only the table and drone are
+  hidden) and the canvas fades in as the hero scrolls away; the shadow map is
+  now drawn on the first frame (never drawn, it left the phone's frame dark
+  and see-through in this mode).
+- Workout player: the current exercise plays its demonstration (GIF or video)
+  in a loop with the description beside it — name, prescription, muscle,
+  equipment, rest, the trainer's note and the first steps of how to do it —
+  and the sets below. On phones the demonstration is shorter and the steps
+  stay behind "Instruções completas".
+- Set inputs: letters or other text in the weight or reps no longer log the
+  target or last weight; the field turns red, an error explains the format
+  (weight 0-1000 kg with up to two decimals, reps a whole number) and the set
+  cannot be ticked until it is fixed.
+- Workout summary: a headline card, four stat tiles, records as gold cards and
+  every exercise as a card with each set as a chip (the best set starred,
+  skipped sets dimmed, a PR badge on records); two columns on desktop.
+- History: the last 30 days at a glance (workouts, time, volume, records), the
+  month with its count, and each workout as a card with the first exercises,
+  time, volume, sets with a bar and records; two columns on desktop.
+
+Verification: typecheck passes; Vitest for the set input parsing passes;
+Playwright with mocked APIs at 1440 px and 390 px (workout player, summary,
+history) and 1660 px (Home hero).
+
 # Version 2.130.1
 
 Title: Level-up seal of light, no preview button, Home hero picture test

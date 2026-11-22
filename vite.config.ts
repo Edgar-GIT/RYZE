@@ -31,7 +31,24 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: "0.0.0.0",
-      port: 5173
+      port: 5173,
+      // Phone testing on the local network (RYZE_LAN=true, with
+      // VITE_API_BASE_URL=/api/v1): the API and uploads go through this server
+      // to the local backend, so the phone only talks to one origin. The
+      // backend sees the usual local frontend origin.
+      proxy:
+        env.RYZE_LAN === "true"
+          ? Object.fromEntries(
+              ["/api", "/uploads"].map((path) => [
+                path,
+                {
+                  target: env.RYZE_LAN_BACKEND ?? "http://127.0.0.1:8080",
+                  changeOrigin: true,
+                  headers: { origin: "http://localhost:5173" }
+                }
+              ])
+            )
+          : undefined
     },
     preview: {
       host: "0.0.0.0",
