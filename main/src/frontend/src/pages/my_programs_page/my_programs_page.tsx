@@ -6,7 +6,7 @@ import { ApiError, publicFileUrl } from "@utils/http_client";
 import { fetchEntitlements } from "@/services/purchases_api";
 import { fetchFreeActivations } from "@/services/free_programs_api";
 import { fetchMyPremiumLevel2Requests } from "@/services/premium_level_2_api";
-import { ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronRight, Crown, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useHistory } from "react-router-dom";
 
@@ -18,6 +18,31 @@ import styles from "./my_programs_page.module.css";
 // backend, never from a hardcoded program id.
 const isPremiumLevel1 = (productType: string): boolean => productType === "premium_level_1";
 const isPremiumLevel2 = (productType: string): boolean => productType === "premium_level_2";
+
+const SECTION_COPY = {
+  en: {
+    premium: "Your Premium",
+    premiumLead: "Premium Level 1 or Level 2: only one can be active at a time.",
+    noPremium: "You have no Premium plan yet. Level 1 brings a complete plan with nutrition; Level 2 is made for you by a RYZE trainer.",
+    pl1: "See Premium Level 1",
+    pl2: "See Premium Level 2",
+    free: "Your free plans",
+    freeLead: "You can keep several free plans active at the same time.",
+    noFree: "No free plans yet.",
+    addFree: "Add a free plan"
+  },
+  pt: {
+    premium: "O teu Premium",
+    premiumLead: "Premium Nível 1 ou Nível 2: só um pode estar ativo de cada vez.",
+    noPremium: "Ainda não tens um plano Premium. O Nível 1 traz um plano completo com nutrição; o Nível 2 é feito para ti por um treinador RYZE.",
+    pl1: "Ver Premium Nível 1",
+    pl2: "Ver Premium Nível 2",
+    free: "Os teus planos grátis",
+    freeLead: "Podes ter vários planos grátis ativos ao mesmo tempo.",
+    noFree: "Ainda não tens planos grátis.",
+    addFree: "Adicionar plano grátis"
+  }
+} as const;
 
 interface ProgramCard {
   key: string;
@@ -41,7 +66,8 @@ type State =
   | { status: "ready"; programs: ProgramCard[] };
 
 export const MyProgramsPage = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const sectionText = SECTION_COPY[locale];
   const history = useHistory();
   const [state, setState] = useState<State>({ status: "loading" });
   const [retryCount, setRetryCount] = useState(0);
@@ -107,6 +133,61 @@ export const MyProgramsPage = () => {
     void load();
   }, [load, retryCount]);
 
+  const renderCard = (program: ProgramCard) => {
+    const premiumLevel1 = isPremiumLevel1(program.productType);
+    const premiumLevel2 = isPremiumLevel2(program.productType);
+    return (
+      <Link key={program.key} className={styles.card} to={program.to}>
+        {program.cover ? <img className={styles.cardCover} src={program.cover} alt="" loading="lazy" /> : null}
+        <span className={styles.cardTitle}>{program.name}</span>
+        {program.description ? (
+          <span className={styles.cardDescription}>{program.description}</span>
+        ) : null}
+
+        <span className={styles.chips}>
+          {program.free ? <span className={styles.chipFree}>{t("account.myPrograms.free")}</span> : null}
+          {premiumLevel1 ? (
+            <span className={styles.chipPremium}>{t("account.myPrograms.pl1")}</span>
+          ) : null}
+          {premiumLevel1 ? (
+            <span className={styles.chip}>{t("account.myPrograms.pl1Chip")}</span>
+          ) : null}
+          {premiumLevel2 ? (
+            <span className={styles.chipPremium}>{t("account.myPrograms.pl2")}</span>
+          ) : null}
+          {premiumLevel2 ? (
+            <span className={styles.chip}>{t("account.myPrograms.pl2Chip")}</span>
+          ) : null}
+          {program.trainingType ? <span className={styles.chip}>{program.trainingType}</span> : null}
+          {program.level ? <span className={styles.chip}>{program.level}</span> : null}
+          {program.durationWeeks ? (
+            <span className={styles.chip}>
+              {program.durationWeeks === 1
+                ? t("account.myPrograms.week")
+                : t("account.myPrograms.weeks", { count: program.durationWeeks })}
+            </span>
+          ) : null}
+          {program.frequencyPerWeek ? (
+            <span className={styles.chip}>
+              {program.frequencyPerWeek === 1
+                ? t("account.myPrograms.dayPerWeek")
+                : t("account.myPrograms.daysPerWeek", { count: program.frequencyPerWeek })}
+            </span>
+          ) : null}
+        </span>
+
+        <span className={styles.cardAction}>
+          {premiumLevel2
+            ? t("account.myPrograms.openService")
+            : premiumLevel1
+              ? t("account.myPrograms.openPackage")
+              : t("account.myPrograms.openProgram")}
+          <ChevronRight size={15} aria-hidden="true" />
+        </span>
+      </Link>
+    );
+  };
+
   return (
     <PageWrapper className={styles.page}>
 
@@ -154,62 +235,52 @@ export const MyProgramsPage = () => {
               <p className={styles.subtitle}>{t("account.myPrograms.subtitle")}</p>
             </header>
 
-            <div className={styles.grid}>
-              {state.programs.map((program) => {
-                const premiumLevel1 = isPremiumLevel1(program.productType);
-                const premiumLevel2 = isPremiumLevel2(program.productType);
-                return (
-                  <Link key={program.key} className={styles.card} to={program.to}>
-                    {program.cover ? <img className={styles.cardCover} src={program.cover} alt="" loading="lazy" /> : null}
-                    <span className={styles.cardTitle}>{program.name}</span>
-                    {program.description ? (
-                      <span className={styles.cardDescription}>{program.description}</span>
-                    ) : null}
+            {(() => {
+              const premium = state.programs.filter((program) => isPremiumLevel1(program.productType) || isPremiumLevel2(program.productType));
+              const plans = state.programs.filter((program) => !isPremiumLevel1(program.productType) && !isPremiumLevel2(program.productType));
+              return (
+                <>
+                  <section className={styles.librarySection} aria-labelledby="library-premium">
+                    <div className={styles.sectionHead}>
+                      <h2 id="library-premium" className={styles.sectionTitle}>
+                        <Crown aria-hidden="true" /> {sectionText.premium}
+                      </h2>
+                      <p className={styles.sectionLead}>{sectionText.premiumLead}</p>
+                    </div>
+                    {premium.length > 0 ? (
+                      <div className={styles.grid}>{premium.map(renderCard)}</div>
+                    ) : (
+                      <div className={styles.sectionEmpty}>
+                        <p>{sectionText.noPremium}</p>
+                        <div className={styles.retry}>
+                          <Button to="/services/premium-level-1" variant="secondary" size="small">
+                            {sectionText.pl1}
+                          </Button>
+                          <Button to="/services/premium-level-2" variant="secondary" size="small">
+                            {sectionText.pl2}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </section>
 
-                    <span className={styles.chips}>
-                      {program.free ? <span className={styles.chipFree}>{t("account.myPrograms.free")}</span> : null}
-                      {premiumLevel1 ? (
-                        <span className={styles.chipPremium}>{t("account.myPrograms.pl1")}</span>
-                      ) : null}
-                      {premiumLevel1 ? (
-                        <span className={styles.chip}>{t("account.myPrograms.pl1Chip")}</span>
-                      ) : null}
-                      {premiumLevel2 ? (
-                        <span className={styles.chipPremium}>{t("account.myPrograms.pl2")}</span>
-                      ) : null}
-                      {premiumLevel2 ? (
-                        <span className={styles.chip}>{t("account.myPrograms.pl2Chip")}</span>
-                      ) : null}
-                      {program.trainingType ? <span className={styles.chip}>{program.trainingType}</span> : null}
-                      {program.level ? <span className={styles.chip}>{program.level}</span> : null}
-                      {program.durationWeeks ? (
-                        <span className={styles.chip}>
-                          {program.durationWeeks === 1
-                            ? t("account.myPrograms.week")
-                            : t("account.myPrograms.weeks", { count: program.durationWeeks })}
-                        </span>
-                      ) : null}
-                      {program.frequencyPerWeek ? (
-                        <span className={styles.chip}>
-                          {program.frequencyPerWeek === 1
-                            ? t("account.myPrograms.dayPerWeek")
-                            : t("account.myPrograms.daysPerWeek", { count: program.frequencyPerWeek })}
-                        </span>
-                      ) : null}
-                    </span>
-
-                    <span className={styles.cardAction}>
-                      {premiumLevel2
-                        ? t("account.myPrograms.openService")
-                        : premiumLevel1
-                          ? t("account.myPrograms.openPackage")
-                          : t("account.myPrograms.openProgram")}
-                      <ChevronRight size={15} aria-hidden="true" />
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
+                  <section className={styles.librarySection} aria-labelledby="library-free">
+                    <div className={styles.sectionHead}>
+                      <h2 id="library-free" className={styles.sectionTitle}>
+                        <Sparkles aria-hidden="true" /> {sectionText.free}
+                      </h2>
+                      <p className={styles.sectionLead}>{sectionText.freeLead}</p>
+                    </div>
+                    {plans.length > 0 ? <div className={styles.grid}>{plans.map(renderCard)}</div> : <p className={styles.sectionLead}>{sectionText.noFree}</p>}
+                    <div className={styles.retry}>
+                      <Button to="/services/generic-program" variant="secondary" size="small" icon={<Plus size={15} />} iconPosition="left">
+                        {sectionText.addFree}
+                      </Button>
+                    </div>
+                  </section>
+                </>
+              );
+            })()}
           </section>
         ) : null}
       </div>

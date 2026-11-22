@@ -1,7 +1,9 @@
 import {
   Activity,
   ArrowRight,
+  ArrowRightLeft,
   BookOpen,
+  Check,
   CalendarCheck,
   ChevronRight,
   Clock3,
@@ -14,6 +16,7 @@ import {
   ReceiptText,
   Ruler,
   ShoppingBag,
+  Sparkles,
   Timer,
   Trophy,
   Weight
@@ -28,8 +31,18 @@ import { Waves } from "@/components/public_ui/public_ui";
 import { BarChart } from "@/components/training/charts";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { fetchAchievements, type Achievements } from "@/services/achievements_api";
-import { fetchFreeActivations } from "@/services/free_programs_api";
-import { fetchEntitlements, fetchProgramAccess, type ProgramAccessDetail, type ProgramAccessWorkout } from "@/services/purchases_api";
+import {
+  fetchPlanFocus,
+  hasTrained,
+  loadLibraryPlans,
+  nextWorkoutOf,
+  pickFocus,
+  savePlanFocus,
+  sortByLastAction,
+  type LibraryPlan,
+  type PlanFocusChoice
+} from "@/services/plan_focus";
+import { fetchProgramAccess, type ProgramAccessDetail, type ProgramAccessWorkout } from "@/services/purchases_api";
 import { fetchClientStatistics, type ClientStatistics } from "@/services/statistics_api";
 import { ProfileAvatar } from "@/pages/account_settings_page/public_profile_card";
 import { hasNickname, publicNameOf } from "@/services/profile_api";
@@ -77,6 +90,18 @@ interface DashboardText {
   noPlanTitle: string;
   noPlanText: string;
   browsePlans: string;
+  firstWorkout: string;
+  startFirst: string;
+  switchPlan: string;
+  switchTitle: string;
+  inFocus: string;
+  otherPlans: string;
+  otherPlansLead: string;
+  continueWith: (name: string) => string;
+  focusThis: string;
+  finished: string;
+  seePremium: string;
+  browseFree: string;
   startError: string;
   thisWeek: string;
   workoutsOf: (done: number, target: number | null) => string;
@@ -140,9 +165,21 @@ const COPY: Copy<DashboardText> = {
     openPlan: "Open plan",
     planDone: "Plan complete",
     planDoneText: "You finished every day of this plan. Repeat a day or pick your next plan.",
-    noPlanTitle: "Start with a free plan.",
-    noPlanText: "Pick a training plan — free ones included — and your workouts, history and progress appear here.",
+    noPlanTitle: "You have no plan yet.",
+    noPlanText: "Pick a free plan to start today, or go Premium for a complete plan with nutrition. Your workouts, history and progress appear here.",
     browsePlans: "Browse training plans",
+    firstWorkout: "Your first workout",
+    startFirst: "Start your first workout",
+    switchPlan: "Switch plan",
+    switchTitle: "Your active plans",
+    inFocus: "On your home",
+    otherPlans: "Your other plans",
+    otherPlansLead: "Each one keeps its own progress.",
+    continueWith: (name) => `Continue with ${name}`,
+    focusThis: "Show on home",
+    finished: "Plan complete",
+    seePremium: "Discover Premium",
+    browseFree: "See free plans",
     startError: "Another workout is in progress. Finish or resume it first.",
     thisWeek: "This week",
     workoutsOf: (done, target) => (target ? `${done} of ${target} workouts` : done === 1 ? "1 workout" : `${done} workouts`),
@@ -204,9 +241,21 @@ const COPY: Copy<DashboardText> = {
     openPlan: "Abrir plano",
     planDone: "Plano concluído",
     planDoneText: "Concluíste todos os dias deste plano. Repete um dia ou escolhe o teu próximo plano.",
-    noPlanTitle: "Começa com um plano gratuito.",
-    noPlanText: "Escolhe um plano de treino — incluindo gratuitos — e os teus treinos, histórico e progresso aparecem aqui.",
+    noPlanTitle: "Ainda não tens um plano.",
+    noPlanText: "Escolhe um plano grátis para começares hoje, ou passa a Premium para um plano completo com nutrição. Os teus treinos, histórico e progresso aparecem aqui.",
     browsePlans: "Ver planos de treino",
+    firstWorkout: "O teu primeiro treino",
+    startFirst: "Começar primeiro treino",
+    switchPlan: "Trocar plano",
+    switchTitle: "Os teus planos ativos",
+    inFocus: "Na tua home",
+    otherPlans: "Os teus outros planos",
+    otherPlansLead: "Cada um guarda o seu progresso.",
+    continueWith: (name) => `Continuar com ${name}`,
+    focusThis: "Pôr na home",
+    finished: "Plano concluído",
+    seePremium: "Conhecer o Premium",
+    browseFree: "Ver planos grátis",
     startError: "Já tens outro treino em curso. Termina-o ou continua-o primeiro.",
     thisWeek: "Esta semana",
     workoutsOf: (done, target) => (target ? `${done} de ${target} treinos` : done === 1 ? "1 treino" : `${done} treinos`),
@@ -260,32 +309,6 @@ const estimateMinutes = (workout: ProgramAccessWorkout): number => {
   return Math.max(5, Math.round(seconds / 60 / 5) * 5);
 };
 
-interface NextWorkout {
-  week: number;
-  day: number;
-  workout: ProgramAccessWorkout;
-}
-
-const nextWorkoutOf = (plan: ProgramAccessDetail, history: WorkoutSession[]): NextWorkout | null => {
-  const done = new Set(
-    history.filter((session) => session.status === "completed" && session.program_id === plan.id).map((session) => session.program_workout_id)
-  );
-  for (const week of [...plan.weeks].sort((a, b) => a.week_number - b.week_number)) {
-    for (const workout of [...week.workouts].sort((a, b) => a.position - b.position)) {
-      if (workout.exercises.length > 0 && !done.has(workout.id)) {
-        return { week: week.week_number, day: workout.position, workout };
-      }
-    }
-  }
-  return null;
-};
-
-interface ProgramRef {
-  id: string;
-  name: string;
-  frequency: number | null;
-}
-
 const EmailNotice = () => {
   const { locale } = useI18n();
   const text = COPY[locale];
@@ -325,7 +348,11 @@ export const MemberDashboardPage = () => {
   const history = useHistory();
   const [sessions, setSessions] = useState<WorkoutSession[] | null>(null);
   const [stats, setStats] = useState<ClientStatistics | null>(null);
-  const [programs, setPrograms] = useState<ProgramRef[] | null>(null);
+  const [programs, setPrograms] = useState<LibraryPlan[] | null>(null);
+  // The plan chosen with "Trocar plano" (undefined while loading).
+  const [choice, setChoice] = useState<PlanFocusChoice | null | undefined>(undefined);
+  const [others, setOthers] = useState<Record<string, ProgramAccessDetail | null>>({});
+  const [switching, setSwitching] = useState(false);
   const [active, setActive] = useState<WorkoutSession | null>(null);
   const [achievements, setAchievements] = useState<Achievements | null>(null);
   const [achievementsFailed, setAchievementsFailed] = useState(false);
@@ -354,26 +381,8 @@ export const MemberDashboardPage = () => {
     void guard(fetchClientStatistics(), setStats);
     void guard(fetchActiveWorkoutSession(), setActive);
     void guard(fetchAchievements(), setAchievements, () => setAchievementsFailed(true));
-    void guard(
-      Promise.all([fetchEntitlements().catch(() => []), fetchFreeActivations().catch(() => [])]),
-      ([entitlements, free]) => {
-        const refs = new Map<string, ProgramRef>();
-        for (const entry of [...entitlements].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
-          refs.set(entry.program_id, {
-            id: entry.program_id,
-            name: entry.program.name,
-            frequency: entry.program.frequency_per_week ?? null
-          });
-        }
-        for (const entry of free) {
-          if (!refs.has(entry.program.id)) {
-            refs.set(entry.program.id, { id: entry.program.id, name: entry.program.name, frequency: entry.program.frequency_per_week });
-          }
-        }
-        setPrograms([...refs.values()]);
-      },
-      () => setPrograms([])
-    );
+    void guard(loadLibraryPlans(), setPrograms, () => setPrograms([]));
+    void guard(fetchPlanFocus(), setChoice, () => setChoice(null));
     return () => {
       cancelled = true;
     };
@@ -381,14 +390,47 @@ export const MemberDashboardPage = () => {
 
   const completed = useMemo(() => (sessions ?? []).filter((session) => session.status === "completed"), [sessions]);
 
-  // The current plan: the workout in progress, else the last one trained, else
-  // the most recent programme the member got.
-  const currentProgramId = useMemo(() => {
-    if (active) return active.program_id;
-    const owned = new Set((programs ?? []).map((program) => program.id));
-    const lastTrained = completed.find((session) => owned.has(session.program_id));
-    return lastTrained?.program_id ?? programs?.[0]?.id ?? null;
-  }, [active, completed, programs]);
+  // The plan in focus (owner request, 2026-11-22): the workout in progress,
+  // else the plan of the latest action — added, trained or chosen.
+  const currentProgramId = useMemo(
+    () => pickFocus(programs ?? [], sessions ?? [], active, choice ?? null),
+    [active, choice, programs, sessions]
+  );
+  const otherPlans = useMemo(
+    () => sortByLastAction((programs ?? []).filter((program) => program.id !== currentProgramId), sessions ?? [], choice ?? null),
+    [choice, currentProgramId, programs, sessions]
+  );
+  const otherIds = otherPlans
+    .slice(0, 4)
+    .map((program) => program.id)
+    .join(",");
+
+  // The other plans' next workouts (at most four).
+  useEffect(() => {
+    if (!otherIds) return;
+    let cancelled = false;
+    for (const id of otherIds.split(",")) {
+      fetchProgramAccess(id)
+        .then((detail) => {
+          if (!cancelled) setOthers((current) => ({ ...current, [id]: detail }));
+        })
+        .catch(() => {
+          if (!cancelled) setOthers((current) => ({ ...current, [id]: null }));
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [otherIds]);
+
+  // Choosing a plan puts it in focus now (saved on the account).
+  const choosePlan = useCallback((programId: string) => {
+    setSwitching(false);
+    setChoice({ program_id: programId, chosen_at: new Date().toISOString() });
+    savePlanFocus(programId)
+      .then(setChoice)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!currentProgramId) {
@@ -500,7 +542,14 @@ export const MemberDashboardPage = () => {
 
   // The display name when set (owner request, 2026-11-20), else the first name.
   const firstName = user?.display_name?.trim() || user?.first_name || "";
-  const loading = sessions === null || programs === null;
+  const loading = sessions === null || programs === null || choice === undefined;
+  const firstTime = plan ? !hasTrained(plan.id, sessions ?? []) : false;
+  const nextLabel = (detail: ProgramAccessDetail | null | undefined) => {
+    if (!detail) return "";
+    const upcoming = nextWorkoutOf(detail, sessions ?? []);
+    if (!upcoming) return text.finished;
+    return `${text.weekDay(upcoming.week, upcoming.day)}${upcoming.workout.name?.trim() ? ` · ${upcoming.workout.name.trim()}` : ""}`;
+  };
   const hasPlan = (programs?.length ?? 0) > 0;
 
   return (
@@ -546,6 +595,35 @@ export const MemberDashboardPage = () => {
       <div className={styles.grid}>
         {/* The one thing to do next: the login page's light-blue wave panel. */}
         <section className={joinClassNames(styles.hero, loading && styles.skeleton)} aria-labelledby="dashboard-next">
+          {!loading && !active && (programs?.length ?? 0) > 1 ? (
+            <div className={styles.switcher}>
+              <button type="button" className={styles.switchButton} aria-expanded={switching} onClick={() => setSwitching((open) => !open)}>
+                <ArrowRightLeft aria-hidden="true" /> {text.switchPlan}
+              </button>
+              {switching ? (
+                <div className={styles.switchMenu} role="menu" aria-label={text.switchTitle}>
+                  <p className={styles.switchTitle}>{text.switchTitle}</p>
+                  {sortByLastAction(programs ?? [], sessions ?? [], choice ?? null).map((program) => {
+                    const current = program.id === currentProgramId;
+                    return (
+                      <button
+                        key={program.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={current}
+                        className={joinClassNames(styles.switchItem, current && styles.switchItemCurrent)}
+                        onClick={() => choosePlan(program.id)}
+                      >
+                        <span className={styles.switchName}>{program.name}</span>
+                        <span className={styles.switchMeta}>{current ? text.inFocus : nextLabel(others[program.id])}</span>
+                        {current ? <Check aria-hidden="true" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {loading ? null : active ? (
             <>
               <p className={styles.heroKicker}>
@@ -566,7 +644,7 @@ export const MemberDashboardPage = () => {
           ) : hasPlan && plan && next ? (
             <>
               <p className={styles.heroKicker}>
-                <CalendarCheck aria-hidden="true" /> {text.nextWorkout}
+                {firstTime ? <Sparkles aria-hidden="true" /> : <CalendarCheck aria-hidden="true" />} {firstTime ? text.firstWorkout : text.nextWorkout}
               </p>
               <h2 id="dashboard-next" className={styles.heroTitle}>
                 {next.workout.name?.trim() || text.weekDay(next.week, next.day)}
@@ -602,7 +680,7 @@ export const MemberDashboardPage = () => {
               </ol>
               <div className={styles.heroActions}>
                 <button type="button" className={styles.inkButton} onClick={() => void handleStart()} disabled={starting}>
-                  <Play aria-hidden="true" /> {starting ? text.starting : text.start}
+                  <Play aria-hidden="true" /> {starting ? text.starting : firstTime ? text.startFirst : text.start}
                 </button>
                 <Link className={styles.ghostInk} to={`/services/my-programs/${encodeURIComponent(plan.id)}`}>
                   {text.openPlan} <ArrowRight aria-hidden="true" />
@@ -624,11 +702,32 @@ export const MemberDashboardPage = () => {
               </h2>
               <p className={styles.heroText}>{text.planDoneText}</p>
               <div className={styles.heroActions}>
-                <Link className={styles.inkButton} to={`/services/my-programs/${encodeURIComponent(plan.id)}`}>
+                {otherPlans[0] ? (
+                  <button type="button" className={styles.inkButton} onClick={() => choosePlan(otherPlans[0].id)}>
+                    {text.continueWith(otherPlans[0].name)} <ArrowRight aria-hidden="true" />
+                  </button>
+                ) : null}
+                <Link className={otherPlans[0] ? styles.ghostInk : styles.inkButton} to={`/services/my-programs/${encodeURIComponent(plan.id)}`}>
                   {text.openPlan}
                 </Link>
-                <Link className={styles.ghostInk} to="/services/generic-program">
-                  {text.browsePlans} <ArrowRight aria-hidden="true" />
+                {otherPlans[0] ? null : (
+                  <Link className={styles.ghostInk} to="/services/generic-program">
+                    {text.browsePlans} <ArrowRight aria-hidden="true" />
+                  </Link>
+                )}
+              </div>
+            </>
+          ) : hasPlan && currentProgram ? (
+            <>
+              <p className={styles.heroKicker}>
+                <CalendarCheck aria-hidden="true" /> {text.nextWorkout}
+              </p>
+              <h2 id="dashboard-next" className={styles.heroTitle}>
+                {currentProgram.name}
+              </h2>
+              <div className={styles.heroActions}>
+                <Link className={styles.inkButton} to={`/services/my-programs/${encodeURIComponent(currentProgram.id)}`}>
+                  {text.openPlan} <ArrowRight aria-hidden="true" />
                 </Link>
               </div>
             </>
@@ -643,7 +742,10 @@ export const MemberDashboardPage = () => {
               <p className={styles.heroText}>{text.noPlanText}</p>
               <div className={styles.heroActions}>
                 <Link className={styles.inkButton} to="/services/generic-program">
-                  {text.browsePlans} <ArrowRight aria-hidden="true" />
+                  {text.browseFree} <ArrowRight aria-hidden="true" />
+                </Link>
+                <Link className={styles.ghostInk} to="/services/premium-level-1">
+                  {text.seePremium}
                 </Link>
               </div>
             </>
@@ -686,6 +788,48 @@ export const MemberDashboardPage = () => {
             </div>
           </dl>
         </section>
+
+        {!loading && otherPlans.length > 0 ? (
+          <section className={joinClassNames(styles.card, styles.otherPlans)} aria-labelledby="dashboard-other-plans">
+            <div className={styles.otherHead}>
+              <h2 id="dashboard-other-plans" className={styles.cardTitle}>
+                {text.otherPlans}
+              </h2>
+              <p className={styles.otherLead}>{text.otherPlansLead}</p>
+            </div>
+            <ul className={styles.otherList}>
+              {otherPlans.slice(0, 4).map((program) => {
+                const detail = others[program.id];
+                const upcoming = detail ? nextWorkoutOf(detail, sessions ?? []) : null;
+                return (
+                  <li key={program.id} className={styles.otherItem}>
+                    <Link className={styles.otherName} to={`/services/my-programs/${encodeURIComponent(program.id)}`}>
+                      <strong>{program.name}</strong>
+                      <span>{detail === undefined ? "…" : nextLabel(detail) || text.openPlan}</span>
+                    </Link>
+                    {upcoming && !active ? (
+                      <button
+                        type="button"
+                        className={styles.otherStart}
+                        onClick={() => {
+                          startWorkoutSession(program.id, upcoming.workout.id)
+                            .then((session) => history.push(`/services/workout-sessions/${session.id}`))
+                            .catch(() => setStartError(text.startError));
+                        }}
+                        aria-label={`${text.start}: ${program.name}`}
+                      >
+                        <Play aria-hidden="true" />
+                      </button>
+                    ) : null}
+                    <button type="button" className={styles.otherFocus} onClick={() => choosePlan(program.id)}>
+                      {text.focusThis}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : null}
 
         {/* All-time totals. */}
         <section className={styles.totals} aria-label={text.totals}>

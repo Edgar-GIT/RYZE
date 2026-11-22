@@ -4251,3 +4251,34 @@ func TestPurchaseWithoutAFulfillerStillCompletes(t *testing.T) {
 		t.Errorf("status = %q, want completed", result.Status)
 	}
 }
+
+// listingEntitlements also lists the user's active entitlements (v2.130.3).
+type listingEntitlements struct {
+	stubEntitlementRepository
+	owned []models.Entitlement
+}
+
+func (l *listingEntitlements) ListByUser(_ context.Context, _ string) ([]models.Entitlement, error) {
+	return l.owned, nil
+}
+
+// Premium Level 1 and Level 2 are never active together: buying one while the
+// other is owned is refused before any purchase row exists.
+func TestPremiumLevelsAreMutuallyExclusive(t *testing.T) {
+	level1 := &models.Program{
+		ID: "11111111-1111-1111-1111-111111111111", Name: "Level 1", Type: models.ProgramTypePremium,
+		ProductType: models.ProgramProductTypePremiumLevel1, Status: models.ProgramStatusPublished, PriceMinorUnits: 1499, Currency: "EUR",
+	}
+	purchasesRepo := &stubPurchaseRepository{}
+	entitlements := &listingEntitlements{owned: []models.Entitlement{{Program: models.Program{ProductType: models.ProgramProductTypePremiumLevel2}}}}
+	svc := purchases.NewService(&stubProgramRepository{program: level1}, purchasesRepo, entitlements, &stubCommissionResolver{}, nil)
+
+	if _, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", level1.ID); !errors.Is(err, purchases.ErrPremiumLevelConflict) {
+		t.Fatalf("expected ErrPremiumLevelConflict, got %v", err)
+	}
+
+	entitlements.owned = []models.Entitlement{{Program: models.Program{ProductType: models.ProgramProductTypeGeneric}}}
+	if _, err := svc.CreatePurchaseIntent(context.Background(), "33333333-3333-3333-3333-333333333333", level1.ID); err != nil {
+		t.Fatalf("a generic plan must not block Level 1: %v", err)
+	}
+}

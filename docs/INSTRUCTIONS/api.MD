@@ -691,11 +691,13 @@ one through this dedicated grant. An activation is not a purchase, entitlement
 or assignment: it creates no payment record, never makes the programme
 trainer-owned, and never unlocks Premium nutrition/personalization.
 
-There is at most one active Free activation per user, enforced by the database.
-Activating the same programme again is idempotent. Activating a different
-programme replaces the previous activation. `expires_at` is nullable because the
-product does not define a Free access duration yet; when set, the read paths
-ignore the expired activation and a new activation may replace it.
+Since v2.130.3 (owner decision, 2026-11-22) a user can hold any number of active
+Free activations, at most one per programme, enforced by the database
+(`uq_free_program_activations_active_program`). Activating the same programme
+again is idempotent; activating a different programme adds it and leaves the
+others active. `expires_at` is nullable because the product does not define a
+Free access duration yet; when set, the read paths ignore the expired
+activation and a new activation of that programme replaces it.
 
 The acting user always comes from the authentication context; a client-supplied
 `user_id` is ignored. A missing, unpublished, soft-deleted or non-Free/non-generic
@@ -3097,6 +3099,20 @@ the session.
   example `["bio", "socials.instagram"]`). Responses return `{ bio,
   birth_date, training_since, weight_kg, socials: [{ platform, handle, url
   }] }`.
+- `GET /api/v1/me/plan-focus` and `PUT /api/v1/me/plan-focus` (v2.130.4) — the
+  plan the member chose for the home ("Trocar plano"): `{ "program_id",
+  "chosen_at" }` or `null`. PUT takes `{ "program_id" }` and only accepts a
+  program the member can open (entitlement, assignment or active Free
+  activation); anything else answers `404 PROGRAM_NOT_FOUND`. A saved plan the
+  member can no longer open reads as `null`. The home shows the plan of the
+  latest action (added, trained or chosen); a workout in progress always wins.
+- Free activation (v2.130.3): `POST /api/v1/me/programs/:programID/free-activation`
+  adds the Free plan to the member's library; other active Free plans stay
+  active (any number; the same plan once). `GET /api/v1/me/free-programs`
+  lists them all, newest first.
+- Purchases (v2.130.3): creating a purchase (or a Test Mode purchase) of a
+  Premium Level 1 program while a Premium Level 2 entitlement is active, or the
+  other way round, answers `409 PREMIUM_LEVEL_CONFLICT` and writes nothing.
 - `GET /api/v1/trainer/earnings` (v2.130.0, trainer `trainer.profile`) —
   the authenticated trainer's earnings from the sales of their plans:
   `{ "totals": [{ "currency", "sales", "gross", "net", "commission" }] }` in

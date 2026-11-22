@@ -235,7 +235,8 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
         area="member"
         navLabel={text.nav}
         groups={[{ items }, { label: text.more, items: secondaryItems }]}
-        tabs={items}
+        // Phones keep four tabs (Recovery is in "More", which lists every section).
+        tabs={items.filter((item) => item.to !== "/services/recovery")}
         moreLabel={text.more}
         closeLabel={text.close}
         user={
@@ -258,7 +259,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
           signingOutLabel: text.signingOut,
           onSignOut: signOut
         }}
-        action={{ to: "/services/my-programs", title: text.start, text: text.startText, icon: Play }}
+        action={{ to: "/services/next-workout", title: text.start, text: text.startText, icon: Play }}
         switchTo={isTrainer ? { to: "/trainer/dashboard", label: text.trainer, icon: Users } : undefined}
         backToSite={text.back}
         homePath="/profile"

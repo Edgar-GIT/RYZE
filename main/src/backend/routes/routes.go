@@ -52,6 +52,7 @@ import (
 	"ryze/backend/services/nutrition_assignment"
 	"ryze/backend/services/password"
 	"ryze/backend/services/payments"
+	"ryze/backend/services/plan_focus"
 	"ryze/backend/services/plan_preferences"
 	"ryze/backend/services/premium_level_2"
 	"ryze/backend/services/premium_match"
@@ -507,6 +508,10 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	profileDetailsHandler := auth.NewProfileDetailsHandler(profileDetailsService)
 	v1.GET("/me/profile/details", middleware.Authenticate(tokenService, userRepository), profileDetailsHandler.Get)
 	v1.PUT("/me/profile/details", middleware.Authenticate(tokenService, userRepository), profileDetailsHandler.Save)
+	// The plan in focus on the home (v2.130.4).
+	planFocusHandler := auth.NewPlanFocusHandler(plan_focus.NewService(repositories.NewPlanFocusRepository(db), programAccessService))
+	v1.GET("/me/plan-focus", middleware.Authenticate(tokenService, userRepository), planFocusHandler.Get)
+	v1.PUT("/me/plan-focus", middleware.Authenticate(tokenService, userRepository), planFocusHandler.Set)
 	// Public profiles: open to everyone (owner decision, 2026-11-21).
 	publicProfilesHandler := auth.NewPublicProfilesHandler(
 		public_profiles.NewService(repositories.NewPublicProfileRepository(db), achievementsService, coachShowcaseService, profileDetailsService),

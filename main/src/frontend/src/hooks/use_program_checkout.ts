@@ -20,6 +20,9 @@ const DUPLICATE_PURCHASE = "DUPLICATE_PURCHASE";
 // The pair resolved another way (a sibling purchase completed first), so no
 // provider session can ever grant access. The real access state is owned.
 const DUPLICATE_ENTITLEMENT = "DUPLICATE_ENTITLEMENT";
+// Premium Level 1 and Level 2 are never active together (server rule).
+const PREMIUM_LEVEL_CONFLICT = "PREMIUM_LEVEL_CONFLICT";
+const PREMIUM_LEVEL_CONFLICT_MESSAGE = "You already have the other Premium level. Premium Level 1 and Level 2 cannot be active at the same time.";
 // The backend refuses to rebind a pending purchase to a different payment
 // method, so the checkout must always resume with the recorded one.
 const PAYMENT_METHOD_MISMATCH = "PAYMENT_METHOD_MISMATCH";
@@ -245,6 +248,10 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       const purchase = await completeTestPurchase(programId, testEmail.trim(), taxId);
       setState({ status: "success", purchase });
     } catch (error) {
+      if (error instanceof ApiError && error.code === PREMIUM_LEVEL_CONFLICT) {
+        setState({ status: "error", message: PREMIUM_LEVEL_CONFLICT_MESSAGE });
+        return;
+      }
       // 409 DUPLICATE_ENTITLEMENT: the persona already owns the program
       // (e.g. it was purchased in a previous Test Mode session). Resolving
       // ownership reflects the actual access state.
@@ -270,6 +277,10 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       const purchase = await createPurchaseIntent(programId);
       await negotiatePayment(purchase.id, resolveMethodForPurchase(purchase));
     } catch (error) {
+      if (error instanceof ApiError && error.code === PREMIUM_LEVEL_CONFLICT) {
+        setState({ status: "error", message: PREMIUM_LEVEL_CONFLICT_MESSAGE });
+        return;
+      }
       // A pending purchase already exists for this program (e.g. the user
       // navigated away mid-checkout): recover by resuming that purchase.
       if (error instanceof ApiError && error.code === DUPLICATE_PURCHASE) {

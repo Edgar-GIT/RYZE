@@ -57,6 +57,8 @@ export const COMMERCE_PT: Catalog = {
     "Não foi possível iniciar o pagamento. Não foi cobrado qualquer valor.",
   "We could not complete this Test Mode purchase. Please try again.":
     "Não foi possível concluir esta compra em modo de teste. Tenta novamente.",
+  "You already have the other Premium level. Premium Level 1 and Level 2 cannot be active at the same time.":
+    "Já tens o outro nível Premium. O Premium Nível 1 e o Nível 2 não podem estar ativos ao mesmo tempo.",
   "We could not start your purchase. No money was taken at this point.":
     "Não foi possível iniciar a tua compra. Não foi cobrado qualquer valor.",
   "We could not verify your access. Please try again.": "Não foi possível verificar o teu acesso. Tenta novamente.",

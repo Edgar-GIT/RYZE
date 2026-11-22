@@ -73,7 +73,8 @@ func NewService(programs ProgramReader, activations ActivationRepository) Servic
 // Activate grants the authenticated user access to a published Free program.
 // The user identity always comes from the authentication context. Activation is
 // idempotent: activating the already-active Free program returns it unchanged.
-// Activating a different Free program replaces the previous activation.
+// Activating a different Free program adds it: several Free programs can be
+// active at once (owner decision, 2026-11-22).
 func (s *service) Activate(ctx context.Context, userID, programID string) (*Activation, error) {
 	if err := validateUserID(userID); err != nil {
 		return nil, err
@@ -107,7 +108,7 @@ func (s *service) Activate(ctx context.Context, userID, programID string) (*Acti
 	return newActivation(activation, program), nil
 }
 
-// ListActive returns the user's active Free activation, if any.
+// ListActive returns the user's active Free activations.
 func (s *service) ListActive(ctx context.Context, userID string) ([]Activation, error) {
 	if err := validateUserID(userID); err != nil {
 		return nil, err

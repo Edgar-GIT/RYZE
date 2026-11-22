@@ -60,6 +60,18 @@ export interface BuilderCopy {
   focus: Record<string, string>;
   addDay: string;
   removeDay: string;
+  dayTools: string;
+  copyDay: string;
+  cutDay: string;
+  pasteDay: string;
+  pasteDayAsNew: string;
+  duplicateDay: string;
+  moveDayEarlier: string;
+  moveDayLater: string;
+  clearDay: string;
+  dayCopied: (day: string) => string;
+  dayCut: (day: string) => string;
+  clipboardHint: (day: string) => string;
   addExercise: string;
   noExercises: string;
   set: string;
@@ -224,6 +236,18 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     focus: FOCUS_EN,
     addDay: "Add training day",
     removeDay: "Remove day",
+    dayTools: "Day tools",
+    copyDay: "Copy day",
+    cutDay: "Cut day",
+    pasteDay: "Paste here (replaces this day)",
+    pasteDayAsNew: "Paste as a new day",
+    duplicateDay: "Duplicate day",
+    moveDayEarlier: "Move day earlier",
+    moveDayLater: "Move day later",
+    clearDay: "Remove all exercises",
+    dayCopied: (day) => `${day} copied. Paste it into another day or as a new day, in any week.`,
+    dayCut: (day) => `${day} cut. Paste it where you want it.`,
+    clipboardHint: (day) => `Copied: ${day}`,
     addExercise: "Add exercises",
     noExercises: "No exercises yet.",
     set: "Set",
@@ -360,6 +384,18 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     focus: FOCUS_PT,
     addDay: "Adicionar dia de treino",
     removeDay: "Remover dia",
+    dayTools: "Ferramentas do dia",
+    copyDay: "Copiar dia",
+    cutDay: "Cortar dia",
+    pasteDay: "Colar aqui (substitui este dia)",
+    pasteDayAsNew: "Colar como novo dia",
+    duplicateDay: "Duplicar dia",
+    moveDayEarlier: "Mover dia para trás",
+    moveDayLater: "Mover dia para a frente",
+    clearDay: "Remover todos os exercícios",
+    dayCopied: (day) => `${day} copiado. Cola-o noutro dia ou como novo dia, em qualquer semana.`,
+    dayCut: (day) => `${day} cortado. Cola-o onde quiseres.`,
+    clipboardHint: (day) => `Copiado: ${day}`,
     addExercise: "Adicionar exercícios",
     noExercises: "Ainda sem exercícios.",
     set: "Série",

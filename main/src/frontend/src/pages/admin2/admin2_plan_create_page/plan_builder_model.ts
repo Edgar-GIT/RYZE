@@ -371,6 +371,59 @@ export const removeDay = (draft: PlanDraft, weekId: string, workoutId: string): 
   })
 });
 
+// Day tools (v2.130.3, owner request 2026-11-22): copy, cut, paste,
+// duplicate, move and clear a training day. Pasted and duplicated days get new
+// ids, so they never share exercises or sets with their source.
+const cloneDay = (workout: PlanDraftWorkout): PlanDraftWorkout => cloneWorkouts([workout])[0];
+
+const renumber = (workouts: PlanDraftWorkout[]): PlanDraftWorkout[] =>
+  workouts.map((workout, index) => ({ ...workout, position: index + 1 }));
+
+const mapWeekWorkouts = (draft: PlanDraft, weekId: string, update: (workouts: PlanDraftWorkout[]) => PlanDraftWorkout[]): PlanDraft => ({
+  ...draft,
+  weeks: draft.weeks.map((week) => (week.id === weekId ? { ...week, workouts: renumber(update(week.workouts)) } : week))
+});
+
+export const MAX_DAYS_PER_WEEK = 14;
+
+// findDay returns a copy-ready day (for the builder's clipboard).
+export const findDay = (draft: PlanDraft, weekId: string, workoutId: string): PlanDraftWorkout | null =>
+  draft.weeks.find((week) => week.id === weekId)?.workouts.find((workout) => workout.id === workoutId) ?? null;
+
+// duplicateDay inserts a copy right after the day.
+export const duplicateDay = (draft: PlanDraft, weekId: string, workoutId: string): PlanDraft =>
+  mapWeekWorkouts(draft, weekId, (workouts) => {
+    const index = workouts.findIndex((workout) => workout.id === workoutId);
+    if (index < 0 || workouts.length >= MAX_DAYS_PER_WEEK) return workouts;
+    return [...workouts.slice(0, index + 1), cloneDay(workouts[index]), ...workouts.slice(index + 1)];
+  });
+
+// pasteDayAsNew adds a copy of the clipboard day at the end of the week.
+export const pasteDayAsNew = (draft: PlanDraft, weekId: string, source: PlanDraftWorkout): PlanDraft =>
+  mapWeekWorkouts(draft, weekId, (workouts) => (workouts.length >= MAX_DAYS_PER_WEEK ? workouts : [...workouts, cloneDay(source)]));
+
+// pasteDayInto replaces a day's details and exercises with the clipboard day.
+export const pasteDayInto = (draft: PlanDraft, weekId: string, workoutId: string, source: PlanDraftWorkout): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => {
+    const copy = cloneDay(source);
+    return { ...workout, name: copy.name, description: copy.description, focus: copy.focus, exercises: copy.exercises };
+  });
+
+// moveDay moves a day one place earlier (-1) or later (+1) in its week.
+export const moveDay = (draft: PlanDraft, weekId: string, workoutId: string, delta: -1 | 1): PlanDraft =>
+  mapWeekWorkouts(draft, weekId, (workouts) => {
+    const index = workouts.findIndex((workout) => workout.id === workoutId);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= workouts.length) return workouts;
+    const next = [...workouts];
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+
+// clearDay removes every exercise of the day (its name and focus stay).
+export const clearDay = (draft: PlanDraft, weekId: string, workoutId: string): PlanDraft =>
+  mapWorkout(draft, weekId, workoutId, (workout) => ({ ...workout, exercises: [] }));
+
 export const addExerciseToDay = (
   draft: PlanDraft,
   weekId: string,

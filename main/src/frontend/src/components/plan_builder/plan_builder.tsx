@@ -6,12 +6,16 @@ import {
   CalendarDays,
   Check,
   CircleAlert,
+  ClipboardPaste,
   Copy as CopyIcon,
+  CopyPlus,
   Dumbbell,
+  Eraser,
   ImagePlus,
   Lock,
   Minus,
   Plus,
+  Scissors,
   Trash2,
   X
 } from "lucide-react";
@@ -32,6 +36,13 @@ import {
   DAY_FOCUS_VALUES,
   moveExerciseInDay,
   removeDay,
+  clearDay,
+  duplicateDay,
+  findDay,
+  MAX_DAYS_PER_WEEK,
+  moveDay,
+  pasteDayAsNew,
+  pasteDayInto,
   removeExerciseFromDay,
   removeSetFromExercise,
   removeWeek,
@@ -168,6 +179,9 @@ export const PlanBuilder = ({
   const step = steps[Math.min(stepIndex, steps.length - 1)];
   const [weekIndex, setWeekIndex] = useState(0);
   const [picker, setPicker] = useState<{ weekId: string; workoutId: string; label: string } | null>(null);
+  // The day clipboard (copy or cut a day, paste it anywhere in the plan).
+  const [clipboard, setClipboard] = useState<{ day: PlanDraftWorkout; label: string } | null>(null);
+  const [dayNotice, setDayNotice] = useState("");
   const [sheet, setSheet] = useState<{ weekId: string; workoutId: string; assignmentId: string } | null>(null);
   const [coverState, setCoverState] = useState<"idle" | "uploading" | "error">("idle");
   const [copied, setCopied] = useState(false);
@@ -403,6 +417,8 @@ export const PlanBuilder = ({
     );
   };
 
+  const weekLength = (weekId: string) => draft.weeks.find((week) => week.id === weekId)?.workouts.length ?? 0;
+
   const renderDay = (weekId: string, workout: PlanDraftWorkout, index: number) => {
     const dayLabel = copy.day(index + 1);
     return (
@@ -419,15 +435,81 @@ export const PlanBuilder = ({
               onChange((current) => updateDayDetails(current, weekId, workout.id, { name: event.target.value }))
             }
           />
-          <button
-            type="button"
-            className={styles.iconButtonSmall}
-            aria-label={`${copy.removeDay}: ${dayLabel}`}
-            onClick={() => onChange((current) => removeDay(current, weekId, workout.id))}
-          >
-            <Trash2 aria-hidden="true" />
-          </button>
         </header>
+
+        <div className={styles.dayTools} role="toolbar" aria-label={`${copy.dayTools} — ${dayLabel}`}>
+          {[
+            {
+              icon: CopyIcon,
+              label: copy.copyDay,
+              run: () => {
+                const day = findDay(draft, weekId, workout.id);
+                if (!day) return;
+                setClipboard({ day, label: workout.name || dayLabel });
+                setDayNotice(copy.dayCopied(workout.name || dayLabel));
+              }
+            },
+            {
+              icon: Scissors,
+              label: copy.cutDay,
+              run: () => {
+                const day = findDay(draft, weekId, workout.id);
+                if (!day) return;
+                setClipboard({ day, label: workout.name || dayLabel });
+                setDayNotice(copy.dayCut(workout.name || dayLabel));
+                onChange((current) => removeDay(current, weekId, workout.id));
+              }
+            },
+            {
+              icon: ClipboardPaste,
+              label: copy.pasteDay,
+              disabled: !clipboard,
+              run: () => clipboard && onChange((current) => pasteDayInto(current, weekId, workout.id, clipboard.day))
+            },
+            {
+              icon: CopyPlus,
+              label: copy.duplicateDay,
+              disabled: weekLength(weekId) >= MAX_DAYS_PER_WEEK,
+              run: () => onChange((current) => duplicateDay(current, weekId, workout.id))
+            },
+            {
+              icon: ArrowLeft,
+              label: copy.moveDayEarlier,
+              disabled: index === 0,
+              run: () => onChange((current) => moveDay(current, weekId, workout.id, -1))
+            },
+            {
+              icon: ArrowRight,
+              label: copy.moveDayLater,
+              disabled: index === weekLength(weekId) - 1,
+              run: () => onChange((current) => moveDay(current, weekId, workout.id, 1))
+            },
+            {
+              icon: Eraser,
+              label: copy.clearDay,
+              disabled: workout.exercises.length === 0,
+              run: () => onChange((current) => clearDay(current, weekId, workout.id))
+            },
+            {
+              icon: Trash2,
+              label: copy.removeDay,
+              danger: true,
+              run: () => onChange((current) => removeDay(current, weekId, workout.id))
+            }
+          ].map(({ icon: Icon, label, run, disabled, danger }) => (
+            <button
+              key={label}
+              type="button"
+              className={joinClassNames(styles.dayTool, danger && styles.dayToolDanger)}
+              title={label}
+              aria-label={`${label}: ${dayLabel}`}
+              disabled={disabled}
+              onClick={run}
+            >
+              <Icon aria-hidden="true" />
+            </button>
+          ))}
+        </div>
 
         <div className={styles.focusRow} role="radiogroup" aria-label={`${copy.dayFocus} — ${dayLabel}`}>
           {DAY_FOCUS_VALUES.map((focus) => (
@@ -808,16 +890,35 @@ export const PlanBuilder = ({
         </p>
       ) : null}
 
+      {dayNotice ? (
+        <p className={styles.success} role="status">
+          <Check aria-hidden="true" /> {dayNotice}
+        </p>
+      ) : null}
+
       <div className={styles.days} role="tabpanel" aria-label={copy.week(weekIndex + 1)}>
         {week.workouts.map((workout, index) => renderDay(week.id, workout, index))}
-        <button
-          type="button"
-          className={styles.addDay}
-          disabled={week.workouts.length >= 14}
-          onClick={() => onChange((current) => addDay(current, week.id))}
-        >
-          <Plus aria-hidden="true" /> {copy.addDay}
-        </button>
+        <div className={styles.addDayStack}>
+          <button
+            type="button"
+            className={styles.addDay}
+            disabled={week.workouts.length >= MAX_DAYS_PER_WEEK}
+            onClick={() => onChange((current) => addDay(current, week.id))}
+          >
+            <Plus aria-hidden="true" /> {copy.addDay}
+          </button>
+          {clipboard ? (
+            <button
+              type="button"
+              className={joinClassNames(styles.addDay, styles.pasteDay)}
+              disabled={week.workouts.length >= MAX_DAYS_PER_WEEK}
+              onClick={() => onChange((current) => pasteDayAsNew(current, week.id, clipboard.day))}
+            >
+              <ClipboardPaste aria-hidden="true" /> {copy.pasteDayAsNew}
+              <small>{copy.clipboardHint(clipboard.label)}</small>
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   ) : null;

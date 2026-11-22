@@ -89,6 +89,10 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-22 (v2.130.3-4) — Library split (Premium / free plans), plan day
+  tools in the builder, home plan focus with "Trocar plano" and other plans,
+  "Começar treino" to the next workout; phone tabs back to four. Playwright
+  with mocked APIs at 390/1440 px for the home.
 - 2026-11-21 (v2.130.2) — Owner requests: Home hero picture moved right (only
   the hero's 3D hidden); workout player with the looping demonstration beside
   the description and the sets below; numeric-only set inputs; redesigned

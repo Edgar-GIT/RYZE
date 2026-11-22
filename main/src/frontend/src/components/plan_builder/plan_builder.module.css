@@ -1805,3 +1805,86 @@ select.cellInput {
     animation: none;
   }
 }
+
+/* Day tools (v2.130.3): copy, cut, paste, duplicate, move, clear, remove. */
+.dayTools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.dayTool {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.18));
+  border-radius: 9px;
+  color: var(--app-text-2, #c9d5ec);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.dayTool svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.dayTool:hover:not(:disabled) {
+  border-color: rgba(0, 203, 255, 0.55);
+  color: #ffffff;
+  background: rgba(0, 203, 255, 0.12);
+}
+
+.dayTool:focus-visible {
+  outline: 2px solid var(--app-accent, #00cbff);
+  outline-offset: 2px;
+}
+
+.dayTool:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dayToolDanger {
+  margin-left: auto;
+}
+
+.dayToolDanger:hover:not(:disabled) {
+  border-color: rgba(255, 107, 122, 0.6);
+  color: #ff8d99;
+  background: rgba(255, 107, 122, 0.12);
+}
+
+.addDayStack {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.pasteDay {
+  flex-direction: column;
+  gap: 0.2rem;
+  border-color: rgba(0, 203, 255, 0.55);
+}
+
+.pasteDay small {
+  color: var(--app-text-2, #c9d5ec);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dayTool {
+    transition: none;
+  }
+}
+
+/* The remove button moved to the day tools: name and badge only. */
+.dayHead {
+  grid-template-columns: auto minmax(0, 1fr);
+}

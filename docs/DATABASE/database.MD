@@ -3022,3 +3022,22 @@ below zero. Only the `set-xp` command writes the table (`go run . set-xp
 --username <u> --short-of-top 1` or `--xp <total>`); there is no API.
 
 The down migration drops the table.
+
+## Migration 000057 — Several active Free plans (v2.130.3)
+
+Owner decision (2026-11-22, as in Lyfta): a member can hold any number of
+active Free plans. `free_program_activations.active_free_activation` is now
+`user_id || ':' || program_id` while the row is not deleted, with the unique
+constraint `uq_free_program_activations_active_program` (it replaces the
+per-user `uq_free_program_activations_active_user`). The down migration keeps
+each user's newest activation, soft-deletes the others and restores the
+per-user rule.
+
+## Migration 000058 — The plan in focus (v2.130.4)
+
+Owner request (2026-11-22). `user_plan_focus`: one row per member —
+`user_id` (primary key, foreign key to `users`), `program_id` (foreign key to
+`programs`), `chosen_at TIMESTAMPTZ`. Written by `PUT /me/plan-focus` only
+after the program access check; a chosen plan the member can no longer open is
+ignored on read. The down migration drops the table.
+

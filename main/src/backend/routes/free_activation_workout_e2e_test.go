@@ -157,24 +157,24 @@ func TestFreeActivationWorkoutSessionE2E(t *testing.T) {
 		}
 	}
 
-	// A different Free activation replaces the previous one.
+	// A different Free activation is added: both stay active (v2.130.3).
 	otherProgram := &models.Program{Name: "Free Other", Type: models.ProgramTypeFree, ProductType: models.ProgramProductTypeGeneric, Status: models.ProgramStatusPublished, Currency: "EUR"}
 	if err := tx.Omit("TrainerID").Create(otherProgram).Error; err != nil {
 		t.Fatalf("create other free program: %v", err)
 	}
 	rec, raw = e2eRequest(router, auth.AccessTokenCookieName, clientCookie, http.MethodPost, "/api/v1/me/programs/"+otherProgram.ID+"/free-activation", "")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("activate replacement: expected 200, got %d (body: %s)", rec.Code, raw)
+		t.Fatalf("activate second free plan: expected 200, got %d (body: %s)", rec.Code, raw)
 	}
 	rec, raw = e2eRequest(router, auth.AccessTokenCookieName, clientCookie, http.MethodGet, "/api/v1/me/free-programs", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list activations: expected 200, got %d (body: %s)", rec.Code, raw)
 	}
-	if strings.Contains(raw, program.Name) || !strings.Contains(raw, otherProgram.Name) {
-		t.Fatalf("only the replacement activation may remain, got %s", raw)
+	if !strings.Contains(raw, program.Name) || !strings.Contains(raw, otherProgram.Name) {
+		t.Fatalf("both free plans must be active, got %s", raw)
 	}
 
-	// Reactivate the original plan for the session flow.
+	// Activating an active plan again is idempotent.
 	rec, raw = e2eRequest(router, auth.AccessTokenCookieName, clientCookie, http.MethodPost, activationPath, "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("reactivate original: expected 200, got %d (body: %s)", rec.Code, raw)

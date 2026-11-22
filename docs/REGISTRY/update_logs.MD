@@ -1,3 +1,63 @@
+# Version 2.130.4
+
+Title: The plan in focus on the home, "Trocar plano", other plans, "Começar treino" opens the next workout
+
+Date: 2026-11-22
+
+Summary:
+
+- The home shows the plan of the member's latest action — adding a plan,
+  training one or choosing one — and a workout in progress always wins (was:
+  the last trained plan, so a newly added plan never appeared until trained).
+- The main card says "O teu primeiro treino" / "Começar primeiro treino" until
+  the plan has a completed workout; "Ainda não tens um plano" offers free plans
+  and Premium; a complete plan offers "Continuar com <next plan>".
+- "Trocar plano" (when there is more than one active plan) lists the plans
+  with their next workout; the choice is kept on the account (migration
+  000058, `GET/PUT /me/plan-focus`, access checked by the server) so phone and
+  computer agree.
+- "Os teus outros planos" lists up to four other active plans with their next
+  workout, a start button and "Pôr na home".
+- "Começar treino" in the side bar opens `/services/next-workout`: the workout
+  in progress, else the next workout of the plan in focus (started), else the
+  complete plan, else the library.
+- Phones keep four bottom tabs; Recovery is in "Mais".
+
+Verification: typecheck passes; Vitest (27 files, 172 tests) passes, with the
+focus rule tests; Go tests for the plan focus service and repository pass on
+`ryze_test`. Playwright with mocked APIs at 1440 px and 390 px (home with three
+free plans). Migration 000058 applied to `ryze_test` and the dev database.
+
+# Version 2.130.3
+
+Title: Several free plans at once, library split, Premium levels exclusive, plan day tools
+
+Date: 2026-11-22
+
+Summary:
+
+- Several Free plans can be active at once (owner decision, as in Lyfta;
+  migration 000057): the one-active rule is now per user and program.
+  Activating another Free plan adds it; activating an active one is
+  idempotent. Statistics take as current the active Free plan trained most
+  recently.
+- The library ("Os meus planos") is split: "O teu Premium" (Level 1 or Level 2,
+  with links when there is none) and "Os teus planos grátis" (any number, with
+  "Adicionar plano grátis").
+- Premium Level 1 and Level 2 are never active together: buying one while the
+  other is active answers `409 PREMIUM_LEVEL_CONFLICT` (also in Test Mode),
+  before any purchase row exists; the checkout explains it.
+- Trainer Programmes: the lead no longer says trainers sell Personalized plans
+  (Free or Premium €14.99; Level 2 plans are made inside each request).
+- Plan builder: every training day has tools — copy, cut, paste over the day,
+  duplicate, move earlier or later, remove all exercises and remove the day —
+  and a copied day can be pasted as a new day in any week.
+
+Verification: typecheck passes; Vitest for the day tools passes; Go tests for
+the Premium exclusivity, the Free activation e2e flow, statistics and
+repositories pass on `ryze_test`. Migration 000057 applied to `ryze_test` and
+the dev database.
+
 # Version 2.130.2
 
 Title: Workout player shows the exercise; set inputs validated; new summary and history

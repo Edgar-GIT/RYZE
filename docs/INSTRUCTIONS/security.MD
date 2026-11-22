@@ -1587,9 +1587,13 @@ Free activation (`POST /api/v1/me/programs/:programID/free-activation`,
   generic, Free programme can be activated. A paid, Premium Level 1, trainer-owned
   or missing programme answers the same `404 PROGRAM_NOT_FOUND`; activation
   never reveals which rule failed.
-- The database enforces at most one active Free activation per user. Activating
-  the same programme is idempotent; activating a different one replaces the
-  previous activation inside a transaction, so two grants can never coexist.
+- The database enforces at most one active Free activation per user and
+  programme (since v2.130.3 a user may hold several Free programmes). Activating
+  the same programme is idempotent; activating a different one adds it inside a
+  transaction. Each grant still covers only its own programme's content.
+- Premium Level 1 and Premium Level 2 are never active together: the purchase
+  service refuses either while the other is an active entitlement
+  (`409 PREMIUM_LEVEL_CONFLICT`), for paid and Test Mode checkouts alike.
 - An expired activation grants nothing and is filtered from all access queries.
   `expires_at` is server-owned; clients cannot set it.
 - The list is strictly the authenticated user's own and never exposes another

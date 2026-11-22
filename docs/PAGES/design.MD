@@ -2848,3 +2848,18 @@ visually only.
   with set chips (best set starred, skipped dimmed, PR badge).
 - History: last-30-days tiles, months with a count, workout cards with the
   first exercises, time, volume, sets bar and records.
+
+## Home: the plan in focus (v2.130.4)
+
+- The main card follows the plan of the latest action (added, trained or
+  chosen; a workout in progress always wins): "O teu primeiro treino" until the
+  plan has a completed workout, then "Próximo treino"; "Plano concluído" offers
+  "Continuar com <next plan>"; with no plan, "Ainda não tens um plano" with free
+  plans and Premium.
+- "Trocar plano" sits in the card when there is more than one active plan (a
+  list in the flow, with each plan's next workout); "Os teus outros planos"
+  lists up to four others with start and "Pôr na home".
+- "Começar treino" (side bar) goes to `/services/next-workout`, which opens
+  or starts the right workout. Phones keep four bottom tabs; Recovery is in
+  "Mais".
+

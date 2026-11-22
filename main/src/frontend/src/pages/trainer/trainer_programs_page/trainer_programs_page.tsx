@@ -44,7 +44,7 @@ const COPY: Copy<{
   en: {
     kicker: "Trainer",
     title: "Programmes",
-    lead: "Build plans for your clients and for the store. Prices follow the type: Free, Premium €14.99, Personalized €19.49.",
+    lead: "Build plans for your clients and for the store: Free or Premium (€14.99). Personalized Level 2 plans are made inside each client's request.",
     create: "New programme",
     createText: "Cover, goal, weeks and days, then the exercises.",
     all: "All",
@@ -68,7 +68,7 @@ const COPY: Copy<{
   pt: {
     kicker: "Treinador",
     title: "Programas",
-    lead: "Cria planos para os teus clientes e para a loja. O preço segue o tipo: Grátis, Premium 14,99 €, Personalizado 19,49 €.",
+    lead: "Cria planos para os teus clientes e para a loja: Grátis ou Premium (14,99 €). Os planos personalizados do Nível 2 fazem-se dentro do pedido de cada cliente.",
     create: "Novo programa",
     createText: "Capa, objetivo, semanas e dias, depois os exercícios.",
     all: "Todos",

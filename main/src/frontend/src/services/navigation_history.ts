@@ -123,7 +123,7 @@ export const pageBack = (path: string): Phrase =>
 
 /** The personal-area pages (rendered in the member shell). */
 export const MEMBER_PATH =
-  /^\/(profile|achievements|support|account\/(settings|purchases(\/[^/]+\/receipt)?)|services\/(my-programs(\/[^/]+)?|premium-level-2\/academy|workout-history|progress|recovery)|trainer\/apply)\/?$/;
+  /^\/(profile|achievements|support|account\/(settings|purchases(\/[^/]+\/receipt)?)|services\/(my-programs(\/[^/]+)?|premium-level-2\/academy|workout-history|progress|recovery|next-workout)|trainer\/apply)\/?$/;
 
 type Area = "member" | "trainer" | "admin" | "public";
 

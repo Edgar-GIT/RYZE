@@ -231,3 +231,55 @@
     padding-top: 1.5rem;
   }
 }
+/* v2.130.3 (owner decision, 2026-11-22): the library in two parts — the
+   Premium package (Level 1 or Level 2, one at a time) and any number of free
+   plans. */
+.librarySection {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.librarySection + .librarySection {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--app-line, rgba(124, 200, 255, 0.16));
+}
+
+.sectionHead {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--app-text, #ffffff);
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.sectionTitle svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: #00cbff;
+}
+
+.sectionLead {
+  margin: 0;
+  color: var(--app-text-2, #c9d5ec);
+  font-size: 0.9rem;
+}
+
+.sectionEmpty {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px dashed var(--app-line-strong, rgba(124, 200, 255, 0.35));
+  border-radius: var(--app-radius, 16px);
+  color: var(--app-text-2, #c9d5ec);
+}
+
+.sectionEmpty p {
+  margin: 0;
+}

@@ -71,6 +71,10 @@ var (
 	// untouched as the persisted, diagnosable recovery state. This refusal is a
 	// webhook-internal signal, never surfaced to a client route.
 	ErrReconciliationConflict = errors.New("reconciliation conflict")
+	// ErrPremiumLevelConflict: Premium Level 1 and Premium Level 2 are never
+	// active together (owner rule, restated 2026-11-22). Buying one while the
+	// other is active is refused before any purchase row is written.
+	ErrPremiumLevelConflict = errors.New("premium level 1 and level 2 cannot be active together")
 )
 
 // defaultPurchaseExpiryWindow is the pending-purchase payment window applied
@@ -362,6 +366,40 @@ func (s *service) fulfill(ctx context.Context, userID, programID string) {
 	}
 }
 
+// premiumEntitlementLister lists a user's active entitlements with their
+// programs (optional, so test fakes of EntitlementRepository keep compiling).
+type premiumEntitlementLister interface {
+	ListByUser(ctx context.Context, userID string) ([]models.Entitlement, error)
+}
+
+// checkPremiumExclusive refuses a Premium Level 1 purchase while a Premium
+// Level 2 entitlement is active, and the other way round.
+func (s *service) checkPremiumExclusive(ctx context.Context, userID, productType string) error {
+	other := ""
+	switch productType {
+	case models.ProgramProductTypePremiumLevel1:
+		other = models.ProgramProductTypePremiumLevel2
+	case models.ProgramProductTypePremiumLevel2:
+		other = models.ProgramProductTypePremiumLevel1
+	default:
+		return nil
+	}
+	lister, ok := s.entitlements.(premiumEntitlementLister)
+	if !ok {
+		return nil
+	}
+	owned, err := lister.ListByUser(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to check premium entitlements: %w", err)
+	}
+	for _, entitlement := range owned {
+		if entitlement.Program.ProductType == other {
+			return ErrPremiumLevelConflict
+		}
+	}
+	return nil
+}
+
 // checkPrerequisites enforces the per-product checkout precondition. It runs
 // before any purchase row is created, so a product that is not ready to sell
 // never produces a pending purchase.
@@ -424,6 +462,9 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 	// any row is written, so a rejected checkout leaves no pending purchase
 	// behind and never snapshots a price for a product the buyer cannot yet buy.
 	if err := s.checkPrerequisites(ctx, userID, programID, program.ProductType, nutritionMode(program)); err != nil {
+		return nil, err
+	}
+	if err := s.checkPremiumExclusive(ctx, userID, program.ProductType); err != nil {
 		return nil, err
 	}
 
@@ -818,6 +859,9 @@ func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID st
 	// any row is written, so a rejected checkout leaves no pending purchase
 	// behind and never snapshots a price for a product the buyer cannot yet buy.
 	if err := s.checkPrerequisites(ctx, userID, programID, program.ProductType, nutritionMode(program)); err != nil {
+		return nil, err
+	}
+	if err := s.checkPremiumExclusive(ctx, userID, program.ProductType); err != nil {
 		return nil, err
 	}
 

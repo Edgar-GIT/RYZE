@@ -137,17 +137,26 @@ func (r *statisticsRepository) currentProgramCandidates(ctx context.Context, use
 		return nil, false, fmt.Errorf("failed to find active entitlement: %w", err)
 	}
 
-	var activation models.FreeProgramActivation
-	err = r.db.WithContext(ctx).
-		Where("user_id = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)", userID).
-		Order("activated_at DESC, id DESC").
-		First(&activation).Error
+	// Several Free programs can be active (v2.130.3): the current one is the
+	// active Free program trained most recently, else the newest activated.
+	var activation struct {
+		ProgramID string
+		At        time.Time
+	}
+	err = r.db.WithContext(ctx).Raw(`
+SELECT f.program_id AS program_id,
+       GREATEST(f.activated_at, COALESCE(MAX(s.started_at), f.activated_at)) AS at
+FROM free_program_activations f
+LEFT JOIN workout_sessions s ON s.user_id = f.user_id AND s.program_id = f.program_id AND s.deleted_at IS NULL
+WHERE f.user_id = ? AND f.deleted_at IS NULL AND (f.expires_at IS NULL OR f.expires_at > CURRENT_TIMESTAMP)
+GROUP BY f.id, f.program_id, f.activated_at
+ORDER BY at DESC, f.id DESC
+LIMIT 1`, userID).Scan(&activation).Error
 	switch {
-	case err == nil:
-		candidates = append(candidates, programCandidate{programID: activation.ProgramID, at: activation.ActivatedAt})
-	case errors.Is(err, gorm.ErrRecordNotFound):
-	default:
+	case err != nil:
 		return nil, false, fmt.Errorf("failed to find active free activation: %w", err)
+	case activation.ProgramID != "":
+		candidates = append(candidates, programCandidate{programID: activation.ProgramID, at: activation.At})
 	}
 
 	sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].at.After(candidates[j].at) })

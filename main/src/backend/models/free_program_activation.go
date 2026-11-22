@@ -11,8 +11,9 @@ import (
 // records that a client activated a platform-owned Free program without a
 // purchase. A Free activation is deliberately not an entitlement and not an
 // assignment: it grants only the programme content, never trainer ownership or
-// nutrition. At most one activation is active per user, enforced by the unique
-// index on active_free_activation. Soft-deleted rows are excluded from regular
+// nutrition. Several Free programs can be active per user (since v2.130.3),
+// each program at most once, enforced by the unique active_free_activation
+// column (user and program). Soft-deleted rows are excluded from regular
 // queries through GORM's DeletedAt handling.
 type FreeProgramActivation struct {
 	ID          string         `gorm:"type:char(36);primaryKey" json:"id"`

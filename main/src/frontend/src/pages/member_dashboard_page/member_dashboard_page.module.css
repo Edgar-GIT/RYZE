@@ -978,3 +978,204 @@
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
+
+/* The plan in focus (v2.130.4, owner request 2026-11-22): "Trocar plano"
+   in the hero (in the flow, the hero clips overflow) and the other active
+   plans below it. */
+.switcher {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: end;
+  gap: 0.5rem;
+  margin-bottom: -0.4rem;
+}
+
+.switchButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0 0.85rem;
+  border: 1.5px solid rgba(2, 4, 31, 0.45);
+  border-radius: 999px;
+  color: #02041f;
+  background: rgba(255, 255, 255, 0.35);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.switchButton svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.switchButton:focus-visible,
+.switchItem:focus-visible,
+.otherStart:focus-visible,
+.otherFocus:focus-visible {
+  outline: 2px solid #02041f;
+  outline-offset: 2px;
+}
+
+.switchMenu {
+  display: grid;
+  gap: 0.35rem;
+  width: min(100%, 24rem);
+  padding: 0.6rem;
+  border: 1px solid rgba(2, 4, 31, 0.2);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 16px 34px -18px rgba(2, 4, 31, 0.6);
+}
+
+.switchTitle {
+  margin: 0 0.3rem 0.15rem;
+  color: #072a77;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.switchItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.1rem 0.6rem;
+  min-height: 44px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #02041f;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.switchItem:hover {
+  background: rgba(7, 42, 119, 0.08);
+}
+
+.switchItemCurrent {
+  border-color: rgba(7, 42, 119, 0.35);
+  background: rgba(7, 42, 119, 0.06);
+}
+
+.switchItem svg {
+  grid-row: span 2;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #072a77;
+}
+
+.switchName {
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.switchMeta {
+  grid-column: 1;
+  color: #072a77;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.otherPlans {
+  grid-column: 1 / -1;
+}
+
+.otherHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.otherLead {
+  margin: 0;
+  color: var(--app-text-2);
+  font-size: 0.85rem;
+}
+
+.otherList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.otherItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.7rem 0.65rem 0.9rem;
+  border: 1px solid var(--app-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.otherName {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.otherName strong {
+  overflow: hidden;
+  color: var(--app-text);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.otherName span {
+  color: var(--app-text-2);
+  font-size: 0.8rem;
+}
+
+.otherStart {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #02041f;
+  background: #00cbff;
+  cursor: pointer;
+}
+
+.otherStart svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.otherFocus {
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--app-line-strong, rgba(124, 200, 255, 0.35));
+  border-radius: 999px;
+  color: var(--app-text);
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.otherStart:focus-visible,
+.otherFocus:focus-visible {
+  outline-color: #00cbff;
+}

@@ -22,8 +22,8 @@ var (
 
 // FreeProgramActivationRepository defines the data-access operations for Free
 // program activations. Every operation receives the user id explicitly and
-// never obtains it from an HTTP context. A user may hold at most one active
-// activation; activating another Free program replaces the previous one.
+// never obtains it from an HTTP context. A user may hold any number of active
+// Free programs (since v2.130.3, owner decision 2026-11-22), each at most once.
 type FreeProgramActivationRepository interface {
 	Activate(ctx context.Context, userID, programID string, activation *models.FreeProgramActivation) error
 	FindActiveByUserAndProgram(ctx context.Context, userID, programID string) (*models.FreeProgramActivation, error)
@@ -38,23 +38,25 @@ func NewFreeProgramActivationRepository(db *gorm.DB) FreeProgramActivationReposi
 	return &freeProgramActivationRepository{db: db}
 }
 
-// Activate creates a Free activation, replacing any previous activation for the
-// user. The generated active_free_activation unique index is the final backstop
-// against two concurrent activations.
+// Activate creates a Free activation for one program. The user's other Free
+// programs stay active. An expired activation of the same program is replaced;
+// a live one is reported as already active. The generated
+// active_free_activation unique column (user and program) is the final
+// backstop against two concurrent activations.
 func (r *freeProgramActivationRepository) Activate(ctx context.Context, userID, programID string, activation *models.FreeProgramActivation) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var existing models.FreeProgramActivation
-		err := tx.Where("user_id = ?", userID).First(&existing).Error
+		err := tx.Where("user_id = ? AND program_id = ?", userID, programID).First(&existing).Error
 		switch {
 		case err == nil:
-			if existing.ProgramID == programID && (existing.ExpiresAt == nil || existing.ExpiresAt.After(time.Now().UTC())) {
+			if existing.ExpiresAt == nil || existing.ExpiresAt.After(time.Now().UTC()) {
 				return ErrFreeActivationAlreadyActive
 			}
 			if err := tx.Delete(&existing).Error; err != nil {
-				return fmt.Errorf("failed to replace free program activation: %w", err)
+				return fmt.Errorf("failed to replace expired free program activation: %w", err)
 			}
 		case errors.Is(err, gorm.ErrRecordNotFound):
-			// No existing activation.
+			// Not active yet.
 		default:
 			return fmt.Errorf("failed to check existing free program activation: %w", err)
 		}
@@ -87,7 +89,7 @@ func (r *freeProgramActivationRepository) FindActiveByUserAndProgram(ctx context
 }
 
 // ListActiveByUser returns the user's live activations with their program
-// metadata preloaded. The one-active rule means the slice has at most one row.
+// metadata preloaded, newest first (any number of Free programs).
 func (r *freeProgramActivationRepository) ListActiveByUser(ctx context.Context, userID string) ([]models.FreeProgramActivation, error) {
 	var activations []models.FreeProgramActivation
 	if err := r.db.WithContext(ctx).

@@ -125,6 +125,7 @@ const COPY: Copy<{
     errors: {
       "Enter a valid NIF or leave it empty.": "Introduz um NIF válido ou deixa o campo vazio.",
       "We could not start your purchase. No money was taken at this point.": "Não foi possível iniciar a compra. Não foi cobrado nenhum valor.",
+      "You already have the other Premium level. Premium Level 1 and Level 2 cannot be active at the same time.": "Já tens o outro nível Premium. O Premium Nível 1 e o Nível 2 não podem estar ativos ao mesmo tempo.",
       "We could not start the checkout. No money was taken at this point.": "Não foi possível iniciar o pagamento. Não foi cobrado nenhum valor.",
       "We could not confirm your payment.": "Não foi possível confirmar o pagamento.",
       "We could not complete this Test Mode purchase. Please try again.": "Não foi possível concluir a compra em Modo de Teste. Tenta de novo.",

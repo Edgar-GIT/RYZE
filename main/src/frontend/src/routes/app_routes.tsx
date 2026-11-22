@@ -66,6 +66,7 @@ const MEMBER_PATHS = [
   "/services/workout-history",
   "/services/progress",
   "/services/recovery",
+  "/services/next-workout",
   "/trainer/apply"
 ];
 

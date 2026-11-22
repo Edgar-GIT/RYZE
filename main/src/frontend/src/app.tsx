@@ -34,7 +34,8 @@ export const App = () => {
     pathname.startsWith("/services/my-programs") ||
     pathname.startsWith("/services/workout-") ||
     pathname === "/services/progress" ||
-    pathname === "/services/recovery";
+    pathname === "/services/recovery" ||
+    pathname === "/services/next-workout";
   // The trainer area has its own shell (TrainerLayout); the application form
   // at /trainer/apply is part of the member area (MemberShell).
   const isTrainerArea = pathname.startsWith("/trainer");

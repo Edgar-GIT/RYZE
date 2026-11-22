@@ -187,6 +187,8 @@ func (h *PurchaseHandler) respondError(c *gin.Context, err error) {
 		// submitted intake. No purchase row was created, so the client can fix
 		// the precondition and start again cleanly.
 		RespondError(c, http.StatusConflict, "PURCHASE_PREREQUISITE_NOT_MET", "This program requires additional information before it can be purchased.", nil)
+	case errors.Is(err, purchases.ErrPremiumLevelConflict):
+		RespondError(c, http.StatusConflict, "PREMIUM_LEVEL_CONFLICT", "You cannot hold Premium Level 1 and Premium Level 2 at the same time.", nil)
 	case errors.Is(err, purchases.ErrDuplicateEntitlement):
 		RespondError(c, http.StatusConflict, "DUPLICATE_ENTITLEMENT", "You already own this program.", nil)
 	case errors.Is(err, purchases.ErrDuplicatePurchase):
