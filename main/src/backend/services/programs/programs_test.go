@@ -177,8 +177,12 @@ func validProgram() *models.Program {
 		Status:          models.ProgramStatusDraft,
 		PriceMinorUnits: 1449,
 		Currency:        string(models.ProgramCurrencyEUR),
-		CreatedAt:       time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		UpdatedAt:       time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+		// A trainer's Premium plan is a Level 1 package (v2.132.0).
+		ProductType:   models.ProgramProductTypePremiumLevel1,
+		Objective:     ptrString(models.ProgramObjectiveGainMuscle),
+		NutritionMode: ptrString(models.ProgramNutritionModeCurated),
+		CreatedAt:     time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		UpdatedAt:     time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
 	}
 }
 
@@ -197,6 +201,7 @@ func TestCreateProgramSuccess(t *testing.T) {
 		Status:          models.ProgramStatusPublished,
 		PriceMinorUnits: 1449,
 		Currency:        string(models.ProgramCurrencyEUR),
+		Objective:       models.ProgramObjectiveGainMuscle,
 	})
 	if err != nil {
 		t.Fatalf("CreateProgram: %v", err)
@@ -596,7 +601,7 @@ func TestDeleteProgramRepositoryFailure(t *testing.T) {
 }
 
 func TestPublishProgramSuccess(t *testing.T) {
-	draftProgram := validProgram()
+	draftProgram := freePlan(validProgram())
 	draftProgram.Status = models.ProgramStatusDraft
 	repo := &stubProgramRepo{program: draftProgram}
 	svc := newService(repo)
@@ -614,7 +619,7 @@ func TestPublishProgramSuccess(t *testing.T) {
 }
 
 func TestPublishProgramAlreadyPublished(t *testing.T) {
-	publishedProgram := validProgram()
+	publishedProgram := freePlan(validProgram())
 	publishedProgram.Status = models.ProgramStatusPublished
 	repo := &stubProgramRepo{
 		program: publishedProgram,
@@ -790,6 +795,7 @@ func TestCreateProgramUsesCatalogPrice(t *testing.T) {
 			Type:            tc.programType,
 			PriceMinorUnits: tc.sent,
 			Currency:        "USD",
+			Objective:       objectiveFor(tc.programType),
 		})
 		if err != nil {
 			t.Fatalf("%s: CreateProgram: %v", tc.programType, err)
@@ -833,5 +839,35 @@ func TestUpdateProgramPricingIsFixed(t *testing.T) {
 	}
 	if program.PriceMinorUnits != catalog {
 		t.Fatalf("price = %d, want %d", program.PriceMinorUnits, catalog)
+	}
+}
+
+func ptrString(value string) *string { return &value }
+
+// objectiveFor gives a Premium package (Level 1) its required objective.
+func objectiveFor(programType string) string {
+	if programType == models.ProgramTypePremium {
+		return models.ProgramObjectiveGainMuscle
+	}
+	return ""
+}
+
+// freePlan turns the fixture into a Free (generic) plan, for the tests about
+// publication itself; a Premium package also needs its meal plan.
+func freePlan(program *models.Program) *models.Program {
+	program.Type = models.ProgramTypeFree
+	program.ProductType = models.ProgramProductTypeGeneric
+	program.Objective = nil
+	program.NutritionMode = nil
+	program.PriceMinorUnits = 0
+	return program
+}
+
+// A Premium package (Level 1) is never published without its meal plan.
+func TestPublishPremiumPackageNeedsMealPlan(t *testing.T) {
+	draft := validProgram()
+	svc := newService(&stubProgramRepo{program: draft})
+	if _, err := svc.PublishProgram(context.Background(), trainerID, programID); !errors.Is(err, programs.ErrNutritionRequired) {
+		t.Fatalf("expected ErrNutritionRequired, got %v", err)
 	}
 }

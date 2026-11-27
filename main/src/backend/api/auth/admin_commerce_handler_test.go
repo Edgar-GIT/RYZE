@@ -56,6 +56,11 @@ func newAdminCommerceTestRouter(t *testing.T) (*gin.Engine, repositories.UserRep
 		_ = tx.Rollback()
 		_ = sqlDB.Close()
 	})
+	// The purchase totals are global: wait while a test that commits
+	// purchases (repositories purchase_concurrency_test.go) is running.
+	if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext('ryze-test-committed-purchases'))").Error; err != nil {
+		t.Fatalf("take committed-purchases test lock: %v", err)
+	}
 
 	userRepo := repositories.NewUserRepository(tx)
 	tokenSvc := token.NewService([]byte(testSecret), testTokenTTL)

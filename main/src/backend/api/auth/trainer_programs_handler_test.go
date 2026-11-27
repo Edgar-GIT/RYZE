@@ -217,7 +217,7 @@ func TestTrainerProgramsCreateSuccess(t *testing.T) {
 	router, userRepo, trainerRepo, programRepo, tokenSvc := newTrainerProgramsTestRouter(t, trainerroles.PermissionPrograms)
 	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
 
-	body := `{"name":"Strength Builder","description":"A 12 week strength program.","type":"premium","status":"published","price_minor_units":1999}`
+	body := `{"name":"Strength Builder","description":"A 12 week strength program.","type":"premium","objective":"gain_muscle","status":"published","price_minor_units":1999}`
 	rec, data, raw := trainerProgramsRequest(router, jwtValue, http.MethodPost, programsRoute, body)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d (body: %s)", rec.Code, raw)
@@ -519,7 +519,7 @@ func TestTrainerProgramsUpdateSuccess(t *testing.T) {
 	trainer, _, jwtValue := authenticatedTrainerCookie(t, userRepo, trainerRepo, tokenSvc)
 	program := seedTestProgram(t, programRepo, trainer.ID, "Strength Builder")
 
-	body := `{"name":"Hypertrophy 101","status":"published"}`
+	body := `{"name":"Hypertrophy 101","objective":"gain_muscle","status":"published"}`
 	rec, data, raw := trainerProgramsRequest(router, jwtValue, http.MethodPatch, programsRouteProgram+program.ID, body)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
@@ -547,7 +547,7 @@ func TestTrainerProgramsUpdateIgnoresClientSuppliedTrainer(t *testing.T) {
 	program := seedTestProgram(t, programRepo, trainer.ID, "Strength Builder")
 
 	// trainer_id is immutable: a client-supplied value in the body is ignored.
-	body := `{"name":"Hypertrophy 101","trainer_id":"` + otherTrainer.ID + `"}`
+	body := `{"name":"Hypertrophy 101","objective":"gain_muscle","trainer_id":"` + otherTrainer.ID + `"}`
 	rec, data, raw := trainerProgramsRequest(router, jwtValue, http.MethodPatch, programsRouteProgram+program.ID, body)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)

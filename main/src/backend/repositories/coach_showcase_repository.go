@@ -46,6 +46,9 @@ type PublicCoachRow struct {
 	ID        string
 	FirstName string
 	LastName  string
+	// Username: the coach's public member profile (/u/<username>), which is
+	// the coach's public page since v2.132.0.
+	Username  string
 	CreatedAt time.Time
 }
 
@@ -98,7 +101,8 @@ LEFT JOIN program_view_stats v ON v.program_id = p.id`
 // published, not deleted, and a generic program (Premium families have their
 // own pages and gates).
 const publishedGenericProgram = `
-p.deleted_at IS NULL AND p.status = '` + models.ProgramStatusPublished + `' AND p.product_type = '` + models.ProgramProductTypeGeneric + `'`
+p.deleted_at IS NULL AND p.status = '` + models.ProgramStatusPublished + `' AND p.archived_at IS NULL
+AND p.product_type IN ('` + models.ProgramProductTypeGeneric + `', '` + models.ProgramProductTypePremiumLevel1 + `')`
 
 func (r *coachShowcaseRepository) FindProgramViewTarget(ctx context.Context, programID string) (*ProgramViewTarget, error) {
 	var rows []struct {
@@ -157,7 +161,7 @@ func (r *coachShowcaseRepository) FindPublicCoach(ctx context.Context, trainerID
 	var rows []PublicCoachRow
 	err := r.db.WithContext(ctx).Raw(`
 SELECT t.id, COALESCE(NULLIF(btrim(u.display_name), ''), u.username) AS first_name,
-       '' AS last_name, t.created_at
+       '' AS last_name, u.username, t.created_at
 FROM trainers t
 JOIN users u ON u.id = t.user_id AND u.deleted_at IS NULL AND u.test_persona IS NULL
 WHERE t.id = ? AND t.deleted_at IS NULL

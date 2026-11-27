@@ -19,27 +19,29 @@ import (
 // belongs to (generic or premium_level_1), so it never renders a program under
 // the wrong lifecycle and prerequisite rules.
 type genericProgramResponse struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Description      string    `json:"description"`
-	Type             string    `json:"type"`
-	Status           string    `json:"status"`
-	ProductType      string    `json:"product_type"`
-	Objective        *string   `json:"objective"`
-	NutritionMode    *string   `json:"nutrition_mode"`
-	ContentVersion   int       `json:"content_version"`
-	Level            *string   `json:"level"`
-	DurationWeeks    *int      `json:"duration_weeks"`
-	FrequencyPerWeek *int      `json:"frequency_per_week"`
-	TrainingType     *string   `json:"training_type"`
-	PriceMinorUnits  int64     `json:"price_minor_units"`
-	Currency         string    `json:"currency"`
-	CoverImage       *string   `json:"cover_image"`
-	CoverImageURL    string    `json:"cover_image_url"`
-	Official         bool      `json:"official"`
-	Audience         *string   `json:"audience"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               string  `json:"id"`
+	Name             string  `json:"name"`
+	Description      string  `json:"description"`
+	Type             string  `json:"type"`
+	Status           string  `json:"status"`
+	ProductType      string  `json:"product_type"`
+	Objective        *string `json:"objective"`
+	NutritionMode    *string `json:"nutrition_mode"`
+	ContentVersion   int     `json:"content_version"`
+	Level            *string `json:"level"`
+	DurationWeeks    *int    `json:"duration_weeks"`
+	FrequencyPerWeek *int    `json:"frequency_per_week"`
+	TrainingType     *string `json:"training_type"`
+	PriceMinorUnits  int64   `json:"price_minor_units"`
+	Currency         string  `json:"currency"`
+	CoverImage       *string `json:"cover_image"`
+	CoverImageURL    string  `json:"cover_image_url"`
+	Official         bool    `json:"official"`
+	// ArchivedAt: off the market (v2.132.0).
+	ArchivedAt *time.Time `json:"archived_at"`
+	Audience   *string    `json:"audience"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
 }
 
 func newGenericProgramResponse(program generic_programs.Program) genericProgramResponse {
@@ -62,6 +64,7 @@ func newGenericProgramResponse(program generic_programs.Program) genericProgramR
 		CoverImage:       program.CoverImage,
 		CoverImageURL:    program_details.CoverURL(program.CoverImage),
 		Official:         program.Official,
+		ArchivedAt:       program.ArchivedAt,
 		Audience:         program.Audience,
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.UpdatedAt,
@@ -305,40 +308,8 @@ func toGenericProgramInput(req *genericProgramRequest) generic_programs.ProgramI
 		Weeks:            make([]generic_programs.WeekInput, 0, len(req.Weeks)),
 	}
 	if req.CuratedNutrition != nil {
-		input.CuratedNutrition = &curated_nutrition.PlanInput{
-			DietaryPattern:  req.CuratedNutrition.DietaryPattern,
-			Summary:         req.CuratedNutrition.Summary,
-			PrepGuidance:    req.CuratedNutrition.PrepGuidance,
-			HydrationLitres: req.CuratedNutrition.HydrationLitres,
-			HydrationNote:   req.CuratedNutrition.HydrationNote,
-			Cautions:        req.CuratedNutrition.Cautions,
-			Meals:           make([]curated_nutrition.MealInput, 0, len(req.CuratedNutrition.Meals)),
-		}
-		for i := range req.CuratedNutrition.Meals {
-			meal := &req.CuratedNutrition.Meals[i]
-			mealInput := curated_nutrition.MealInput{
-				Label: meal.Label,
-				Kind:  meal.Kind,
-				Notes: meal.Notes,
-				Items: make([]curated_nutrition.ItemInput, 0, len(meal.Items)),
-			}
-			for j := range meal.Items {
-				item := &meal.Items[j]
-				mealInput.Items = append(mealInput.Items, curated_nutrition.ItemInput{
-					FoodName:          item.FoodName,
-					Category:          item.Category,
-					Quantity:          item.Quantity,
-					Unit:              item.Unit,
-					Calories:          item.Calories,
-					ProteinGrams:      item.ProteinGrams,
-					CarbohydrateGrams: item.CarbohydrateGrams,
-					FatGrams:          item.FatGrams,
-					FiberGrams:        item.FiberGrams,
-					SubstitutionNote:  item.SubstitutionNote,
-				})
-			}
-			input.CuratedNutrition.Meals = append(input.CuratedNutrition.Meals, mealInput)
-		}
+		plan := toCuratedNutritionInput(req.CuratedNutrition)
+		input.CuratedNutrition = &plan
 	}
 	input.Weeks = toGenericWeekInputs(req.Weeks)
 	return input
@@ -581,4 +552,44 @@ func toGenericWeekInputs(weeks []genericWeekRequest) []generic_programs.WeekInpu
 		result = append(result, weekInput)
 	}
 	return result
+}
+
+// toCuratedNutritionInput converts the meal plan request shared by the
+// platform packages and the trainers' Premium packages (v2.132.0).
+func toCuratedNutritionInput(req *curatedNutritionRequest) curated_nutrition.PlanInput {
+	plan := curated_nutrition.PlanInput{
+		DietaryPattern:  req.DietaryPattern,
+		Summary:         req.Summary,
+		PrepGuidance:    req.PrepGuidance,
+		HydrationLitres: req.HydrationLitres,
+		HydrationNote:   req.HydrationNote,
+		Cautions:        req.Cautions,
+		Meals:           make([]curated_nutrition.MealInput, 0, len(req.Meals)),
+	}
+	for i := range req.Meals {
+		meal := &req.Meals[i]
+		mealInput := curated_nutrition.MealInput{
+			Label: meal.Label,
+			Kind:  meal.Kind,
+			Notes: meal.Notes,
+			Items: make([]curated_nutrition.ItemInput, 0, len(meal.Items)),
+		}
+		for j := range meal.Items {
+			item := &meal.Items[j]
+			mealInput.Items = append(mealInput.Items, curated_nutrition.ItemInput{
+				FoodName:          item.FoodName,
+				Category:          item.Category,
+				Quantity:          item.Quantity,
+				Unit:              item.Unit,
+				Calories:          item.Calories,
+				ProteinGrams:      item.ProteinGrams,
+				CarbohydrateGrams: item.CarbohydrateGrams,
+				FatGrams:          item.FatGrams,
+				FiberGrams:        item.FiberGrams,
+				SubstitutionNote:  item.SubstitutionNote,
+			})
+		}
+		plan.Meals = append(plan.Meals, mealInput)
+	}
+	return plan
 }

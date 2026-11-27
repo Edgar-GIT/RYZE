@@ -1,0 +1,209 @@
+/* Trainer statistics and earnings (v2.132.0). Mobile first. */
+.page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--accent, #18d8ff);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.6rem, 5vw, 2.2rem);
+}
+
+.lead,
+.cardLead {
+  margin: 0;
+  max-width: 62ch;
+  opacity: 0.8;
+  line-height: 1.5;
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  padding: 1.1rem;
+  border: 1px solid rgba(124, 200, 255, 0.2);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.cardTitle svg,
+.figures dt svg,
+.link svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.figures > div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.figures dt {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  opacity: 0.78;
+  font-size: 0.82rem;
+}
+
+.figures dd {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.highlight {
+  border: 1px solid rgba(47, 227, 168, 0.5);
+}
+
+.highlight dd {
+  color: #2fe3a8;
+}
+
+.big {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.big span {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.bars {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bars li {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.barLabel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.barLabel a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.barLabel em {
+  opacity: 0.75;
+  font-style: normal;
+}
+
+.barTrack {
+  display: block;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2a8cff, #18d8ff);
+}
+
+.empty {
+  margin: 0;
+  opacity: 0.75;
+}
+
+.split {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(124, 200, 255, 0.45);
+  border-radius: 12px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link:focus-visible,
+.barLabel a:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.state {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+}
+
+@media (min-width: 720px) {
+  .figures {
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  }
+}
+
+@media (min-width: 1000px) {
+  .split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

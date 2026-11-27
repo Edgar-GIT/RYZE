@@ -2090,6 +2090,38 @@ Responses:
 
 Requires `trainer.programs`.
 
+#### Trainer Premium packages (v2.132.0)
+
+A `premium` programme is a Premium Level 1 package: create and update accept
+`objective` (required for Premium; one of the programme objectives) and the
+responses carry `product_type`, `objective`, `nutrition_mode` and
+`archived_at`. `VALIDATION_ERROR` now includes the reason in `details` (for
+example "a Premium package needs its objective"). Publishing a package without
+a complete meal plan returns `409 NUTRITION_REQUIRED`.
+
+- `GET /api/v1/trainer/programs/:programID/nutrition` — the package's meal
+  plan (`null` when none yet).
+- `PUT /api/v1/trainer/programs/:programID/nutrition` — replaces it; the body
+  is the curated nutrition plan of the platform Level 1 API. `404` for a
+  programme that is not the trainer's own; `400 VALIDATION_ERROR` (message
+  with the reason) for an incomplete plan or a programme that is not a
+  Premium package. Saving replaces the plan and raises its version.
+
+#### Archive (v2.132.0)
+
+- `POST /api/v1/trainer/programs/:programID/archive` — takes a published
+  programme off the market. `409 PROGRAM_NOT_ARCHIVABLE` (not published, or
+  already archived), `409 ARCHIVE_LIMIT_REACHED` (15 archived), `404`.
+- `POST /api/v1/trainer/programs/:programID/restore` — puts it back.
+- `GET /api/v1/trainer/programs-archive` — `{ archived, limit }`.
+- Platform equivalents (Management Administrator, audited):
+  `POST /api/v1/programs/generic/:programID/archive|restore`,
+  `POST /api/v1/programs/premium-level-1/:programID/archive|restore` and
+  `GET /api/v1/programs/generic-archive` (the platform count).
+- The public programme detail (`GET /api/v1/programs/:programID`) carries
+  `archived`; the coach profile (`GET /api/v1/coaches/:trainerId`) carries the
+  coach's `username`.
+
 ---
 
 ### Trainer Program Structure

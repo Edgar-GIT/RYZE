@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,23 +16,29 @@ import (
 // identity, its owner trainer id, the public product fields and the lifecycle
 // timestamps. Deletion markers and any internal data are never exposed.
 type trainerProgramResponse struct {
-	ID               string    `json:"id"`
-	TrainerID        string    `json:"trainer_id"`
-	Name             string    `json:"name"`
-	Description      string    `json:"description"`
-	Type             string    `json:"type"`
-	Status           string    `json:"status"`
-	PriceMinorUnits  int64     `json:"price_minor_units"`
-	Currency         string    `json:"currency"`
-	Level            *string   `json:"level"`
-	DurationWeeks    *int      `json:"duration_weeks"`
-	FrequencyPerWeek *int      `json:"frequency_per_week"`
-	TrainingType     *string   `json:"training_type"`
-	CoverImage       *string   `json:"cover_image"`
-	CoverImageURL    string    `json:"cover_image_url"`
-	Audience         *string   `json:"audience"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               string  `json:"id"`
+	TrainerID        string  `json:"trainer_id"`
+	Name             string  `json:"name"`
+	Description      string  `json:"description"`
+	Type             string  `json:"type"`
+	Status           string  `json:"status"`
+	PriceMinorUnits  int64   `json:"price_minor_units"`
+	Currency         string  `json:"currency"`
+	Level            *string `json:"level"`
+	DurationWeeks    *int    `json:"duration_weeks"`
+	FrequencyPerWeek *int    `json:"frequency_per_week"`
+	TrainingType     *string `json:"training_type"`
+	CoverImage       *string `json:"cover_image"`
+	CoverImageURL    string  `json:"cover_image_url"`
+	Audience         *string `json:"audience"`
+	// The catalogue family (premium_level_1 for a Premium package), its
+	// objective and nutrition model, and the archive date (v2.132.0).
+	ProductType   string     `json:"product_type"`
+	Objective     *string    `json:"objective"`
+	NutritionMode *string    `json:"nutrition_mode"`
+	ArchivedAt    *time.Time `json:"archived_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 func newTrainerProgramResponse(program *programs.Program) trainerProgramResponse {
@@ -51,6 +58,10 @@ func newTrainerProgramResponse(program *programs.Program) trainerProgramResponse
 		CoverImage:       program.CoverImage,
 		CoverImageURL:    program_details.CoverURL(program.CoverImage),
 		Audience:         program.Audience,
+		ProductType:      program.ProductType,
+		Objective:        program.Objective,
+		NutritionMode:    program.NutritionMode,
+		ArchivedAt:       program.ArchivedAt,
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.UpdatedAt,
 	}
@@ -73,6 +84,7 @@ type createTrainerProgramRequest struct {
 	TrainingType     string `json:"training_type"`
 	CoverImage       string `json:"cover_image"`
 	Audience         string `json:"audience"`
+	Objective        string `json:"objective"`
 }
 
 // updateTrainerProgramRequest is the request DTO for PATCH /api/v1/trainer/programs/:programID.
@@ -90,6 +102,7 @@ type updateTrainerProgramRequest struct {
 	TrainingType     *string `json:"training_type"`
 	CoverImage       *string `json:"cover_image"`
 	Audience         *string `json:"audience"`
+	Objective        *string `json:"objective"`
 }
 
 // TrainerProgramsHandler exposes the authenticated trainer's program
@@ -134,6 +147,7 @@ func (h *TrainerProgramsHandler) CreateProgram(c *gin.Context) {
 		TrainingType:     req.TrainingType,
 		CoverImage:       req.CoverImage,
 		Audience:         req.Audience,
+		Objective:        req.Objective,
 	})
 	if err != nil {
 		h.respondProgramsError(c, err)
@@ -243,6 +257,7 @@ func (h *TrainerProgramsHandler) UpdateProgram(c *gin.Context) {
 		TrainingType:     req.TrainingType,
 		CoverImage:       req.CoverImage,
 		Audience:         req.Audience,
+		Objective:        req.Objective,
 	})
 	if err != nil {
 		h.respondProgramsError(c, err)
@@ -305,13 +320,74 @@ func (h *TrainerProgramsHandler) DeleteProgram(c *gin.Context) {
 func (h *TrainerProgramsHandler) respondProgramsError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, programs.ErrInvalidInput):
-		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		// The reason (for example "a Premium package needs its objective")
+		// tells the trainer what to fix.
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.",
+			[]string{strings.TrimPrefix(err.Error(), programs.ErrInvalidInput.Error()+": ")})
+	case errors.Is(err, programs.ErrNutritionRequired):
+		RespondError(c, http.StatusConflict, "NUTRITION_REQUIRED", "A Premium package is published with its complete meal plan.", nil)
 	case errors.Is(err, programs.ErrProgramNotFound):
 		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
 	case errors.Is(err, programs.ErrProgramAlreadyPublished):
 		RespondError(c, http.StatusConflict, "PROGRAM_ALREADY_PUBLISHED", "Program is already published.", nil)
 	case errors.Is(err, programs.ErrProgramLocked):
 		RespondError(c, http.StatusConflict, "PROGRAM_LOCKED", "This program is part of a delivered Premium Level 2 plan and cannot be changed.", nil)
+	default:
+		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
+	}
+}
+
+// GetNutrition returns the meal plan of the trainer's Premium package:
+// GET /trainer/programs/:programID/nutrition (null when none yet).
+func (h *TrainerProgramsHandler) GetNutrition(c *gin.Context) {
+	trainerID, ok := requireTrainerContext(c)
+	if !ok {
+		return
+	}
+	service, ok := h.service.(programs.NutritionService)
+	if !ok {
+		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
+		return
+	}
+	plan, err := service.GetNutrition(c.Request.Context(), trainerID, c.Param("programID"))
+	if err != nil {
+		h.respondNutritionError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Meal plan.", "data": plan})
+}
+
+// SaveNutrition replaces the meal plan of the trainer's Premium package:
+// PUT /trainer/programs/:programID/nutrition (the curated plan shape).
+func (h *TrainerProgramsHandler) SaveNutrition(c *gin.Context) {
+	trainerID, ok := requireTrainerContext(c)
+	if !ok {
+		return
+	}
+	service, ok := h.service.(programs.NutritionService)
+	if !ok {
+		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
+		return
+	}
+	var body curatedNutritionRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+	plan, err := service.SaveNutrition(c.Request.Context(), trainerID, c.Param("programID"), toCuratedNutritionInput(&body))
+	if err != nil {
+		h.respondNutritionError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Meal plan saved.", "data": plan})
+}
+
+func (h *TrainerProgramsHandler) respondNutritionError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, programs.ErrProgramNotFound):
+		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
+	case errors.Is(err, programs.ErrInvalidInput):
+		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", strings.TrimPrefix(err.Error(), programs.ErrInvalidInput.Error()+": "), nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}

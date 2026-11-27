@@ -490,6 +490,10 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 		}
 		return nil, fmt.Errorf("failed to load program: %w", err)
 	}
+	// An archived programme is off the market (v2.132.0).
+	if program.ArchivedAt != nil {
+		return nil, ErrProgramNotFound
+	}
 
 	if program.Type == models.ProgramTypeFree {
 		return nil, ErrProgramNotPurchasable
@@ -906,6 +910,10 @@ func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID st
 			return nil, ErrProgramNotFound
 		}
 		return nil, fmt.Errorf("failed to load program: %w", err)
+	}
+	// An archived programme is off the market (v2.132.0).
+	if program.ArchivedAt != nil {
+		return nil, ErrProgramNotFound
 	}
 
 	if program.Type == models.ProgramTypeFree {

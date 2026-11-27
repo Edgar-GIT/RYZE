@@ -7,6 +7,9 @@ import { Container } from "@/components/container/container";
 import { LEVEL_NAMES, LevelBadge } from "@/components/lifter/lifter";
 import { SOCIAL_NAMES, SocialIcon } from "@/components/social_icons/social_icons";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { ProgramCard } from "@/components/program_card/program_card";
+import { useTestMode } from "@/components/test_mode/test_mode_context";
+import { fetchCoachProfile, type CoachProfile } from "@/services/coaches_api";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { useBackTarget } from "@/hooks/use_back_target";
 import { useI18n } from "@/i18n/i18n";
@@ -45,6 +48,11 @@ const COPY = {
     edit: "Edit my profile",
     coach: "Coach profile",
     coachBadge: "RYZE coach",
+    coachText: "Certified RYZE coach: creates the training plans below.",
+    plansTitle: (name: string) => `Plans created by ${name}`,
+    plansLead: "Every plan this coach has published on RYZE. Open one to see what it includes and its price.",
+    plansEmpty: "This coach has not published any plans yet.",
+    planViews: (formatted: string) => `${formatted} plan views`,
     age: (years: number) => `${years} years old`,
     training: (years: number) => (years < 1 ? "Started training this year" : years === 1 ? "1 year of training" : `${years} years of training`),
     socials: "Social networks",
@@ -69,6 +77,11 @@ const COPY = {
     edit: "Editar o meu perfil",
     coach: "Perfil de treinador",
     coachBadge: "Treinador RYZE",
+    coachText: "Treinador certificado RYZE: cria os planos de treino abaixo.",
+    plansTitle: (name: string) => `Planos criados por ${name}`,
+    plansLead: "Todos os planos que este treinador publicou na RYZE. Abre um para ver o que inclui e o preço.",
+    plansEmpty: "Este treinador ainda não publicou planos.",
+    planViews: (formatted: string) => `${formatted} visualizações dos planos`,
     age: (years: number) => `${years} anos`,
     training: (years: number) => (years < 1 ? "Começou a treinar este ano" : years === 1 ? "1 ano de treino" : `${years} anos de treino`),
     socials: "Redes sociais",
@@ -103,13 +116,22 @@ export const PublicProfilePage = () => {
   const [busy, setBusy] = useState(false);
   const [followError, setFollowError] = useState("");
   const [list, setList] = useState<{ kind: ListKind; people: PublicPerson[] | null } | null>(null);
+  // A coach's profile is the member profile plus the coach badge and the
+  // plans they created (owner request, 2026-11-27).
+  const [coach, setCoach] = useState<CoachProfile | null>(null);
+  const { isActive: testModeActive } = useTestMode();
 
   const load = useCallback(async () => {
     setState("loading");
     setList(null);
+    setCoach(null);
     try {
-      setProfile(await fetchPublicProfile(username));
+      const loaded = await fetchPublicProfile(username);
+      setProfile(loaded);
       setState("ready");
+      if (loaded.coach_id) {
+        setCoach(await fetchCoachProfile(loaded.coach_id).catch(() => null));
+      }
     } catch (error) {
       setProfile(null);
       setState(error instanceof ApiError && error.status === 404 ? "missing" : "error");
@@ -206,11 +228,12 @@ export const PublicProfilePage = () => {
                     </span>
                   ) : null}
                   {profile.coach_id ? (
-                    <Link className={styles.coachChip} to={`/coaches/${encodeURIComponent(profile.coach_id)}`}>
-                      <BadgeCheck aria-hidden="true" /> {text.coachBadge} · {text.coach}
-                    </Link>
+                    <span className={styles.coachChip}>
+                      <BadgeCheck aria-hidden="true" /> {text.coachBadge}
+                    </span>
                   ) : null}
                 </div>
+                {profile.coach_id ? <p className={styles.meta}>{text.coachText}</p> : null}
               </div>
               {about && (about.bio || facts.length > 0 || about.socials.length > 0) ? (
                 <div className={styles.about}>
@@ -306,6 +329,29 @@ export const PublicProfilePage = () => {
                 </div>
               ) : null}
             </dl>
+
+            {profile.coach_id ? (
+              <section className={styles.plans} aria-labelledby="coach-plans-title">
+                <div className={styles.plansHead}>
+                  <h2 id="coach-plans-title" className={styles.peopleTitle}>
+                    {text.plansTitle(name)}
+                  </h2>
+                  <p className={styles.muted}>
+                    {coach && coach.programs.length > 0 ? text.plansLead : text.plansEmpty}
+                    {coach && coach.coach.total_views > 0 ? ` · ${text.planViews(formatNumber(coach.coach.total_views))}` : ""}
+                  </p>
+                </div>
+                {coach && coach.programs.length > 0 ? (
+                  <ul className={styles.planGrid}>
+                    {coach.programs.map((program) => (
+                      <li key={program.id}>
+                        <ProgramCard program={program} forceFree={testModeActive} />
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+            ) : null}
 
             {list ? (
               <section className={styles.people} aria-label={text[list.kind]}>

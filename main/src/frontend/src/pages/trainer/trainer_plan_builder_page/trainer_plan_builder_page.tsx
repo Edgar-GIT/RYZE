@@ -8,6 +8,7 @@ import { type Copy, useI18n } from "@/i18n/i18n";
 import {
   createPlanDraft,
   detailToPlanDraft,
+  toCuratedNutritionInput,
   toGenericProgramInput,
   type PlanDraft
 } from "@/pages/admin2/admin2_plan_create_page/plan_builder_model";
@@ -21,8 +22,10 @@ import {
   createTrainerProgram,
   deleteTrainerProgram,
   fetchTrainerProgram,
+  fetchTrainerProgramNutrition,
   fetchTrainerProgramStructure,
   publishTrainerProgram,
+  saveTrainerProgramNutrition,
   saveTrainerProgramStructure,
   TrainerProgramStatus,
   TrainerProgramType,
@@ -121,14 +124,19 @@ const TYPES: TrainerProgramTypeValue[] = [TrainerProgramType.FREE, TrainerProgra
 
 // toDetail presents a trainer programme and its structure in the shape the
 // shared plan draft mapping reads.
-const toDetail = (program: TrainerProgram, weeks: GenericProgramWeek[]): GenericProgramDetail => ({
+const toDetail = (
+  program: TrainerProgram,
+  weeks: GenericProgramWeek[],
+  nutrition: GenericProgramDetail["curated_nutrition"] = null
+): GenericProgramDetail => ({
   id: program.id,
   name: program.name,
   description: program.description,
   type: program.type as ProgramTypeValue,
-  product_type: PROGRAM_PRODUCT_TYPE.GENERIC,
-  objective: null,
-  nutrition_mode: null,
+  // A Premium plan is a Premium Level 1 package (v2.132.0).
+  product_type: (program.product_type as GenericProgramDetail["product_type"]) || PROGRAM_PRODUCT_TYPE.GENERIC,
+  objective: (program.objective ?? null) as GenericProgramDetail["objective"],
+  nutrition_mode: (program.nutrition_mode ?? null) as GenericProgramDetail["nutrition_mode"],
   content_version: 1,
   status: program.status,
   level: (program.level ?? null) as GenericProgramDetail["level"],
@@ -142,9 +150,25 @@ const toDetail = (program: TrainerProgram, weeks: GenericProgramWeek[]): Generic
   audience: program.audience ?? null,
   created_at: program.created_at,
   updated_at: program.updated_at,
-  curated_nutrition: null,
+  curated_nutrition: nutrition,
   weeks
 });
+
+// withPackage aligns the draft with its type: a Premium plan is a Level 1
+// package with an objective and a curated meal plan; a Free plan has neither.
+const withPackage = (draft: PlanDraft, type: ProgramTypeValue): PlanDraft => {
+  if (type === TrainerProgramType.PREMIUM) {
+    const defaults = createPlanDraft(PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1);
+    return {
+      ...draft,
+      type,
+      product_type: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1,
+      nutrition_mode: "curated",
+      curated_nutrition: draft.curated_nutrition ?? defaults.curated_nutrition
+    };
+  }
+  return { ...draft, type, product_type: PROGRAM_PRODUCT_TYPE.GENERIC, objective: "", nutrition_mode: "", curated_nutrition: null };
+};
 
 const exercisesOf = (weeks: GenericProgramWeek[]): BuilderExercise[] =>
   weeks.flatMap((week) =>
@@ -172,6 +196,7 @@ const metadataOf = (draft: PlanDraft) => ({
   name: draft.name.trim(),
   description: draft.description.trim(),
   type: draft.type as TrainerProgramTypeValue,
+  ...(draft.type === TrainerProgramType.PREMIUM ? { objective: draft.objective } : {}),
   level: draft.level,
   training_type: draft.training_type,
   duration_weeks: Number(draft.duration_weeks) || 0,
@@ -230,11 +255,17 @@ export default function TrainerPlanBuilderPage() {
     if (!programId || programId === loadedId.current) return;
     let cancelled = false;
     setLoading(true);
-    Promise.all([fetchTrainerProgram(programId), fetchTrainerProgramStructure(programId)])
-      .then(([program, weeks]) => {
+    Promise.all([
+      fetchTrainerProgram(programId),
+      fetchTrainerProgramStructure(programId),
+      fetchTrainerProgramNutrition(programId).catch(() => null)
+    ])
+      .then(([program, weeks, nutrition]) => {
         if (cancelled) return;
         loadedId.current = program.id;
-        setDraft(detailToPlanDraft(toDetail(program, weeks)));
+        const loaded = detailToPlanDraft(toDetail(program, weeks, nutrition ?? null));
+        // A draft Premium plan made before packages existed becomes one now.
+        setDraft(program.type === TrainerProgramType.PREMIUM && program.status !== TrainerProgramStatus.PUBLISHED ? withPackage(loaded, program.type) : loaded);
         setStatus(program.status === TrainerProgramStatus.PUBLISHED ? "published" : "draft");
         savedCover.current = program.cover_image ?? "";
         rememberExercises(exercisesOf(weeks));
@@ -332,6 +363,10 @@ export default function TrainerPlanBuilderPage() {
       }
       savedCover.current = draft.cover_image;
       const weeks = await saveTrainerProgramStructure(id, toGenericProgramInput(draft).weeks);
+      // A Premium package keeps its meal plan with it (Level 1).
+      if (draft.type === TrainerProgramType.PREMIUM && draft.curated_nutrition && draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1) {
+        await saveTrainerProgramNutrition(id, toCuratedNutritionInput(draft.curated_nutrition));
+      }
       let program = await fetchTrainerProgram(id);
       if (publish && !requestId && program.status === TrainerProgramStatus.DRAFT) {
         program = await publishTrainerProgram(id);
@@ -340,15 +375,19 @@ export default function TrainerPlanBuilderPage() {
         // The personal plan goes straight onto its request.
         await attachPremiumLevel2TrainingProgram(requestId, id);
       }
-      setDraft(detailToPlanDraft(toDetail(program, weeks)));
+      setDraft({ ...detailToPlanDraft(toDetail(program, weeks)), curated_nutrition: draft.curated_nutrition });
       rememberExercises(exercisesOf(weeks));
       setStatus(program.status === TrainerProgramStatus.PUBLISHED ? "published" : "draft");
       setDirty(false);
       setMessage({ tone: "success", text: program.status === TrainerProgramStatus.PUBLISHED ? text.published : text.saved });
       if (requestId) {
         setRedirect(requestPage);
+      } else if (publish) {
+        // Published (or a published plan saved): back to the programme list,
+        // which confirms it in green (owner request, 2026-11-27).
+        setRedirect(`/trainer/programs?${status === "published" ? "saved" : "published"}=${encodeURIComponent(program.name)}`);
       } else if (!routeId || routeId === "new") {
-        setRedirect(`/trainer/programs/${id}`);
+        setRedirect(`/trainer/programs/${id}/edit`);
       }
     } catch (error) {
       if (error instanceof ApiError && error.code === "PROGRAM_LOCKED") {
@@ -403,11 +442,15 @@ export default function TrainerPlanBuilderPage() {
       onChange={change}
       categories={categories}
       category={draft.type}
-      onCategoryChange={requestId ? undefined : (id) => change((current) => ({ ...current, type: id as ProgramTypeValue }))}
-      showPackageOptions={false}
-      packageOptionsLocked
+      onCategoryChange={
+        requestId || status === "published" ? undefined : (id) => change((current) => withPackage(current, id as ProgramTypeValue))
+      }
+      // A Premium plan is a Level 1 package: objective and meal plan.
+      showPackageOptions={draft.type === TrainerProgramType.PREMIUM}
+      curatedOnly
+      packageOptionsLocked={status === "published"}
       hasStructure
-      hasNutrition={false}
+      hasNutrition={draft.type === TrainerProgramType.PREMIUM}
       exercises={exercises}
       rememberExercises={rememberExercises}
       uploadCover={(file) => uploadTrainerCover(draft.type as TrainerProgramTypeValue, file)}

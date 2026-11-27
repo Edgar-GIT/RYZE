@@ -31,7 +31,7 @@ const TRAINER_ADAPTER: WorkspaceAdapter = {
   uploadMealImage: uploadTrainerMealImage,
   newPlanLink: (requestId, base) =>
     `/trainer/programs/new?${planPath(requestId)}${base ? `&base=${encodeURIComponent(base.id)}` : ""}`,
-  editPlanLink: (requestId, programId) => `/trainer/programs/${encodeURIComponent(programId)}?${planPath(requestId)}`
+  editPlanLink: (requestId, programId) => `/trainer/programs/${encodeURIComponent(programId)}/edit?${planPath(requestId)}`
 };
 
 export const TrainerPremiumLevel2DetailPage = () => {

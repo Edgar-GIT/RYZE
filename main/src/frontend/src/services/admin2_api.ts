@@ -571,6 +571,8 @@ export interface GenericProgramSummary {
   cover_image_url?: string;
   // An official RYZE plan (free plans only): its cover is the RYZE picture.
   official?: boolean;
+  // Off the market (v2.132.0); the people who have it keep it.
+  archived_at?: string | null;
   audience?: "female" | "male" | null;
   created_at: string;
   updated_at: string;
@@ -786,6 +788,16 @@ export const publishGenericProgram = (family: ProgramProductTypeValue, id: strin
 
 export const deleteGenericProgram = (family: ProgramProductTypeValue, id: string) =>
   apiDelete<never>(`/programs/${programFamilyPath(family)}/${encodePathSegment(id)}`);
+
+// Archive (v2.132.0): a published RYZE programme leaves the market for a
+// while and can be put back; at most 15 archived RYZE programmes in all.
+export const archiveGenericProgram = (family: ProgramProductTypeValue, id: string) =>
+  apiPost<{ id: string; archived_at: string }>(`/programs/${programFamilyPath(family)}/${encodePathSegment(id)}/archive`, {});
+
+export const restoreGenericProgram = (family: ProgramProductTypeValue, id: string) =>
+  apiPost<{ id: string; archived_at: null }>(`/programs/${programFamilyPath(family)}/${encodePathSegment(id)}/restore`, {});
+
+export const fetchPlatformArchiveCount = () => apiGet<{ archived: number; limit: number }>("/programs/generic-archive");
 
 /**
  * One page of member feedback for review, optionally filtered by status.

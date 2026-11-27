@@ -8,6 +8,8 @@ import { TrainerClientsPage } from "@/pages/trainer/trainer_clients_page/trainer
 import { TrainerDashboardPage } from "@/pages/trainer/trainer_dashboard_page/trainer_dashboard_page";
 import { TrainerProfilePage } from "@/pages/trainer/trainer_profile_page/trainer_profile_page";
 import { TrainerProgramsPage } from "@/pages/trainer/trainer_programs_page/trainer_programs_page";
+import { TrainerStatsPage } from "@/pages/trainer/trainer_stats_page/trainer_stats_page";
+import { TrainerProgramOverviewPage } from "@/pages/trainer/trainer_program_overview_page/trainer_program_overview_page";
 import { TrainerPremiumLevel2Page } from "@/pages/trainer/trainer_premium_level2_page/trainer_premium_level2_page";
 import { TrainerPremiumLevel2DetailPage } from "@/pages/trainer/trainer_premium_level2_detail_page/trainer_premium_level2_detail_page";
 
@@ -25,8 +27,12 @@ const TrainerRoutes = () => (
         <Route exact path="/trainer/premium-level-2/:requestID" component={TrainerPremiumLevel2DetailPage} />
         <Route exact path="/trainer/programs" component={TrainerProgramsPage} />
         <Route exact path="/trainer/programs/new" component={TrainerPlanBuilderPage} />
-        <Route exact path="/trainer/programs/:programId" component={TrainerPlanBuilderPage} />
+        {/* A programme opens on its overview (edit, archive, delete); the
+            builder is its edit screen (v2.132.0). */}
+        <Route exact path="/trainer/programs/:programId" component={TrainerProgramOverviewPage} />
+        <Route exact path="/trainer/programs/:programId/edit" component={TrainerPlanBuilderPage} />
         <Route exact path="/trainer/profile" component={TrainerProfilePage} />
+        <Route exact path="/trainer/stats" component={TrainerStatsPage} />
         <Redirect to="/trainer/dashboard" />
       </Switch>
     </TrainerLayout>

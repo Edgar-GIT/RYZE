@@ -346,3 +346,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* The plan's first screen (v2.132.0). */
+.overview {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}

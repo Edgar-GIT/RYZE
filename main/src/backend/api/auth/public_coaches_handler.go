@@ -136,6 +136,7 @@ func (h *PublicCoachesHandler) GetCoach(c *gin.Context) {
 			"coach": gin.H{
 				"id":          profile.Coach.ID,
 				"name":        profile.Coach.Name,
+				"username":    profile.Username,
 				"coach_since": profile.CoachSince,
 				"total_views": profile.TotalViews,
 			},

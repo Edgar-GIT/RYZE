@@ -93,6 +93,10 @@ func (s *service) Activate(ctx context.Context, userID, programID string) (*Acti
 	if program.Type != models.ProgramTypeFree || program.ProductType != models.ProgramProductTypeGeneric {
 		return nil, ErrProgramNotFound
 	}
+	// An archived plan is off the market: nobody new activates it (v2.132.0).
+	if program.ArchivedAt != nil {
+		return nil, ErrProgramNotFound
+	}
 
 	activation := &models.FreeProgramActivation{}
 	if err := s.activations.Activate(ctx, userID, programID, activation); err != nil {

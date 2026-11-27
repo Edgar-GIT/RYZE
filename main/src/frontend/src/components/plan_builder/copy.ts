@@ -5,6 +5,15 @@ export interface BuilderCopy {
   stepOf: (current: number, total: number) => string;
   back: string;
   next: string;
+  // Step validation (v2.132.0): what is missing before the next step.
+  requiredTitle: string;
+  required: {
+    name: string;
+    description: string;
+    objective: string;
+    exercises: string;
+    nutrition: string;
+  };
   // Basics
   categoryTitle: string;
   categoryLocked: string;
@@ -178,7 +187,15 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     steps: { basics: "Plan", structure: "Structure", nutrition: "Nutrition", review: "Review" },
     stepOf: (current, total) => `Step ${current} of ${total}`,
     back: "Back",
-    next: "Continue",
+    next: "Next step",
+    requiredTitle: "Fill in what is missing to continue:",
+    required: {
+      name: "Give the plan a name.",
+      description: "Write a short description of the plan (what it is for and who it suits).",
+      objective: "Choose the package objective (it decides who it is recommended to).",
+      exercises: "Add at least one exercise to the training days.",
+      nutrition: "Complete the meal plan:"
+    },
     categoryTitle: "Category",
     categoryLocked: "The category is fixed once the plan exists.",
     coverTitle: "Cover image",
@@ -318,7 +335,15 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     steps: { basics: "Plano", structure: "Estrutura", nutrition: "Nutrição", review: "Rever" },
     stepOf: (current, total) => `Passo ${current} de ${total}`,
     back: "Voltar",
-    next: "Continuar",
+    next: "Passo seguinte",
+    requiredTitle: "Preenche o que falta para continuar:",
+    required: {
+      name: "Dá um nome ao plano.",
+      description: "Escreve uma descrição curta do plano (para que serve e para quem é).",
+      objective: "Escolhe o objetivo do pacote (decide a quem é recomendado).",
+      exercises: "Adiciona pelo menos um exercício aos dias de treino.",
+      nutrition: "Completa o plano de refeições:"
+    },
     categoryTitle: "Categoria",
     categoryLocked: "A categoria fica fixa depois de o plano existir.",
     coverTitle: "Imagem de capa",

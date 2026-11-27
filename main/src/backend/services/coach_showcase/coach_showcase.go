@@ -62,6 +62,7 @@ type Program struct {
 // Profile is a public coach profile with the coach's published programs.
 type Profile struct {
 	Coach      Coach
+	Username   string
 	CoachSince time.Time
 	TotalViews int64
 	Programs   []Program
@@ -160,6 +161,7 @@ func (s *service) GetProfile(ctx context.Context, trainerID string) (*Profile, e
 	}
 	profile := &Profile{
 		Coach:      Coach{ID: coach.ID, Name: displayName(coach.FirstName, coach.LastName)},
+		Username:   coach.Username,
 		CoachSince: coach.CreatedAt,
 		Programs:   toPrograms(rows),
 	}

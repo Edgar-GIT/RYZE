@@ -138,6 +138,9 @@ func TestInvoiceRepositoryIssuesOncePerPurchaseInSequence(t *testing.T) {
 // concurrent issues for different purchases take distinct, gapless numbers.
 func TestInvoiceRepositoryConcurrentIssues(t *testing.T) {
 	db := openInvoiceDB(t)
+	// Its purchases are committed: hold the shared test lock until they are
+	// deleted (registered first, so it is released last).
+	t.Cleanup(holdCommittedPurchasesLock(t, db))
 	year := 2100 + int(time.Now().UnixNano()%800)
 	purchases := []*models.Purchase{seedCompletedPurchase(t, db, false), seedCompletedPurchase(t, db, false), seedCompletedPurchase(t, db, false)}
 	t.Cleanup(func() {

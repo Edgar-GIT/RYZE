@@ -118,8 +118,10 @@ type Program struct {
 	TrainingType     *string
 	CoverImage       *string
 	Audience         *string
-	PriceMinorUnits  int64
-	Currency         string
+	// Archived: off the market; still open to the people who have it.
+	Archived        bool
+	PriceMinorUnits int64
+	Currency        string
 	// ProductType is the product family the program belongs to. It is public
 	// product metadata: it tells the client which marketplace and which
 	// onboarding flow the program belongs to.
@@ -376,6 +378,7 @@ func toSafe(model *models.Program) *Program {
 		TrainingType:     model.TrainingType,
 		CoverImage:       model.CoverImage,
 		Audience:         model.Audience,
+		Archived:         model.ArchivedAt != nil,
 		PriceMinorUnits:  model.PriceMinorUnits,
 		ProductType:      model.ProductType,
 		Objective:        model.Objective,

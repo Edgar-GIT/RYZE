@@ -29,9 +29,11 @@ func NewPremiumJourneyRepository(db *gorm.DB) PremiumJourneyRepository {
 // Level 1 packages of one objective.
 // curatedPackages scopes the published curated packages of an objective that
 // suit the client's sex: packages for everyone plus those designed for it.
+// Since v2.132.0 (owner decision, 2026-11-27) trainers' Level 1 packages are
+// matched too; archived packages are not.
 func curatedPackages(db *gorm.DB, objective, sex string) *gorm.DB {
 	return db.Model(&models.Program{}).
-		Where("trainer_id IS NULL").
+		Where("archived_at IS NULL").
 		Where("product_type = ?", models.ProgramProductTypePremiumLevel1).
 		Where("status = ?", models.ProgramStatusPublished).
 		Where("nutrition_mode = ?", models.ProgramNutritionModeCurated).

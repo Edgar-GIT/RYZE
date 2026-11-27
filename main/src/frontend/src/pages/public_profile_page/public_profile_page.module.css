@@ -403,3 +403,40 @@
 .statCoach dt svg {
   color: #00cbff;
 }
+
+/* A coach's plans (v2.132.0): the coach page lives in the member profile. */
+.plans {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.plansHead {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.planGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.1rem 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planGrid > li {
+  min-width: 0;
+}
+
+@media (min-width: 720px) {
+  .planGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .planGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

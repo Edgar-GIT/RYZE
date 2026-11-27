@@ -1,5 +1,9 @@
 .aider*
 .env
+# Per-environment secret files (staging/production) never go to Git; only
+# the template is tracked.
+.env.*
+!.env.example
 .codex*
 .gemini*
 /how_to_run.MD

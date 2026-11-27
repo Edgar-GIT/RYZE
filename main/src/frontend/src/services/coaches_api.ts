@@ -20,7 +20,9 @@ export interface CoachProgram extends MarketplaceProgram {
 }
 
 export interface CoachProfile {
-  coach: PublicCoach & { coach_since: string; total_views: number };
+  // username: the coach's public member profile (/u/<username>), which is the
+  // coach's public page since v2.132.0.
+  coach: PublicCoach & { coach_since: string; total_views: number; username?: string };
   programs: CoachProgram[];
 }
 

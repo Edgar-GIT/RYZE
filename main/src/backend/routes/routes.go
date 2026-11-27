@@ -289,7 +289,8 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	entitlementHandler := auth.NewEntitlementsHandler(entitlementService)
 
 	trainerProgramRepository := repositories.NewProgramRepository(db)
-	trainerProgramService := programs.NewService(trainerProgramRepository, pricingCfg)
+	trainerProgramService := programs.NewService(trainerProgramRepository, pricingCfg,
+		programs.WithNutrition(repositories.NewCuratedNutritionRepository(db)))
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
 
 	premiumLevel2Repository := repositories.NewPremiumLevel2Repository(db)
@@ -701,6 +702,15 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	trainer.PATCH("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.UpdateProgram)
 	trainer.POST("/programs/:programID/publish", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.PublishProgram)
 	trainer.DELETE("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.DeleteProgram)
+	// The meal plan of a trainer's Premium package (Level 1, v2.132.0).
+	trainer.GET("/programs/:programID/nutrition", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.GetNutrition)
+	trainer.PUT("/programs/:programID/nutrition", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.SaveNutrition)
+	// Archive: off the market for a while, back later (v2.132.0).
+	programArchiveRepository := repositories.NewProgramArchiveRepository(db)
+	trainerArchiveHandler := auth.NewProgramArchiveHandler(programArchiveRepository, "")
+	trainer.GET("/programs-archive", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerArchiveHandler.Count)
+	trainer.POST("/programs/:programID/archive", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerArchiveHandler.Archive)
+	trainer.POST("/programs/:programID/restore", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerArchiveHandler.Restore)
 	trainer.POST("/programs/:programID/weeks", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.CreateWeek)
 	trainer.GET("/programs/:programID/weeks", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ListWeeks)
 	trainer.PATCH("/programs/:programID/weeks/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ReorderWeeks)
@@ -732,6 +742,10 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	genericPrograms.GET("/:programID", genericProgramHandler.GetProgram)
 	genericPrograms.PATCH("/:programID", genericProgramHandler.UpdateProgram)
 	genericPrograms.POST("/:programID/publish", genericProgramHandler.PublishProgram)
+	genericArchive := auth.NewProgramArchiveHandler(repositories.NewProgramArchiveRepository(db), models.ProgramProductTypeGeneric)
+	genericPrograms.GET("-archive", genericArchive.Count)
+	genericPrograms.POST("/:programID/archive", genericArchive.Archive)
+	genericPrograms.POST("/:programID/restore", genericArchive.Restore)
 	genericPrograms.DELETE("/:programID", genericProgramHandler.DeleteProgram)
 
 	// Premium Level 1 administration: the same platform-owned program management
@@ -750,6 +764,9 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	premiumLevel1Programs.GET("/:programID", premiumLevel1ProgramHandler.GetProgram)
 	premiumLevel1Programs.PATCH("/:programID", premiumLevel1ProgramHandler.UpdateProgram)
 	premiumLevel1Programs.POST("/:programID/publish", premiumLevel1ProgramHandler.PublishProgram)
+	level1Archive := auth.NewProgramArchiveHandler(repositories.NewProgramArchiveRepository(db), models.ProgramProductTypePremiumLevel1)
+	premiumLevel1Programs.POST("/:programID/archive", level1Archive.Archive)
+	premiumLevel1Programs.POST("/:programID/restore", level1Archive.Restore)
 	premiumLevel1Programs.DELETE("/:programID", premiumLevel1ProgramHandler.DeleteProgram)
 
 	// Premium Level 2 administration publishes the purchasable service offer.

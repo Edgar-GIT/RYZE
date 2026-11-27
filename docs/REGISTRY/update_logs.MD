@@ -1,3 +1,101 @@
+# Version 2.132.0
+
+Title: Programme archive, trainer Premium = Level 1 package, clearer trainer/admin UI
+
+Date: 2026-11-27
+
+Summary:
+
+- Archive (migration 000072, `programs.archived_at`): a published programme
+  can be taken off the market and put back later, by trainers (own
+  programmes) and by ADMIN_2 (RYZE Free and Premium Level 1 plans, audited).
+  Archived programmes leave the catalogue, store, coach profile, Level 1
+  matching, new purchases (Test Mode too) and new free activations; people
+  who already have them keep full access. Limit: 15 archived per trainer and
+  15 for the platform. New endpoints in `api.MD`.
+- Trainer Premium plans are real Premium Level 1 packages (owner decision):
+  objective plus a complete curated meal plan (new builder step, saved via
+  `PUT /trainer/programs/:id/nutrition`), required before publishing (`409
+  NUTRITION_REQUIRED`); they appear on the coach profile, in the store and in
+  the Level 1 questionnaire matching (the platform-only filter was removed).
+  A published plan cannot switch between Free and Premium. Validation errors
+  from the trainer API now carry the reason.
+- Plan builder (trainer and ADMIN_2): each step lists what is missing and
+  blocks "Next step" until the required fields are filled (name, description,
+  package objective, at least one exercise, complete meal plan).
+- After publishing, trainer and admin land on their programme list with a
+  green confirmation ("Programme published", also for archive, restore and
+  delete). Opening a programme shows a simple first screen: cover, name,
+  state, and Edit (green), Archive / Put back on the market, Delete, each
+  explained. The trainer builder moved to `/trainer/programs/:id/edit`.
+  Lists gained an "Archived · n/15" filter.
+- Coach public page = member profile (`/u/<username>`) with the "RYZE coach"
+  badge, the plans they created and their views; `/coaches/:id` redirects
+  there (the coach profile API now returns the username).
+- Trainer sidebar regrouped (My work, Programmes, Profile and account) with
+  explicit names, plus Create a programme, Archived programmes, See my public
+  profile and a new Statistics and earnings page (`/trainer/stats`: sales,
+  gross, RYZE commission, net, views per plan, programmes by state/type,
+  clients, Level 2 requests). Member and ADMIN_2 sidebars use explicit names
+  (phone tabs keep the short ones).
+- Fixes found by the new tests: reading a curated meal plan always failed
+  (GORM added a `deleted_at` filter on a view without that column), which
+  also affected the meal-plan delivery of Premium Level 1 buyers; and a
+  flaky admin purchase-totals test raced with two tests that commit
+  purchases (now serialised with a test-only advisory lock).
+
+Verification: Go build/vet and the full suite on `ryze_test` (69 packages,
+four consecutive clean runs), new real-DB tests for the archive (limit,
+state, catalogue exclusion) and the trainer Premium package lifecycle;
+frontend typecheck, unit tests (incl. new ProgramOverview tests) and build;
+migration 000072 applied to `ryze_test` and the dev database. Not verified in
+the browser: the signed-in trainer and admin screens (no session available
+to the assistant without the local credentials).
+
+---
+
+# Version 2.131.2
+
+Title: Production readiness: production.MD, deploy templates, CI with PostgreSQL, Docker uploads fix
+
+Date: 2026-11-27
+
+Summary:
+
+- `production.MD` (root, Portuguese): readiness assessment per area,
+  infrastructure plan (Cloudflare Registrar/DNS/Pages/R2, OVH VPS, PostgreSQL
+  in Docker), server hardening, deploy, backups (RPO/RTO proposals),
+  monitoring, every environment variable, costs (three scenarios),
+  emergencies, commercial/legal prerequisites and launch checklists.
+  Nothing was bought, contracted, published or changed outside the repo.
+- New `deploy/compose.app.yml` (one environment: API + PostgreSQL, no public
+  ports), `deploy/compose.edge.yml` + `deploy/Caddyfile` (only public
+  service; Cloudflare Origin Certificate; client IP only from Cloudflare),
+  `deploy/deploy.sh` (pull, backup, migrate, swap, health check, automatic
+  API rollback), `deploy/backup.sh` (age-encrypted DB + uploads to R2 with
+  daily/weekly/monthly retention) and `deploy/restore.sh` (throwaway restore
+  test, database and uploads restore).
+- `.github/workflows/ci.yml` now applies migrations and runs the whole Go
+  suite on a throwaway PostgreSQL 17 (validated locally on a fresh cluster
+  without .env: 69 packages); reusable by the new
+  `.github/workflows/deploy.yml` (staging on push to `staging`, production on
+  `main` after Environment approval; image to GHCR; Pages after the API).
+- Fixes: the Docker image wrote uploads to `/uploads` (not writable, not
+  persistent) — now `UPLOADS_DIR=/var/lib/ryze/uploads` in the Dockerfile and
+  compose; the local nginx did not proxy `/uploads/`; a name-sort test
+  depended on the database collation and would fail on a fresh database.
+- `public/_headers` for Cloudflare Pages (security headers with the API
+  origins in the CSP, asset caching). `.gitignore` also ignores `.env.*`
+  (except `.env.example`). `.env.example` lists every variable the code
+  reads; the local `.env` got the missing names, empty (no values touched).
+
+Verification: Go build/vet and the full suite on a fresh PostgreSQL without
+`.env`; the backend boots with the updated `.env`; `docker compose config`
+for both deploy compose files; workflow YAML parses; frontend build includes
+`_headers`; shell scripts pass `bash -n`. Not verified: building the Docker
+image (no Docker permission locally), the GitHub workflows (first real run on
+GitHub), and anything on a real server.
+
 # Version 2.131.1
 
 Title: Support chat tables dropped

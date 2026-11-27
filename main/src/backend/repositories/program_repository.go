@@ -242,13 +242,13 @@ func (r *programRepository) ListPublished(ctx context.Context, page, limit int) 
 
 	if err := r.db.WithContext(ctx).
 		Model(&models.Program{}).
-		Where("status = ?", models.ProgramStatusPublished).
+		Where("status = ? AND archived_at IS NULL", models.ProgramStatusPublished).
 		Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to count published programs: %w", err)
 	}
 
 	if err := r.db.WithContext(ctx).
-		Where("status = ?", models.ProgramStatusPublished).
+		Where("status = ? AND archived_at IS NULL", models.ProgramStatusPublished).
 		Order("created_at DESC, id ASC").
 		Limit(limit).
 		Offset((page - 1) * limit).
@@ -328,7 +328,9 @@ func (r *programRepository) SearchPublished(ctx context.Context, filter PublicCa
 	var total int64
 
 	db := r.db.WithContext(ctx).Model(&models.Program{}).
-		Where("status = ?", models.ProgramStatusPublished)
+		Where("status = ?", models.ProgramStatusPublished).
+		// Archived programmes are off the market (v2.132.0).
+		Where("archived_at IS NULL")
 
 	if filter.ScopeGeneric {
 		// The generic scope is defined by product family, not only by ownership:

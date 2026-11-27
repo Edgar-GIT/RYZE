@@ -1,0 +1,42 @@
+# RYZE edge proxy (Caddy) on the VPS: the only container with public ports.
+#
+# It terminates HTTPS for api.<domain> (production) and api-staging.<domain>
+# (staging) with the Cloudflare Origin Certificate and forwards to each
+# environment's API over that environment's private Docker network.
+#
+#   cd /opt/ryze/edge && docker compose -f /opt/ryze/deploy/compose.edge.yml up -d
+#
+# Start the production and staging stacks first: their networks
+# (ryze-production-net, ryze-staging-net) must exist before Caddy joins them.
+# If staging is not used, remove it here and in the Caddyfile.
+
+name: ryze-edge
+
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/ryze/edge/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Cloudflare Origin Certificate (origin.pem, origin.key), chmod 600.
+      - /opt/ryze/edge/certs:/etc/caddy/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - production
+      - staging
+
+networks:
+  production:
+    name: ryze-production-net
+    external: true
+  staging:
+    name: ryze-staging-net
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:

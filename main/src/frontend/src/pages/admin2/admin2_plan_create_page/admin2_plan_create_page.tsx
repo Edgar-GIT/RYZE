@@ -304,6 +304,10 @@ export default function Admin2PlanCreatePage() {
         // The personal plan goes straight onto its request.
         await attachRyzePremiumLevel2TrainingProgram(requestId, saved.id);
         setRedirect(requestPage);
+      } else if (publish) {
+        // Published (or a published plan saved): back to the plan list, which
+        // confirms it in green (owner request, 2026-11-27).
+        setRedirect(`/admin2/plans?family=${family}&${status === "published" ? "saved" : "published"}=${encodeURIComponent(saved.name)}`);
       } else if (!programId) {
         setRedirect(`/admin2/plans/create?edit=${saved.id}&family=${family}`);
       }

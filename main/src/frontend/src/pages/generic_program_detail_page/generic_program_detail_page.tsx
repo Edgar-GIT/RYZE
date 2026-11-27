@@ -38,6 +38,9 @@ const PAGE_PT: Catalog = {
   "Created by": "Criado por",
   "See {name}'s coach profile": "Ver o perfil de treinador de {name}",
   "Free plan": "Plano gratuito",
+  "Off the market": "Fora do mercado",
+  "Its creator took this plan off the market for a while. People who already have it keep using it.":
+    "Quem o criou tirou este plano do mercado por uns tempos. Quem já o tem continua a usá-lo.",
   "Sign in to activate {name} and unlock the full training structure.":
     "Entra na tua conta para ativar {name} e desbloquear a estrutura de treino completa.",
   "You have activated {name}.": "Já ativaste {name}.",
@@ -72,9 +75,30 @@ interface PurchasePanelProps {
   onTestEmailChange: (email: string) => void;
   taxId: string;
   onTaxIdChange: (taxId: string) => void;
+  archived?: boolean;
 }
 
-const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, paymentMethods, selectedMethod, onSelectMethod, onBuy, onRetryPurchase, testMode = false, testEmail, onTestEmailChange, taxId, onTaxIdChange }: PurchasePanelProps) => {
+// ArchivedPanel replaces buying or getting a plan that is off the market.
+const ArchivedPanel = () => {
+  const tr = useGettext(PAGE_PT, COMMERCE_PT);
+  return (
+    <aside className={styles.purchase}>
+      <div className={styles.purchaseCard}>
+        <p className={styles.purchaseTitle}>{tr("Off the market")}</p>
+        <p className={styles.purchaseText}>
+          {tr("Its creator took this plan off the market for a while. People who already have it keep using it.")}
+        </p>
+        <div className={styles.purchaseActions}>
+          <Button to="/services/generic-program" variant="secondary" size="small">
+            {tr("Back to Training plans")}
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
+};
+
+const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, paymentMethods, selectedMethod, onSelectMethod, onBuy, onRetryPurchase, testMode = false, testEmail, onTestEmailChange, taxId, onTaxIdChange, archived = false }: PurchasePanelProps) => {
   const tr = useGettext(COMMERCE_PT);
   const { locale } = useI18n();
   if (state.status === "owned") {
@@ -101,6 +125,10 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
         </div>
       </aside>
     );
+  }
+
+  if (archived && state.status !== "checking") {
+    return <ArchivedPanel />;
   }
 
   switch (state.status) {
@@ -356,11 +384,12 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
 interface FreeAccessPanelProps {
   programId: string;
   programName: string;
+  archived?: boolean;
 }
 
 // Free plans still require an explicit activation. Until that happens the
 // public catalog only supplies metadata, never the programme structure.
-const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
+const FreeAccessPanel = ({ programId, programName, archived = false }: FreeAccessPanelProps) => {
   const tr = useGettext(PAGE_PT, COMMERCE_PT);
   const [activation, setActivation] = useState<FreeProgramActivation | null>(null);
   const [checking, setChecking] = useState(true);
@@ -386,6 +415,10 @@ const FreeAccessPanel = ({ programId, programName }: FreeAccessPanelProps) => {
       cancelled = true;
     };
   }, [programId]);
+
+  if (archived && !checking && !activation) {
+    return <ArchivedPanel />;
+  }
 
   return (
     <aside className={styles.purchase}>
@@ -561,7 +594,7 @@ export const GenericProgramDetailPage = () => {
                 </div>
 
                 {isFreeProgram ? (
-                  <FreeAccessPanel programId={programId} programName={detail.name} />
+                  <FreeAccessPanel programId={programId} programName={detail.name} archived={detail.archived} />
                 ) : (
                   <PurchasePanel
                     isFree={false}
@@ -579,6 +612,7 @@ export const GenericProgramDetailPage = () => {
                     onTestEmailChange={checkout.setTestEmail}
                     taxId={checkout.taxId}
                     onTaxIdChange={checkout.setTaxId}
+                    archived={detail.archived}
                   />
                 )}
               </header>

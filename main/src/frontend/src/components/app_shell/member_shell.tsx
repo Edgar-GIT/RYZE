@@ -77,6 +77,19 @@ const COPY: Copy<{
   account: string;
   publicProfile: string;
   more: string;
+  groupTraining: string;
+  groupDiscover: string;
+  groupAccount: string;
+  homeLong: string;
+  trainLong: string;
+  progressLong: string;
+  recoveryLong: string;
+  historyLong: string;
+  achievementsLong: string;
+  plansLong: string;
+  libraryLong: string;
+  purchasesLong: string;
+  accountLong: string;
   menu: string;
   signOut: string;
   signingOut: string;
@@ -104,6 +117,19 @@ const COPY: Copy<{
     account: "Account",
     publicProfile: "My public profile",
     more: "More",
+    groupTraining: "My training",
+    groupDiscover: "Plans and exercises",
+    groupAccount: "Account",
+    homeLong: "My summary",
+    trainLong: "My plans and workouts",
+    progressLong: "My progress",
+    recoveryLong: "Muscle recovery",
+    historyLong: "Workout history",
+    achievementsLong: "Achievements and medals",
+    plansLong: "Training plan store",
+    libraryLong: "Exercise library",
+    purchasesLong: "Purchases and invoices",
+    accountLong: "Account settings",
     menu: "Account menu",
     signOut: "Sign out",
     signingOut: "Signing out…",
@@ -131,6 +157,19 @@ const COPY: Copy<{
     account: "Conta",
     publicProfile: "O meu perfil público",
     more: "Mais",
+    groupTraining: "O meu treino",
+    groupDiscover: "Planos e exercícios",
+    groupAccount: "Conta",
+    homeLong: "O meu resumo",
+    trainLong: "Os meus planos e treinos",
+    progressLong: "O meu progresso",
+    recoveryLong: "Recuperação muscular",
+    historyLong: "Histórico de treinos",
+    achievementsLong: "Conquistas e medalhas",
+    plansLong: "Loja de planos de treino",
+    libraryLong: "Biblioteca de exercícios",
+    purchasesLong: "Compras e faturas",
+    accountLong: "Definições da conta",
     menu: "Menu da conta",
     signOut: "Terminar sessão",
     signingOut: "A terminar sessão…",
@@ -202,6 +241,27 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     { to: "/account/purchases", label: text.purchases, icon: ReceiptText },
     { to: "/account/settings", label: text.account, icon: Settings }
   ];
+  // The sidebar spells each section out (owner request, 2026-11-27); the
+  // phone tabs keep the short names.
+  const long: Record<string, string> = {
+    "/profile": text.homeLong,
+    "/services/my-programs": text.trainLong,
+    "/services/progress": text.progressLong,
+    "/services/recovery": text.recoveryLong,
+    "/services/workout-history": text.historyLong,
+    "/achievements": text.achievementsLong,
+    "/services/generic-program": text.plansLong,
+    "/exercises": text.libraryLong,
+    "/account/purchases": text.purchasesLong,
+    "/account/settings": text.accountLong
+  };
+  const spelled = (entry: ShellNavItem): ShellNavItem => ({ ...entry, label: long[entry.to] ?? entry.label });
+  const accountPaths = ["/account/purchases", "/account/settings"];
+  const sidebarGroups = [
+    { label: text.groupTraining, items: items.map(spelled) },
+    { label: text.groupDiscover, items: secondaryItems.filter((entry) => !accountPaths.includes(entry.to)).map(spelled) },
+    { label: text.groupAccount, items: secondaryItems.filter((entry) => accountPaths.includes(entry.to)).map(spelled) }
+  ];
   const menuItems: UserMenuItem[] = [
     ...(user ? [{ to: profilePath(user.username), label: text.publicProfile, icon: UserRound }] : []),
     { to: "/account/settings", label: text.account, icon: Settings },
@@ -230,7 +290,7 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
       <AppShell
         area="member"
         navLabel={text.nav}
-        groups={[{ items }, { label: text.more, items: secondaryItems }]}
+        groups={sidebarGroups}
         // Phones keep four tabs (Recovery is in "More", which lists every section).
         tabs={items.filter((item) => item.to !== "/services/recovery")}
         moreLabel={text.more}

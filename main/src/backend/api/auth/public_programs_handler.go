@@ -34,6 +34,7 @@ type publicProgramResponse struct {
 	TrainingType     *string              `json:"training_type"`
 	CoverImageURL    string               `json:"cover_image_url"`
 	Audience         *string              `json:"audience"`
+	Archived         bool                 `json:"archived"`
 	PriceMinorUnits  int64                `json:"price_minor_units"`
 	Currency         string               `json:"currency"`
 	ProductType      string               `json:"product_type"`
@@ -56,6 +57,7 @@ func newPublicProgramResponse(program *public_programs.Program) publicProgramRes
 		TrainingType:     program.TrainingType,
 		CoverImageURL:    program_details.CoverURL(program.CoverImage),
 		Audience:         program.Audience,
+		Archived:         program.Archived,
 		PriceMinorUnits:  program.PriceMinorUnits,
 		Currency:         program.Currency,
 		ProductType:      program.ProductType,

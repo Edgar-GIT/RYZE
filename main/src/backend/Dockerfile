@@ -24,7 +24,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
       -ldflags "-s -w -X ryze/backend/version.Version=${VERSION}" \
       -o /out/ryze-api . && \
-    mkdir -p /out/data/trainer-evidence
+    mkdir -p /out/data/trainer-evidence /out/data/uploads
 
 # The runtime image is distroless: no shell, no package manager and a non-root
 # user by default. It ships the CA certificates the API needs to call Stripe and
@@ -36,6 +36,10 @@ COPY --from=build /out/ryze-api /ryze-api
 # by the non-root runtime user. The compose stack mounts a named volume here.
 COPY --from=build --chown=nonroot:nonroot /out/data /var/lib/ryze
 ENV TRAINER_EVIDENCE_DIR=/var/lib/ryze/trainer-evidence
+# Public uploads (plan covers, avatars, meal photos, session photos, feedback
+# pictures) live in the same persistent volume. Without this the API would
+# write to /uploads, which the non-root user cannot create.
+ENV UPLOADS_DIR=/var/lib/ryze/uploads
 
 EXPOSE 8080
 

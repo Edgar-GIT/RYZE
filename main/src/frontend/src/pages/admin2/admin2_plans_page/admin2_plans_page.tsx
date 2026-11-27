@@ -1,4 +1,4 @@
-import { CalendarDays, Dumbbell, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { CalendarDays, CheckCircle2, Dumbbell, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
 
@@ -61,7 +61,21 @@ export default function Admin2PlansPage() {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [level, setLevel] = useState<GenericProgramLevel | "">("");
-  const [status, setStatus] = useState<"all" | "published" | "draft">("all");
+  const [status, setStatus] = useState<"all" | "published" | "draft" | "archived">("all");
+  // The green confirmation after publishing, archiving and so on arrives in
+  // the address (?published=<name>) and is removed from it once shown.
+  const [notice] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    for (const kind of ["published", "saved", "archived", "restored", "deleted"] as const) {
+      const name = params.get(kind);
+      if (name) return { kind, name };
+    }
+    return null;
+  });
+  const [showNotice, setShowNotice] = useState(Boolean(notice));
+  useEffect(() => {
+    if (notice) history.replace({ search: `?family=${family}` });
+  }, [family, history, notice]);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
@@ -116,10 +130,28 @@ export default function Admin2PlansPage() {
     }
   };
 
-  const visible = programs.filter((program) => status === "all" || program.status === status);
+  const stateOf = (program: GenericProgramSummary) =>
+    program.archived_at ? "archived" : program.status === ProgramStatusEnum.PUBLISHED ? "published" : "draft";
+  const visible = programs.filter((program) => status === "all" || stateOf(program) === status);
+  const NOTICES = {
+    published: (name: string) => `Plan published: “${name}” is now on the market.`,
+    saved: (name: string) => `Changes saved: “${name}” is up to date.`,
+    archived: (name: string) => `Plan archived: “${name}” is off the market. People who have it keep it.`,
+    restored: (name: string) => `“${name}” is back on the market.`,
+    deleted: (name: string) => `Plan deleted: “${name}”.`
+  };
 
   return (
     <div className={board.page}>
+      {notice && showNotice ? (
+        <div className={styles.notice} role="status">
+          <CheckCircle2 aria-hidden="true" />
+          <p>{NOTICES[notice.kind](notice.name)}</p>
+          <button type="button" aria-label="Close the message" onClick={() => setShowNotice(false)}>
+            <X aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
       <header className={board.header}>
         <div className={board.headText}>
           <p className={board.kicker}>Catalogue</p>
@@ -173,9 +205,9 @@ export default function Admin2PlansPage() {
           </div>
         ) : null}
         <div className={board.range} role="group" aria-label="Status">
-          {(["all", "published", "draft"] as const).map((option) => (
+          {(["all", "published", "draft", "archived"] as const).map((option) => (
             <button key={option} type="button" aria-pressed={status === option} onClick={() => setStatus(option)}>
-              {option === "all" ? "All" : option === "published" ? "Live" : "Drafts"}
+              {option === "all" ? "All" : option === "published" ? "On sale" : option === "draft" ? "Drafts" : "Archived (max. 15)"}
             </button>
           ))}
         </div>
@@ -210,14 +242,19 @@ export default function Admin2PlansPage() {
             {visible.map((program) => {
               const cover = publicFileUrl(program.cover_image_url);
               const sale = sales[program.id];
-              const live = program.status === ProgramStatusEnum.PUBLISHED;
+              const cardState = stateOf(program);
               const editTo = `/admin2/plans/create?edit=${program.id}&family=${program.product_type}`;
               return (
                 <li key={program.id} className={styles.card}>
                   <Link className={styles.cover} to={`/admin2/plans/${program.id}?family=${program.product_type}`} aria-label={`Open ${program.name}`}>
                     {cover ? <img src={cover} alt="" loading="lazy" /> : <Dumbbell aria-hidden="true" />}
-                    <span className={joinClassNames(styles.status, live ? styles.statusLive : styles.statusDraft)}>
-                      {live ? "Live" : "Draft"}
+                    <span
+                      className={joinClassNames(
+                        styles.status,
+                        cardState === "published" ? styles.statusLive : cardState === "draft" ? styles.statusDraft : styles.statusArchived
+                      )}
+                    >
+                      {cardState === "published" ? "On sale" : cardState === "draft" ? "Draft" : "Archived"}
                     </span>
                   </Link>
                   <div className={styles.body}>
@@ -248,8 +285,11 @@ export default function Admin2PlansPage() {
                       </div>
                     </dl>
                     <div className={styles.actions}>
-                      <Link className={board.secondary} to={editTo}>
-                        <Pencil aria-hidden="true" /> Edit
+                      <Link className={styles.edit} to={editTo}>
+                        <Pencil aria-hidden="true" /> Edit plan
+                      </Link>
+                      <Link className={board.secondary} to={`/admin2/plans/${program.id}?family=${program.product_type}`}>
+                        Open · archive
                       </Link>
                       <button
                         type="button"

@@ -92,24 +92,27 @@ const (
 // a regular User; no assignment or access relationship exists yet. Soft-deleted
 // programs are excluded from regular queries through GORM's DeletedAt handling.
 type Program struct {
-	ID               string                `gorm:"type:varchar(36);primaryKey" json:"id"`
-	TrainerID        string                `gorm:"column:trainer_id;type:varchar(36)" json:"trainer_id"`
-	Name             string                `gorm:"column:name;type:varchar(255);not null" json:"name"`
-	Description      string                `gorm:"column:description;type:text" json:"description"`
-	Type             string                `gorm:"column:type;type:varchar(20);not null" json:"type"`
-	ProductType      string                `gorm:"column:product_type;type:varchar(32);not null;default:generic" json:"product_type"`
-	Objective        *string               `gorm:"column:objective;type:varchar(32)" json:"objective"`
-	NutritionMode    *string               `gorm:"column:nutrition_mode;type:varchar(24)" json:"nutrition_mode"`
-	ContentVersion   int                   `gorm:"column:content_version;not null;default:1" json:"content_version"`
-	Status           string                `gorm:"column:status;type:varchar(20);not null" json:"status"`
-	Level            *string               `gorm:"column:level;type:varchar(20)" json:"level"`
-	DurationWeeks    *int                  `gorm:"column:duration_weeks" json:"duration_weeks"`
-	FrequencyPerWeek *int                  `gorm:"column:frequency_per_week" json:"frequency_per_week"`
-	TrainingType     *string               `gorm:"column:training_type;type:varchar(40)" json:"training_type"`
-	PriceMinorUnits  int64                 `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
-	Currency         string                `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
-	CoverImage       *string               `gorm:"column:cover_image;type:varchar(120)" json:"cover_image"`
-	Audience         *string               `gorm:"column:audience;type:varchar(10)" json:"audience"`
+	ID               string  `gorm:"type:varchar(36);primaryKey" json:"id"`
+	TrainerID        string  `gorm:"column:trainer_id;type:varchar(36)" json:"trainer_id"`
+	Name             string  `gorm:"column:name;type:varchar(255);not null" json:"name"`
+	Description      string  `gorm:"column:description;type:text" json:"description"`
+	Type             string  `gorm:"column:type;type:varchar(20);not null" json:"type"`
+	ProductType      string  `gorm:"column:product_type;type:varchar(32);not null;default:generic" json:"product_type"`
+	Objective        *string `gorm:"column:objective;type:varchar(32)" json:"objective"`
+	NutritionMode    *string `gorm:"column:nutrition_mode;type:varchar(24)" json:"nutrition_mode"`
+	ContentVersion   int     `gorm:"column:content_version;not null;default:1" json:"content_version"`
+	Status           string  `gorm:"column:status;type:varchar(20);not null" json:"status"`
+	Level            *string `gorm:"column:level;type:varchar(20)" json:"level"`
+	DurationWeeks    *int    `gorm:"column:duration_weeks" json:"duration_weeks"`
+	FrequencyPerWeek *int    `gorm:"column:frequency_per_week" json:"frequency_per_week"`
+	TrainingType     *string `gorm:"column:training_type;type:varchar(40)" json:"training_type"`
+	PriceMinorUnits  int64   `gorm:"column:price_minor_units;type:bigint;not null;default:0" json:"price_minor_units"`
+	Currency         string  `gorm:"column:currency;type:varchar(3);not null;default:EUR" json:"currency"`
+	CoverImage       *string `gorm:"column:cover_image;type:varchar(120)" json:"cover_image"`
+	Audience         *string `gorm:"column:audience;type:varchar(10)" json:"audience"`
+	// ArchivedAt: the owner took the programme off the market (migration
+	// 000072). It stays available to the people who already have it.
+	ArchivedAt       *time.Time            `gorm:"column:archived_at" json:"archived_at"`
 	Weeks            []ProgramWeek         `gorm:"foreignKey:ProgramID" json:"-"`
 	CuratedNutrition *CuratedNutritionPlan `gorm:"foreignKey:ProgramID" json:"-"`
 	CreatedAt        time.Time             `gorm:"column:created_at;type:datetime(6)" json:"created_at"`

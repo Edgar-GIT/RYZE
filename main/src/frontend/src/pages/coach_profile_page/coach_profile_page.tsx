@@ -1,6 +1,6 @@
 import { ArrowLeft, BadgeCheck, Eye, LayoutGrid, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Redirect, useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
@@ -104,6 +104,12 @@ export const CoachProfilePage = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // The coach's public page is their member profile with the coach badge and
+  // their plans (owner request, 2026-11-27).
+  if (state === "ready" && profile?.coach.username) {
+    return <Redirect to={`/u/${encodeURIComponent(profile.coach.username)}`} />;
+  }
 
   return (
     <PageWrapper className={joinClassNames(ui.page, styles.page)}>

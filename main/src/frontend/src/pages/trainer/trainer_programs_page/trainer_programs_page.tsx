@@ -1,10 +1,11 @@
-import { CalendarDays, Dumbbell, Plus, RefreshCw } from "lucide-react";
+import { CalendarDays, CheckCircle2, Dumbbell, Plus, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useHistory, useLocation } from "react-router-dom";
 
 import { AppLoading } from "@/components/app_shell/app_loading";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import {
+  fetchTrainerArchiveCount,
   fetchTrainerPrograms,
   TrainerProgramStatus,
   type TrainerProgram,
@@ -26,8 +27,14 @@ const COPY: Copy<{
   all: string;
   published: string;
   drafts: string;
+  archived: (count: number, limit: number) => string;
+  archivedText: string;
   publishedOne: string;
   draftOne: string;
+  archivedOne: string;
+  open: string;
+  notices: Record<"published" | "saved" | "archived" | "restored" | "deleted", (name: string) => string>;
+  dismiss: string;
   empty: string;
   emptyText: string;
   error: string;
@@ -42,16 +49,28 @@ const COPY: Copy<{
   page: (current: number, total: number) => string;
 }> = {
   en: {
-    kicker: "Trainer",
-    title: "Programmes",
-    lead: "Build plans for your clients and for the store: Free or Premium (€14.99). Personalized Level 2 plans are made inside each client's request.",
-    create: "New programme",
-    createText: "Cover, goal, weeks and days, then the exercises.",
+    kicker: "Trainer · my programmes",
+    title: "My programmes",
+    lead: "Every plan you created. Free plans are open to everyone; Premium packages (Level 1, €14.99) include a meal plan and are recommended by the Level 1 questionnaire. Open a programme to edit, archive or delete it. Personalised Level 2 plans are made inside each client's request.",
+    create: "Create a new programme",
+    createText: "Step by step: details and type, weeks and training days, exercises, and (for Premium) the meal plan.",
     all: "All",
-    published: "Published",
+    published: "On sale",
     drafts: "Drafts",
-    publishedOne: "Published",
+    archived: (count, limit) => `Archived · ${count}/${limit}`,
+    archivedText: "Archived programmes are off the market. People who have them keep using them. Open one to put it back on the market.",
+    publishedOne: "On sale",
     draftOne: "Draft",
+    archivedOne: "Archived",
+    open: "Open · edit, archive or delete",
+    notices: {
+      published: (name) => `Programme published: “${name}” is now on the market.`,
+      saved: (name) => `Changes saved: “${name}” is up to date.`,
+      archived: (name) => `Programme archived: “${name}” is off the market.`,
+      restored: (name) => `“${name}” is back on the market.`,
+      deleted: (name) => `Programme deleted: “${name}”.`
+    },
+    dismiss: "Close the message",
     empty: "No programmes yet",
     emptyText: "Create your first programme: choose the type and the cover, then fill the weeks day by day.",
     error: "Your programmes could not be loaded.",
@@ -66,16 +85,28 @@ const COPY: Copy<{
     page: (current, total) => `Page ${current} of ${total}`
   },
   pt: {
-    kicker: "Treinador",
-    title: "Programas",
-    lead: "Cria planos para os teus clientes e para a loja: Grátis ou Premium (14,99 €). Os planos personalizados do Nível 2 fazem-se dentro do pedido de cada cliente.",
-    create: "Novo programa",
-    createText: "Capa, objetivo, semanas e dias, depois os exercícios.",
+    kicker: "Treinador · os meus programas",
+    title: "Os meus programas",
+    lead: "Todos os planos que criaste. Os planos grátis estão abertos a todos; os pacotes Premium (Nível 1, 14,99 €) incluem plano de refeições e são recomendados pelo questionário do Nível 1. Abre um programa para o editar, arquivar ou apagar. Os planos personalizados do Nível 2 fazem-se dentro do pedido de cada cliente.",
+    create: "Criar um programa novo",
+    createText: "Passo a passo: detalhes e tipo, semanas e dias de treino, exercícios e (no Premium) o plano de refeições.",
     all: "Todos",
-    published: "Publicados",
+    published: "À venda",
     drafts: "Rascunhos",
-    publishedOne: "Publicado",
+    archived: (count, limit) => `Arquivados · ${count}/${limit}`,
+    archivedText: "Os programas arquivados estão fora do mercado. Quem já os tem continua a usá-los. Abre um para o voltares a pôr no mercado.",
+    publishedOne: "À venda",
     draftOne: "Rascunho",
+    archivedOne: "Arquivado",
+    open: "Abrir · editar, arquivar ou apagar",
+    notices: {
+      published: (name) => `Programa publicado: “${name}” já está no mercado.`,
+      saved: (name) => `Alterações guardadas: “${name}” está atualizado.`,
+      archived: (name) => `Programa arquivado: “${name}” saiu do mercado.`,
+      restored: (name) => `“${name}” voltou ao mercado.`,
+      deleted: (name) => `Programa apagado: “${name}”.`
+    },
+    dismiss: "Fechar a mensagem",
     empty: "Ainda sem programas",
     emptyText: "Cria o teu primeiro programa: escolhe o tipo e a capa e depois preenche as semanas dia a dia.",
     error: "Não foi possível carregar os teus programas.",
@@ -102,7 +133,31 @@ export const TrainerProgramsPage = () => {
   const [programs, setPrograms] = useState<TrainerProgram[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [filter, setFilter] = useState<"all" | "published" | "draft">("all");
+  const [filter, setFilter] = useState<"all" | "published" | "draft" | "archived">(() =>
+    new URLSearchParams(window.location.search).get("view") === "archived" ? "archived" : "all"
+  );
+  const [archiveLimit, setArchiveLimit] = useState(15);
+  // The green confirmation after publishing, archiving and so on arrives in
+  // the address (?published=<name>) and is removed from it once shown.
+  const location = useLocation();
+  const history = useHistory();
+  const [notice] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    for (const kind of ["published", "saved", "archived", "restored", "deleted"] as const) {
+      const name = params.get(kind);
+      if (name) return { kind, name };
+    }
+    return null;
+  });
+  const [showNotice, setShowNotice] = useState(Boolean(notice));
+  useEffect(() => {
+    if (notice) history.replace({ search: "" });
+  }, [history, notice]);
+  // The sidebar's "Archived programmes" opens this list on that filter.
+  useEffect(() => {
+    const archivedView = new URLSearchParams(location.search).get("view") === "archived";
+    setFilter((current) => (archivedView ? "archived" : current === "archived" ? "all" : current));
+  }, [location.search]);
   const money = useMemo(
     () => new Intl.NumberFormat(locale === "pt" ? "pt-PT" : "en-IE", { style: "currency", currency: "EUR" }),
     [locale]
@@ -111,7 +166,11 @@ export const TrainerProgramsPage = () => {
   const load = useCallback(async (target: number) => {
     setState({ status: "loading" });
     try {
-      const result = await fetchTrainerPrograms(target, PAGE_SIZE);
+      const [result, archive] = await Promise.all([
+        fetchTrainerPrograms(target, PAGE_SIZE),
+        fetchTrainerArchiveCount().catch(() => null)
+      ]);
+      if (archive) setArchiveLimit(archive.limit);
       setPrograms(result.programs);
       setPage(result.pagination.page);
       setTotalPages(result.pagination.total_pages);
@@ -140,11 +199,26 @@ export const TrainerProgramsPage = () => {
     );
   }
 
-  const visible = programs.filter((program) => filter === "all" || program.status === filter);
-  const publishedCount = programs.filter((program) => program.status === TrainerProgramStatus.PUBLISHED).length;
+  const stateOf = (program: TrainerProgram) =>
+    program.archived_at ? "archived" : program.status === TrainerProgramStatus.PUBLISHED ? "published" : "draft";
+  const visible = programs.filter((program) => filter === "all" || stateOf(program) === filter);
+  const counts = {
+    published: programs.filter((program) => stateOf(program) === "published").length,
+    draft: programs.filter((program) => stateOf(program) === "draft").length,
+    archived: programs.filter((program) => stateOf(program) === "archived").length
+  };
 
   return (
     <div className={styles.page}>
+      {notice && showNotice ? (
+        <div className={styles.notice} role="status">
+          <CheckCircle2 aria-hidden="true" />
+          <p>{text.notices[notice.kind](notice.name)}</p>
+          <button type="button" aria-label={text.dismiss} onClick={() => setShowNotice(false)}>
+            <X aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
       <header className={styles.header}>
         <div>
           <p className={styles.kicker}>{text.kicker}</p>
@@ -152,17 +226,20 @@ export const TrainerProgramsPage = () => {
           <p className={styles.lead}>{text.lead}</p>
         </div>
         <div className={styles.filters} role="group" aria-label={text.title}>
-          {(["all", "published", "draft"] as const).map((option) => (
+          {(["all", "published", "draft", "archived"] as const).map((option) => (
             <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)}>
               {option === "all"
                 ? `${text.all} · ${programs.length}`
                 : option === "published"
-                  ? `${text.published} · ${publishedCount}`
-                  : `${text.drafts} · ${programs.length - publishedCount}`}
+                  ? `${text.published} · ${counts.published}`
+                  : option === "draft"
+                    ? `${text.drafts} · ${counts.draft}`
+                    : text.archived(counts.archived, archiveLimit)}
             </button>
           ))}
         </div>
       </header>
+      {filter === "archived" ? <p className={styles.lead}>{text.archivedText}</p> : null}
 
       <ul className={styles.grid}>
         <li>
@@ -176,15 +253,20 @@ export const TrainerProgramsPage = () => {
         </li>
         {visible.map((program) => {
           const cover = publicFileUrl(program.cover_image_url);
-          const published = program.status === TrainerProgramStatus.PUBLISHED;
+          const state = stateOf(program);
           return (
             <li key={program.id}>
               <Link className={styles.card} to={`/trainer/programs/${program.id}`}>
                 <span className={styles.cover}>
                   {cover ? <img src={cover} alt="" loading="lazy" /> : <Dumbbell aria-hidden="true" />}
                   <span className={styles.type}>{text.types[program.type] ?? program.type}</span>
-                  <span className={joinClassNames(styles.status, published ? styles.statusLive : styles.statusDraft)}>
-                    {published ? text.publishedOne : text.draftOne}
+                  <span
+                    className={joinClassNames(
+                      styles.status,
+                      state === "published" ? styles.statusLive : state === "draft" ? styles.statusDraft : styles.statusArchived
+                    )}
+                  >
+                    {state === "published" ? text.publishedOne : state === "draft" ? text.draftOne : text.archivedOne}
                   </span>
                 </span>
                 <span className={styles.body}>
@@ -201,6 +283,7 @@ export const TrainerProgramsPage = () => {
                     <b>{program.price_minor_units === 0 ? text.free : money.format(program.price_minor_units / 100)}</b>
                     <em>{text.updated(formatDate(program.updated_at, { day: "numeric", month: "short" }))}</em>
                   </span>
+                  <span className={styles.openHint}>{text.open}</span>
                 </span>
               </Link>
             </li>

@@ -333,9 +333,26 @@ Trainers can:
 - Create packs (since v2.128.0, owner decision: free generic plans and
   Premium Level 1 plans only; Premium Level 2 is the personalised service a
   trainer prepares when a request is allocated to them)
+- Since v2.132.0 (owner decision, 2026-11-27) a trainer's Premium plan is a
+  real Premium Level 1 package (`product_type = premium_level_1`): it needs an
+  objective and a complete curated meal plan before publication, its price is
+  the Level 1 catalogue price (14.99 EUR), and it appears everywhere a Level 1
+  package does — the trainer's public profile, the store and the automatic
+  Level 1 questionnaire matching. Buyers receive the meal plan through the
+  existing curated Level 1 delivery; the trainer commission applies. A
+  published plan cannot change between Free and Premium.
 - Edit packs
-- Publish packs
-- View statistics
+- Publish packs (then the programme list confirms it in green)
+- Archive packs (v2.132.0): a published programme leaves the market for a
+  while (catalogue, store, coach profile, Level 1 matching, new purchases and
+  new free activations) and can be put back at any time. People who already
+  have it keep full access. At most 15 archived programmes per trainer; the
+  platform (RYZE) has its own limit of 15 across its families.
+- View statistics (sales and earnings, views per plan, programmes by state
+  and type, clients and Level 2 requests: `/trainer/stats`)
+- Have a public page: since v2.132.0 the coach's page is their member profile
+  (`/u/<username>`) with the "RYZE coach" badge and the plans they created;
+  `/coaches/<trainerId>` redirects there.
 - Manage clients
 - Access trainer dashboards
 

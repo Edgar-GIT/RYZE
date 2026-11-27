@@ -83,6 +83,9 @@ open the URL printed by Vite.
 
 ---
 
+> Publishing RYZE online (servers, domain, DNS, backups, CI/CD) is described in
+> `production.MD` at the repository root.
+
 # Production Build
 
 Run:

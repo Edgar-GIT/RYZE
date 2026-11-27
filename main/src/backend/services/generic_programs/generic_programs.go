@@ -253,6 +253,7 @@ type Program struct {
 	CoverImage       *string
 	Official         bool
 	Audience         *string
+	ArchivedAt       *time.Time
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -858,6 +859,7 @@ func newProgramSummary(model *models.Program) Program {
 		CoverImage:       model.CoverImage,
 		Official:         program_details.IsOfficialCover(model.CoverImage),
 		Audience:         model.Audience,
+		ArchivedAt:       model.ArchivedAt,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
 	}

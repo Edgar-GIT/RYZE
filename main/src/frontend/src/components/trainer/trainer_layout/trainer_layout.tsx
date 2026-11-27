@@ -1,16 +1,20 @@
 import {
+  Archive,
+  BarChart3,
   ClipboardList,
   Dumbbell,
   ExternalLink,
+  FilePlus2,
   Globe2,
   LayoutDashboard,
+  Library,
   Plus,
   Settings,
   UserRound,
   Users
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Redirect, useHistory } from "react-router-dom";
+import { Redirect, useHistory, useLocation } from "react-router-dom";
 
 import { AppShell, type ShellNavItem, type UserMenuItem } from "@/components/app_shell/app_shell";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
@@ -33,6 +37,18 @@ const COPY: Copy<{
   programs: string;
   more: string;
   profile: string;
+  groupWork: string;
+  groupPrograms: string;
+  groupProfile: string;
+  dashboardLong: string;
+  clientsLong: string;
+  premiumLong: string;
+  stats: string;
+  programsLong: string;
+  createProgram: string;
+  archive: string;
+  profileLong: string;
+  viewPublic: string;
   newProgram: string;
   newProgramText: string;
   memberArea: string;
@@ -51,10 +67,22 @@ const COPY: Copy<{
     nav: "Trainer area",
     dashboard: "Dashboard",
     clients: "Clients",
-    premium: "Premium L2",
-    programs: "Programs",
+    premium: "Level 2",
+    programs: "Programmes",
     more: "More",
     profile: "Profile",
+    groupWork: "My work",
+    groupPrograms: "Programmes",
+    groupProfile: "Profile and account",
+    dashboardLong: "Overview of today",
+    clientsLong: "My clients",
+    premiumLong: "Premium Level 2 requests",
+    stats: "Statistics and earnings",
+    programsLong: "My programmes",
+    createProgram: "Create a programme",
+    archive: "Archived programmes",
+    profileLong: "Edit my trainer profile",
+    viewPublic: "See my public profile",
     newProgram: "New programme",
     newProgramText: "Build a plan for clients or the store",
     memberArea: "My training",
@@ -73,10 +101,22 @@ const COPY: Copy<{
     nav: "Área de treinador",
     dashboard: "Painel",
     clients: "Clientes",
-    premium: "Premium N2",
+    premium: "Nível 2",
     programs: "Programas",
     more: "Mais",
     profile: "Perfil",
+    groupWork: "O meu trabalho",
+    groupPrograms: "Programas",
+    groupProfile: "Perfil e conta",
+    dashboardLong: "Resumo do dia",
+    clientsLong: "Os meus clientes",
+    premiumLong: "Pedidos Premium Nível 2",
+    stats: "Estatísticas e ganhos",
+    programsLong: "Os meus programas",
+    createProgram: "Criar um programa",
+    archive: "Programas arquivados",
+    profileLong: "Editar o meu perfil de treinador",
+    viewPublic: "Ver o meu perfil público",
     newProgram: "Novo programa",
     newProgramText: "Cria um plano para clientes ou para a loja",
     memberArea: "O meu treino",
@@ -103,6 +143,7 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
   const { locale } = useI18n();
   const text = COPY[locale];
   const history = useHistory();
+  const location = useLocation();
   const [user, setUser] = useState<{ name: string; email: string; handle?: string; avatarUrl?: string } | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
 
@@ -145,18 +186,36 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
     return <Redirect to="/trainer/apply" />;
   }
 
-  const items: ShellNavItem[] = [
+  // The phone tabs keep the four main sections; the sidebar spells every
+  // section out (owner request, 2026-11-27: explicit, nothing to guess).
+  const tabs: ShellNavItem[] = [
     { to: "/trainer/dashboard", label: text.dashboard, icon: LayoutDashboard },
     { to: "/trainer/clients", label: text.clients, icon: Users },
     { to: "/trainer/premium-level-2", label: text.premium, icon: ClipboardList },
     { to: "/trainer/programs", label: text.programs, icon: Dumbbell }
   ];
+  const archiveView = new URLSearchParams(location.search).get("view") === "archived";
+  const inPrograms = (pathname: string) => pathname.startsWith("/trainer/programs") && pathname !== "/trainer/programs/new";
+  const workItems: ShellNavItem[] = [
+    { to: "/trainer/dashboard", label: text.dashboardLong, icon: LayoutDashboard },
+    { to: "/trainer/clients", label: text.clientsLong, icon: Users },
+    { to: "/trainer/premium-level-2", label: text.premiumLong, icon: ClipboardList },
+    { to: "/trainer/stats", label: text.stats, icon: BarChart3 }
+  ];
+  const programItems: ShellNavItem[] = [
+    { to: "/trainer/programs", label: text.programsLong, icon: Library, match: (pathname) => inPrograms(pathname) && !archiveView },
+    { to: "/trainer/programs/new", label: text.createProgram, icon: FilePlus2, match: (pathname) => pathname === "/trainer/programs/new" },
+    { to: "/trainer/programs?view=archived", label: text.archive, icon: Archive, match: (pathname) => pathname === "/trainer/programs" && archiveView }
+  ];
+  const publicProfilePath = user?.handle ? `/u/${encodeURIComponent(user.handle)}` : profileId ? `/coaches/${profileId}` : "";
   const secondaryItems: ShellNavItem[] = [
-    { to: "/trainer/profile", label: text.profile, icon: UserRound },
+    { to: "/trainer/profile", label: text.profileLong, icon: UserRound },
+    ...(publicProfilePath ? [{ to: publicProfilePath, label: text.viewPublic, icon: ExternalLink }] : []),
+    { to: "/account/settings", label: text.account, icon: Settings }
   ];
   const menuItems: UserMenuItem[] = [
     { to: "/trainer/profile", label: text.profile, icon: UserRound },
-    ...(profileId ? [{ to: `/coaches/${profileId}`, label: text.publicProfile, icon: ExternalLink }] : []),
+    ...(publicProfilePath ? [{ to: publicProfilePath, label: text.publicProfile, icon: ExternalLink }] : []),
     { to: "/profile", label: text.memberArea, icon: Dumbbell },
     { to: "/account/settings", label: text.account, icon: Settings },
     { to: "/", label: text.site, icon: Globe2 }
@@ -176,8 +235,12 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
       area="trainer"
       brandTag={text.coach}
       navLabel={text.nav}
-      groups={[{ items }, { label: text.more, items: secondaryItems }]}
-      tabs={items}
+      groups={[
+        { label: text.groupWork, items: workItems },
+        { label: text.groupPrograms, items: programItems },
+        { label: text.groupProfile, items: secondaryItems }
+      ]}
+      tabs={tabs}
       moreLabel={text.more}
       closeLabel={text.close}
       user={user ? { ...user, role: text.coach } : null}

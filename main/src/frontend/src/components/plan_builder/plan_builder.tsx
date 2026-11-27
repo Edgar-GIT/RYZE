@@ -106,6 +106,9 @@ interface PlanBuilderProps {
   // A personal Premium Level 2 plan is never published: one button saves the
   // draft (and the page links it to its request) with this label.
   draftOnlyLabel?: string;
+  // A trainer's Premium package always has a curated meal plan: the
+  // nutrition model is not offered (v2.132.0).
+  curatedOnly?: boolean;
   onDelete?: () => void;
   deleting?: boolean;
   lockedNote?: string;
@@ -163,6 +166,7 @@ export const PlanBuilder = ({
   uploadCover,
   officialOption = false,
   draftOnlyLabel,
+  curatedOnly = false,
   status,
   saving,
   message,
@@ -195,7 +199,40 @@ export const PlanBuilder = ({
   const [copied, setCopied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // What a step still needs before the next one (owner request, 2026-11-27).
+  const [stepErrors, setStepErrors] = useState<string[]>([]);
+  const problemsFor = (id: StepId): string[] => {
+    const problems: string[] = [];
+    if (id === "basics") {
+      if (!draft.name.trim()) problems.push(copy.required.name);
+      if (!draft.description.trim()) problems.push(copy.required.description);
+      if (showPackageOptions && draft.nutrition_mode === "curated" && !draft.objective) problems.push(copy.required.objective);
+      // Duration and frequency are steppers that always hold a valid value.
+    }
+    if (id === "structure" && countExercises(draft) === 0) problems.push(copy.required.exercises);
+    if (id === "nutrition") {
+      const nutrition = validatePlan(draft).messages.filter((text) => /nutrition|meal|hydration|food/i.test(text));
+      if (nutrition.length > 0) problems.push(`${copy.required.nutrition} ${nutrition.join(" ")}`);
+    }
+    return problems;
+  };
+  // Moving forward checks every step on the way; going back is always free.
+  const tryGoTo = (index: number) => {
+    for (let current = stepIndex; current < index; current += 1) {
+      const problems = problemsFor(steps[current]);
+      if (problems.length > 0) {
+        if (current !== stepIndex) setStepIndex(current);
+        setStepErrors(problems);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+    }
+    setStepErrors([]);
+    goTo(index);
+  };
+
   const goTo = (index: number) => {
+    setStepErrors([]);
     const target = steps[index];
     if (target === "structure") {
       onChange(syncWeeks);
@@ -802,6 +839,7 @@ export const PlanBuilder = ({
           <h2 className={styles.panelTitle} id="builder-package">
             {copy.objective} · {copy.nutritionMode}
           </h2>
+          {curatedOnly ? null : (
           <div className={styles.choiceRow} role="radiogroup" aria-label={copy.nutritionMode}>
             {(["curated", "questionnaire_generated"] as const).map((mode) => (
               <button
@@ -824,6 +862,7 @@ export const PlanBuilder = ({
               </button>
             ))}
           </div>
+          )}
           {draft.nutrition_mode === "curated" ? (
             <div className={styles.field}>
               <span className={styles.label}>{copy.objective}</span>
@@ -1099,7 +1138,7 @@ export const PlanBuilder = ({
                 type="button"
                 aria-current={index === stepIndex ? "step" : undefined}
                 className={joinClassNames(styles.stepButton, index < stepIndex && styles.stepDone)}
-                onClick={() => goTo(index)}
+                onClick={() => (index > stepIndex ? tryGoTo(index) : goTo(index))}
               >
                 <span className={styles.stepIndex}>{index < stepIndex ? <Check aria-hidden="true" /> : index + 1}</span>
                 <span>{copy.steps[id]}</span>
@@ -1121,6 +1160,17 @@ export const PlanBuilder = ({
         <p className={message.tone === "error" ? styles.errorBox : styles.success} role={message.tone === "error" ? "alert" : "status"}>
           {message.text}
         </p>
+      ) : null}
+
+      {stepErrors.length > 0 ? (
+        <div className={styles.errorBox} role="alert">
+          <strong>{copy.requiredTitle}</strong>
+          <ul>
+            {stepErrors.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       <footer className={styles.footer}>
@@ -1176,7 +1226,7 @@ export const PlanBuilder = ({
                   {saving ? copy.saving : copy.saveDraft}
                 </button>
               ) : null}
-              <button type="button" className={styles.primaryButton} onClick={() => goTo(stepIndex + 1)}>
+              <button type="button" className={styles.primaryButton} onClick={() => tryGoTo(stepIndex + 1)}>
                 {copy.next} <ArrowRight aria-hidden="true" />
               </button>
             </>

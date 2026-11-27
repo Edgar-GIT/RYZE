@@ -758,7 +758,7 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
   };
 };
 
-const toCuratedNutritionInput = (nutrition: PlanDraftCuratedNutrition) => ({
+export const toCuratedNutritionInput = (nutrition: PlanDraftCuratedNutrition) => ({
   dietary_pattern: nutrition.dietary_pattern.trim() || "balanced",
   summary: nutrition.summary.trim(),
   prep_guidance: nutrition.prep_guidance.trim(),

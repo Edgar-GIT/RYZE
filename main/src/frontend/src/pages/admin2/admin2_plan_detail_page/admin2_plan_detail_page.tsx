@@ -8,7 +8,12 @@ import { Admin2Section } from "@/components/admin2/admin2_section/admin2_section
 import { Admin2StatusBadge } from "@/components/admin2/admin2_status_badge/admin2_status_badge";
 import { Admin2Modal } from "@/components/admin2/admin2_modal/admin2_modal";
 import { Button } from "@/components/button/button";
+import { ProgramOverview } from "@/components/program_overview/program_overview";
+import { publicFileUrl } from "@utils/http_client";
 import {
+  archiveGenericProgram,
+  fetchPlatformArchiveCount,
+  restoreGenericProgram,
   deleteGenericProgram,
   fetchAdminSalesByProgramIds,
   fetchGenericProgram,
@@ -198,6 +203,8 @@ export default function Admin2PlanDetailPage() {
   const [publishError, setPublishError] = useState("");
   const [sale, setSale] = useState<AdminProgramSale | null>(null);
   const [salesError, setSalesError] = useState(false);
+  const [archiveCount, setArchiveCount] = useState({ archived: 0, limit: 15 });
+  const [archiveError, setArchiveError] = useState("");
 
   const loadSales = useCallback(async (programId: string) => {
     try {
@@ -217,6 +224,7 @@ export default function Admin2PlanDetailPage() {
       const result = await fetchGenericProgram(family, programId);
       setFamily(result.product_type);
       setProgram(result);
+      setArchiveCount(await fetchPlatformArchiveCount().catch(() => ({ archived: 0, limit: 15 })));
       await loadSales(result.id);
     } catch {
       setErrorMessage("Unable to load this plan. It may have been removed.");
@@ -313,6 +321,68 @@ export default function Admin2PlanDetailPage() {
           </div>
         </div>
       ) : (
+        <>
+        {/* The first screen of a plan (owner request, 2026-11-27): picture,
+            name, state and Edit (green), Archive / Put back, Delete. */}
+        <div className={styles.overview}>
+          {archiveError ? (
+            <p className={styles.formError} role="alert">
+              {archiveError}
+            </p>
+          ) : null}
+          <ProgramOverview
+            name={program.name}
+            coverUrl={publicFileUrl(program.cover_image_url)}
+            kicker={`RYZE · ${programFamilyLabel(program.product_type)}`}
+            facts={[
+              program.duration_weeks ? `${program.duration_weeks} week${program.duration_weeks === 1 ? "" : "s"}` : "",
+              program.frequency_per_week ? `${program.frequency_per_week} training day${program.frequency_per_week === 1 ? "" : "s"} per week` : "",
+              formatAdminPrice(program.price_minor_units, program.currency)
+            ].filter(Boolean)}
+            state={program.archived_at ? "archived" : program.status === ProgramStatusEnum.PUBLISHED ? "published" : "draft"}
+            editTo={`/admin2/plans/create?edit=${program.id}&family=${program.product_type}`}
+            backTo={`/admin2/plans?family=${program.product_type}`}
+            archive={
+              program.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2
+                ? undefined
+                : {
+                    count: archiveCount.archived,
+                    limit: archiveCount.limit,
+                    onArchive: async () => {
+                      setArchiveError("");
+                      try {
+                        await archiveGenericProgram(program.product_type, program.id);
+                        history.push(`/admin2/plans?family=${program.product_type}&archived=${encodeURIComponent(program.name)}`);
+                      } catch (error) {
+                        setArchiveError(error instanceof Error ? error.message : "The plan could not be archived.");
+                      }
+                    },
+                    onRestore: async () => {
+                      setArchiveError("");
+                      try {
+                        await restoreGenericProgram(program.product_type, program.id);
+                        history.push(`/admin2/plans?family=${program.product_type}&restored=${encodeURIComponent(program.name)}`);
+                      } catch (error) {
+                        setArchiveError(error instanceof Error ? error.message : "The plan could not be put back on the market.");
+                      }
+                    }
+                  }
+            }
+            onDelete={
+              contentLocked
+                ? undefined
+                : async () => {
+                    setArchiveError("");
+                    try {
+                      await deleteGenericProgram(program.product_type, program.id);
+                      history.push(`/admin2/plans?family=${program.product_type}&deleted=${encodeURIComponent(program.name)}`);
+                    } catch (error) {
+                      setArchiveError(error instanceof Error ? error.message : "The plan could not be deleted.");
+                    }
+                  }
+            }
+          />
+        </div>
         <div className={styles.split}>
           <Admin2Section
             title="Program structure"
@@ -591,6 +661,7 @@ export default function Admin2PlanDetailPage() {
             ) : null}
           </div>
         </div>
+        </>
       )}
 
       {program && showDelete ? (

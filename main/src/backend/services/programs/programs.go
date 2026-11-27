@@ -13,6 +13,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/admin_users"
+	"ryze/backend/services/curated_nutrition"
 	"ryze/backend/services/program_details"
 )
 
@@ -75,8 +76,32 @@ type Program struct {
 	TrainingType     *string
 	CoverImage       *string
 	Audience         *string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	// ProductType is the catalogue family: a trainer's Premium plan is a
+	// Premium Level 1 package (v2.132.0) with an objective and a curated
+	// nutrition plan; Free and personalised plans are generic.
+	ProductType   string
+	Objective     *string
+	NutritionMode *string
+	ArchivedAt    *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+// productTypeFor maps a trainer plan type to its catalogue family.
+func productTypeFor(programType string) string {
+	if programType == models.ProgramTypePremium {
+		return models.ProgramProductTypePremiumLevel1
+	}
+	return models.ProgramProductTypeGeneric
+}
+
+func validateObjective(objective string) error {
+	for _, candidate := range models.ProgramObjectives {
+		if objective == candidate {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: a Premium package needs its objective", ErrInvalidInput)
 }
 
 // CreateProgramInput carries the fields accepted when creating a program. The
@@ -97,6 +122,8 @@ type CreateProgramInput struct {
 	TrainingType     string
 	CoverImage       string
 	Audience         string
+	// Objective is required for a Premium package (Level 1).
+	Objective string
 }
 
 // UpdateProgramInput carries the optional whitelisted fields accepted when
@@ -117,6 +144,7 @@ type UpdateProgramInput struct {
 	TrainingType     *string
 	CoverImage       *string
 	Audience         *string
+	Objective        *string
 }
 
 // UpdatePricingInput carries the pricing fields accepted when updating a
@@ -168,10 +196,94 @@ type premiumLevel2LinkReader interface {
 type service struct {
 	programs ProgramRepository
 	pricing  config.PricingConfig
+	// nutrition holds the meal plans of the trainers' Premium packages.
+	nutrition NutritionRepository
 }
 
-func NewService(programs ProgramRepository, pricing config.PricingConfig) Service {
-	return &service{programs: programs, pricing: pricing}
+// NutritionRepository reads and replaces a trainer package's meal plan.
+type NutritionRepository interface {
+	FindByProgramID(ctx context.Context, programID string) (*models.CuratedNutritionPlan, error)
+	ReplaceForTrainerProgram(ctx context.Context, trainerID, programID string, plan *models.CuratedNutritionPlan) error
+}
+
+// Option configures an optional collaborator.
+type Option func(*service)
+
+// WithNutrition enables the meal plans of trainers' Premium packages.
+func WithNutrition(nutrition NutritionRepository) Option {
+	return func(s *service) { s.nutrition = nutrition }
+}
+
+// NutritionService is the meal plan of a trainer's Premium package.
+type NutritionService interface {
+	GetNutrition(ctx context.Context, trainerID, programID string) (*curated_nutrition.Plan, error)
+	SaveNutrition(ctx context.Context, trainerID, programID string, input curated_nutrition.PlanInput) (*curated_nutrition.Plan, error)
+}
+
+// ErrNutritionRequired: a Premium package is published with its meal plan.
+var ErrNutritionRequired = errors.New("premium package needs a complete meal plan")
+
+// GetNutrition returns the meal plan of the trainer's Premium package
+// (nil when there is none yet).
+func (s *service) GetNutrition(ctx context.Context, trainerID, programID string) (*curated_nutrition.Plan, error) {
+	if _, err := s.programs.FindByIDAndTrainer(ctx, trainerID, programID); err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to verify program ownership: %w", err)
+	}
+	if s.nutrition == nil {
+		return nil, nil
+	}
+	stored, err := s.nutrition.FindByProgramID(ctx, programID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrCuratedNutritionNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return curated_nutrition.FromModel(stored), nil
+}
+
+// SaveNutrition replaces the meal plan of the trainer's Premium package.
+func (s *service) SaveNutrition(ctx context.Context, trainerID, programID string, input curated_nutrition.PlanInput) (*curated_nutrition.Plan, error) {
+	existing, err := s.programs.FindByIDAndTrainer(ctx, trainerID, programID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to verify program ownership: %w", err)
+	}
+	if existing.ProductType != models.ProgramProductTypePremiumLevel1 || s.nutrition == nil {
+		return nil, fmt.Errorf("%w: only a Premium package has a meal plan", ErrInvalidInput)
+	}
+	plan, err := curated_nutrition.Validate(input)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
+	previous := 0
+	if stored, findErr := s.nutrition.FindByProgramID(ctx, programID); findErr == nil {
+		previous = stored.Version
+	}
+	model, err := curated_nutrition.ToModel(plan, programID, previous)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
+	if err := s.nutrition.ReplaceForTrainerProgram(ctx, trainerID, programID, model); err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to save the meal plan: %w", err)
+	}
+	return s.GetNutrition(ctx, trainerID, programID)
+}
+
+func NewService(programs ProgramRepository, pricing config.PricingConfig, options ...Option) Service {
+	svc := &service{programs: programs, pricing: pricing}
+	for _, option := range options {
+		option(svc)
+	}
+	return svc
 }
 
 // CreateProgram creates a new program owned by the authenticated trainer. The
@@ -205,17 +317,27 @@ func (s *service) CreateProgram(ctx context.Context, trainerID string, input Cre
 	// the plan type (free, Level 1 price for premium, Level 2 price for
 	// personalized).
 	currency := string(models.ProgramCurrencyEUR)
-	price := models.CatalogPriceMinorUnits(models.ProgramProductTypeGeneric, input.Type)
+	productType := productTypeFor(input.Type)
+	var objective, nutritionMode *string
+	if productType == models.ProgramProductTypePremiumLevel1 {
+		value := strings.TrimSpace(input.Objective)
+		if err := validateObjective(value); err != nil {
+			return nil, err
+		}
+		curated := models.ProgramNutritionModeCurated
+		objective, nutritionMode = &value, &curated
+	}
+	price := models.CatalogPriceMinorUnits(productType, input.Type)
 	if err := validatePriceForType(input.Type, price, currency, s.pricing.MinProgramPriceMinorUnits); err != nil {
 		return nil, err
 	}
 	if err := program_details.ValidateCatalogMetadata(input.Level, input.TrainingType, input.DurationWeeks, input.FrequencyPerWeek); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
-	if err := program_details.ValidateCoverKey(program_details.CoverFolder(models.ProgramProductTypeGeneric, input.Type), input.CoverImage); err != nil {
+	if err := program_details.ValidateCoverKey(program_details.CoverFolder(productType, input.Type), input.CoverImage); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
-	if err := program_details.ValidateAudience(models.ProgramProductTypeGeneric, input.Audience); err != nil {
+	if err := program_details.ValidateAudience(productType, input.Audience); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 
@@ -233,6 +355,9 @@ func (s *service) CreateProgram(ctx context.Context, trainerID string, input Cre
 		TrainingType:     program_details.OptionalString(input.TrainingType),
 		CoverImage:       program_details.OptionalCover(input.CoverImage),
 		Audience:         program_details.OptionalAudience(input.Audience),
+		ProductType:      productType,
+		Objective:        objective,
+		NutritionMode:    nutritionMode,
 	}
 	if err := s.programs.Create(ctx, program); err != nil {
 		return nil, fmt.Errorf("failed to create program: %w", err)
@@ -355,6 +480,40 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 	if t, ok := updates["type"]; ok {
 		effectiveType = t.(string)
 	}
+	// The family follows the type. A published plan keeps its family: its
+	// buyers bought that product (v2.132.0).
+	productType := productTypeFor(effectiveType)
+	if effectiveType == existing.Type && (existing.Status != models.ProgramStatusDraft || existing.Type == models.ProgramTypePersonalized) {
+		// A published plan (an older Premium plan included) and a personalised
+		// one keep the family they have.
+		productType = existing.ProductType
+	}
+	if productType != existing.ProductType && existing.Status != models.ProgramStatusDraft {
+		return nil, fmt.Errorf("%w: a published plan cannot change between Free and Premium", ErrInvalidInput)
+	}
+	objectiveValue := ""
+	if existing.Objective != nil {
+		objectiveValue = *existing.Objective
+	}
+	if input.Objective != nil {
+		objectiveValue = strings.TrimSpace(*input.Objective)
+	}
+	if productType == models.ProgramProductTypePremiumLevel1 {
+		if err := validateObjective(objectiveValue); err != nil {
+			return nil, err
+		}
+		// Only what actually changes is written.
+		if existing.ProductType != productType || existing.Objective == nil || *existing.Objective != objectiveValue ||
+			existing.NutritionMode == nil || *existing.NutritionMode != models.ProgramNutritionModeCurated {
+			updates["product_type"] = productType
+			updates["objective"] = objectiveValue
+			updates["nutrition_mode"] = models.ProgramNutritionModeCurated
+		}
+	} else if productType != existing.ProductType || existing.Objective != nil || existing.NutritionMode != nil {
+		updates["product_type"] = productType
+		updates["objective"] = nil
+		updates["nutrition_mode"] = nil
+	}
 
 	level, trainingType := "", ""
 	if existing.Level != nil {
@@ -390,13 +549,13 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
 	if input.CoverImage != nil {
-		if err := program_details.ValidateCoverKey(program_details.CoverFolder(models.ProgramProductTypeGeneric, effectiveType), *input.CoverImage); err != nil {
+		if err := program_details.ValidateCoverKey(program_details.CoverFolder(productType, effectiveType), *input.CoverImage); err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 		}
 		updates["cover_image"] = program_details.OptionalCover(*input.CoverImage)
 	}
 	if input.Audience != nil {
-		if err := program_details.ValidateAudience(models.ProgramProductTypeGeneric, *input.Audience); err != nil {
+		if err := program_details.ValidateAudience(productType, *input.Audience); err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 		}
 		updates["audience"] = program_details.OptionalAudience(*input.Audience)
@@ -408,7 +567,7 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 
 	// The price always follows the effective type's catalogue category; a
 	// client-sent price or currency is ignored.
-	if catalogPrice := models.CatalogPriceMinorUnits(models.ProgramProductTypeGeneric, effectiveType); catalogPrice != existing.PriceMinorUnits || existing.Currency != string(models.ProgramCurrencyEUR) {
+	if catalogPrice := models.CatalogPriceMinorUnits(productType, effectiveType); catalogPrice != existing.PriceMinorUnits || existing.Currency != string(models.ProgramCurrencyEUR) {
 		updates["price_minor_units"] = catalogPrice
 		updates["currency"] = string(models.ProgramCurrencyEUR)
 	}
@@ -445,7 +604,26 @@ func (s *service) PublishProgram(ctx context.Context, trainerID, programID strin
 	// A plan saved before the catalogue prices existed is aligned with its
 	// type's catalogue price before it becomes purchasable.
 	if existing, findErr := s.programs.FindByIDAndTrainer(ctx, trainerID, programID); findErr == nil {
-		if catalogPrice := models.CatalogPriceMinorUnits(models.ProgramProductTypeGeneric, existing.Type); existing.PriceMinorUnits != catalogPrice {
+		// A Premium package (Level 1) is sold with its meal plan.
+		if existing.ProductType == models.ProgramProductTypePremiumLevel1 {
+			if existing.Objective == nil {
+				return nil, fmt.Errorf("%w: a Premium package needs its objective", ErrInvalidInput)
+			}
+			if s.nutrition == nil {
+				return nil, ErrNutritionRequired
+			}
+			stored, err := s.nutrition.FindByProgramID(ctx, programID)
+			if errors.Is(err, repositories.ErrCuratedNutritionNotFound) {
+				return nil, ErrNutritionRequired
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to read the meal plan: %w", err)
+			}
+			if curated_nutrition.ValidateModel(stored) != nil {
+				return nil, ErrNutritionRequired
+			}
+		}
+		if catalogPrice := models.CatalogPriceMinorUnits(existing.ProductType, existing.Type); existing.PriceMinorUnits != catalogPrice {
 			if err := s.programs.Update(ctx, trainerID, programID, map[string]any{
 				"price_minor_units": catalogPrice,
 				"currency":          string(models.ProgramCurrencyEUR),
@@ -601,6 +779,10 @@ func newProgram(model *models.Program) *Program {
 		TrainingType:     model.TrainingType,
 		CoverImage:       model.CoverImage,
 		Audience:         model.Audience,
+		ProductType:      model.ProductType,
+		Objective:        model.Objective,
+		NutritionMode:    model.NutritionMode,
+		ArchivedAt:       model.ArchivedAt,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
 	}

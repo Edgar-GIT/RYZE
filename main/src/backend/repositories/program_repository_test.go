@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -562,9 +563,14 @@ func TestProgramRepository(t *testing.T) {
 	if len(results) < 2 {
 		t.Fatalf("search published name sort: expected at least 2 results, got %d", len(results))
 	}
+	// The database sorts with its own collation: byte order under "C",
+	// linguistic order (case and spaces ignored first) under pt_PT/en_US.
+	// A pair is out of order only when it is wrong under both.
+	linguistic := func(name string) string { return strings.ToLower(strings.ReplaceAll(name, " ", "")) }
 	for i := 1; i < len(results); i++ {
-		if results[i-1].Name > results[i].Name {
-			t.Fatalf("search published name sort: expected ascending order, got %q before %q", results[i-1].Name, results[i].Name)
+		previous, current := results[i-1].Name, results[i].Name
+		if previous > current && linguistic(previous) > linguistic(current) {
+			t.Fatalf("search published name sort: expected ascending order, got %q before %q", previous, current)
 		}
 	}
 

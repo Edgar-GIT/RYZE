@@ -1,7 +1,7 @@
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiUpload, downloadFile, encodePathSegment } from "@utils/http_client";
 
 import { AdminPagination } from "./admin_api";
-import type { GenericProgramWeek, GenericProgramWeekInput, UploadedImage } from "./admin2_api";
+import type { GenericProgramDetail, GenericProgramInput, GenericProgramWeek, GenericProgramWeekInput, UploadedImage } from "./admin2_api";
 import type { WorkoutSession } from "./workout_sessions_api";
 
 // The trainer session state comes from the backend access endpoint, which is
@@ -101,6 +101,12 @@ export interface TrainerProgram {
   cover_image?: string | null;
   cover_image_url?: string;
   audience?: "female" | "male" | null;
+  // A Premium plan is a Premium Level 1 package: objective and a curated meal
+  // plan (v2.132.0). archived_at: off the market.
+  product_type?: string;
+  objective?: string | null;
+  nutrition_mode?: string | null;
+  archived_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -123,6 +129,8 @@ export interface TrainerProgramInput {
   training_type?: string;
   cover_image?: string;
   audience?: "" | "female" | "male";
+  // Required for a Premium package.
+  objective?: string;
 }
 
 export type TrainerProgramUpdateInput = Partial<TrainerProgramInput>;
@@ -667,3 +675,24 @@ export interface TrainerEarnings {
 }
 
 export const fetchTrainerEarnings = (): Promise<TrainerEarnings> => apiGet<TrainerEarnings>("/trainer/earnings");
+
+// --- Archive (v2.132.0) ----------------------------------------------------
+// An archived programme leaves the market; the people who have it keep it.
+// At most 15 archived programmes per trainer.
+export const archiveTrainerProgram = (programId: string): Promise<{ id: string; archived_at: string }> =>
+  apiPost(`/trainer/programs/${encodeURIComponent(programId)}/archive`, {});
+
+export const restoreTrainerProgram = (programId: string): Promise<{ id: string; archived_at: null }> =>
+  apiPost(`/trainer/programs/${encodeURIComponent(programId)}/restore`, {});
+
+export const fetchTrainerArchiveCount = (): Promise<{ archived: number; limit: number }> => apiGet("/trainer/programs-archive");
+
+// --- Meal plan of a Premium package (Level 1) -------------------------------
+export const fetchTrainerProgramNutrition = (programId: string): Promise<GenericProgramDetail["curated_nutrition"]> =>
+  apiGet(`/trainer/programs/${encodeURIComponent(programId)}/nutrition`);
+
+export const saveTrainerProgramNutrition = (
+  programId: string,
+  input: NonNullable<GenericProgramInput["curated_nutrition"]>
+): Promise<GenericProgramDetail["curated_nutrition"]> => apiPut(`/trainer/programs/${encodeURIComponent(programId)}/nutrition`, input);
+

@@ -46,32 +46,33 @@ const item = (to: string, label: string, icon: ShellNavItem["icon"], badge?: num
 // The Management Administrator console (ADMIN_2): the catalogue, the business
 // and the service queues. Badges show the open work of each queue.
 export const admin2NavGroups = (badges: Admin2Badges = {}): ShellNavGroup[] => [
-  { items: [item(ADMIN2_PATHS.DASHBOARD, "Overview", LayoutDashboard)] },
+  // Explicit names (owner request, 2026-11-27): each says what is there.
+  { items: [item(ADMIN2_PATHS.DASHBOARD, "Overview of the business", LayoutDashboard)] },
   {
     label: "Catalogue",
     items: [
-      item(ADMIN2_PATHS.PLANS, "Plans", Package),
-      item(ADMIN2_PATHS.EXERCISES, "Exercises", Dumbbell)
+      item(ADMIN2_PATHS.PLANS, "RYZE plans: create, edit, archive", Package),
+      item(ADMIN2_PATHS.EXERCISES, "Exercise library", Dumbbell)
     ]
   },
   {
     label: "Business",
     items: [
-      item(ADMIN2_PATHS.SALES, "Sales", BarChart3),
+      item(ADMIN2_PATHS.SALES, "Sales and revenue", BarChart3),
       item(ADMIN2_PATHS.DISCOUNTS, "Discount codes", TicketPercent),
-      item(ADMIN2_PATHS.TRAINERS, "Trainers & commissions", UserRoundCheck),
-      item(ADMIN2_PATHS.CLIENTS, "Members", Users)
+      item(ADMIN2_PATHS.TRAINERS, "Trainers and commissions", UserRoundCheck),
+      item(ADMIN2_PATHS.CLIENTS, "Members and their purchases", Users)
     ]
   },
   {
     label: "Service",
     items: [
-      item(ADMIN2_PATHS.PREMIUM_LEVEL_2, "Premium L2 requests", ClipboardList, badges.premiumLevel2),
-      item(ADMIN2_PATHS.APPLICATIONS, "Trainer applications", FileCheck2, badges.applications),
-      item(ADMIN2_PATHS.FEEDBACK, "Feedback", MessageSquare, badges.feedback)
+      item(ADMIN2_PATHS.PREMIUM_LEVEL_2, "Premium Level 2 requests", ClipboardList, badges.premiumLevel2),
+      item(ADMIN2_PATHS.APPLICATIONS, "Trainer applications to review", FileCheck2, badges.applications),
+      item(ADMIN2_PATHS.FEEDBACK, "Member feedback to review", MessageSquare, badges.feedback)
     ]
   },
-  { label: "Configuration", items: [item(ADMIN2_PATHS.SETTINGS, "Settings", Settings)] }
+  { label: "Configuration", items: [item(ADMIN2_PATHS.SETTINGS, "Platform settings", Settings)] }
 ];
 
 export const admin2Tabs = (badges: Admin2Badges = {}): ShellNavItem[] => [

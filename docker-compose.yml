@@ -55,6 +55,8 @@ services:
       # compose network or every rate limiter would see the proxy's IP.
       RATE_LIMIT_TRUSTED_PROXIES: ${RYZE_DOCKER_SUBNET:-172.30.0.0/24}
       TRAINER_EVIDENCE_DIR: /var/lib/ryze/trainer-evidence
+      # Uploads must live in the persistent volume (see the Dockerfile).
+      UPLOADS_DIR: /var/lib/ryze/uploads
     volumes:
       - backend_data:/var/lib/ryze
     expose:

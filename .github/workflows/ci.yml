@@ -1,9 +1,16 @@
 name: CI
 
 on:
+  # main and staging are tested by the deploy workflow (it calls this file
+  # first), so they are not tested twice.
   push:
-    branches: [main]
+    branches-ignore: [main, staging]
   pull_request:
+  # The deploy workflow runs these same checks first and stops if any fails.
+  workflow_call:
+
+permissions:
+  contents: read
 
 # Cancel superseded runs on the same ref so feedback reflects the latest commit.
 concurrency:
@@ -35,14 +42,68 @@ jobs:
         working-directory: main/src/backend
         run: go vet ./...
 
-      # Database-backed packages are intentionally excluded: they require a
-      # provisioned MariaDB. This job stays green and catches build, vet,
-      # formatting, race and dependency-free test regressions; the full suite
-      # (including database-backed packages) is exercised in the deployment
-      # pipeline against a provisioned database.
+      # Database-independent packages with the race detector; the whole suite
+      # (database-backed packages included) runs in the backend-db job.
       - name: Unit tests (database-independent, race detector)
         working-directory: main/src/backend
         run: go test -race ./config/... ./middleware/... ./version/... ./services/token/... ./services/contact/... ./services/public_programs/...
+
+  backend-db:
+    name: Backend (migrations + full test suite on PostgreSQL 17)
+    runs-on: ubuntu-latest
+
+    # A throwaway database, created for this run and discarded with it. The
+    # credentials below are generated per run and are not secrets.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ryze_ci
+          POSTGRES_USER: ryze_ci
+          POSTGRES_PASSWORD: ryze_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ryze_ci -d ryze_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_NAME: ryze_ci
+      DB_USER: ryze_ci
+      DB_PASSWORD: ryze_ci_password
+      DB_SSLMODE: disable
+      COOKIE_SECURE: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: main/src/backend/go.mod
+          cache-dependency-path: main/src/backend/go.sum
+
+      # Test-only values, random for each run and masked in the logs.
+      - name: Generate test credentials
+        run: |
+          for name in JWT_SECRET ADMIN_1_PASSWORD ADMIN_1_ACCESS_CODE ADMIN_2_PASSWORD ADMIN_2_ACCESS_CODE; do
+            value="$(openssl rand -hex 32)"
+            echo "::add-mask::${value}"
+            echo "${name}=${value}" >> "$GITHUB_ENV"
+          done
+          echo "ADMIN_1_USERNAME=ci_admin_1" >> "$GITHUB_ENV"
+          echo "ADMIN_2_USERNAME=ci_admin_2" >> "$GITHUB_ENV"
+
+      - name: Apply migrations
+        working-directory: main/src/backend
+        run: go run . migrate up
+
+      - name: Full test suite
+        working-directory: main/src/backend
+        run: go test -count=1 ./...
 
   frontend:
     name: Frontend (typecheck, tests, build)

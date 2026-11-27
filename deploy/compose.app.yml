@@ -1,0 +1,85 @@
+# RYZE application stack for ONE environment on the VPS (production or staging).
+#
+# The same file runs both environments side by side; each is a separate
+# Compose project with its own database, volumes, network and secrets:
+#
+#   docker compose --project-directory /opt/ryze/production \
+#     --env-file /opt/ryze/production/release.env \
+#     -f /opt/ryze/deploy/compose.app.yml up -d
+#
+# --project-directory matters: ./app.env and ./db.env are read from it.
+#
+# Normally you never type this: deploy/deploy.sh does it (see production.MD).
+#
+# What is NOT here on purpose:
+# - No published ports. Nothing in this file is reachable from the Internet;
+#   only the Caddy edge proxy (compose.edge.yml) reaches the API through the
+#   shared network, and PostgreSQL is reachable only by the API.
+# - No frontend. The web app is static and is served by Cloudflare Pages.
+#
+# release.env (written by deploy.sh, not secret) provides:
+#   RYZE_ENV         production | staging
+#   RYZE_IMAGE       ghcr.io/<owner>/ryze-api:<tag>
+#   RYZE_SUBNET      fixed subnet of this environment's network
+# The application secrets come from ./app.env (chmod 600, never in Git).
+
+name: ryze-${RYZE_ENV:?set RYZE_ENV}
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    env_file:
+      - ./db.env
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --auth-host=scram-sha-256"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    # A small instance does not need more; raise with the server.
+    shm_size: 256mb
+
+  backend:
+    image: ${RYZE_IMAGE:?set RYZE_IMAGE}
+    restart: unless-stopped
+    # The API drains requests for up to SERVER_SHUTDOWN_TIMEOUT (20 s).
+    stop_grace_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./app.env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_SSLMODE: disable
+      PORT: "8080"
+      UPLOADS_DIR: /var/lib/ryze/uploads
+      TRAINER_EVIDENCE_DIR: /var/lib/ryze/trainer-evidence
+      # Only the Caddy proxy on this network may set the client address.
+      RATE_LIMIT_TRUSTED_PROXIES: ${RYZE_SUBNET:?set RYZE_SUBNET}
+    volumes:
+      - backend_data:/var/lib/ryze
+    networks:
+      app:
+        aliases:
+          - ryze-${RYZE_ENV}-backend
+    # The distroless image has no shell or curl; deploy.sh checks
+    # GET /api/v1/health from a throwaway curl container on this network.
+
+networks:
+  app:
+    name: ryze-${RYZE_ENV}-net
+    ipam:
+      config:
+        - subnet: ${RYZE_SUBNET}
+
+volumes:
+  db_data:
+  backend_data:

@@ -1686,6 +1686,24 @@ an update payload.
   and `SoftDelete` are refused, while reads and publishing remain available.
   This includes Test Mode purchases. Metadata is locked earlier, from creation.
 
+### Archived Programs (migration 000072, v2.132.0)
+
+`programs.archived_at TIMESTAMPTZ NULL` marks a published programme taken off
+the market by its owner (partial index `idx_programs_archived_owner` on
+`trainer_id` for archived, non-deleted rows). An archived programme keeps
+`status = 'published'`, so entitlement and activation reads used by existing
+holders are unchanged; it is excluded from the public catalogue listing and
+search, the coach showcase, Premium Level 1 matching, new purchase intents
+(also Test Mode) and new free activations. Only a published, non-archived
+programme can be archived. At most 15 archived programmes per owner: per
+`trainer_id` for trainers, and across the platform families for
+`trainer_id IS NULL`; the count runs under a lock (the trainer row `FOR
+UPDATE`, or a transaction advisory lock for the platform).
+
+Trainer Premium programmes are Premium Level 1 packages since v2.132.0
+(`product_type = 'premium_level_1'`, `objective`, `nutrition_mode =
+'curated'`); their meal plan uses the curated nutrition tables below.
+
 ---
 
 ## Program Assignments

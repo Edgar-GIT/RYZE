@@ -44,8 +44,8 @@ the pgx driver (migrated from MariaDB on 2026-11-11; conventions in
 
 - `main/src/frontend/src/` — pages, components, stores, API clients and styles.
 - `main/src/backend/` — Go API, services, repositories, models and database.
-- `main/src/backend/database/migrations/` — embedded SQL migrations (000071,
-  support chat tables dropped, is the latest file; never run `migrate down`, it
+- `main/src/backend/database/migrations/` — embedded SQL migrations (000072,
+  programme archive `programs.archived_at`, is the latest file; never run `migrate down`, it
   reverts every migration; apply pending
   migrations with `go run . migrate up` from `main/src/backend/`).
 - `main/src/backend/uploads/` — public uploads (`UPLOADS_DIR`): plan covers in
@@ -136,6 +136,12 @@ Use `.claude/agents/` reviewers only for independent, high-volume read-only
 research or review. They have no edit or shell access. Keep one continuous
 context for small changes. Read the matching custom RYZE skill before invoking
 its workflow.
+
+## Production
+
+`production.MD` (root, Portuguese) is the deployment manual: VPS layout
+(`/opt/ryze`), `deploy/` scripts and compose files, GitHub Environments,
+backups and every environment variable. Nothing is deployed from routine work.
 
 ## Documentation and handoff
 

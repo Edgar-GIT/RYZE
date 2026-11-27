@@ -53,6 +53,9 @@ export interface MarketplaceProgram extends MarketplaceProgramProduct {
   cover_image_url?: string;
   // Designed more for women or men; null: for everyone.
   audience?: "female" | "male" | null;
+  // Off the market (v2.132.0): no new purchases or activations; the people
+  // who already have it keep it.
+  archived?: boolean;
   created_at: string;
   updated_at: string;
 }

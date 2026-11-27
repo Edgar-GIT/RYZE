@@ -35,13 +35,38 @@ func openConcurrencyRepository(t *testing.T) (*gorm.DB, repositories.PurchaseRep
 	}
 
 	repo := repositories.NewPurchaseRepository(db)
+	release := holdCommittedPurchasesLock(t, db)
 	cleanup := func() {
-		sqlDB, sqlErr := db.DB()
-		if sqlErr == nil {
+		release()
+		if sqlDB, sqlErr := db.DB(); sqlErr == nil {
 			_ = sqlDB.Close()
 		}
 	}
 	return db, repo, cleanup
+}
+
+// holdCommittedPurchasesLock is for the tests that must commit purchases
+// (concurrency needs separate transactions): for their whole run they hold
+// the lock that the tests reading global purchase totals take, so those never
+// count these short-lived rows (api/auth TestAdminCommerceListPurchasesAndSummary).
+// Call release after the committed rows are deleted.
+func holdCommittedPurchasesLock(t *testing.T, db *gorm.DB) (release func()) {
+	t.Helper()
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("retrieve database handle: %v", err)
+	}
+	conn, err := sqlDB.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("open lock connection: %v", err)
+	}
+	if _, err := conn.ExecContext(context.Background(), "SELECT pg_advisory_lock(hashtext('ryze-test-committed-purchases'))"); err != nil {
+		t.Fatalf("take committed-purchases test lock: %v", err)
+	}
+	return func() {
+		_, _ = conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock(hashtext('ryze-test-committed-purchases'))")
+		_ = conn.Close()
+	}
 }
 
 // seedConcurrencyPair commits a user and a published program for the purchase
