@@ -10,7 +10,6 @@ import {
   Dumbbell,
   Eye,
   FileCheck2,
-  LifeBuoy,
   MessageSquare,
   Package,
   Plus,
@@ -117,14 +116,6 @@ export default function Admin2DashboardPage() {
       text: "Pending review",
       value: data.trainers.pending_applications,
       hot: data.trainers.pending_applications > 0
-    },
-    {
-      to: ADMIN2_PATHS.SUPPORT,
-      icon: LifeBuoy,
-      title: "Support conversations",
-      text: "Open",
-      value: queues.support_open,
-      hot: queues.support_open > 0
     },
     {
       to: ADMIN2_PATHS.FEEDBACK,

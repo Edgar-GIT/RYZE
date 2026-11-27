@@ -21,6 +21,7 @@ import { Link, useHistory, useLocation, useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
+import { HealthConsentCheckbox } from "@/components/health_consent/health_consent_checkbox";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import { QuestionField } from "@/components/premium_level2_intake/question_field";
 import ui from "@/components/public_ui/public_ui.module.css";
@@ -71,6 +72,7 @@ const COPY: Copy<{
   previous: string;
   next: string;
   submit: string;
+  consentRequired: string;
   submitting: string;
   sectionProgress: (done: number, total: number) => string;
   required: string;
@@ -164,6 +166,7 @@ const COPY: Copy<{
     previous: "Previous",
     next: "Next",
     submit: "Send my answers",
+    consentRequired: "Tick the consent for your health data to send the answers.",
     submitting: "Sending…",
     sectionProgress: (done, total) => `${done} of ${total} sections reviewed`,
     required: "This answer is required.",
@@ -257,6 +260,7 @@ const COPY: Copy<{
     previous: "Anterior",
     next: "Seguinte",
     submit: "Enviar as minhas respostas",
+    consentRequired: "Marca o consentimento para os teus dados de saúde para enviares as respostas.",
     submitting: "A enviar…",
     sectionProgress: (done, total) => `${done} de ${total} secções revistas`,
     required: "Esta resposta é obrigatória.",
@@ -435,6 +439,8 @@ export const PremiumLevel2ExperiencePage = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [healthConsent, setHealthConsent] = useState(false);
+  const [consentMissing, setConsentMissing] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState("");
   const [preparingStep, setPreparingStep] = useState(0);
@@ -632,6 +638,11 @@ export const PremiumLevel2ExperiencePage = () => {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+    if (!healthConsent) {
+      setConsentMissing(true);
+      setSubmitError(text.consentRequired);
+      return;
+    }
     const payload: Record<string, unknown> = {};
     for (const question of allQuestions) {
       const value = answers[question.key];
@@ -642,7 +653,7 @@ export const PremiumLevel2ExperiencePage = () => {
     setSubmitError("");
     setFieldErrors({});
     try {
-      const result = await submitPremiumLevel2Intake(requestID, payload);
+      const result = await submitPremiumLevel2Intake(requestID, payload, true);
       setDetail((currentDetail) =>
         currentDetail ? { ...currentDetail, request: result.request, intake: result.intake } : currentDetail
       );
@@ -838,6 +849,16 @@ export const PremiumLevel2ExperiencePage = () => {
                     <p className={styles.errorText} role="alert">
                       {submitError}
                     </p>
+                  ) : null}
+                  {section === sections.length - 1 ? (
+                    <HealthConsentCheckbox
+                      checked={healthConsent}
+                      invalid={consentMissing && !healthConsent}
+                      onChange={(value) => {
+                        setHealthConsent(value);
+                        if (value) setConsentMissing(false);
+                      }}
+                    />
                   ) : null}
                   <div className={styles.questionActions}>
                     <button

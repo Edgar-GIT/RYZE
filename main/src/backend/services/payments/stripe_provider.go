@@ -50,6 +50,19 @@ const (
 type StripeProvider struct {
 	successURL string
 	cancelURL  string
+	// publishableKey enables the embedded Checkout page (owner request,
+	// 2026-11-23: always use the provider's own screens, shown inside RYZE).
+	publishableKey string
+}
+
+// WithEmbeddedCheckout makes the provider create embedded Checkout Sessions:
+// the Stripe form (card number, expiry, CVC, brand detection; or MB WAY) is
+// mounted inside the RYZE checkout with the returned client secret, and Stripe
+// sends the buyer to the success URL (the return URL) once paid. Card data still
+// goes only to Stripe.
+func (p *StripeProvider) WithEmbeddedCheckout(publishableKey string) *StripeProvider {
+	p.publishableKey = strings.TrimSpace(publishableKey)
+	return p
 }
 
 // Ensure the Stripe provider can be used for both phases of the shared
@@ -136,14 +149,29 @@ func (p *StripeProvider) InitiatePayment(_ context.Context, request PaymentReque
 			"purchase_id": request.PurchaseID,
 			"program_id":  request.ProgramID,
 		},
+		// The payment itself carries the purchase too, so a refund can find
+		// it later (v2.131.0).
+		PaymentIntentData: &stripe.CheckoutSessionPaymentIntentDataParams{
+			Metadata: map[string]string{"purchase_id": request.PurchaseID},
+		},
 	}
-	params.SetIdempotencyKey(stripeIdempotencyKey(request.PurchaseID))
+	params.SetIdempotencyKey(stripeIdempotencyKey(request.PurchaseID, request.AmountMinorUnits))
 
-	if p.successURL != "" {
-		params.SuccessURL = stripe.String(substituteRedirectPlaceholders(p.successURL, request))
-	}
-	if p.cancelURL != "" {
-		params.CancelURL = stripe.String(substituteRedirectPlaceholders(p.cancelURL, request))
+	embedded := p.publishableKey != ""
+	if embedded {
+		// Embedded page: success and cancel URLs are not allowed; the return
+		// URL carries {CHECKOUT_SESSION_ID} for the capture leg.
+		params.UIMode = stripe.String(string(stripe.CheckoutSessionUIModeEmbeddedPage))
+		if p.successURL != "" {
+			params.ReturnURL = stripe.String(substituteRedirectPlaceholders(p.successURL, request))
+		}
+	} else {
+		if p.successURL != "" {
+			params.SuccessURL = stripe.String(substituteRedirectPlaceholders(p.successURL, request))
+		}
+		if p.cancelURL != "" {
+			params.CancelURL = stripe.String(substituteRedirectPlaceholders(p.cancelURL, request))
+		}
 	}
 
 	created, err := session.New(params)
@@ -152,6 +180,19 @@ func (p *StripeProvider) InitiatePayment(_ context.Context, request PaymentReque
 	}
 	if created == nil || created.ID == "" {
 		return PaymentResult{}, fmt.Errorf("stripe: checkout session creation returned no session: %w", ErrProviderFailure)
+	}
+	if embedded {
+		if created.ClientSecret == "" {
+			return PaymentResult{}, fmt.Errorf("stripe: embedded checkout session has no client secret: %w", ErrProviderFailure)
+		}
+		return PaymentResult{
+			PaymentID:      created.ID,
+			Status:         PaymentStatusRequiresAction,
+			Provider:       stripeProviderName,
+			PurchaseID:     request.PurchaseID,
+			ClientSecret:   created.ClientSecret,
+			PublishableKey: p.publishableKey,
+		}, nil
 	}
 	if created.URL == "" {
 		return PaymentResult{}, fmt.Errorf("stripe: checkout session has no hosted page: %w", ErrProviderFailure)
@@ -313,8 +354,10 @@ func stripeSessionUsesRecordedMethod(reloaded *stripe.CheckoutSession, recordedM
 // stripeIdempotencyKey builds the per-purchase Stripe idempotency key. Stripe
 // replays the original Checkout Session for a repeated key, so one purchase
 // can never hold two payable sessions.
-func stripeIdempotencyKey(purchaseID string) string {
-	return "ryze-purchase-" + purchaseID
+// stripeIdempotencyKey identifies one session per purchase and amount: a
+// discount applied before the payment opens gives a new amount (v2.131.0).
+func stripeIdempotencyKey(purchaseID string, amountMinorUnits int64) string {
+	return fmt.Sprintf("ryze-purchase-%s-%d", purchaseID, amountMinorUnits)
 }
 
 // stripeCurrencyCode normalises the purchase currency into the lower-case ISO

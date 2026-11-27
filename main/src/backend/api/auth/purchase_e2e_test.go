@@ -142,7 +142,7 @@ func TestE2EFullPurchaseFlow(t *testing.T) {
 	}
 
 	// Step 2: Initiate payment
-	rec, payData, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/payment", `{"payment_method":"card"}`)
+	rec, payData, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Step 2 - expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -249,7 +249,7 @@ func TestE2EFullPurchaseFlow(t *testing.T) {
 	}
 
 	// Step 6: Verify no new payment can be initiated after completion
-	rec, _, raw = trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/payment", `{"payment_method":"card"}`)
+	rec, _, raw = trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchaseID+"/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("Step 6 - expected 409, got %d (body: %s)", rec.Code, raw)
 	}

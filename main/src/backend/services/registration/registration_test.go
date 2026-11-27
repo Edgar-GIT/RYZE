@@ -130,9 +130,14 @@ func TestRegisterRejectsReservedTestModePersonas(t *testing.T) {
 			t.Fatalf("reserved email %q: expected ErrDuplicateEmail, got %v", email, err)
 		}
 
-		_, err = repo.FindByEmailIncludingDeleted(ctx, strings.TrimSpace(email))
-		if !errors.Is(err, repositories.ErrUserNotFound) {
-			t.Fatalf("reserved email %q must never be persisted: %v", email, err)
+		// Test Mode itself may own the persona row (test_persona set); a
+		// registration must never have created one.
+		user, err := repo.FindByEmailIncludingDeleted(ctx, strings.TrimSpace(email))
+		if err == nil && user.TestPersona == nil {
+			t.Fatalf("reserved email %q must never be persisted by registration", email)
+		}
+		if err != nil && !errors.Is(err, repositories.ErrUserNotFound) {
+			t.Fatalf("reserved email %q: lookup failed: %v", email, err)
 		}
 	}
 }

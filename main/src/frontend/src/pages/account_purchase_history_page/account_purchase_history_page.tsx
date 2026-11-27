@@ -19,13 +19,14 @@ type State =
   | { status: "empty" }
   | { status: "ready"; entries: PurchaseHistoryEntry[] };
 
-// The backend only ever emits pending, completed and failed. No other status
-// can appear; cancelled/missing payments stay pending until resolved or marked
+// The backend emits pending, completed, failed and (since v2.131.0)
+// refunded; cancelled/missing payments stay pending until resolved or marked
 // failed by the backend.
 const STATUS_KEY = {
   pending: "account.purchases.pending",
   completed: "account.purchases.completed",
-  failed: "account.purchases.failed"
+  failed: "account.purchases.failed",
+  refunded: "account.purchases.refunded"
 } as const;
 
 // Brand names stay as they are; only "Card" is translated.

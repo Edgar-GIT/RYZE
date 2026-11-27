@@ -54,6 +54,9 @@ export type PurchaseState =
   | { status: "creating" }
   | { status: "negotiating" }
   | { status: "redirecting" }
+  // The provider's own form is shown inside the checkout (Stripe embedded
+  // Checkout): card data goes straight to the provider.
+  | { status: "embedded"; purchaseId: string; clientSecret: string; publishableKey: string }
   | { status: "processing" }
   | { status: "success"; purchase: Purchase }
   | { status: "cancelled"; purchaseId: string }
@@ -70,6 +73,12 @@ export interface ProgramCheckout {
   /** The buyer's optional NIF for the purchase receipt (empty: final consumer). */
   taxId: string;
   setTaxId: (taxId: string) => void;
+  /** Leaves the provider's embedded form and shows the methods again. */
+  backToMethods: () => void;
+  /** The buyer's checkout consents (terms and immediate access). */
+  setConsented: (consented: boolean) => void;
+  /** The discount code checked on the pay screen ("" for none). */
+  setDiscountCode: (code: string) => void;
   buy: () => Promise<void>;
   retryPurchase: (purchaseId: string) => Promise<void>;
   /** Re-reads the ownership state after an external event (for example a
@@ -101,6 +110,8 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
   const [state, setState] = useState<PurchaseState>({ status: "checking" });
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodInfo[]>([]);
   const [selectedMethod, setSelectedMethod] = useState("");
+  const consentedRef = useRef(false);
+  const discountRef = useRef("");
   const [testEmail, setTestEmail] = useState("");
   const [taxId, setTaxId] = useState("");
   // Guards the PURCHASE_EXPIRED recovery so a checkout freshens its intent at
@@ -198,7 +209,17 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
       return;
     }
     try {
-      const initiation = await initiatePayment(purchaseId, method, taxId);
+      const initiation = await initiatePayment(
+        purchaseId,
+        method,
+        taxId,
+        { acceptTerms: consentedRef.current, immediateAccess: consentedRef.current },
+        discountRef.current
+      );
+      if (initiation.client_secret && initiation.publishable_key) {
+        setState({ status: "embedded", purchaseId, clientSecret: initiation.client_secret, publishableKey: initiation.publishable_key });
+        return;
+      }
       if (!initiation.checkout_url) {
         setState({ status: "error", message: "Checkout is temporarily unavailable. Please try again." });
         return;
@@ -245,7 +266,7 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
     }
     setState({ status: "creating" });
     try {
-      const purchase = await completeTestPurchase(programId, testEmail.trim(), taxId);
+      const purchase = await completeTestPurchase(programId, testEmail.trim(), taxId, consentedRef.current);
       setState({ status: "success", purchase });
     } catch (error) {
       if (error instanceof ApiError && error.code === PREMIUM_LEVEL_CONFLICT) {
@@ -325,9 +346,9 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
   );
 
   // Resolve the currently configured payment methods. The endpoint is public
-  // and the frontend only renders what the backend advertises — it never
-  // hard-codes a payment method. A failure simply leaves the checkout panel
-  // in its unavailable state.
+  // and the checkout only pays with what the backend advertises (the panel
+  // shows every supported method and explains the ones not set up). A failure
+  // leaves the list empty: nothing can be paid.
   useEffect(() => {
     let cancelled = false;
     void fetchPaymentMethods()
@@ -410,6 +431,13 @@ export const useProgramCheckout = ({ programId, free, testModeActive, enabled }:
     setTaxId,
     buy,
     retryPurchase,
+    backToMethods: () => setState({ status: "ready" }),
+    setConsented: (consented: boolean) => {
+      consentedRef.current = consented;
+    },
+    setDiscountCode: (code: string) => {
+      discountRef.current = code;
+    },
     refreshOwnership: resolveOwnership
   };
 };

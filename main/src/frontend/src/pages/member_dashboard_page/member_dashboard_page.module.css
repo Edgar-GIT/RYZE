@@ -1179,3 +1179,49 @@
 .otherFocus:focus-visible {
   outline-color: #00cbff;
 }
+
+/* In-app training reminder after 4 days without training (v2.131.0). */
+.comeback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(255, 170, 80, 0.45);
+  border-radius: 18px;
+  background: linear-gradient(120deg, rgba(255, 150, 60, 0.16), rgba(0, 203, 255, 0.08));
+}
+
+.comeback > svg {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  color: #ffb057;
+}
+
+.comeback > div {
+  flex: 1 1 14rem;
+}
+
+.comeback p {
+  margin: 0.2rem 0 0;
+  opacity: 0.85;
+  font-size: 0.9rem;
+}
+
+.comebackAction {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 1.2rem;
+  border-radius: 999px;
+  color: #02041f;
+  background: #18d8ff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.comebackAction:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}

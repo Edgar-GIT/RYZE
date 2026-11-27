@@ -55,6 +55,12 @@ func (h *UploadsHandler) TrainerProgramCover(c *gin.Context) {
 	h.saveCover(c, program_details.CoverFolder(models.ProgramProductTypeGeneric, programType))
 }
 
+// MealImage stores the picture of a meal in a Premium Level 2 nutrition plan
+// (trainers and RYZE, v2.131.0), in the public "meals" folder.
+func (h *UploadsHandler) MealImage(c *gin.Context) {
+	h.saveCover(c, "meals")
+}
+
 func (h *UploadsHandler) saveCover(c *gin.Context, folder string) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
@@ -108,6 +114,14 @@ func (h *UploadsHandler) ServeAvatar(c *gin.Context) {
 
 func (h *UploadsHandler) ServeProgramImage(c *gin.Context) {
 	key := "programs" + c.Param("filepath")
+	if image := program_details.OfficialCoverImage(key); image != nil {
+		// The official RYZE plan pictures ship with the API.
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
+		c.Header("Cache-Control", "public, max-age=86400")
+		c.Data(http.StatusOK, "image/png", image)
+		return
+	}
 	if !uploads.ServedKeyPattern.MatchString(key) || !h.store.Exists(key) {
 		c.Status(http.StatusNotFound)
 		return

@@ -10,6 +10,9 @@ export interface BuilderCopy {
   categoryLocked: string;
   coverTitle: string;
   coverHint: string;
+  officialTitle: string;
+  officialText: string;
+  officialHint: string;
   coverChoose: string;
   coverReplace: string;
   coverRemove: string;
@@ -179,6 +182,9 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     categoryTitle: "Category",
     categoryLocked: "The category is fixed once the plan exists.",
     coverTitle: "Cover image",
+    officialTitle: "Official RYZE plan",
+    officialText: "A plan of the platform itself, not a custom one. It always uses the RYZE picture.",
+    officialHint: "Official RYZE plans always use this picture; it cannot be changed.",
     coverHint: "Shown on the plan card and page. A wide picture works best (16:9).",
     coverChoose: "Choose image",
     coverReplace: "Replace",
@@ -316,6 +322,9 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     categoryTitle: "Categoria",
     categoryLocked: "A categoria fica fixa depois de o plano existir.",
     coverTitle: "Imagem de capa",
+    officialTitle: "Plano oficial RYZE",
+    officialText: "Um plano da própria plataforma, não um plano customizado. Usa sempre a imagem RYZE.",
+    officialHint: "Os planos oficiais RYZE usam sempre esta imagem; não pode ser alterada.",
     coverHint: "Aparece no cartão e na página do plano. Uma imagem larga resulta melhor (16:9).",
     coverChoose: "Escolher imagem",
     coverReplace: "Trocar",

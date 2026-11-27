@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { useHistory, useLocation, useParams } from "react-router-dom";
 
 import { AppLoading } from "@/components/app_shell/app_loading";
 import type { BuilderExercise } from "@/components/plan_builder/exercise_media";
@@ -31,6 +31,7 @@ import {
   type TrainerProgram,
   type TrainerProgramTypeValue
 } from "@/services/trainer_api";
+import { attachPremiumLevel2TrainingProgram } from "@/services/premium_level_2_api";
 import { ApiError } from "@utils/http_client";
 
 const COPY: Copy<{
@@ -46,6 +47,11 @@ const COPY: Copy<{
   errors: Record<string, string>;
   genericError: string;
   unsaved: string;
+  requestKicker: string;
+  requestTitle: string;
+  requestBack: string;
+  requestSave: string;
+  copySuffix: string;
 }> = {
   en: {
     kicker: "Trainer · programmes",
@@ -69,7 +75,12 @@ const COPY: Copy<{
       VALIDATION_ERROR: "Some details were not accepted. Check the programme and try again."
     },
     genericError: "The programme could not be saved. Try again.",
-    unsaved: "You have unsaved changes. Leave anyway?"
+    unsaved: "You have unsaved changes. Leave anyway?",
+    requestKicker: "Premium Level 2 · personal plan",
+    requestTitle: "Client's personal plan",
+    requestBack: "Back to the request",
+    requestSave: "Save and link to the request",
+    copySuffix: "(copy)"
   },
   pt: {
     kicker: "Treinador · programas",
@@ -93,7 +104,12 @@ const COPY: Copy<{
       VALIDATION_ERROR: "Alguns dados não foram aceites. Revê o programa e tenta de novo."
     },
     genericError: "Não foi possível guardar o programa. Tenta de novo.",
-    unsaved: "Tens alterações por guardar. Sair na mesma?"
+    unsaved: "Tens alterações por guardar. Sair na mesma?",
+    requestKicker: "Premium Nível 2 · plano pessoal",
+    requestTitle: "Plano pessoal do cliente",
+    requestBack: "Voltar ao pedido",
+    requestSave: "Guardar e ligar ao pedido",
+    copySuffix: "(cópia)"
   }
 };
 
@@ -170,14 +186,23 @@ const metadataOf = (draft: PlanDraft) => ({
 export default function TrainerPlanBuilderPage() {
   const history = useHistory();
   const { programId: routeId } = useParams<{ programId?: string }>();
+  const { search } = useLocation();
   const { locale } = useI18n();
   const text = COPY[locale];
+  // ?request=<id>: the plan is a Premium Level 2 client's personal plan; it is
+  // linked to the request on save and never published. ?base=<id>: a new plan
+  // starts as a copy of one of the trainer's plans (owner request, 2026-11-24).
+  const query = new URLSearchParams(search);
+  const requestId = query.get("request") ?? "";
+  const baseId = query.get("base") ?? "";
+  const requestPage = requestId ? `/trainer/premium-level-2/${encodeURIComponent(requestId)}` : "";
 
   const [programId, setProgramId] = useState(routeId && routeId !== "new" ? routeId : "");
   const [draft, setDraft] = useState<PlanDraft>(() => ({
     ...createPlanDraft(PROGRAM_PRODUCT_TYPE.GENERIC),
-    type: TrainerProgramType.FREE
+    type: requestId ? TrainerProgramType.PERSONALIZED : TrainerProgramType.FREE
   }));
+  const [loadingBase, setLoadingBase] = useState(Boolean(!programId && baseId));
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [loading, setLoading] = useState(Boolean(programId));
   const [loadError, setLoadError] = useState(false);
@@ -225,6 +250,38 @@ export default function TrainerPlanBuilderPage() {
       cancelled = true;
     };
   }, [programId, rememberExercises]);
+
+  // A new plan based on another one starts as its copy (without the cover,
+  // which belongs to the other plan's category).
+  useEffect(() => {
+    if (programId || !baseId) return;
+    let cancelled = false;
+    Promise.all([fetchTrainerProgram(baseId), fetchTrainerProgramStructure(baseId)])
+      .then(([program, weeks]) => {
+        if (cancelled) return;
+        const copied = detailToPlanDraft(toDetail(program, weeks));
+        setDraft({
+          ...copied,
+          name: `${program.name} ${text.copySuffix}`.slice(0, 120),
+          type: requestId ? TrainerProgramType.PERSONALIZED : copied.type,
+          cover_image: "",
+          cover_url: ""
+        });
+        rememberExercises(exercisesOf(weeks));
+        setDirty(true);
+      })
+      .catch(() => {
+        // The builder starts empty if the base cannot be read.
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingBase(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // The base is read once, when the page opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!dirty) return;
@@ -276,15 +333,21 @@ export default function TrainerPlanBuilderPage() {
       savedCover.current = draft.cover_image;
       const weeks = await saveTrainerProgramStructure(id, toGenericProgramInput(draft).weeks);
       let program = await fetchTrainerProgram(id);
-      if (publish && program.status === TrainerProgramStatus.DRAFT) {
+      if (publish && !requestId && program.status === TrainerProgramStatus.DRAFT) {
         program = await publishTrainerProgram(id);
+      }
+      if (requestId) {
+        // The personal plan goes straight onto its request.
+        await attachPremiumLevel2TrainingProgram(requestId, id);
       }
       setDraft(detailToPlanDraft(toDetail(program, weeks)));
       rememberExercises(exercisesOf(weeks));
       setStatus(program.status === TrainerProgramStatus.PUBLISHED ? "published" : "draft");
       setDirty(false);
       setMessage({ tone: "success", text: program.status === TrainerProgramStatus.PUBLISHED ? text.published : text.saved });
-      if (!routeId || routeId === "new") {
+      if (requestId) {
+        setRedirect(requestPage);
+      } else if (!routeId || routeId === "new") {
         setRedirect(`/trainer/programs/${id}`);
       }
     } catch (error) {
@@ -310,7 +373,7 @@ export default function TrainerPlanBuilderPage() {
     }
   };
 
-  if (loading) {
+  if (loading || loadingBase) {
     return <AppLoading />;
   }
 
@@ -330,16 +393,17 @@ export default function TrainerPlanBuilderPage() {
   return (
     <PlanBuilder
       heading={{
-        kicker: text.kicker,
-        title: programId ? draft.name || text.editTitle : text.newTitle,
-        backTo: "/trainer/programs",
-        backLabel: text.back
+        kicker: requestId ? text.requestKicker : text.kicker,
+        title: programId || baseId ? draft.name || text.editTitle : requestId ? text.requestTitle : text.newTitle,
+        backTo: requestPage || "/trainer/programs",
+        backLabel: requestId ? text.requestBack : text.back
       }}
+      draftOnlyLabel={requestId ? text.requestSave : undefined}
       draft={draft}
       onChange={change}
       categories={categories}
       category={draft.type}
-      onCategoryChange={(id) => change((current) => ({ ...current, type: id as ProgramTypeValue }))}
+      onCategoryChange={requestId ? undefined : (id) => change((current) => ({ ...current, type: id as ProgramTypeValue }))}
       showPackageOptions={false}
       packageOptionsLocked
       hasStructure

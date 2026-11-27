@@ -15,6 +15,7 @@ import { joinClassNames } from "@utils/class_names";
 import { ApiError, apiPost } from "@utils/http_client";
 
 import styles from "./account_settings_page.module.css";
+import { PrivacyCookiesCard } from "./privacy_cookies_card";
 import { ProfileDetailsCard } from "./profile_details_card";
 import { ProfileAvatar, PublicProfileCard } from "./public_profile_card";
 
@@ -54,7 +55,7 @@ const COPY: Copy<{
     session: "Session",
     sessionText: "Sign out of RYZE on this device.",
     danger: "Delete account",
-    dangerText: "Permanently close your account. This cannot be undone."
+    dangerText: "Close your account. For 30 days you can restore it by registering again with the same email; after that the data that identifies you is erased for good (sales receipts are kept as the law requires)."
   },
   pt: {
     kicker: "Conta",
@@ -73,7 +74,7 @@ const COPY: Copy<{
     session: "Sessão",
     sessionText: "Sai da RYZE neste dispositivo.",
     danger: "Apagar conta",
-    dangerText: "Fecha a tua conta de forma definitiva. Não é possível desfazer."
+    dangerText: "Fecha a tua conta. Durante 30 dias podes recuperá-la registando-te de novo com o mesmo email; depois disso, os dados que te identificam são apagados de vez (os comprovativos de compra ficam guardados como a lei exige)."
   }
 };
 
@@ -446,6 +447,8 @@ export const AccountSettingsPage = () => {
             <section className={styles.card} aria-label={text.access}>
               <SignInMethods />
             </section>
+
+            <PrivacyCookiesCard />
           </div>
 
           <div className={styles.column}>

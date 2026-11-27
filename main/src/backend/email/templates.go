@@ -21,7 +21,7 @@ const (
 	TemplateRequestAssigned     = "pl2_request_assigned"
 	TemplateRequestOffered      = "pl2_request_offered"
 	TemplateServiceDelivered    = "pl2_delivered"
-	TemplateSupportReply        = "support_reply"
+	TemplateTrainingReminder    = "training_reminder"
 	TemplateInvoiceIssued       = "invoice_issued"
 )
 
@@ -166,15 +166,29 @@ var copies = map[string]map[string]copyText{
 			Action: "Ver o pedido", NeedsLink: true,
 		},
 	},
+	TemplateTrainingReminder: {
+		LocaleEnglish: {
+			Subject: "Your next workout is waiting", Heading: "Time to get back to it",
+			Body:   "Hi{{if .Name}} {{.Name}}{{end}}, it has been a few days since your last workout. Your next session is ready: even a short one keeps your progress going.",
+			Action: "Start my next workout", NeedsLink: true,
+			Footnote: "You can turn these reminders off in Account → Privacy and notifications.",
+		},
+		LocalePortuguese: {
+			Subject: "O teu próximo treino está à tua espera", Heading: "Está na hora de voltar",
+			Body:   "Olá{{if .Name}} {{.Name}}{{end}}, já passaram uns dias desde o teu último treino. O próximo está pronto: mesmo um treino curto mantém o teu progresso.",
+			Action: "Começar o próximo treino", NeedsLink: true,
+			Footnote: "Podes desligar estes lembretes em Conta → Privacidade e notificações.",
+		},
+	},
 	TemplateServiceDelivered: {
 		LocaleEnglish: {
 			Subject: "Your {{.Program}} is ready", Heading: "Your programme is ready",
-			Body:   "Hi{{if .Name}} {{.Name}}{{end}}, your trainer delivered your {{.Program}} programme and nutrition plan. They are now available in your account.",
+			Body:   "Hi{{if .Name}} {{.Name}}{{end}}, your {{.Program}} programme and nutrition plan, made for you, are ready. They are now available in your account.",
 			Action: "Open your programme", NeedsLink: true,
 		},
 		LocalePortuguese: {
 			Subject: "O teu {{.Program}} está pronto", Heading: "O teu programa está pronto",
-			Body:   "Olá{{if .Name}} {{.Name}}{{end}}, o teu treinador entregou o programa e o plano de nutrição {{.Program}}. Já estão disponíveis na tua conta.",
+			Body:   "Olá{{if .Name}} {{.Name}}{{end}}, o programa e o plano de nutrição {{.Program}}, feitos para ti, estão prontos. Já estão disponíveis na tua conta.",
 			Action: "Abrir o programa", NeedsLink: true,
 		},
 	},
@@ -190,18 +204,6 @@ var copies = map[string]map[string]copyText{
 			Body:   "Olá{{if .Name}} {{.Name}}{{end}}, obrigado pela tua compra de {{.Program}}. O comprovativo está abaixo e fica sempre disponível na tua conta, em Compras.",
 			Action: "Ver o comprovativo", Footnote: "Na página do comprovativo podes imprimi-lo ou guardá-lo em PDF.",
 			NeedsLink: true,
-		},
-	},
-	TemplateSupportReply: {
-		LocaleEnglish: {
-			Subject: "RYZE support replied", Heading: "New reply from RYZE support",
-			Body:   "Hi{{if .Name}} {{.Name}}{{end}}, RYZE support replied to your conversation.",
-			Action: "Read the reply", NeedsLink: true,
-		},
-		LocalePortuguese: {
-			Subject: "O suporte RYZE respondeu", Heading: "Nova resposta do suporte RYZE",
-			Body:   "Olá{{if .Name}} {{.Name}}{{end}}, o suporte RYZE respondeu à tua conversa.",
-			Action: "Ler a resposta", NeedsLink: true,
 		},
 	},
 }

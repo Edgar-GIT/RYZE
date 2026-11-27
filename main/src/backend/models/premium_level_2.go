@@ -50,6 +50,10 @@ type PremiumLevel2Request struct {
 	NutritionPlanID      *string `gorm:"column:nutrition_plan_id;->" json:"nutrition_plan_id,omitempty"`
 	NutritionPlanVersion *int    `gorm:"column:nutrition_plan_version;->" json:"nutrition_plan_version,omitempty"`
 	NutritionPlanStatus  *string `gorm:"column:nutrition_plan_status;->" json:"nutrition_plan_status,omitempty"`
+	// HandledByRyze: RYZE itself (ADMIN_2) took the request instead of a
+	// trainer (v2.131.0); RyzeAdminID is the administrator who accepted it.
+	HandledByRyze bool    `gorm:"column:handled_by_ryze;not null;default:false" json:"handled_by_ryze"`
+	RyzeAdminID   *string `gorm:"column:ryze_admin_id;type:varchar(36)" json:"-"`
 }
 
 func (PremiumLevel2Request) TableName() string { return "premium_level_2_requests" }
@@ -111,12 +115,14 @@ func (p *PremiumLevel2NutritionPlan) BeforeCreate(_ *gorm.DB) error {
 }
 
 type PremiumLevel2NutritionPlanMeal struct {
-	ID        string                               `gorm:"type:char(36);primaryKey" json:"id"`
-	PlanID    string                               `gorm:"column:plan_id;type:char(36);not null" json:"plan_id"`
-	Position  int                                  `gorm:"column:position;not null" json:"position"`
-	Label     string                               `gorm:"column:label;type:varchar(48);not null" json:"label"`
-	Kind      string                               `gorm:"column:kind;type:varchar(16);not null;default:meal" json:"kind"`
-	Notes     *string                              `gorm:"column:notes;type:varchar(255)" json:"notes"`
+	ID       string  `gorm:"type:char(36);primaryKey" json:"id"`
+	PlanID   string  `gorm:"column:plan_id;type:char(36);not null" json:"plan_id"`
+	Position int     `gorm:"column:position;not null" json:"position"`
+	Label    string  `gorm:"column:label;type:varchar(48);not null" json:"label"`
+	Kind     string  `gorm:"column:kind;type:varchar(16);not null;default:meal" json:"kind"`
+	Notes    *string `gorm:"column:notes;type:varchar(255)" json:"notes"`
+	// ImageKey is the meal's picture in the public uploads (programs/meals).
+	ImageKey  *string                              `gorm:"column:image_key;type:varchar(80)" json:"image_key"`
 	CreatedAt time.Time                            `gorm:"column:created_at;type:datetime(6);not null" json:"-"`
 	Items     []PremiumLevel2NutritionPlanMealItem `gorm:"foreignKey:MealID" json:"items"`
 }

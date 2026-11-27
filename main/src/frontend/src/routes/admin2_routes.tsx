@@ -12,9 +12,10 @@ import Admin2ClientsPage from "@/pages/admin2/admin2_clients_page/admin2_clients
 import Admin2SalesPage from "@/pages/admin2/admin2_sales_page/admin2_sales_page";
 import { AdminTrainerApplicationsPage } from "@/pages/admin/admin_trainer_applications_page/admin_trainer_applications_page";
 import Admin2FeedbackPage from "@/pages/admin2/admin2_feedback_page/admin2_feedback_page";
-import Admin2SupportPage from "@/pages/admin2/admin2_support_page/admin2_support_page";
 import Admin2ExercisesPage from "@/pages/admin2/admin2_exercises_page/admin2_exercises_page";
 import Admin2SettingsPage from "@/pages/admin2/admin2_settings_page/admin2_settings_page";
+import Admin2PremiumLevel2RequestPage from "@/pages/admin2/admin2_premium_level2_request_page/admin2_premium_level2_request_page";
+import { DiscountCodesManager } from "@/components/discount_codes_manager/discount_codes_manager";
 
 // The Management Administrator console (ADMIN_2): its shell and pages.
 // Loaded on demand (see app_routes.tsx), so public visitors never download it.
@@ -26,17 +27,18 @@ const Admin2Routes = () => (
         <Route exact path="/admin2/dashboard" component={Admin2DashboardPage} />
         <Route exact path="/admin2/plans" component={Admin2PlansPage} />
         <Route exact path="/admin2/premium-level-2" component={Admin2PremiumLevel2Page} />
+        <Route exact path="/admin2/premium-level-2/:requestID" component={Admin2PremiumLevel2RequestPage} />
         <Route exact path="/admin2/plans/create" component={Admin2PlanCreatePage} />
         <Route exact path="/admin2/plans/:programId" component={Admin2PlanDetailPage} />
         <Route exact path="/admin2/exercises" component={Admin2ExercisesPage} />
         <Route exact path="/admin2/trainers" component={Admin2TrainersPage} />
         <Route exact path="/admin2/clients" component={Admin2ClientsPage} />
         <Route exact path="/admin2/sales" component={Admin2SalesPage} />
+        <Route exact path="/admin2/discount-codes" component={DiscountCodesManager} />
         <Route exact path="/admin2/trainer-applications" component={AdminTrainerApplicationsPage} />
         <Redirect from="/admin2/analytics" to="/admin2/dashboard" />
         <Redirect from="/admin2/marketplace" to="/admin2/plans" />
         <Route exact path="/admin2/feedback" component={Admin2FeedbackPage} />
-        <Route exact path="/admin2/support" component={Admin2SupportPage} />
         <Route exact path="/admin2/settings" component={Admin2SettingsPage} />
         <Redirect to="/admin2/dashboard" />
       </Switch>

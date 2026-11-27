@@ -1,3 +1,364 @@
+# Version 2.131.1
+
+Title: Support chat tables dropped
+
+Date: 2026-11-24
+
+Summary:
+
+- Owner decision: migration 000071 drops `support_messages` and
+  `support_conversations` (the chat was removed in v2.131.0); account
+  anonymisation no longer touches them.
+
+Verification: Go build passes; the whole Go suite passes on `ryze_test`.
+Migration 000071 applied to `ryze_test` and the dev database.
+
+# Version 2.131.0
+
+Title: Support removed; Premium Level 2 rework (offers to all, RYZE official, plan workspace, meal photos); health consent; account anonymisation; refunds; discount codes; training reminders
+
+Date: 2026-11-24
+
+Summary:
+
+- Support chat removed (owner decision: RYZE is a self-service experience;
+  the Contacts page is the way to reach the company). Removed: `/support`,
+  `/admin2/support`, the `support` service/handler/repository/model, the
+  `/me/support/*` and `/admin/support/*` routes, its rate limits, admin
+  permissions (`support.read`, `support.manage`), audit actions, notification
+  kinds, the `support_reply` email and the dashboard counts. The
+  `support_conversations`/`support_messages` tables were left in place
+  (dropping data needs an explicit decision); anonymisation clears a deleted
+  account's rows in them.
+- Premium Level 2 (migrations 000064, 000065):
+  - The service is one platform product (`RYZE Personalizado`, 19.49 EUR)
+    created by migration 000064; administrators no longer create Level 2
+    offers (category removed from the plan builder and the plans list; the
+    create/update/publish/delete routes were removed).
+  - After the questionnaire the request is offered at once to every trainer
+    who accepts Level 2 requests; the first to accept takes it and the other
+    offers are withdrawn (`uq_premium_level_2_offers_request_trainer`
+    replaces one-open-offer-per-request). Declines no longer pass it on;
+    turning availability off withdraws the trainer's open offers. Offers
+    close after 24 hours.
+  - RYZE itself (ADMIN_2) can take a waiting request
+    (`POST /admin/premium-level-2/requests/:id/take`) and prepare it like a
+    trainer (training programme, nutrition, delivery under
+    `/admin/premium-level-2/requests/:id/...`); the client sees "RYZE".
+  - New shared request workspace for trainers (`/trainer/premium-level-2/:id`)
+    and RYZE (`/admin2/premium-level-2/:id`): the answers, the personal plan
+    created right there (blank or from one of their plans, opened in the plan
+    builder with `?request=`/`?base=` and linked on save, never published),
+    the nutrition plan with a photo per meal (`programs/meals`, uploads
+    `/trainer|admin/uploads/meal-image`), and delivery (client notified, plan
+    in their area).
+  - Delivery by a trainer records their share on the sale (their commission
+    rule, 30% by default, on what was actually paid); their earnings now
+    include delivered Level 2 services. RYZE deliveries keep it all.
+- Health data consent (migration 000066): the Level 2 questionnaire and body
+  measurements need explicit consent (checkbox, `health_consent`; otherwise
+  `400 HEALTH_CONSENT_REQUIRED`), recorded on the account and the intake;
+  `GET/POST/DELETE /me/health-consent`; withdrawing erases measurements and
+  questionnaire answers (Account → Privacy and notifications).
+- Account anonymisation (migration 000067): an hourly job anonymises accounts
+  deleted more than 30 days ago (identity, profile, follows, tokens,
+  notifications, health data, feedback, photos); sales documents stay.
+  Re-registering within 30 days still restores the account.
+- Refunds (migration 000068): ADMIN_2 refunds a completed purchase from the
+  sales detail (`POST /admin/purchases/:id/refund`, reasons non-conformity,
+  withdrawal, duplicate, goodwill). Card/MB WAY go back through Stripe (the
+  payment is found by the purchase in its metadata, set from now on);
+  PayPal or older payments are refunded in the dashboard and recorded with
+  "already refunded". The purchase becomes `refunded`, its access ends at
+  once (Level 2: the request is cancelled and the personal plan removed) and
+  it leaves the trainer's earnings.
+- Discount codes (migration 000069): ADMIN_1 and ADMIN_2 create codes
+  (`/admin/discount-codes`, page in both consoles): 1–90% off, for every
+  paid plan, Level 1, Level 2 or trainers' plans, valid 1 hour to 30 days
+  (days with presets, or hours when 24 h or less), optional maximum uses,
+  once per person. Buyers check a code on the pay screen
+  (`GET /me/discount-codes/preview`); it is applied server-side when the
+  payment opens (`discount_code`), recomputing the price and the split; the
+  receipt shows the list price and the discount. Stripe idempotency keys now
+  include the amount.
+- Training reminders (migration 000070): members with a plan who have not
+  trained for 4 days get an in-app notification and an email, at most once a
+  week, between 10:00 and 20:00 in Portugal; toggle in Account → Privacy and
+  notifications (`GET/PUT /me/training-reminders`). The home screen shows a
+  "N days since your last workout" nudge.
+- Legal documents updated accordingly (Level 2 by RYZE, discount codes,
+  refunds and access, 30-day restore and anonymisation, health consent,
+  reminders, no client–trainer contact).
+
+Verification: Go vet passes; the whole Go suite passes on `ryze_test` (69
+packages) with new tests for offers to all trainers and RYZE taking a request,
+delivery commission on the price paid, meal photos, health consent, account
+anonymisation, refunds (repository and money rules), discount codes and
+training reminder candidates. Frontend typecheck passes; Vitest 29 files, 189
+tests pass; production build passes. Migrations 000064–000070 applied to
+`ryze_test` and the dev database. Note: while testing a down migration,
+`go run . migrate down` (which reverts every migration) emptied the
+`ryze_test` tables of migrations 45–64; the test database was restored to 70.
+
+# Version 2.130.16
+
+Title: Fix publishing an official RYZE plan (migration 000063)
+
+Date: 2026-11-23
+
+Summary:
+
+- Publishing an official RYZE plan answered 500: the database check
+  `chk_programs_cover_image` only allowed uploaded cover keys. Migration
+  000063 also allows the fixed key `programs/official/ryze_base_plan.png`
+  (the down migration clears it from official plans first).
+- New repository test against the real schema
+  (`TestProgramCoverConstraintAcceptsOfficialCover`); the earlier service test
+  used a stub repository and could not see the constraint.
+
+Verification: the new test fails before and passes after the migration; the
+whole Go suite passes on `ryze_test` (68 packages). Migration 000063 applied to
+`ryze_test` and the dev database.
+
+# Version 2.130.15
+
+Title: Official RYZE plan cover on wide views
+
+Date: 2026-11-23
+
+Summary:
+
+- Owner request: on horizontal views an official RYZE plan's cover is a
+  colour background (the logo's blues) with only the word RYZE, in the
+  brand's wide Archivo; portrait plan cards (`ProgramCard`, 4:5) keep the
+  RYZE "Base plan" picture.
+- `/uploads/programs/official/ryze_base_plan.png` now serves the wide picture
+  (1280×720); `/uploads/programs/official/ryze_base_plan_portrait.png` the
+  portrait one. Both are embedded in the API. `constants/official_plan.ts`
+  (`portraitCover`) swaps the URL on portrait cards; the plan builder previews
+  the wide picture.
+
+Verification: typecheck passes; Go build and the generic plan tests pass;
+both pictures answer 200 image/png.
+
+# Version 2.130.14
+
+Title: Official RYZE plans (ADMIN_2, free plans)
+
+Date: 2026-11-23
+
+Summary:
+
+- Owner request: when ADMIN_2 creates or edits a free (generic) plan, the
+  cover panel offers "Plano oficial RYZE" — a plan of the platform itself
+  instead of a custom one. Its only difference: the cover is always the RYZE
+  "Base plan" picture and cannot be chosen, replaced or removed.
+- API: the ADMIN_2 generic plan create/update body accepts `official`;
+  responses carry `official`. The server forces the cover to
+  `programs/official/ryze_base_plan.png` for an official plan, clears that key
+  from a custom plan, and refuses `official` on Premium plans. Trainers'
+  plans can never use it (their cover folder check rejects the key).
+- The picture ships embedded in the API (no upload or migration needed) and
+  is served at `/uploads/programs/official/ryze_base_plan.png`, so every plan
+  card and page shows it without further changes. "Official" is derived from
+  the cover key; no schema change.
+
+Verification: typecheck passes; Vitest 29 files, 189 tests pass; Go tests for
+`api/auth`, `generic_programs` (new official-cover test) and
+`program_details` pass on `ryze_test`.
+
+# Version 2.130.13
+
+Title: Permanent @username, nickname every 7 days, cookie settings in the account, taller plan pictures
+
+Date: 2026-11-23
+
+Summary:
+
+- Owner decision: the @username chosen at registration is permanent and
+  unique to the account, like the email. `PUT /me/profile` and
+  `PUT /me/username` answer `409 USERNAME_LOCKED` when a chosen @username
+  would change; only a generated placeholder (`needs_username`) is chosen,
+  once. The settings show it read-only with a lock.
+- The nickname changes at most once every 7 days (migration 000062,
+  `users.display_name_changed_at`): `409 NICKNAME_COOLDOWN`; account
+  responses carry `nickname_change_at` while it is locked and the settings
+  show the date.
+- Account settings: "Privacidade e cookies" card with the current cookie
+  choice and date, "Gerir cookies" (reopens the notice) and the legal links.
+- My Programs: plan cover pictures 6.2rem → 11rem tall.
+
+- Fix: re-registering a deleted account failed with 500 after the
+  permanent-@username rule (the restored row still counted its @username as
+  chosen). Reactivation now resets `username_chosen`, so the @username given
+  at re-registration is set (or chosen once later when taken).
+- Tests no longer depend on data already in the test database: the public
+  catalogue tests hide existing plans inside their rolled-back transaction,
+  and the reserved persona e-mail tests accept the row Test Mode itself
+  creates. The 16 `seed-demo` plans found in `ryze_test` were archived (soft
+  delete; `seed-demo` belongs to the dev database only).
+
+Verification: typecheck passes; Vitest 29 files, 189 tests pass; the whole Go
+suite passes on `ryze_test` (68 packages, no failures). Migration 000062
+applied to `ryze_test` and the dev database.
+
+# Version 2.130.12
+
+Title: Wide payment screen with payment marks; legal pages, cookie notice and checkout consents (GDPR, EU consumer law)
+
+Date: 2026-11-23
+
+Summary:
+
+- Payment screen redesigned to use the whole screen: the order card with the
+  plan picture, what it includes, the total and trust points; the payment card
+  in numbered steps — methods with drawn payment marks (Visa, Mastercard,
+  Amex, Maestro, MB WAY, PayPal, Stripe), payment details (a card illustration
+  for card), receipt (NIF), the consents and Pay. Phones get a compact order.
+- Checkout consents (EU consumer rules; migration 000061): before paying, the
+  buyer accepts the Terms and Privacy Policy and asks for immediate access to
+  the digital content, acknowledging the loss of the 14-day right of
+  withdrawal (Directive 2011/83/EU art. 16(m); DL 24/2014 art. 17). A paid
+  payment without both answers `400 CONSENT_REQUIRED`; the server records
+  `terms_accepted_at` and `immediate_access_requested_at` on the purchase
+  (Test Mode records them when given).
+- Legal documents at `/legal/termos`, `/legal/privacidade`, `/legal/cookies`
+  and `/legal/aviso-legal` (PT/EN), describing what the code actually does
+  (data, legal bases, processors, retention, rights, the exact cookies and
+  storage). Company identity fields are placeholders in
+  `constants/legal.ts` to fill in; a legal review is recommended.
+- Cookie notice: "Rejeitar opcionais" and "Aceitar todos" with the same
+  weight, "Personalizar", reopened from the Cookie Policy; the choice lasts 12
+  months. RYZE uses no analytics or advertising cookies today.
+- Footer: the existing Privacy, Terms and Cookies links now open the documents
+  (they pointed to Our vision); its layout is unchanged.
+
+Verification: typecheck passes; Vitest 29 files, 189 tests pass; Go tests for
+the consent requirement and the purchase flows pass on `ryze_test` (the four
+known seeded-data failures remain). Playwright: payment screen at 1838 px and
+390 px (mocked API), legal pages and cookie notice on the dev site at 1440 px
+and 390 px. Migration 000061 applied to `ryze_test` and the dev database.
+
+# Version 2.130.11
+
+Title: Checkout split: a simple summary on the page, the payment on its own screen
+
+Date: 2026-11-23
+
+Summary:
+
+- The paid journeys (Premium Level 1 and Level 2) show, in the site's glass,
+  only what the member gets, the price and one "Pagar" button (owner request).
+- "Pagar" opens the payment screen (`?pagamento=1`, so the browser's back
+  closes it): a bar with "Voltar", the order on the left (picture, item, what
+  it includes, total) and "Finalizar compra" on the right — "Pagamento seguro
+  via stripe", the methods (Cartão with the card brands, MB WAY, PayPal; rows
+  on phones), what happens next, the NIF, Pay, and the provider's own form
+  (Stripe embedded Checkout) when configured. Success shows in place; Test
+  Mode keeps its own purchase.
+
+Verification: typecheck passes; checkout hook tests pass; Playwright with a
+mocked API at 1280 px and 390 px (summary, payment screen, not-set-up message).
+
+# Version 2.130.10
+
+Title: Stripe's own payment form inside the RYZE checkout (embedded Checkout)
+
+Date: 2026-11-23
+
+Summary:
+
+- Owner rule: payments always use the provider's own screens. With the new
+  optional `STRIPE_PUBLISHABLE_KEY`, card and MB WAY create an embedded Stripe
+  Checkout Session (`ui_mode=embedded_page`, the success URL as return URL) and
+  the checkout mounts Stripe's form in place — card number, expiry and CVC with
+  the brand recognised from the number — with "Trocar método de pagamento" to
+  go back. Without the key the redirect to Stripe's page stays as before.
+  Stripe.js is loaded from `js.stripe.com` (no new npm dependency). Card data
+  goes only to Stripe; completion is verified server-side as before.
+- The initiation response carries `client_secret` and `publishable_key` for
+  the embedded page; the production CSP allows the Stripe hosts it needs.
+
+Verification: typecheck passes; Go tests for the embedded session (ui_mode,
+return_url, no success/cancel URL, client secret) and the purchase and payment
+packages pass; checkout hook tests pass. Not exercised against Stripe: no keys
+in this environment.
+
+# Version 2.130.9
+
+Title: Checkout always shows the payment methods, as tiles
+
+Date: 2026-11-23
+
+Summary:
+
+- The payment step no longer stops at "Payments are not available yet" when no
+  provider is configured (owner request): it always shows the whole screen —
+  the order, the three methods RYZE supports (Cartão, MB WAY, PayPal) as
+  tiles, what happens next for the chosen one (accepted card brands for card),
+  the NIF and the Pay button. Which methods can actually be paid with still
+  comes from `/payments/methods`; a method not set up carries a "Por
+  configurar" badge, and paying with it explains that it is not set up —
+  nothing is created or charged. Card details are still entered on the
+  provider's secure page (RYZE never handles card numbers).
+
+Verification: typecheck passes; checkout hook tests pass; Playwright with a
+mocked API (no provider configured): tiles, card and MB WAY details, the
+not-set-up message.
+
+# Version 2.130.8
+
+Title: Feedback gallery redesigned: clean glass bento grid
+
+Date: 2026-11-23
+
+Summary:
+
+- Owner feedback: the tilted cards looked blurred and felt laggy. The gallery
+  is now a clean grid of glass cards (the public surface style), the first card
+  with a photo featured (two columns by two rows on desktop), a gentle hover
+  lift and photo zoom (no filters, owner decision), a staggered fade-in, and an enlarged view with previous / next (buttons
+  and arrow keys). No 3D transforms. Still six cards first, "Mostrar mais" /
+  "Mostrar menos".
+
+Verification: typecheck passes; Playwright against the dev site at 1440 px and
+390 px (grid, enlarged view).
+
+# Version 2.130.7
+
+Title: Feedback with a photo and a gallery; demo data seed; Test Mode opens the home
+
+Date: 2026-11-23
+
+Summary:
+
+- Feedback (migration 000060): one feedback per member — pending or published;
+  a rejected one can be sent again — with one optional JPEG/PNG picture
+  (re-encoded without metadata, longest side 1280 px, stored in the uploads
+  `feedback` folder). The picture is served by `GET /feedback/:id/image` only
+  once approved, and to reviewers by `GET /admin/feedback/:id/image`; the
+  ADMIN_2 review queue shows it. `POST /me/feedback` accepts multipart
+  (`rating`, `message`, `image`) or JSON as before.
+- Feedback gallery: the ask card above, then a mosaic of slightly tilted cards
+  (three columns on desktop, two on tablets, one on phones) that opens with six
+  and grows with "Mostrar mais" / "Mostrar menos" — never an endless scroll;
+  each card opens enlarged with the full picture and message.
+- `go run . seed-demo`: one published free plan per category (6), ten
+  published Premium Level 1 packages across the four objectives and the three
+  audiences (to try the Level 1 assignment), ten demo members with an approved
+  feedback and picture, and the demo member account from
+  `RYZE_DEMO_CLIENT_EMAIL` / `RYZE_DEMO_CLIENT_PASSWORD` (added to `.env`).
+  Images live in `main/src/backend/devdata/seed/` (`make_images.sh`
+  regenerates them). Idempotent; run on the dev database.
+- Entering Test Mode always opens the site's home, where the Test Mode bar
+  shows; the return path is only used when exiting.
+
+Verification: typecheck passes; Go tests for member feedback (service and
+handler) pass; the seed ran on `ryze_test` twice (second run created nothing)
+and on the dev database; the feedback API returns the ten pictures. Playwright
+against the dev site at 1440 px and 390 px (gallery, enlarged card).
+Migration 000060 applied to `ryze_test` and the dev database.
+
 # Version 2.130.6
 
 Title: Workout photo; compare your lifts with RYZE

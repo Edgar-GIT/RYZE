@@ -50,6 +50,12 @@ func newPublicProgramsTestRouter(t *testing.T) (*gin.Engine, *gorm.DB) {
 		_ = tx.Rollback()
 		_ = sqlDB.Close()
 	})
+	// The tests count the published catalogue: plans already in the database
+	// (for example from `seed-demo`) are hidden inside this transaction, which
+	// is always rolled back.
+	if err := tx.Exec("UPDATE programs SET deleted_at = NOW() WHERE deleted_at IS NULL").Error; err != nil {
+		t.Fatalf("hide existing programs: %v", err)
+	}
 
 	programRepo := repositories.NewProgramRepository(tx)
 	service := public_programs.NewService(programRepo)

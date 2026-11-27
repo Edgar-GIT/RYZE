@@ -349,7 +349,7 @@ func TestStripeProvider_IdempotencyKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	expectedKey := fmt.Sprintf("ryze-purchase-%s", purchaseID)
+	expectedKey := fmt.Sprintf("ryze-purchase-%s-%d", purchaseID, 2999)
 	if capturedIDempotencyKey != expectedKey {
 		t.Errorf("expected idempotency key %q, got %q", expectedKey, capturedIDempotencyKey)
 	}
@@ -1067,7 +1067,7 @@ func TestStripeProvider_MBWayUsesPerPurchaseIdempotency(t *testing.T) {
 	if len(idempotencyKeys) != 2 {
 		t.Fatalf("expected 2 calls, got %d", len(idempotencyKeys))
 	}
-	want := "ryze-purchase-purchase-mbway-idem"
+	want := "ryze-purchase-purchase-mbway-idem-2500"
 	for i, key := range idempotencyKeys {
 		if key != want {
 			t.Errorf("call %d: expected idempotency key %q, got %q", i+1, want, key)
@@ -1176,5 +1176,45 @@ func TestStripeProvider_CaptureRequiresRecordedMethod(t *testing.T) {
 		Currency:         "EUR",
 	}); !errors.Is(err, payments.ErrProviderFailure) {
 		t.Fatalf("expected ErrProviderFailure without a recorded method, got %v", err)
+	}
+}
+
+// With a publishable key the session is an embedded page: ui_mode
+// embedded_page, the success URL as return_url, no success/cancel URLs, and
+// the client secret plus publishable key for the browser (v2.130.10).
+func TestStripeProvider_EmbeddedCheckout(t *testing.T) {
+	var form url.Values
+	_, cleanup := setupMockStripeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		form = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"id":"cs_test_embedded","object":"checkout.session","client_secret":"cs_test_embedded_secret_abc","ui_mode":"embedded_page"}`)
+	})
+	defer cleanup()
+
+	provider := payments.NewStripeProvider("https://example.com/return?session_id={CHECKOUT_SESSION_ID}", "https://example.com/cancel").
+		WithEmbeddedCheckout("pk_test_123")
+	result, err := provider.InitiatePayment(context.Background(), payments.PaymentRequest{
+		PurchaseID: "test-purchase-123", AmountMinorUnits: 1499, Currency: "EUR", ProgramID: "prog-abc", Method: payments.PaymentMethodCard,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if form.Get("ui_mode") != "embedded_page" {
+		t.Errorf("expected ui_mode embedded_page, got %q", form.Get("ui_mode"))
+	}
+	if form.Get("return_url") != "https://example.com/return?session_id={CHECKOUT_SESSION_ID}" {
+		t.Errorf("unexpected return_url %q", form.Get("return_url"))
+	}
+	if form.Get("success_url") != "" || form.Get("cancel_url") != "" {
+		t.Errorf("success_url and cancel_url must not be sent with an embedded page")
+	}
+	if result.ClientSecret != "cs_test_embedded_secret_abc" || result.PublishableKey != "pk_test_123" || result.CheckoutURL != "" {
+		t.Errorf("unexpected result: %+v", result)
+	}
+	if result.PaymentID != "cs_test_embedded" {
+		t.Errorf("expected the session id as payment id, got %q", result.PaymentID)
 	}
 }

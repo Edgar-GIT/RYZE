@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 	"unicode"
@@ -16,6 +17,7 @@ import (
 
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	uploads "ryze/backend/services/public_uploads"
 )
 
 const (
@@ -37,8 +39,12 @@ var (
 	ErrUserNotFound = errors.New("user not found")
 	// ErrNotEligible indicates the member has never held a plan.
 	ErrNotEligible = errors.New("member has no plan")
-	// ErrAlreadyPending indicates the member already has a submission awaiting review.
-	ErrAlreadyPending = errors.New("member already has pending feedback")
+	// ErrAlreadyPending indicates the member already left feedback (pending or
+	// approved): one per member since v2.130.7.
+	ErrAlreadyPending = errors.New("member already left feedback")
+	// ErrInvalidImage and ErrImageTooLarge reject the optional picture.
+	ErrInvalidImage  = errors.New("invalid feedback image")
+	ErrImageTooLarge = errors.New("feedback image too large")
 	// ErrNotFound indicates the requested feedback does not exist.
 	ErrNotFound = errors.New("member feedback not found")
 	// ErrStateConflict indicates the feedback was already reviewed.
@@ -69,10 +75,33 @@ type Eligibility struct {
 	Pending *models.MemberFeedback
 }
 
-// SubmitInput is the member's rating and message.
+// SubmitInput is the member's rating, message and optional image.
 type SubmitInput struct {
 	Rating  int
 	Message string
+	// Image is an optional JPEG or PNG (v2.130.7).
+	Image io.Reader
+}
+
+// Images stores feedback pictures (optional: without it images are refused).
+type Images interface {
+	SaveFeedbackImage(ctx context.Context, content io.Reader) (string, error)
+	DeleteFeedbackImage(key string) error
+	FeedbackImagePath(key string) (string, bool)
+}
+
+// imageReader is implemented by the repository: a feedback's status and
+// image key.
+type imageReader interface {
+	ImageOf(ctx context.Context, id string) (string, *string, error)
+}
+
+// Option configures the service.
+type Option func(*service)
+
+// WithImages enables feedback images.
+func WithImages(images Images) Option {
+	return func(s *service) { s.images = images }
 }
 
 // ListResult carries one page of feedback and its pagination metadata.
@@ -101,16 +130,46 @@ type Service interface {
 	ListPublished(ctx context.Context, page, limit int) (ListResult, error)
 	ListForReview(ctx context.Context, status string, page, limit int) (ListResult, error)
 	Review(ctx context.Context, id, adminID string, decision Decision) (*models.MemberFeedback, error)
+	ImagePath(ctx context.Context, id string, anyStatus bool) (string, error)
 }
 
 type service struct {
 	feedback Repository
 	users    UserRepository
+	images   Images
 	now      func() time.Time
 }
 
-func NewService(feedback Repository, users UserRepository) Service {
-	return &service{feedback: feedback, users: users, now: func() time.Time { return time.Now().UTC() }}
+func NewService(feedback Repository, users UserRepository, options ...Option) Service {
+	s := &service{feedback: feedback, users: users, now: func() time.Time { return time.Now().UTC() }}
+	for _, option := range options {
+		option(s)
+	}
+	return s
+}
+
+// ErrNoImage: the feedback has no image (or it may not be shown).
+var ErrNoImage = errors.New("feedback image not available")
+
+// ImagePath returns the file of a feedback's image. Public callers only get
+// approved feedback; reviewers (anyStatus) get every one.
+func (s *service) ImagePath(ctx context.Context, id string, anyStatus bool) (string, error) {
+	reader, ok := s.feedback.(imageReader)
+	if !ok || s.images == nil {
+		return "", ErrNoImage
+	}
+	if _, err := uuid.Parse(id); err != nil {
+		return "", ErrNoImage
+	}
+	status, key, err := reader.ImageOf(ctx, id)
+	if err != nil || key == nil || (!anyStatus && status != models.MemberFeedbackStatusApproved) {
+		return "", ErrNoImage
+	}
+	path, found := s.images.FeedbackImagePath(*key)
+	if !found {
+		return "", ErrNoImage
+	}
+	return path, nil
 }
 
 func (s *service) activeUser(ctx context.Context, userID string) (*models.User, error) {
@@ -167,6 +226,12 @@ func (s *service) Submit(ctx context.Context, userID string, input SubmitInput) 
 		return nil, ErrNotEligible
 	}
 
+	if _, err := s.feedback.FindPendingByUserID(ctx, userID); err == nil {
+		return nil, ErrAlreadyPending
+	} else if !errors.Is(err, repositories.ErrMemberFeedbackNotFound) {
+		return nil, fmt.Errorf("failed to check existing feedback: %w", err)
+	}
+
 	feedback := &models.MemberFeedback{
 		UserID:      userID,
 		Rating:      input.Rating,
@@ -174,7 +239,26 @@ func (s *service) Submit(ctx context.Context, userID string, input SubmitInput) 
 		DisplayName: PublicName(user.FirstName, user.LastName),
 		Status:      models.MemberFeedbackStatusPending,
 	}
+	if input.Image != nil {
+		if s.images == nil {
+			return nil, ErrInvalidImage
+		}
+		key, err := s.images.SaveFeedbackImage(ctx, input.Image)
+		if err != nil {
+			switch {
+			case errors.Is(err, uploads.ErrTooLarge):
+				return nil, ErrImageTooLarge
+			case errors.Is(err, uploads.ErrEmpty), errors.Is(err, uploads.ErrUnsupportedType), errors.Is(err, uploads.ErrInvalidImage):
+				return nil, ErrInvalidImage
+			}
+			return nil, fmt.Errorf("failed to store feedback image: %w", err)
+		}
+		feedback.ImageKey = &key
+	}
 	if err := s.feedback.Create(ctx, feedback); err != nil {
+		if feedback.ImageKey != nil {
+			_ = s.images.DeleteFeedbackImage(*feedback.ImageKey)
+		}
 		if errors.Is(err, repositories.ErrMemberFeedbackAlreadyPending) {
 			return nil, ErrAlreadyPending
 		}

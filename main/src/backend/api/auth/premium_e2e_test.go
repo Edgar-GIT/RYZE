@@ -754,7 +754,7 @@ func completePremiumPurchase(t *testing.T, f *premiumFlowFixture, client *sessio
 	}
 	purchaseID := purchaseData(t, created)["id"].(string)
 
-	initiated := client.do(t, http.MethodPost, "/api/v1/me/purchases/"+purchaseID+"/payment", map[string]any{"payment_method": "card"})
+	initiated := client.do(t, http.MethodPost, "/api/v1/me/purchases/"+purchaseID+"/payment", map[string]any{"payment_method": "card", "accept_terms": true, "immediate_access": true})
 	if initiated.Code != http.StatusOK {
 		t.Fatalf("initiate payment = %d; body %s", initiated.Code, initiated.Body.String())
 	}

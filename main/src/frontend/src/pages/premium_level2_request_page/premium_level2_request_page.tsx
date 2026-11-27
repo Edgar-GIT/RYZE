@@ -5,10 +5,12 @@ import { useHistory, useParams } from "react-router-dom";
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { HealthConsentCheckbox } from "@/components/health_consent/health_consent_checkbox";
 import ui from "@/components/public_ui/public_ui.module.css";
 import {
   fetchMyPremiumLevel2Request,
   fetchPremiumLevel2Catalog,
+  mealImageUrl,
   PREMIUM_LEVEL_2_STATUS_LABELS,
   submitPremiumLevel2Intake,
   type PremiumLevel2Catalog,
@@ -25,7 +27,7 @@ import { COMMERCE_PT } from "@/i18n/catalogs/commerce.pt";
 import { PREMIUM_LEVEL2_PT } from "@/i18n/catalogs/premium_level2.pt";
 import { QUESTIONNAIRE_PT } from "@/i18n/catalogs/questionnaire.pt";
 import { useGettext } from "@/i18n/i18n";
-import { ApiError } from "@utils/http_client";
+import { ApiError, publicFileUrl } from "@utils/http_client";
 import { joinClassNames } from "@utils/class_names";
 
 import { QuestionField } from "@/components/premium_level2_intake/question_field";
@@ -88,6 +90,9 @@ const NutritionPlanView = ({ plan }: { plan: PremiumLevel2NutritionPlan }) => {
     <div className={styles.meals}>
       {plan.meals.map((meal) => (
         <article key={meal.id} className={styles.meal}>
+          {meal.image_key ? (
+            <img className={styles.mealPhoto} src={publicFileUrl(mealImageUrl(meal.image_key))} alt="" loading="lazy" />
+          ) : null}
           <h3 className={styles.mealTitle}>
             {meal.label}
             {meal.kind === "snack" ? <span className={styles.mealKind}>{tr("Snack")}</span> : null}
@@ -141,6 +146,7 @@ export const PremiumLevel2RequestPage = () => {
   const [submitError, setSubmitError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [healthConsent, setHealthConsent] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
@@ -209,6 +215,11 @@ export const PremiumLevel2RequestPage = () => {
       return;
     }
 
+    if (!healthConsent) {
+      setSubmitError("Tick the consent for your health data to send the answers.");
+      return;
+    }
+
     const payload: Record<string, unknown> = {};
     for (const question of allQuestions) {
       const value = answers[question.key];
@@ -220,7 +231,7 @@ export const PremiumLevel2RequestPage = () => {
     setSubmitError("");
     setFieldErrors({});
     try {
-      await submitPremiumLevel2Intake(requestID, payload);
+      await submitPremiumLevel2Intake(requestID, payload, true);
       setSaved(true);
       await load();
     } catch (error) {
@@ -244,7 +255,7 @@ export const PremiumLevel2RequestPage = () => {
     } finally {
       setSaving(false);
     }
-  }, [allQuestions, answers, catalog, history, load, requestID]);
+  }, [allQuestions, answers, catalog, healthConsent, history, load, requestID]);
 
   if (loading) {
     return (
@@ -403,6 +414,7 @@ export const PremiumLevel2RequestPage = () => {
                   </p>
                 ) : null}
 
+                <HealthConsentCheckbox checked={healthConsent} onChange={setHealthConsent} />
                 <div className={styles.actions}>
                   <Button variant="primary" size="small" disabled={saving} onClick={() => void handleSubmit()}>
                     {saving ? tr("Saving…") : request.intake_version > 0 ? tr("Save new revision") : tr("Submit intake")}

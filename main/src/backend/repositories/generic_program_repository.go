@@ -247,7 +247,10 @@ func (r *genericProgramRepository) FindByID(ctx context.Context, productType, pr
 // LIKE with escaped wildcards against both name and description; empty filter
 // values are ignored. Ordering is deterministic: newest first, then id.
 func (r *genericProgramRepository) Search(ctx context.Context, productType string, filter GenericProgramFilter, page, limit int) ([]models.Program, int64, error) {
-	query := genericListScope(r.db.WithContext(ctx).Model(&models.Program{}), productType)
+	query := genericListScope(r.db.WithContext(ctx).Model(&models.Program{}), productType).
+		// A personal plan RYZE prepared for a Premium Level 2 client is not a
+		// catalogue plan (v2.131.0); it lives on its request.
+		Where("NOT EXISTS (SELECT 1 FROM premium_level_2_requests r WHERE r.training_program_id = programs.id AND r.deleted_at IS NULL)")
 
 	if strings.TrimSpace(filter.Query) != "" {
 		escaped := escapeSQLLike(strings.TrimSpace(filter.Query))

@@ -13,6 +13,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/generic_programs"
+	"ryze/backend/services/program_details"
 )
 
 const (
@@ -1190,5 +1191,33 @@ func TestPublishRejectsLegacyPrice(t *testing.T) {
 	repo := &stubGenericRepo{program: legacy}
 	if _, err := newService(repo).PublishProgram(context.Background(), models.ProgramProductTypeGeneric, programID); !errors.Is(err, generic_programs.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput for a legacy price, got %v", err)
+	}
+}
+
+// An official RYZE plan always carries the RYZE picture; a custom plan can
+// never pick it and only free plans can be official (owner request,
+// 2026-11-23).
+func TestOfficialRyzePlanCover(t *testing.T) {
+	svc := newService(&stubGenericRepo{})
+
+	input := validProgramInput()
+	input.Official = true
+	input.CoverImage = "programs/generic/0123456789abcdef0123456789abcdef.png"
+	program, err := svc.CreateProgram(context.Background(), models.ProgramProductTypeGeneric, input)
+	if err != nil {
+		t.Fatalf("official CreateProgram: %v", err)
+	}
+	if !program.Official || program.CoverImage == nil || *program.CoverImage != program_details.OfficialCoverKey {
+		t.Fatalf("an official plan must carry the RYZE picture, got official=%v cover=%v", program.Official, program.CoverImage)
+	}
+
+	custom := validProgramInput()
+	custom.CoverImage = program_details.OfficialCoverKey
+	program, err = newService(&stubGenericRepo{}).CreateProgram(context.Background(), models.ProgramProductTypeGeneric, custom)
+	if err != nil {
+		t.Fatalf("custom CreateProgram: %v", err)
+	}
+	if program.Official || program.CoverImage != nil {
+		t.Fatalf("a custom plan must never take the RYZE picture, got official=%v cover=%v", program.Official, program.CoverImage)
 	}
 }

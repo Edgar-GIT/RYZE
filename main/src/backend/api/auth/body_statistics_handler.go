@@ -8,6 +8,7 @@ import (
 
 	"ryze/backend/middleware/authcontext"
 	"ryze/backend/services/body_measurements"
+	"ryze/backend/services/health_consent"
 	"ryze/backend/services/muscle_recovery"
 )
 
@@ -17,6 +18,15 @@ import (
 type BodyStatisticsHandler struct {
 	recovery     *muscle_recovery.Service
 	measurements *body_measurements.Service
+	// consent gates the measurements, which are health data (v2.131.0).
+	consent *health_consent.Service
+}
+
+// WithHealthConsent requires the explicit consent for health data before a
+// measurement is saved.
+func (h *BodyStatisticsHandler) WithHealthConsent(consent *health_consent.Service) *BodyStatisticsHandler {
+	h.consent = consent
+	return h
 }
 
 func NewBodyStatisticsHandler(recovery *muscle_recovery.Service, measurements *body_measurements.Service) *BodyStatisticsHandler {
@@ -57,6 +67,9 @@ type measurementRequest struct {
 	Kind       string   `json:"kind"`
 	Value      *float64 `json:"value"`
 	MeasuredOn string   `json:"measured_on"`
+	// HealthConsent: the person gives the explicit consent for health data
+	// with this measurement (needed once).
+	HealthConsent bool `json:"health_consent"`
 }
 
 // SaveMeasurement handles POST /me/measurements: the same kind on the same
@@ -71,6 +84,12 @@ func (h *BodyStatisticsHandler) SaveMeasurement(c *gin.Context) {
 	if err := c.ShouldBindJSON(&request); err != nil || request.Value == nil {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", []string{"value"})
 		return
+	}
+	if h.consent != nil {
+		if err := h.consent.Require(c.Request.Context(), userID, request.HealthConsent); err != nil {
+			respondHealthConsentError(c, err)
+			return
+		}
 	}
 	entry, err := h.measurements.Save(c.Request.Context(), userID, request.Kind, *request.Value, request.MeasuredOn)
 	switch {

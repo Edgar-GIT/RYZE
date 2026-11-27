@@ -157,6 +157,9 @@ type ProgramInput struct {
 	Objective        string
 	NutritionMode    string
 	CoverImage       string
+	// Official marks a free plan as an official RYZE plan: its cover is
+	// always the RYZE picture (program_details.OfficialCoverKey).
+	Official         bool
 	Audience         string
 	CuratedNutrition *curated_nutrition.PlanInput
 	Weeks            []WeekInput
@@ -248,6 +251,7 @@ type Program struct {
 	PriceMinorUnits  int64
 	Currency         string
 	CoverImage       *string
+	Official         bool
 	Audience         *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
@@ -540,6 +544,13 @@ func validateCoverImage(productType, key string) error {
 // price). Any type, price or currency sent by the client is replaced, so an
 // administrator can never sell a generic plan or price a package differently.
 func withCatalogPricing(productType string, input ProgramInput) ProgramInput {
+	// An official RYZE plan always carries the RYZE picture; a custom plan
+	// can never pick it (owner request, 2026-11-23).
+	if input.Official && productType == models.ProgramProductTypeGeneric {
+		input.CoverImage = program_details.OfficialCoverKey
+	} else if strings.TrimSpace(input.CoverImage) == program_details.OfficialCoverKey {
+		input.CoverImage = ""
+	}
 	input.Type = models.FamilyProgramType(productType)
 	input.PriceMinorUnits = models.CatalogPriceMinorUnits(productType, input.Type)
 	input.Currency = string(models.ProgramCurrencyEUR)
@@ -595,8 +606,13 @@ func (s *service) validateProgramInput(productType string, input ProgramInput) e
 	if err := validateProductMetadata(productType, input); err != nil {
 		return err
 	}
-	if err := validateCoverImage(productType, input.CoverImage); err != nil {
-		return err
+	if input.Official && productType != models.ProgramProductTypeGeneric {
+		return fmt.Errorf("%w: only free plans can be official RYZE plans", ErrInvalidInput)
+	}
+	if input.CoverImage != program_details.OfficialCoverKey {
+		if err := validateCoverImage(productType, input.CoverImage); err != nil {
+			return err
+		}
 	}
 	if err := program_details.ValidateAudience(productType, input.Audience); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
@@ -840,6 +856,7 @@ func newProgramSummary(model *models.Program) Program {
 		PriceMinorUnits:  model.PriceMinorUnits,
 		Currency:         model.Currency,
 		CoverImage:       model.CoverImage,
+		Official:         program_details.IsOfficialCover(model.CoverImage),
 		Audience:         model.Audience,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,

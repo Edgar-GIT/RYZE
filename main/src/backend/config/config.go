@@ -76,6 +76,10 @@ type StripeConfig struct {
 	SecretKey  string
 	SuccessURL string
 	CancelURL  string
+	// PublishableKey (optional, v2.130.10): when set, card and MB WAY use
+	// Stripe's embedded Checkout page inside the RYZE checkout instead of a
+	// redirect; SuccessURL is then the return URL.
+	PublishableKey string
 }
 
 // PayPalConfig holds the PayPal provider configuration. The provider is

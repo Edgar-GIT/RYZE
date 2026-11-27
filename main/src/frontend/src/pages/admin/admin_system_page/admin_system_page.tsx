@@ -1,4 +1,4 @@
-import { Activity, Database, Mail, MessageSquare, RefreshCw, ServerCog } from "lucide-react";
+import { Activity, Database, Mail, RefreshCw, ServerCog } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/button/button";
@@ -147,12 +147,6 @@ export const AdminSystemPage = () => {
                   <Activity className={styles.overviewIcon} aria-hidden="true" strokeWidth={1.6} /> Notifications visible (24 h)
                 </dt>
                 <dd className={styles.overviewValue}>{status.visible_notifications}</dd>
-              </div>
-              <div className={styles.overviewRow}>
-                <dt className={styles.overviewLabel}>
-                  <MessageSquare className={styles.overviewIcon} aria-hidden="true" strokeWidth={1.6} /> Open support conversations
-                </dt>
-                <dd className={styles.overviewValue}>{status.open_support}</dd>
               </div>
             </dl>
           </section>

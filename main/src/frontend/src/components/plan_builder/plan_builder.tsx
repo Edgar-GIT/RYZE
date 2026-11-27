@@ -70,6 +70,7 @@ import { ExerciseSheet } from "./exercise_sheet";
 import { capitalise, ExerciseThumb, type BuilderExercise } from "./exercise_media";
 import { RestField } from "./rest_field";
 import styles from "./plan_builder.module.css";
+import { OFFICIAL_COVER_URL } from "@/constants/official_plan";
 
 export interface BuilderCategory {
   id: string;
@@ -96,10 +97,15 @@ interface PlanBuilderProps {
   exercises: Record<string, BuilderExercise>;
   rememberExercises: (list: BuilderExercise[]) => void;
   uploadCover: (file: File) => Promise<UploadedImage>;
+  // ADMIN_2, free plans: the plan can be marked as an official RYZE plan.
+  officialOption?: boolean;
   status: "draft" | "published";
   saving: boolean;
   message: { tone: "error" | "success"; text: string } | null;
   onSave: (publish: boolean) => void;
+  // A personal Premium Level 2 plan is never published: one button saves the
+  // draft (and the page links it to its request) with this label.
+  draftOnlyLabel?: string;
   onDelete?: () => void;
   deleting?: boolean;
   lockedNote?: string;
@@ -155,6 +161,8 @@ export const PlanBuilder = ({
   exercises,
   rememberExercises,
   uploadCover,
+  officialOption = false,
+  draftOnlyLabel,
   status,
   saving,
   message,
@@ -222,7 +230,7 @@ export const PlanBuilder = ({
     const items: { label: string; ok: boolean; required: boolean }[] = [
       { label: copy.name, ok: draft.name.trim() !== "", required: true },
       { label: copy.description, ok: draft.description.trim() !== "", required: true },
-      { label: copy.coverTitle, ok: draft.cover_image !== "", required: false }
+      { label: copy.coverTitle, ok: draft.cover_image !== "" || draft.official, required: false }
     ];
     if (hasStructure) {
       items.push({ label: copy.goal, ok: draft.training_type !== "", required: false });
@@ -602,6 +610,31 @@ export const PlanBuilder = ({
           <h2 className={styles.panelTitle} id="builder-cover">
             {copy.coverTitle}
           </h2>
+          {officialOption ? (
+            <label className={styles.officialToggle}>
+              <input
+                type="checkbox"
+                checked={draft.official}
+                onChange={(event) => {
+                  const official = event.target.checked;
+                  onChange((current) => ({ ...current, official, cover_image: "", cover_url: "" }));
+                }}
+              />
+              <span>
+                <strong>{copy.officialTitle}</strong>
+                <small>{copy.officialText}</small>
+              </span>
+            </label>
+          ) : null}
+          {officialOption && draft.official ? (
+            <>
+              <div className={joinClassNames(styles.cover, styles.officialCover)}>
+                <img src={publicFileUrl(OFFICIAL_COVER_URL)} alt={copy.officialTitle} className={styles.coverImage} />
+              </div>
+              <p className={styles.hint}>{copy.officialHint}</p>
+            </>
+          ) : (
+          <>
           <div className={styles.cover}>
             {draft.cover_url ? (
               <img src={publicFileUrl(draft.cover_url)} alt="" className={styles.coverImage} />
@@ -638,6 +671,8 @@ export const PlanBuilder = ({
             ) : null}
           </div>
           <p className={styles.hint}>{coverState === "error" ? <span className={styles.errorText}>{copy.coverError}</span> : copy.coverHint}</p>
+          </>
+          )}
         </section>
 
         <section className={styles.panel} aria-label={copy.name}>
@@ -940,7 +975,13 @@ export const PlanBuilder = ({
       <div className={styles.reviewGrid}>
         <section className={styles.summary} aria-labelledby="builder-summary">
           <div className={styles.summaryCover}>
-            {draft.cover_url ? <img src={publicFileUrl(draft.cover_url)} alt="" /> : <Dumbbell aria-hidden="true" />}
+            {officialOption && draft.official ? (
+              <img src={publicFileUrl(OFFICIAL_COVER_URL)} alt="" />
+            ) : draft.cover_url ? (
+              <img src={publicFileUrl(draft.cover_url)} alt="" />
+            ) : (
+              <Dumbbell aria-hidden="true" />
+            )}
             {selectedCategory ? <span className={styles.summaryTag}>{selectedCategory.label}</span> : null}
           </div>
           <div className={styles.summaryBody}>
@@ -1103,7 +1144,16 @@ export const PlanBuilder = ({
               <Trash2 aria-hidden="true" /> {deleting ? copy.deleting : copy.deletePlan}
             </button>
           ) : null}
-          {isLast ? (
+          {isLast && draftOnlyLabel ? (
+            <button
+              type="button"
+              className={styles.primaryButton}
+              disabled={saving || !ready || Boolean(lockedNote)}
+              onClick={() => onSave(false)}
+            >
+              <Check aria-hidden="true" /> {saving ? copy.saving : draftOnlyLabel}
+            </button>
+          ) : isLast ? (
             <>
               {status === "draft" ? (
                 <button type="button" className={styles.ghostButton} disabled={saving || !canSaveDraft || Boolean(lockedNote)} onClick={() => onSave(false)}>

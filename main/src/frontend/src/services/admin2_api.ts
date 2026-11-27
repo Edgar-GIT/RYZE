@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, encodePathSegment } from "@utils/http_client";
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, apiUrl, encodePathSegment } from "@utils/http_client";
 import { AdminPagination } from "./admin_api";
 import type { SetType } from "./exercise_library";
 import { PREMIUM_LEVEL_1_PRODUCT_TYPE } from "./premium_level1_api";
@@ -47,12 +47,13 @@ export const ProgramStatusEnum = {
 
 export type ProgramStatusValue = typeof ProgramStatusEnum[keyof typeof ProgramStatusEnum];
 
-// RYZE purchases are final: there is no refund workflow, so "refunded" is not
-// a valid purchase status.
+// Since v2.131.0 ADMIN_2 can refund a completed purchase ("refunded"): its
+// access ends at once and it is no longer a sale.
 export const PurchaseStatusEnum = {
   PENDING: "pending",
   COMPLETED: "completed",
-  FAILED: "failed"
+  FAILED: "failed",
+  REFUNDED: "refunded"
 } as const;
 
 export type PurchaseStatus = typeof PurchaseStatusEnum[keyof typeof PurchaseStatusEnum];
@@ -123,6 +124,9 @@ export interface AdminPurchase {
   status: PurchaseStatus;
   test: boolean;
   access: boolean;
+  payment_method?: string;
+  refunded_at?: string | null;
+  refund_reason?: string;
   created_at: string;
   updated_at: string;
   customer: {
@@ -131,6 +135,20 @@ export interface AdminPurchase {
   };
   program: AdminPurchaseProgram;
 }
+
+export type RefundReason = "non_conformity" | "withdrawal" | "duplicate" | "goodwill";
+
+// refundAdminPurchase refunds a completed purchase (ADMIN_2). Card and MB WAY
+// payments go back through Stripe; otherwise the payment is refunded in the
+// provider's dashboard first and recorded with alreadyRefunded.
+export const refundAdminPurchase = (
+  purchaseId: string,
+  input: { reason: RefundReason; note: string; alreadyRefunded: boolean }
+) =>
+  apiPost<{ id: string; status: PurchaseStatus; refunded_at: string; refund_reason: RefundReason }>(
+    `/admin/purchases/${encodePathSegment(purchaseId)}/refund`,
+    { reason: input.reason, note: input.note, already_refunded: input.alreadyRefunded }
+  );
 
 export interface AdminSalesSummary {
   completed_count: number;
@@ -364,6 +382,8 @@ export interface AdminFeedback {
   rating: number;
   message: string;
   status: AdminFeedbackStatus;
+  /** The member attached a picture (v2.130.7). */
+  has_image?: boolean;
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
@@ -549,6 +569,8 @@ export interface GenericProgramSummary {
   currency: string;
   cover_image?: string | null;
   cover_image_url?: string;
+  // An official RYZE plan (free plans only): its cover is the RYZE picture.
+  official?: boolean;
   audience?: "female" | "male" | null;
   created_at: string;
   updated_at: string;
@@ -704,6 +726,7 @@ export interface GenericProgramInput {
   price_minor_units: number;
   currency: string;
   cover_image: string;
+  official?: boolean;
   // "" (everyone), "female" or "male"; always "" for a Level 2 offer.
   audience: "" | "female" | "male";
   weeks: GenericProgramWeekInput[];
@@ -777,6 +800,9 @@ export const fetchAdminFeedback = (params: { status?: AdminFeedbackStatus; page?
   query.set("limit", String(params.limit ?? 20));
   return apiGet<AdminFeedbackListResult>(`/admin/feedback?${query.toString()}`);
 };
+
+// The picture of a submission, for reviewers (any status).
+export const adminFeedbackImageUrl = (id: string) => apiUrl(`/admin/feedback/${encodePathSegment(id)}/image`);
 
 export const approveAdminFeedback = (id: string) =>
   apiPost<AdminFeedback>(`/admin/feedback/${encodePathSegment(id)}/approve`, {});

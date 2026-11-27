@@ -13,7 +13,6 @@ import { ProgramAccessPage } from "@/pages/program_access_page/program_access_pa
 import { ProgressPage } from "@/pages/progress_page/progress_page";
 import { RecoveryPage } from "@/pages/recovery_page/recovery_page";
 import { NextWorkoutPage } from "@/pages/next_workout_page/next_workout_page";
-import { SupportPage } from "@/pages/support_page/support_page";
 import { TrainerApplyPage } from "@/pages/trainer/trainer_apply_page/trainer_apply_page";
 import { WorkoutHistoryPage } from "@/pages/workout_history_page/workout_history_page";
 
@@ -28,7 +27,6 @@ const MemberRoutes = () => (
       <Route exact path="/account/settings" component={AccountSettingsPage} />
       <Route exact path="/account/purchases" component={AccountPurchaseHistoryPage} />
       <Route exact path="/account/purchases/:purchaseId/receipt" component={AccountReceiptPage} />
-      <Route exact path="/support" component={SupportPage} />
       <Route exact path="/services/my-programs" component={MyProgramsPage} />
       <Route exact path="/services/my-programs/:programId" component={ProgramAccessPage} />
       <Route exact path="/services/premium-level-2/academy" component={PremiumLevel2AcademyPage} />

@@ -31,7 +31,7 @@ func NewTrainerEarningsRepository(db *gorm.DB) TrainerEarningsRepository {
 }
 
 // Totals counts only completed, real (non-Test Mode) purchases of programs the
-// trainer owns. The amounts are the split captured at purchase time, so a
+// trainer owns, and the Premium Level 2 services they delivered. The amounts are the split captured at purchase time, so a
 // later commission change never rewrites past earnings.
 func (r *trainerEarningsRepository) Totals(ctx context.Context, trainerID string) ([]TrainerEarningsRow, error) {
 	var rows []TrainerEarningsRow
@@ -43,12 +43,21 @@ SELECT pu.currency AS currency,
        COALESCE(SUM(pu.platform_amount), 0) AS commission
 FROM purchases pu
 JOIN programs p ON p.id = pu.program_id
-WHERE p.trainer_id = ?
+WHERE (
+        p.trainer_id = ?
+        -- Premium Level 2 sales the trainer delivered (v2.131.0): the split is
+        -- recorded on the purchase at delivery.
+        OR EXISTS (
+            SELECT 1 FROM premium_level_2_requests r
+            WHERE r.user_id = pu.user_id AND r.program_id = pu.program_id
+              AND r.trainer_id = ? AND r.status = 'delivered' AND r.deleted_at IS NULL
+        )
+      )
   AND pu.status = 'completed'
   AND pu.test = FALSE
   AND pu.deleted_at IS NULL
 GROUP BY pu.currency
-ORDER BY gross DESC, pu.currency ASC`, trainerID).Scan(&rows).Error
+ORDER BY gross DESC, pu.currency ASC`, trainerID, trainerID).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to load trainer earnings: %w", err)
 	}

@@ -52,6 +52,9 @@ type User struct {
 	// name). AvatarKey is the profile photo under the public uploads.
 	DisplayName *string `gorm:"column:display_name;type:varchar(40)" json:"display_name"`
 	AvatarKey   *string `gorm:"column:avatar_key;type:varchar(80)" json:"-"`
+	// DisplayNameChangedAt: when the nickname last changed (once every 7
+	// days, migration 000062).
+	DisplayNameChangedAt *time.Time `gorm:"column:display_name_changed_at" json:"-"`
 }
 
 // PublicName is the name other people see: the display name, else the

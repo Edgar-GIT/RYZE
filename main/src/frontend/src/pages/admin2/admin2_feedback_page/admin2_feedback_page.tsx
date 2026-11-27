@@ -13,8 +13,7 @@ import {
   rejectAdminFeedback,
   type AdminFeedback,
   type AdminFeedbackListResult,
-  type AdminFeedbackStatus
-} from "@/services/admin2_api";
+  type AdminFeedbackStatus, adminFeedbackImageUrl } from "@/services/admin2_api";
 import { joinClassNames } from "@utils/class_names";
 
 import styles from "./admin2_feedback_page.module.css";
@@ -138,6 +137,11 @@ export default function Admin2FeedbackPage() {
                     <span className={styles.muted}>{formatDate(item.created_at)}</span>
                     <Admin2StatusBadge label={item.status} tone={STATUS_TONE[item.status]} />
                   </div>
+                  {item.has_image ? (
+                    <a className={styles.feedbackImage} href={adminFeedbackImageUrl(item.id)} target="_blank" rel="noopener noreferrer">
+                      <img src={adminFeedbackImageUrl(item.id)} alt={`Photo from ${item.display_name}`} loading="lazy" />
+                    </a>
+                  ) : null}
                   <p className={styles.message}>{item.message}</p>
                   {item.status === "pending" ? (
                     <div className={styles.actions}>

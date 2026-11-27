@@ -5,6 +5,7 @@ import {
   ScrollText,
   ServerCog,
   SlidersHorizontal,
+  TicketPercent,
   Users,
   UserRoundCheck
 } from "lucide-react";
@@ -19,6 +20,8 @@ const SYSTEM: ShellNavItem = { to: "/admin/system", label: "System status", icon
 const CONFIGURATION: ShellNavItem = { to: "/admin/configuration", label: "Configuration", icon: SlidersHorizontal };
 const TEST_MODE: ShellNavItem = { to: "/admin/test-mode", label: "Test Mode", icon: FlaskConical };
 const AUDIT: ShellNavItem = { to: "/admin/audit", label: "Audit log", icon: ScrollText };
+// Both administrators create discount codes (owner request, 2026-11-24).
+const DISCOUNTS: ShellNavItem = { to: "/admin/discount-codes", label: "Discount codes", icon: TicketPercent };
 
 // The Technical Administrator console (ADMIN_1): accounts and the platform.
 // Business sections (plans, sales, commissions, support) belong to the
@@ -26,6 +29,7 @@ const AUDIT: ShellNavItem = { to: "/admin/audit", label: "Audit log", icon: Scro
 export const adminNavigationGroups = (): ShellNavGroup[] => [
   { items: [DASHBOARD] },
   { label: "People", items: [USERS, TRAINERS, APPLICATIONS] },
+  { label: "Commerce", items: [DISCOUNTS] },
   { label: "Platform", items: [SYSTEM, CONFIGURATION, TEST_MODE, AUDIT] }
 ];
 

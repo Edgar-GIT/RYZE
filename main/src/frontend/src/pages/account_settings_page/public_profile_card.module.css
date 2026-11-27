@@ -141,3 +141,15 @@
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
+
+/* A permanent @username or a nickname waiting for its 7 days (v2.130.13). */
+.form input:read-only {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.prefixed .lock {
+  right: 0.85rem;
+  left: auto;
+  color: #8fa3cf;
+}

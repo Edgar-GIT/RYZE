@@ -94,7 +94,6 @@ const PAGE_BACK: Array<[RegExp, Phrase]> = [
   [/^\/services\/workout-sessions\//, { en: "Back to the workout", pt: "Voltar ao treino" }],
   [/^\/services\/premium-level-2\/academy/, { en: "Back to the Academy", pt: "Voltar à Academia" }],
   [/^\/achievements/, { en: "Back to Achievements", pt: "Voltar às Conquistas" }],
-  [/^\/support/, { en: "Back to Support", pt: "Voltar ao Suporte" }],
   [/^\/account\/settings/, { en: "Back to Account", pt: "Voltar à Conta" }],
   [/^\/account\/purchases\/?$/, { en: "Back to Purchases", pt: "Voltar às Compras" }],
   [/^\/account\/purchases\//, { en: "Back to the receipt", pt: "Voltar ao comprovativo" }],
@@ -123,7 +122,7 @@ export const pageBack = (path: string): Phrase =>
 
 /** The personal-area pages (rendered in the member shell). */
 export const MEMBER_PATH =
-  /^\/(profile|achievements|support|account\/(settings|purchases(\/[^/]+\/receipt)?)|services\/(my-programs(\/[^/]+)?|premium-level-2\/academy|workout-history|progress|recovery|next-workout)|trainer\/apply)\/?$/;
+  /^\/(profile|achievements|account\/(settings|purchases(\/[^/]+\/receipt)?)|services\/(my-programs(\/[^/]+)?|premium-level-2\/academy|workout-history|progress|recovery|next-workout)|trainer\/apply)\/?$/;
 
 type Area = "member" | "trainer" | "admin" | "public";
 

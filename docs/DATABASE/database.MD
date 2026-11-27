@@ -3048,3 +3048,72 @@ VARCHAR(80) NULL` with `chk_workout_sessions_photo_key` (`session_photos/<uuid>.
 The file lives in the private `session_photos` uploads folder (no public route)
 and is served to the session owner only. The down migration drops the column.
 
+## Migration 000060 — Feedback picture, one feedback per member (v2.130.7)
+
+Owner request (2026-11-23). `member_feedback.image_key VARCHAR(80) NULL` with
+`chk_member_feedback_image_key` (`feedback/<uuid>.jpg`). The one-pending rule
+(`pending_user_id`, `uq_member_feedback_pending_user_id`) becomes one active
+submission per member: `active_user_id` is the user while the row is not
+deleted and is pending or approved, unique
+(`uq_member_feedback_active_user_id`). Before the new rule, a member's older
+extra active submissions are soft-deleted (newest kept). The down migration
+restores the pending rule and drops the image column.
+
+## Migration 000061 — Checkout consents (v2.130.12)
+
+Owner request (2026-11-23, EU and Portuguese consumer rules).
+`purchases.terms_accepted_at TIMESTAMPTZ NULL` and
+`purchases.immediate_access_requested_at TIMESTAMPTZ NULL`: when the buyer
+accepted the terms and asked for immediate access to the digital content
+(acknowledging the loss of the right of withdrawal). Set on the pending
+purchase at payment initiation (first value kept) and on Test Mode purchases
+when given. Never exposed. The down migration drops both columns.
+
+## Migration 000062 — Nickname change date (v2.130.13)
+
+Owner decision (2026-11-23): `users.display_name_changed_at TIMESTAMPTZ NULL`,
+set when the nickname changes; it may change again 7 days later. The
+@username, once chosen, never changes (enforced by the profile service). The
+down migration drops the column.
+
+## Migration 000063 — Official plan cover (v2.130.16)
+
+`chk_programs_cover_image` also accepts `programs/official/ryze_base_plan.png`,
+the fixed cover of an official RYZE plan (ADMIN_2, free plans; the pictures
+are embedded in the API). The down migration sets those covers to NULL and
+restores the upload-only check.
+
+## Migrations 000064–000070 (v2.131.0)
+
+- 000064 Premium Level 2 rework: `premium_level_2_requests.handled_by_ryze`
+  and `ryze_admin_id` (RYZE took the request; never together with a
+  trainer), `premium_level_2_nutrition_plan_meals.image_key`
+  (`programs/meals/<uuid>.<ext>`), the platform product `RYZE Personalizado`
+  inserted when no published Level 2 product exists, and both read views
+  extended (columns appended).
+- 000065 Offers to every available trainer: `uq_premium_level_2_offers_open`
+  replaced by `uq_premium_level_2_offers_request_trainer (request_id,
+  trainer_id)`.
+- 000066 Health data consent: `users.health_consent_at`,
+  `premium_level_2_intakes.health_consent_at`.
+- 000067 Account anonymisation: `users.anonymized_at` and a partial index of
+  deleted accounts not yet anonymised.
+- 000068 Refunds: purchase status `refunded`; `refunded_at`, `refund_reason`
+  (`non_conformity`, `withdrawal`, `duplicate`, `goodwill`), `refund_note`,
+  `refunded_by`, `refund_provider_ref`; a refunded purchase must carry its
+  time and reason.
+- 000069 Discount codes: `discount_codes` (code unique, 1–90%, scope, window
+  of at most 30 days, optional max uses, disabled_at) and
+  `purchases.discount_code_id`, `original_price_minor_units`,
+  `discount_minor_units` (price = original − discount).
+- 000070 Training reminders: `users.training_reminders` (default on) and
+  `last_training_reminder_at`.
+
+Never run `go run . migrate down`: it reverts every migration, not one.
+
+## Migration 000071 — Support chat tables dropped (v2.131.1)
+
+Owner decision (2026-11-24): `support_messages` and `support_conversations`
+(feature removed in v2.131.0) are dropped with their data. The down migration
+recreates them empty.
+

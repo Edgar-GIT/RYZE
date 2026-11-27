@@ -1,7 +1,9 @@
-import { Plus, Trash2 } from "lucide-react";
+import { ImagePlus, Plus, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/button/button";
 import { joinClassNames } from "@utils/class_names";
+import { publicFileUrl } from "@utils/http_client";
 import { uid, type PlanDraftCuratedItem, type PlanDraftCuratedNutrition } from "./plan_builder_model";
 
 import styles from "./admin2_plan_create_page.module.css";
@@ -116,14 +118,87 @@ const ItemFields = ({
   </div>
 );
 
+const MEAL_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MEAL_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+// MealImageField: an optional picture of the meal (Premium Level 2 plans,
+// owner request 2026-11-24).
+const MealImageField = ({
+  imageUrl,
+  upload,
+  onChange
+}: {
+  imageUrl: string;
+  upload: (file: File) => Promise<{ key: string; url: string }>;
+  onChange: (image: { key: string; url: string } | null) => void;
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [state, setState] = useState<"idle" | "uploading" | "error">("idle");
+  const choose = async (file: File | undefined) => {
+    if (!file) return;
+    if (!MEAL_IMAGE_TYPES.includes(file.type) || file.size > MEAL_IMAGE_MAX_BYTES) {
+      setState("error");
+      return;
+    }
+    setState("uploading");
+    try {
+      onChange(await upload(file));
+      setState("idle");
+    } catch {
+      setState("error");
+    }
+  };
+  return (
+    <div className={styles.mealImage}>
+      {imageUrl ? (
+        <img src={publicFileUrl(imageUrl)} alt="" className={styles.mealImagePreview} />
+      ) : (
+        <button type="button" className={styles.mealImageEmpty} onClick={() => inputRef.current?.click()}>
+          <ImagePlus size={18} aria-hidden="true" />
+          <span>Add a photo of the meal</span>
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept={MEAL_IMAGE_TYPES.join(",")}
+        className={styles.srOnly}
+        tabIndex={-1}
+        aria-label="Meal photo"
+        onChange={(event) => {
+          void choose(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+      <div className={styles.mealImageActions}>
+        {imageUrl ? (
+          <>
+            <Button type="button" variant="ghost" size="small" onClick={() => inputRef.current?.click()}>
+              Replace photo
+            </Button>
+            <Button type="button" variant="ghost" size="small" onClick={() => onChange(null)}>
+              Remove
+            </Button>
+          </>
+        ) : null}
+        {state === "uploading" ? <span className={styles.formHint}>Uploading…</span> : null}
+        {state === "error" ? <span className={styles.formHint}>Use a JPEG, PNG or WebP picture up to 5 MB.</span> : null}
+      </div>
+    </div>
+  );
+};
+
 export const CuratedNutritionEditor = ({
   nutrition,
   onChange,
-  intro
+  intro,
+  uploadMealImage
 }: {
   nutrition: PlanDraftCuratedNutrition;
   onChange: (next: PlanDraftCuratedNutrition) => void;
   intro?: string;
+  // Premium Level 2: each meal can carry a picture.
+  uploadMealImage?: (file: File) => Promise<{ key: string; url: string }>;
 }) => {
   const updateMeal = (mealId: string, update: (meal: PlanDraftCuratedNutrition["meals"][number]) => PlanDraftCuratedNutrition["meals"][number]) => {
     onChange({
@@ -259,6 +334,15 @@ export const CuratedNutritionEditor = ({
                 }
               />
             </label>
+            {uploadMealImage ? (
+              <MealImageField
+                imageUrl={meal.image_url ?? ""}
+                upload={uploadMealImage}
+                onChange={(image) =>
+                  updateMeal(meal.id, (current) => ({ ...current, image_key: image?.key ?? "", image_url: image?.url ?? "" }))
+                }
+              />
+            ) : null}
 
             {meal.items.map((item, itemIndex) => (
               <ItemFields

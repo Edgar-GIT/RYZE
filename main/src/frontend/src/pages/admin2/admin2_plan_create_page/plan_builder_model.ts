@@ -74,6 +74,9 @@ export interface PlanDraftCuratedMeal {
   kind: "meal" | "snack";
   notes: string;
   items: PlanDraftCuratedItem[];
+  // Premium Level 2: an optional picture of the meal (uploads key and URL).
+  image_key?: string;
+  image_url?: string;
 }
 
 export interface PlanDraftCuratedNutrition {
@@ -104,6 +107,8 @@ export interface PlanDraft {
   // Cover picture: the uploads key the API returned and its public URL.
   cover_image: string;
   cover_url: string;
+  // An official RYZE plan (ADMIN_2, free plans): always the RYZE picture.
+  official: boolean;
   // Who the plan is designed for: "" everyone, "female" or "male".
   audience: "" | "female" | "male";
   weeks: PlanDraftWeek[];
@@ -227,6 +232,7 @@ export const createPlanDraft = (
   frequency_per_week: productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2 ? "" : "3",
   cover_image: "",
   cover_url: "",
+  official: false,
   audience: "",
   weeks: []
 });
@@ -723,7 +729,8 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
   // value sent here is ignored.
   price_minor_units: 0,
   currency: "EUR",
-  cover_image: draft.cover_image,
+  cover_image: draft.official ? "" : draft.cover_image,
+  official: draft.official,
   audience: isLevel2 ? "" : draft.audience,
   weeks: isLevel2
     ? []
@@ -830,6 +837,7 @@ export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
   frequency_per_week: detail.frequency_per_week === null ? "" : String(detail.frequency_per_week),
   cover_image: detail.cover_image ?? "",
   cover_url: detail.cover_image_url ?? "",
+  official: detail.official ?? false,
   audience: detail.audience ?? "",
   weeks: detail.weeks.map((week) => ({
     id: uid(),

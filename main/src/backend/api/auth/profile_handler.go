@@ -120,6 +120,10 @@ func (h *ProfileHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusBadRequest, "INVALID_DISPLAY_NAME", "Display names have 1 to 40 characters.", nil)
 	case errors.Is(err, profile.ErrInvalidUsername):
 		RespondError(c, http.StatusBadRequest, "INVALID_USERNAME", "Usernames have 3 to 30 lowercase letters, digits, dots or underscores.", nil)
+	case errors.Is(err, profile.ErrUsernameLocked):
+		RespondError(c, http.StatusConflict, "USERNAME_LOCKED", "The @username cannot be changed.", nil)
+	case errors.Is(err, profile.ErrNicknameCooldown):
+		RespondError(c, http.StatusConflict, "NICKNAME_COOLDOWN", "The nickname can change once every 7 days.", nil)
 	case errors.Is(err, profile.ErrUsernameTaken):
 		RespondError(c, http.StatusConflict, "USERNAME_TAKEN", "This username is already in use.", nil)
 	case errors.Is(err, profile.ErrInvalidImage):

@@ -60,8 +60,10 @@ export const exitTestMode = (): Promise<TestModeExitResult> =>
 // non-deliverable @ryze.local addresses. They are capped to an active Test Mode
 // session bound to the authenticated persona user and never touch a payment
 // provider.
-export const completeTestPurchase = (programId: string, email: string, taxId = ""): Promise<Purchase> =>
+export const completeTestPurchase = (programId: string, email: string, taxId = "", consented = false): Promise<Purchase> =>
   apiPost<Purchase>(`/auth/test-mode/programs/${encodePathSegment(programId)}/purchase`, {
     email: email.trim(),
-    tax_id: taxId.trim()
+    tax_id: taxId.trim(),
+    accept_terms: consented,
+    immediate_access: consented
   });

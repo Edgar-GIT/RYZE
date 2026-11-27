@@ -29,8 +29,7 @@ const KNOWN_KINDS = [
   "pl2_request_assigned",
   "pl2_request_offered",
   "pl2_delivered",
-  "support_reply",
-  "support_new_message"
+  "training_reminder"
 ] as const;
 
 type KnownKind = (typeof KNOWN_KINDS)[number];

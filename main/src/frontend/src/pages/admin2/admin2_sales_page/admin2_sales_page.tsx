@@ -25,6 +25,7 @@ import {
 } from "@/components/admin2/admin2_status_badge/admin2_status_badge";
 import { Admin2Modal } from "@/components/admin2/admin2_modal/admin2_modal";
 import { Button } from "@/components/button/button";
+import { RefundPanel } from "./refund_panel";
 import {
   fetchAdminProgramSales,
   fetchAdminPurchases,
@@ -88,6 +89,9 @@ const statusMeta = (status: PurchaseStatus): { label: string; tone: Admin2BadgeT
   }
   if (status === PurchaseStatusEnum.PENDING) {
     return { label: "Pending", tone: "warning" };
+  }
+  if (status === PurchaseStatusEnum.REFUNDED) {
+    return { label: "Refunded", tone: "neutral" };
   }
   return { label: "Failed", tone: "danger" };
 };
@@ -843,6 +847,14 @@ export default function Admin2SalesPage() {
               <span className={styles.detailMono}>{selected.id}</span>
             </div>
           </div>
+          <RefundPanel
+            key={selected.id}
+            purchase={selected}
+            onRefunded={(updated) => {
+              setSelected(updated);
+              void loadPurchases();
+            }}
+          />
           <div className={styles.modalActions}>
             <Button variant="secondary" size="small" onClick={() => setSelected(null)}>
               Close

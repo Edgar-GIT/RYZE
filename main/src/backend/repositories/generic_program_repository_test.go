@@ -567,3 +567,41 @@ func TestGenericProgramRepositoryPremiumLevel1Family(t *testing.T) {
 		t.Fatalf("SoftDelete generic: %v", err)
 	}
 }
+
+// The database accepts the fixed cover of an official RYZE plan (migration
+// 000063) next to uploaded covers, and nothing else outside the pattern.
+func TestProgramCoverConstraintAcceptsOfficialCover(t *testing.T) {
+	config.LoadEnvFile()
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	db, err := database.Connect(cfg)
+	if err != nil {
+		t.Fatalf("connect database: %v", err)
+	}
+	tx := db.Begin()
+	defer tx.Rollback()
+
+	for _, probe := range []struct {
+		cover string
+		ok    bool
+	}{
+		{"programs/official/ryze_base_plan.png", true},
+		{"programs/official/other.png", false},
+	} {
+		if err := tx.Exec("SAVEPOINT cover_probe").Error; err != nil {
+			t.Fatalf("savepoint: %v", err)
+		}
+		err := tx.Exec(
+			"INSERT INTO programs (id, trainer_id, name, type, status, product_type, cover_image) VALUES (?, NULL, 'Official Cover Probe', ?, ?, ?, ?)",
+			uuid.NewString(), models.ProgramTypeFree, models.ProgramStatusDraft, models.ProgramProductTypeGeneric, probe.cover,
+		).Error
+		if (err == nil) != probe.ok {
+			t.Fatalf("cover %q: expected ok=%v, got %v", probe.cover, probe.ok, err)
+		}
+		if err := tx.Exec("ROLLBACK TO SAVEPOINT cover_probe").Error; err != nil {
+			t.Fatalf("rollback to savepoint: %v", err)
+		}
+	}
+}

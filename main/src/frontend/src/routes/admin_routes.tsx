@@ -9,6 +9,7 @@ import { AdminTestModePage } from "@/pages/admin/admin_test_mode_page/admin_test
 import { AdminTrainerApplicationsPage } from "@/pages/admin/admin_trainer_applications_page/admin_trainer_applications_page";
 import { AdminTrainersPage } from "@/pages/admin/admin_trainers_page/admin_trainers_page";
 import { AdminUsersPage } from "@/pages/admin/admin_users_page/admin_users_page";
+import { DiscountCodesManager } from "@/components/discount_codes_manager/discount_codes_manager";
 
 // The Technical Administrator console (ADMIN_1): its shell and pages.
 // Loaded on demand (see app_routes.tsx), so public visitors never download it.
@@ -24,6 +25,7 @@ const AdminRoutes = () => (
       <Route exact path="/admin/configuration" component={AdminConfigurationPage} />
       <Route exact path="/admin/test-mode" component={AdminTestModePage} />
       <Route exact path="/admin/audit" component={AdminAuditPage} />
+      <Route exact path="/admin/discount-codes" component={DiscountCodesManager} />
       <Redirect to="/admin/dashboard" />
     </Switch>
   </AdminLayout>

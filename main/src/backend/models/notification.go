@@ -17,10 +17,11 @@ const (
 	NotificationPL2RequestAssigned = "pl2_request_assigned"
 	// NotificationPL2RequestOffered asks a trainer to accept a request
 	// (allocation by offer, v2.128.0).
-	NotificationPL2RequestOffered   = "pl2_request_offered"
-	NotificationPL2Delivered        = "pl2_delivered"
-	NotificationSupportReply        = "support_reply"
-	NotificationSupportNewMessage   = "support_new_message"
+	NotificationPL2RequestOffered = "pl2_request_offered"
+	NotificationPL2Delivered      = "pl2_delivered"
+	// NotificationTrainingReminder nudges a member who stopped training
+	// (v2.131.0).
+	NotificationTrainingReminder    = "training_reminder"
 	NotificationLifetime            = 24 * time.Hour
 	NotificationTombstoneRetention  = 30 * 24 * time.Hour
 	NotificationMaxParamValueLength = 160

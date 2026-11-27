@@ -7,7 +7,6 @@ import {
   Globe2,
   GraduationCap,
   LayoutDashboard,
-  LifeBuoy,
   Play,
   ReceiptText,
   Settings,
@@ -49,6 +48,8 @@ export interface MemberUser {
   avatar_url: string | null;
   /** The @username was generated: the person is asked to choose one. */
   needs_username?: boolean;
+  // When the nickname may change again (it changes once every 7 days).
+  nickname_change_at?: string;
 }
 
 interface MemberContextValue {
@@ -73,7 +74,6 @@ const COPY: Copy<{
   library: string;
   plans: string;
   purchases: string;
-  support: string;
   account: string;
   publicProfile: string;
   more: string;
@@ -101,7 +101,6 @@ const COPY: Copy<{
     library: "Exercises",
     plans: "Training plans",
     purchases: "Purchases",
-    support: "Support",
     account: "Account",
     publicProfile: "My public profile",
     more: "More",
@@ -129,7 +128,6 @@ const COPY: Copy<{
     library: "Exercícios",
     plans: "Planos de treino",
     purchases: "Compras",
-    support: "Suporte",
     account: "Conta",
     publicProfile: "O meu perfil público",
     more: "Mais",
@@ -202,7 +200,6 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     { to: "/exercises", label: text.library, icon: BookOpen },
     ...(hasPremiumLevel2Academy ? [{ to: "/services/premium-level-2/academy", label: text.academy, icon: GraduationCap }] : []),
     { to: "/account/purchases", label: text.purchases, icon: ReceiptText },
-    { to: "/support", label: text.support, icon: LifeBuoy },
     { to: "/account/settings", label: text.account, icon: Settings }
   ];
   const menuItems: UserMenuItem[] = [
@@ -210,7 +207,6 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     { to: "/account/settings", label: text.account, icon: Settings },
     { to: "/account/purchases", label: text.purchases, icon: ReceiptText },
     ...(hasPremiumLevel2Academy ? [{ to: "/services/premium-level-2/academy", label: text.academy, icon: GraduationCap }] : []),
-    { to: "/support", label: text.support, icon: LifeBuoy },
     ...(isTrainer ? [{ to: "/trainer/dashboard", label: text.trainer, icon: Users }] : []),
     { to: "/", label: text.site, icon: Globe2 }
   ];

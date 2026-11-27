@@ -621,3 +621,22 @@ func adminPurchaseConditions(filter AdminPurchaseFilter) []adminWhereClause {
 	}
 	return clauses
 }
+
+// RecordConsents stamps the buyer's checkout consents (terms and immediate
+// access) on their own pending purchase (v2.130.12). The first record is kept.
+func (r *purchaseRepository) RecordConsents(ctx context.Context, purchaseID, userID string, at time.Time) error {
+	result := r.db.WithContext(ctx).
+		Model(&models.Purchase{}).
+		Where("id = ? AND user_id = ? AND status = ?", purchaseID, userID, models.PurchaseStatusPending).
+		Updates(map[string]any{
+			"terms_accepted_at":             gorm.Expr("COALESCE(terms_accepted_at, ?)", at),
+			"immediate_access_requested_at": gorm.Expr("COALESCE(immediate_access_requested_at, ?)", at),
+		})
+	if result.Error != nil {
+		return fmt.Errorf("failed to record checkout consents: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrPurchaseNotFound
+	}
+	return nil
+}

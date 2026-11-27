@@ -27,6 +27,7 @@ const plan: PremiumLevel2NutritionPlan = {
       label: "Breakfast",
       kind: "meal",
       notes: null,
+      image_key: null,
       items: [
         {
           id: "food-1",

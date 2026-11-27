@@ -67,9 +67,8 @@ func (h *AdminSystemHandler) Status(c *gin.Context) {
 	queue := []queueCount{}
 	_ = h.db.WithContext(ctx).Raw("SELECT status, COUNT(*) AS count FROM email_outbox GROUP BY status ORDER BY status").Scan(&queue).Error
 
-	var visibleNotifications, openSupport int64
+	var visibleNotifications int64
 	_ = h.db.WithContext(ctx).Raw("SELECT COUNT(*) FROM notifications WHERE expires_at > now()").Row().Scan(&visibleNotifications)
-	_ = h.db.WithContext(ctx).Raw("SELECT COUNT(*) FROM support_conversations WHERE status = 'open'").Row().Scan(&openSupport)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -81,7 +80,6 @@ func (h *AdminSystemHandler) Status(c *gin.Context) {
 			"database":              database,
 			"email_queue":           queue,
 			"visible_notifications": visibleNotifications,
-			"open_support":          openSupport,
 			"features":              h.features,
 		},
 	})

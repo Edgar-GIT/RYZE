@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -15,20 +16,23 @@ import (
 	"ryze/backend/middleware/authcontext"
 	"ryze/backend/models"
 	"ryze/backend/repositories"
+	"ryze/backend/services/health_consent"
 	"ryze/backend/services/premium_level_2"
 )
 
 type clientPremiumLevel2RequestResponse struct {
-	ID                   string     `json:"id"`
-	ProgramID            string     `json:"program_id"`
-	OfferName            string     `json:"offer_name"`
-	OfferDescription     string     `json:"offer_description"`
-	OfferPriceMinorUnits int64      `json:"offer_price_minor_units"`
-	OfferCurrency        string     `json:"offer_currency"`
-	Status               string     `json:"status"`
-	IntakeVersion        int        `json:"intake_version"`
-	TrainerID            *string    `json:"trainer_id"`
-	TrainerName          string     `json:"trainer_name"`
+	ID                   string  `json:"id"`
+	ProgramID            string  `json:"program_id"`
+	OfferName            string  `json:"offer_name"`
+	OfferDescription     string  `json:"offer_description"`
+	OfferPriceMinorUnits int64   `json:"offer_price_minor_units"`
+	OfferCurrency        string  `json:"offer_currency"`
+	Status               string  `json:"status"`
+	IntakeVersion        int     `json:"intake_version"`
+	TrainerID            *string `json:"trainer_id"`
+	TrainerName          string  `json:"trainer_name"`
+	// HandledByRyze: RYZE itself prepares the plans (v2.131.0).
+	HandledByRyze        bool       `json:"handled_by_ryze"`
 	TrainingProgramID    *string    `json:"training_program_id"`
 	TrainingProgramName  *string    `json:"training_program_name"`
 	NutritionPlanVersion *int       `json:"nutrition_plan_version"`
@@ -78,6 +82,10 @@ func newClientPremiumLevel2RequestResponse(request *models.PremiumLevel2Request)
 		DeliveredAt:          request.DeliveredAt,
 		CreatedAt:            request.CreatedAt,
 		UpdatedAt:            request.UpdatedAt,
+		HandledByRyze:        request.HandledByRyze,
+	}
+	if request.HandledByRyze {
+		response.TrainerName = "RYZE"
 	}
 	if request.TrainerFirstName != nil || request.TrainerLastName != nil {
 		first, last := "", ""
@@ -132,6 +140,14 @@ func newPremiumLevel2EventResponses(events []models.PremiumLevel2RequestEvent) [
 // authentication or trainer context; the body never selects the actor.
 type PremiumLevel2Handler struct {
 	service premium_level_2.Service
+	consent *health_consent.Service
+}
+
+// WithHealthConsent requires the explicit consent for health data before the
+// questionnaire is accepted (v2.131.0).
+func (h *PremiumLevel2Handler) WithHealthConsent(consent *health_consent.Service) *PremiumLevel2Handler {
+	h.consent = consent
+	return h
 }
 
 func NewPremiumLevel2Handler(service premium_level_2.Service) *PremiumLevel2Handler {
@@ -204,6 +220,9 @@ func (h *PremiumLevel2Handler) GetClientRequest(c *gin.Context) {
 
 type premiumLevel2IntakeRequest struct {
 	Answers json.RawMessage `json:"answers"`
+	// HealthConsent: explicit consent for the health data in the answers
+	// (GDPR art. 9(2)(a), v2.131.0).
+	HealthConsent bool `json:"health_consent"`
 }
 
 func (h *PremiumLevel2Handler) SubmitIntake(c *gin.Context) {
@@ -216,10 +235,21 @@ func (h *PremiumLevel2Handler) SubmitIntake(c *gin.Context) {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", []string{"answers is required"})
 		return
 	}
+	if h.consent != nil {
+		if err := h.consent.Require(c.Request.Context(), userID, body.HealthConsent); err != nil {
+			respondHealthConsentError(c, err)
+			return
+		}
+	}
 	request, intake, err := h.service.SubmitIntake(c.Request.Context(), userID, c.Param("requestID"), body.Answers)
 	if err != nil {
 		h.respondError(c, err)
 		return
+	}
+	if h.consent != nil && intake != nil {
+		if err := h.consent.StampIntake(c.Request.Context(), intake.ID); err != nil {
+			slog.Error("failed to stamp intake consent", slog.String("error", err.Error()))
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -373,8 +403,63 @@ type attachPremiumLevel2ProgramRequest struct {
 	ProgramID string `json:"program_id"`
 }
 
-func (h *PremiumLevel2Handler) AttachTrainingProgram(c *gin.Context) {
+// trainerHandler is the trainer working on a request (trainer routes).
+func trainerHandler(c *gin.Context) (repositories.PremiumLevel2Handler, bool) {
 	trainerID, ok := requireTrainerContext(c)
+	return repositories.PremiumLevel2Handler{TrainerID: trainerID}, ok
+}
+
+// ryzeHandler is RYZE itself, through the signed-in administrator (admin
+// routes, v2.131.0).
+func ryzeHandler(c *gin.Context) (repositories.PremiumLevel2Handler, bool) {
+	adminID, err := adminauthcontext.AdminIdentityFromContext(c)
+	if err != nil || strings.TrimSpace(adminID) == "" {
+		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
+		return repositories.PremiumLevel2Handler{}, false
+	}
+	return repositories.PremiumLevel2Handler{AdminID: adminID}, true
+}
+
+func (h *PremiumLevel2Handler) AttachTrainingProgram(c *gin.Context) {
+	h.attachTrainingProgram(c, trainerHandler)
+}
+
+func (h *PremiumLevel2Handler) SaveNutrition(c *gin.Context) { h.saveNutrition(c, trainerHandler) }
+
+func (h *PremiumLevel2Handler) Deliver(c *gin.Context) { h.deliver(c, trainerHandler) }
+
+// RyzeAttachTrainingProgram, RyzeSaveNutrition and RyzeDeliver are the same
+// work when RYZE took the request.
+func (h *PremiumLevel2Handler) RyzeAttachTrainingProgram(c *gin.Context) {
+	h.attachTrainingProgram(c, ryzeHandler)
+}
+
+func (h *PremiumLevel2Handler) RyzeSaveNutrition(c *gin.Context) { h.saveNutrition(c, ryzeHandler) }
+
+func (h *PremiumLevel2Handler) RyzeDeliver(c *gin.Context) { h.deliver(c, ryzeHandler) }
+
+// TakeAsRyze lets RYZE itself take a waiting request.
+func (h *PremiumLevel2Handler) TakeAsRyze(c *gin.Context) {
+	handler, ok := ryzeHandler(c)
+	if !ok {
+		return
+	}
+	request, err := h.service.TakeAsRyze(c.Request.Context(), c.Param("requestID"), handler.AdminID)
+	if err != nil {
+		h.respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Request taken by RYZE.",
+		"data":    newStaffPremiumLevel2RequestResponse(request),
+	})
+}
+
+type workHandlerResolver func(c *gin.Context) (repositories.PremiumLevel2Handler, bool)
+
+func (h *PremiumLevel2Handler) attachTrainingProgram(c *gin.Context, resolve workHandlerResolver) {
+	handler, ok := resolve(c)
 	if !ok {
 		return
 	}
@@ -383,7 +468,7 @@ func (h *PremiumLevel2Handler) AttachTrainingProgram(c *gin.Context) {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", []string{"program_id is required"})
 		return
 	}
-	request, err := h.service.AttachTrainingProgram(c.Request.Context(), trainerID, c.Param("requestID"), strings.TrimSpace(body.ProgramID))
+	request, err := h.service.AttachTrainingProgram(c.Request.Context(), handler, c.Param("requestID"), strings.TrimSpace(body.ProgramID))
 	if err != nil {
 		h.respondError(c, err)
 		return
@@ -395,8 +480,8 @@ func (h *PremiumLevel2Handler) AttachTrainingProgram(c *gin.Context) {
 	})
 }
 
-func (h *PremiumLevel2Handler) SaveNutrition(c *gin.Context) {
-	trainerID, ok := requireTrainerContext(c)
+func (h *PremiumLevel2Handler) saveNutrition(c *gin.Context, resolve workHandlerResolver) {
+	handler, ok := resolve(c)
 	if !ok {
 		return
 	}
@@ -405,7 +490,7 @@ func (h *PremiumLevel2Handler) SaveNutrition(c *gin.Context) {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
 		return
 	}
-	plan, err := h.service.SaveNutrition(c.Request.Context(), trainerID, c.Param("requestID"), body)
+	plan, err := h.service.SaveNutrition(c.Request.Context(), handler, c.Param("requestID"), body)
 	if err != nil {
 		h.respondError(c, err)
 		return
@@ -417,12 +502,12 @@ func (h *PremiumLevel2Handler) SaveNutrition(c *gin.Context) {
 	})
 }
 
-func (h *PremiumLevel2Handler) Deliver(c *gin.Context) {
-	trainerID, ok := requireTrainerContext(c)
+func (h *PremiumLevel2Handler) deliver(c *gin.Context, resolve workHandlerResolver) {
+	handler, ok := resolve(c)
 	if !ok {
 		return
 	}
-	request, err := h.service.Deliver(c.Request.Context(), trainerID, c.Param("requestID"))
+	request, err := h.service.Deliver(c.Request.Context(), handler, c.Param("requestID"))
 	if err != nil {
 		h.respondError(c, err)
 		return

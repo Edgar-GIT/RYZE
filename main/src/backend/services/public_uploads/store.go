@@ -44,7 +44,7 @@ var (
 const MaxImageDimension = 8000
 
 // ProgramFolders are the programme cover folders, one per catalogue category.
-var ProgramFolders = []string{"generic", "l1", "l2"}
+var ProgramFolders = []string{"generic", "l1", "l2", "meals"}
 
 // ReservedFolders are created at startup so the uploads layout is visible on
 // disk; avatars and feedback are reserved for the planned profile and feedback
@@ -58,7 +58,7 @@ var allowedImageTypes = map[string]string{
 }
 
 // ServedKeyPattern is the exact shape of a public programme image key.
-var ServedKeyPattern = regexp.MustCompile(`^programs/(generic|l1|l2)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$`)
+var ServedKeyPattern = regexp.MustCompile(`^programs/(generic|l1|l2|meals)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$`)
 
 const sniffBytes = 512
 

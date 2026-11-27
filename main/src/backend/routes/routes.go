@@ -40,11 +40,13 @@ import (
 	"ryze/backend/services/commission_rules"
 	"ryze/backend/services/contact"
 	"ryze/backend/services/delete_account"
+	"ryze/backend/services/discounts"
 	"ryze/backend/services/entitlements"
 	"ryze/backend/services/exercises"
 	"ryze/backend/services/free_programs"
 	"ryze/backend/services/generic_programs"
 	"ryze/backend/services/google_auth"
+	"ryze/backend/services/health_consent"
 	"ryze/backend/services/invoices"
 	"ryze/backend/services/login"
 	"ryze/backend/services/member_feedback"
@@ -70,10 +72,10 @@ import (
 	"ryze/backend/services/purchases"
 	"ryze/backend/services/questionnaires"
 	"ryze/backend/services/rankings"
+	"ryze/backend/services/refunds"
 	"ryze/backend/services/registration"
 	"ryze/backend/services/session_photos"
 	"ryze/backend/services/statistics"
-	"ryze/backend/services/support"
 	"ryze/backend/services/test_mode"
 	"ryze/backend/services/token"
 	"ryze/backend/services/trainer_applications"
@@ -82,6 +84,7 @@ import (
 	"ryze/backend/services/trainer_earnings"
 	"ryze/backend/services/trainer_evidence"
 	"ryze/backend/services/trainer_profile"
+	"ryze/backend/services/training_reminders"
 	"ryze/backend/services/workout_exercises"
 	"ryze/backend/services/workout_history"
 	"ryze/backend/services/workout_sessions"
@@ -156,6 +159,10 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 		},
 		middleware.BodyLimitException{
 			Path:     avatarUploadPath,
+			MaxBytes: uploadsCfg.MaxImageBytes + evidenceUploadOverhead,
+		},
+		middleware.BodyLimitException{
+			Path:     "/api/v1/me/feedback",
 			MaxBytes: uploadsCfg.MaxImageBytes + evidenceUploadOverhead,
 		},
 		middleware.BodyLimitException{
@@ -295,14 +302,25 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	invoiceService := invoices.New(repositories.NewInvoiceRepository(db), mailer, testRecipients, invoiceCfg)
 	invoiceHandler := auth.NewInvoiceHandler(invoiceService)
 	notificationsHandler := auth.NewNotificationsHandler(notificationService)
-	supportHandler := auth.NewSupportHandler(support.New(repositories.NewSupportRepository(db), notificationService)).
-		WithSessions(tokenService, userRepository)
 	premiumJourneyRepository := repositories.NewPremiumJourneyRepository(db)
+	commissionRuleRepository := repositories.NewCommissionRuleRepository(db)
+	commissionRulesService := commission_rules.NewService(commissionRuleRepository, trainerRepository, commissionCfg)
 	premiumLevel2Service := premium_level_2.NewService(premiumLevel2Repository, trainerProgramRepository, entitlementRepository,
 		premium_level_2.WithNotifier(notificationService),
-		premium_level_2.WithOffers(repositories.NewPremiumLevel2OfferRepository(db)))
+		premium_level_2.WithOffers(repositories.NewPremiumLevel2OfferRepository(db)),
+		// The delivering trainer earns the sale minus their commission (30%
+		// by default), like their own plans.
+		premium_level_2.WithCommission(func(ctx context.Context, trainerID string) (repositories.PremiumLevel2Split, error) {
+			resolution, err := commissionRulesService.ResolveCommission(ctx, trainerID)
+			if err != nil {
+				return repositories.PremiumLevel2Split{}, err
+			}
+			return repositories.PremiumLevel2Split{CommissionBPS: resolution.CommissionBPS}, nil
+		}))
 	premiumJourneysHandler := auth.NewPremiumJourneysHandler(premium_match.NewService(premiumJourneyRepository))
-	premiumLevel2Handler := auth.NewPremiumLevel2Handler(premiumLevel2Service)
+	healthConsentService := health_consent.New(repositories.NewHealthConsentRepository(db))
+	healthConsentHandler := auth.NewHealthConsentHandler(healthConsentService)
+	premiumLevel2Handler := auth.NewPremiumLevel2Handler(premiumLevel2Service).WithHealthConsent(healthConsentService)
 
 	publicProgramService := public_programs.NewService(trainerProgramRepository, public_programs.WithOutlines(repositories.NewProgramOutlineRepository(db)))
 	// Program views count once per viewer and program every 30 minutes; the
@@ -319,7 +337,7 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	contactService := contact.NewService(contact.NewSMTPNotifier(contactCfg))
 	contactHandler := auth.NewContactHandler(contactService)
 
-	memberFeedbackService := member_feedback.NewService(repositories.NewMemberFeedbackRepository(db), userRepository)
+	memberFeedbackService := member_feedback.NewService(repositories.NewMemberFeedbackRepository(db), userRepository, member_feedback.WithImages(uploadsStore))
 	memberFeedbackHandler := auth.NewMemberFeedbackHandler(memberFeedbackService)
 	adminMemberFeedbackHandler := auth.NewAdminMemberFeedbackHandler(memberFeedbackService)
 
@@ -354,8 +372,6 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	premiumLevel1ProgramHandler := auth.NewGenericProgramsHandler(genericProgramService, models.ProgramProductTypePremiumLevel1)
 	premiumLevel2ProgramHandler := auth.NewGenericProgramsHandler(genericProgramService, models.ProgramProductTypePremiumLevel2)
 
-	commissionRuleRepository := repositories.NewCommissionRuleRepository(db)
-	commissionRulesService := commission_rules.NewService(commissionRuleRepository, trainerRepository, commissionCfg)
 	adminCommissionHandler := auth.NewAdminCommissionHandler(commissionRulesService)
 
 	// Premium Level 1 has two delivery models. Curated packages ship a predefined
@@ -386,6 +402,9 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	// therefore the same complete-configuration gate: it is offered exactly when
 	// Stripe is enabled, never independently and never partially.
 	methodMap := payments.NewMethodProviderMap(stripeProvider, stripeProvider, paypalProvider)
+	// Discount codes (v2.131.0): applied at checkout, managed by both admins.
+	discountService := discounts.New(repositories.NewDiscountCodeRepository(db))
+	discountHandler := auth.NewDiscountHandler(discountService, repositories.NewProgramRepository(db))
 	purchaseService := purchases.NewService(
 		trainerProgramRepository,
 		purchaseRepository,
@@ -401,6 +420,7 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 		// The purchase document is issued (and emailed) the same way, for
 		// every completed purchase, real or Test Mode.
 		purchases.WithFulfillment(purchase_fulfillment.New(nutritionAssignmentService, premiumLevel2Service, notificationService, invoiceService)),
+		purchases.WithDiscounts(discountService),
 	)
 	purchaseHandler := auth.NewPurchaseHandler(purchaseService)
 	paymentMethodsHandler := auth.NewPaymentMethodsHandler(methodMap)
@@ -434,6 +454,14 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	adminCommerceService := admin_commerce.NewService(purchaseRepository, trainerProgramRepository,
 		admin_commerce.WithReconciliationEvents(reconciliationEventRepository))
 	adminCommerceHandler := auth.NewAdminCommerceHandler(adminCommerceService)
+	// Refunds go back through Stripe when card payments are configured.
+	var refunder payments.Refunder
+	if stripeProvider != nil {
+		if candidate, ok := any(stripeProvider).(payments.Refunder); ok {
+			refunder = candidate
+		}
+	}
+	adminRefundHandler := auth.NewAdminRefundHandler(refunds.New(repositories.NewRefundRepository(db), refunder))
 
 	programWeekRepository := repositories.NewProgramWeekRepository(db)
 	programWorkoutRepository := repositories.NewProgramWorkoutRepository(db)
@@ -504,6 +532,7 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	v1.GET("/coaches/:trainerID", publicCoachesHandler.GetCoach)
 	v1.POST("/contact", append(limits.chain(scopeContact), contactHandler.Submit)...)
 	v1.GET("/feedback", memberFeedbackHandler.ListPublished)
+	v1.GET("/feedback/:id/image", memberFeedbackHandler.Image)
 	v1.GET("/me/feedback/eligibility", middleware.Authenticate(tokenService, userRepository), memberFeedbackHandler.GetEligibility)
 	v1.POST("/me/feedback", append(limits.chain(scopeFeedback), middleware.Authenticate(tokenService, userRepository), memberFeedbackHandler.Submit)...)
 	v1.GET("/payments/methods", paymentMethodsHandler.List)
@@ -541,13 +570,6 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	v1.GET("/me/notifications", middleware.Authenticate(tokenService, userRepository), notificationsHandler.List)
 	v1.POST("/me/notifications/read-all", middleware.Authenticate(tokenService, userRepository), notificationsHandler.MarkAllRead)
 	v1.POST("/me/notifications/:notificationID/read", middleware.Authenticate(tokenService, userRepository), notificationsHandler.MarkRead)
-	v1.GET("/me/support/eligibility", middleware.Authenticate(tokenService, userRepository), supportHandler.Eligibility)
-	v1.GET("/me/support/conversations", middleware.Authenticate(tokenService, userRepository), supportHandler.ListMine)
-	v1.POST("/me/support/conversations", append(limits.chain(scopeSupportOpen), middleware.Authenticate(tokenService, userRepository), supportHandler.Open)...)
-	v1.GET("/me/support/conversations/:conversationID", middleware.Authenticate(tokenService, userRepository), supportHandler.GetMine)
-	v1.POST("/me/support/conversations/:conversationID/messages", append(limits.chain(scopeSupportMessage), middleware.Authenticate(tokenService, userRepository), supportHandler.SendMine)...)
-	v1.POST("/me/support/conversations/:conversationID/read", middleware.Authenticate(tokenService, userRepository), supportHandler.MarkMineRead)
-	v1.GET("/me/support/stream", append(limits.chain(scopeSupportStream), middleware.Authenticate(tokenService, userRepository), supportHandler.StreamMine)...)
 	v1.DELETE("/me/identities/google", middleware.Authenticate(tokenService, userRepository), googleHandler.UnlinkGoogle)
 	v1.GET("/me/program", middleware.Authenticate(tokenService, userRepository), clientProgramHandler.GetProgram)
 	v1.GET("/me/entitlements", middleware.Authenticate(tokenService, userRepository), entitlementHandler.ListEntitlements)
@@ -591,9 +613,17 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	bodyStatisticsHandler := auth.NewBodyStatisticsHandler(
 		muscle_recovery.NewService(repositories.NewMuscleLoadRepository(db)),
 		body_measurements.NewService(repositories.NewBodyMeasurementRepository(db)),
-	)
+	).WithHealthConsent(healthConsentService)
 	v1.GET("/me/statistics/muscles", middleware.Authenticate(tokenService, userRepository), bodyStatisticsHandler.MuscleRecovery)
 	v1.GET("/me/measurements", middleware.Authenticate(tokenService, userRepository), bodyStatisticsHandler.ListMeasurements)
+	// Explicit consent for health data (v2.131.0).
+	v1.GET("/me/discount-codes/preview", middleware.Authenticate(tokenService, userRepository), discountHandler.Preview)
+	trainingRemindersHandler := auth.NewTrainingRemindersHandler(training_reminders.New(repositories.NewTrainingReminderRepository(db), notificationService))
+	v1.GET("/me/training-reminders", middleware.Authenticate(tokenService, userRepository), trainingRemindersHandler.Get)
+	v1.PUT("/me/training-reminders", middleware.Authenticate(tokenService, userRepository), trainingRemindersHandler.Set)
+	v1.GET("/me/health-consent", middleware.Authenticate(tokenService, userRepository), healthConsentHandler.Get)
+	v1.POST("/me/health-consent", middleware.Authenticate(tokenService, userRepository), healthConsentHandler.Give)
+	v1.DELETE("/me/health-consent", middleware.Authenticate(tokenService, userRepository), healthConsentHandler.Withdraw)
 	v1.POST("/me/measurements", middleware.Authenticate(tokenService, userRepository), bodyStatisticsHandler.SaveMeasurement)
 	v1.DELETE("/me/measurements/:measurementID", middleware.Authenticate(tokenService, userRepository), bodyStatisticsHandler.DeleteMeasurement)
 	v1.GET("/me/achievements", middleware.Authenticate(tokenService, userRepository), achievementsHandler.Summary)
@@ -634,6 +664,7 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	trainerEarningsHandler := auth.NewTrainerEarningsHandler(trainer_earnings.NewService(repositories.NewTrainerEarningsRepository(db)))
 	trainer.GET("/earnings", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerEarningsHandler.Get)
 	trainer.POST("/uploads/program-cover", append(limits.chain(scopeImageUpload), middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), uploadsHandler.TrainerProgramCover)...)
+	trainer.POST("/uploads/meal-image", append(limits.chain(scopeImageUpload), middleware.RequireTrainerPermission(trainerroles.PermissionClients), uploadsHandler.MealImage)...)
 	trainer.GET("/premium-level-2/catalog", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.GetStaffCatalog)
 	trainer.GET("/premium-level-2/requests", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.ListTrainerRequests)
 	// Allocation by offer (v2.128.0).
@@ -729,11 +760,9 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	premiumLevel2Programs.Use(middleware.AdminAudit(adminAuditService))
 	premiumLevel2Programs.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
 	premiumLevel2Programs.GET("", premiumLevel2ProgramHandler.ListPrograms)
-	premiumLevel2Programs.POST("", premiumLevel2ProgramHandler.CreateProgram)
+	// The service is one platform product created by migration 000064;
+	// administrators no longer create or edit it (owner request, 2026-11-24).
 	premiumLevel2Programs.GET("/:programID", premiumLevel2ProgramHandler.GetProgram)
-	premiumLevel2Programs.PATCH("/:programID", premiumLevel2ProgramHandler.UpdateProgram)
-	premiumLevel2Programs.POST("/:programID/publish", premiumLevel2ProgramHandler.PublishProgram)
-	premiumLevel2Programs.DELETE("/:programID", premiumLevel2ProgramHandler.DeleteProgram)
 
 	adminOverviewHandler := auth.NewAdminOverviewHandler(admin_overview.NewService(repositories.NewAdminOverviewRepository(db)))
 
@@ -800,20 +829,7 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	adminFeedbackRead := admin.Group("")
 	adminFeedbackRead.Use(middleware.RequireAdminPermission(adminroles.PermissionFeedbackRead))
 	adminFeedbackRead.GET("/feedback", adminMemberFeedbackHandler.List)
-
-	// Support chat, answered by the Management Administrator.
-	adminSupportRead := admin.Group("")
-	adminSupportRead.Use(middleware.RequireAdminPermission(adminroles.PermissionSupportRead))
-	adminSupportRead.GET("/support/conversations", supportHandler.ListStaff)
-	adminSupportRead.GET("/support/conversations/:conversationID", supportHandler.GetStaff)
-	adminSupportRead.GET("/support/stream", supportHandler.StreamStaff)
-
-	adminSupportMutate := admin.Group("")
-	adminSupportMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionSupportManage))
-	adminSupportMutate.POST("/support/conversations/:conversationID/messages", supportHandler.Reply)
-	adminSupportMutate.POST("/support/conversations/:conversationID/read", supportHandler.MarkStaffRead)
-	adminSupportMutate.POST("/support/conversations/:conversationID/close", supportHandler.Close)
-	adminSupportMutate.POST("/support/conversations/:conversationID/reopen", supportHandler.Reopen)
+	adminFeedbackRead.GET("/feedback/:id/image", adminMemberFeedbackHandler.Image)
 
 	adminFeedbackMutate := admin.Group("")
 	adminFeedbackMutate.Use(middleware.RequireAdminPermission(adminroles.PermissionFeedbackManage))
@@ -840,10 +856,22 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	adminPremiumLevel2.GET("/premium-level-2/requests", premiumLevel2Handler.ListAdminRequests)
 	adminPremiumLevel2.GET("/premium-level-2/requests/:requestID", premiumLevel2Handler.GetAdminRequest)
 	adminPremiumLevel2.POST("/premium-level-2/requests/:requestID/trainer", premiumLevel2Handler.AssignTrainer)
+	// RYZE itself can take a waiting request and prepare it (v2.131.0).
+	adminPremiumLevel2.POST("/premium-level-2/requests/:requestID/take", premiumLevel2Handler.TakeAsRyze)
+	adminPremiumLevel2.PUT("/premium-level-2/requests/:requestID/training-program", premiumLevel2Handler.RyzeAttachTrainingProgram)
+	adminPremiumLevel2.PUT("/premium-level-2/requests/:requestID/nutrition", premiumLevel2Handler.RyzeSaveNutrition)
+	adminPremiumLevel2.POST("/premium-level-2/requests/:requestID/deliver", premiumLevel2Handler.RyzeDeliver)
+
+	adminDiscounts := admin.Group("")
+	adminDiscounts.Use(middleware.RequireAdminPermission(adminroles.PermissionDiscounts))
+	adminDiscounts.GET("/discount-codes", discountHandler.List)
+	adminDiscounts.POST("/discount-codes", discountHandler.Create)
+	adminDiscounts.POST("/discount-codes/:id/disable", discountHandler.Disable)
 
 	adminUploads := admin.Group("")
 	adminUploads.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
 	adminUploads.POST("/uploads/program-cover", append(limits.chain(scopeImageUpload), uploadsHandler.AdminProgramCover)...)
+	adminUploads.POST("/uploads/meal-image", append(limits.chain(scopeImageUpload), uploadsHandler.MealImage)...)
 
 	adminPricing := admin.Group("")
 	adminPricing.Use(middleware.RequireAdminPermission(adminroles.PermissionPlans))
@@ -868,6 +896,7 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	adminCommerce.GET("/purchases/reconciliation-events", adminCommerceHandler.ListReconciliationEvents)
 	adminCommerce.GET("/purchases", adminCommerceHandler.ListPurchases)
 	adminCommerce.GET("/purchases/:id", adminCommerceHandler.GetPurchase)
+	adminCommerce.POST("/purchases/:id/refund", adminRefundHandler.Refund)
 	adminCommerce.GET("/purchases/:id/invoice", invoiceHandler.ForPurchaseAdmin)
 
 	// The Stripe webhook follows the same complete-configuration rule as the
@@ -961,7 +990,7 @@ func resolvePaymentProviders(stripeCfg config.StripeConfig, paypalCfg config.Pay
 	var stripeProvider payments.Provider
 	if stripeEnabled(stripeCfg, webhookCfg) {
 		stripe.Key = stripeCfg.SecretKey
-		stripeProvider = payments.NewStripeProvider(stripeCfg.SuccessURL, stripeCfg.CancelURL)
+		stripeProvider = payments.NewStripeProvider(stripeCfg.SuccessURL, stripeCfg.CancelURL).WithEmbeddedCheckout(stripeCfg.PublishableKey)
 	} else {
 		stripe.Key = ""
 	}

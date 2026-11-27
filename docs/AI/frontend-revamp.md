@@ -89,6 +89,10 @@ flows. Compare protected-area baselines after every significant milestone.
 
 ## Progress
 
+- 2026-11-23 (v2.130.12) — Owner request: legal pages and cookie notice. The
+  protected footer's existing Privacy, Terms and Cookies links now point to
+  the legal documents instead of Our vision; layout, columns, slogan and copy
+  are unchanged. Payment screen redesigned wide with payment marks.
 - 2026-11-22 (v2.130.3-4) — Library split (Premium / free plans), plan day
   tools in the builder, home plan focus with "Trocar plano" and other plans,
   "Começar treino" to the next workout; phone tabs back to four. Playwright

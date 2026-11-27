@@ -38,6 +38,10 @@ type paymentInitiationResponse struct {
 	CheckoutURL string `json:"checkout_url,omitempty"`
 	Status      string `json:"status"`
 	PurchaseID  string `json:"purchase_id"`
+	// Embedded provider page (Stripe embedded Checkout): the browser mounts the
+	// provider's form with these; both are browser-facing values.
+	ClientSecret   string `json:"client_secret,omitempty"`
+	PublishableKey string `json:"publishable_key,omitempty"`
 }
 
 func newPurchaseResponse(p *purchases.Purchase) purchaseResponse {
@@ -175,6 +179,10 @@ func (h *PurchaseHandler) ListPurchases(c *gin.Context) {
 // respondError maps purchase service errors to API responses. Internal error
 // details are never exposed to the client.
 func (h *PurchaseHandler) respondError(c *gin.Context, err error) {
+	if reason := discountErrorReason(err); reason != "" {
+		RespondError(c, http.StatusConflict, "DISCOUNT_INVALID", "The discount code cannot be used.", []string{reason})
+		return
+	}
 	switch {
 	case errors.Is(err, purchases.ErrInvalidInput):
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
@@ -233,9 +241,20 @@ func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
 		// purchase document. Present (even empty) replaces what the pending
 		// purchase held; absent leaves it unchanged.
 		TaxID *string `json:"tax_id"`
+		// The buyer's checkout consents (EU consumer rules, v2.130.12): both
+		// are required before a paid payment starts.
+		AcceptTerms     bool `json:"accept_terms"`
+		ImmediateAccess bool `json:"immediate_access"`
+		// DiscountCode (v2.131.0): present applies the code to the purchase
+		// (an empty value removes one); absent leaves the price unchanged.
+		DiscountCode *string `json:"discount_code"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+		return
+	}
+	if !body.AcceptTerms || !body.ImmediateAccess {
+		RespondError(c, http.StatusBadRequest, "CONSENT_REQUIRED", "Accept the terms and the immediate access to the digital content to pay.", []string{"accept_terms", "immediate_access"})
 		return
 	}
 
@@ -252,7 +271,16 @@ func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
 				return
 			}
 		}
-		details = append(details, purchases.CheckoutDetails{TaxID: *body.TaxID})
+		details = append(details, purchases.CheckoutDetails{TaxID: *body.TaxID, AcceptedTerms: true, ImmediateAccess: true})
+	} else {
+		// No NIF change: the consents still travel with the details. The
+		// service only replaces the NIF when it is present.
+		details = append(details, purchases.CheckoutDetails{AcceptedTerms: true, ImmediateAccess: true, KeepTaxID: true})
+	}
+
+	if body.DiscountCode != nil {
+		details[0].DiscountCode = *body.DiscountCode
+		details[0].SetDiscount = true
 	}
 
 	result, err := h.service.InitiatePayment(c.Request.Context(), userID, purchaseID, body.PaymentMethod, details...)
@@ -265,10 +293,12 @@ func (h *PurchaseHandler) InitiatePayment(c *gin.Context) {
 		"success": true,
 		"message": "Payment initiated successfully.",
 		"data": paymentInitiationResponse{
-			PaymentID:   result.PaymentID,
-			CheckoutURL: result.CheckoutURL,
-			Status:      string(result.Status),
-			PurchaseID:  result.PurchaseID,
+			PaymentID:      result.PaymentID,
+			CheckoutURL:    result.CheckoutURL,
+			ClientSecret:   result.ClientSecret,
+			PublishableKey: result.PublishableKey,
+			Status:         string(result.Status),
+			PurchaseID:     result.PurchaseID,
 		},
 	})
 }

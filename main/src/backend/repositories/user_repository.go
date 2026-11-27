@@ -260,7 +260,7 @@ func (r *userRepository) Reactivate(ctx context.Context, user *models.User) erro
 	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		result := tx.Unscoped().
 			Model(user).
-			Select("first_name", "last_name", "password_hash", "password_set", "deleted_at").
+			Select("first_name", "last_name", "password_hash", "password_set", "deleted_at", "username", "username_chosen").
 			Updates(map[string]any{
 				"first_name":    user.FirstName,
 				"last_name":     user.LastName,
@@ -269,6 +269,9 @@ func (r *userRepository) Reactivate(ctx context.Context, user *models.User) erro
 				"deleted_at":    nil,
 				// The old @username may belong to someone else by now.
 				"username": gorm.Expr("ryze_free_username(username, id)"),
+				// Re-registration is a new claim: the @username is chosen
+				// again (the permanent-@username rule applies from then on).
+				"username_chosen": false,
 			})
 		affected = result.RowsAffected
 		if result.Error != nil || affected == 0 {
@@ -358,7 +361,7 @@ var ErrUsernameTaken = errors.New("username taken")
 type ProfileRepository interface {
 	FindByID(ctx context.Context, id string) (*models.User, error)
 	FindByUsername(ctx context.Context, username string) (*models.User, error)
-	UpdateProfile(ctx context.Context, id string, displayName *string, username string) error
+	UpdateProfile(ctx context.Context, id string, displayName *string, username string, nicknameChanged bool) error
 	// ChooseUsername sets the @username the person chose and records the
 	// choice (ErrUsernameTaken when another active account holds it).
 	ChooseUsername(ctx context.Context, id, username string) error
@@ -384,17 +387,21 @@ func (r *userRepository) FindByUsername(ctx context.Context, username string) (*
 // UpdateProfile sets the display name (nil clears it) and the @username of an
 // active account. A username used by another active account maps to
 // ErrUsernameTaken.
-func (r *userRepository) UpdateProfile(ctx context.Context, id string, displayName *string, username string) error {
+func (r *userRepository) UpdateProfile(ctx context.Context, id string, displayName *string, username string, nicknameChanged bool) error {
 	var affected int64
 	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		result := tx.Model(&models.User{}).Where("id = ?", id).
-			Updates(map[string]any{
-				"display_name": displayName,
-				"username":     username,
-				// Changing the @username is choosing it (the old value is read
-				// by the UPDATE before the new one is set).
-				"username_chosen": gorm.Expr("username_chosen OR username <> ?", username),
-			})
+		changes := map[string]any{
+			"display_name": displayName,
+			"username":     username,
+			// Changing the @username is choosing it (the old value is read
+			// by the UPDATE before the new one is set).
+			"username_chosen": gorm.Expr("username_chosen OR username <> ?", username),
+		}
+		if nicknameChanged {
+			changes["display_name_changed_at"] = gorm.Expr("NOW()")
+		}
+		// The profile service refuses a change to a chosen @username.
+		result := tx.Model(&models.User{}).Where("id = ?", id).Updates(changes)
 		affected = result.RowsAffected
 		return result.Error
 	})
@@ -413,7 +420,7 @@ func (r *userRepository) UpdateProfile(ctx context.Context, id string, displayNa
 func (r *userRepository) ChooseUsername(ctx context.Context, id, username string) error {
 	var affected int64
 	err := inSavepoint(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		result := tx.Model(&models.User{}).Where("id = ? AND deleted_at IS NULL", id).
+		result := tx.Model(&models.User{}).Where("id = ? AND deleted_at IS NULL AND NOT username_chosen", id).
 			Updates(map[string]any{"username": username, "username_chosen": true})
 		affected = result.RowsAffected
 		return result.Error

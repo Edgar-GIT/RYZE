@@ -26,6 +26,50 @@ type PremiumLevel2Filter struct {
 	Status    string
 	Query     string
 	TrainerID string
+	// Ryze lists only the requests RYZE itself took.
+	Ryze bool
+}
+
+// PremiumLevel2Handler is who works on a request (v2.131.0): a trainer, or
+// RYZE itself — an administrator — when TrainerID is empty.
+type PremiumLevel2Handler struct {
+	TrainerID string
+	AdminID   string
+}
+
+// Official reports whether RYZE itself handles the request.
+func (h PremiumLevel2Handler) Official() bool { return h.TrainerID == "" }
+
+func (h PremiumLevel2Handler) actor() (string, string) {
+	if h.Official() {
+		return "admin", h.AdminID
+	}
+	return "trainer", h.TrainerID
+}
+
+// owns reports whether the handler is the one working on the request.
+func (h PremiumLevel2Handler) owns(request *models.PremiumLevel2Request) bool {
+	if h.Official() {
+		return request.HandledByRyze && request.TrainerID == nil
+	}
+	return request.TrainerID != nil && *request.TrainerID == h.TrainerID
+}
+
+// programScope limits a programme lookup to the handler's own programmes:
+// the trainer's, or the platform's free (generic) plans for RYZE.
+func (h PremiumLevel2Handler) programScope(tx *gorm.DB) *gorm.DB {
+	if h.Official() {
+		return tx.Where("trainer_id IS NULL AND product_type = ?", models.ProgramProductTypeGeneric)
+	}
+	return tx.Where("trainer_id = ?", h.TrainerID)
+}
+
+// PremiumLevel2Split is the commission the platform keeps of the service
+// sale once a trainer delivers it (the trainer's commission rule, 30% by
+// default). The amounts are computed from what the client actually paid (a
+// discount included), like any trainer sale.
+type PremiumLevel2Split struct {
+	CommissionBPS uint32
 }
 
 type PremiumLevel2Repository interface {
@@ -37,10 +81,14 @@ type PremiumLevel2Repository interface {
 	CreateIntake(ctx context.Context, requestID string, answers []byte) (*models.PremiumLevel2Request, *models.PremiumLevel2Intake, error)
 	FindLatestIntake(ctx context.Context, requestID string) (*models.PremiumLevel2Intake, error)
 	AssignTrainer(ctx context.Context, requestID, trainerID, actorID string) (*models.PremiumLevel2Request, error)
-	SetTrainingProgram(ctx context.Context, requestID, trainerID, programID string) (*models.PremiumLevel2Request, error)
-	SaveNutritionPlan(ctx context.Context, requestID, trainerID string, plan *models.PremiumLevel2NutritionPlan) (*models.PremiumLevel2NutritionPlan, error)
+	// TakeAsRyze lets RYZE itself (an administrator) take a waiting request.
+	TakeAsRyze(ctx context.Context, requestID, adminID string) (*models.PremiumLevel2Request, error)
+	SetTrainingProgram(ctx context.Context, requestID string, handler PremiumLevel2Handler, programID string) (*models.PremiumLevel2Request, error)
+	SaveNutritionPlan(ctx context.Context, requestID string, handler PremiumLevel2Handler, plan *models.PremiumLevel2NutritionPlan) (*models.PremiumLevel2NutritionPlan, error)
 	FindNutritionPlan(ctx context.Context, requestID string) (*models.PremiumLevel2NutritionPlan, error)
-	Deliver(ctx context.Context, requestID, trainerID string) (*models.PremiumLevel2Request, error)
+	// Deliver releases the plans; a trainer's delivery also records the
+	// commission split on the service sale.
+	Deliver(ctx context.Context, requestID string, handler PremiumLevel2Handler, split *PremiumLevel2Split) (*models.PremiumLevel2Request, error)
 	RefreshReadiness(ctx context.Context, requestID string) error
 	ListEvents(ctx context.Context, requestID string) ([]models.PremiumLevel2RequestEvent, error)
 }
@@ -122,6 +170,9 @@ func (r *premiumLevel2Repository) List(ctx context.Context, filter PremiumLevel2
 	}
 	if filter.TrainerID != "" {
 		query = query.Where("trainer_id = ?", filter.TrainerID)
+	}
+	if filter.Ryze {
+		query = query.Where("handled_by_ryze")
 	}
 	if strings.TrimSpace(filter.Query) != "" {
 		escaped := escapeSQLLike(strings.TrimSpace(filter.Query))
@@ -243,22 +294,55 @@ func assignPremiumLevel2Trainer(tx *gorm.DB, requestID, trainerID, actorKind, ac
 	}
 	from := request.Status
 	updates := map[string]any{
-		"trainer_id": trainerID,
-		"status":     models.PremiumLevel2StatusInProgress,
+		"trainer_id":      trainerID,
+		"status":          models.PremiumLevel2StatusInProgress,
+		"handled_by_ryze": false,
+		"ryze_admin_id":   nil,
 	}
 	// A reassignment must not carry the previous trainer's programme into
 	// delivery. The old programme belongs to another owner and cannot be
 	// edited by the new trainer, so the new trainer starts by attaching
 	// their own draft. Keeping the existing trainer leaves their work intact.
-	if request.TrainerID == nil || *request.TrainerID != trainerID {
+	if request.HandledByRyze || request.TrainerID == nil || *request.TrainerID != trainerID {
 		updates["training_program_id"] = nil
 	}
+	request.HandledByRyze = false
 	request.TrainerID = &trainerID
 	request.Status = models.PremiumLevel2StatusInProgress
 	if err := tx.Model(&models.PremiumLevel2Request{}).Where("id = ?", requestID).Updates(updates).Error; err != nil {
 		return fmt.Errorf("failed to assign premium level 2 trainer: %w", err)
 	}
 	return createPremiumLevel2Event(tx, requestID, actorKind, actorID, "trainer_assigned", from, request.Status)
+}
+
+func (r *premiumLevel2Repository) TakeAsRyze(ctx context.Context, requestID, adminID string) (*models.PremiumLevel2Request, error) {
+	var request models.PremiumLevel2Request
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockPremiumLevel2Request(tx, requestID, &request); err != nil {
+			return err
+		}
+		if request.IntakeVersion == 0 || request.TrainerID != nil || request.HandledByRyze ||
+			request.Status != models.PremiumLevel2StatusAwaitingTrainerAssignment {
+			return ErrPremiumLevel2InvalidState
+		}
+		from := request.Status
+		if err := tx.Model(&models.PremiumLevel2Request{}).Where("id = ?", requestID).Updates(map[string]any{
+			"handled_by_ryze":     true,
+			"ryze_admin_id":       adminID,
+			"status":              models.PremiumLevel2StatusInProgress,
+			"training_program_id": nil,
+		}).Error; err != nil {
+			return fmt.Errorf("failed to take premium level 2 request: %w", err)
+		}
+		if err := withdrawPremiumLevel2Offers(tx, requestID); err != nil {
+			return err
+		}
+		return createPremiumLevel2Event(tx, requestID, "admin", adminID, "ryze_assigned", from, models.PremiumLevel2StatusInProgress)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r.FindRequestByID(ctx, requestID)
 }
 
 func withdrawPremiumLevel2Offers(tx *gorm.DB, requestID string) error {
@@ -269,26 +353,36 @@ func withdrawPremiumLevel2Offers(tx *gorm.DB, requestID string) error {
 	return nil
 }
 
-func (r *premiumLevel2Repository) SetTrainingProgram(ctx context.Context, requestID, trainerID, programID string) (*models.PremiumLevel2Request, error) {
+func (r *premiumLevel2Repository) SetTrainingProgram(ctx context.Context, requestID string, handler PremiumLevel2Handler, programID string) (*models.PremiumLevel2Request, error) {
 	var request models.PremiumLevel2Request
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockPremiumLevel2Request(tx, requestID, &request); err != nil {
 			return err
 		}
-		if request.TrainerID == nil || *request.TrainerID != trainerID {
+		if !handler.owns(&request) {
 			return ErrPremiumLevel2RequestNotFound
 		}
 		if request.Status == models.PremiumLevel2StatusDelivered || request.Status == models.PremiumLevel2StatusCancelled {
 			return ErrPremiumLevel2InvalidState
 		}
 		var program models.Program
-		if err := tx.First(&program, "id = ? AND trainer_id = ? AND deleted_at IS NULL", programID, trainerID).Error; err != nil {
+		if err := handler.programScope(tx).First(&program, "id = ? AND deleted_at IS NULL", programID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrProgramNotFound
 			}
 			return fmt.Errorf("failed to verify training program: %w", err)
 		}
 		if program.Status != models.ProgramStatusDraft {
+			return ErrPremiumLevel2InvalidState
+		}
+		// A personal plan belongs to one request only.
+		var taken int64
+		if err := tx.Model(&models.PremiumLevel2Request{}).
+			Where("training_program_id = ? AND id <> ? AND deleted_at IS NULL", programID, requestID).
+			Count(&taken).Error; err != nil {
+			return fmt.Errorf("failed to check training program use: %w", err)
+		}
+		if taken > 0 {
 			return ErrPremiumLevel2InvalidState
 		}
 		var exerciseCount int64
@@ -307,7 +401,8 @@ func (r *premiumLevel2Repository) SetTrainingProgram(ctx context.Context, reques
 		if err := tx.Model(&models.PremiumLevel2Request{}).Where("id = ?", requestID).Update("training_program_id", programID).Error; err != nil {
 			return fmt.Errorf("failed to attach training program: %w", err)
 		}
-		return createPremiumLevel2Event(tx, requestID, "trainer", trainerID, "training_program_attached", from, from)
+		kind, actor := handler.actor()
+		return createPremiumLevel2Event(tx, requestID, kind, actor, "training_program_attached", from, from)
 	})
 	if err != nil {
 		return nil, err
@@ -318,13 +413,13 @@ func (r *premiumLevel2Repository) SetTrainingProgram(ctx context.Context, reques
 	return r.FindRequestByID(ctx, requestID)
 }
 
-func (r *premiumLevel2Repository) SaveNutritionPlan(ctx context.Context, requestID, trainerID string, plan *models.PremiumLevel2NutritionPlan) (*models.PremiumLevel2NutritionPlan, error) {
+func (r *premiumLevel2Repository) SaveNutritionPlan(ctx context.Context, requestID string, handler PremiumLevel2Handler, plan *models.PremiumLevel2NutritionPlan) (*models.PremiumLevel2NutritionPlan, error) {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var request models.PremiumLevel2Request
 		if err := lockPremiumLevel2Request(tx, requestID, &request); err != nil {
 			return err
 		}
-		if request.TrainerID == nil || *request.TrainerID != trainerID {
+		if !handler.owns(&request) {
 			return ErrPremiumLevel2RequestNotFound
 		}
 		if request.Status == models.PremiumLevel2StatusDelivered || request.Status == models.PremiumLevel2StatusCancelled {
@@ -382,7 +477,8 @@ func (r *premiumLevel2Repository) SaveNutritionPlan(ctx context.Context, request
 				}
 			}
 		}
-		return createPremiumLevel2Event(tx, requestID, "trainer", trainerID, "nutrition_saved", request.Status, request.Status)
+		kind, actor := handler.actor()
+		return createPremiumLevel2Event(tx, requestID, kind, actor, "nutrition_saved", request.Status, request.Status)
 	})
 	if err != nil {
 		return nil, err
@@ -423,13 +519,13 @@ func (r *premiumLevel2Repository) FindNutritionPlan(ctx context.Context, request
 	return &plan, nil
 }
 
-func (r *premiumLevel2Repository) Deliver(ctx context.Context, requestID, trainerID string) (*models.PremiumLevel2Request, error) {
+func (r *premiumLevel2Repository) Deliver(ctx context.Context, requestID string, handler PremiumLevel2Handler, split *PremiumLevel2Split) (*models.PremiumLevel2Request, error) {
 	var request models.PremiumLevel2Request
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockPremiumLevel2Request(tx, requestID, &request); err != nil {
 			return err
 		}
-		if request.TrainerID == nil || *request.TrainerID != trainerID {
+		if !handler.owns(&request) {
 			return ErrPremiumLevel2RequestNotFound
 		}
 		if request.Status == models.PremiumLevel2StatusDelivered {
@@ -483,7 +579,22 @@ func (r *premiumLevel2Repository) Deliver(ctx context.Context, requestID, traine
 		if err := tx.Model(&models.PremiumLevel2NutritionPlan{}).Where("id = ?", plan.ID).Update("status", "delivered").Error; err != nil {
 			return fmt.Errorf("failed to mark nutrition plan delivered: %w", err)
 		}
-		return createPremiumLevel2Event(tx, requestID, "trainer", trainerID, "delivered", from, request.Status)
+		// The trainer who prepared the plans earns their share of the sale
+		// (v2.131.0); when RYZE prepares them the platform keeps it all.
+		if split != nil && !handler.Official() {
+			if err := tx.Exec(`UPDATE purchases SET commission_bps = ?,
+				    platform_amount = (price_minor_units * ?) / 10000,
+				    trainer_amount = price_minor_units - (price_minor_units * ?) / 10000,
+				    updated_at = NOW()
+				WHERE id = (SELECT id FROM purchases WHERE user_id = ? AND program_id = ? AND status = ? AND deleted_at IS NULL
+				            ORDER BY created_at DESC LIMIT 1)`,
+				split.CommissionBPS, split.CommissionBPS, split.CommissionBPS,
+				request.UserID, request.ProgramID, models.PurchaseStatusCompleted).Error; err != nil {
+				return fmt.Errorf("failed to record the service commission: %w", err)
+			}
+		}
+		kind, actor := handler.actor()
+		return createPremiumLevel2Event(tx, requestID, kind, actor, "delivered", from, request.Status)
 	})
 	if err != nil {
 		return nil, err

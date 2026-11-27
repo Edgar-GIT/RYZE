@@ -201,15 +201,18 @@ var actions = map[string]string{
 	"POST /api/v1/admin/feedback/:id/approve": "feedback.approve",
 	"POST /api/v1/admin/feedback/:id/reject":  "feedback.reject",
 
-	"POST /api/v1/admin/support/conversations/:conversationID/messages": "support.reply",
-	"POST /api/v1/admin/support/conversations/:conversationID/read":     "support.mark_read",
-	"POST /api/v1/admin/support/conversations/:conversationID/close":    "support.close",
-	"POST /api/v1/admin/support/conversations/:conversationID/reopen":   "support.reopen",
-
 	"POST /api/v1/admin/exercises":              "exercise.create",
 	"PATCH /api/v1/admin/exercises/:exerciseID": "exercise.update",
 
-	"POST /api/v1/admin/premium-level-2/requests/:requestID/trainer": "premium_level_2.assign_trainer",
+	"POST /api/v1/admin/premium-level-2/requests/:requestID/trainer":         "premium_level_2.assign_trainer",
+	"POST /api/v1/admin/premium-level-2/requests/:requestID/take":            "premium_level_2.take_as_ryze",
+	"PUT /api/v1/admin/premium-level-2/requests/:requestID/training-program": "premium_level_2.attach_training_program",
+	"PUT /api/v1/admin/premium-level-2/requests/:requestID/nutrition":        "premium_level_2.save_nutrition",
+	"POST /api/v1/admin/premium-level-2/requests/:requestID/deliver":         "premium_level_2.deliver",
+	"POST /api/v1/admin/discount-codes":                                      "discount_code.create",
+	"POST /api/v1/admin/discount-codes/:id/disable":                          "discount_code.disable",
+	"POST /api/v1/admin/purchases/:id/refund":                                "purchase.refund",
+	"POST /api/v1/admin/uploads/meal-image":                                  "premium_level_2.meal_image_upload",
 
 	"PATCH /api/v1/admin/programs/:programID/pricing": "program.pricing_update",
 	"POST /api/v1/admin/uploads/program-cover":        "program.cover_upload",
@@ -225,10 +228,6 @@ var actions = map[string]string{
 	"PATCH /api/v1/programs/premium-level-1/:programID":        "premium_level_1_program.update",
 	"POST /api/v1/programs/premium-level-1/:programID/publish": "premium_level_1_program.publish",
 	"DELETE /api/v1/programs/premium-level-1/:programID":       "premium_level_1_program.delete",
-	"POST /api/v1/programs/premium-level-2":                    "premium_level_2_program.create",
-	"PATCH /api/v1/programs/premium-level-2/:programID":        "premium_level_2_program.update",
-	"POST /api/v1/programs/premium-level-2/:programID/publish": "premium_level_2_program.publish",
-	"DELETE /api/v1/programs/premium-level-2/:programID":       "premium_level_2_program.delete",
 }
 
 // ActionFor names the action of a method and route template.

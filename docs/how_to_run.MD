@@ -1081,6 +1081,18 @@ cd main/src/backend
 go run . migrate up
 ```
 
+Fill the dev database with demo content (v2.130.7): one free plan per
+category, ten Premium Level 1 packages (four objectives, three audiences, for
+the Level 1 assignment), ten demo members with an approved feedback and a
+picture, and a normal member account from `RYZE_DEMO_CLIENT_EMAIL`,
+`RYZE_DEMO_CLIENT_USERNAME` and `RYZE_DEMO_CLIENT_PASSWORD` in `.env`.
+Idempotent (it skips what exists); the images are in `devdata/seed/`.
+
+```bash
+cd main/src/backend
+go run . seed-demo
+```
+
 Open the dev site on a phone on the same Wi-Fi (v2.130.2): start a second Vite
 server that proxies the API and uploads to the local backend, then open
 `http://<computer-ip>:5175` on the phone (`ip -4 addr` shows the IP):

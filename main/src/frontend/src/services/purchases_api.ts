@@ -14,13 +14,13 @@ import { apiGet, apiPost, encodePathSegment } from "@utils/http_client";
  * Endpoints return 401 when the session cookie is missing or expired.
  */
 
-export type PurchaseStatus = "pending" | "completed" | "failed";
+export type PurchaseStatus = "pending" | "completed" | "failed" | "refunded";
 
 /**
  * Authorized payment method advertised by the backend. `method` is the
  * normalized identifier sent to the checkout API; `label` is the display name.
  * The backend decides which methods are available based on configured
- * providers — the frontend never hard-codes a payment method.
+ * providers — the checkout only pays with an advertised method.
  */
 export interface PaymentMethodInfo {
   method: string;
@@ -82,6 +82,10 @@ export interface PaymentInitiation {
   checkout_url?: string;
   status: string;
   purchase_id: string;
+  /** Embedded provider page (Stripe embedded Checkout, v2.130.10): mount the
+   *  provider's own form with these instead of redirecting. */
+  client_secret?: string;
+  publishable_key?: string;
 }
 
 export interface EntitlementProgram {
@@ -193,14 +197,29 @@ export const createPurchaseIntent = (programId: string): Promise<Purchase> =>
 
 /** `taxId` is the buyer's optional NIF for the purchase document: when given
  *  (even empty) it replaces what the pending purchase held. */
+// The buyer's checkout consents (EU consumer rules): the terms, and immediate
+// access to the digital content with the loss of the right of withdrawal. The
+// server requires both before a paid payment starts and records when.
+export interface CheckoutConsents {
+  acceptTerms: boolean;
+  immediateAccess: boolean;
+}
+
+// discountCode: the buyer's discount code, applied by the server before the
+// payment opens ("" removes one; undefined leaves the price as it is).
 export const initiatePayment = (
   purchaseId: string,
   paymentMethod: string,
-  taxId?: string
+  taxId?: string,
+  consents: CheckoutConsents = { acceptTerms: false, immediateAccess: false },
+  discountCode?: string
 ): Promise<PaymentInitiation> =>
   apiPost<PaymentInitiation>(`/me/purchases/${encodePathSegment(purchaseId)}/payment`, {
     payment_method: paymentMethod,
-    ...(taxId === undefined ? {} : { tax_id: taxId.trim() })
+    accept_terms: consents.acceptTerms,
+    immediate_access: consents.immediateAccess,
+    ...(taxId === undefined ? {} : { tax_id: taxId.trim() }),
+    ...(discountCode === undefined ? {} : { discount_code: discountCode.trim() })
   });
 
 /**

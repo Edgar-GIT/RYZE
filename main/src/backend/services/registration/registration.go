@@ -121,6 +121,7 @@ func (s *registrationService) Register(ctx context.Context, input RegisterInput)
 		if err := s.repo.Reactivate(ctx, existing); err != nil {
 			return nil, fmt.Errorf("failed to reactivate user: %w", err)
 		}
+		existing.UsernameChosen = false
 		// The restored account takes the @username chosen now. If another
 		// account holds it, the account keeps its earlier one and the person
 		// is asked to choose on the next visit.

@@ -904,3 +904,58 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Meal picture in Premium Level 2 nutrition plans (v2.131.0). */
+.mealImage {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mealImagePreview,
+.mealImageEmpty {
+  width: 7.5rem;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+}
+
+.mealImagePreview {
+  object-fit: cover;
+}
+
+.mealImageEmpty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  border: 1px dashed rgba(124, 200, 255, 0.45);
+  color: inherit;
+  background: rgba(255, 255, 255, 0.04);
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.mealImageEmpty:focus-visible {
+  outline: 2px solid #18d8ff;
+  outline-offset: 2px;
+}
+
+.mealImageActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

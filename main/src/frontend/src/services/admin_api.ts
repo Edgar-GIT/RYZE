@@ -223,7 +223,6 @@ export interface AdminSystemStatus {
   database: { reachable: boolean; schema_version?: number; schema_dirty?: boolean; open_connections?: number };
   email_queue: { status: string; count: number }[];
   visible_notifications: number;
-  open_support: number;
   features: {
     email_delivery: boolean;
     google_sign_in: boolean;
@@ -303,10 +302,6 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "trainer_application.document_download": "Downloaded an application document",
   "feedback.approve": "Approved member feedback",
   "feedback.reject": "Rejected member feedback",
-  "support.reply": "Replied to a support conversation",
-  "support.mark_read": "Marked a support conversation read",
-  "support.close": "Closed a support conversation",
-  "support.reopen": "Reopened a support conversation",
   "exercise.create": "Created an exercise",
   "exercise.update": "Edited an exercise",
   "premium_level_2.assign_trainer": "Assigned a Premium Level 2 trainer",

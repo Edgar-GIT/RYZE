@@ -100,3 +100,17 @@
   display: flex;
   gap: 0.5rem;
 }
+
+/* The member's picture (v2.130.7). */
+.feedbackImage {
+  display: block;
+  width: min(100%, 16rem);
+}
+
+.feedbackImage img {
+  display: block;
+  width: 100%;
+  max-height: 14rem;
+  border-radius: 12px;
+  object-fit: cover;
+}

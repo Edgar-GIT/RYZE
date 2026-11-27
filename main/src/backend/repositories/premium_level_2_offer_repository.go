@@ -34,12 +34,10 @@ type PremiumLevel2OfferView struct {
 // PremiumLevel2OfferRepository allocates Premium Level 2 requests by offer
 // (owner decision, 2026-11-21).
 type PremiumLevel2OfferRepository interface {
-	// PickTrainer returns the available trainer with the fewest open
-	// requests who was not offered this request yet ("" when none).
-	PickTrainer(ctx context.Context, requestID string) (string, error)
-	// CreateOffer opens an offer when the request still waits for a trainer
-	// and has no open offer (false when it does not wait any more).
-	CreateOffer(ctx context.Context, requestID, trainerID string, expiresAt time.Time) (*models.PremiumLevel2Offer, bool, error)
+	// OfferToAvailableTrainers offers a waiting request to every available
+	// trainer who was not offered it yet (owner decision, 2026-11-24: all at
+	// once, the first to accept takes it) and returns the new offers.
+	OfferToAvailableTrainers(ctx context.Context, requestID string, expiresAt time.Time) ([]models.PremiumLevel2Offer, error)
 	ListOpenOffers(ctx context.Context, trainerID string) ([]PremiumLevel2OfferView, error)
 	// AcceptOffer allocates the request to the trainer in one transaction.
 	AcceptOffer(ctx context.Context, offerID, trainerID, actorUserID string, now time.Time) (*models.PremiumLevel2Request, error)
@@ -48,8 +46,8 @@ type PremiumLevel2OfferRepository interface {
 	// ExpireOffers closes the offers past their deadline and returns their
 	// requests.
 	ExpireOffers(ctx context.Context, now time.Time) ([]string, error)
-	// RequestsAwaitingOffer lists requests that wait for a trainer with no
-	// open offer.
+	// RequestsAwaitingOffer lists the requests that still wait for someone
+	// to take them.
 	RequestsAwaitingOffer(ctx context.Context, limit int) ([]string, error)
 	TrainerAvailability(ctx context.Context, trainerID string) (bool, error)
 	SetTrainerAvailability(ctx context.Context, trainerID string, accepts bool) error
@@ -59,70 +57,54 @@ func NewPremiumLevel2OfferRepository(db *gorm.DB) PremiumLevel2OfferRepository {
 	return &premiumLevel2Repository{db: db}
 }
 
-func (r *premiumLevel2Repository) PickTrainer(ctx context.Context, requestID string) (string, error) {
-	var ids []string
-	// Real requests go to real trainers and Test Mode requests to Test Mode
-	// trainers; a trainer is never offered their own request.
-	err := r.db.WithContext(ctx).Raw(`
-		SELECT t.id
-		FROM premium_level_2_requests r
-		JOIN users client ON client.id = r.user_id
-		JOIN trainers t ON t.deleted_at IS NULL AND t.accepts_level2_requests AND t.user_id <> r.user_id
-		JOIN users u ON u.id = t.user_id AND u.deleted_at IS NULL
-		     AND ((u.test_persona IS NULL) = (client.test_persona IS NULL))
-		WHERE r.id = ?
-		  AND NOT EXISTS (SELECT 1 FROM premium_level_2_offers o WHERE o.request_id = r.id AND o.trainer_id = t.id)
-		ORDER BY (
-		    (SELECT COUNT(*) FROM premium_level_2_requests open
-		      WHERE open.trainer_id = t.id AND open.deleted_at IS NULL
-		        AND open.status IN ('`+models.PremiumLevel2StatusInProgress+`', '`+models.PremiumLevel2StatusReadyForDelivery+`'))
-		  + (SELECT COUNT(*) FROM premium_level_2_offers pending WHERE pending.trainer_id = t.id AND pending.status = 'offered')
-		) ASC, t.created_at ASC
-		LIMIT 1`, requestID).Scan(&ids).Error
-	if err != nil {
-		return "", fmt.Errorf("failed to pick premium level 2 trainer: %w", err)
-	}
-	if len(ids) == 0 {
-		return "", nil
-	}
-	return ids[0], nil
-}
-
-func (r *premiumLevel2Repository) CreateOffer(ctx context.Context, requestID, trainerID string, expiresAt time.Time) (*models.PremiumLevel2Offer, bool, error) {
-	var offer *models.PremiumLevel2Offer
+func (r *premiumLevel2Repository) OfferToAvailableTrainers(ctx context.Context, requestID string, expiresAt time.Time) ([]models.PremiumLevel2Offer, error) {
+	var created []models.PremiumLevel2Offer
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var request models.PremiumLevel2Request
 		if err := lockPremiumLevel2Request(tx, requestID, &request); err != nil {
 			return err
 		}
-		if request.Status != models.PremiumLevel2StatusAwaitingTrainerAssignment || request.IntakeVersion == 0 || request.TrainerID != nil {
+		if request.Status != models.PremiumLevel2StatusAwaitingTrainerAssignment || request.IntakeVersion == 0 ||
+			request.TrainerID != nil || request.HandledByRyze {
 			return nil
 		}
-		var open int64
-		if err := tx.Model(&models.PremiumLevel2Offer{}).Where("request_id = ? AND status = ?", requestID, models.PremiumLevel2OfferOffered).
-			Count(&open).Error; err != nil {
-			return fmt.Errorf("failed to check open offer: %w", err)
+		// Real requests go to real trainers and Test Mode requests to Test
+		// Mode trainers; a trainer is never offered their own request, nor the
+		// same request twice.
+		var trainerIDs []string
+		if err := tx.Raw(`
+			SELECT t.id
+			FROM trainers t
+			JOIN users u ON u.id = t.user_id AND u.deleted_at IS NULL
+			JOIN users client ON client.id = ?
+			WHERE t.deleted_at IS NULL AND t.accepts_level2_requests AND t.user_id <> client.id
+			  AND ((u.test_persona IS NULL) = (client.test_persona IS NULL))
+			  AND NOT EXISTS (SELECT 1 FROM premium_level_2_offers o WHERE o.request_id = ? AND o.trainer_id = t.id)
+			ORDER BY t.created_at ASC`, request.UserID, requestID).Scan(&trainerIDs).Error; err != nil {
+			return fmt.Errorf("failed to find available trainers: %w", err)
 		}
-		if open > 0 {
+		for _, trainerID := range trainerIDs {
+			offer := models.PremiumLevel2Offer{
+				ID:        uuid.NewString(),
+				RequestID: requestID,
+				TrainerID: trainerID,
+				Status:    models.PremiumLevel2OfferOffered,
+				ExpiresAt: expiresAt,
+			}
+			if err := tx.Create(&offer).Error; err != nil {
+				return fmt.Errorf("failed to create premium level 2 offer: %w", err)
+			}
+			created = append(created, offer)
+		}
+		if len(created) == 0 {
 			return nil
 		}
-		created := &models.PremiumLevel2Offer{
-			ID:        uuid.NewString(),
-			RequestID: requestID,
-			TrainerID: trainerID,
-			Status:    models.PremiumLevel2OfferOffered,
-			ExpiresAt: expiresAt,
-		}
-		if err := tx.Create(created).Error; err != nil {
-			return fmt.Errorf("failed to create premium level 2 offer: %w", err)
-		}
-		offer = created
 		return createPremiumLevel2Event(tx, requestID, "system", "system", "trainer_offered", request.Status, request.Status)
 	})
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	return offer, offer != nil, nil
+	return created, nil
 }
 
 func (r *premiumLevel2Repository) ListOpenOffers(ctx context.Context, trainerID string) ([]PremiumLevel2OfferView, error) {
@@ -171,6 +153,20 @@ func (r *premiumLevel2Repository) AcceptOffer(ctx context.Context, offerID, trai
 	var request models.PremiumLevel2Request
 	expired := false
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Every trainer accepting the same request queues on the request row
+		// first, so the first one takes it and the others find it taken.
+		var target struct{ RequestID string }
+		if err := tx.Raw(`SELECT request_id FROM premium_level_2_offers WHERE id = ? AND trainer_id = ?`, offerID, trainerID).
+			Scan(&target).Error; err != nil {
+			return fmt.Errorf("failed to load premium level 2 offer: %w", err)
+		}
+		if target.RequestID == "" {
+			return ErrPremiumLevel2OfferNotFound
+		}
+		var locked models.PremiumLevel2Request
+		if err := lockPremiumLevel2Request(tx, target.RequestID, &locked); err != nil {
+			return err
+		}
 		offer, err := lockOpenOffer(tx, offerID, trainerID, now)
 		if errors.Is(err, ErrPremiumLevel2OfferExpired) {
 			expired = true
@@ -179,10 +175,20 @@ func (r *premiumLevel2Repository) AcceptOffer(ctx context.Context, offerID, trai
 		if err != nil {
 			return err
 		}
+		if locked.TrainerID != nil || locked.HandledByRyze || locked.Status != models.PremiumLevel2StatusAwaitingTrainerAssignment {
+			// Someone else took it first.
+			if err := closeOffer(tx, offer.ID, models.PremiumLevel2OfferWithdrawn, now); err != nil {
+				return err
+			}
+			return ErrPremiumLevel2OfferNotFound
+		}
 		if err := closeOffer(tx, offer.ID, models.PremiumLevel2OfferAccepted, now); err != nil {
 			return err
 		}
-		return assignPremiumLevel2Trainer(tx, offer.RequestID, trainerID, "trainer", actorUserID, &request)
+		if err := assignPremiumLevel2Trainer(tx, offer.RequestID, trainerID, "trainer", actorUserID, &request); err != nil {
+			return err
+		}
+		return withdrawPremiumLevel2Offers(tx, offer.RequestID)
 	})
 	if err != nil {
 		return nil, err
@@ -230,10 +236,9 @@ func (r *premiumLevel2Repository) RequestsAwaitingOffer(ctx context.Context, lim
 	var ids []string
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT r.id FROM premium_level_2_requests r
-		WHERE r.deleted_at IS NULL AND r.status = ? AND r.intake_version > 0 AND r.trainer_id IS NULL
-		  AND NOT EXISTS (SELECT 1 FROM premium_level_2_offers o WHERE o.request_id = r.id AND o.status = ?)
+		WHERE r.deleted_at IS NULL AND r.status = ? AND r.intake_version > 0 AND r.trainer_id IS NULL AND NOT r.handled_by_ryze
 		ORDER BY r.created_at ASC
-		LIMIT ?`, models.PremiumLevel2StatusAwaitingTrainerAssignment, models.PremiumLevel2OfferOffered, limit).Scan(&ids).Error
+		LIMIT ?`, models.PremiumLevel2StatusAwaitingTrainerAssignment, limit).Scan(&ids).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list requests awaiting an offer: %w", err)
 	}
@@ -251,11 +256,21 @@ func (r *premiumLevel2Repository) TrainerAvailability(ctx context.Context, train
 }
 
 func (r *premiumLevel2Repository) SetTrainerAvailability(ctx context.Context, trainerID string, accepts bool) error {
-	if err := r.db.WithContext(ctx).Exec(`UPDATE trainers SET accepts_level2_requests = ? WHERE id = ? AND deleted_at IS NULL`,
-		accepts, trainerID).Error; err != nil {
-		return fmt.Errorf("failed to set trainer availability: %w", err)
-	}
-	return nil
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(`UPDATE trainers SET accepts_level2_requests = ? WHERE id = ? AND deleted_at IS NULL`,
+			accepts, trainerID).Error; err != nil {
+			return fmt.Errorf("failed to set trainer availability: %w", err)
+		}
+		if accepts {
+			return nil
+		}
+		// A trainer who stops taking requests loses their open offers.
+		if err := tx.Exec(`UPDATE premium_level_2_offers SET status = ?, responded_at = CURRENT_TIMESTAMP
+			WHERE trainer_id = ? AND status = ?`, models.PremiumLevel2OfferWithdrawn, trainerID, models.PremiumLevel2OfferOffered).Error; err != nil {
+			return fmt.Errorf("failed to withdraw trainer offers: %w", err)
+		}
+		return nil
+	})
 }
 
 // FindTrainerUserID returns the account of an active trainer.

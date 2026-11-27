@@ -67,5 +67,19 @@ export const FEEDBACK_PT: Catalog = {
   "Feedback couldn't be loaded right now.": "Neste momento não foi possível carregar o feedback.",
   "No feedback has been published yet. Be the first to share yours.": "Ainda não foi publicado nenhum feedback. Sê o primeiro a partilhar o teu.",
   "Loading feedback…": "A carregar o feedback…",
-  "Show more": "Mostrar mais"
+  "Show more": "Mostrar mais",
+  "Show less": "Mostrar menos",
+  "Thanks! Your feedback is being reviewed. Each member leaves one feedback.": "Obrigado! O teu feedback está a ser revisto. Cada membro deixa um feedback.",
+  "You have already left your feedback — it is in the gallery. Thank you!": "Já deixaste o teu feedback — está na galeria. Obrigado!",
+  "Your photo (optional)": "A tua foto (opcional)",
+  "Your chosen photo": "A foto escolhida",
+  "Remove photo": "Remover foto",
+  "Add one photo — your progress, your gym, a workout. JPEG or PNG.": "Adiciona uma foto — a tua evolução, o teu ginásio, um treino. JPEG ou PNG.",
+  "Use a JPEG or PNG image.": "Usa uma imagem JPEG ou PNG.",
+  "This image is too large. Try a smaller one.": "Esta imagem é demasiado grande. Experimenta uma mais pequena.",
+  "Open feedback from {name}": "Abrir o feedback de {name}",
+  "Feedback from {name}": "Feedback de {name}",
+  "Close": "Fechar",
+  "Previous": "Anterior",
+  "Next": "Seguinte"
 };

@@ -1,6 +1,7 @@
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { HealthConsentCheckbox } from "@/components/health_consent/health_consent_checkbox";
 import { LineChart, type ChartPoint } from "@/components/training/charts";
 import { useI18n } from "@/i18n/i18n";
 import {
@@ -8,6 +9,7 @@ import {
   fetchMeasurements,
   MEASUREMENT_KINDS,
   measurementUnit,
+  fetchHealthConsent,
   saveMeasurement,
   type BodyMeasurement,
   type MeasurementKind
@@ -77,6 +79,7 @@ const COPY = {
     errValue: "Enter a realistic value for this measurement.",
     errDate: "Choose a date that is not in the future.",
     errSave: "We could not save the measurement. Please try again.",
+    errConsent: "Tick the consent for your health data to save measurements.",
     errDelete: "We could not delete the measurement.",
     loadError: "We could not load your measurements.",
     retry: "Try again",
@@ -104,6 +107,7 @@ const COPY = {
     errValue: "Indica um valor realista para esta medição.",
     errDate: "Escolhe uma data que não seja no futuro.",
     errSave: "Não foi possível guardar a medição. Tenta de novo.",
+    errConsent: "Marca o consentimento para os teus dados de saúde para guardares medições.",
     errDelete: "Não foi possível apagar a medição.",
     loadError: "Não foi possível carregar as tuas medições.",
     retry: "Tentar de novo",
@@ -131,6 +135,15 @@ export const MeasurementsPanel = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [selected, setSelected] = useState<MeasurementKind>("weight");
+  // Measurements are health data: asked once, with explicit consent.
+  const [consented, setConsented] = useState(true);
+  const [consentTicked, setConsentTicked] = useState(false);
+
+  useEffect(() => {
+    fetchHealthConsent()
+      .then((at) => setConsented(Boolean(at)))
+      .catch(() => setConsented(false));
+  }, []);
 
   const load = useCallback(async () => {
     setLoadError(false);
@@ -164,10 +177,15 @@ export const MeasurementsPanel = () => {
       setMessage({ ok: false, text: text.errValue });
       return;
     }
+    if (!consented && !consentTicked) {
+      setMessage({ ok: false, text: text.errConsent });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
-      const saved = await saveMeasurement(kind, amount, date);
+      const saved = await saveMeasurement(kind, amount, date, !consented && consentTicked);
+      setConsented(true);
       setEntries((current) =>
         [...(current ?? []).filter((entry) => !(entry.kind === saved.kind && entry.measured_on === saved.measured_on)), saved].sort(
           (a, b) => a.measured_on.localeCompare(b.measured_on) || a.kind.localeCompare(b.kind)
@@ -177,6 +195,11 @@ export const MeasurementsPanel = () => {
       setSelected(saved.kind);
       setMessage({ ok: true, text: text.saved });
     } catch (error) {
+      if (error instanceof ApiError && error.code === "HEALTH_CONSENT_REQUIRED") {
+        setConsented(false);
+        setMessage({ ok: false, text: text.errConsent });
+        return;
+      }
       const field = error instanceof ApiError && error.code === "VALIDATION_ERROR" ? error.details[0] : "";
       setMessage({ ok: false, text: field === "measured_on" ? text.errDate : field === "value" ? text.errValue : text.errSave });
     } finally {
@@ -259,6 +282,7 @@ export const MeasurementsPanel = () => {
             <Plus aria-hidden="true" /> {saving ? text.saving : text.save}
           </button>
         </div>
+        {!consented ? <HealthConsentCheckbox checked={consentTicked} onChange={setConsentTicked} /> : null}
         {message ? (
           <p className={message.ok ? styles.ok : styles.error} role={message.ok ? "status" : "alert"}>
             {message.text}

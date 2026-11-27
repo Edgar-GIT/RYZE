@@ -61,10 +61,13 @@ func (r *memberFeedbackRepository) Create(ctx context.Context, feedback *models.
 	return nil
 }
 
+// FindPendingByUserID returns the member's active submission: pending or
+// approved (one per member since v2.130.7).
 func (r *memberFeedbackRepository) FindPendingByUserID(ctx context.Context, userID string) (*models.MemberFeedback, error) {
 	var feedback models.MemberFeedback
 	if err := r.db.WithContext(ctx).
-		Where("user_id = ? AND status = ?", userID, models.MemberFeedbackStatusPending).
+		Where("user_id = ? AND status IN ?", userID, []string{models.MemberFeedbackStatusPending, models.MemberFeedbackStatusApproved}).
+		Order("created_at DESC").
 		First(&feedback).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrMemberFeedbackNotFound
@@ -168,4 +171,16 @@ func (r *memberFeedbackRepository) Review(ctx context.Context, id, status, revie
 		return nil, err
 	}
 	return &reviewed, nil
+}
+
+// ImageOf returns a feedback's status and image key (any status).
+func (r *memberFeedbackRepository) ImageOf(ctx context.Context, id string) (string, *string, error) {
+	var feedback models.MemberFeedback
+	if err := r.db.WithContext(ctx).Select("id", "status", "image_key").Where("id = ?", id).First(&feedback).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil, ErrMemberFeedbackNotFound
+		}
+		return "", nil, fmt.Errorf("failed to load feedback image: %w", err)
+	}
+	return feedback.Status, feedback.ImageKey, nil
 }

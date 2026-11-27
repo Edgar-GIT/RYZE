@@ -12,6 +12,7 @@ import (
 	"ryze/backend/models"
 	"ryze/backend/repositories"
 	"ryze/backend/services/password"
+	"ryze/backend/services/profile"
 	"ryze/backend/services/registration"
 )
 
@@ -65,6 +66,8 @@ type accountResponse struct {
 	// administrator-made accounts) and the person must choose one. Never for
 	// a Test Mode persona.
 	NeedsUsername bool `json:"needs_username"`
+	// NicknameChangeAt: when the nickname may change again (omitted: now).
+	NicknameChangeAt *time.Time `json:"nickname_change_at,omitempty"`
 }
 
 // AfterRegister runs after a successful registration (store the language,
@@ -161,6 +164,7 @@ func newAccountResponse(user *models.User) accountResponse {
 		DisplayName:        user.DisplayName,
 		AvatarURL:          AvatarURL(user.AvatarKey),
 		NeedsUsername:      !user.UsernameChosen && user.TestPersona == nil,
+		NicknameChangeAt:   profile.NextNicknameChange(user, time.Now()),
 	}
 }
 

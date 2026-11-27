@@ -27,9 +27,6 @@ const (
 	scopeEmailResend        = "email-resend"
 	scopeGoogleStart        = "google-start"
 	scopeGoogleCallback     = "google-callback"
-	scopeSupportOpen        = "support-open"
-	scopeSupportMessage     = "support-message"
-	scopeSupportStream      = "support-stream"
 	scopePurchase           = "purchase"
 	scopeNutritionGenerate  = "nutrition-generate"
 	scopeClientLookup       = "trainer-client-lookup"
@@ -84,9 +81,6 @@ var authRateLimitScopes = []authRateLimitScope{
 	// Support chat: opening conversations is rare, messages are bounded so a
 	// script cannot flood the support queue, and stream reconnections are
 	// bounded so a broken client cannot hold the server in a reconnect loop.
-	{name: scopeSupportOpen, ipLimit: 10, ipWindow: time.Hour},
-	{name: scopeSupportMessage, ipLimit: 60, ipWindow: 10 * time.Minute},
-	{name: scopeSupportStream, ipLimit: 120, ipWindow: 10 * time.Minute},
 	// Purchases: each creation or payment start can open a provider checkout
 	// session, so a script cannot spray the payment providers.
 	{name: scopePurchase, ipLimit: 30, ipWindow: 10 * time.Minute},

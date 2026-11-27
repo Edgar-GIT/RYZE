@@ -69,15 +69,11 @@ const (
 	// the Management Administrator.
 	PermissionFeedbackRead   Permission = "feedback.read"
 	PermissionFeedbackManage Permission = "feedback.manage"
-	// PermissionSupportRead and PermissionSupportManage cover the support
-	// chat (reading conversations; replying, closing and reopening them).
-	// Answering clients and trainers is a business responsibility, granted
-	// exclusively to the Management Administrator (owner decision,
-	// 2026-11-11).
-	PermissionSupportRead            Permission = "support.read"
-	PermissionSupportManage          Permission = "support.manage"
-	PermissionFinance                Permission = "finance"
-	PermissionMarketing              Permission = "marketing"
+	PermissionFinance        Permission = "finance"
+	PermissionMarketing      Permission = "marketing"
+	// PermissionDiscounts covers discount codes; both administrators may
+	// create them (owner request, 2026-11-24).
+	PermissionDiscounts              Permission = "discounts"
 	PermissionSystem                 Permission = "system"
 	PermissionInfrastructure         Permission = "infrastructure"
 	PermissionTechnicalConfiguration Permission = "technical-configuration"
@@ -119,6 +115,7 @@ var rolePermissions = map[Role][]Permission{
 		PermissionTechnicalConfiguration,
 		PermissionSecurity,
 		PermissionDevelopment,
+		PermissionDiscounts,
 	},
 	RoleManagementAdministrator: {
 		PermissionUsers,
@@ -136,11 +133,10 @@ var rolePermissions = map[Role][]Permission{
 		PermissionMarketing,
 		PermissionFeedbackRead,
 		PermissionFeedbackManage,
-		PermissionSupportRead,
-		PermissionSupportManage,
 		PermissionExercises,
 		PermissionExercisesRead,
 		PermissionExercisesManage,
+		PermissionDiscounts,
 	},
 }
 

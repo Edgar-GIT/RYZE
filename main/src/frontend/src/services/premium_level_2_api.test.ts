@@ -36,7 +36,8 @@ describe("premium level 2 api", () => {
     mockedPut.mockResolvedValue({ request: {}, intake: {} });
     await submitPremiumLevel2Intake("request/1", { primary_goal: "fat_loss" });
     expect(mockedPut).toHaveBeenCalledWith("/me/premium-level-2/request%2F1/intake", {
-      answers: { primary_goal: "fat_loss" }
+      answers: { primary_goal: "fat_loss" },
+      health_consent: false
     });
   });
 

@@ -1888,3 +1888,39 @@ select.cellInput {
 .dayHead {
   grid-template-columns: auto minmax(0, 1fr);
 }
+
+/* Official RYZE plan (ADMIN_2, free plans; v2.130.14). */
+.officialToggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin-bottom: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(0, 203, 255, 0.35);
+  border-radius: 14px;
+  background: rgba(0, 203, 255, 0.08);
+  cursor: pointer;
+}
+
+.officialToggle input {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.15rem;
+  accent-color: #00cbff;
+}
+
+.officialToggle span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.officialToggle small {
+  color: var(--app-muted, #b9c8ec);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.officialCover {
+  background: #02041f;
+}

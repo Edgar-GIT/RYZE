@@ -1325,9 +1325,9 @@ provider routing, the provider itself, and the provider webhook.
 
 The `MethodProviderMap.AvailableMethods()` helper returns only the methods whose
 provider is actually configured, in the stable order `card`, `mbway`, `paypal`.
-It backs the public `GET /api/v1/payments/methods` endpoint, so the checkout UI
-advertises exactly the methods the backend can service and never hard-codes a
-payment method.
+It backs the public `GET /api/v1/payments/methods` endpoint. The checkout UI
+shows every supported method (v2.130.9) but only starts a payment with one this
+endpoint advertises; any other explains it is not set up.
 
 PayPal provider:
 

@@ -211,11 +211,13 @@ func (s *service) issue(ctx context.Context, loaded *models.InvoicePurchase) (*m
 		Description:         bounded(loaded.Program.Name, 255),
 		ProductType:         bounded(loaded.Program.ProductType, 32),
 		Quantity:            1,
-		UnitPriceMinorUnits: purchase.PriceMinorUnits,
+		UnitPriceMinorUnits: purchase.PriceMinorUnits + purchase.DiscountMinorUnits,
 		TaxExemptionCode:    &exemption,
 		TotalMinorUnits:     purchase.PriceMinorUnits,
-		Currency:            purchase.Currency,
-		PaymentMethod:       purchase.PaymentMethod,
+		// A discount code (v2.131.0): the list price and the amount off.
+		DiscountMinorUnits: purchase.DiscountMinorUnits,
+		Currency:           purchase.Currency,
+		PaymentMethod:      purchase.PaymentMethod,
 	}
 	if invoice.Description == "" {
 		invoice.Description = "RYZE"

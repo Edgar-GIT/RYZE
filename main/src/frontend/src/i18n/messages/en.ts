@@ -35,7 +35,6 @@ export const en = {
     premium: "Premium L2",
     programs: "Programs",
     profile: "Profile",
-    support: "Support",
     home: "RYZE home"
   },
   publicNav: {
@@ -143,8 +142,7 @@ export const en = {
       profile: "Profile",
       myPrograms: "My Programs",
       progress: "Progress",
-      purchases: "Purchase History",
-      support: "Support"
+      purchases: "Purchase History"
     },
     myPrograms: {
       title: "My Programs",
@@ -177,6 +175,7 @@ export const en = {
       pending: "Pending",
       completed: "Completed",
       failed: "Failed",
+      refunded: "Refunded",
       card: "Card",
       test: "Test purchase",
       open: "Open program",
@@ -408,51 +407,6 @@ export const en = {
       checkDetails: "Please check your details and try again."
     }
   },
-  support: {
-    hubHint: "Questions about your account and purchases",
-    title: "Support",
-    trainerBack: "Trainer dashboard",
-    lead: "Questions about your account, purchases or how RYZE works. RYZE support replies here, usually within one working day.",
-    notCoaching: "Support is not coaching: questions about your training plan go to the trainer who prepared it.",
-    loading: "Loading support…",
-    loadError: "Support could not be loaded.",
-    notEligibleTitle: "Support opens with your first programme",
-    notEligible: "Support is available to members with an active programme (including free ones) and to trainers.",
-    browse: "Browse programmes",
-    newConversation: "New conversation",
-    subject: "Subject",
-    subjectHint: "3 to 120 characters",
-    message: "Message",
-    start: "Start conversation",
-    starting: "Starting…",
-    tooManyOpen: "You already have 5 open conversations. Continue in one of them.",
-    invalid: "Check the subject (3 to 120 characters) and the message.",
-    conversations: "Your conversations",
-    noConversations: "No conversations yet. Start one when you need help.",
-    choose: "Choose a conversation or start a new one.",
-    back: "All conversations",
-    open: "Open",
-    closed: "Closed",
-    unread: "{count} new",
-    live: "Live",
-    reconnecting: "Reconnecting…",
-    offline: "Live updates paused. Refresh to check for replies.",
-    thread: {
-      you: "You",
-      them: "RYZE support",
-      placeholder: "Write your message",
-      send: "Send",
-      sending: "Sending…",
-      failed: "Not sent",
-      retry: "Try again",
-      older: "Show earlier messages",
-      loadingOlder: "Loading…",
-      closed: "This conversation is closed. Start a new one if you need more help.",
-      composerLabel: "Message to RYZE support",
-      remaining: "{count} characters left",
-      empty: "No messages yet."
-    }
-  },
   training: {
     nav: {
       train: "Train",
@@ -616,8 +570,7 @@ export const en = {
       pl2_request_assigned: "New Premium Level 2 request assigned to you: {program}.",
       pl2_request_offered: "New Premium Level 2 request for you: {program}. Accept or decline within 24 hours.",
       pl2_delivered: "Your {program} programme and nutrition plan are ready.",
-      support_reply: "RYZE support replied to your conversation.",
-      support_new_message: "New message in a support conversation.",
+      training_reminder: "It has been a few days since your last workout. Your next one is ready.",
       other: "You have a new update."
     }
   }

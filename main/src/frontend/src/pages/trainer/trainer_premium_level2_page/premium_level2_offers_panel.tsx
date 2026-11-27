@@ -17,7 +17,7 @@ import styles from "./premium_level2_offers_panel.module.css";
 const COPY = {
   en: {
     title: "Requests waiting for your answer",
-    lead: "RYZE offers each new Premium Level 2 request to one available trainer at a time. You have 24 hours to accept or decline; then it goes to the next trainer. Before accepting you only see the service and the dates; the intake opens once you accept.",
+    lead: "Each new Premium Level 2 request goes to every trainer who takes these requests at the same time: the first to accept prepares it, and you earn the sale minus the RYZE commission. Offers stay open 24 hours. Before accepting you only see the service and the dates; the answers open once you accept.",
     toggle: "I take Premium Level 2 requests",
     toggleHint: "Turn it off when you cannot take new clients; requests you already accepted are not affected.",
     none: "No request is waiting for you.",
@@ -25,14 +25,14 @@ const COPY = {
     deadline: (left: string) => `Answer ${left}`,
     accept: "Accept",
     decline: "Decline",
-    expired: "The 24 hours ended: the request went to another trainer.",
-    gone: "This request is no longer available.",
+    expired: "The 24 hours ended for this offer.",
+    gone: "Another trainer accepted this request first.",
     error: "Something went wrong. Please try again.",
     loadError: "We could not load your offers."
   },
   pt: {
     title: "Pedidos à espera da tua resposta",
-    lead: "A RYZE oferece cada novo pedido Premium Nível 2 a um treinador disponível de cada vez. Tens 24 horas para aceitar ou recusar; depois passa ao treinador seguinte. Antes de aceitares só vês o serviço e as datas; o questionário abre quando aceitas.",
+    lead: "Cada novo pedido Premium Nível 2 vai ao mesmo tempo para todos os treinadores que aceitam estes pedidos: o primeiro a aceitar prepara-o e recebe a venda menos a comissão da RYZE. As ofertas ficam abertas 24 horas. Antes de aceitares só vês o serviço e as datas; as respostas abrem quando aceitas.",
     toggle: "Aceito pedidos Premium Nível 2",
     toggleHint: "Desliga quando não puderes receber novos clientes; os pedidos que já aceitaste não mudam.",
     none: "Não há nenhum pedido à tua espera.",
@@ -40,16 +40,16 @@ const COPY = {
     deadline: (left: string) => `Responde ${left}`,
     accept: "Aceitar",
     decline: "Recusar",
-    expired: "As 24 horas terminaram: o pedido passou a outro treinador.",
-    gone: "Este pedido já não está disponível.",
+    expired: "As 24 horas desta oferta terminaram.",
+    gone: "Outro treinador aceitou este pedido primeiro.",
     error: "Algo correu mal. Tenta de novo.",
     loadError: "Não foi possível carregar os teus pedidos."
   }
 } as const;
 
 // PremiumLevel2OffersPanel is the trainer's side of allocation by offer
-// (owner decision, 2026-11-21): the availability switch and the requests
-// offered to them, to accept or decline.
+// (owner decision, 2026-11-24: every available trainer at once, first to
+// accept): the availability switch and the requests offered to them.
 export const PremiumLevel2OffersPanel = () => {
   const { locale, intlLocale, formatDate } = useI18n();
   const text = COPY[locale];

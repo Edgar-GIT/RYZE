@@ -69,9 +69,11 @@ export const TestModeProvider = ({ children }: { children: ReactNode }) => {
   const enterTestMode = useCallback(async (persona: TestModePersona, returnPath: string) => {
     setErrorMessage("");
     try {
-      const result = await enterTestModeApi(persona, returnPath);
-      const destination = result.return_path || "/";
-      window.location.assign(destination);
+      // The return path is where exiting goes back to; entering always opens
+      // the site's home, where the Test Mode bar shows at the bottom (owner
+      // request, 2026-11-23).
+      await enterTestModeApi(persona, returnPath);
+      window.location.assign("/");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to enter Test Mode.";
       setStatus({ active: false });

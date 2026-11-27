@@ -1,6 +1,6 @@
-import { AlertTriangle, CheckCircle2, RefreshCw, Search, UserRound, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, Search, ShieldCheck, UserRound, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useHistory } from "react-router-dom";
 
 import { Admin2PageHeader } from "@/components/admin2/admin2_page_header/admin2_page_header";
 import { Admin2Section } from "@/components/admin2/admin2_section/admin2_section";
@@ -10,6 +10,7 @@ import { Button } from "@/components/button/button";
 import { fetchAdminTrainers, formatAdminDate, type AdminTrainer, type AdminPagination } from "@/services/admin_api";
 import {
   assignPremiumLevel2Trainer,
+  takePremiumLevel2RequestAsRyze,
   fetchAdminPremiumLevel2Catalog,
   fetchAdminPremiumLevel2Request,
   fetchAdminPremiumLevel2Requests,
@@ -150,6 +151,24 @@ export default function Admin2PremiumLevel2Page() {
       void openRequest(selectedId);
     }
   }, [openRequest, selectedId]);
+
+  const history = useHistory();
+  const [taking, setTaking] = useState(false);
+  const [takeError, setTakeError] = useState("");
+
+  // RYZE itself takes the request and prepares it (owner request, 2026-11-24).
+  const takeAsRyze = async () => {
+    if (!detail) return;
+    setTaking(true);
+    setTakeError("");
+    try {
+      await takePremiumLevel2RequestAsRyze(detail.request.id);
+      history.push(`/admin2/premium-level-2/${encodeURIComponent(detail.request.id)}`);
+    } catch {
+      setTakeError("Unable to take the request. A trainer may have accepted it meanwhile; refresh and try again.");
+      setTaking(false);
+    }
+  };
 
   const assign = async () => {
     if (!detail || !trainerId) return;
@@ -329,6 +348,36 @@ export default function Admin2PremiumLevel2Page() {
                   <strong>{detail.request.delivered_at ? formatAdminDate(detail.request.delivered_at) : "Not yet"}</strong>
                 </div>
               </div>
+
+              <section className={styles.assignPanel}>
+                <div className={styles.assignHeading}>
+                  <ShieldCheck size={16} aria-hidden="true" />
+                  <h3>Prepared by RYZE</h3>
+                </div>
+                {detail.request.handled_by_ryze ? (
+                  <>
+                    <p className={styles.muted}>RYZE took this request. Build the plans and deliver them in the workspace.</p>
+                    <Button to={`/admin2/premium-level-2/${encodeURIComponent(detail.request.id)}`} variant="primary" size="small">
+                      Open the workspace
+                    </Button>
+                  </>
+                ) : detail.request.status === "awaiting_trainer_assignment" && detail.request.intake_version > 0 ? (
+                  <>
+                    <p className={styles.muted}>
+                      Every trainer who accepts Premium Level 2 requests has been offered this one. RYZE can take it instead and
+                      prepare the plans itself.
+                    </p>
+                    <Button variant="primary" size="small" disabled={taking} onClick={() => void takeAsRyze()}>
+                      {taking ? "Taking…" : "Take it as RYZE"}
+                    </Button>
+                    {takeError ? <p className={styles.error}>{takeError}</p> : null}
+                  </>
+                ) : (
+                  <p className={styles.muted}>
+                    {detail.request.trainer_name ? `Being prepared by ${detail.request.trainer_name}.` : "Waiting for the client's answers."}
+                  </p>
+                )}
+              </section>
 
               <section className={styles.assignPanel}>
                 <div className={styles.assignHeading}>

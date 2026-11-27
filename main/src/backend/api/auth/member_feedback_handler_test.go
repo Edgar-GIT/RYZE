@@ -163,3 +163,7 @@ func TestAdminReviewRecordsTheAdministrator(t *testing.T) {
 		t.Fatalf("missing admin identity: status = %d", rec.Code)
 	}
 }
+
+func (f *fakeFeedbackService) ImagePath(context.Context, string, bool) (string, error) {
+	return "", member_feedback.ErrNoImage
+}

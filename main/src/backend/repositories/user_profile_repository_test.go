@@ -36,11 +36,11 @@ func TestUsernameGenerationAndUniqueness(t *testing.T) {
 	if second.Username != "handle"+suffix+".2" {
 		t.Fatalf("second generated username = %q", second.Username)
 	}
-	if err := profiles.UpdateProfile(ctx, second.ID, nil, first.Username); !errors.Is(err, repositories.ErrUsernameTaken) {
+	if err := profiles.UpdateProfile(ctx, second.ID, nil, first.Username, false); !errors.Is(err, repositories.ErrUsernameTaken) {
 		t.Fatalf("expected ErrUsernameTaken, got %v", err)
 	}
 	name := "Edgar"
-	if err := profiles.UpdateProfile(ctx, second.ID, &name, "edgar"+suffix); err != nil {
+	if err := profiles.UpdateProfile(ctx, second.ID, &name, "edgar"+suffix, true); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 	found, err := profiles.FindByUsername(ctx, "edgar"+suffix)

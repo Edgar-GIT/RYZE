@@ -4,7 +4,6 @@ import {
   ExternalLink,
   Globe2,
   LayoutDashboard,
-  LifeBuoy,
   Plus,
   Settings,
   UserRound,
@@ -34,7 +33,6 @@ const COPY: Copy<{
   programs: string;
   more: string;
   profile: string;
-  support: string;
   newProgram: string;
   newProgramText: string;
   memberArea: string;
@@ -57,7 +55,6 @@ const COPY: Copy<{
     programs: "Programs",
     more: "More",
     profile: "Profile",
-    support: "Support",
     newProgram: "New programme",
     newProgramText: "Build a plan for clients or the store",
     memberArea: "My training",
@@ -80,7 +77,6 @@ const COPY: Copy<{
     programs: "Programas",
     more: "Mais",
     profile: "Perfil",
-    support: "Suporte",
     newProgram: "Novo programa",
     newProgramText: "Cria um plano para clientes ou para a loja",
     memberArea: "O meu treino",
@@ -157,14 +153,12 @@ export const TrainerLayout = ({ children }: TrainerLayoutProps) => {
   ];
   const secondaryItems: ShellNavItem[] = [
     { to: "/trainer/profile", label: text.profile, icon: UserRound },
-    { to: "/support", label: text.support, icon: LifeBuoy }
   ];
   const menuItems: UserMenuItem[] = [
     { to: "/trainer/profile", label: text.profile, icon: UserRound },
     ...(profileId ? [{ to: `/coaches/${profileId}`, label: text.publicProfile, icon: ExternalLink }] : []),
     { to: "/profile", label: text.memberArea, icon: Dumbbell },
     { to: "/account/settings", label: text.account, icon: Settings },
-    { to: "/support", label: text.support, icon: LifeBuoy },
     { to: "/", label: text.site, icon: Globe2 }
   ];
 

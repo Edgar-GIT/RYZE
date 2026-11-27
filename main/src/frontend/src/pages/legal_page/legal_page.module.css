@@ -1,0 +1,271 @@
+/* Legal documents (v2.130.12): the site's blues, a glass article and the
+   documents and sections beside it on desktop. */
+.hero {
+  padding: calc(var(--r-nav-clearance, 6rem) + 2rem) 0 2rem;
+}
+
+.heroInner {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 56rem;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 0;
+}
+
+.titleIcon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 16px;
+  color: #02041f;
+  background: #00cbff;
+}
+
+.titleIcon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.meta {
+  margin: 0;
+  color: #b9c8ec;
+  font-size: 0.88rem;
+}
+
+.body {
+  padding: 0 0 5rem;
+}
+
+.layout {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.aside {
+  display: grid;
+  align-content: start;
+  gap: 1.25rem;
+}
+
+.docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.docLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.docLink svg {
+  width: 1rem;
+  height: 1rem;
+  color: #7cebff;
+}
+
+.docLinkActive {
+  border-color: #00cbff;
+  color: #02041f;
+  background: #00cbff;
+}
+
+.docLinkActive svg {
+  color: #02041f;
+}
+
+.docLink:focus-visible,
+.toc a:focus-visible,
+.settings:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.toc {
+  display: none;
+}
+
+.toc p {
+  margin: 0 0 0.5rem;
+  color: #7cebff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.toc ol {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.toc a {
+  display: block;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  color: #dbe6ff;
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+
+.toc a:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.article {
+  display: grid;
+  gap: 1.75rem;
+  min-width: 0;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  color: #ffffff;
+}
+
+.settings {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.5rem;
+  min-height: 2.9rem;
+  padding: 0 1.2rem;
+  border: 0;
+  border-radius: 999px;
+  color: #02041f;
+  background: #00cbff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.settings svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.section {
+  display: grid;
+  gap: 0.75rem;
+  scroll-margin-top: calc(var(--r-nav-clearance, 6rem) + 1rem);
+}
+
+.section h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.section p,
+.section li {
+  margin: 0;
+  color: #e3ebff;
+  font-size: 1rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.section ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+}
+
+.tableWrap table {
+  width: 100%;
+  min-width: 36rem;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e3ebff;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tableWrap thead th {
+  color: #7cebff;
+  background: rgba(2, 4, 31, 0.3);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tableWrap tbody th {
+  color: #ffffff;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.tableWrap tbody tr:last-child th,
+.tableWrap tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: 17rem minmax(0, 1fr);
+    align-items: start;
+    gap: 2.5rem;
+  }
+
+  .aside {
+    position: sticky;
+    top: calc(var(--r-nav-clearance, 6rem) + 1rem);
+  }
+
+  .docs {
+    display: grid;
+  }
+
+  .docLink {
+    border-radius: 14px;
+  }
+
+  .toc {
+    display: block;
+  }
+}
+
+.title {
+  font-size: clamp(2.1rem, 5vw, 3.6rem);
+  line-height: 1.05;
+}
+
+@media (max-width: 640px) {
+  .title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    overflow-wrap: anywhere;
+  }
+}

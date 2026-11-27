@@ -36,7 +36,6 @@ export const pt: Messages = {
     premium: "Premium N2",
     programs: "Programas",
     profile: "Perfil",
-    support: "Suporte",
     home: "Início RYZE"
   },
   publicNav: {
@@ -142,8 +141,7 @@ export const pt: Messages = {
       profile: "Perfil",
       myPrograms: "Os meus programas",
       progress: "Progresso",
-      purchases: "Compras",
-      support: "Suporte"
+      purchases: "Compras"
     },
     myPrograms: {
       title: "Os meus programas",
@@ -176,6 +174,7 @@ export const pt: Messages = {
       pending: "Pendente",
       completed: "Concluída",
       failed: "Falhou",
+      refunded: "Reembolsada",
       card: "Cartão",
       test: "Compra de teste",
       open: "Abrir programa",
@@ -407,51 +406,6 @@ export const pt: Messages = {
       checkDetails: "Verifica os teus dados e tenta novamente."
     }
   },
-  support: {
-    hubHint: "Dúvidas sobre a tua conta e compras",
-    title: "Suporte",
-    trainerBack: "Painel de treinador",
-    lead: "Dúvidas sobre a tua conta, compras ou como funciona a RYZE. O suporte RYZE responde aqui, normalmente num dia útil.",
-    notCoaching: "O suporte não é coaching: dúvidas sobre o teu plano de treino vão para o treinador que o preparou.",
-    loading: "A carregar o suporte…",
-    loadError: "Não foi possível carregar o suporte.",
-    notEligibleTitle: "O suporte abre com o teu primeiro programa",
-    notEligible: "O suporte está disponível para membros com um programa ativo (incluindo gratuitos) e para treinadores.",
-    browse: "Ver programas",
-    newConversation: "Nova conversa",
-    subject: "Assunto",
-    subjectHint: "3 a 120 caracteres",
-    message: "Mensagem",
-    start: "Iniciar conversa",
-    starting: "A iniciar…",
-    tooManyOpen: "Já tens 5 conversas abertas. Continua numa delas.",
-    invalid: "Verifica o assunto (3 a 120 caracteres) e a mensagem.",
-    conversations: "As tuas conversas",
-    noConversations: "Ainda não tens conversas. Inicia uma quando precisares de ajuda.",
-    choose: "Escolhe uma conversa ou inicia uma nova.",
-    back: "Todas as conversas",
-    open: "Aberta",
-    closed: "Fechada",
-    unread: "{count} novas",
-    live: "Em direto",
-    reconnecting: "A religar…",
-    offline: "Atualizações em direto em pausa. Atualiza a página para ver respostas.",
-    thread: {
-      you: "Tu",
-      them: "Suporte RYZE",
-      placeholder: "Escreve a tua mensagem",
-      send: "Enviar",
-      sending: "A enviar…",
-      failed: "Não enviada",
-      retry: "Tentar novamente",
-      older: "Ver mensagens anteriores",
-      loadingOlder: "A carregar…",
-      closed: "Esta conversa está fechada. Inicia uma nova se precisares de mais ajuda.",
-      composerLabel: "Mensagem para o suporte RYZE",
-      remaining: "Faltam {count} caracteres",
-      empty: "Ainda sem mensagens."
-    }
-  },
   training: {
     nav: {
       train: "Treinar",
@@ -615,8 +569,7 @@ export const pt: Messages = {
       pl2_request_assigned: "Novo pedido Premium Nível 2 atribuído a ti: {program}.",
       pl2_request_offered: "Novo pedido Premium Nível 2 para ti: {program}. Aceita ou recusa nas próximas 24 horas.",
       pl2_delivered: "O teu programa e plano de nutrição {program} estão prontos.",
-      support_reply: "O suporte RYZE respondeu à tua conversa.",
-      support_new_message: "Nova mensagem numa conversa de suporte.",
+      training_reminder: "Já passaram uns dias desde o teu último treino. O próximo está pronto.",
       other: "Tens uma novidade."
     }
   }

@@ -1,6 +1,7 @@
-import type {
-  PremiumLevel2NutritionInput,
-  PremiumLevel2NutritionPlan
+import {
+  mealImageUrl,
+  type PremiumLevel2NutritionInput,
+  type PremiumLevel2NutritionPlan
 } from "@/services/premium_level_2_api";
 import { uid, type PlanDraftCuratedItem, type PlanDraftCuratedNutrition } from "./plan_builder_model";
 
@@ -50,6 +51,8 @@ export const nutritionPlanToDraft = (
     label: meal.label,
     kind: meal.kind,
     notes: meal.notes ?? "",
+    image_key: meal.image_key ?? "",
+    image_url: mealImageUrl(meal.image_key),
     items: meal.items.map((food) => ({
       id: uid(),
       food_name: food.food_name,
@@ -87,6 +90,7 @@ export const nutritionDraftToInput = (
     label: meal.label.trim(),
     kind: meal.kind,
     notes: meal.notes.trim(),
+    image_key: meal.image_key ?? "",
     foods: meal.items.map((item) => ({
       name: item.food_name.trim(),
       category: item.category.trim(),

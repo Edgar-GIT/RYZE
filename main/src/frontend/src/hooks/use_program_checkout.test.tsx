@@ -153,7 +153,7 @@ describe("useProgramCheckout", () => {
     });
 
     expect(result.current.state.status).toBe("owned");
-    expect(mockedInitiatePayment).toHaveBeenCalledWith("purchase-3", "card", "");
+    expect(mockedInitiatePayment).toHaveBeenCalledWith("purchase-3", "card", "", { acceptTerms: false, immediateAccess: false }, "");
   });
 
   it("returns to the ready state when the provider reports a cancellation", async () => {
@@ -194,7 +194,7 @@ describe("useProgramCheckout", () => {
       await result.current.buy();
     });
 
-    expect(mockedInitiatePayment).toHaveBeenCalledWith("purchase-5", "card", "");
+    expect(mockedInitiatePayment).toHaveBeenCalledWith("purchase-5", "card", "", { acceptTerms: false, immediateAccess: false }, "");
   });
 
   it("refreshes ownership after an external purchase event", async () => {
@@ -218,7 +218,7 @@ describe("useProgramCheckout", () => {
       await result.current.buy();
     });
 
-    expect(mockedCompleteTestPurchase).toHaveBeenCalledWith(PROGRAM_ID, "qa.tester@example.com", "");
+    expect(mockedCompleteTestPurchase).toHaveBeenCalledWith(PROGRAM_ID, "qa.tester@example.com", "", false);
     expect(result.current.state.status).toBe("success");
   });
 
@@ -241,7 +241,7 @@ describe("useProgramCheckout", () => {
     await act(async () => {
       await result.current.buy();
     });
-    expect(mockedCompleteTestPurchase).toHaveBeenCalledWith(PROGRAM_ID, "qa.tester@example.com", "PT 123 456 789");
+    expect(mockedCompleteTestPurchase).toHaveBeenCalledWith(PROGRAM_ID, "qa.tester@example.com", "PT 123 456 789", false);
     expect(result.current.state.status).toBe("success");
   });
 

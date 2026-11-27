@@ -244,15 +244,14 @@ func (r *adminOverviewRepository) CatalogueCounts(ctx context.Context) ([]LabelC
 }
 
 func (r *adminOverviewRepository) QueueCounts(ctx context.Context) (map[string]int64, error) {
-	var awaitingIntake, awaitingTrainer, inProgress, ready, supportOpen, feedbackPending int64
+	var awaitingIntake, awaitingTrainer, inProgress, ready, feedbackPending int64
 	row := r.db.WithContext(ctx).Raw(`SELECT
 		(SELECT COUNT(*) FROM premium_level_2_requests WHERE deleted_at IS NULL AND status = 'awaiting_intake'),
 		(SELECT COUNT(*) FROM premium_level_2_requests WHERE deleted_at IS NULL AND status = 'awaiting_trainer_assignment'),
 		(SELECT COUNT(*) FROM premium_level_2_requests WHERE deleted_at IS NULL AND status = 'in_progress'),
 		(SELECT COUNT(*) FROM premium_level_2_requests WHERE deleted_at IS NULL AND status = 'ready_for_delivery'),
-		(SELECT COUNT(*) FROM support_conversations WHERE status = 'open'),
 		(SELECT COUNT(*) FROM member_feedback WHERE deleted_at IS NULL AND status = 'pending')`).Row()
-	if err := row.Scan(&awaitingIntake, &awaitingTrainer, &inProgress, &ready, &supportOpen, &feedbackPending); err != nil {
+	if err := row.Scan(&awaitingIntake, &awaitingTrainer, &inProgress, &ready, &feedbackPending); err != nil {
 		return nil, fmt.Errorf("failed to count queues: %w", err)
 	}
 	return map[string]int64{
@@ -260,7 +259,6 @@ func (r *adminOverviewRepository) QueueCounts(ctx context.Context) (map[string]i
 		"premium_level_2_awaiting_trainer": awaitingTrainer,
 		"premium_level_2_in_progress":      inProgress,
 		"premium_level_2_ready":            ready,
-		"support_open":                     supportOpen,
 		"feedback_pending":                 feedbackPending,
 	}, nil
 }

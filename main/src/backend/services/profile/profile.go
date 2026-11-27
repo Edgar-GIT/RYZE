@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -24,12 +25,32 @@ var (
 	ErrInvalidDisplayName = errors.New("invalid display name")
 	ErrInvalidUsername    = errors.New("invalid username")
 	ErrUsernameTaken      = errors.New("username taken")
+	// ErrUsernameLocked: a chosen @username never changes (owner decision,
+	// 2026-11-23); only a generated placeholder is replaced, once.
+	ErrUsernameLocked = errors.New("username cannot change")
+	// ErrNicknameCooldown: the nickname changes at most once every 7 days.
+	ErrNicknameCooldown   = errors.New("nickname changed recently")
 	ErrInvalidImage       = errors.New("invalid image")
 	ErrImageTooLarge      = errors.New("image too large")
 	ErrStorageUnavailable = errors.New("photo storage unavailable")
 )
 
 const MaxDisplayNameLength = 40
+
+// NicknameCooldown is the time between two nickname changes.
+const NicknameCooldown = 7 * 24 * time.Hour
+
+// NextNicknameChange is when the nickname may change again (nil: now).
+func NextNicknameChange(user *models.User, now time.Time) *time.Time {
+	if user == nil || user.DisplayNameChangedAt == nil {
+		return nil
+	}
+	next := user.DisplayNameChangedAt.Add(NicknameCooldown)
+	if !next.After(now) {
+		return nil
+	}
+	return &next
+}
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._]{2,29}$`)
 
@@ -113,10 +134,15 @@ func (s *service) UpdateProfile(ctx context.Context, userID, displayName, userna
 		if !ok {
 			return nil, ErrInvalidUsername
 		}
-		// A generated username is kept as is; a newly chosen one cannot be
-		// a reserved name.
-		if normalized != user.Username && reserved[normalized] {
-			return nil, ErrInvalidUsername
+		if normalized != user.Username {
+			// A chosen @username is permanent; a generated one is replaced
+			// once, by a name that is not reserved.
+			if user.UsernameChosen {
+				return nil, ErrUsernameLocked
+			}
+			if reserved[normalized] {
+				return nil, ErrInvalidUsername
+			}
 		}
 		handle = normalized
 	}
@@ -124,7 +150,15 @@ func (s *service) UpdateProfile(ctx context.Context, userID, displayName, userna
 	if name != "" {
 		display = &name
 	}
-	if err := s.users.UpdateProfile(ctx, userID, display, handle); err != nil {
+	current := ""
+	if user.DisplayName != nil {
+		current = *user.DisplayName
+	}
+	nicknameChanged := name != current
+	if nicknameChanged && NextNicknameChange(user, time.Now()) != nil {
+		return nil, ErrNicknameCooldown
+	}
+	if err := s.users.UpdateProfile(ctx, userID, display, handle, nicknameChanged); err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrUsernameTaken):
 			return nil, ErrUsernameTaken
@@ -137,8 +171,12 @@ func (s *service) UpdateProfile(ctx context.Context, userID, displayName, userna
 }
 
 func (s *service) ChooseUsername(ctx context.Context, userID, username string) (*models.User, error) {
-	if _, err := s.load(ctx, userID); err != nil {
+	user, err := s.load(ctx, userID)
+	if err != nil {
 		return nil, err
+	}
+	if user.UsernameChosen {
+		return nil, ErrUsernameLocked
 	}
 	handle, ok := NormalizeUsername(username)
 	if !ok || reserved[handle] {

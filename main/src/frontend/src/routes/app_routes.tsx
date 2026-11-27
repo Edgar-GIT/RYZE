@@ -16,6 +16,7 @@ import { HomePage } from "@/pages/home_page/home_page";
 import { LoginPage } from "@/pages/login_page/login_page";
 import { ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from "@/pages/account_recovery_page/account_recovery_pages";
 import { OurVisionPage } from "@/pages/our_vision_page/our_vision_page";
+import { LegalPage } from "@/pages/legal_page/legal_page";
 import { PremiumLevel1Page } from "@/pages/premium_level1_page/premium_level1_page";
 import { PremiumLevel2Page } from "@/pages/premium_level2_page/premium_level2_page";
 import PremiumLevel1JourneyPage from "@/pages/premium_level1_journey/premium_level1_journey_page";
@@ -59,7 +60,6 @@ const MEMBER_PATHS = [
   "/account/settings",
   "/account/purchases",
   "/account/purchases/:purchaseId/receipt",
-  "/support",
   "/services/my-programs",
   "/services/my-programs/:programId",
   "/services/premium-level-2/academy",
@@ -128,6 +128,7 @@ export const AppRoutes = () => {
         />
         <Route exact path="/contact" component={ContactPage} />
         <Route exact path="/our-vision" component={OurVisionPage} />
+        <Route exact path="/legal/:doc?" component={LegalPage} />
         <Route exact path="/about-us" render={() => <Redirect to="/our-vision" />} />
         <Route exact path="/feedback" component={FeedbackPage} />
         <Route

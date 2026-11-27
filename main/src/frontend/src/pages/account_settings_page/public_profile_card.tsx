@@ -1,4 +1,4 @@
-import { AtSign, Camera, Trash2, UserRound } from "lucide-react";
+import { AtSign, Camera, Lock, Trash2, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
 
@@ -21,14 +21,18 @@ const COPY = {
     remove: "Remove photo",
     photoHint: "JPEG or PNG. It is cropped to a square and its hidden details (such as location) are removed.",
     displayName: "Nickname",
-    displayHint: "Up to 40 characters. Leave it empty to show your @username.",
+    displayHint: "Up to 40 characters. Leave it empty to show your @username. You can change it once every 7 days.",
+    nicknameLocked: (date: string) => `You changed your nickname recently. You can change it again on ${date}.`,
     username: "@username",
     usernameHint: "3 to 30 lowercase letters, digits, dots or underscores.",
+    usernameFixed: "Your @username is unique to your account and never changes, like your email.",
     save: "Save profile",
     saved: "Profile saved.",
     photoSaved: "Photo updated.",
     errors: {
       USERNAME_TAKEN: "This @username is already in use.",
+      USERNAME_LOCKED: "Your @username cannot be changed.",
+      NICKNAME_COOLDOWN: "You can change your nickname once every 7 days.",
       INVALID_USERNAME: "An @username has 3 to 30 lowercase letters, digits, dots or underscores.",
       INVALID_DISPLAY_NAME: "A nickname has 1 to 40 characters.",
       INVALID_IMAGE: "The photo must be a JPEG or PNG image.",
@@ -45,14 +49,18 @@ const COPY = {
     remove: "Remover foto",
     photoHint: "JPEG ou PNG. É recortada em quadrado e os dados escondidos (como a localização) são removidos.",
     displayName: "Alcunha",
-    displayHint: "Até 40 caracteres. Deixa vazio para mostrar a tua @referência.",
+    displayHint: "Até 40 caracteres. Deixa vazio para mostrar a tua @referência. Podes mudá-la uma vez a cada 7 dias.",
+    nicknameLocked: (date: string) => `Mudaste a alcunha há pouco tempo. Podes voltar a mudá-la a ${date}.`,
     username: "@referência",
     usernameHint: "3 a 30 letras minúsculas, números, pontos ou underscores.",
+    usernameFixed: "A tua @referência é única da tua conta e nunca muda, tal como o email.",
     save: "Guardar perfil",
     saved: "Perfil guardado.",
     photoSaved: "Foto atualizada.",
     errors: {
       USERNAME_TAKEN: "Esta @referência já está a ser usada.",
+      USERNAME_LOCKED: "A tua @referência não pode ser alterada.",
+      NICKNAME_COOLDOWN: "Só podes mudar a alcunha uma vez a cada 7 dias.",
       INVALID_USERNAME: "A @referência tem 3 a 30 letras minúsculas, números, pontos ou underscores.",
       INVALID_DISPLAY_NAME: "A alcunha tem de 1 a 40 caracteres.",
       INVALID_IMAGE: "A foto tem de ser uma imagem JPEG ou PNG.",
@@ -83,9 +91,14 @@ export const ProfileAvatar = ({ user, className }: { user: MemberUser; className
 // PublicProfileCard edits the identity people see (owner request,
 // 2026-11-20): the photo, the display name and the @username.
 export const PublicProfileCard = ({ user, onChanged }: { user: MemberUser; onChanged: () => void }) => {
-  const { locale } = useI18n();
+  const { locale, formatDate } = useI18n();
   const text = COPY[locale];
   const ids = useId();
+  // The @username is permanent once chosen (owner decision, 2026-11-23); the
+  // nickname changes at most once every 7 days (enforced by the server).
+  const usernameFixed = !user.needs_username;
+  const nicknameLockedUntil =
+    user.nickname_change_at && Date.parse(user.nickname_change_at) > Date.now() ? user.nickname_change_at : null;
   const fileRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(user.display_name ?? "");
   const [username, setUsername] = useState(user.username);
@@ -98,7 +111,7 @@ export const PublicProfileCard = ({ user, onChanged }: { user: MemberUser; onCha
   }, [user.display_name, user.username]);
 
   const errorText = (error: unknown) => (error instanceof ApiError && error.code ? text.errors[error.code] : undefined) ?? text.errors.generic;
-  const usernameValid = isValidUsername(username);
+  const usernameValid = usernameFixed || isValidUsername(username);
 
   const run = async (action: () => Promise<unknown>, success: string) => {
     setBusy(true);
@@ -120,7 +133,7 @@ export const PublicProfileCard = ({ user, onChanged }: { user: MemberUser; onCha
       setMessage({ kind: "error", text: text.errors.INVALID_USERNAME });
       return;
     }
-    void run(() => updateProfile(displayName.trim(), username.trim().replace(/^@/, "").toLowerCase()), text.saved);
+    void run(() => updateProfile(displayName.trim(), usernameFixed ? user.username : username.trim().replace(/^@/, "").toLowerCase()), text.saved);
   };
 
   const pick = (event: ChangeEvent<HTMLInputElement>) => {
@@ -169,10 +182,13 @@ export const PublicProfileCard = ({ user, onChanged }: { user: MemberUser; onCha
             autoComplete="nickname"
             placeholder={`${user.first_name} ${user.last_name}`.trim()}
             onChange={(event) => setDisplayName(event.target.value)}
+            readOnly={Boolean(nicknameLockedUntil)}
             aria-describedby={`${ids}-display-hint`}
           />
           <span id={`${ids}-display-hint`} className={styles.hint}>
-            {text.displayHint}
+            {nicknameLockedUntil
+              ? text.nicknameLocked(formatDate(nicknameLockedUntil, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }))
+              : text.displayHint}
           </span>
         </label>
         <label className={styles.field}>
@@ -186,12 +202,14 @@ export const PublicProfileCard = ({ user, onChanged }: { user: MemberUser; onCha
               autoCapitalize="none"
               spellCheck={false}
               onChange={(event) => setUsername(event.target.value.toLowerCase())}
+              readOnly={usernameFixed}
               aria-invalid={!usernameValid}
               aria-describedby={`${ids}-username-hint`}
             />
+            {usernameFixed ? <Lock className={styles.lock} aria-hidden="true" /> : null}
           </span>
           <span id={`${ids}-username-hint`} className={usernameValid ? styles.hint : styles.error}>
-            {usernameValid ? text.usernameHint : text.errors.INVALID_USERNAME}
+            {usernameFixed ? text.usernameFixed : usernameValid ? text.usernameHint : text.errors.INVALID_USERNAME}
           </span>
         </label>
         {message ? (

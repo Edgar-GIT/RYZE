@@ -26,8 +26,9 @@ const PAGE_SIZE = 24;
 
 const FAMILIES: Array<{ id: ProgramProductTypeValue; label: string; price: string; text: string }> = [
   { id: PROGRAM_PRODUCT_TYPE.GENERIC, label: "Generic", price: "Free", text: "Free training plans of the public catalogue." },
-  { id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1, label: "Premium Level 1", price: "€14.99", text: "Training and nutrition packages, delivered immediately." },
-  { id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2, label: "Premium Level 2", price: "€19.49", text: "Personalised offers: a trainer writes each client's plan." }
+  { id: PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1, label: "Premium Level 1", price: "€14.99", text: "Training and nutrition packages, delivered immediately." }
+  // Premium Level 2 is not a plan made here: each client's plans are prepared
+  // on their request (Premium L2 requests) by a trainer or by RYZE.
 ];
 
 const LEVELS: Array<GenericProgramLevel | ""> = ["", "Beginner", "Intermediate", "Advanced"];

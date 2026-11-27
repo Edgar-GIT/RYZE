@@ -3,7 +3,6 @@ package premium_level_2
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"ryze/backend/email"
@@ -12,11 +11,11 @@ import (
 	"ryze/backend/services/notifications"
 )
 
-// Allocation by offer (owner decision, 2026-11-21, until AI exists): after
-// the intake the request is offered to the available trainer with the fewest
-// open requests; accepting allocates it, declining or 24 hours without an
-// answer passes it to the next trainer; with nobody left ADMIN_2 allocates it
-// by hand, as before.
+// Allocation by offer (owner decision, 2026-11-24, until AI exists): after
+// the intake the request is offered at once to every trainer who accepts
+// Premium Level 2 requests; the first to accept takes it and the other offers
+// are withdrawn. Offers close after 24 hours; RYZE itself (ADMIN_2) can take
+// a waiting request at any time, or allocate it to a trainer by hand.
 
 var (
 	ErrOfferNotFound = errors.New("premium level 2 offer not found")
@@ -55,21 +54,15 @@ func (s *service) clock() time.Time {
 	return time.Now().UTC()
 }
 
-// offerNext offers the request to the next available trainer, if any.
-func (s *service) offerNext(ctx context.Context, requestID string) error {
+// offerRequest offers a waiting request to every available trainer who was
+// not offered it yet and notifies each of them.
+func (s *service) offerRequest(ctx context.Context, requestID string) error {
 	if s.offers == nil {
 		return nil
 	}
-	trainerID, err := s.offers.PickTrainer(ctx, requestID)
-	if err != nil || trainerID == "" {
+	created, err := s.offers.OfferToAvailableTrainers(ctx, requestID, s.clock().Add(models.PremiumLevel2OfferWindow))
+	if err != nil || len(created) == 0 || s.notifier == nil {
 		return err
-	}
-	offer, created, err := s.offers.CreateOffer(ctx, requestID, trainerID, s.clock().Add(models.PremiumLevel2OfferWindow))
-	if err != nil || !created {
-		return err
-	}
-	if s.notifier == nil {
-		return nil
 	}
 	request, err := s.requests.FindRequestByID(ctx, requestID)
 	if err != nil {
@@ -79,7 +72,11 @@ func (s *service) offerNext(ctx context.Context, requestID string) error {
 	if !ok {
 		return nil
 	}
-	if trainerUserID, err := users.FindTrainerUserID(ctx, trainerID); err == nil && trainerUserID != "" {
+	for _, offer := range created {
+		trainerUserID, err := users.FindTrainerUserID(ctx, offer.TrainerID)
+		if err != nil || trainerUserID == "" {
+			continue
+		}
 		s.notifier.Notify(ctx, notifications.Event{
 			UserID:        trainerUserID,
 			Kind:          models.NotificationPL2RequestOffered,
@@ -127,10 +124,6 @@ func (s *service) AcceptOffer(ctx context.Context, trainerID, trainerUserID, off
 	}
 	request, err := s.offers.AcceptOffer(ctx, offerID, trainerID, trainerUserID, s.clock())
 	if err != nil {
-		if errors.Is(err, repositories.ErrPremiumLevel2OfferExpired) {
-			// The window closed: the request moves on to the next trainer.
-			_ = s.SweepOffers(ctx)
-		}
 		return nil, offerError(err)
 	}
 	s.notifyAssigned(ctx, request.ID, trainerID)
@@ -141,12 +134,9 @@ func (s *service) DeclineOffer(ctx context.Context, trainerID, trainerUserID, of
 	if s.offers == nil {
 		return ErrOfferNotFound
 	}
-	requestID, err := s.offers.DeclineOffer(ctx, offerID, trainerID, trainerUserID, s.clock())
-	if err != nil {
+	// The other trainers keep their offers; nobody new is asked.
+	if _, err := s.offers.DeclineOffer(ctx, offerID, trainerID, trainerUserID, s.clock()); err != nil {
 		return offerError(err)
-	}
-	if err := s.offerNext(ctx, requestID); err != nil {
-		return fmt.Errorf("failed to offer the request to the next trainer: %w", err)
 	}
 	return nil
 }
@@ -178,7 +168,7 @@ func (s *service) SweepOffers(ctx context.Context) error {
 	}
 	var firstErr error
 	for _, requestID := range waiting {
-		if err := s.offerNext(ctx, requestID); err != nil && firstErr == nil {
+		if err := s.offerRequest(ctx, requestID); err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}

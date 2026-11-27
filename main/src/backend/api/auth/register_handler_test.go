@@ -208,7 +208,9 @@ func TestRegisterRejectsReservedTestModeEmails(t *testing.T) {
 		if !strings.Contains(raw, `"code":"EMAIL_ALREADY_REGISTERED"`) {
 			t.Fatalf("reserved email %q: expected EMAIL_ALREADY_REGISTERED, got %s", email, raw)
 		}
-		if _, err := repo.FindByEmailIncludingDeleted(context.Background(), strings.ToLower(email)); err == nil {
+		// Test Mode itself may own the persona row (test_persona set); a
+		// registration must never have created one.
+		if user, err := repo.FindByEmailIncludingDeleted(context.Background(), strings.ToLower(email)); err == nil && user.TestPersona == nil {
 			t.Fatalf("reserved email %q must never be registered", email)
 		}
 	}

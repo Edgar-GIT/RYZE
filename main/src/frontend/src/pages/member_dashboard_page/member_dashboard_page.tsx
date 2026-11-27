@@ -9,7 +9,6 @@ import {
   Clock3,
   Dumbbell,
   Flame,
-  LifeBuoy,
   ListChecks,
   MailWarning,
   Play,
@@ -72,6 +71,9 @@ interface DashboardText {
   title: string;
   streak: (weeks: number) => string;
   noStreak: string;
+  comebackTitle: (days: number) => string;
+  comebackText: string;
+  comebackAction: string;
   unverified: string;
   resend: string;
   resent: string;
@@ -134,8 +136,6 @@ interface DashboardText {
   libraryText: string;
   purchases: string;
   purchasesText: string;
-  support: string;
-  supportText: string;
   publicProfile: string;
   muscles: string;
   musclesText: string;
@@ -150,6 +150,9 @@ const COPY: Copy<DashboardText> = {
     title: "Your training, at a glance.",
     streak: (weeks) => (weeks === 1 ? "1 week in a row" : `${weeks} weeks in a row`),
     noStreak: "Start your streak this week",
+    comebackTitle: (days) => `${days} days since your last workout`,
+    comebackText: "Your next session is ready. Even a short one keeps your progress going.",
+    comebackAction: "Train now",
     unverified: "Your email is not confirmed yet.",
     resend: "Send confirmation email",
     resent: "Confirmation email sent.",
@@ -212,8 +215,6 @@ const COPY: Copy<DashboardText> = {
     libraryText: "Every movement, explained",
     purchases: "Purchases",
     purchasesText: "Orders and receipts",
-    support: "Support",
-    supportText: "Talk to the RYZE team",
     publicProfile: "View my public profile",
     muscles: "Muscle recovery",
     musclesText: "See which muscles are ready to train",
@@ -226,6 +227,9 @@ const COPY: Copy<DashboardText> = {
     title: "O teu treino, num relance.",
     streak: (weeks) => (weeks === 1 ? "1 semana seguida" : `${weeks} semanas seguidas`),
     noStreak: "Começa a tua sequência esta semana",
+    comebackTitle: (days) => `Há ${days} dias que não treinas`,
+    comebackText: "O teu próximo treino está pronto. Mesmo um treino curto mantém o teu progresso.",
+    comebackAction: "Treinar agora",
     unverified: "O teu email ainda não está confirmado.",
     resend: "Enviar email de confirmação",
     resent: "Email de confirmação enviado.",
@@ -288,8 +292,6 @@ const COPY: Copy<DashboardText> = {
     libraryText: "Cada movimento, explicado",
     purchases: "Compras",
     purchasesText: "Encomendas e recibos",
-    support: "Suporte",
-    supportText: "Fala com a equipa RYZE",
     publicProfile: "Ver o meu perfil público",
     muscles: "Recuperação muscular",
     musclesText: "Vê que músculos estão prontos a treinar",
@@ -389,6 +391,15 @@ export const MemberDashboardPage = () => {
   }, []);
 
   const completed = useMemo(() => (sessions ?? []).filter((session) => session.status === "completed"), [sessions]);
+  // Days since the last completed workout: the in-app training reminder
+  // (owner request, 2026-11-24) shows from 4 days.
+  const idleDays = useMemo(() => {
+    const last = completed.reduce((latest, session) => {
+      const at = session.completed_at ? Date.parse(session.completed_at) : 0;
+      return at > latest ? at : latest;
+    }, 0);
+    return last ? Math.floor((Date.now() - last) / 86_400_000) : 0;
+  }, [completed]);
 
   // The plan in focus (owner request, 2026-11-22): the workout in progress,
   // else the plan of the latest action — added, trained or chosen.
@@ -587,6 +598,18 @@ export const MemberDashboardPage = () => {
       </header>
 
       {user && !user.email_verified ? <EmailNotice /> : null}
+      {!loading && !active && idleDays >= 4 ? (
+        <section className={styles.comeback} aria-live="polite">
+          <Flame aria-hidden="true" />
+          <div>
+            <strong>{text.comebackTitle(idleDays)}</strong>
+            <p>{text.comebackText}</p>
+          </div>
+          <Link className={styles.comebackAction} to="/services/next-workout">
+            {text.comebackAction}
+          </Link>
+        </section>
+      ) : null}
       {failed ? <p className={styles.error}>{text.loadError}</p> : null}
 
       {/* The lifter level, EXP and medals come first (owner request, 2026-11-14). */}
@@ -1012,8 +1035,7 @@ export const MemberDashboardPage = () => {
             { to: "/services/progress?tab=measurements", icon: Ruler, title: text.measurements, body: text.measurementsText },
             { to: "/services/generic-program", icon: ShoppingBag, title: text.plans, body: text.plansText },
             { to: "/exercises", icon: BookOpen, title: text.library, body: text.libraryText },
-            { to: "/account/purchases", icon: ReceiptText, title: text.purchases, body: text.purchasesText },
-            { to: "/support", icon: LifeBuoy, title: text.support, body: text.supportText }
+            { to: "/account/purchases", icon: ReceiptText, title: text.purchases, body: text.purchasesText }
           ].map(({ to, icon: Icon, title, body }) => (
             <Link key={to} className={styles.shortcut} to={to}>
               <span className={styles.tileIcon} aria-hidden="true">

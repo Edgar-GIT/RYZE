@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, encodePathSegment } from "@utils/http_client";
+import { apiGet, apiPost, apiPut, apiUpload, encodePathSegment } from "@utils/http_client";
 
 import type { AdminPagination } from "./admin_api";
 import type { MarketplaceProgram } from "./marketplace_api";
@@ -74,6 +74,8 @@ export interface PremiumLevel2Request {
   intake_version: number;
   trainer_id: string | null;
   trainer_name: string;
+  // RYZE itself prepares the plans (v2.131.0).
+  handled_by_ryze?: boolean;
   training_program_id: string | null;
   training_program_name: string | null;
   nutrition_plan_version: number | null;
@@ -120,6 +122,8 @@ export interface PremiumLevel2PlanMeal {
   label: string;
   kind: "meal" | "snack";
   notes: string | null;
+  // The meal's picture in the public uploads (null: none).
+  image_key: string | null;
   items: PremiumLevel2PlanFood[];
 }
 
@@ -183,6 +187,7 @@ export interface PremiumLevel2MealInput {
   kind: "meal" | "snack";
   notes: string;
   foods: PremiumLevel2FoodInput[];
+  image_key: string;
 }
 
 export interface PremiumLevel2NutritionInput {
@@ -219,13 +224,16 @@ export const fetchMyPremiumLevel2Requests = async (): Promise<PremiumLevel2Reque
 export const fetchMyPremiumLevel2Request = (requestId: string): Promise<PremiumLevel2ClientDetail> =>
   apiGet<PremiumLevel2ClientDetail>(`/me/premium-level-2/${encodePathSegment(requestId)}`);
 
+// healthConsent: the explicit consent for the health data in the answers
+// (GDPR art. 9(2)(a)); the server refuses the answers without it.
 export const submitPremiumLevel2Intake = (
   requestId: string,
-  answers: Record<string, unknown>
+  answers: Record<string, unknown>,
+  healthConsent = false
 ): Promise<{ request: PremiumLevel2Request; intake: PremiumLevel2Intake }> =>
   apiPut<{ request: PremiumLevel2Request; intake: PremiumLevel2Intake }>(
     `/me/premium-level-2/${encodePathSegment(requestId)}/intake`,
-    { answers }
+    { answers, health_consent: healthConsent }
   );
 
 export const fetchMyPremiumLevel2Nutrition = (
@@ -361,3 +369,35 @@ export const declinePremiumLevel2Offer = (offerId: string): Promise<null> =>
 
 export const setPremiumLevel2Availability = (accepts: boolean): Promise<{ accepts_requests: boolean }> =>
   apiPut<{ accepts_requests: boolean }>("/trainer/premium-level-2/availability", { accepts_requests: accepts });
+
+// --- RYZE itself (ADMIN_2) working on a request (v2.131.0) ---------------
+const adminRequestPath = (requestId: string) => `/admin/premium-level-2/requests/${encodePathSegment(requestId)}`;
+
+export const takePremiumLevel2RequestAsRyze = (requestId: string): Promise<StaffPremiumLevel2Request> =>
+  apiPost<StaffPremiumLevel2Request>(`${adminRequestPath(requestId)}/take`, {});
+
+export const attachRyzePremiumLevel2TrainingProgram = (requestId: string, programId: string): Promise<StaffPremiumLevel2Request> =>
+  apiPut<StaffPremiumLevel2Request>(`${adminRequestPath(requestId)}/training-program`, { program_id: programId });
+
+export const saveRyzePremiumLevel2Nutrition = (requestId: string, input: PremiumLevel2NutritionInput): Promise<PremiumLevel2NutritionPlan> =>
+  apiPut<PremiumLevel2NutritionPlan>(`${adminRequestPath(requestId)}/nutrition`, input);
+
+export const deliverRyzePremiumLevel2Request = (requestId: string): Promise<StaffPremiumLevel2Request> =>
+  apiPost<StaffPremiumLevel2Request>(`${adminRequestPath(requestId)}/deliver`, {});
+
+// Meal pictures for the personal nutrition plan (trainer or RYZE).
+export const uploadTrainerMealImage = (file: File): Promise<{ key: string; url: string }> => {
+  const form = new FormData();
+  form.append("file", file);
+  return apiUpload<{ key: string; url: string }>("/trainer/uploads/meal-image", form);
+};
+
+export const uploadAdminMealImage = (file: File): Promise<{ key: string; url: string }> => {
+  const form = new FormData();
+  form.append("file", file);
+  return apiUpload<{ key: string; url: string }>("/admin/uploads/meal-image", form);
+};
+
+// mealImageUrl is the public URL of a meal picture key.
+export const mealImageUrl = (key: string | null | undefined): string => (key ? `/uploads/${key}` : "");
+

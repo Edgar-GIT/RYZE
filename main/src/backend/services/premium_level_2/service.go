@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -63,10 +64,11 @@ type RequestRepository interface {
 	CreateIntake(ctx context.Context, requestID string, answers []byte) (*models.PremiumLevel2Request, *models.PremiumLevel2Intake, error)
 	FindLatestIntake(ctx context.Context, requestID string) (*models.PremiumLevel2Intake, error)
 	AssignTrainer(ctx context.Context, requestID, trainerID, actorID string) (*models.PremiumLevel2Request, error)
-	SetTrainingProgram(ctx context.Context, requestID, trainerID, programID string) (*models.PremiumLevel2Request, error)
-	SaveNutritionPlan(ctx context.Context, requestID, trainerID string, plan *models.PremiumLevel2NutritionPlan) (*models.PremiumLevel2NutritionPlan, error)
+	TakeAsRyze(ctx context.Context, requestID, adminID string) (*models.PremiumLevel2Request, error)
+	SetTrainingProgram(ctx context.Context, requestID string, handler repositories.PremiumLevel2Handler, programID string) (*models.PremiumLevel2Request, error)
+	SaveNutritionPlan(ctx context.Context, requestID string, handler repositories.PremiumLevel2Handler, plan *models.PremiumLevel2NutritionPlan) (*models.PremiumLevel2NutritionPlan, error)
 	FindNutritionPlan(ctx context.Context, requestID string) (*models.PremiumLevel2NutritionPlan, error)
-	Deliver(ctx context.Context, requestID, trainerID string) (*models.PremiumLevel2Request, error)
+	Deliver(ctx context.Context, requestID string, handler repositories.PremiumLevel2Handler, split *repositories.PremiumLevel2Split) (*models.PremiumLevel2Request, error)
 	RefreshReadiness(ctx context.Context, requestID string) error
 	ListEvents(ctx context.Context, requestID string) ([]models.PremiumLevel2RequestEvent, error)
 }
@@ -93,11 +95,15 @@ type Service interface {
 	ListAdminRequests(ctx context.Context, filter repositories.PremiumLevel2Filter, page, limit int) ([]models.PremiumLevel2Request, int64, error)
 	GetAdminRequest(ctx context.Context, requestID string) (*models.PremiumLevel2Request, *models.PremiumLevel2Intake, *models.PremiumLevel2NutritionPlan, []models.PremiumLevel2RequestEvent, error)
 	AssignTrainer(ctx context.Context, requestID, trainerID, adminID string) (*models.PremiumLevel2Request, error)
+	// TakeAsRyze lets RYZE itself (ADMIN_2) take a request that waits for
+	// someone, instead of a trainer (owner request, 2026-11-24).
+	TakeAsRyze(ctx context.Context, requestID, adminID string) (*models.PremiumLevel2Request, error)
 	ListTrainerRequests(ctx context.Context, trainerID string, filter repositories.PremiumLevel2Filter, page, limit int) ([]models.PremiumLevel2Request, int64, error)
 	GetTrainerRequest(ctx context.Context, trainerID, requestID string) (*models.PremiumLevel2Request, *models.PremiumLevel2Intake, *models.PremiumLevel2NutritionPlan, []models.PremiumLevel2RequestEvent, error)
-	AttachTrainingProgram(ctx context.Context, trainerID, requestID, programID string) (*models.PremiumLevel2Request, error)
-	SaveNutrition(ctx context.Context, trainerID, requestID string, input NutritionInput) (*models.PremiumLevel2NutritionPlan, error)
-	Deliver(ctx context.Context, trainerID, requestID string) (*models.PremiumLevel2Request, error)
+	// The work on a request, by its trainer or by RYZE (an empty TrainerID).
+	AttachTrainingProgram(ctx context.Context, handler repositories.PremiumLevel2Handler, requestID, programID string) (*models.PremiumLevel2Request, error)
+	SaveNutrition(ctx context.Context, handler repositories.PremiumLevel2Handler, requestID string, input NutritionInput) (*models.PremiumLevel2NutritionPlan, error)
+	Deliver(ctx context.Context, handler repositories.PremiumLevel2Handler, requestID string) (*models.PremiumLevel2Request, error)
 }
 
 type service struct {
@@ -108,6 +114,17 @@ type service struct {
 	// offers enables allocation by offer (nil: ADMIN_2 allocates by hand).
 	offers repositories.PremiumLevel2OfferRepository
 	now    func() time.Time
+	// commission splits the service sale for the delivering trainer.
+	commission CommissionSplitter
+}
+
+// CommissionSplitter returns a trainer's commission (their commission rule,
+// the platform default of 30% otherwise).
+type CommissionSplitter func(ctx context.Context, trainerID string) (repositories.PremiumLevel2Split, error)
+
+// WithCommission records the trainer's share of the service sale on delivery.
+func WithCommission(splitter CommissionSplitter) ServiceOption {
+	return func(s *service) { s.commission = splitter }
 }
 
 // ServiceOption configures an optional collaborator.
@@ -229,9 +246,9 @@ func (s *service) SubmitIntake(ctx context.Context, userID, requestID string, an
 		return nil, nil, fmt.Errorf("failed to submit premium level 2 intake: %w", err)
 	}
 	s.notifyIntakeReceived(ctx, requestID, intake)
-	// Offer the request to an available trainer; if this fails, the periodic
-	// sweep offers it within minutes.
-	_ = s.offerNext(ctx, requestID)
+	// Offer the request to every available trainer; if this fails, the
+	// periodic sweep offers it within minutes.
+	_ = s.offerRequest(ctx, requestID)
 	return updated, intake, nil
 }
 
@@ -348,11 +365,34 @@ func (s *service) GetTrainerRequest(ctx context.Context, trainerID, requestID st
 	return s.detail(ctx, requestID)
 }
 
-func (s *service) AttachTrainingProgram(ctx context.Context, trainerID, requestID, programID string) (*models.PremiumLevel2Request, error) {
-	if strings.TrimSpace(programID) == "" {
+func (s *service) TakeAsRyze(ctx context.Context, requestID, adminID string) (*models.PremiumLevel2Request, error) {
+	if strings.TrimSpace(adminID) == "" {
 		return nil, ErrInvalidInput
 	}
-	request, err := s.requests.SetTrainingProgram(ctx, requestID, trainerID, programID)
+	request, err := s.requests.TakeAsRyze(ctx, requestID, adminID)
+	if err != nil {
+		switch {
+		case errors.Is(err, repositories.ErrPremiumLevel2RequestNotFound):
+			return nil, ErrRequestNotFound
+		case errors.Is(err, repositories.ErrPremiumLevel2InvalidState):
+			return nil, ErrInvalidState
+		default:
+			return nil, fmt.Errorf("failed to take premium level 2 request: %w", err)
+		}
+	}
+	s.notifyAssigned(ctx, request.ID, "ryze")
+	return request, nil
+}
+
+func validHandler(handler repositories.PremiumLevel2Handler) bool {
+	return strings.TrimSpace(handler.TrainerID) != "" || strings.TrimSpace(handler.AdminID) != ""
+}
+
+func (s *service) AttachTrainingProgram(ctx context.Context, handler repositories.PremiumLevel2Handler, requestID, programID string) (*models.PremiumLevel2Request, error) {
+	if strings.TrimSpace(programID) == "" || !validHandler(handler) {
+		return nil, ErrInvalidInput
+	}
+	request, err := s.requests.SetTrainingProgram(ctx, requestID, handler, programID)
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrPremiumLevel2RequestNotFound), errors.Is(err, repositories.ErrProgramNotFound):
@@ -366,12 +406,15 @@ func (s *service) AttachTrainingProgram(ctx context.Context, trainerID, requestI
 	return request, nil
 }
 
-func (s *service) SaveNutrition(ctx context.Context, trainerID, requestID string, input NutritionInput) (*models.PremiumLevel2NutritionPlan, error) {
+func (s *service) SaveNutrition(ctx context.Context, handler repositories.PremiumLevel2Handler, requestID string, input NutritionInput) (*models.PremiumLevel2NutritionPlan, error) {
+	if !validHandler(handler) {
+		return nil, ErrInvalidInput
+	}
 	plan, err := buildNutritionPlan(input)
 	if err != nil {
 		return nil, err
 	}
-	saved, err := s.requests.SaveNutritionPlan(ctx, requestID, trainerID, plan)
+	saved, err := s.requests.SaveNutritionPlan(ctx, requestID, handler, plan)
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrPremiumLevel2RequestNotFound):
@@ -385,8 +428,19 @@ func (s *service) SaveNutrition(ctx context.Context, trainerID, requestID string
 	return saved, nil
 }
 
-func (s *service) Deliver(ctx context.Context, trainerID, requestID string) (*models.PremiumLevel2Request, error) {
-	request, err := s.requests.Deliver(ctx, requestID, trainerID)
+func (s *service) Deliver(ctx context.Context, handler repositories.PremiumLevel2Handler, requestID string) (*models.PremiumLevel2Request, error) {
+	if !validHandler(handler) {
+		return nil, ErrInvalidInput
+	}
+	var split *repositories.PremiumLevel2Split
+	if !handler.Official() && s.commission != nil {
+		computed, err := s.commission(ctx, handler.TrainerID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve the service commission: %w", err)
+		}
+		split = &computed
+	}
+	request, err := s.requests.Deliver(ctx, requestID, handler, split)
 	if err != nil {
 		switch {
 		case errors.Is(err, repositories.ErrPremiumLevel2RequestNotFound):
@@ -488,7 +542,13 @@ type NutritionMeal struct {
 	Kind  string          `json:"kind"`
 	Notes string          `json:"notes"`
 	Foods []NutritionFood `json:"foods"`
+	// ImageKey is an optional picture of the meal uploaded through
+	// /uploads/meal-image (v2.131.0).
+	ImageKey string `json:"image_key"`
 }
+
+// mealImagePattern is the shape of a meal picture key in the public uploads.
+var mealImagePattern = regexp.MustCompile(`^programs/meals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$`)
 
 type NutritionFood struct {
 	Name              string  `json:"name"`
@@ -566,6 +626,13 @@ func buildNutritionPlan(input NutritionInput) (*models.PremiumLevel2NutritionPla
 		meal := models.PremiumLevel2NutritionPlanMeal{Position: mealIndex + 1, Label: label, Kind: kind}
 		if notes != "" {
 			meal.Notes = &notes
+		}
+		if image := strings.TrimSpace(source.ImageKey); image != "" {
+			if !mealImagePattern.MatchString(image) {
+				fields[fmt.Sprintf("meals.%d.image_key", mealIndex)] = "Unknown meal picture."
+			} else {
+				meal.ImageKey = &image
+			}
 		}
 		meal.Items = make([]models.PremiumLevel2NutritionPlanMealItem, 0, len(source.Foods))
 		for foodIndex, food := range source.Foods {

@@ -3903,3 +3903,50 @@ path.
 - Lift rankings expose only the member's own lifts and aggregate counts (rank,
   participants, percentages), never another member's identity or numbers.
 
+## Embedded provider checkout (v2.130.10)
+
+- Owner rule (2026-11-23): payments always use the provider's own screens.
+  With `STRIPE_PUBLISHABLE_KEY` set, the Stripe Checkout Session is created
+  with `ui_mode=embedded_page` and Stripe's form is mounted inside the RYZE
+  checkout; card numbers and MB WAY phone numbers still go only to Stripe, and
+  completion is still verified server-side (return leg and webhook) from the
+  Checkout Session. Only the session's client secret and the publishable key
+  reach the browser.
+- The frontend Content-Security-Policy (nginx) allows exactly what Stripe
+  needs: `script-src https://js.stripe.com`, `frame-src https://js.stripe.com
+  https://checkout.stripe.com https://hooks.stripe.com`, `connect-src
+  https://api.stripe.com https://checkout.stripe.com`, `img-src
+  https://*.stripe.com`.
+
+## Legal documents, cookies and checkout consents (v2.130.12)
+
+- Public legal documents: `/legal/termos`, `/legal/privacidade`,
+  `/legal/cookies`, `/legal/aviso-legal`. They must stay true to the code: the
+  Cookie Policy lists every cookie and storage key the application sets
+  (`ryze_access_token`, `ryze_google_state`, the admin and Test Mode cookies,
+  `ryze.locale`, `ryze.planPreferences`, `ryze.cookieConsent`, the session
+  keys, and Stripe's fraud cookies during payment). Adding a cookie or a
+  processor means updating these documents.
+- RYZE uses no analytics or advertising cookies. The cookie notice keeps the
+  visitor's choice (`ryze.cookieConsent`, 12 months); any optional category
+  added later must be gated with `hasConsent()`.
+- Paid checkout requires the two consents server-side (`CONSENT_REQUIRED`) and
+  stores their time on the purchase as evidence.
+
+## v2.131.0: health consent, anonymisation, refunds, discounts
+
+- Health data (body measurements, Premium Level 2 answers) is accepted only
+  with explicit consent recorded server-side (`users.health_consent_at`,
+  intake `health_consent_at`); withdrawal erases it in one transaction.
+- Accounts deleted more than 30 days ago are anonymised hourly (identity,
+  profile, identities, tokens, follows, notifications, outbox, health data,
+  feedback, photos); invoices and purchases stay for the legal period.
+- Refunds are ADMIN_2 only (`commerce`); every refund is audited
+  (`purchase.refund`) and removes access in the same transaction.
+- Discount codes are created only by administrators (`discounts`, both
+  roles); the price is always recomputed server-side when the payment opens,
+  a code is usable once per person and never below 10% of the price.
+- RYZE working on a Premium Level 2 request is authorised by the admin
+  session and `handled_by_ryze`; a trainer only on requests allocated to
+  them.
+

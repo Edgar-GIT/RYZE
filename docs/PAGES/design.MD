@@ -2863,3 +2863,49 @@ visually only.
   or starts the right workout. Phones keep four bottom tabs; Recovery is in
   "Mais".
 
+## Feedback gallery (v2.130.7)
+
+- The ask card sits above the gallery. The form takes the rating, the message
+  and one optional photo (preview, remove). One feedback per member: a pending
+  one says it is being reviewed, a published one says it is in the gallery.
+- The gallery (v2.130.8, owner feedback: the tilted mosaic looked blurred
+  and was heavy) is a clean bento grid of glass cards: the first card with a
+  photo spans two columns and two rows on desktop, the others are uniform
+  (photo 4:3 with a stars badge, message, author); cards without a photo show
+  a quote mark and a longer message. Hover lifts the card and zooms the
+  photo slightly (no filters: owner decision, 2026-11-23);
+  cards fade up in sequence. It opens with six cards and grows with "Mostrar
+  mais" / "Mostrar menos" — never an endless scroll. A card opens enlarged
+  (portal dialog: photo beside the text on desktop, previous / next buttons
+  and arrow keys, Escape closes). No 3D transforms; only opacity and
+  transform animate, and nothing moves with reduced motion.
+
+## Checkout (v2.130.9, split in v2.130.11)
+
+- On the journey page: a glass summary — "O que recebes", the item, what it
+  includes, the price and one "Pagar" button (or "Iniciar sessão").
+- "Pagar" opens the payment screen (`?pagamento=1`; back closes it) in the
+  site's blues: a glass bar with "Voltar"; the order on the left (picture, item,
+  includes, total); on the right "Finalizar compra", "Pagamento seguro via
+  stripe", the methods (Cartão with card brands, MB WAY, PayPal — three tiles,
+  rows on phones; a method not set up carries "Por configurar" and, on Pay,
+  an inline message, no purchase created), what happens next, the NIF and Pay.
+  With Stripe configured with a publishable key, Stripe's own embedded form
+  appears there after Pay. Card data is only ever entered in the provider's
+  form.
+
+## Payment screen (v2.130.12) and legal pages
+
+- The payment screen uses the full width (up to 84rem): the order card (plan
+  picture with title, includes, total, trust points: secure payment, instant
+  access, no subscription) beside the payment card in numbered steps — methods
+  with payment marks, details (card illustration with card brands; MB WAY or
+  PayPal mark), receipt (NIF), consents (terms + immediate access) and Pay.
+  Phones: methods as rows, compact order.
+- Legal pages: the site's blues; hero with the document title and last update;
+  the four documents and the sections beside a glass article on desktop
+  (chips on phones); tables scroll sideways on narrow screens. The Cookie
+  Policy has "Definições de cookies".
+- Cookie notice: a glass card at the bottom left (full width on phones), equal
+  "Rejeitar opcionais" / "Aceitar todos", "Personalizar" with the categories.
+

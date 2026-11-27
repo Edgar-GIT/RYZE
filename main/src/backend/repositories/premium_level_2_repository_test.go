@@ -66,6 +66,13 @@ func TestPremiumLevel2RepositoryLifecycle(t *testing.T) {
 		t.Fatalf("create offer: %v", err)
 	}
 
+	// The completed sale of the service (its split is recorded on delivery).
+	sale := &models.Purchase{UserID: client.ID, ProgramID: offer.ID, PriceMinorUnits: 14999, Currency: "EUR",
+		PlatformAmount: 14999, Status: models.PurchaseStatusCompleted}
+	if err := tx.Create(sale).Error; err != nil {
+		t.Fatalf("create sale: %v", err)
+	}
+
 	request, err := requestRepo.CreateRequest(ctx, client.ID, offer.ID)
 	if err != nil {
 		t.Fatalf("create request: %v", err)
@@ -124,7 +131,7 @@ func TestPremiumLevel2RepositoryLifecycle(t *testing.T) {
 		t.Fatalf("create workout exercise: %v", err)
 	}
 
-	request, err = requestRepo.SetTrainingProgram(ctx, request.ID, trainer.ID, training.ID)
+	request, err = requestRepo.SetTrainingProgram(ctx, request.ID, repositories.PremiumLevel2Handler{TrainerID: trainer.ID}, training.ID)
 	if err != nil {
 		t.Fatalf("attach training program: %v", err)
 	}
@@ -132,6 +139,7 @@ func TestPremiumLevel2RepositoryLifecycle(t *testing.T) {
 		t.Fatal("expected training program attachment")
 	}
 
+	mealImage := "programs/meals/0123abcd-0123-4abc-8abc-0123456789ab.jpg"
 	plan := &models.PremiumLevel2NutritionPlan{
 		Summary:         "Balanced plan for the training week.",
 		PrepGuidance:    "Batch cook on Sunday.",
@@ -139,12 +147,12 @@ func TestPremiumLevel2RepositoryLifecycle(t *testing.T) {
 		HydrationNote:   "Drink across the day.",
 		Cautions:        json.RawMessage(`[]`),
 		Meals: []models.PremiumLevel2NutritionPlanMeal{
-			{Label: "Breakfast", Position: 1, Items: []models.PremiumLevel2NutritionPlanMealItem{{FoodName: "Oats", Category: "grain", Quantity: 80, Unit: "g", Calories: 300, ProteinGrams: 10, CarbohydrateGrams: 50, FatGrams: 6, FiberGrams: 8, Position: 1}}},
+			{Label: "Breakfast", Position: 1, ImageKey: &mealImage, Items: []models.PremiumLevel2NutritionPlanMealItem{{FoodName: "Oats", Category: "grain", Quantity: 80, Unit: "g", Calories: 300, ProteinGrams: 10, CarbohydrateGrams: 50, FatGrams: 6, FiberGrams: 8, Position: 1}}},
 			{Label: "Lunch", Position: 2, Items: []models.PremiumLevel2NutritionPlanMealItem{{FoodName: "Chicken rice", Category: "meal", Quantity: 1, Unit: "serving", Calories: 600, ProteinGrams: 45, CarbohydrateGrams: 70, FatGrams: 12, FiberGrams: 5, Position: 1}}},
 			{Label: "Dinner", Position: 3, Items: []models.PremiumLevel2NutritionPlanMealItem{{FoodName: "Salmon potatoes", Category: "meal", Quantity: 1, Unit: "serving", Calories: 650, ProteinGrams: 40, CarbohydrateGrams: 60, FatGrams: 25, FiberGrams: 7, Position: 1}}},
 		},
 	}
-	saved, err := requestRepo.SaveNutritionPlan(ctx, request.ID, trainer.ID, plan)
+	saved, err := requestRepo.SaveNutritionPlan(ctx, request.ID, repositories.PremiumLevel2Handler{TrainerID: trainer.ID}, plan)
 	if err != nil {
 		t.Fatalf("save nutrition: %v", err)
 	}
@@ -159,9 +167,17 @@ func TestPremiumLevel2RepositoryLifecycle(t *testing.T) {
 		t.Fatalf("expected ready status, got %q", request.Status)
 	}
 
-	delivered, err := requestRepo.Deliver(ctx, request.ID, trainer.ID)
+	split := &repositories.PremiumLevel2Split{CommissionBPS: 3000}
+	delivered, err := requestRepo.Deliver(ctx, request.ID, repositories.PremiumLevel2Handler{TrainerID: trainer.ID}, split)
 	if err != nil {
 		t.Fatalf("deliver: %v", err)
+	}
+	var recorded models.Purchase
+	if err := tx.First(&recorded, "id = ?", sale.ID).Error; err != nil {
+		t.Fatalf("reload sale: %v", err)
+	}
+	if recorded.CommissionBPS != 3000 || recorded.PlatformAmount != 4499 || recorded.TrainerAmount != 10500 {
+		t.Fatalf("the delivering trainer's split must be recorded on the sale, got %+v", recorded)
 	}
 	if delivered.Status != models.PremiumLevel2StatusDelivered || delivered.DeliveredAt == nil {
 		t.Fatalf("unexpected delivery state: %+v", delivered)
@@ -177,7 +193,10 @@ func TestPremiumLevel2RepositoryLifecycle(t *testing.T) {
 	if deliveredPlan.Status != "delivered" || len(deliveredPlan.Meals) != 3 {
 		t.Fatalf("unexpected delivered plan: status=%q meals=%d", deliveredPlan.Status, len(deliveredPlan.Meals))
 	}
-	if _, err := requestRepo.Deliver(ctx, request.ID, trainer.ID); err != nil {
+	if deliveredPlan.Meals[0].ImageKey == nil || *deliveredPlan.Meals[0].ImageKey != mealImage {
+		t.Fatalf("the meal picture must be kept, got %v", deliveredPlan.Meals[0].ImageKey)
+	}
+	if _, err := requestRepo.Deliver(ctx, request.ID, repositories.PremiumLevel2Handler{TrainerID: trainer.ID}, nil); err != nil {
 		t.Fatalf("idempotent delivery: %v", err)
 	}
 
@@ -235,10 +254,10 @@ func TestPremiumLevel2RepositoryRejectsInvalidTransitions(t *testing.T) {
 	if _, _, err := requestRepo.CreateIntake(ctx, request.ID, json.RawMessage(`{}`)); err != nil {
 		t.Fatalf("create intake: %v", err)
 	}
-	if _, err := requestRepo.Deliver(ctx, request.ID, "missing-trainer"); !errors.Is(err, repositories.ErrPremiumLevel2RequestNotFound) {
+	if _, err := requestRepo.Deliver(ctx, request.ID, repositories.PremiumLevel2Handler{TrainerID: "missing-trainer"}, nil); !errors.Is(err, repositories.ErrPremiumLevel2RequestNotFound) {
 		t.Fatalf("expected not found for unassigned request, got %v", err)
 	}
-	if _, err := requestRepo.SetTrainingProgram(ctx, request.ID, "missing-trainer", "missing-program"); !errors.Is(err, repositories.ErrPremiumLevel2RequestNotFound) {
+	if _, err := requestRepo.SetTrainingProgram(ctx, request.ID, repositories.PremiumLevel2Handler{TrainerID: "missing-trainer"}, "missing-program"); !errors.Is(err, repositories.ErrPremiumLevel2RequestNotFound) {
 		t.Fatalf("expected not found for foreign trainer, got %v", err)
 	}
 }

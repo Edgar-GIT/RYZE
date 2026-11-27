@@ -199,6 +199,9 @@ type PaymentResult struct {
 	CheckoutURL string
 	Provider    string
 	PurchaseID  string
+	// ClientSecret and PublishableKey: an embedded provider page (v2.130.10).
+	ClientSecret   string
+	PublishableKey string
 }
 
 // Service implements the client-facing purchase transaction flow. The
@@ -229,6 +232,7 @@ type Service interface {
 }
 
 type service struct {
+	discounts     DiscountApplier
 	programs      ProgramRepository
 	purchases     PurchaseRepository
 	entitlements  EntitlementRepository
@@ -274,6 +278,40 @@ type PurchaseFulfiller interface {
 // consumer"; anything else must pass taxid.Normalize.
 type CheckoutDetails struct {
 	TaxID string
+	// AcceptedTerms and ImmediateAccess are the buyer's checkout consents:
+	// the terms, and immediate access to the digital content with the loss
+	// of the right of withdrawal (v2.130.12).
+	AcceptedTerms   bool
+	ImmediateAccess bool
+	// KeepTaxID leaves the pending purchase's NIF as it is (the request did
+	// not carry one).
+	KeepTaxID bool
+	// DiscountCode is the buyer's discount code ("" removes one); it is only
+	// applied when SetDiscount is true (the request carried the field).
+	DiscountCode string
+	SetDiscount  bool
+}
+
+// DiscountApplier applies a discount code to the buyer's pending purchase
+// before its payment opens (v2.131.0).
+type DiscountApplier interface {
+	ApplyToPurchase(ctx context.Context, userID, purchaseID, code string) error
+}
+
+// WithDiscounts lets buyers use discount codes at checkout.
+func WithDiscounts(applier DiscountApplier) Option {
+	return func(s *service) { s.discounts = applier }
+}
+
+// consentRecorder stores the consents on the buyer's pending purchase
+// (optional, so test fakes of PurchaseRepository keep compiling).
+type consentRecorder interface {
+	RecordConsents(ctx context.Context, purchaseID, userID string, at time.Time) error
+}
+
+// consented reports whether the details carry both checkout consents.
+func consented(details []CheckoutDetails) bool {
+	return len(details) > 0 && details[0].AcceptedTerms && details[0].ImmediateAccess
 }
 
 // buyerTaxID validates the optional taxpayer number of the checkout details.
@@ -619,9 +657,14 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 
 	// The buyer's taxpayer number for the purchase document, recorded while
 	// the purchase is still pending (a concurrent completion keeps what it had).
-	if len(details) > 0 {
+	if len(details) > 0 && !details[0].KeepTaxID {
 		if err := s.purchases.SetBuyerTaxID(ctx, purchase.ID, userID, taxID); err != nil && !errors.Is(err, repositories.ErrPurchaseNotFound) {
 			return nil, fmt.Errorf("failed to record buyer tax id: %w", err)
+		}
+	}
+	if recorder, ok := s.purchases.(consentRecorder); ok && consented(details) {
+		if err := recorder.RecordConsents(ctx, purchase.ID, userID, time.Now().UTC()); err != nil && !errors.Is(err, repositories.ErrPurchaseNotFound) {
+			return nil, fmt.Errorf("failed to record checkout consents: %w", err)
 		}
 	}
 
@@ -661,6 +704,19 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 		return nil, ErrPaymentMethodMismatch
 	}
 
+	// The discount code is applied to the pending purchase before the
+	// provider payment opens, so the payment is for the discounted price.
+	if s.discounts != nil && len(details) > 0 && details[0].SetDiscount {
+		if err := s.discounts.ApplyToPurchase(ctx, userID, purchase.ID, details[0].DiscountCode); err != nil {
+			return nil, err
+		}
+		reloaded, err := s.purchases.FindByID(ctx, purchase.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reload purchase: %w", err)
+		}
+		purchase = reloaded
+	}
+
 	provider, err := s.resolver(ctx, method)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPaymentProvider, err)
@@ -697,11 +753,13 @@ func (s *service) InitiatePayment(ctx context.Context, userID, purchaseID, payme
 	}
 
 	return &PaymentResult{
-		PaymentID:   result.PaymentID,
-		Status:      result.Status,
-		CheckoutURL: result.CheckoutURL,
-		Provider:    result.Provider,
-		PurchaseID:  result.PurchaseID,
+		PaymentID:      result.PaymentID,
+		Status:         result.Status,
+		CheckoutURL:    result.CheckoutURL,
+		ClientSecret:   result.ClientSecret,
+		PublishableKey: result.PublishableKey,
+		Provider:       result.Provider,
+		PurchaseID:     result.PurchaseID,
 	}, nil
 }
 
@@ -879,6 +937,10 @@ func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID st
 		Status:          models.PurchaseStatusCompleted,
 		Test:            true,
 		BuyerTaxID:      taxID,
+	}
+	if consented(details) {
+		now := time.Now().UTC()
+		purchase.TermsAcceptedAt, purchase.ImmediateAccessRequestedAt = &now, &now
 	}
 	entitlement := &models.Entitlement{
 		UserID:    userID,

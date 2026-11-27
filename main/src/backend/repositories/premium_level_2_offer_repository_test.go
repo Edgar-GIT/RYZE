@@ -11,9 +11,10 @@ import (
 	"ryze/backend/repositories"
 )
 
-// Allocation by offer: the request goes to the available trainer with the
-// fewest open requests, one open offer at a time; a declined or expired offer
-// lets the next trainer be picked; accepting allocates the request.
+// Allocation by offer (owner decision, 2026-11-24): the request is offered
+// at once to every available trainer; the first to accept takes it, the other
+// offers are withdrawn and a late accept fails. RYZE itself can take a
+// waiting request instead.
 func TestPremiumLevel2OfferFlow(t *testing.T) {
 	db := openInvoiceDB(t)
 	tx := db.Begin()
@@ -44,12 +45,11 @@ func TestPremiumLevel2OfferFlow(t *testing.T) {
 		}
 		return trainer
 	}
-	// Other trainers in the database must not be picked by this test.
+	// Other trainers in the database must not be offered this test's requests.
 	if err := tx.Exec(`UPDATE trainers SET accepts_level2_requests = false`).Error; err != nil {
 		t.Fatalf("reset availability: %v", err)
 	}
 	first := seedTrainer("first")
-	time.Sleep(2 * time.Millisecond)
 	second := seedTrainer("second")
 
 	offer := &models.Program{Name: "Premium Level 2", Type: models.ProgramTypePremium, ProductType: models.ProgramProductTypePremiumLevel2,
@@ -67,51 +67,70 @@ func TestPremiumLevel2OfferFlow(t *testing.T) {
 		}
 		return request.ID
 	}
+	offerOf := func(created []models.PremiumLevel2Offer, trainerID string) string {
+		for _, offer := range created {
+			if offer.TrainerID == trainerID {
+				return offer.ID
+			}
+		}
+		t.Fatalf("trainer %s was not offered the request: %+v", trainerID, created)
+		return ""
+	}
 
 	requestID := newRequest("client-a")
-	picked, err := offers.PickTrainer(ctx, requestID)
-	if err != nil || picked != first.ID {
-		t.Fatalf("first pick = %q, %v (want the older trainer)", picked, err)
+	created, err := offers.OfferToAvailableTrainers(ctx, requestID, time.Now().Add(time.Hour))
+	if err != nil || len(created) != 2 {
+		t.Fatalf("every available trainer is offered the request: %+v %v", created, err)
 	}
-	opened, created, err := offers.CreateOffer(ctx, requestID, picked, time.Now().Add(time.Hour))
-	if err != nil || !created {
-		t.Fatalf("create offer: %v %v", created, err)
+	if again, err := offers.OfferToAvailableTrainers(ctx, requestID, time.Now().Add(time.Hour)); err != nil || len(again) != 0 {
+		t.Fatalf("nobody is offered the same request twice: %+v %v", again, err)
 	}
-	if _, again, err := offers.CreateOffer(ctx, requestID, second.ID, time.Now().Add(time.Hour)); err != nil || again {
-		t.Fatalf("a second open offer must not be created: %v %v", again, err)
-	}
-	if _, err := offers.DeclineOffer(ctx, opened.ID, first.ID, first.UserID, time.Now()); err != nil {
-		t.Fatalf("decline: %v", err)
-	}
-	if picked, err = offers.PickTrainer(ctx, requestID); err != nil || picked != second.ID {
-		t.Fatalf("after a decline the next trainer is picked, got %q %v", picked, err)
-	}
-	expiring, _, err := offers.CreateOffer(ctx, requestID, second.ID, time.Now().Add(time.Minute))
-	if err != nil {
-		t.Fatalf("offer to second: %v", err)
-	}
-	expired, err := offers.ExpireOffers(ctx, expiring.ExpiresAt.Add(time.Second))
-	if err != nil || len(expired) != 1 || expired[0] != requestID {
-		t.Fatalf("expire: %v %v", expired, err)
-	}
-	if picked, err = offers.PickTrainer(ctx, requestID); err != nil || picked != "" {
-		t.Fatalf("with every trainer asked, nobody is picked (ADMIN_2 allocates): %q %v", picked, err)
-	}
-
-	// Accepting allocates the request to the trainer.
-	otherID := newRequest("client-b")
-	accepted, _, err := offers.CreateOffer(ctx, otherID, first.ID, time.Now().Add(time.Hour))
-	if err != nil {
-		t.Fatalf("offer: %v", err)
-	}
-	if views, err := offers.ListOpenOffers(ctx, first.ID); err != nil || len(views) != 1 || views[0].OfferName != "Premium Level 2" {
+	if views, err := offers.ListOpenOffers(ctx, second.ID); err != nil || len(views) != 1 || views[0].OfferName != "Premium Level 2" {
 		t.Fatalf("open offers: %+v %v", views, err)
 	}
-	request, err := offers.AcceptOffer(ctx, accepted.ID, first.ID, first.UserID, time.Now())
-	if err != nil || request.TrainerID == nil || *request.TrainerID != first.ID || request.Status != models.PremiumLevel2StatusInProgress {
-		t.Fatalf("accept: %+v %v", request, err)
+	request, err := offers.AcceptOffer(ctx, offerOf(created, second.ID), second.ID, second.UserID, time.Now())
+	if err != nil || request.TrainerID == nil || *request.TrainerID != second.ID || request.Status != models.PremiumLevel2StatusInProgress {
+		t.Fatalf("first accept takes the request: %+v %v", request, err)
 	}
-	if _, err := offers.AcceptOffer(ctx, accepted.ID, first.ID, first.UserID, time.Now()); err == nil {
-		t.Fatalf("an answered offer cannot be accepted again")
+	if _, err := offers.AcceptOffer(ctx, offerOf(created, first.ID), first.ID, first.UserID, time.Now()); err == nil {
+		t.Fatalf("a late accept must fail once the request is taken")
+	}
+	if views, err := offers.ListOpenOffers(ctx, first.ID); err != nil || len(views) != 0 {
+		t.Fatalf("the other offers are withdrawn: %+v %v", views, err)
+	}
+
+	// A declined offer leaves the others open; RYZE can take the request.
+	otherID := newRequest("client-b")
+	created, err = offers.OfferToAvailableTrainers(ctx, otherID, time.Now().Add(time.Hour))
+	if err != nil || len(created) != 2 {
+		t.Fatalf("offer: %+v %v", created, err)
+	}
+	if _, err := offers.DeclineOffer(ctx, offerOf(created, first.ID), first.ID, first.UserID, time.Now()); err != nil {
+		t.Fatalf("decline: %v", err)
+	}
+	if views, err := offers.ListOpenOffers(ctx, second.ID); err != nil || len(views) != 1 {
+		t.Fatalf("a decline leaves the other offers open: %+v %v", views, err)
+	}
+	taken, err := requests.TakeAsRyze(ctx, otherID, "admin-1")
+	if err != nil || !taken.HandledByRyze || taken.TrainerID != nil || taken.Status != models.PremiumLevel2StatusInProgress {
+		t.Fatalf("RYZE takes the request: %+v %v", taken, err)
+	}
+	if views, err := offers.ListOpenOffers(ctx, second.ID); err != nil || len(views) != 0 {
+		t.Fatalf("taking the request withdraws the offers: %+v %v", views, err)
+	}
+	if _, err := requests.TakeAsRyze(ctx, otherID, "admin-1"); err == nil {
+		t.Fatalf("a taken request cannot be taken again")
+	}
+
+	// A trainer who stops accepting requests loses their open offers.
+	thirdID := newRequest("client-c")
+	if _, err := offers.OfferToAvailableTrainers(ctx, thirdID, time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("offer: %v", err)
+	}
+	if err := offers.SetTrainerAvailability(ctx, first.ID, false); err != nil {
+		t.Fatalf("availability off: %v", err)
+	}
+	if views, err := offers.ListOpenOffers(ctx, first.ID); err != nil || len(views) != 0 {
+		t.Fatalf("availability off withdraws the offers: %+v %v", views, err)
 	}
 }

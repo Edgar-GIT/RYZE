@@ -836,7 +836,19 @@ allocates an active trainer, and that trainer attaches one of their own draft
 programmes and authors the nutrition plan before delivery. Delivery creates the
 training entitlement and releases the nutrition plan to the client.
 
-Since v2.128.0 (owner decision, 2026-11-21, until AI exists) the trainer is
+Since v2.131.0 (owner decision, 2026-11-24, until AI exists) the request is
+offered at once to every trainer who accepts Premium Level 2 requests; the
+first to accept prepares it (and earns the sale minus the RYZE commission,
+30% by default); RYZE itself (ADMIN_2) can take it instead. The trainer or
+RYZE works on the request's own screen: the answers, the personal training
+plan (created there, blank or from another of their plans), the nutrition
+plan with a photo per meal, and the delivery that notifies the client and
+puts the product in their area. Administrators no longer create Level 2
+offers: the service is one platform product. The platform is self-service:
+there is no support chat and no client–trainer contact (the Contacts page
+reaches the company).
+
+Before v2.131.0 (v2.128.0, owner decision, 2026-11-21) the trainer was
 found by offer instead of waiting for ADMIN_2: after the intake the request is
 offered to an available trainer (one who turned on "accepts Premium Level 2
 requests", with the fewest open requests), who is notified and accepts or

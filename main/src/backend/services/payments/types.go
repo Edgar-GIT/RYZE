@@ -105,4 +105,9 @@ type PaymentResult struct {
 	Provider string
 	// PurchaseID is the RYZE purchase identifier this payment relates to.
 	PurchaseID string
+	// ClientSecret and PublishableKey are set for an embedded provider page
+	// (Stripe embedded Checkout): the browser mounts the provider's own form
+	// with them. Both are meant for the browser; neither grants server access.
+	ClientSecret   string
+	PublishableKey string
 }

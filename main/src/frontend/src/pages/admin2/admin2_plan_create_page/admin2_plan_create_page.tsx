@@ -17,6 +17,7 @@ import {
   type GenericProgramDetail,
   type ProgramProductTypeValue
 } from "@/services/admin2_api";
+import { attachRyzePremiumLevel2TrainingProgram } from "@/services/premium_level_2_api";
 import { ApiError } from "@utils/http_client";
 
 import { createPlanDraft, detailToPlanDraft, toGenericProgramInput, type PlanDraft } from "./plan_builder_model";
@@ -34,6 +35,11 @@ const COPY: Copy<{
   errors: Record<string, string>;
   genericError: string;
   unsaved: string;
+  requestKicker: string;
+  requestTitle: string;
+  requestBack: string;
+  requestSave: string;
+  copySuffix: string;
 }> = {
   en: {
     kicker: "Catalogue · plans",
@@ -58,7 +64,12 @@ const COPY: Copy<{
       VALIDATION_ERROR: "Some details were not accepted. Check the plan and try again."
     },
     genericError: "The plan could not be saved. Try again.",
-    unsaved: "You have unsaved changes. Leave anyway?"
+    unsaved: "You have unsaved changes. Leave anyway?",
+    requestKicker: "Premium Level 2 · RYZE personal plan",
+    requestTitle: "Client's personal plan",
+    requestBack: "Back to the request",
+    requestSave: "Save and link to the request",
+    copySuffix: "(copy)"
   },
   pt: {
     kicker: "Catálogo · planos",
@@ -83,7 +94,12 @@ const COPY: Copy<{
       VALIDATION_ERROR: "Alguns dados não foram aceites. Revê o plano e tenta de novo."
     },
     genericError: "Não foi possível guardar o plano. Tenta de novo.",
-    unsaved: "Tens alterações por guardar. Sair na mesma?"
+    unsaved: "Tens alterações por guardar. Sair na mesma?",
+    requestKicker: "Premium Nível 2 · plano pessoal RYZE",
+    requestTitle: "Plano pessoal do cliente",
+    requestBack: "Voltar ao pedido",
+    requestSave: "Guardar e ligar ao pedido",
+    copySuffix: "(cópia)"
   }
 };
 
@@ -94,11 +110,9 @@ const CATEGORY_PRICE: Record<ProgramProductTypeValue, number> = {
   premium_level_2: 1949
 };
 
-const FAMILIES: ProgramProductTypeValue[] = [
-  PROGRAM_PRODUCT_TYPE.GENERIC,
-  PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1,
-  PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2
-];
+// Premium Level 2 is one platform product made by trainers or RYZE per
+// client, never a plan administrators create here (owner request, 2026-11-24).
+const FAMILIES: ProgramProductTypeValue[] = [PROGRAM_PRODUCT_TYPE.GENERIC, PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1];
 
 // exercisesOf collects what the builder needs to show the exercises of a
 // loaded plan (names and pictures) before any catalogue request.
@@ -135,10 +149,18 @@ export default function Admin2PlanCreatePage() {
   const params = new URLSearchParams(location.search);
   const editId = params.get("edit") ?? "";
   const familyQuery = params.get("family");
+  // ?request=<id>: RYZE prepares a Premium Level 2 client's personal plan (a
+  // free platform draft linked to the request on save, never published).
+  // ?base=<id>&baseFamily=<family>: a new plan starts as a copy of another.
+  const requestId = params.get("request") ?? "";
+  const baseId = params.get("base") ?? "";
+  const baseFamily = params.get("baseFamily");
+  const requestPage = requestId ? `/admin2/premium-level-2/${encodeURIComponent(requestId)}` : "";
 
   const [family, setFamily] = useState<ProgramProductTypeValue>(
-    isProgramProductType(familyQuery) ? familyQuery : PROGRAM_PRODUCT_TYPE.GENERIC
+    requestId ? PROGRAM_PRODUCT_TYPE.GENERIC : isProgramProductType(familyQuery) && familyQuery !== PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2 ? familyQuery : PROGRAM_PRODUCT_TYPE.GENERIC
   );
+  const [loadingBase, setLoadingBase] = useState(Boolean(!editId && baseId));
   const [programId, setProgramId] = useState(editId);
   const [draft, setDraft] = useState<PlanDraft>(() => createPlanDraft(family));
   const [status, setStatus] = useState<"draft" | "published">("draft");
@@ -189,6 +211,43 @@ export default function Admin2PlanCreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId]);
 
+  // A new plan based on another one copies its training (weeks, days and
+  // details), never its cover, nutrition or catalogue family.
+  useEffect(() => {
+    if (editId || !baseId) return;
+    let cancelled = false;
+    const sourceFamily = isProgramProductType(baseFamily) ? baseFamily : PROGRAM_PRODUCT_TYPE.GENERIC;
+    fetchGenericProgram(sourceFamily, baseId)
+      .then((detail) => {
+        if (cancelled) return;
+        const copied = detailToPlanDraft(detail);
+        setDraft({
+          ...createPlanDraft(family),
+          name: `${detail.name} ${text.copySuffix}`.slice(0, 120),
+          description: copied.description,
+          level: copied.level,
+          training_type: copied.training_type,
+          duration_weeks: copied.duration_weeks,
+          frequency_per_week: copied.frequency_per_week,
+          audience: copied.audience,
+          weeks: copied.weeks
+        });
+        rememberExercises(exercisesOf(detail));
+        setDirty(true);
+      })
+      .catch(() => {
+        // The builder starts empty if the base cannot be read.
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingBase(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // The base is read once, when the page opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!dirty) return;
     const unblock = history.block(text.unsaved);
@@ -229,7 +288,7 @@ export default function Admin2PlanCreatePage() {
     setSaving(true);
     setMessage(null);
     try {
-      const nextStatus = publish ? ProgramStatusEnum.PUBLISHED : status;
+      const nextStatus = publish && !requestId ? ProgramStatusEnum.PUBLISHED : status;
       const input = toGenericProgramInput({ ...draft, status: nextStatus });
       const saved = programId
         ? await updateGenericProgram(family, programId, input)
@@ -241,7 +300,11 @@ export default function Admin2PlanCreatePage() {
       setDraft(detailToPlanDraft(saved));
       rememberExercises(exercisesOf(saved));
       setMessage({ tone: "success", text: saved.status === ProgramStatusEnum.PUBLISHED ? text.published : text.saved });
-      if (!programId) {
+      if (requestId) {
+        // The personal plan goes straight onto its request.
+        await attachRyzePremiumLevel2TrainingProgram(requestId, saved.id);
+        setRedirect(requestPage);
+      } else if (!programId) {
         setRedirect(`/admin2/plans/create?edit=${saved.id}&family=${family}`);
       }
     } catch (error) {
@@ -267,7 +330,7 @@ export default function Admin2PlanCreatePage() {
     }
   };
 
-  if (loading) {
+  if (loading || loadingBase) {
     return <AppLoading />;
   }
 
@@ -285,16 +348,17 @@ export default function Admin2PlanCreatePage() {
   return (
     <PlanBuilder
       heading={{
-        kicker: text.kicker,
-        title: programId ? draft.name || text.editTitle : text.newTitle,
-        backTo: "/admin2/plans",
-        backLabel: text.back
+        kicker: requestId ? text.requestKicker : text.kicker,
+        title: programId || baseId ? draft.name || text.editTitle : requestId ? text.requestTitle : text.newTitle,
+        backTo: requestPage || "/admin2/plans",
+        backLabel: requestId ? text.requestBack : text.back
       }}
+      draftOnlyLabel={requestId ? text.requestSave : undefined}
       draft={draft}
       onChange={change}
       categories={categories}
       category={family}
-      onCategoryChange={programId ? undefined : changeFamily}
+      onCategoryChange={programId || requestId ? undefined : changeFamily}
       showPackageOptions={family === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1}
       packageOptionsLocked={Boolean(programId)}
       hasStructure={family !== PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2}
@@ -302,6 +366,7 @@ export default function Admin2PlanCreatePage() {
       exercises={exercises}
       rememberExercises={rememberExercises}
       uploadCover={(file) => uploadPlatformCover(family, file)}
+      officialOption={family === PROGRAM_PRODUCT_TYPE.GENERIC && !requestId}
       status={status}
       saving={saving}
       message={message}

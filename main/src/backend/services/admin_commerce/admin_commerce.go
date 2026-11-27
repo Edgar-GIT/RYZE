@@ -109,10 +109,14 @@ type Purchase struct {
 	Status          string
 	Test            bool
 	Access          bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Customer        Customer
-	Program         Program
+	// PaymentMethod and the refund (v2.131.0).
+	PaymentMethod string
+	RefundedAt    *time.Time
+	RefundReason  string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Customer      Customer
+	Program       Program
 }
 
 // SalesSummary aggregates the commerce dashboard metrics over the filtered
@@ -495,7 +499,17 @@ func newProgram(model *models.Program) *Program {
 }
 
 func newPurchase(model *models.Purchase) *Purchase {
+	method, reason := "", ""
+	if model.PaymentMethod != nil {
+		method = *model.PaymentMethod
+	}
+	if model.RefundReason != nil {
+		reason = *model.RefundReason
+	}
 	return &Purchase{
+		PaymentMethod:   method,
+		RefundedAt:      model.RefundedAt,
+		RefundReason:    reason,
 		ID:              model.ID,
 		ProgramID:       model.ProgramID,
 		PriceMinorUnits: model.PriceMinorUnits,

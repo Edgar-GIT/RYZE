@@ -134,6 +134,12 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "seed-demo" {
+		runSeedDemoCommand(db, os.Args[2:])
+		_ = sqlDB.Close()
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "set-xp" {
 		runSetXPCommand(db, os.Args[2:])
 		_ = sqlDB.Close()
@@ -151,7 +157,7 @@ func main() {
 	// Background jobs (email delivery, retention) stop with the server.
 	jobsCtx, stopJobs := context.WithCancel(context.Background())
 	defer stopJobs()
-	startBackgroundJobs(jobsCtx, db, mailCfg, invoiceCfg, testModeCfg.Enabled, jwtCfg.AccessTokenTTL)
+	startBackgroundJobs(jobsCtx, db, mailCfg, invoiceCfg, uploadsCfg, testModeCfg.Enabled, jwtCfg.AccessTokenTTL)
 
 	server := &http.Server{
 		Addr:              ":" + port,

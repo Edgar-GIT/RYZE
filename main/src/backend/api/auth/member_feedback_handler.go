@@ -3,6 +3,8 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,6 +22,7 @@ type publicFeedbackResponse struct {
 	DisplayName string    `json:"display_name"`
 	Rating      int       `json:"rating"`
 	Message     string    `json:"message"`
+	HasImage    bool      `json:"has_image"`
 	PublishedAt time.Time `json:"published_at"`
 }
 
@@ -33,6 +36,7 @@ func newPublicFeedbackResponse(feedback *models.MemberFeedback) publicFeedbackRe
 		DisplayName: feedback.DisplayName,
 		Rating:      feedback.Rating,
 		Message:     feedback.Message,
+		HasImage:    feedback.ImageKey != nil,
 		PublishedAt: published,
 	}
 }
@@ -43,6 +47,7 @@ type ownFeedbackResponse struct {
 	Rating    int       `json:"rating"`
 	Message   string    `json:"message"`
 	Status    string    `json:"status"`
+	HasImage  bool      `json:"has_image"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -52,6 +57,7 @@ func newOwnFeedbackResponse(feedback *models.MemberFeedback) ownFeedbackResponse
 		Rating:    feedback.Rating,
 		Message:   feedback.Message,
 		Status:    feedback.Status,
+		HasImage:  feedback.ImageKey != nil,
 		CreatedAt: feedback.CreatedAt,
 	}
 }
@@ -64,6 +70,7 @@ type adminFeedbackResponse struct {
 	Rating      int        `json:"rating"`
 	Message     string     `json:"message"`
 	Status      string     `json:"status"`
+	HasImage    bool       `json:"has_image"`
 	ReviewedBy  *string    `json:"reviewed_by"`
 	ReviewedAt  *time.Time `json:"reviewed_at"`
 	CreatedAt   time.Time  `json:"created_at"`
@@ -77,6 +84,7 @@ func newAdminFeedbackResponse(feedback *models.MemberFeedback) adminFeedbackResp
 		Rating:      feedback.Rating,
 		Message:     feedback.Message,
 		Status:      feedback.Status,
+		HasImage:    feedback.ImageKey != nil,
 		ReviewedBy:  feedback.ReviewedBy,
 		ReviewedAt:  feedback.ReviewedAt,
 		CreatedAt:   feedback.CreatedAt,
@@ -152,12 +160,33 @@ func (h *MemberFeedbackHandler) Submit(c *gin.Context) {
 		RespondError(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required.", nil)
 		return
 	}
-	var body submitFeedbackRequest
-	if err := c.ShouldBindJSON(&body); err != nil {
-		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
-		return
+	input := member_feedback.SubmitInput{}
+	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
+		// With an image (v2.130.7): rating, message and an optional "image".
+		rating, err := strconv.Atoi(strings.TrimSpace(c.PostForm("rating")))
+		if err != nil {
+			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+			return
+		}
+		input.Rating, input.Message = rating, c.PostForm("message")
+		if header, err := c.FormFile("image"); err == nil {
+			file, err := header.Open()
+			if err != nil {
+				RespondError(c, http.StatusBadRequest, "INVALID_IMAGE", "Use a JPEG or PNG image.", nil)
+				return
+			}
+			defer file.Close()
+			input.Image = file
+		}
+	} else {
+		var body submitFeedbackRequest
+		if err := c.ShouldBindJSON(&body); err != nil {
+			RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.", nil)
+			return
+		}
+		input.Rating, input.Message = body.Rating, body.Message
 	}
-	feedback, err := h.service.Submit(c.Request.Context(), userID, member_feedback.SubmitInput{Rating: body.Rating, Message: body.Message})
+	feedback, err := h.service.Submit(c.Request.Context(), userID, input)
 	if err != nil {
 		respondFeedbackError(c, err)
 		return
@@ -262,7 +291,11 @@ func respondFeedbackError(c *gin.Context, err error) {
 	case errors.Is(err, member_feedback.ErrNotEligible):
 		RespondError(c, http.StatusForbidden, "FEEDBACK_NOT_ELIGIBLE", "Feedback opens once you have a plan.", nil)
 	case errors.Is(err, member_feedback.ErrAlreadyPending):
-		RespondError(c, http.StatusConflict, "FEEDBACK_ALREADY_PENDING", "Your previous feedback is still being reviewed.", nil)
+		RespondError(c, http.StatusConflict, "FEEDBACK_ALREADY_PENDING", "You have already left your feedback.", nil)
+	case errors.Is(err, member_feedback.ErrImageTooLarge):
+		RespondError(c, http.StatusRequestEntityTooLarge, "IMAGE_TOO_LARGE", "The image is too large.", nil)
+	case errors.Is(err, member_feedback.ErrInvalidImage):
+		RespondError(c, http.StatusBadRequest, "INVALID_IMAGE", "Use a JPEG or PNG image.", nil)
 	case errors.Is(err, member_feedback.ErrNotFound):
 		RespondError(c, http.StatusNotFound, "FEEDBACK_NOT_FOUND", "Feedback not found.", nil)
 	case errors.Is(err, member_feedback.ErrStateConflict):
@@ -270,4 +303,32 @@ func respondFeedbackError(c *gin.Context, err error) {
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}
+}
+
+// serveFeedbackImage streams a feedback picture.
+func serveFeedbackImage(c *gin.Context, service member_feedback.Service, anyStatus bool) {
+	path, err := service.ImagePath(c.Request.Context(), c.Param("id"), anyStatus)
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	c.Header("Content-Type", "image/jpeg")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
+	if anyStatus {
+		c.Header("Cache-Control", "private, no-store")
+	} else {
+		c.Header("Cache-Control", "public, max-age=3600")
+	}
+	c.File(path)
+}
+
+// Image handles GET /feedback/:id/image: only approved feedback.
+func (h *MemberFeedbackHandler) Image(c *gin.Context) {
+	serveFeedbackImage(c, h.service, false)
+}
+
+// Image handles GET /admin/feedback/:id/image for reviewers (any status).
+func (h *AdminMemberFeedbackHandler) Image(c *gin.Context) {
+	serveFeedbackImage(c, h.service, true)
 }

@@ -4,10 +4,10 @@ import {
   Dumbbell,
   FileCheck2,
   LayoutDashboard,
-  LifeBuoy,
   MessageSquare,
   Package,
   Settings,
+  TicketPercent,
   UserRoundCheck,
   Users
 } from "lucide-react";
@@ -25,15 +25,14 @@ export const ADMIN2_PATHS = {
   APPLICATIONS: "/admin2/trainer-applications",
   CLIENTS: "/admin2/clients",
   SALES: "/admin2/sales",
+  DISCOUNTS: "/admin2/discount-codes",
   FEEDBACK: "/admin2/feedback",
-  SUPPORT: "/admin2/support",
   SETTINGS: "/admin2/settings"
 } as const;
 
 export interface Admin2Badges {
   premiumLevel2?: number;
   applications?: number;
-  support?: number;
   feedback?: number;
 }
 
@@ -59,6 +58,7 @@ export const admin2NavGroups = (badges: Admin2Badges = {}): ShellNavGroup[] => [
     label: "Business",
     items: [
       item(ADMIN2_PATHS.SALES, "Sales", BarChart3),
+      item(ADMIN2_PATHS.DISCOUNTS, "Discount codes", TicketPercent),
       item(ADMIN2_PATHS.TRAINERS, "Trainers & commissions", UserRoundCheck),
       item(ADMIN2_PATHS.CLIENTS, "Members", Users)
     ]
@@ -68,7 +68,6 @@ export const admin2NavGroups = (badges: Admin2Badges = {}): ShellNavGroup[] => [
     items: [
       item(ADMIN2_PATHS.PREMIUM_LEVEL_2, "Premium L2 requests", ClipboardList, badges.premiumLevel2),
       item(ADMIN2_PATHS.APPLICATIONS, "Trainer applications", FileCheck2, badges.applications),
-      item(ADMIN2_PATHS.SUPPORT, "Support", LifeBuoy, badges.support),
       item(ADMIN2_PATHS.FEEDBACK, "Feedback", MessageSquare, badges.feedback)
     ]
   },
@@ -79,7 +78,7 @@ export const admin2Tabs = (badges: Admin2Badges = {}): ShellNavItem[] => [
   item(ADMIN2_PATHS.DASHBOARD, "Overview", LayoutDashboard),
   item(ADMIN2_PATHS.PLANS, "Plans", Package),
   item(ADMIN2_PATHS.SALES, "Sales", BarChart3),
-  item(ADMIN2_PATHS.SUPPORT, "Support", LifeBuoy, badges.support)
+  item(ADMIN2_PATHS.PREMIUM_LEVEL_2, "Premium L2", ClipboardList, badges.premiumLevel2)
 ];
 
 export const isNavActive = (pathname: string, path: string): boolean =>

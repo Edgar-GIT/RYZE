@@ -437,3 +437,13 @@
     white-space: normal;
   }
 }
+
+/* The meal's photo (v2.131.0). */
+.mealPhoto {
+  display: block;
+  width: 100%;
+  max-height: 14rem;
+  margin-bottom: 0.75rem;
+  border-radius: 14px;
+  object-fit: cover;
+}

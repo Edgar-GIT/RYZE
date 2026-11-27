@@ -44,6 +44,12 @@ const footerColumns = [
 ] as const;
 
 const utilityLinks = ["Privacy", "Terms", "Cookies"] as const;
+// The legal documents (v2.130.12; the links used to point to Our vision).
+const UTILITY_PATHS: Record<(typeof utilityLinks)[number], string> = {
+  Privacy: "/legal/privacidade",
+  Terms: "/legal/termos",
+  Cookies: "/legal/cookies"
+};
 
 const DESCRIPTION =
   "Premium fitness technology. Human coaching, adaptive programming and nutrition intelligence in one system.";
@@ -126,7 +132,7 @@ export const Footer = () => {
 
         <div className={styles.utilities} aria-label={l("Legal links")}>
           {utilityLinks.map((link) => (
-            <Link key={link} to="/our-vision">
+            <Link key={link} to={UTILITY_PATHS[link]}>
               {l(link)}
             </Link>
           ))}

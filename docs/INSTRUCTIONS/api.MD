@@ -1080,6 +1080,19 @@ Response `200 OK`:
 - `status` — provider-independent payment status (`pending`,
   `requires_action`, `failed`).
 - `purchase_id` — RYZE purchase identifier.
+- Request (v2.130.12): `accept_terms` and `immediate_access` must both be
+  `true` — the buyer accepted the Terms and Privacy Policy and asked for
+  immediate access to the digital content, acknowledging the loss of the
+  right of withdrawal; otherwise `400 CONSENT_REQUIRED`. The server records
+  when, on the purchase. The Test Mode purchase accepts the same two fields
+  and records them when given.
+- `client_secret`, `publishable_key` (v2.130.10) — set instead of
+  `checkout_url` when Stripe runs as an embedded page
+  (`STRIPE_PUBLISHABLE_KEY` configured): the browser loads Stripe.js from
+  `js.stripe.com` and mounts Stripe's own Checkout form
+  (`stripe.createEmbeddedCheckoutPage`) inside the RYZE checkout. Card data
+  goes only to Stripe; on completion Stripe sends the buyer to the return URL
+  (`STRIPE_SUCCESS_URL`), verified server-side as before.
 
 Error codes:
 
@@ -1208,8 +1221,11 @@ Error codes:
 Public, unauthenticated endpoint exposing the payment methods the backend
 currently accepts for checkout. The list is derived server-side from the
 configured payment providers (`MethodProviderMap.AvailableMethods`): a method is
-advertised only when a provider is actually configured for it. The checkout UI
-consumes this endpoint and never hard-codes a payment method.
+advertised only when a provider is actually configured for it. Since v2.130.9
+the checkout UI shows every supported method (`card`, `mbway`, `paypal`) so the
+whole screen can be reviewed, and uses this endpoint to decide which ones can
+be paid with: choosing one that is not advertised explains it is not set up and
+never starts a purchase.
 
 When no provider is configured at all the endpoint returns an empty list and
 the frontend renders checkout as unavailable.
@@ -3075,6 +3091,12 @@ Public endpoint.
 
 ## Public profile, photo and @username (v2.127.0)
 
+Since v2.130.13 (owner decision, 2026-11-23) a chosen @username is permanent,
+like the email: changing it answers HTTP 409 `USERNAME_LOCKED` (only a
+generated placeholder, `needs_username`, is chosen, once). The nickname
+changes at most once every 7 days: HTTP 409 `NICKNAME_COOLDOWN`; account
+responses carry `nickname_change_at` (when it may change again) while locked.
+
 Every account has a unique @username (the reference people see, for example
 `@teste2`) and may set a nickname (`display_name`, "alcunha", for example
 "Edgar") and a photo. Since v2.128.0 (owner decision, 2026-11-21) the name
@@ -3099,6 +3121,15 @@ the session.
   example `["bio", "socials.instagram"]`). Responses return `{ bio,
   birth_date, training_since, weight_kg, socials: [{ platform, handle, url
   }] }`.
+- Member feedback (v2.130.7): `POST /api/v1/me/feedback` accepts JSON
+  `{ rating, message }` or multipart `rating`, `message` and an optional
+  `image` (JPEG or PNG; `400 INVALID_IMAGE`, `413 IMAGE_TOO_LARGE`). One
+  feedback per member: while one is pending or approved another answers
+  `409 FEEDBACK_ALREADY_PENDING`; the eligibility `pending` field carries that
+  submission with its status. Responses carry `has_image`.
+  `GET /api/v1/feedback/:id/image` serves the picture of approved feedback
+  only; `GET /api/v1/admin/feedback/:id/image` serves any submission's picture
+  to reviewers (feedback.read).
 - `POST|GET|DELETE /api/v1/me/workout-sessions/:sessionID/photo` (v2.130.6) —
   the member's photo of their own workout. POST takes multipart `file` (JPEG
   or PNG, the image size bound; `400 INVALID_IMAGE`, `413 IMAGE_TOO_LARGE`),
@@ -7808,3 +7839,73 @@ administration dashboards).
   content is returned.
 - `GET /api/v1/admin/settings/commerce` also returns `catalog_prices`
   (`generic`, `premium_level_1`, `premium_level_2`).
+
+## Official RYZE plans (v2.130.14)
+
+ADMIN_2 generic plan create/update (`/api/v1/programs/generic`) accepts
+`official: true` (free plans only; Premium answers 400 `VALIDATION_ERROR`).
+An official plan's cover is always `programs/official/ryze_base_plan.png`
+(served at `/uploads/programs/official/ryze_base_plan.png`, embedded in the
+API); any cover sent is replaced. Since v2.130.15 that URL is the wide
+picture (colour background with the word RYZE) and
+`/uploads/programs/official/ryze_base_plan_portrait.png` the portrait "Base
+plan" picture used by portrait plan cards. A custom plan can never carry that key.
+Responses include `official`.
+
+## v2.131.0 changes (2026-11-24)
+
+### Support removed
+`/me/support/*` and `/admin/support/*` no longer exist (RYZE is
+self-service; the Contacts page reaches the company).
+
+### Premium Level 2
+- `/programs/premium-level-2`: only `GET` (list) and `GET /:programID`
+  remain; the product is created by migration 000064.
+- Offers go to every trainer who accepts Level 2 requests; the first
+  `POST /trainer/premium-level-2/offers/:offerID/accept` takes the request
+  (a later accept answers the offer-not-found error).
+- RYZE (ADMIN_2, permission `plans`):
+  `POST /admin/premium-level-2/requests/:id/take` (request waiting with its
+  intake), then `PUT .../training-program {program_id}` (a free platform
+  draft with exercises, not linked to another request),
+  `PUT .../nutrition`, `POST .../deliver`. Request responses include
+  `handled_by_ryze`; the trainer name is "RYZE".
+- Nutrition meals accept `image_key` (a key from
+  `POST /trainer/uploads/meal-image` or `POST /admin/uploads/meal-image`,
+  multipart `file`; folder `programs/meals`); plans return `image_key` per
+  meal (public URL `/uploads/<key>`).
+- `PUT /me/premium-level-2/:id/intake` needs `health_consent: true` unless
+  the member consented before (`400 HEALTH_CONSENT_REQUIRED`).
+
+### Health data consent
+`GET /me/health-consent` → `{consented_at}`; `POST` gives it; `DELETE`
+withdraws it and erases body measurements and questionnaire answers.
+`POST /me/measurements` accepts `health_consent` and answers
+`400 HEALTH_CONSENT_REQUIRED` without consent.
+
+### Refunds (ADMIN_2, permission `commerce`)
+`POST /admin/purchases/:id/refund {reason, note, already_refunded}`; reasons
+`non_conformity`, `withdrawal`, `duplicate`, `goodwill`. Errors:
+`PURCHASE_NOT_REFUNDABLE` (409), `REFUND_MANUAL_REQUIRED` (409: refund in the
+provider's dashboard, then send `already_refunded: true`),
+`REFUND_PROVIDER_FAILED` (502). Admin purchase responses include
+`payment_method`, `refunded_at`, `refund_reason`; status may be `refunded`.
+
+### Discount codes
+- Admin (ADMIN_1 and ADMIN_2, permission `discounts`):
+  `GET /admin/discount-codes`, `POST /admin/discount-codes {code,
+  percent_off (1–90), applies_to (all | premium_level_1 | premium_level_2 |
+  trainer_plans), duration_hours (1–720), max_uses|null}` (409
+  `DISCOUNT_CODE_TAKEN`), `POST /admin/discount-codes/:id/disable`.
+- Buyer: `GET /me/discount-codes/preview?code=&program_id=` →
+  `{code, percent_off, discount_minor_units, total_minor_units,
+  original_minor_units, currency, expires_at}`.
+- `POST /me/purchases/:id/payment` accepts `discount_code` (present applies
+  it, empty removes it) before the payment opens. Refusals:
+  `409 DISCOUNT_INVALID` with detail `not_found | expired | not_applicable |
+  used_up | already_used | locked`.
+
+### Training reminders
+`GET /me/training-reminders` → `{enabled}`; `PUT {enabled}`. Notification
+kind `training_reminder` (email template `training_reminder`).
+

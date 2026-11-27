@@ -1,0 +1,87 @@
+.panel {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 107, 129, 0.35);
+  border-radius: 14px;
+  background: rgba(255, 107, 129, 0.05);
+}
+
+.panel h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.reasons {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.reasons legend {
+  margin-bottom: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.reason,
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+
+.reason span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.reason small,
+.hint {
+  margin: 0;
+  opacity: 0.75;
+  font-size: 0.8rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.field textarea {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(124, 200, 255, 0.3);
+  border-radius: 10px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.04);
+  font: inherit;
+  font-weight: 400;
+}
+
+.error {
+  margin: 0;
+  color: #ff8a9b;
+  font-size: 0.85rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0;
+  color: #ffb3bf;
+  font-weight: 700;
+}

@@ -1,0 +1,206 @@
+/* The cookie notice: a glass card at the bottom left (full width on phones).
+   "Accept" and "Reject" have the same weight, as EU guidance requires. */
+.notice {
+  position: fixed;
+  z-index: 1300;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  width: min(calc(100vw - 2rem), 27rem);
+  padding: 1.1rem 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 20px;
+  color: #ffffff;
+  background: rgba(7, 26, 80, 0.94);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.8);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.icon {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  border-radius: 12px;
+  color: #02041f;
+  background: #00cbff;
+}
+
+.icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.close {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+
+.close svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.text {
+  margin: 0;
+  color: #dbe6ff;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.text a {
+  color: #7cebff;
+  font-weight: 700;
+}
+
+.categories {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.categories li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.categories span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.categories small {
+  color: #b9c8ec;
+  font-size: 0.76rem;
+}
+
+.categories em {
+  color: #2fe3a8;
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+}
+
+.switch i {
+  display: block;
+  width: 2.6rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  transition: background 160ms ease;
+}
+
+.switch i::after {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: #ffffff;
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.switch input:checked + i {
+  background: #00cbff;
+}
+
+.switch input:checked + i::after {
+  transform: translateX(1.1rem);
+}
+
+.switch input:focus-visible + i {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.choice {
+  min-height: 2.75rem;
+  border: 1.5px solid #00cbff;
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(0, 203, 255, 0.14);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.choice:hover {
+  background: rgba(0, 203, 255, 0.26);
+}
+
+.link {
+  grid-column: 1 / -1;
+  min-height: 2.5rem;
+  border: 0;
+  color: #7cebff;
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.choice:focus-visible,
+.link:focus-visible,
+.close:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch i,
+  .switch i::after {
+    transition: none;
+  }
+}

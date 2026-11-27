@@ -79,8 +79,23 @@ export interface BodyMeasurement {
 export const fetchMeasurements = async (): Promise<BodyMeasurement[]> =>
   (await apiGet<{ measurements: BodyMeasurement[] }>("/me/measurements")).measurements;
 
-/** Logs a value; the same kind on the same day replaces the earlier value. */
-export const saveMeasurement = (kind: MeasurementKind, value: number, measuredOn: string): Promise<BodyMeasurement> =>
-  apiPost<BodyMeasurement>("/me/measurements", { kind, value, measured_on: measuredOn });
+/** Logs a value; the same kind on the same day replaces the earlier value.
+ *  healthConsent gives the explicit consent for health data (needed once). */
+export const saveMeasurement = (
+  kind: MeasurementKind,
+  value: number,
+  measuredOn: string,
+  healthConsent = false
+): Promise<BodyMeasurement> =>
+  apiPost<BodyMeasurement>("/me/measurements", { kind, value, measured_on: measuredOn, health_consent: healthConsent });
+
+/** When the member consented to the processing of their health data. */
+export const fetchHealthConsent = async (): Promise<string | null> =>
+  (await apiGet<{ consented_at: string | null }>("/me/health-consent")).consented_at;
+
+/** Withdraws the consent: the server erases the measurements and the
+ *  Premium Level 2 answers. */
+export const withdrawHealthConsent = (): Promise<{ consented_at: null }> =>
+  apiDelete<{ consented_at: null }>("/me/health-consent");
 
 export const deleteMeasurement = (id: string): Promise<null> => apiDelete<null>(`/me/measurements/${encodePathSegment(id)}`);

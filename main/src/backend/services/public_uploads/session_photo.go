@@ -22,11 +22,49 @@ var SessionPhotoKeyPattern = regexp.MustCompile(`^session_photos/[0-9a-f]{8}-[0-
 
 // SaveSessionPhoto stores one workout photo and returns its key.
 func (s *Store) SaveSessionPhoto(ctx context.Context, content io.Reader) (string, error) {
+	return s.saveFitted(ctx, "session_photos", content)
+}
+
+// saveFitted stores a picture re-encoded as a JPEG, longest side at most
+// SessionPhotoMaxSide, in folder.
+func (s *Store) saveFitted(ctx context.Context, folder string, content io.Reader) (string, error) {
 	source, err := s.decodeUpload(ctx, content)
 	if err != nil {
 		return "", err
 	}
-	return s.storeJPEG("session_photos", fitWithin(source, SessionPhotoMaxSide))
+	return s.storeJPEG(folder, fitWithin(source, SessionPhotoMaxSide))
+}
+
+// Feedback images (owner request, 2026-11-23): one optional picture per
+// member feedback, in the "feedback" folder. No public uploads route serves
+// the folder: the application serves an image only once its feedback is
+// approved (and to the reviewers).
+var FeedbackImageKeyPattern = regexp.MustCompile(`^feedback/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$`)
+
+// SaveFeedbackImage stores one feedback image and returns its key.
+func (s *Store) SaveFeedbackImage(ctx context.Context, content io.Reader) (string, error) {
+	return s.saveFitted(ctx, "feedback", content)
+}
+
+// DeleteFeedbackImage removes a stored feedback image; unknown keys are ignored.
+func (s *Store) DeleteFeedbackImage(key string) error {
+	if !FeedbackImageKeyPattern.MatchString(key) {
+		return nil
+	}
+	if err := os.Remove(s.Path(key)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+// FeedbackImagePath returns the file of a valid, existing feedback image key.
+func (s *Store) FeedbackImagePath(key string) (string, bool) {
+	if !FeedbackImageKeyPattern.MatchString(key) {
+		return "", false
+	}
+	path := s.Path(key)
+	info, err := os.Stat(path)
+	return path, err == nil && info.Mode().IsRegular()
 }
 
 // DeleteSessionPhoto removes a stored workout photo; unknown keys are ignored.

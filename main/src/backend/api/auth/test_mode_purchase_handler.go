@@ -20,6 +20,9 @@ type testModePurchaseRequest struct {
 	Email string `json:"email"`
 	// TaxID is the optional taxpayer number (NIF) for the purchase document.
 	TaxID string `json:"tax_id"`
+	// Checkout consents (v2.130.12): recorded when given.
+	AcceptTerms     bool `json:"accept_terms"`
+	ImmediateAccess bool `json:"immediate_access"`
 }
 
 // TestModePurchaseHandler provisions completed test purchases for a persona
@@ -87,7 +90,7 @@ func (h *TestModePurchaseHandler) Purchase(c *gin.Context) {
 		return
 	}
 
-	purchase, err := h.purchases.CompleteTestPurchase(c.Request.Context(), userID, programID, purchases.CheckoutDetails{TaxID: req.TaxID})
+	purchase, err := h.purchases.CompleteTestPurchase(c.Request.Context(), userID, programID, purchases.CheckoutDetails{TaxID: req.TaxID, AcceptedTerms: req.AcceptTerms, ImmediateAccess: req.ImmediateAccess})
 	if err != nil {
 		h.respondError(c, err)
 		return

@@ -25,7 +25,6 @@ export interface OverviewQueues {
   premium_level_2_awaiting_trainer: number;
   premium_level_2_in_progress: number;
   premium_level_2_ready: number;
-  support_open: number;
   feedback_pending: number;
   applications_pending?: number;
 }

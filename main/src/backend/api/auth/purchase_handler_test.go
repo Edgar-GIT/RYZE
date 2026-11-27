@@ -455,7 +455,7 @@ func TestPurchaseResponseNeverExposesCommissionSplit(t *testing.T) {
 		"initiate": {
 			call: func(router *gin.Engine) (*httptest.ResponseRecorder, string) {
 				rec, _, raw := trainerClientsRequest(router, "", http.MethodPost,
-					"/api/v1/me/purchases/"+purchaseID+"/payment", `{"payment_method":"paypal"}`)
+					"/api/v1/me/purchases/"+purchaseID+"/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"paypal"}`)
 				return rec, raw
 			},
 			mustContain: purchaseID,
@@ -1028,7 +1028,7 @@ func TestPaymentHandlerForwardsContextIdentity(t *testing.T) {
 	}
 	router := newPurchaseHandlerRouter(svc, identity)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1043,7 +1043,7 @@ func TestPaymentHandlerForwardsContextIdentity(t *testing.T) {
 func TestPaymentHandlerMissingContext(t *testing.T) {
 	router := newPurchaseHandlerRouter(&stubPurchaseService{}, nil)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1074,7 +1074,7 @@ func TestPaymentHandlerErrorMapping(t *testing.T) {
 			svc := &stubPurchaseService{err: tc.err}
 			router := newPurchaseHandlerRouter(svc, identity)
 
-			rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
+			rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 			if rec.Code != tc.status {
 				t.Fatalf("expected %d, got %d (body: %s)", tc.status, rec.Code, raw)
 			}
@@ -1089,7 +1089,7 @@ func TestPaymentHandlerRepositoryFailureNotExposed(t *testing.T) {
 	svc := &stubPurchaseService{err: errLoginRepoFailure}
 	router := newPurchaseHandlerRouter(svc, "33333333-3333-3333-3333-333333333333")
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1114,7 +1114,7 @@ func TestPaymentHandlerResponseNeverExposesSensitiveData(t *testing.T) {
 	}
 	router := newPurchaseHandlerRouter(svc, identity)
 
-	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"payment_method":"card"}`)
+	rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1328,7 +1328,7 @@ func TestPaymentIntegrationSuccess(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, data, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
+	rec, data, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1368,7 +1368,7 @@ func TestPaymentIntegrationPurchaseNotFound(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/payment", `{"payment_method":"card"}`)
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+"00000000-0000-0000-0000-000000000001/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1415,7 +1415,7 @@ func TestPaymentIntegrationNotPending(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("expected 409, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1463,7 +1463,7 @@ func TestPaymentIntegrationIDOR(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1510,7 +1510,7 @@ func TestPaymentIntegrationNeverExposesSensitiveData(t *testing.T) {
 		t.Fatalf("GenerateAccessToken: %v", err)
 	}
 
-	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
+	rec, _, raw := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, raw)
 	}
@@ -1574,7 +1574,7 @@ func TestCaptureIntegrationSuccess(t *testing.T) {
 	// method is recorded at initiation and capture resolves the provider from
 	// it, never from client input. Initiate first so the purchase carries a
 	// recorded method, exactly like the production checkout flow.
-	initRec, _, rawInit := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"payment_method":"card"}`)
+	initRec, _, rawInit := trainerClientsRequest(router, jwtValue, http.MethodPost, paymentRoute+purchase.ID+"/payment", `{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`)
 	if initRec.Code != http.StatusOK {
 		t.Fatalf("initiate payment expected 200, got %d (body: %s)", initRec.Code, rawInit)
 	}
@@ -1745,13 +1745,24 @@ func TestInitiatePaymentTaxID(t *testing.T) {
 		return rec.Code
 	}
 
-	if code := send(`{"payment_method":"card","tax_id":"123456780"}`); code != http.StatusBadRequest || svc.gotPurchaseID != "" {
+	if code := send(`{"accept_terms":true,"immediate_access":true,"payment_method":"card","tax_id":"123456780"}`); code != http.StatusBadRequest || svc.gotPurchaseID != "" {
 		t.Fatalf("an invalid NIF must be rejected before the service, got %d", code)
 	}
-	if code := send(`{"payment_method":"card","tax_id":"PT 123 456 789"}`); code != http.StatusOK || len(svc.gotDetails) != 1 || svc.gotDetails[0].TaxID != "PT 123 456 789" {
+	if code := send(`{"accept_terms":true,"immediate_access":true,"payment_method":"card","tax_id":"PT 123 456 789"}`); code != http.StatusOK || len(svc.gotDetails) != 1 || svc.gotDetails[0].TaxID != "PT 123 456 789" {
 		t.Fatalf("a valid NIF must reach the service, got %d %+v", code, svc.gotDetails)
 	}
-	if code := send(`{"payment_method":"card"}`); code != http.StatusOK || len(svc.gotDetails) != 0 {
-		t.Fatalf("no NIF leaves the purchase unchanged, got %d %+v", code, svc.gotDetails)
+	if code := send(`{"accept_terms":true,"immediate_access":true,"payment_method":"card"}`); code != http.StatusOK || len(svc.gotDetails) != 1 || !svc.gotDetails[0].KeepTaxID || !svc.gotDetails[0].AcceptedTerms {
+		t.Fatalf("no NIF keeps the purchase's NIF and carries the consents, got %d %+v", code, svc.gotDetails)
+	}
+}
+
+// A paid payment needs both checkout consents (v2.130.12).
+func TestInitiatePaymentRequiresConsents(t *testing.T) {
+	router := newPurchaseHandlerRouter(&stubPurchaseService{}, "11111111-1111-4111-8111-111111111111")
+	for _, body := range []string{`{"payment_method":"card"}`, `{"payment_method":"card","accept_terms":true}`, `{"payment_method":"card","immediate_access":true}`} {
+		rec, _, raw := trainerClientsRequest(router, "", http.MethodPost, paymentRoute+"purchase-001/payment", body)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(raw, "CONSENT_REQUIRED") {
+			t.Fatalf("%s: expected 400 CONSENT_REQUIRED, got %d %s", body, rec.Code, raw)
+		}
 	}
 }

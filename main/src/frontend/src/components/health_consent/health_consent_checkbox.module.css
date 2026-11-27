@@ -1,0 +1,38 @@
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(124, 200, 255, 0.35);
+  border-radius: 14px;
+  background: rgba(0, 203, 255, 0.07);
+  color: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+
+.consent input {
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.15rem;
+  accent-color: #00cbff;
+}
+
+.consent small {
+  display: block;
+  margin-top: 0.3rem;
+  opacity: 0.8;
+  font-size: 0.8rem;
+}
+
+.consent a {
+  color: #7cebff;
+  font-weight: 700;
+}
+
+.invalid {
+  border-color: #ff6b81;
+}

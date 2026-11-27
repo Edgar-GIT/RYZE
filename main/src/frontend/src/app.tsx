@@ -6,6 +6,7 @@ import { Layout } from "@/components/layout/layout";
 import { LanguagePrompt } from "@/components/language_prompt/language_prompt";
 import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PwaUpdatePrompt } from "@/components/pwa_update_prompt/pwa_update_prompt";
+import { CookieConsent } from "@/components/cookie_consent/cookie_consent";
 import { useInitialLoading } from "@/hooks/use_initial_loading";
 import { AppRoutes } from "@/routes/app_routes";
 import { NavigationTracker, ScrollToTop } from "@/routes/scroll_to_top";
@@ -16,7 +17,6 @@ const CHROME_FREE_PATHNAMES = new Set([
   "/register",
   "/profile",
   "/achievements",
-  "/support",
   "/forgot-password",
   "/reset-password",
   "/verify-email"
@@ -49,8 +49,7 @@ export const App = () => {
     isAccountRoute ||
     pathname.startsWith("/trainer") ||
     pathname === "/profile" ||
-    pathname === "/achievements" ||
-    pathname === "/support";
+    pathname === "/achievements";
   useEffect(() => {
     document.body.classList.toggle("ryze-app", isPrivateApp);
   }, [isPrivateApp]);
@@ -66,6 +65,8 @@ export const App = () => {
         <AppRoutes />
       </Layout>
       <PwaUpdatePrompt />
+      {/* EU cookie notice (v2.130.12), once the loading screen is gone. */}
+      {!isInitialLoading ? <CookieConsent /> : null}
     </>
   );
 };

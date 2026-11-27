@@ -603,6 +603,7 @@ export const PremiumLevel1JourneyPage = () => {
                 done={{ to: `/services/my-programs/${program.id}`, label: text.open }}
                 successNote={<p>{text.successNote}</p>}
                 loginReturn={`/services/premium-level-1?goal=${goal ?? ""}`}
+                cover={cover || undefined}
               />
             </div>
           </section>

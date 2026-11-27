@@ -49,6 +49,9 @@ type adminPurchaseResponse struct {
 	Status          string                `json:"status"`
 	Test            bool                  `json:"test"`
 	Access          bool                  `json:"access"`
+	PaymentMethod   string                `json:"payment_method"`
+	RefundedAt      *time.Time            `json:"refunded_at"`
+	RefundReason    string                `json:"refund_reason"`
 	CreatedAt       time.Time             `json:"created_at"`
 	UpdatedAt       time.Time             `json:"updated_at"`
 	Customer        adminCustomerResponse `json:"customer"`
@@ -128,6 +131,9 @@ func newAdminPurchaseResponse(p *admin_commerce.Purchase) adminPurchaseResponse 
 		Status:          p.Status,
 		Test:            p.Test,
 		Access:          p.Access,
+		PaymentMethod:   p.PaymentMethod,
+		RefundedAt:      p.RefundedAt,
+		RefundReason:    p.RefundReason,
 		CreatedAt:       p.CreatedAt,
 		UpdatedAt:       p.UpdatedAt,
 		Customer:        newAdminCustomerResponse(&p.Customer),

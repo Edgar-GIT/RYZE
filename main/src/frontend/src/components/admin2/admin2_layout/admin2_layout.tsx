@@ -20,7 +20,6 @@ const badgesOf = (queues: OverviewQueues | null): Admin2Badges =>
     ? {
         premiumLevel2: queues.premium_level_2_awaiting_trainer,
         applications: queues.applications_pending,
-        support: queues.support_open,
         feedback: queues.feedback_pending
       }
     : {};

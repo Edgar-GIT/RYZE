@@ -262,6 +262,8 @@ func LoadStripe() StripeConfig {
 		SecretKey:  strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
 		SuccessURL: strings.TrimSpace(os.Getenv("STRIPE_SUCCESS_URL")),
 		CancelURL:  strings.TrimSpace(os.Getenv("STRIPE_CANCEL_URL")),
+		// Public by design (it is sent to the browser); optional.
+		PublishableKey: strings.TrimSpace(os.Getenv("STRIPE_PUBLISHABLE_KEY")),
 	}
 }
 

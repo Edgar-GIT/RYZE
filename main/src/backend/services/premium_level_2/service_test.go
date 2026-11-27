@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"ryze/backend/repositories"
 	"ryze/backend/services/premium_level_2"
 )
 
@@ -25,7 +26,7 @@ func validNutritionInput() premium_level_2.NutritionInput {
 
 func TestSaveNutritionRejectsIncompletePlanBeforePersistence(t *testing.T) {
 	svc := premium_level_2.NewService(nil, nil, nil)
-	_, err := svc.SaveNutrition(t.Context(), "trainer", "request", premium_level_2.NutritionInput{})
+	_, err := svc.SaveNutrition(t.Context(), repositories.PremiumLevel2Handler{TrainerID: "trainer"}, "request", premium_level_2.NutritionInput{})
 	var validation *premium_level_2.ValidationError
 	if !errors.As(err, &validation) {
 		t.Fatalf("expected validation error, got %v", err)
