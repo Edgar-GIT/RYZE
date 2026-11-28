@@ -17,7 +17,7 @@ import {
   type GenericProgramDetail,
   type ProgramProductTypeValue
 } from "@/services/admin2_api";
-import { attachRyzePremiumLevel2TrainingProgram } from "@/services/premium_level_2_api";
+import { attachRyzePremiumLevel2TrainingProgram, uploadAdminMealImage } from "@/services/premium_level_2_api";
 import { ApiError } from "@utils/http_client";
 
 import { createPlanDraft, detailToPlanDraft, toGenericProgramInput, type PlanDraft } from "./plan_builder_model";
@@ -370,6 +370,7 @@ export default function Admin2PlanCreatePage() {
       exercises={exercises}
       rememberExercises={rememberExercises}
       uploadCover={(file) => uploadPlatformCover(family, file)}
+      uploadMealImage={uploadAdminMealImage}
       officialOption={family === PROGRAM_PRODUCT_TYPE.GENERIC && !requestId}
       status={status}
       saving={saving}

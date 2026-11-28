@@ -1700,6 +1700,31 @@ programme can be archived. At most 15 archived programmes per owner: per
 `trainer_id IS NULL`; the count runs under a lock (the trainer row `FOR
 UPDATE`, or a transaction advisory lock for the platform).
 
+### Programme Versions, Package Ranges, Meal Media (migrations 000073–000076, v2.133.0)
+
+- `programs.previous_version_id`, `programs.version_root_id` (FKs to
+  `programs`) and `programs.superseded_at`: a sold package is edited through
+  a new version (a copy). Publishing it (one transaction) sets the old
+  version's `superseded_at` and `archived_at`, and adds its view count to the
+  new one. Superseded rows stay `published` for their buyers, are hidden from
+  trainer lists, never count as archived and can never be restored.
+  `COALESCE(version_root_id, id)` identifies a package across versions
+  (Level 1 matching and purchases refuse another version of an owned
+  package).
+- `programs.min_height_cm`/`max_height_cm` (120–230), `min_weight_kg`/
+  `max_weight_kg` (30–300), `min_age`/`max_age` (14–100), all nullable
+  ("any"), Premium Level 1 only (`chk_programs_criteria_level1`); minimum
+  never above maximum. Level 1 matching requires the client's answer inside
+  every set range.
+- 000075 relaxes `chk_programs_product_metadata` so a curated Level 1 draft
+  may lack its objective, and converts trainers' older Premium plans
+  (`product_type = 'generic'`, `type = 'premium'`) into Level 1 drafts.
+- `curated_nutrition_plan_meals.image_key`, `alternatives` (≤ 500 chars) and
+  `alternatives_image_key` (keys under `programs/meals/`), also exposed by
+  `v_curated_nutrition_plan_meal`.
+- A completed purchase blocks in-place changes of a trainer programme inside
+  the structure and meal-plan transactions (in addition to the route guard).
+
 Trainer Premium programmes are Premium Level 1 packages since v2.132.0
 (`product_type = 'premium_level_1'`, `objective`, `nutrition_mode =
 'curated'`); their meal plan uses the curated nutrition tables below.

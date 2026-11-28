@@ -143,3 +143,24 @@ func (r *entitlementRepository) SoftDelete(ctx context.Context, userID, entitlem
 	}
 	return nil
 }
+
+// OwnsOtherVersion reports whether the user has an active entitlement to
+// another version of the same package (v2.133.0): versions share their
+// lineage root, so a buyer of version 1 is not sold version 2.
+func (r *entitlementRepository) OwnsOtherVersion(ctx context.Context, userID, programID string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Raw(`
+SELECT COUNT(*)
+FROM entitlements e
+JOIN programs owned ON owned.id = e.program_id
+JOIN programs target ON target.id = ?
+WHERE e.user_id = ? AND e.deleted_at IS NULL
+  AND (e.expires_at IS NULL OR e.expires_at > CURRENT_TIMESTAMP)
+  AND e.program_id <> target.id
+  AND COALESCE(owned.version_root_id, owned.id) = COALESCE(target.version_root_id, target.id)`, programID, userID).
+		Scan(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("failed to check owned versions: %w", err)
+	}
+	return count > 0, nil
+}

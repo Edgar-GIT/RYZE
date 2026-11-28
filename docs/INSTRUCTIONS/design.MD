@@ -254,7 +254,29 @@ Archivo (variable, SIL Open Font License, self-hosted in
   (about 30 fps for the idle motion); rendering only while on screen; full
   disposal on unmount and on any creation failure, which falls back to the
   stacked layout. Objects scale with the stage aspect ratio.
-- Scene content: the hero's opening (owner request, 2026-11-15, which replaced the earlier
+- Hero composition since v2.133.2 (owner's reference picture, 2026-11-28;
+  replaces the picture test of 2026-11-21 and the drone opening below, which
+  no longer plays): on the page's blue, with no floor, a RYZE round-plate
+  dumbbell (dark metallic navy plates, chrome hubs and spin-lock collars,
+  knurled grip) lies diagonally in front on the left; the RYZE shaker (navy
+  satin body, teal lid with flip spout and carry loop, the RYZE mark) stands
+  tall in the middle; the story's phone with the real training screen stands
+  on its right on a clear stand (the food plate was removed the same day,
+  owner request, and the group moved further right of the copy); behind
+  them a large frosted glass pane with a bright edge, faint grid lines and a
+  glowing cyan line climbing to an arrow, with a light fill beneath. Desktop
+  only, as before; phones and tablets keep the copy without 3D.
+  Since v2.134.0 (owner request, 2026-11-28): the shaker is satin black with a
+  graphite-grey lid and stands in front of the dumbbell's far end, hiding a
+  little of it; the phone stands further right and forward, turned more to
+  the side; the chart is smoked black glass with a fine silver edge and a
+  silver-white line that draws itself from the left with the arrow on its
+  tip, holds, fades and rises again (an 8 s loop). The devices are black,
+  silver and chrome: a polished chrome phone frame with a black glass back
+  and camera plateau, a dark metal laptop (it reads silver in the studio
+  light) with black keys and well, a chrome trackpad edge and hinge. This
+  replaces the light metals of 2026-11-15 described below.
+- Former scene content: the hero's opening (owner request, 2026-11-15, which replaced the earlier
   hologram athlete and its readout): when the page opens, a scanning drone
   (satin graphite pod with a light ring, ducted rotors and a sensor array) flies
   in from the right with a small overshoot and settle, opens a beam downwards

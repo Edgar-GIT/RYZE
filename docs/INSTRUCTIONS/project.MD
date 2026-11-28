@@ -341,18 +341,40 @@ Trainers can:
   Level 1 questionnaire matching. Buyers receive the meal plan through the
   existing curated Level 1 delivery; the trainer commission applies. A
   published plan cannot change between Free and Premium.
-- Edit packs
+- Edit packs. Since v2.133.0 (owner decision, 2026-11-27) a sold package is
+  never changed in place: its buyers keep the version they bought. Editing a
+  sold package creates a new version (a full copy as a draft: details, weeks,
+  days, exercises, sets, meal plan and ranges); publishing it replaces the old
+  version on the market, and the old one stays (off the market, hidden from
+  the trainer's lists) for its buyers. A sold package cannot be deleted
+  (archive it instead), and a buyer of one version is never sold or
+  recommended another version of the same package.
+- Set who a Premium package is for (v2.133.0): optional height, weight and
+  age ranges ("Any" by default); the Level 1 questionnaire only recommends a
+  package to people inside its ranges. The same applies to RYZE's Level 1
+  packages.
+- Meal plans of Premium packages (trainer and RYZE) can carry a photo of each
+  meal and a line of food alternatives with an optional photo (v2.133.0);
+  buyers see them in their meal plan.
 - Publish packs (then the programme list confirms it in green)
 - Archive packs (v2.132.0): a published programme leaves the market for a
   while (catalogue, store, coach profile, Level 1 matching, new purchases and
   new free activations) and can be put back at any time. People who already
   have it keep full access. At most 15 archived programmes per trainer; the
   platform (RYZE) has its own limit of 15 across its families.
+- Trainers' Premium plans made before v2.132.0 were converted into Level 1
+  packages (migration 000075) and set to draft until the trainer adds the
+  objective and the meal plan; their buyers keep access.
 - View statistics (sales and earnings, views per plan, programmes by state
   and type, clients and Level 2 requests: `/trainer/stats`)
 - Have a public page: since v2.132.0 the coach's page is their member profile
-  (`/u/<username>`) with the "RYZE coach" badge and the plans they created;
-  `/coaches/<trainerId>` redirects there.
+  (`/u/<username>`) with the "RYZE coach" badge; `/coaches/<trainerId>`
+  redirects there. Since v2.133.1 (owner request, 2026-11-28) it shows
+  counters instead of a list of plans: plans created (on the market),
+  subscriptions (real completed purchases of the coach's plans; Test Mode
+  excluded) and views. A Premium Level 1 package is reached through the Level
+  1 questionnaire: its programme page points there instead of offering a
+  purchase.
 - Manage clients
 - Access trainer dashboards
 

@@ -56,7 +56,18 @@ func TestPremiumJourneyRepository(t *testing.T) {
 	}
 
 	repo := repositories.NewPremiumJourneyRepository(tx)
-	candidates, err := repo.ListMatchCandidates(ctx, user.ID, objective, female)
+	tall := repositories.MatchProfile{Objective: objective, Sex: female, HeightCm: 181, WeightKg: 70, Age: 30}
+	// v2.133.0: a package only for 150–170 cm, and a new version of the owned
+	// package; neither is offered to this client.
+	shortOnly := makePackage("Short only", models.ProgramStatusPublished, nil)
+	if err := tx.Model(shortOnly).Updates(map[string]any{"min_height_cm": 150, "max_height_cm": 170}).Error; err != nil {
+		t.Fatalf("ranges: %v", err)
+	}
+	ownedV2 := makePackage("Owned, version 2", models.ProgramStatusPublished, nil)
+	if err := tx.Model(ownedV2).Updates(map[string]any{"version_root_id": owned.ID, "previous_version_id": owned.ID}).Error; err != nil {
+		t.Fatalf("version: %v", err)
+	}
+	candidates, err := repo.ListMatchCandidates(ctx, user.ID, tall)
 	if err != nil {
 		t.Fatalf("ListMatchCandidates: %v", err)
 	}
@@ -69,7 +80,13 @@ func TestPremiumJourneyRepository(t *testing.T) {
 	if len(candidates) != 2 || !ids[free.ID] || !ids[forHer.ID] {
 		t.Fatalf("candidates = %v, want the unowned package for everyone and the one for women", candidates)
 	}
-	total, err := repo.CountPublishedPackages(ctx, objective, male)
+	short := tall
+	short.HeightCm = 160
+	withShort, err := repo.ListMatchCandidates(ctx, user.ID, short)
+	if err != nil || len(withShort) != 3 {
+		t.Fatalf("a 160 cm client also gets the 150–170 cm package: %d, %v", len(withShort), err)
+	}
+	total, err := repo.CountPublishedPackages(ctx, repositories.MatchProfile{Objective: objective, Sex: male, HeightCm: 175, WeightKg: 80, Age: 30})
 	if err != nil || total < 3 {
 		t.Fatalf("CountPublishedPackages = %d, %v", total, err)
 	}

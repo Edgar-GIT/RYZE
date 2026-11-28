@@ -1,10 +1,11 @@
-import { ArrowLeft, BarChart3, CheckCircle2, CreditCard, Dumbbell, FileText, FlaskConical, Gift, Lock, LogIn, RefreshCw, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, CheckCircle2, CreditCard, Dumbbell, FileText, FlaskConical, Gift, Lock, LogIn, RefreshCw, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
+import { PublicAction, Waves } from "@/components/public_ui/public_ui";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { CheckoutTaxIdField } from "@/components/checkout_tax_id/checkout_tax_id_field";
@@ -20,7 +21,8 @@ import {
   type MarketplaceProgramDetail
 } from "@/services/marketplace_api";
 import type { PaymentMethodInfo } from "@/services/purchases_api";
-import { coachInitials, recordProgramView } from "@/services/coaches_api";
+import { CoachAvatar } from "@/components/coach_avatar/coach_avatar";
+import { recordProgramView } from "@/services/coaches_api";
 import {
   fetchFreeActivations,
   type FreeProgramActivation
@@ -28,7 +30,7 @@ import {
 import { COMMERCE_PT } from "@/i18n/catalogs/commerce.pt";
 import { type Catalog, useGettext, useI18n } from "@/i18n/i18n";
 import { joinClassNames } from "@utils/class_names";
-import { ApiError } from "@utils/http_client";
+import { ApiError, publicFileUrl } from "@utils/http_client";
 
 import { FreePlanOutline } from "./free_plan_outline";
 import styles from "./generic_program_detail_page.module.css";
@@ -36,6 +38,10 @@ import { useBackTarget } from "@/hooks/use_back_target";
 
 const PAGE_PT: Catalog = {
   "Created by": "Criado por",
+  "Premium Level 1 package": "Pacote Premium Nível 1",
+  "This package is matched to you by the Level 1 questionnaire (your goal, height, weight and age), so it is not bought from here.":
+    "Este pacote é-te recomendado pelo questionário do Nível 1 (objetivo, altura, peso e idade), por isso não se compra aqui.",
+  "Answer the Level 1 questionnaire": "Responder ao questionário do Nível 1",
   "See {name}'s coach profile": "Ver o perfil de treinador de {name}",
   "Free plan": "Plano gratuito",
   "Off the market": "Fora do mercado",
@@ -56,7 +62,11 @@ const PAGE_PT: Catalog = {
   "Weeks, training days, exercises and prescriptions unlock after activation or purchase. You will then be able to log every set, follow rest timers and track progress.":
     "Semanas, dias de treino, exercícios e prescrições ficam disponíveis depois da ativação ou da compra. Depois podes registar cada série, seguir os tempos de descanso e acompanhar o progresso.",
   "Guided workout sessions": "Treinos guiados",
-  "Real progress statistics": "Estatísticas reais de progresso"
+  "Real progress statistics": "Estatísticas reais de progresso",
+  Length: "Duração",
+  "Training days": "Dias de treino",
+  Level: "Nível",
+  Where: "Onde"
 };
 
 interface PurchasePanelProps {
@@ -436,30 +446,24 @@ const FreeAccessPanel = ({ programId, programName, archived = false }: FreeAcces
         </p>
         <div className={styles.purchaseActions}>
           {guest ? (
-            <Button to="/login" variant="primary" size="small" icon={<LogIn size={15} />} iconPosition="left">
+            <PublicAction to="/login" icon={<LogIn />}>
               {tr("Sign in")}
-            </Button>
+            </PublicAction>
           ) : activation ? (
-            <Button to={`/services/my-programs/${programId}`} variant="primary" size="small">
+            <PublicAction to={`/services/my-programs/${programId}`} icon={<ArrowRight />}>
               {tr("Open program")}
-            </Button>
+            </PublicAction>
+          ) : checking ? (
+            <PublicAction disabled icon={<Gift />}>
+              {tr("Get free plan")}
+            </PublicAction>
           ) : (
             // The next step is the order summary of the free plan (owner
             // request, 2026-11-20), not an immediate activation.
-            <Button
-              to={`/services/generic-program/${encodeURIComponent(programId)}/get`}
-              variant="primary"
-              size="small"
-              disabled={checking}
-              icon={<Gift size={15} />}
-              iconPosition="left"
-            >
+            <PublicAction to={`/services/generic-program/${encodeURIComponent(programId)}/get`} icon={<Gift />}>
               {tr("Get free plan")}
-            </Button>
+            </PublicAction>
           )}
-          <Button to="/services/generic-program" variant="secondary" size="small">
-            {tr("Back to Training plans")}
-          </Button>
         </div>
       </div>
     </aside>
@@ -489,6 +493,7 @@ export const GenericProgramDetailPage = () => {
   }, [programId]);
 
   const isFreeProgram = detail ? detail.type === FREE_PROGRAM_TYPE : false;
+  const isLevel1Package = detail?.product_type === "premium_level_1";
   const isTestModePurchase = testModeActive && !isFreeProgram;
 
   useEffect(() => {
@@ -546,101 +551,140 @@ export const GenericProgramDetailPage = () => {
             </div>
           ) : (
             <>
-              <header className={styles.heading}>
-                <h1 className={styles.title}>{detail.name}</h1>
-                {detail.coach ? (
-                  <Link
-                    to={`/coaches/${encodeURIComponent(detail.coach.id)}`}
-                    className={styles.coach}
-                    aria-label={tr("See {name}'s coach profile", { name: detail.coach.name })}
-                  >
-                    <span className={styles.coachAvatar} aria-hidden="true">
-                      {coachInitials(detail.coach.name)}
-                    </span>
-                    <span>
-                      <span className={styles.coachLabel}>{tr("Created by")}</span>
-                      <span className={styles.coachName}>{detail.coach.name}</span>
-                    </span>
-                  </Link>
-                ) : null}
-                {detail.description ? (
-                  <p className={styles.subtitle}>{detail.description}</p>
-                ) : null}
+              {/* Redesign (owner request, 2026-11-28): the login page's split
+                  panel — the cover on the light-blue wave half, the plan and
+                  how to get it on the navy half — then the plan week by week. */}
+              <article className={joinClassNames(ui.split, styles.hero)} aria-labelledby="plan-title">
+                <div className={joinClassNames(ui.splitPane, ui.splitLight, ui.toneLight, styles.showcase)}>
+                  <Waves />
+                  <figure className={styles.cover}>
+                    {detail.cover_image_url ? (
+                      <img src={publicFileUrl(detail.cover_image_url)} alt="" />
+                    ) : (
+                      <Dumbbell aria-hidden="true" />
+                    )}
+                    <figcaption className={joinClassNames(styles.priceTag, isFreeProgram && styles.priceTagFree)}>{priceLabel}</figcaption>
+                  </figure>
+                </div>
 
-                <div className={styles.chips}>
-                  <span className={detail.type === FREE_PROGRAM_TYPE ? styles.chipFree : styles.chipPrice}>
-                    {priceLabel}
-                  </span>
+                <div className={joinClassNames(ui.splitPane, styles.info)}>
+                  <h1 id="plan-title" className={styles.title}>
+                    {detail.name}
+                  </h1>
+                  {detail.coach ? (
+                    <Link
+                      to={`/coaches/${encodeURIComponent(detail.coach.id)}`}
+                      className={styles.coach}
+                      aria-label={tr("See {name}'s coach profile", { name: detail.coach.name })}
+                    >
+                      <CoachAvatar className={styles.coachAvatar} name={detail.coach.name} avatarUrl={detail.coach.avatar_url} />
+                      <span>
+                        <span className={styles.coachLabel}>{tr("Created by")}</span>
+                        <span className={styles.coachName}>{detail.coach.name}</span>
+                      </span>
+                    </Link>
+                  ) : null}
+                  {detail.description ? <p className={styles.subtitle}>{detail.description}</p> : null}
                   {isTestModePurchase ? (
                     <span className={styles.chipTestMode}>
                       <FlaskConical size={12} aria-hidden="true" />
                       {tr("Test Mode")}
                     </span>
                   ) : null}
-                  {detail.training_type ? (
-                    <span className={styles.chip}>{tr(detail.training_type)}</span>
-                  ) : null}
-                  {detail.level ? <span className={styles.chip}>{tr(detail.level)}</span> : null}
-                  {detail.duration_weeks !== null ? (
-                    <span className={styles.chip}>
-                      {tr(detail.duration_weeks === 1 ? "{count} week" : "{count} weeks", { count: detail.duration_weeks })}
-                    </span>
-                  ) : null}
-                  {detail.frequency_per_week !== null ? (
-                    <span className={styles.chip}>
-                      {tr(detail.frequency_per_week === 1 ? "{count} day/week" : "{count} days/week", { count: detail.frequency_per_week })}
-                    </span>
-                  ) : null}
-                </div>
 
-                {isFreeProgram ? (
-                  <FreeAccessPanel programId={programId} programName={detail.name} archived={detail.archived} />
-                ) : (
-                  <PurchasePanel
-                    isFree={false}
-                    minorUnits={detail.price_minor_units}
-                    currency={detail.currency}
-                    programId={programId}
-                    state={checkout.state}
-                    paymentMethods={checkout.paymentMethods}
-                    selectedMethod={checkout.selectedMethod}
-                    onSelectMethod={checkout.selectMethod}
-                    onBuy={() => void checkout.buy()}
-                    onRetryPurchase={(purchaseId) => void checkout.retryPurchase(purchaseId)}
-                    testMode={isTestModePurchase}
-                    testEmail={checkout.testEmail}
-                    onTestEmailChange={checkout.setTestEmail}
-                    taxId={checkout.taxId}
-                    onTaxIdChange={checkout.setTaxId}
-                    archived={detail.archived}
-                  />
-                )}
-              </header>
+                  <dl className={styles.specs}>
+                    {detail.duration_weeks !== null ? (
+                      <div>
+                        <dt>{tr("Length")}</dt>
+                        <dd>{tr(detail.duration_weeks === 1 ? "{count} week" : "{count} weeks", { count: detail.duration_weeks })}</dd>
+                      </div>
+                    ) : null}
+                    {detail.frequency_per_week !== null ? (
+                      <div>
+                        <dt>{tr("Training days")}</dt>
+                        <dd>{tr(detail.frequency_per_week === 1 ? "{count} day/week" : "{count} days/week", { count: detail.frequency_per_week })}</dd>
+                      </div>
+                    ) : null}
+                    {detail.level ? (
+                      <div>
+                        <dt>{tr("Level")}</dt>
+                        <dd>{tr(detail.level)}</dd>
+                      </div>
+                    ) : null}
+                    {detail.training_type ? (
+                      <div>
+                        <dt>{tr("Where")}</dt>
+                        <dd>{tr(detail.training_type)}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
 
-              {isFreeProgram ? <FreePlanOutline programId={programId} /> : null}
+                  {isFreeProgram ? (
+                    <FreeAccessPanel programId={programId} programName={detail.name} archived={detail.archived} />
+                  ) : isLevel1Package ? (
+                    // A Premium Level 1 package is recommended by the Level 1
+                    // questionnaire, never bought straight from here (owner,
+                    // 2026-11-28).
+                    <aside className={styles.purchase}>
+                      <div className={styles.purchaseCard}>
+                        <p className={styles.purchaseTitle}>{tr("Premium Level 1 package")}</p>
+                        <p className={styles.purchaseText}>
+                          {tr("This package is matched to you by the Level 1 questionnaire (your goal, height, weight and age), so it is not bought from here.")}
+                        </p>
+                        <div className={styles.purchaseActions}>
+                          <PublicAction to="/services/premium-level-1" icon={<ArrowRight />}>
+                            {tr("Answer the Level 1 questionnaire")}
+                          </PublicAction>
+                        </div>
+                      </div>
+                    </aside>
+                  ) : (
+                    <PurchasePanel
+                      isFree={false}
+                      minorUnits={detail.price_minor_units}
+                      currency={detail.currency}
+                      programId={programId}
+                      state={checkout.state}
+                      paymentMethods={checkout.paymentMethods}
+                      selectedMethod={checkout.selectedMethod}
+                      onSelectMethod={checkout.selectMethod}
+                      onBuy={() => void checkout.buy()}
+                      onRetryPurchase={(purchaseId) => void checkout.retryPurchase(purchaseId)}
+                      testMode={isTestModePurchase}
+                      testEmail={checkout.testEmail}
+                      onTestEmailChange={checkout.setTestEmail}
+                      taxId={checkout.taxId}
+                      onTaxIdChange={checkout.setTaxId}
+                      archived={detail.archived}
+                    />
+                  )}
+                </div>
+              </article>
 
-              {isFreeProgram ? null : (
-              <section className={styles.locked} aria-labelledby="plan-contents">
-                <div className={styles.lockedIcon}>
-                  <Lock size={20} aria-hidden="true" />
-                </div>
-                <div>
-                  <h2 id="plan-contents" className={styles.lockedTitle}>
-                    {tr("Full training structure")}
-                  </h2>
-                  <p className={styles.lockedText}>
-                    {tr("Weeks, training days, exercises and prescriptions unlock after activation or purchase. You will then be able to log every set, follow rest timers and track progress.")}
-                  </p>
-                  <ul className={styles.lockedList}>
-                    <li>
-                      <Dumbbell size={15} aria-hidden="true" /> {tr("Guided workout sessions")}
-                    </li>
-                    <li>
-                      <BarChart3 size={15} aria-hidden="true" /> {tr("Real progress statistics")}
-                    </li>
-                  </ul>
-                </div>
-              </section>
+              {isFreeProgram ? (
+                <FreePlanOutline programId={programId} />
+              ) : (
+                <section className={styles.locked} aria-labelledby="plan-contents">
+                  <div className={styles.lockedIcon}>
+                    <Lock size={20} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h2 id="plan-contents" className={styles.lockedTitle}>
+                      {tr("Full training structure")}
+                    </h2>
+                    <p className={styles.lockedText}>
+                      {tr("Weeks, training days, exercises and prescriptions unlock after activation or purchase. You will then be able to log every set, follow rest timers and track progress.")}
+                    </p>
+                    <ul className={styles.lockedList}>
+                      <li>
+                        <Dumbbell size={15} aria-hidden="true" /> {tr("Guided workout sessions")}
+                      </li>
+                      <li>
+                        <BarChart3 size={15} aria-hidden="true" /> {tr("Real progress statistics")}
+                      </li>
+                    </ul>
+                  </div>
+                </section>
               )}
             </>
           )}

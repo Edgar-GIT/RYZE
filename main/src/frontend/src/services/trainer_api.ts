@@ -1,7 +1,14 @@
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiUpload, downloadFile, encodePathSegment } from "@utils/http_client";
 
 import { AdminPagination } from "./admin_api";
-import type { GenericProgramDetail, GenericProgramInput, GenericProgramWeek, GenericProgramWeekInput, UploadedImage } from "./admin2_api";
+import type {
+  GenericProgramDetail,
+  GenericProgramInput,
+  GenericProgramWeek,
+  GenericProgramWeekInput,
+  ProgramCriteria,
+  UploadedImage
+} from "./admin2_api";
 import type { WorkoutSession } from "./workout_sessions_api";
 
 // The trainer session state comes from the backend access endpoint, which is
@@ -107,6 +114,13 @@ export interface TrainerProgram {
   objective?: string | null;
   nutrition_mode?: string | null;
   archived_at?: string | null;
+  // v2.133.0: who a Premium package is for; versions of a sold package.
+  criteria?: ProgramCriteria;
+  previous_version_id?: string | null;
+  // Single-programme read only: sold (edit through a new version) and the
+  // open new version, if any.
+  sold?: boolean;
+  draft_version_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -131,6 +145,8 @@ export interface TrainerProgramInput {
   audience?: "" | "female" | "male";
   // Required for a Premium package.
   objective?: string;
+  // Premium package ranges (v2.133.0).
+  criteria?: ProgramCriteria;
 }
 
 export type TrainerProgramUpdateInput = Partial<TrainerProgramInput>;
@@ -695,4 +711,10 @@ export const saveTrainerProgramNutrition = (
   programId: string,
   input: NonNullable<GenericProgramInput["curated_nutrition"]>
 ): Promise<GenericProgramDetail["curated_nutrition"]> => apiPut(`/trainer/programs/${encodeURIComponent(programId)}/nutrition`, input);
+
+// --- Versions (v2.133.0) ----------------------------------------------------
+// A sold package is edited through a new version: the buyers keep the version
+// they bought; publishing the new one takes the old one off the market.
+export const createTrainerProgramVersion = (programId: string): Promise<TrainerProgram> =>
+  apiPost<TrainerProgram>(`/trainer/programs/${encodeURIComponent(programId)}/versions`, {});
 

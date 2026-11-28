@@ -159,8 +159,11 @@ type ProgramInput struct {
 	CoverImage       string
 	// Official marks a free plan as an official RYZE plan: its cover is
 	// always the RYZE picture (program_details.OfficialCoverKey).
-	Official         bool
-	Audience         string
+	Official bool
+	Audience string
+	// Criteria: optional height, weight and age ranges of a Premium Level 1
+	// package, matched against the questionnaire (v2.133.0).
+	Criteria         program_details.Criteria
 	CuratedNutrition *curated_nutrition.PlanInput
 	Weeks            []WeekInput
 }
@@ -254,6 +257,7 @@ type Program struct {
 	Official         bool
 	Audience         *string
 	ArchivedAt       *time.Time
+	Criteria         program_details.Criteria
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -618,6 +622,9 @@ func (s *service) validateProgramInput(productType string, input ProgramInput) e
 	if err := program_details.ValidateAudience(productType, input.Audience); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
+	if err := program_details.ValidateCriteria(productType, input.Criteria); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
 
 	if productType == models.ProgramProductTypePremiumLevel2 {
 		return validatePremiumLevel2Offer(input)
@@ -768,6 +775,7 @@ func buildProgramModel(productType string, input ProgramInput) (*models.Program,
 		CoverImage:       program_details.OptionalCover(input.CoverImage),
 		Audience:         program_details.OptionalAudience(input.Audience),
 	}
+	input.Criteria.Apply(program)
 	if program.Status == "" {
 		program.Status = models.ProgramStatusDraft
 	}
@@ -860,6 +868,7 @@ func newProgramSummary(model *models.Program) Program {
 		Official:         program_details.IsOfficialCover(model.CoverImage),
 		Audience:         model.Audience,
 		ArchivedAt:       model.ArchivedAt,
+		Criteria:         program_details.CriteriaOf(model),
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
 	}

@@ -289,8 +289,10 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	entitlementHandler := auth.NewEntitlementsHandler(entitlementService)
 
 	trainerProgramRepository := repositories.NewProgramRepository(db)
+	programVersionRepository := repositories.NewProgramVersionRepository(db)
 	trainerProgramService := programs.NewService(trainerProgramRepository, pricingCfg,
-		programs.WithNutrition(repositories.NewCuratedNutritionRepository(db)))
+		programs.WithNutrition(repositories.NewCuratedNutritionRepository(db)),
+		programs.WithVersions(programVersionRepository))
 	trainerProgramHandler := auth.NewTrainerProgramsHandler(trainerProgramService)
 
 	premiumLevel2Repository := repositories.NewPremiumLevel2Repository(db)
@@ -666,6 +668,8 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	trainer.GET("/earnings", middleware.RequireTrainerPermission(trainerroles.PermissionProfile), trainerEarningsHandler.Get)
 	trainer.POST("/uploads/program-cover", append(limits.chain(scopeImageUpload), middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), uploadsHandler.TrainerProgramCover)...)
 	trainer.POST("/uploads/meal-image", append(limits.chain(scopeImageUpload), middleware.RequireTrainerPermission(trainerroles.PermissionClients), uploadsHandler.MealImage)...)
+	// Meal and alternatives pictures of a Premium package's meal plan (v2.133.0).
+	trainer.POST("/uploads/program-meal-image", append(limits.chain(scopeImageUpload), middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), uploadsHandler.MealImage)...)
 	trainer.GET("/premium-level-2/catalog", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.GetStaffCatalog)
 	trainer.GET("/premium-level-2/requests", middleware.RequireTrainerPermission(trainerroles.PermissionClients), premiumLevel2Handler.ListTrainerRequests)
 	// Allocation by offer (v2.128.0).
@@ -698,35 +702,37 @@ func Setup(db *gorm.DB, invoiceCfg config.InvoiceConfig, jwtCfg config.JWTConfig
 	trainer.POST("/programs", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.CreateProgram)
 	trainer.GET("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.GetProgram)
 	trainer.GET("/programs/:programID/structure", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerStructureHandler.GetStructure)
-	trainer.PUT("/programs/:programID/structure", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerStructureHandler.ReplaceStructure)
-	trainer.PATCH("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.UpdateProgram)
+	trainer.PUT("/programs/:programID/structure", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), trainerStructureHandler.ReplaceStructure)
+	trainer.PATCH("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), trainerProgramHandler.UpdateProgram)
 	trainer.POST("/programs/:programID/publish", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.PublishProgram)
-	trainer.DELETE("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.DeleteProgram)
+	trainer.DELETE("/programs/:programID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), trainerProgramHandler.DeleteProgram)
 	// The meal plan of a trainer's Premium package (Level 1, v2.132.0).
 	trainer.GET("/programs/:programID/nutrition", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.GetNutrition)
-	trainer.PUT("/programs/:programID/nutrition", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.SaveNutrition)
+	trainer.PUT("/programs/:programID/nutrition", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), trainerProgramHandler.SaveNutrition)
 	// Archive: off the market for a while, back later (v2.132.0).
 	programArchiveRepository := repositories.NewProgramArchiveRepository(db)
 	trainerArchiveHandler := auth.NewProgramArchiveHandler(programArchiveRepository, "")
 	trainer.GET("/programs-archive", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerArchiveHandler.Count)
 	trainer.POST("/programs/:programID/archive", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerArchiveHandler.Archive)
 	trainer.POST("/programs/:programID/restore", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerArchiveHandler.Restore)
-	trainer.POST("/programs/:programID/weeks", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.CreateWeek)
+	// Versions (v2.133.0): a sold package is edited through a new version.
+	trainer.POST("/programs/:programID/versions", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), trainerProgramHandler.CreateVersion)
+	trainer.POST("/programs/:programID/weeks", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), programStructureHandler.CreateWeek)
 	trainer.GET("/programs/:programID/weeks", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ListWeeks)
-	trainer.PATCH("/programs/:programID/weeks/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ReorderWeeks)
+	trainer.PATCH("/programs/:programID/weeks/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), programStructureHandler.ReorderWeeks)
 	trainer.GET("/programs/:programID/weeks/:weekID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.GetWeek)
-	trainer.DELETE("/programs/:programID/weeks/:weekID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.DeleteWeek)
-	trainer.POST("/programs/:programID/weeks/:weekID/workouts", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.CreateWorkout)
+	trainer.DELETE("/programs/:programID/weeks/:weekID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), programStructureHandler.DeleteWeek)
+	trainer.POST("/programs/:programID/weeks/:weekID/workouts", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), programStructureHandler.CreateWorkout)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ListWorkouts)
-	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.ReorderWorkouts)
+	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), programStructureHandler.ReorderWorkouts)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.GetWorkout)
-	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), programStructureHandler.DeleteWorkout)
-	trainer.POST("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.AddExercise)
+	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), programStructureHandler.DeleteWorkout)
+	trainer.POST("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), workoutExerciseHandler.AddExercise)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.ListExercises)
-	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.ReorderExercises)
-	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.UpdatePrescription)
+	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/order", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), workoutExerciseHandler.ReorderExercises)
+	trainer.PATCH("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), workoutExerciseHandler.UpdatePrescription)
 	trainer.GET("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.GetExercise)
-	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), workoutExerciseHandler.DeleteExercise)
+	trainer.DELETE("/programs/:programID/weeks/:weekID/workouts/:workoutID/exercises/:workoutExerciseID", middleware.RequireTrainerPermission(trainerroles.PermissionPrograms), middleware.RefuseSoldProgram(programVersionRepository.IsSoldByTrainer), workoutExerciseHandler.DeleteExercise)
 
 	// Generic programs are the platform-owned counterpart of trainer programs.
 	// They live in the public program namespace (published versions are

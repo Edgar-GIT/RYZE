@@ -32,6 +32,7 @@ const COPY: Copy<{
   publishedOne: string;
   draftOne: string;
   archivedOne: string;
+  newVersion: string;
   open: string;
   notices: Record<"published" | "saved" | "archived" | "restored" | "deleted", (name: string) => string>;
   dismiss: string;
@@ -62,6 +63,7 @@ const COPY: Copy<{
     publishedOne: "On sale",
     draftOne: "Draft",
     archivedOne: "Archived",
+    newVersion: "New version · draft",
     open: "Open · edit, archive or delete",
     notices: {
       published: (name) => `Programme published: “${name}” is now on the market.`,
@@ -98,6 +100,7 @@ const COPY: Copy<{
     publishedOne: "À venda",
     draftOne: "Rascunho",
     archivedOne: "Arquivado",
+    newVersion: "Nova versão · rascunho",
     open: "Abrir · editar, arquivar ou apagar",
     notices: {
       published: (name) => `Programa publicado: “${name}” já está no mercado.`,
@@ -266,7 +269,13 @@ export const TrainerProgramsPage = () => {
                       state === "published" ? styles.statusLive : state === "draft" ? styles.statusDraft : styles.statusArchived
                     )}
                   >
-                    {state === "published" ? text.publishedOne : state === "draft" ? text.draftOne : text.archivedOne}
+                    {state === "published"
+                      ? text.publishedOne
+                      : state === "draft"
+                        ? program.previous_version_id
+                          ? text.newVersion
+                          : text.draftOne
+                        : text.archivedOne}
                   </span>
                 </span>
                 <span className={styles.body}>

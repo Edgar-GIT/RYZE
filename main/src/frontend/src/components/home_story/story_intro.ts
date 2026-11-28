@@ -2,22 +2,16 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
 /*
- * The Home hero's opening and its final composition (owner requests,
- * 2026-11-15): a scanning drone flies in from the right, settles over a light
- * stone table and opens a beam; inside it the scene materialises as holograms
- * — the phone with the real RYZE training screen, a pair of dumbbells, a
- * served plate with a napkin, fork and knife, and a RYZE shaker. The beam
- * closes with a flash, the drone leaves to the right and, as it goes, each
- * hologram turns into its solid object in place (a bright line climbs it,
- * solid below, hologram above, with a flash and a shock ring); shadows and
- * contact shade come with it.
+ * The Home hero's composition (owner's reference picture, 2026-11-28): on the
+ * page's blue, with no floor, a RYZE round-plate dumbbell lies diagonally in
+ * front on the left, the RYZE shaker (navy body, teal lid) stands tall in the
+ * middle, the phone with the real RYZE training screen stands on its right on
+ * a clear stand, and a large frosted glass pane behind them shows a glowing
+ * cyan progress chart. A soft shade
+ * grounds each object. Procedural, no model files.
  *
- * The final composition is one scene on one table, like a food and fitness
- * photograph: the phone, the protagonist, stands in front on a clear stand,
- * its screen to the visitor; the dumbbells rest behind it on the left; the
- * plate (grilled chicken, broccoli, quinoa, peppers) on the right with steam;
- * the shaker at the back. Light motes drift in the air. Procedural, no model
- * files; repeated small parts are instanced.
+ * The drone's projection (objects built as holograms that turn solid) is kept
+ * in this module but no longer plays: the scene starts at INTRO_END.
  *
  * The phone is the story's own phone (it carries on into the Train chapter):
  * this module gives its parts a hologram twin, clips its real materials during
@@ -36,7 +30,7 @@ export interface IntroPhone {
 }
 
 export interface HeroIntro {
-  group: THREE.Group; // surface, drone, beam, dumbbell, plate; placed by the scene
+  group: THREE.Group; // surface, drone, beam, dumbbell, shaker; placed by the scene
   seat: THREE.Matrix4; // where the phone stands, in the group's frame
   // time: seconds into the opening (INTRO_END or more: the final composition).
   update: (time: number, elapsed: number) => void;
@@ -264,58 +258,6 @@ const pointFragment = /* glsl */ `
 `;
 
 
-// Steam: a soft wisp on a camera-facing quad, rising, swaying and thinning.
-const steamVertex = /* glsl */ `
-  varying vec2 vUv;
-
-  void main() {
-    vUv = uv;
-    vec4 mvPosition = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-    float size = length(modelMatrix[0].xyz);
-    mvPosition.xy += position.xy * size;
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-const steamFragment = /* glsl */ `
-  uniform float uTime;
-  uniform float uSeed;
-  uniform float uOpacity;
-  varying vec2 vUv;
-
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-  }
-
-  float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-  }
-
-  float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int k = 0; k < 4; k++) {
-      value += amplitude * noise(p);
-      p *= 2.03;
-      amplitude *= 0.5;
-    }
-    return value;
-  }
-
-  void main() {
-    float t = uTime * 0.32 + uSeed * 10.0;
-    float sway = sin(vUv.y * 4.2 - t * 2.0 + uSeed * 6.0) * 0.13 * vUv.y;
-    float x = (vUv.x - 0.5 - sway) * 2.0;
-    float body = exp(-x * x * (7.0 - 4.5 * vUv.y));
-    float wisps = smoothstep(0.38, 0.82, fbm(vec2(vUv.x * 3.2 + uSeed, vUv.y * 2.6 - t)));
-    float rise = smoothstep(0.0, 0.22, vUv.y) * (1.0 - smoothstep(0.5, 1.0, vUv.y));
-    gl_FragColor = vec4(vec3(0.93, 0.97, 1.0), body * wisps * rise * uOpacity);
-    #include <colorspace_fragment>
-  }
-`;
 
 // Motes: tiny lights drifting slowly in the air around the composition.
 const moteVertex = /* glsl */ `
@@ -420,493 +362,307 @@ const knurlTexture = () => {
   return texture;
 };
 
-// Rice and grains: a speckled base for the bowl.
-const grainTexture = () =>
-  canvasTexture(256, 256, (context) => {
-    context.fillStyle = "#efe7d6";
-    context.fillRect(0, 0, 256, 256);
-    let seed = 11;
-    const rand = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    };
-    for (let index = 0; index < 900; index += 1) {
-      const x = rand() * 256;
-      const y = rand() * 256;
-      context.fillStyle = rand() > 0.82 ? "#c9a96b" : rand() > 0.5 ? "#fbf8f1" : "#ddd2bc";
-      context.beginPath();
-      context.ellipse(x, y, 3.2, 1.4, rand() * Math.PI, 0, Math.PI * 2);
-      context.fill();
-    }
-  });
-
-
-// Fine noise, as a bump map for the rubber.
-const noiseTexture = (size: number, repeat: number) => {
-  const texture = canvasTexture(
-    size,
-    size,
-    (context) => {
-      const image = context.createImageData(size, size);
-      for (let index = 0; index < image.data.length; index += 4) {
-        const value = 110 + Math.random() * 60;
-        image.data[index] = value;
-        image.data[index + 1] = value;
-        image.data[index + 2] = value;
-        image.data[index + 3] = 255;
-      }
-      context.putImageData(image, 0, 0);
-    },
-    false
-  );
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(repeat, repeat);
-  return texture;
-};
-
-// A grilled chicken breast: golden roast, darker edges, crisp grill bars.
-const chickenTexture = () =>
-  canvasTexture(1024, 512, (context) => {
-    const roast = context.createRadialGradient(512, 256, 40, 512, 256, 560);
-    roast.addColorStop(0, "#e2a35a");
-    roast.addColorStop(0.55, "#c47a32");
-    roast.addColorStop(1, "#7e4416");
-    context.fillStyle = roast;
-    context.fillRect(0, 0, 1024, 512);
-    // Fibres.
-    context.strokeStyle = "rgba(255,226,170,0.28)";
-    context.lineWidth = 3;
-    for (let x = -100; x < 1100; x += 22) {
-      context.beginPath();
-      context.moveTo(x, 0);
-      context.bezierCurveTo(x + 60, 170, x - 40, 340, x + 40, 512);
-      context.stroke();
-    }
-    // Grill bars, slightly charred at their edges.
-    context.lineCap = "round";
-    for (let x = 110; x < 1000; x += 132) {
-      context.strokeStyle = "rgba(92,44,12,0.55)";
-      context.lineWidth = 46;
-      context.beginPath();
-      context.moveTo(x + 90, 20);
-      context.lineTo(x - 90, 492);
-      context.stroke();
-      context.strokeStyle = "rgba(48,20,6,0.85)";
-      context.lineWidth = 24;
-      context.beginPath();
-      context.moveTo(x + 90, 20);
-      context.lineTo(x - 90, 492);
-      context.stroke();
-    }
-    for (let index = 0; index < 900; index += 1) {
-      context.fillStyle = `rgba(70,32,10,${Math.random() * 0.35})`;
-      context.fillRect(Math.random() * 1024, Math.random() * 512, 2, 2);
-    }
-  });
-
-// Linen for the napkin under the plate.
-const linenTexture = () => {
-  const texture = canvasTexture(256, 256, (context) => {
-    context.fillStyle = "#c3cedd";
-    context.fillRect(0, 0, 256, 256);
-    for (let k = 0; k < 256; k += 3) {
-      context.fillStyle = `rgba(255,255,255,${0.08 + Math.random() * 0.1})`;
-      context.fillRect(0, k, 256, 1);
-      context.fillStyle = `rgba(90,104,130,${0.06 + Math.random() * 0.08})`;
-      context.fillRect(k, 0, 1, 256);
-    }
-  });
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(3, 3);
-  return texture;
-};
-
 // --- Models -------------------------------------------------------------------------------
 
-// A hexagon with flat top and bottom faces, so a dumbbell head rests on one.
-const hexagon = (radius: number) => {
-  const shape = new THREE.Shape();
-  for (let index = 0; index < 6; index += 1) {
-    const angle = (index / 6) * Math.PI * 2;
-    const x = Math.cos(angle) * radius;
-    const y = Math.sin(angle) * radius;
-    if (index === 0) shape.moveTo(x, y);
-    else shape.lineTo(x, y);
-  }
-  shape.closePath();
-  return shape;
-};
-
-// The hex head's side face that looks up and towards the visitor (its normal
-// at 150° in the head's frame): its print reads along the dumbbell's axis.
-const PRINT_NORMAL = new THREE.Vector3(-Math.cos(Math.PI / 6), 0.5, 0);
-const PRINT_BASIS = new THREE.Quaternion().setFromRotationMatrix(
-  new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0.5, Math.cos(Math.PI / 6), 0), PRINT_NORMAL)
-);
-// Distance from the axis to a side face (the hexagon's apothem plus the bevel).
-const HEAD_APOTHEM = 0.27 * Math.cos(Math.PI / 6) + 0.035;
-
-// A hex dumbbell along x, as found in a gym: matte black rubber heads with
-// chamfered edges, a cyan band and the RYZE mark with "10 KG" printed on the
-// side, chrome flanges and collars, a knurled grip between smooth chrome
-// sleeves, the RYZE mark on each end face.
-const buildDumbbell = (track: Track, materials: DumbbellMaterials) => {
-  const group = new THREE.Group();
-  const grip = new THREE.Mesh(materials.handleGeometry, materials.steel);
-  grip.rotation.z = Math.PI / 2;
-  group.add(grip);
-  const headDepth = 0.32;
-  for (const side of [-1, 1]) {
-    const sleeve = new THREE.Mesh(materials.sleeveGeometry, materials.chrome);
-    sleeve.rotation.z = Math.PI / 2;
-    sleeve.position.x = side * 0.345;
-    const groove = new THREE.Mesh(materials.grooveGeometry, materials.chrome);
-    groove.rotation.y = Math.PI / 2;
-    groove.position.x = side * 0.29;
-    const inner = new THREE.Mesh(materials.collarGeometry, materials.chrome);
-    inner.rotation.z = Math.PI / 2;
-    inner.position.x = side * 0.43;
-    const flange = new THREE.Mesh(materials.flangeGeometry, materials.chrome);
-    flange.rotation.z = Math.PI / 2;
-    flange.position.x = side * 0.462;
-    const head = new THREE.Group();
-    head.position.x = side * (0.47 + headDepth / 2 + 0.035);
-    head.rotation.y = Math.PI / 2;
-    head.add(new THREE.Mesh(materials.headGeometry, materials.rubber));
-    // The cyan band near the handle, all round the head.
-    const band = new THREE.Mesh(materials.bandGeometry, materials.band);
-    band.position.z = -side * 0.1 - 0.007;
-    // The print on the side face: the mark over "10 KG".
-    const print = new THREE.Group();
-    print.quaternion.copy(PRINT_BASIS);
-    print.position.copy(PRINT_NORMAL).multiplyScalar(HEAD_APOTHEM + 0.003);
-    print.position.z = side * 0.02;
-    const printMark = new THREE.Mesh(materials.printMarkGeometry, materials.logo);
-    printMark.position.y = 0.05;
-    const weight = new THREE.Mesh(materials.weightGeometry, materials.weight);
-    weight.position.y = -0.075;
-    print.add(printMark, weight);
-    const face = side * (headDepth / 2 + 0.031);
-    const ring = new THREE.Mesh(materials.capGeometry, materials.chrome);
-    ring.position.z = face + side * 0.003;
-    const mark = new THREE.Mesh(materials.logoGeometry, materials.logo);
-    mark.position.z = face + side * 0.008;
-    if (side < 0) mark.rotation.y = Math.PI;
-    head.add(band, print, ring, mark);
-    group.add(sleeve, groove, inner, flange, head);
-  }
-  return group;
-};
-
-interface DumbbellMaterials {
-  steel: THREE.Material;
-  chrome: THREE.Material;
-  rubber: THREE.Material;
-  logo: THREE.Material;
-  band: THREE.Material;
-  weight: THREE.Material;
-  handleGeometry: THREE.BufferGeometry;
-  sleeveGeometry: THREE.BufferGeometry;
-  grooveGeometry: THREE.BufferGeometry;
-  collarGeometry: THREE.BufferGeometry;
-  flangeGeometry: THREE.BufferGeometry;
-  headGeometry: THREE.BufferGeometry;
-  bandGeometry: THREE.BufferGeometry;
-  capGeometry: THREE.BufferGeometry;
-  logoGeometry: THREE.BufferGeometry;
-  printMarkGeometry: THREE.BufferGeometry;
-  weightGeometry: THREE.BufferGeometry;
-}
-
-// "10 KG" in raised light grey, as moulded into the rubber.
-const weightTexture = () =>
-  canvasTexture(256, 96, (context) => {
-    context.font = "800 64px Archivo, 'Google Sans', Inter, Arial, sans-serif";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillStyle = "rgba(0,0,0,0.55)";
-    context.fillText("10 KG", 130, 52);
-    context.fillStyle = "#dfe6f0";
-    context.fillText("10 KG", 128, 49);
-  });
-
-const dumbbellMaterials = (track: Track, logo: THREE.Texture, logoAspect: number): DumbbellMaterials => {
-  const knurl = track(knurlTexture());
-  const headGeometry = track(
-    new THREE.ExtrudeGeometry(hexagon(0.27), { depth: 0.32, bevelEnabled: true, bevelSize: 0.035, bevelThickness: 0.035, bevelSegments: 5 })
-  );
-  headGeometry.translate(0, 0, -0.16);
-  const capGeometry = track(new THREE.RingGeometry(0.105, 0.125, 48));
-  // The band: a hexagonal ring standing just proud of the side faces.
-  const bandShape = hexagon(HEAD_APOTHEM / Math.cos(Math.PI / 6) + 0.005);
-  bandShape.holes.push(hexagon(HEAD_APOTHEM / Math.cos(Math.PI / 6) - 0.02));
-  const bandGeometry = track(new THREE.ExtrudeGeometry(bandShape, { depth: 0.014, bevelEnabled: false }));
-  const markHeight = Math.min(0.11, 0.22 / logoAspect);
-  return {
-    band: track(new THREE.MeshBasicMaterial({ color: 0x50e2fe })),
-    weight: track(new THREE.MeshBasicMaterial({ map: track(weightTexture()), transparent: true, depthWrite: false })),
-    sleeveGeometry: track(new THREE.CylinderGeometry(0.071, 0.071, 0.11, 40)),
-    grooveGeometry: track(new THREE.TorusGeometry(0.07, 0.006, 8, 40)),
-    flangeGeometry: track(new THREE.CylinderGeometry(0.15, 0.15, 0.016, 48)),
-    bandGeometry,
-    printMarkGeometry: track(new THREE.PlaneGeometry(markHeight * logoAspect, markHeight)),
-    weightGeometry: track(new THREE.PlaneGeometry(0.17, 0.064)),
-    steel: track(new THREE.MeshPhysicalMaterial({ color: 0xd8dee8, metalness: 1, roughness: 0.28, bumpMap: knurl, bumpScale: 1.4 })),
-    chrome: track(new THREE.MeshPhysicalMaterial({ color: 0xf4f7fb, metalness: 1, roughness: 0.07, side: THREE.DoubleSide })),
-    rubber: track(
-      new THREE.MeshPhysicalMaterial({
-        color: 0x1b1e25,
-        roughness: 0.72,
-        metalness: 0,
-        bumpMap: track(noiseTexture(128, 4)),
-        bumpScale: 0.6,
-        clearcoat: 0.15,
-        clearcoatRoughness: 0.6
-      })
-    ),
-    logo: track(new THREE.MeshBasicMaterial({ map: logo, transparent: true, depthWrite: false })),
-    handleGeometry: track(new THREE.CylinderGeometry(0.068, 0.068, 0.58, 40)),
-    collarGeometry: track(new THREE.CylinderGeometry(0.098, 0.098, 0.06, 40)),
-    headGeometry,
-    capGeometry,
-    logoGeometry: track(new THREE.PlaneGeometry(0.17 * logoAspect, 0.17))
-  };
-};
-
-// Scatters copies of a geometry with a colour each (one draw call).
-const scatter = (
-  geometry: THREE.BufferGeometry,
-  material: THREE.Material,
-  items: Array<{ position: THREE.Vector3; rotation?: THREE.Euler; scale?: number; color: THREE.Color }>
-) => {
-  const mesh = new THREE.InstancedMesh(geometry, material, items.length);
-  const matrix = new THREE.Matrix4();
-  const quaternion = new THREE.Quaternion();
-  items.forEach((item, index) => {
-    quaternion.setFromEuler(item.rotation ?? new THREE.Euler());
-    matrix.compose(item.position, quaternion, new THREE.Vector3().setScalar(item.scale ?? 1));
-    mesh.setMatrixAt(index, matrix);
-    mesh.setColorAt(index, item.color);
-  });
-  mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  return mesh;
-};
-
-// A served plate, three-quarter view, like a food photograph: a white ceramic
-// plate with a grilled chicken breast, broccoli, a mound of quinoa (grain by
-// grain) and diced peppers. Bottom at y = 0.
-const buildPlate = (track: Track) => {
-  const group = new THREE.Group();
-  let seed = 5;
-  const rand = () => {
-    seed = (seed * 16807) % 2147483647;
-    return seed / 2147483647;
-  };
-  const ceramic = track(new THREE.MeshPhysicalMaterial({ color: 0xf6f7fa, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.12 }));
-  const profile = [
-    [0, 0.012],
-    [0.36, 0.012],
-    [0.38, 0],
-    [0.41, 0],
-    [0.43, 0.014],
-    [0.52, 0.04],
-    [0.6, 0.068],
-    [0.648, 0.084],
-    [0.646, 0.095],
-    [0.6, 0.087],
-    [0.5, 0.056],
-    [0.42, 0.04],
-    [0.3, 0.034],
-    [0, 0.034]
-  ].map(([r, y]) => new THREE.Vector2(r, y));
-  group.add(new THREE.Mesh(track(new THREE.LatheGeometry(profile, 128)), ceramic));
-
-  // Grilled chicken breast: a plump teardrop with a roasted, grilled top.
-  const breast = new THREE.Shape();
-  breast.moveTo(-0.24, 0);
-  breast.bezierCurveTo(-0.24, 0.13, 0.02, 0.15, 0.2, 0.08);
-  breast.bezierCurveTo(0.3, 0.04, 0.3, -0.06, 0.2, -0.09);
-  breast.bezierCurveTo(0.02, -0.14, -0.24, -0.12, -0.24, 0);
-  const breastGeometry = track(
-    new THREE.ExtrudeGeometry(breast, { depth: 0.05, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.045, bevelSegments: 6, curveSegments: 28 })
-  );
-  breastGeometry.rotateX(-Math.PI / 2);
-  const chickenMap = track(chickenTexture());
-  chickenMap.repeat.set(1 / 0.56, 1 / 0.3);
-  chickenMap.offset.set(0.43, 0.5);
-  const chicken = new THREE.Mesh(
-    breastGeometry,
-    track(new THREE.MeshPhysicalMaterial({ map: chickenMap, roughness: 0.42, clearcoat: 0.55, clearcoatRoughness: 0.32 }))
-  );
-  chicken.position.set(-0.17, 0.08, 0.06);
-  chicken.rotation.y = 0.5;
-  group.add(chicken);
-
-  // Broccoli: stalks and florets of many little buds (one draw call for the buds).
-  const stalk = track(new THREE.MeshStandardMaterial({ color: 0x9cc25a, roughness: 0.55 }));
-  const stalkGeometry = track(new THREE.CylinderGeometry(0.018, 0.03, 0.1, 10));
-  const buds: Array<{ position: THREE.Vector3; scale: number; color: THREE.Color }> = [];
-  const florets = [
-    [0.1, -0.24],
-    [0.2, -0.18],
-    [0.02, -0.3],
-    [0.24, -0.06]
-  ];
-  for (const [fx, fz] of florets) {
-    const base = new THREE.Mesh(stalkGeometry, stalk);
-    base.position.set(fx, 0.085, fz);
-    base.rotation.set(0.25, 0, -0.2);
-    group.add(base);
-    for (let index = 0; index < 34; index += 1) {
-      const angle = rand() * Math.PI * 2;
-      const radius = Math.sqrt(rand()) * 0.07;
-      const height = 0.13 + Math.cos((radius / 0.07) * 1.4) * 0.04;
-      buds.push({
-        position: new THREE.Vector3(fx + Math.cos(angle) * radius, height, fz + Math.sin(angle) * radius),
-        scale: 0.7 + rand() * 0.6,
-        color: new THREE.Color().setHSL(0.31 + rand() * 0.03, 0.5, 0.2 + rand() * 0.1)
-      });
-    }
-  }
-  group.add(scatter(track(new THREE.SphereGeometry(0.022, 8, 6)), track(new THREE.MeshStandardMaterial({ roughness: 0.85 })), buds));
-
-  // Quinoa, grain by grain, in a low mound.
-  const grains: Array<{ position: THREE.Vector3; rotation: THREE.Euler; color: THREE.Color }> = [];
-  for (let index = 0; index < 620; index += 1) {
-    const angle = rand() * Math.PI * 2;
-    const radius = Math.sqrt(rand()) * 0.2;
-    const height = 0.038 + (1 - (radius / 0.2) ** 2) * 0.06 + rand() * 0.008;
-    grains.push({
-      position: new THREE.Vector3(-0.05 + Math.cos(angle) * radius, height, -0.2 + Math.sin(angle) * radius * 0.8),
-      rotation: new THREE.Euler(rand() * 3, rand() * 3, rand() * 3),
-      color: new THREE.Color().setHSL(0.11 + rand() * 0.03, 0.35 + rand() * 0.2, 0.72 + rand() * 0.14)
-    });
-  }
-  const grainGeometry = track(new THREE.SphereGeometry(0.0085, 6, 4));
-  grainGeometry.scale(1, 0.55, 1);
-  group.add(scatter(grainGeometry, track(new THREE.MeshStandardMaterial({ roughness: 0.6 })), grains));
-
-  // Diced peppers: red, yellow and orange, glossy.
-  const pepperColors = [0xd8261f, 0xf3b51c, 0xef6b1c];
-  const peppers: Array<{ position: THREE.Vector3; rotation: THREE.Euler; color: THREE.Color }> = [];
-  for (let index = 0; index < 22; index += 1) {
-    const angle = 0.4 + rand() * 1.8;
-    const radius = 0.24 + rand() * 0.14;
-    peppers.push({
-      position: new THREE.Vector3(Math.cos(angle) * radius + 0.05, 0.06 + rand() * 0.02, Math.sin(angle) * radius - 0.02),
-      rotation: new THREE.Euler(rand() * 0.6, rand() * 3, rand() * 0.6),
-      color: new THREE.Color(pepperColors[index % 3])
-    });
-  }
-  group.add(
-    scatter(
-      track(new RoundedBoxGeometry(0.05, 0.036, 0.05, 2, 0.01)),
-      track(new THREE.MeshPhysicalMaterial({ roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.1 })),
-      peppers
-    )
-  );
-
-  // A few herb flakes on the chicken.
-  const flakes: Array<{ position: THREE.Vector3; rotation: THREE.Euler; color: THREE.Color }> = [];
-  for (let index = 0; index < 26; index += 1) {
-    flakes.push({
-      position: new THREE.Vector3(-0.17 + (rand() - 0.5) * 0.36, 0.205 + rand() * 0.012, 0.06 + (rand() - 0.5) * 0.18),
-      rotation: new THREE.Euler(-Math.PI / 2 + (rand() - 0.5) * 0.4, 0, rand() * 3),
-      color: new THREE.Color().setHSL(0.3, 0.5, 0.18 + rand() * 0.1)
-    });
-  }
-  const flakeGeometry = track(new THREE.CircleGeometry(0.009, 5));
-  group.add(scatter(flakeGeometry, track(new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide })), flakes));
-  return group;
-};
-
-// A RYZE shaker bottle: smoky body, black lid with a flip cap, the mark and a
-// cyan level line.
+// A RYZE shaker bottle after the owner's reference (2026-11-28): a deep navy,
+// satin body tapering slightly to the base, a teal lid with a flip spout and a
+// carry loop, and the RYZE mark on the front. Bottom at y = 0.
 const buildShaker = (track: Track, logo: THREE.Texture, logoAspect: number) => {
   const group = new THREE.Group();
   const body = [
     [0, 0],
     [0.27, 0],
-    [0.3, 0.02],
-    [0.31, 0.08],
-    [0.33, 1.15],
-    [0.335, 1.2],
-    [0, 1.2]
+    [0.292, 0.012],
+    [0.3, 0.05],
+    [0.335, 1.24],
+    [0.338, 1.27],
+    [0, 1.27]
   ].map(([r, y]) => new THREE.Vector2(r, y));
-  const plastic = track(new THREE.MeshPhysicalMaterial({ color: 0x1a2436, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.15, sheen: 0.4, sheenColor: new THREE.Color(0x3a6ab0) }));
-  group.add(new THREE.Mesh(track(new THREE.LatheGeometry(body, 64)), plastic));
-  const black = track(new THREE.MeshPhysicalMaterial({ color: 0x0c0f15, roughness: 0.45, clearcoat: 0.6 }));
-  const lid = new THREE.Mesh(track(new THREE.CylinderGeometry(0.345, 0.34, 0.22, 64)), black);
-  lid.position.y = 1.31;
-  const dome = new THREE.Mesh(track(new THREE.SphereGeometry(0.3, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2)), black);
-  dome.scale.y = 0.45;
-  dome.position.y = 1.42;
-  const cap = new THREE.Mesh(track(new RoundedBoxGeometry(0.16, 0.08, 0.22, 3, 0.03)), black);
-  cap.position.set(0, 1.52, 0.04);
-  group.add(lid, dome, cap);
-  const band = new THREE.Mesh(track(new THREE.CylinderGeometry(0.333, 0.333, 0.012, 64, 1, true)), track(new THREE.MeshBasicMaterial({ color: 0x50e2fe })));
-  band.position.y = 0.95;
-  group.add(band);
+  // Black and grey since 2026-11-28 (owner request): a satin black body and
+  // a graphite-grey lid, a calm contrast on the blue.
+  const navy = track(
+    new THREE.MeshPhysicalMaterial({
+      color: 0x141519,
+      roughness: 0.38,
+      metalness: 0.1,
+      clearcoat: 0.7,
+      clearcoatRoughness: 0.2,
+      sheen: 0.45,
+      sheenRoughness: 0.55,
+      sheenColor: new THREE.Color(0x8a9099)
+    })
+  );
+  group.add(new THREE.Mesh(track(new THREE.LatheGeometry(body, 72)), navy));
+  // A darker foot ring.
+  const foot = new THREE.Mesh(track(new THREE.TorusGeometry(0.288, 0.014, 10, 72)), track(new THREE.MeshStandardMaterial({ color: 0x08090b, roughness: 0.6 })));
+  foot.rotation.x = Math.PI / 2;
+  foot.position.y = 0.014;
+  group.add(foot);
+  // The grey lid: a band, a softly domed top, the flip spout and the loop.
+  const teal = track(new THREE.MeshPhysicalMaterial({ color: 0x80858d, roughness: 0.3, metalness: 0.45, clearcoat: 0.9, clearcoatRoughness: 0.14 }));
+  const tealDark = track(new THREE.MeshPhysicalMaterial({ color: 0x45484e, roughness: 0.36, metalness: 0.4, clearcoat: 0.7 }));
+  const lid = new THREE.Mesh(track(new THREE.CylinderGeometry(0.35, 0.345, 0.24, 72)), teal);
+  lid.position.y = 1.39;
+  const lip = new THREE.Mesh(track(new THREE.TorusGeometry(0.343, 0.012, 10, 72)), tealDark);
+  lip.rotation.x = Math.PI / 2;
+  lip.position.y = 1.275;
+  const top = new THREE.Mesh(track(new THREE.SphereGeometry(0.33, 56, 16, 0, Math.PI * 2, 0, Math.PI / 2)), teal);
+  top.scale.y = 0.24;
+  top.position.y = 1.51;
+  const spout = new THREE.Mesh(track(new RoundedBoxGeometry(0.2, 0.11, 0.22, 4, 0.045)), tealDark);
+  spout.position.set(0.02, 1.6, 0.1);
+  spout.rotation.y = -0.2;
+  // The carry loop, standing up at the back.
+  const loop = new THREE.Mesh(track(new THREE.TorusGeometry(0.13, 0.034, 14, 48, Math.PI)), teal);
+  loop.position.set(-0.06, 1.56, -0.12);
+  loop.rotation.y = 0.35;
+  group.add(lid, lip, top, spout, loop);
   // The mark on a curved label facing the visitor.
+  const labelHeight = 0.34;
+  const labelArc = Math.min(1.25, (labelHeight * logoAspect) / 0.336);
   const label = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(0.334, 0.334, 0.34, 32, 1, true, -0.55, 1.1)),
+    track(new THREE.CylinderGeometry(0.336, 0.336, labelHeight, 32, 1, true, -labelArc / 2, labelArc)),
     track(new THREE.MeshBasicMaterial({ map: logo, transparent: true, depthWrite: false }))
   );
-  label.position.y = 0.58;
+  label.position.y = 0.66;
   group.add(label);
   return group;
 };
 
-// A linen napkin, folded flat, under the cutlery.
-const buildNapkin = (track: Track) =>
-  new THREE.Mesh(
-    track(new RoundedBoxGeometry(1.05, 0.014, 0.62, 2, 0.006)),
-    track(new THREE.MeshStandardMaterial({ map: track(linenTexture()), roughness: 0.9 }))
-  );
-
-// A fork and a knife in brushed steel, lying flat, side by side.
-const buildCutlery = (track: Track) => {
+// A RYZE round-plate dumbbell after the owner's reference (2026-11-28): on each
+// side two big plates and a smaller one in dark metallic navy (raised rim,
+// recessed face), a chrome hub, a spin-lock collar and the threaded bar end;
+// a knurled steel grip in the middle. Along x, centred.
+const buildPlateDumbbell = (track: Track) => {
   const group = new THREE.Group();
-  const steel = track(new THREE.MeshPhysicalMaterial({ color: 0xe6ebf2, metalness: 1, roughness: 0.2, clearcoat: 0.5 }));
-  const handleGeometry = track(new RoundedBoxGeometry(0.42, 0.022, 0.05, 3, 0.01));
-
-  const knife = new THREE.Group();
-  const knifeHandle = new THREE.Mesh(handleGeometry, steel);
-  knifeHandle.position.x = -0.21;
-  const blade = new THREE.Shape();
-  blade.moveTo(0, -0.018);
-  blade.lineTo(0.36, -0.02);
-  blade.quadraticCurveTo(0.48, -0.016, 0.48, 0.012);
-  blade.quadraticCurveTo(0.4, 0.025, 0.3, 0.025);
-  blade.lineTo(0, 0.022);
-  blade.closePath();
-  const bladeGeometry = track(new THREE.ExtrudeGeometry(blade, { depth: 0.004, bevelEnabled: true, bevelSize: 0.002, bevelThickness: 0.002, bevelSegments: 1 }));
-  bladeGeometry.rotateX(-Math.PI / 2);
-  const knifeBlade = new THREE.Mesh(bladeGeometry, steel);
-  knifeBlade.position.y = -0.006;
-  knife.add(knifeHandle, knifeBlade);
-  knife.position.z = 0.06;
-
-  const fork = new THREE.Group();
-  const forkHandle = new THREE.Mesh(handleGeometry, steel);
-  forkHandle.position.x = -0.21;
-  const neck = new THREE.Mesh(track(new RoundedBoxGeometry(0.1, 0.014, 0.034, 2, 0.006)), steel);
-  neck.position.x = 0.04;
-  const base = new THREE.Mesh(track(new RoundedBoxGeometry(0.05, 0.012, 0.072, 2, 0.005)), steel);
-  base.position.x = 0.11;
-  fork.add(forkHandle, neck, base);
-  const tineGeometry = track(new RoundedBoxGeometry(0.15, 0.008, 0.012, 2, 0.003));
-  for (let index = 0; index < 4; index += 1) {
-    const tine = new THREE.Mesh(tineGeometry, steel);
-    tine.position.set(0.2, 0, -0.028 + index * 0.0187);
-    fork.add(tine);
+  const plateMaterial = track(
+    new THREE.MeshPhysicalMaterial({ color: 0x141c30, roughness: 0.38, metalness: 0.45, clearcoat: 0.6, clearcoatRoughness: 0.25 })
+  );
+  const chrome = track(new THREE.MeshStandardMaterial({ color: 0xe3eaf3, metalness: 1, roughness: 0.16 }));
+  const knurl = track(knurlTexture());
+  const steel = track(new THREE.MeshStandardMaterial({ color: 0xa9b5c7, metalness: 1, roughness: 0.34, bumpMap: knurl, bumpScale: 1.2 }));
+  // A plate's half profile (radius, along the axis), revolved around y, then
+  // laid along x.
+  const plateGeometry = (radius: number, half: number) => {
+    const rim = radius * 0.86;
+    const profile = [
+      [0.05, -half * 0.7],
+      [rim - 0.03, -half * 0.7],
+      [rim, -half],
+      [radius - 0.02, -half],
+      [radius, -half * 0.6],
+      [radius, half * 0.6],
+      [radius - 0.02, half],
+      [rim, half],
+      [rim - 0.03, half * 0.7],
+      [0.05, half * 0.7],
+      [0.05, -half * 0.7]
+    ].map(([r, y]) => new THREE.Vector2(r, y));
+    const geometry = new THREE.LatheGeometry(profile, 72);
+    geometry.rotateZ(Math.PI / 2);
+    return track(geometry);
+  };
+  const bigPlate = plateGeometry(0.4, 0.055);
+  const smallPlate = plateGeometry(0.3, 0.05);
+  const hub = track(new THREE.CylinderGeometry(0.075, 0.075, 0.05, 40).rotateZ(Math.PI / 2));
+  const grip = new THREE.Mesh(track(new THREE.CylinderGeometry(0.05, 0.05, 0.62, 40).rotateZ(Math.PI / 2)), steel);
+  group.add(grip);
+  const collarGeometry = track(new THREE.CylinderGeometry(0.085, 0.085, 0.09, 40).rotateZ(Math.PI / 2));
+  const grooveGeometry = track(new THREE.TorusGeometry(0.085, 0.006, 8, 40).rotateY(Math.PI / 2));
+  const threadGeometry = track(new THREE.CylinderGeometry(0.045, 0.045, 0.16, 32).rotateZ(Math.PI / 2));
+  for (const side of [-1, 1]) {
+    let x = side * 0.31;
+    // An inner chrome flange against the grip.
+    const flange = new THREE.Mesh(track(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 40).rotateZ(Math.PI / 2)), chrome);
+    flange.position.x = x + side * 0.015;
+    group.add(flange);
+    x += side * 0.03;
+    for (const [geometry, half] of [
+      [bigPlate, 0.055],
+      [bigPlate, 0.055],
+      [smallPlate, 0.05]
+    ] as const) {
+      x += side * half;
+      const plate = new THREE.Mesh(geometry, plateMaterial);
+      plate.position.x = x;
+      const cap = new THREE.Mesh(hub, chrome);
+      cap.position.x = x;
+      group.add(plate, cap);
+      x += side * (half + 0.006);
+    }
+    const collar = new THREE.Mesh(collarGeometry, chrome);
+    collar.position.x = x + side * 0.045;
+    group.add(collar);
+    for (const offset of [-0.025, 0, 0.025]) {
+      const groove = new THREE.Mesh(grooveGeometry, steel);
+      groove.position.x = collar.position.x + offset;
+      group.add(groove);
+    }
+    const thread = new THREE.Mesh(threadGeometry, steel);
+    thread.position.x = collar.position.x + side * 0.12;
+    group.add(thread);
   }
-  fork.position.z = -0.06;
-  group.add(knife, fork);
   return group;
+};
+
+// The progress chart behind the composition (owner's reference, 2026-11-28):
+// a large pane of frosted glass with a soft bright edge, faint grid lines and
+// a glowing line climbing to an arrow, with a light fill beneath it, in RYZE
+// cyan. Centred on its own origin, facing +z.
+const buildChartPanel = (track: Track, glow: THREE.Texture) => {
+  const group = new THREE.Group();
+  const width = 4.6;
+  const height = 2.6;
+  const radius = 0.26;
+  const shape = new THREE.Shape();
+  const w = width / 2;
+  const h = height / 2;
+  shape.moveTo(-w + radius, -h);
+  shape.lineTo(w - radius, -h);
+  shape.quadraticCurveTo(w, -h, w, -h + radius);
+  shape.lineTo(w, h - radius);
+  shape.quadraticCurveTo(w, h, w - radius, h);
+  shape.lineTo(-w + radius, h);
+  shape.quadraticCurveTo(-w, h, -w, h - radius);
+  shape.lineTo(-w, -h + radius);
+  shape.quadraticCurveTo(-w, -h, -w + radius, -h);
+  const additive = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false } as const;
+
+  // Black and grey since 2026-11-28 (owner request): a pane of smoked black
+  // glass with a fine silver edge, and a silver-white line.
+  const pane = new THREE.Mesh(
+    track(new THREE.ExtrudeGeometry(shape, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 3, curveSegments: 12 })),
+    track(
+      new THREE.MeshPhysicalMaterial({
+        color: 0x0c0d10,
+        roughness: 0.2,
+        metalness: 0.2,
+        clearcoat: 1,
+        clearcoatRoughness: 0.06,
+        transparent: true,
+        opacity: 0.52,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      })
+    )
+  );
+  pane.position.z = -0.035;
+  pane.renderOrder = 1;
+  group.add(pane);
+  const edgePoints = shape.getSpacedPoints(160).map((p) => new THREE.Vector3(p.x, p.y, 0.03));
+  const edge = new THREE.Mesh(
+    track(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edgePoints, true), 320, 0.01, 6, true)),
+    track(new THREE.MeshBasicMaterial({ color: 0xc9ced6, transparent: true, opacity: 0.5, toneMapped: false }))
+  );
+  edge.renderOrder = 2;
+  group.add(edge);
+
+  // Faint grid lines.
+  const gridPoints: number[] = [];
+  for (let row = 1; row <= 3; row += 1) {
+    const y = -h + (height * row) / 4;
+    gridPoints.push(-w + 0.3, y, 0.02, w - 0.3, y, 0.02);
+  }
+  const gridGeometry = track(new THREE.BufferGeometry());
+  gridGeometry.setAttribute("position", new THREE.Float32BufferAttribute(gridPoints, 3));
+  const grid = new THREE.LineSegments(gridGeometry, track(new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1, depthWrite: false })));
+  grid.renderOrder = 2;
+  group.add(grid);
+
+  // The line: rising with dips.
+  const values = [0.1, 0.34, 0.24, 0.52, 0.4, 0.78, 0.6, 0.98];
+  const left = -w + 0.45;
+  const right = w - 0.75;
+  const bottom = -h + 0.35;
+  const top = h - 0.45;
+  const linePoints = values.map((value, index) => new THREE.Vector3(left + ((right - left) * index) / (values.length - 1), bottom + (top - bottom) * value, 0.06));
+  const path = new THREE.CurvePath<THREE.Vector3>();
+  for (let index = 0; index < linePoints.length - 1; index += 1) path.add(new THREE.LineCurve3(linePoints[index], linePoints[index + 1]));
+  const curve = path as unknown as THREE.Curve<THREE.Vector3>;
+  const TUBE_SEGMENTS = 240;
+  const RADIAL = 10;
+  const lineMaterial = track(new THREE.MeshBasicMaterial({ color: 0xf1f3f6, transparent: true, toneMapped: false }));
+  const line = new THREE.Mesh(track(new THREE.TubeGeometry(curve, TUBE_SEGMENTS, 0.03, RADIAL, false)), lineMaterial);
+  line.renderOrder = 4;
+  const haloMaterial = track(new THREE.MeshBasicMaterial({ color: 0xb9bfc9, opacity: 0.12, ...additive }));
+  const halo = new THREE.Mesh(track(new THREE.TubeGeometry(curve, TUBE_SEGMENTS, 0.1, RADIAL, false)), haloMaterial);
+  halo.renderOrder = 3;
+  group.add(halo, line);
+  // Round joints, so the bends read as one line; each appears as the line reaches it.
+  const lengths = path.getCurveLengths();
+  const total = path.getLength();
+  const jointGeometry = track(new THREE.SphereGeometry(0.03, 16, 12));
+  const joints = linePoints.slice(1, -1).map((point, index) => {
+    const joint = new THREE.Mesh(jointGeometry, lineMaterial);
+    joint.position.copy(point);
+    joint.renderOrder = 4;
+    group.add(joint);
+    return { joint, at: lengths[index] / total };
+  });
+  // The arrow rides the tip of the line as it rises.
+  const arrow = new THREE.Mesh(track(new THREE.ConeGeometry(0.1, 0.22, 24)), lineMaterial);
+  arrow.renderOrder = 4;
+  group.add(arrow);
+  const tipGlowMaterial = track(new THREE.SpriteMaterial({ map: glow, color: 0xffffff, opacity: 0.35, ...additive }));
+  const tipGlow = new THREE.Sprite(tipGlowMaterial);
+  tipGlow.scale.setScalar(0.8);
+  tipGlow.renderOrder = 5;
+  group.add(tipGlow);
+
+  // The light fill under the line, fading towards the bottom.
+  const fillPositions: number[] = [];
+  const fillColors: number[] = [];
+  const steps = 96;
+  const sample = new THREE.Vector3();
+  for (let index = 0; index <= steps; index += 1) {
+    path.getPointAt(index / steps, sample);
+    fillPositions.push(sample.x, sample.y, 0.04, sample.x, bottom - 0.15, 0.04);
+    fillColors.push(0.82, 0.85, 0.9, 0.22, 0.82, 0.85, 0.9, 0);
+  }
+  const fillIndex: number[] = [];
+  for (let index = 0; index < steps; index += 1) {
+    const a = index * 2;
+    fillIndex.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  }
+  const fillGeometry = track(new THREE.BufferGeometry());
+  fillGeometry.setAttribute("position", new THREE.Float32BufferAttribute(fillPositions, 3));
+  fillGeometry.setAttribute("color", new THREE.Float32BufferAttribute(fillColors, 4));
+  fillGeometry.setIndex(fillIndex);
+  const fillMaterial = track(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+  const fill = new THREE.Mesh(fillGeometry, fillMaterial);
+  fill.renderOrder = 2;
+  group.add(fill);
+
+  // The rise (owner request, 2026-11-28): the line draws itself from the left
+  // with the arrow on its tip, holds at the top, fades, and rises again.
+  const CYCLE = 8;
+  const RISE = 3.6;
+  const HOLD_END = 7.2;
+  const tip = new THREE.Vector3();
+  const tangent = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0);
+  const update = (elapsed: number) => {
+    const t = elapsed % CYCLE;
+    const raw = Math.min(t / RISE, 1);
+    const progress = Math.max(0.002, 1 - Math.pow(1 - raw, 3));
+    const fade = t > HOLD_END ? 1 - (t - HOLD_END) / (CYCLE - HOLD_END) : 1;
+    line.geometry.setDrawRange(0, Math.floor(progress * TUBE_SEGMENTS) * RADIAL * 6);
+    halo.geometry.setDrawRange(0, Math.floor(progress * TUBE_SEGMENTS) * RADIAL * 6);
+    fill.geometry.setDrawRange(0, Math.floor(progress * steps) * 6);
+    // While fading, the see-through joints would show as dots: hide them.
+    for (const { joint, at } of joints) joint.visible = fade >= 1 && progress >= at;
+    path.getPointAt(progress, tip);
+    path.getTangentAt(progress, tangent);
+    arrow.position.copy(tip).addScaledVector(tangent, 0.09);
+    arrow.quaternion.setFromUnitVectors(up, tangent);
+    tipGlow.position.copy(tip);
+    lineMaterial.opacity = fade;
+    haloMaterial.opacity = 0.12 * fade;
+    fillMaterial.opacity = fade;
+    tipGlowMaterial.opacity = 0.35 * fade;
+  };
+  update(RISE);
+  return { group, update };
 };
 
 // --- Holograms -------------------------------------------------------------------------
@@ -1021,18 +777,16 @@ const makeGhost = (
 // one behind the other. The napkin and the cutlery sit under the bowl (the
 // reference shows the bowl alone). Nothing touches the phone (checked in
 // screen space at the hero's camera).
+// v2.133.2 (owner's reference picture, 2026-11-28): the dumbbell lies in front
+// on the left, diagonally; the RYZE shaker stands tall in the middle; the
+// phone stands on its right where the reference has a bottle; the progress
+// chart behind them all (the food plate was removed on the owner's request). No floor: the objects
+// rest at the bottom of the hero, with a soft shade under each.
 const LAYOUT = {
-  phone: { x: 0.32, z: 0.05, scale: 1.42, lean: 0.4, yaw: -0.06 },
-  // Sideways to the visitor (the group turns -0.25), the side print showing.
-  dumbbells: [
-    { x: 1.48, z: 0.5, yaw: 0.95, scale: 0.8 },
-    { x: 1.86, z: -0.65, yaw: 0.95, scale: 0.8 }
-  ],
-  plate: { x: -1.1, z: 0.9, yaw: 0.1, scale: 1.12 },
-  napkin: { x: -1.1, z: 0.9, yaw: 0.1, scale: 0.85 },
-  cutlery: { x: -1.1, z: 0.9, yaw: 1.1, scale: 0.8 },
-  shaker: { x: -1.2, z: -0.6, yaw: 0.35, scale: 1.12 },
-  floor: { width: 7, depth: 4.6 }
+  phone: { x: 1.2, z: 0.95, scale: 1.04, lean: 0.14, yaw: -0.38 },
+  dumbbell: { x: -0.85, z: 0.5, yaw: 0.6, scale: 1.05 },
+  shaker: { x: 0.22, z: 0.88, yaw: 0.14, scale: 1.36 },
+  chart: { x: 0.12, y: 2.2, z: -1.75, tilt: -0.06, yaw: -0.14, scale: 1 }
 } as const;
 
 // Sets an object on the table: its lowest point at y = base.
@@ -1048,17 +802,9 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
   const additive = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending } as const;
   const box = new THREE.Box3();
 
-  // --- The floor: invisible, it only receives the composition's shadows; a
-  // soft shade under each object grounds it on the blue --------------------------------
+  // --- No floor (owner, 2026-11-28): a soft shade under each object grounds
+  // it on the blue -------------------------------------------------------------------------
   const shadeMap = track(shadowTexture());
-  const floor = new THREE.Mesh(
-    track(new THREE.PlaneGeometry(LAYOUT.floor.width, LAYOUT.floor.depth)),
-    track(new THREE.ShadowMaterial({ color: 0x00051a, opacity: 0.36, transparent: true, depthWrite: false }))
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0.001;
-  floor.receiveShadow = true;
-  group.add(floor);
   // Soft contact shade where each object meets the floor (it comes with the solid object).
   const contact = (x: number, z: number, width: number, depth: number, yaw: number) => {
     const material = track(new THREE.MeshBasicMaterial({ map: shadeMap, transparent: true, depthWrite: false, opacity: 0, toneMapped: false }));
@@ -1100,37 +846,20 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
   strut.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), strutTop.clone().sub(strutFoot).normalize());
   group.add(lip, standBase, strut);
 
-  // --- Dumbbells, plate, napkin, cutlery, shaker ----------------------------------------------
-  const sharedDumbbell = dumbbellMaterials(track, logo, logoAspect);
+  // --- Dumbbell, shaker, chart -------------------------------------------------------------
   const dumbbells = new THREE.Group();
-  for (const spec of LAYOUT.dumbbells) {
-    const dumbbell = buildDumbbell(track, sharedDumbbell);
-    dumbbell.position.set(spec.x, 0, spec.z);
-    dumbbell.rotation.y = spec.yaw;
-    dumbbell.scale.setScalar(spec.scale);
-    dumbbells.add(dumbbell);
-    rest(dumbbell, box);
-  }
+  const dumbbell = buildPlateDumbbell(track);
+  dumbbell.position.set(LAYOUT.dumbbell.x, 0, LAYOUT.dumbbell.z);
+  dumbbell.rotation.y = LAYOUT.dumbbell.yaw;
+  dumbbell.scale.setScalar(LAYOUT.dumbbell.scale);
+  dumbbells.add(dumbbell);
+  rest(dumbbell, box);
   group.add(dumbbells);
-  const napkin = buildNapkin(track);
-  napkin.position.set(LAYOUT.napkin.x, 0, LAYOUT.napkin.z);
-  napkin.rotation.y = LAYOUT.napkin.yaw;
-  napkin.scale.set(LAYOUT.napkin.scale, 1, LAYOUT.napkin.scale);
-  group.add(napkin);
-  rest(napkin, box);
-  // The plate sits on the napkin.
-  const plate = buildPlate(track);
-  plate.position.set(LAYOUT.plate.x, 0, LAYOUT.plate.z);
-  plate.rotation.y = LAYOUT.plate.yaw;
-  plate.scale.setScalar(LAYOUT.plate.scale);
-  group.add(plate);
-  rest(plate, box, 0.014);
-  const cutlery = buildCutlery(track);
-  cutlery.position.set(LAYOUT.cutlery.x, 0, LAYOUT.cutlery.z);
-  cutlery.rotation.y = LAYOUT.cutlery.yaw;
-  cutlery.scale.setScalar(LAYOUT.cutlery.scale);
-  group.add(cutlery);
-  rest(cutlery, box, 0.014);
+  const { group: chart, update: updateChart } = buildChartPanel(track, glow);
+  chart.position.set(LAYOUT.chart.x, LAYOUT.chart.y, LAYOUT.chart.z);
+  chart.rotation.set(LAYOUT.chart.tilt, LAYOUT.chart.yaw, 0);
+  chart.scale.setScalar(LAYOUT.chart.scale);
+  group.add(chart);
   const shaker = buildShaker(track, logo, logoAspect);
   shaker.position.set(LAYOUT.shaker.x, 0, LAYOUT.shaker.z);
   shaker.rotation.y = LAYOUT.shaker.yaw;
@@ -1150,59 +879,24 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
       mesh.castShadow = radius > 0.05 && materials.every((material) => !material.transparent);
     });
   };
-  for (const object of [phone.pivot, dumbbells, plate, napkin, cutlery, shaker]) castsShadow(object);
+  for (const object of [phone.pivot, dumbbells, shaker]) castsShadow(object);
 
   // Hologram twins (the stand appears with the phone).
   const ghosts = {
     phone: makeGhost(track, phone.pivot, { skip: phone.skip, screen: phone.screen, screenMap: phone.screenMap, lineOpacity: 0.35 }),
     dumbbells: makeGhost(track, dumbbells),
-    plate: makeGhost(track, plate, { lineOpacity: 0.28 }),
-    napkin: makeGhost(track, napkin, { lineOpacity: 0.3 }),
-    cutlery: makeGhost(track, cutlery, { lineOpacity: 0.5 }),
     shaker: makeGhost(track, shaker, { lineOpacity: 0.4 })
   };
   phone.pivot.add(ghosts.phone.root);
   dumbbells.add(ghosts.dumbbells.root);
-  plate.add(ghosts.plate.root);
-  napkin.add(ghosts.napkin.root);
-  cutlery.add(ghosts.cutlery.root);
   shaker.add(ghosts.shaker.root);
   acrylic.clippingPlanes = [ghosts.phone.plane];
-
-  // Steam rising from the warm plate (beside its hierarchy: no hologram twin).
-  const steamGroup = new THREE.Group();
-  steamGroup.position.copy(plate.position);
-  steamGroup.rotation.copy(plate.rotation);
-  steamGroup.scale.copy(plate.scale);
-  group.add(steamGroup);
-  const steamGeometry = track(new THREE.PlaneGeometry(1, 1));
-  steamGeometry.translate(0, 0.5, 0);
-  const steam = [0, 1, 2, 3].map((index) => {
-    const material = track(
-      new THREE.ShaderMaterial({
-        uniforms: { uTime: { value: 0 }, uSeed: { value: index * 0.37 + 0.1 }, uOpacity: { value: 0 } },
-        vertexShader: steamVertex,
-        fragmentShader: steamFragment,
-        transparent: true,
-        depthWrite: false
-      })
-    );
-    const wisp = new THREE.Mesh(steamGeometry, material);
-    wisp.position.set(-0.22 + index * 0.1, 0.16, -0.02 + (index % 2) * 0.06);
-    wisp.scale.setScalar(0.7 + (index % 3) * 0.1);
-    wisp.frustumCulled = false;
-    wisp.renderOrder = 3;
-    steamGroup.add(wisp);
-    return material;
-  });
 
   // Contact shade under each object.
   const shades = {
     phone: contact(lipAt.x, lipAt.z - 0.12, phone.size.width * phoneScale * 1.25, 0.55, yaw),
-    dumbbells: LAYOUT.dumbbells.map((spec) => contact(spec.x, spec.z, 1.95 * spec.scale, 0.75 * spec.scale, spec.yaw)),
-    plate: contact(plate.position.x, plate.position.z, 1.85, 1.8, 0),
-    napkin: contact(napkin.position.x, napkin.position.z, 1.25 * LAYOUT.napkin.scale, 0.8 * LAYOUT.napkin.scale, LAYOUT.napkin.yaw),
-    shaker: contact(shaker.position.x, shaker.position.z, 1.0, 1.0, 0)
+    dumbbells: [contact(LAYOUT.dumbbell.x, LAYOUT.dumbbell.z, 2.3 * LAYOUT.dumbbell.scale, 1.0 * LAYOUT.dumbbell.scale, LAYOUT.dumbbell.yaw)],
+    shaker: contact(shaker.position.x, shaker.position.z, 1.2, 1.2, 0)
   };
 
   // Discreet motes drifting in the light around the composition.
@@ -1415,14 +1109,6 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
     { ghosts: [ghosts.phone], bounds: phone.body as THREE.Object3D, local: null, build: T.phone, solid: T.solidPhone, shade: [shades.phone] },
     { ghosts: [ghosts.dumbbells], bounds: dumbbells as THREE.Object3D, local: localBounds(dumbbells), build: T.dumbbell, solid: T.solidDumbbell, shade: shades.dumbbells },
     {
-      ghosts: [ghosts.plate, ghosts.napkin, ghosts.cutlery],
-      bounds: plate as THREE.Object3D,
-      local: localBounds(plate),
-      build: T.meal,
-      solid: T.solidMeal,
-      shade: [shades.plate, shades.napkin]
-    },
-    {
       ghosts: [ghosts.shaker],
       bounds: shaker as THREE.Object3D,
       local: localBounds(shaker),
@@ -1442,12 +1128,8 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
 
   const update = (time: number, elapsed: number) => {
     const done = time >= INTRO_END;
-    // Life once the composition is there: steam and motes.
-    const warm = smooth(span(time, [T.solidMeal[1], T.solidMeal[1] + 1.2]));
-    steam.forEach((material) => {
-      material.uniforms.uTime.value = elapsed;
-      material.uniforms.uOpacity.value = 0.3 * warm;
-    });
+    // Life once the composition is there: the chart's rise and drifting motes.
+    updateChart(elapsed);
     moteMaterial.uniforms.uTime.value = elapsed;
     moteMaterial.uniforms.uOpacity.value = 0.55 * smooth(span(time, [T.droneIn[1], T.droneIn[1] + 1.5]));
     if (done && settled) return;

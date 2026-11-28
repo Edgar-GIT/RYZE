@@ -74,6 +74,8 @@ func (h *TrainerStructureHandler) respondError(c *gin.Context, err error) {
 		RespondError(c, http.StatusNotFound, "EXERCISE_NOT_FOUND", "Exercise not found.", nil)
 	case errors.Is(err, generic_programs.ErrDuplicateExercise):
 		RespondError(c, http.StatusConflict, "DUPLICATE_EXERCISE", "An exercise is assigned more than once in the same day.", nil)
+	case errors.Is(err, generic_programs.ErrTrainerProgramSold):
+		RespondError(c, http.StatusConflict, "PROGRAM_SOLD", "This package has been sold: edit it through a new version; buyers keep the version they bought.", nil)
 	case errors.Is(err, generic_programs.ErrTrainerProgramLocked):
 		RespondError(c, http.StatusConflict, "PROGRAM_LOCKED", "This program was delivered and can no longer change.", nil)
 	case errors.Is(err, generic_programs.ErrInvalidInput):

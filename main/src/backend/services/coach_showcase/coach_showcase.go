@@ -37,6 +37,8 @@ const (
 type Coach struct {
 	ID   string
 	Name string
+	// AvatarKey is the coach's profile photo (public uploads); nil without one.
+	AvatarKey *string
 }
 
 // Program is one published, trainer-owned generic program as shown in public.
@@ -65,7 +67,12 @@ type Profile struct {
 	Username   string
 	CoachSince time.Time
 	TotalViews int64
-	Programs   []Program
+	// PlansCount and Subscriptions are the coach's public counters
+	// (v2.133.0): plans on the market, and how many times their plans
+	// were bought.
+	PlansCount    int64
+	Subscriptions int64
+	Programs      []Program
 }
 
 // Viewer identifies who opened a program page. Key is an opaque, stable
@@ -160,13 +167,20 @@ func (s *service) GetProfile(ctx context.Context, trainerID string) (*Profile, e
 		return nil, err
 	}
 	profile := &Profile{
-		Coach:      Coach{ID: coach.ID, Name: displayName(coach.FirstName, coach.LastName)},
+		Coach:      Coach{ID: coach.ID, Name: displayName(coach.FirstName, coach.LastName), AvatarKey: coach.AvatarKey},
 		Username:   coach.Username,
 		CoachSince: coach.CreatedAt,
 		Programs:   toPrograms(rows),
 	}
 	for _, program := range profile.Programs {
 		profile.TotalViews += program.Views
+	}
+	if counter, ok := s.repo.(coachCounter); ok {
+		plans, subscriptions, err := counter.CoachCounts(ctx, trainerID)
+		if err != nil {
+			return nil, err
+		}
+		profile.PlansCount, profile.Subscriptions = plans, subscriptions
 	}
 	return profile, nil
 }
@@ -182,7 +196,7 @@ func (s *service) CoachOf(ctx context.Context, trainerID string) (*Coach, error)
 		}
 		return nil, err
 	}
-	return &Coach{ID: coach.ID, Name: displayName(coach.FirstName, coach.LastName)}, nil
+	return &Coach{ID: coach.ID, Name: displayName(coach.FirstName, coach.LastName), AvatarKey: coach.AvatarKey}, nil
 }
 
 func toPrograms(rows []repositories.CoachProgramRow) []Program {
@@ -204,7 +218,7 @@ func toPrograms(rows []repositories.CoachProgramRow) []Program {
 			ProductType:      row.ProductType,
 			CreatedAt:        row.CreatedAt,
 			Views:            row.ViewCount,
-			Coach:            Coach{ID: row.CoachID, Name: displayName(row.CoachFirstName, row.CoachLastName)},
+			Coach:            Coach{ID: row.CoachID, Name: displayName(row.CoachFirstName, row.CoachLastName), AvatarKey: row.CoachAvatarKey},
 		})
 	}
 	return programs
@@ -219,4 +233,10 @@ func validateID(id string) error {
 		return fmt.Errorf("%w: malformed identifier", ErrInvalidInput)
 	}
 	return nil
+}
+
+// coachCounter is the optional counters reader of the repository (optional so
+// test fakes keep compiling).
+type coachCounter interface {
+	CoachCounts(ctx context.Context, trainerID string) (plans int64, subscriptions int64, err error)
 }

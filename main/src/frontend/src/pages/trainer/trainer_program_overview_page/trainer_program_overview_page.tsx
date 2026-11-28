@@ -7,6 +7,7 @@ import { ProgramOverview, type ProgramOverviewState } from "@/components/program
 import { type Copy, useI18n } from "@/i18n/i18n";
 import {
   archiveTrainerProgram,
+  createTrainerProgramVersion,
   deleteTrainerProgram,
   fetchTrainerArchiveCount,
   fetchTrainerProgram,
@@ -46,7 +47,8 @@ const COPY: Copy<{
       ARCHIVE_LIMIT_REACHED: "You already have 15 archived programmes. Restore or delete one first.",
       PROGRAM_NOT_ARCHIVABLE: "Only a published programme can be archived.",
       PROGRAM_LOCKED: "This programme was delivered in a Premium Level 2 plan and cannot change.",
-      PROGRAM_NOT_FOUND: "This programme no longer exists."
+      PROGRAM_NOT_FOUND: "This programme no longer exists.",
+      PROGRAM_SOLD: "This package has been sold: edit it through a new version."
     },
     failed: "That did not work. Try again."
   },
@@ -66,7 +68,8 @@ const COPY: Copy<{
       ARCHIVE_LIMIT_REACHED: "Já tens 15 programas arquivados. Retoma ou apaga um primeiro.",
       PROGRAM_NOT_ARCHIVABLE: "Só um programa publicado pode ser arquivado.",
       PROGRAM_LOCKED: "Este programa foi entregue num Premium Nível 2 e já não pode mudar.",
-      PROGRAM_NOT_FOUND: "Este programa já não existe."
+      PROGRAM_NOT_FOUND: "Este programa já não existe.",
+      PROGRAM_SOLD: "Este pacote já foi vendido: edita-o através de uma nova versão."
     },
     failed: "Não resultou. Tenta de novo."
   }
@@ -167,12 +170,28 @@ export const TrainerProgramOverviewPage = () => {
                 }
               }
         }
-        onDelete={async () => {
-          try {
-            await deleteTrainerProgram(program.id);
-            setRedirect(`/trainer/programs?deleted=${encodeURIComponent(program.name)}`);
-          } catch (error) {
-            setMessage(describe(error));
+        onDelete={
+          program.sold
+            ? undefined
+            : async () => {
+                try {
+                  await deleteTrainerProgram(program.id);
+                  setRedirect(`/trainer/programs?deleted=${encodeURIComponent(program.name)}`);
+                } catch (error) {
+                  setMessage(describe(error));
+                }
+              }
+        }
+        version={{
+          sold: Boolean(program.sold),
+          draftTo: program.draft_version_id ? `/trainer/programs/${program.draft_version_id}/edit` : undefined,
+          onCreate: async () => {
+            try {
+              const created = await createTrainerProgramVersion(program.id);
+              setRedirect(`/trainer/programs/${created.id}/edit`);
+            } catch (error) {
+              setMessage(describe(error));
+            }
           }
         }}
       />

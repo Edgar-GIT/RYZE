@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"ryze/backend/models"
 )
@@ -77,14 +78,21 @@ func (r *curatedNutritionRepository) FindByProgramID(ctx context.Context, progra
 
 func (r *curatedNutritionRepository) ReplaceForTrainerProgram(ctx context.Context, trainerID, programID string, plan *models.CuratedNutritionPlan) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var owned int64
-		if err := tx.Model(&models.Program{}).
+		var owned models.Program
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("id = ? AND trainer_id = ? AND product_type = ?", programID, trainerID, models.ProgramProductTypePremiumLevel1).
-			Count(&owned).Error; err != nil {
+			Take(&owned).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrProgramNotFound
+			}
 			return fmt.Errorf("failed to verify the package: %w", err)
 		}
-		if owned == 0 {
-			return ErrProgramNotFound
+		// A sold package is never changed in place (v2.133.0): its buyers keep
+		// the version they bought.
+		if sold, err := hasCompletedPurchase(tx, programID); err != nil {
+			return err
+		} else if sold {
+			return ErrProgramContentLocked
 		}
 		return reconcileCuratedNutrition(tx, programID, plan)
 	})

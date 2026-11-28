@@ -15,7 +15,7 @@ import {
   type MarketplaceProgramDetail,
   type ProgramOutline
 } from "@/services/marketplace_api";
-import { ApiError } from "@utils/http_client";
+import { ApiError, publicFileUrl } from "@utils/http_client";
 
 import styles from "./free_plan_get_page.module.css";
 
@@ -132,7 +132,12 @@ export const FreePlanGetPage = () => {
                 <div className={styles.card}>
                   <p className={styles.label}>{tr("Your plan")}</p>
                   <div className={styles.item}>
-                    <strong>{plan.name}</strong>
+                    <span className={styles.itemPlan}>
+                      {plan.cover_image_url ? (
+                        <img className={styles.itemCover} src={publicFileUrl(plan.cover_image_url)} alt="" loading="lazy" />
+                      ) : null}
+                      <strong>{plan.name}</strong>
+                    </span>
                     <b>{free}</b>
                   </div>
                   <ul className={styles.facts}>

@@ -184,13 +184,18 @@ type Plan struct {
 
 // Meal is one eating occasion of a plan.
 type Meal struct {
-	Position       int        `json:"position"`
-	Label          string     `json:"label"`
-	Kind           string     `json:"kind"`
-	PercentOfDaily int        `json:"percent_of_daily"`
-	Macros         Macros     `json:"macros"`
-	Notes          string     `json:"notes,omitempty"`
-	Items          []MealItem `json:"items"`
+	Position       int    `json:"position"`
+	Label          string `json:"label"`
+	Kind           string `json:"kind"`
+	PercentOfDaily int    `json:"percent_of_daily"`
+	Macros         Macros `json:"macros"`
+	Notes          string `json:"notes,omitempty"`
+	// Curated packages (v2.133.0): picture of the meal and food alternatives
+	// with an optional picture (public upload keys, empty when none).
+	ImageKey             string     `json:"image_key,omitempty"`
+	Alternatives         string     `json:"alternatives,omitempty"`
+	AlternativesImageKey string     `json:"alternatives_image_key,omitempty"`
+	Items                []MealItem `json:"items"`
 }
 
 // MealItem is one food in a meal, with the quantity the client should use.
@@ -577,6 +582,15 @@ func toClientCuratedPlan(stored *models.CuratedNutritionPlan, program *models.Pr
 		}
 		if meal.Notes != nil {
 			projected.Notes = *meal.Notes
+		}
+		if meal.ImageKey != nil {
+			projected.ImageKey = *meal.ImageKey
+		}
+		if meal.Alternatives != nil {
+			projected.Alternatives = *meal.Alternatives
+		}
+		if meal.AlternativesImageKey != nil {
+			projected.AlternativesImageKey = *meal.AlternativesImageKey
 		}
 		for _, item := range meal.Items {
 			projected.Macros.Calories += item.Calories

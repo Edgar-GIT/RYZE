@@ -392,6 +392,13 @@ export const uploadTrainerMealImage = (file: File): Promise<{ key: string; url: 
   return apiUpload<{ key: string; url: string }>("/trainer/uploads/meal-image", form);
 };
 
+// Meal and alternatives pictures of a trainer's Premium package (v2.133.0).
+export const uploadTrainerProgramMealImage = (file: File): Promise<{ key: string; url: string }> => {
+  const form = new FormData();
+  form.append("file", file);
+  return apiUpload<{ key: string; url: string }>("/trainer/uploads/program-meal-image", form);
+};
+
 export const uploadAdminMealImage = (file: File): Promise<{ key: string; url: string }> => {
   const form = new FormData();
   form.append("file", file);

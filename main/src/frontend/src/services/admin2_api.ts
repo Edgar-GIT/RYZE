@@ -573,6 +573,8 @@ export interface GenericProgramSummary {
   official?: boolean;
   // Off the market (v2.132.0); the people who have it keep it.
   archived_at?: string | null;
+  // Who a Premium Level 1 package is for (v2.133.0).
+  criteria?: ProgramCriteria;
   audience?: "female" | "male" | null;
   created_at: string;
   updated_at: string;
@@ -637,7 +639,22 @@ export interface GenericCuratedNutritionMeal {
   label: string;
   kind: "meal" | "snack";
   notes?: string;
+  // v2.133.0: picture of the meal, and food alternatives with an optional
+  // picture (public upload keys under programs/meals/).
+  image_key?: string;
+  alternatives?: string;
+  alternatives_image_key?: string;
   items: GenericCuratedNutritionItem[];
+}
+
+// Who a Premium Level 1 package is for (v2.133.0); null bounds = any.
+export interface ProgramCriteria {
+  min_height_cm: number | null;
+  max_height_cm: number | null;
+  min_weight_kg: number | null;
+  max_weight_kg: number | null;
+  min_age: number | null;
+  max_age: number | null;
 }
 
 export interface GenericCuratedNutrition {
@@ -667,6 +684,9 @@ export interface GenericCuratedNutritionMealInput {
   label: string;
   kind: "meal" | "snack";
   notes: string;
+  image_key?: string;
+  alternatives?: string;
+  alternatives_image_key?: string;
   items: GenericCuratedNutritionItemInput[];
 }
 
@@ -721,6 +741,7 @@ export interface GenericProgramInput {
   objective: ProgramObjectiveValue | "";
   nutrition_mode: ProgramNutritionModeValue | "";
   curated_nutrition: GenericCuratedNutritionInput | null;
+  criteria?: ProgramCriteria;
   level: GenericProgramLevel | "";
   duration_weeks: number;
   frequency_per_week: number;

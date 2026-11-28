@@ -202,7 +202,7 @@ func (h *PublicProgramsHandler) GetPublishedProgram(c *gin.Context) {
 		// A coach who is no longer public (disabled, Test Mode persona) simply
 		// leaves the program unattributed.
 		if coach, err := h.coaches.CoachOf(c.Request.Context(), program.TrainerID); err == nil {
-			response.Coach = &publicCoachResponse{ID: coach.ID, Name: coach.Name}
+			response.Coach = &publicCoachResponse{ID: coach.ID, Name: coach.Name, AvatarURL: AvatarURL(coach.AvatarKey)}
 		}
 	}
 

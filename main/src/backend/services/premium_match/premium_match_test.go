@@ -6,23 +6,26 @@ import (
 	"testing"
 
 	"ryze/backend/models"
+	"ryze/backend/repositories"
 	"ryze/backend/services/premium_match"
 )
 
 type fakeRepo struct {
-	total      int64
-	candidates []models.Program
-	created    []models.PremiumLevel1Match
-	userSeen   string
-	sexSeen    string
+	total       int64
+	candidates  []models.Program
+	created     []models.PremiumLevel1Match
+	userSeen    string
+	sexSeen     string
+	profileSeen repositories.MatchProfile
 }
 
-func (f *fakeRepo) CountPublishedPackages(context.Context, string, string) (int64, error) {
+func (f *fakeRepo) CountPublishedPackages(context.Context, repositories.MatchProfile) (int64, error) {
 	return f.total, nil
 }
-func (f *fakeRepo) ListMatchCandidates(_ context.Context, userID, _, sex string) ([]models.Program, error) {
+func (f *fakeRepo) ListMatchCandidates(_ context.Context, userID string, profile repositories.MatchProfile) ([]models.Program, error) {
 	f.userSeen = userID
-	f.sexSeen = sex
+	f.sexSeen = profile.Sex
+	f.profileSeen = profile
 	return f.candidates, nil
 }
 func (f *fakeRepo) CreateMatch(_ context.Context, match *models.PremiumLevel1Match) error {

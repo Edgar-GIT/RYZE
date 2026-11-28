@@ -8,6 +8,8 @@ import { type Copy, useI18n } from "@/i18n/i18n";
 import {
   createPlanDraft,
   detailToPlanDraft,
+  criteriaToInput,
+  EMPTY_CRITERIA,
   toCuratedNutritionInput,
   toGenericProgramInput,
   type PlanDraft
@@ -34,7 +36,7 @@ import {
   type TrainerProgram,
   type TrainerProgramTypeValue
 } from "@/services/trainer_api";
-import { attachPremiumLevel2TrainingProgram } from "@/services/premium_level_2_api";
+import { attachPremiumLevel2TrainingProgram, uploadTrainerProgramMealImage } from "@/services/premium_level_2_api";
 import { ApiError } from "@utils/http_client";
 
 const COPY: Copy<{
@@ -51,6 +53,7 @@ const COPY: Copy<{
   genericError: string;
   unsaved: string;
   requestKicker: string;
+  versionNotice: string;
   requestTitle: string;
   requestBack: string;
   requestSave: string;
@@ -75,11 +78,14 @@ const COPY: Copy<{
       DUPLICATE_EXERCISE: "The same exercise appears twice in one training day.",
       PROGRAM_NOT_FOUND: "The programme no longer exists.",
       PROGRAM_LOCKED: "This programme was delivered through Premium Level 2 and can no longer change.",
+      PROGRAM_SOLD: "This package has already been sold. Open it from your programmes and choose Edit: a new version is created and the buyers keep the one they bought.",
+      NUTRITION_REQUIRED: "A Premium package is published with its complete meal plan. Fill in the Meal plan step.",
       VALIDATION_ERROR: "Some details were not accepted. Check the programme and try again."
     },
     genericError: "The programme could not be saved. Try again.",
     unsaved: "You have unsaved changes. Leave anyway?",
     requestKicker: "Premium Level 2 · personal plan",
+    versionNotice: "You are editing a NEW VERSION of this package. People who already bought it keep the version they bought. When you publish, this version replaces the current one on the market.",
     requestTitle: "Client's personal plan",
     requestBack: "Back to the request",
     requestSave: "Save and link to the request",
@@ -104,11 +110,14 @@ const COPY: Copy<{
       DUPLICATE_EXERCISE: "O mesmo exercício aparece duas vezes num dia de treino.",
       PROGRAM_NOT_FOUND: "O programa já não existe.",
       PROGRAM_LOCKED: "Este programa foi entregue num Premium Nível 2 e já não pode mudar.",
+      PROGRAM_SOLD: "Este pacote já foi vendido. Abre-o nos teus programas e escolhe Editar: é criada uma nova versão e quem comprou fica com a que comprou.",
+      NUTRITION_REQUIRED: "Um pacote Premium é publicado com o plano de refeições completo. Preenche o passo do plano de refeições.",
       VALIDATION_ERROR: "Alguns dados não foram aceites. Revê o programa e tenta de novo."
     },
     genericError: "Não foi possível guardar o programa. Tenta de novo.",
     unsaved: "Tens alterações por guardar. Sair na mesma?",
     requestKicker: "Premium Nível 2 · plano pessoal",
+    versionNotice: "Estás a editar uma NOVA VERSÃO deste pacote. Quem já comprou fica com a versão que comprou. Quando publicares, esta versão substitui a atual no mercado.",
     requestTitle: "Plano pessoal do cliente",
     requestBack: "Voltar ao pedido",
     requestSave: "Guardar e ligar ao pedido",
@@ -148,6 +157,7 @@ const toDetail = (
   cover_image: program.cover_image ?? null,
   cover_image_url: program.cover_image_url ?? "",
   audience: program.audience ?? null,
+  criteria: program.criteria,
   created_at: program.created_at,
   updated_at: program.updated_at,
   curated_nutrition: nutrition,
@@ -167,7 +177,15 @@ const withPackage = (draft: PlanDraft, type: ProgramTypeValue): PlanDraft => {
       curated_nutrition: draft.curated_nutrition ?? defaults.curated_nutrition
     };
   }
-  return { ...draft, type, product_type: PROGRAM_PRODUCT_TYPE.GENERIC, objective: "", nutrition_mode: "", curated_nutrition: null };
+  return {
+    ...draft,
+    type,
+    product_type: PROGRAM_PRODUCT_TYPE.GENERIC,
+    objective: "",
+    nutrition_mode: "",
+    curated_nutrition: null,
+    criteria: { ...EMPTY_CRITERIA }
+  };
 };
 
 const exercisesOf = (weeks: GenericProgramWeek[]): BuilderExercise[] =>
@@ -196,7 +214,7 @@ const metadataOf = (draft: PlanDraft) => ({
   name: draft.name.trim(),
   description: draft.description.trim(),
   type: draft.type as TrainerProgramTypeValue,
-  ...(draft.type === TrainerProgramType.PREMIUM ? { objective: draft.objective } : {}),
+  ...(draft.type === TrainerProgramType.PREMIUM ? { objective: draft.objective, criteria: criteriaToInput(draft.criteria) } : {}),
   level: draft.level,
   training_type: draft.training_type,
   duration_weeks: Number(draft.duration_weeks) || 0,
@@ -229,6 +247,8 @@ export default function TrainerPlanBuilderPage() {
   }));
   const [loadingBase, setLoadingBase] = useState(Boolean(!programId && baseId));
   const [status, setStatus] = useState<"draft" | "published">("draft");
+  // A new version of a sold package (v2.133.0).
+  const [isVersion, setIsVersion] = useState(false);
   const [loading, setLoading] = useState(Boolean(programId));
   const [loadError, setLoadError] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -263,6 +283,7 @@ export default function TrainerPlanBuilderPage() {
       .then(([program, weeks, nutrition]) => {
         if (cancelled) return;
         loadedId.current = program.id;
+        setIsVersion(Boolean(program.previous_version_id) && program.status !== TrainerProgramStatus.PUBLISHED);
         const loaded = detailToPlanDraft(toDetail(program, weeks, nutrition ?? null));
         // A draft Premium plan made before packages existed becomes one now.
         setDraft(program.type === TrainerProgramType.PREMIUM && program.status !== TrainerProgramStatus.PUBLISHED ? withPackage(loaded, program.type) : loaded);
@@ -437,6 +458,7 @@ export default function TrainerPlanBuilderPage() {
         backTo: requestPage || "/trainer/programs",
         backLabel: requestId ? text.requestBack : text.back
       }}
+      notice={isVersion ? text.versionNotice : undefined}
       draftOnlyLabel={requestId ? text.requestSave : undefined}
       draft={draft}
       onChange={change}
@@ -454,6 +476,7 @@ export default function TrainerPlanBuilderPage() {
       exercises={exercises}
       rememberExercises={rememberExercises}
       uploadCover={(file) => uploadTrainerCover(draft.type as TrainerProgramTypeValue, file)}
+      uploadMealImage={uploadTrainerProgramMealImage}
       status={status}
       saving={saving}
       message={message}

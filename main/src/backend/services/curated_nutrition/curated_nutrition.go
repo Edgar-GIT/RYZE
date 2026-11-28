@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"ryze/backend/models"
@@ -53,8 +54,20 @@ type MealInput struct {
 	Label string
 	Kind  string
 	Notes string
-	Items []ItemInput
+	// Optional picture of the meal, and food alternatives (text) with an
+	// optional picture (v2.133.0).
+	ImageKey             string
+	Alternatives         string
+	AlternativesImageKey string
+	Items                []ItemInput
 }
+
+// MaxAlternativesLength caps the food alternatives line of a meal.
+const MaxAlternativesLength = 500
+
+// mealImagePattern is the shape of a meal picture key in the public uploads
+// (the same store and shape as Premium Level 2 meal pictures).
+var mealImagePattern = regexp.MustCompile(`^programs/meals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$`)
 
 type ItemInput struct {
 	FoodName          string
@@ -81,11 +94,14 @@ type Plan struct {
 }
 
 type Meal struct {
-	Position int    `json:"position"`
-	Label    string `json:"label"`
-	Kind     string `json:"kind"`
-	Notes    string `json:"notes,omitempty"`
-	Items    []Item `json:"items"`
+	Position             int    `json:"position"`
+	Label                string `json:"label"`
+	Kind                 string `json:"kind"`
+	Notes                string `json:"notes,omitempty"`
+	ImageKey             string `json:"image_key"`
+	Alternatives         string `json:"alternatives"`
+	AlternativesImageKey string `json:"alternatives_image_key"`
+	Items                []Item `json:"items"`
 }
 
 type Item struct {
@@ -176,6 +192,17 @@ func Validate(input PlanInput) (*Plan, error) {
 		if len([]rune(notes)) > MaxNoteLength {
 			return nil, invalid(fmt.Sprintf("meal %d notes are too long", i+1))
 		}
+		imageKey := strings.TrimSpace(source.ImageKey)
+		alternativesImageKey := strings.TrimSpace(source.AlternativesImageKey)
+		for _, key := range []string{imageKey, alternativesImageKey} {
+			if key != "" && !mealImagePattern.MatchString(key) {
+				return nil, invalid(fmt.Sprintf("meal %d has an invalid picture", i+1))
+			}
+		}
+		alternatives := strings.TrimSpace(source.Alternatives)
+		if len([]rune(alternatives)) > MaxAlternativesLength {
+			return nil, invalid(fmt.Sprintf("meal %d alternatives are too long (at most 500 characters)", i+1))
+		}
 		if len(source.Items) == 0 {
 			return nil, invalid(fmt.Sprintf("meal %d needs at least one food", i+1))
 		}
@@ -184,11 +211,14 @@ func Validate(input PlanInput) (*Plan, error) {
 		}
 
 		meal := Meal{
-			Position: i + 1,
-			Label:    label,
-			Kind:     kind,
-			Notes:    notes,
-			Items:    make([]Item, 0, len(source.Items)),
+			Position:             i + 1,
+			Label:                label,
+			Kind:                 kind,
+			Notes:                notes,
+			ImageKey:             imageKey,
+			Alternatives:         alternatives,
+			AlternativesImageKey: alternativesImageKey,
+			Items:                make([]Item, 0, len(source.Items)),
 		}
 		for j := range source.Items {
 			item, itemCalories, err := validateItem(&source.Items[j], i+1, j+1)
@@ -287,6 +317,9 @@ func ToModel(plan *Plan, programID string, previousVersion int) (*models.Curated
 			notes := meal.Notes
 			storedMeal.Notes = &notes
 		}
+		storedMeal.ImageKey = optionalString(meal.ImageKey)
+		storedMeal.Alternatives = optionalString(meal.Alternatives)
+		storedMeal.AlternativesImageKey = optionalString(meal.AlternativesImageKey)
 		for _, item := range meal.Items {
 			storedItem := models.CuratedNutritionPlanMealItem{
 				Position:          item.Position,
@@ -338,6 +371,9 @@ func FromModel(stored *models.CuratedNutritionPlan) *Plan {
 		if meal.Notes != nil {
 			projected.Notes = *meal.Notes
 		}
+		projected.ImageKey = valueOf(meal.ImageKey)
+		projected.Alternatives = valueOf(meal.Alternatives)
+		projected.AlternativesImageKey = valueOf(meal.AlternativesImageKey)
 		for _, item := range meal.Items {
 			projectedItem := Item{
 				Position:          item.Position,
@@ -379,7 +415,11 @@ func ValidateModel(stored *models.CuratedNutritionPlan) error {
 		Meals:           make([]MealInput, 0, len(plan.Meals)),
 	}
 	for _, meal := range plan.Meals {
-		mealInput := MealInput{Label: meal.Label, Kind: meal.Kind, Notes: meal.Notes, Items: make([]ItemInput, 0, len(meal.Items))}
+		mealInput := MealInput{
+			Label: meal.Label, Kind: meal.Kind, Notes: meal.Notes,
+			ImageKey: meal.ImageKey, Alternatives: meal.Alternatives, AlternativesImageKey: meal.AlternativesImageKey,
+			Items: make([]ItemInput, 0, len(meal.Items)),
+		}
 		for _, item := range meal.Items {
 			mealInput.Items = append(mealInput.Items, ItemInput{
 				FoodName:          item.FoodName,
@@ -402,4 +442,18 @@ func ValidateModel(stored *models.CuratedNutritionPlan) error {
 
 func invalid(message string) error {
 	return fmt.Errorf("%w: %s", ErrInvalidInput, message)
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func valueOf(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

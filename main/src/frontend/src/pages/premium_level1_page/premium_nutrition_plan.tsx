@@ -14,6 +14,7 @@ import type {
 } from "@/services/premium_level1_api";
 
 import styles from "./premium_nutrition_plan.module.css";
+import { publicFileUrl } from "@utils/http_client";
 import { useI18n } from "@/i18n/i18n";
 
 interface PremiumNutritionPlanProps {
@@ -214,6 +215,14 @@ export const PremiumNutritionPlan = ({
       <ul className={styles.meals}>
         {plan.meals.map((meal) => (
           <li key={`${meal.position}-${meal.label}`} className={styles.meal}>
+            {meal.image_key ? (
+              <img
+                className={styles.mealPhoto}
+                src={publicFileUrl(`/uploads/${meal.image_key}`)}
+                alt={t("account.nutrition.mealPhoto")}
+                loading="lazy"
+              />
+            ) : null}
             <span className={styles.mealLabel}>{meal.label}</span>
             <span className={styles.mealMeta}>
               {t("account.nutrition.mealMeta", {
@@ -240,6 +249,20 @@ export const PremiumNutritionPlan = ({
               ))}
             </ul>
             {meal.notes ? <span className={styles.mealNotes}>{meal.notes}</span> : null}
+            {meal.alternatives || meal.alternatives_image_key ? (
+              <div className={styles.alternatives}>
+                <strong>{t("account.nutrition.alternatives")}</strong>
+                {meal.alternatives ? <span>{meal.alternatives}</span> : null}
+                {meal.alternatives_image_key ? (
+                  <img
+                    className={styles.alternativesPhoto}
+                    src={publicFileUrl(`/uploads/${meal.alternatives_image_key}`)}
+                    alt={t("account.nutrition.alternativesPhoto")}
+                    loading="lazy"
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>

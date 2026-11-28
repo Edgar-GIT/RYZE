@@ -189,6 +189,12 @@ func (r *genericProgramRepository) UpdateFull(ctx context.Context, productType, 
 				"currency":           program.Currency,
 				"cover_image":        program.CoverImage,
 				"audience":           program.Audience,
+				"min_height_cm":      program.MinHeightCm,
+				"max_height_cm":      program.MaxHeightCm,
+				"min_weight_kg":      program.MinWeightKg,
+				"max_weight_kg":      program.MaxWeightKg,
+				"min_age":            program.MinAge,
+				"max_age":            program.MaxAge,
 			}).Error; err != nil {
 			return fmt.Errorf("failed to update generic program: %w", err)
 		}

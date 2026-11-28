@@ -37,33 +37,42 @@ type trainerProgramResponse struct {
 	Objective     *string    `json:"objective"`
 	NutritionMode *string    `json:"nutrition_mode"`
 	ArchivedAt    *time.Time `json:"archived_at"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	// Who a Premium package is for (v2.133.0); null bounds = any.
+	Criteria program_details.Criteria `json:"criteria"`
+	// Versions (v2.133.0): previous_version_id on a new version; sold and
+	// draft_version_id on the single-programme read.
+	PreviousVersionID *string   `json:"previous_version_id"`
+	Sold              *bool     `json:"sold,omitempty"`
+	DraftVersionID    *string   `json:"draft_version_id,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 func newTrainerProgramResponse(program *programs.Program) trainerProgramResponse {
 	return trainerProgramResponse{
-		ID:               program.ID,
-		TrainerID:        program.TrainerID,
-		Name:             program.Name,
-		Description:      program.Description,
-		Type:             program.Type,
-		Status:           program.Status,
-		PriceMinorUnits:  program.PriceMinorUnits,
-		Currency:         program.Currency,
-		Level:            program.Level,
-		DurationWeeks:    program.DurationWeeks,
-		FrequencyPerWeek: program.FrequencyPerWeek,
-		TrainingType:     program.TrainingType,
-		CoverImage:       program.CoverImage,
-		CoverImageURL:    program_details.CoverURL(program.CoverImage),
-		Audience:         program.Audience,
-		ProductType:      program.ProductType,
-		Objective:        program.Objective,
-		NutritionMode:    program.NutritionMode,
-		ArchivedAt:       program.ArchivedAt,
-		CreatedAt:        program.CreatedAt,
-		UpdatedAt:        program.UpdatedAt,
+		ID:                program.ID,
+		TrainerID:         program.TrainerID,
+		Name:              program.Name,
+		Description:       program.Description,
+		Type:              program.Type,
+		Status:            program.Status,
+		PriceMinorUnits:   program.PriceMinorUnits,
+		Currency:          program.Currency,
+		Level:             program.Level,
+		DurationWeeks:     program.DurationWeeks,
+		FrequencyPerWeek:  program.FrequencyPerWeek,
+		TrainingType:      program.TrainingType,
+		CoverImage:        program.CoverImage,
+		CoverImageURL:     program_details.CoverURL(program.CoverImage),
+		Audience:          program.Audience,
+		ProductType:       program.ProductType,
+		Objective:         program.Objective,
+		NutritionMode:     program.NutritionMode,
+		ArchivedAt:        program.ArchivedAt,
+		Criteria:          program.Criteria,
+		PreviousVersionID: program.PreviousVersionID,
+		CreatedAt:         program.CreatedAt,
+		UpdatedAt:         program.UpdatedAt,
 	}
 }
 
@@ -85,6 +94,8 @@ type createTrainerProgramRequest struct {
 	CoverImage       string `json:"cover_image"`
 	Audience         string `json:"audience"`
 	Objective        string `json:"objective"`
+	// Criteria: optional ranges of a Premium package.
+	Criteria program_details.Criteria `json:"criteria"`
 }
 
 // updateTrainerProgramRequest is the request DTO for PATCH /api/v1/trainer/programs/:programID.
@@ -103,6 +114,8 @@ type updateTrainerProgramRequest struct {
 	CoverImage       *string `json:"cover_image"`
 	Audience         *string `json:"audience"`
 	Objective        *string `json:"objective"`
+	// Criteria replaces every range when present.
+	Criteria *program_details.Criteria `json:"criteria"`
 }
 
 // TrainerProgramsHandler exposes the authenticated trainer's program
@@ -148,6 +161,7 @@ func (h *TrainerProgramsHandler) CreateProgram(c *gin.Context) {
 		CoverImage:       req.CoverImage,
 		Audience:         req.Audience,
 		Objective:        req.Objective,
+		Criteria:         req.Criteria,
 	})
 	if err != nil {
 		h.respondProgramsError(c, err)
@@ -221,11 +235,23 @@ func (h *TrainerProgramsHandler) GetProgram(c *gin.Context) {
 		h.respondProgramsError(c, err)
 		return
 	}
+	response := newTrainerProgramResponse(program)
+	if versions, ok := h.service.(programs.VersionService); ok {
+		info, err := versions.VersionInfo(c.Request.Context(), trainerID, program.ID)
+		if err != nil {
+			h.respondProgramsError(c, err)
+			return
+		}
+		response.Sold = &info.Sold
+		if info.DraftVersionID != "" {
+			response.DraftVersionID = &info.DraftVersionID
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Program retrieved successfully.",
-		"data":    newTrainerProgramResponse(program),
+		"data":    response,
 	})
 }
 
@@ -258,6 +284,7 @@ func (h *TrainerProgramsHandler) UpdateProgram(c *gin.Context) {
 		CoverImage:       req.CoverImage,
 		Audience:         req.Audience,
 		Objective:        req.Objective,
+		Criteria:         req.Criteria,
 	})
 	if err != nil {
 		h.respondProgramsError(c, err)
@@ -324,6 +351,8 @@ func (h *TrainerProgramsHandler) respondProgramsError(c *gin.Context, err error)
 		// tells the trainer what to fix.
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.",
 			[]string{strings.TrimPrefix(err.Error(), programs.ErrInvalidInput.Error()+": ")})
+	case errors.Is(err, programs.ErrProgramSold):
+		RespondError(c, http.StatusConflict, "PROGRAM_SOLD", "This package has been sold: edit it through a new version; buyers keep the version they bought.", nil)
 	case errors.Is(err, programs.ErrNutritionRequired):
 		RespondError(c, http.StatusConflict, "NUTRITION_REQUIRED", "A Premium package is published with its complete meal plan.", nil)
 	case errors.Is(err, programs.ErrProgramNotFound):
@@ -388,7 +417,34 @@ func (h *TrainerProgramsHandler) respondNutritionError(c *gin.Context, err error
 		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
 	case errors.Is(err, programs.ErrInvalidInput):
 		RespondError(c, http.StatusBadRequest, "VALIDATION_ERROR", strings.TrimPrefix(err.Error(), programs.ErrInvalidInput.Error()+": "), nil)
+	case errors.Is(err, programs.ErrProgramSold):
+		RespondError(c, http.StatusConflict, "PROGRAM_SOLD", "This package has been sold: edit it through a new version; buyers keep the version they bought.", nil)
 	default:
 		RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error.", nil)
 	}
+}
+
+// CreateVersion opens a new version of a sold package for editing:
+// POST /trainer/programs/:programID/versions (v2.133.0). The buyers keep the
+// version they bought; publishing the new one takes the old one off the market.
+func (h *TrainerProgramsHandler) CreateVersion(c *gin.Context) {
+	trainerID, ok := requireTrainerContext(c)
+	if !ok {
+		return
+	}
+	versions, ok := h.service.(programs.VersionService)
+	if !ok {
+		RespondError(c, http.StatusNotFound, "PROGRAM_NOT_FOUND", "Program not found.", nil)
+		return
+	}
+	program, err := versions.CreateVersion(c.Request.Context(), trainerID, c.Param("programID"))
+	if err != nil {
+		h.respondProgramsError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "New version ready to edit.",
+		"data":    newTrainerProgramResponse(program),
+	})
 }

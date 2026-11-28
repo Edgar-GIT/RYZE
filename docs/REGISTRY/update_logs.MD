@@ -1,3 +1,151 @@
+# Version 2.134.0
+
+Title: Plan page redesign, trainer profile trimmed, hero in black, silver and chrome
+
+Date: 2026-11-28
+
+Summary:
+
+- A plan in the store (`generic_program_detail_page`) was redesigned (owner:
+  "refaz tudo"): the login page's split panel, with the cover (store card
+  format, a price tag pinned to it) on the light-blue wave half and the name,
+  coach, description, a spec sheet (length, training days, level, where) and
+  the way to get it on the navy half; below, "The plan, week by week" as a
+  timeline of weeks with the training days as tiles (short plans open in
+  full). The free plan panel uses the public CTA and no longer repeats the
+  back link. Purchase, Level 1 and archived states are unchanged in
+  behaviour.
+- Trainer profile: the views block and the "public coach profile" card were
+  removed; the two profile forms are centred in one column.
+- Home hero: the shaker is black with a grey lid and stands in front of the
+  dumbbell's far end; the phone moved further right and forward; the chart is
+  smoked black glass with a silver line whose arrow rises in an 8 s loop. The
+  phone and laptop are now black, silver and chrome (`story_scene.ts`).
+
+Verification: typecheck, unit tests and build; browser screenshots of the
+plan page at 1440 and 390 px (no horizontal scroll), of the hero (four
+frames of the chart's rise) and of the later chapters with the laptop.
+
+---
+
+# Version 2.133.3
+
+Title: Home hero without the food plate
+
+Date: 2026-11-28
+
+Summary:
+
+- Owner request: the food plate (and its steam) left the desktop hero, and
+  the dumbbell, shaker, phone and progress chart moved further right of the
+  copy (`heroX` 0.32 → 0.42; the chart re-centred on the remaining objects).
+  The unused plate model and its textures were removed from `story_intro.ts`.
+
+Verification: typecheck, unit tests and build; a browser screenshot at
+1376×768.
+
+---
+
+# Version 2.133.2
+
+Title: Desktop Home hero rebuilt on the owner's reference picture
+
+Date: 2026-11-28
+
+Summary:
+
+- The hero picture test is over: the desktop hero is 3D again, after the
+  owner's reference image — a round-plate dumbbell in front on the left, the
+  RYZE shaker (navy body, teal lid) in the middle, the RYZE phone on its
+  right, a plate on the far right and a frosted glass pane with a glowing
+  cyan progress chart behind; no floor, a soft shade under each object, a
+  near-frontal view. Built procedurally in `story_intro.ts`, reusing the
+  plate model and the story's phone (which still flies on into the Train
+  chapter); the drone's projection no longer plays (the scene starts at
+  `INTRO_END`). Removed: the picture, `?hero=3d`, the napkin, the cutlery and
+  the hex dumbbell models.
+- Settings: Preferences, Sign-in methods and Privacy moved to the right
+  column, under Delete account.
+
+Verification: typecheck, unit tests and build; browser screenshots at
+1376×768 compared with the reference (hero, and scrolling into the later
+chapters) and at 390 px (no canvas on phones).
+
+---
+
+# Version 2.133.1
+
+Title: Owner review fixes: calmer private areas, plan page layout, coach counters, trainer profile in place
+
+Date: 2026-11-28
+
+Summary:
+
+- Private areas: softer contrasts; the sidebar, the top bar and the plan
+  builder's sticky footer use one opaque bar colour (the footer was a black
+  bar).
+- Member sidebar: the training plan store and the Exercise Library removed
+  (they are site pages).
+- Free/paid plan page: picture and how to get the plan on the left, the plan
+  (weeks and days, or what unlocks) on the right; a Premium Level 1 package
+  points to the Level 1 questionnaire instead of a purchase panel.
+- Coach public profile: the list of plans replaced by counters (plans
+  created, subscriptions, views); the coach profile API returns
+  `plans_count` and `subscriptions` (real-DB test).
+- RYZE Personalised: the pay button is in the "What you get" block at the
+  top (CheckoutPanel `actionOnly`); the separate payment section is gone.
+- Trainer profile: photo, nickname, bio and social links are edited in place
+  with the account settings' cards.
+
+Verification: Go build/vet and the full suite on `ryze_test` (69 packages);
+frontend typecheck, unit tests and build; browser checks of the Personalised
+page, a free plan page and a coach profile at 390 px and 1280 px (no
+horizontal scroll, no errors). Not verified in the browser: signed-in screens.
+
+---
+
+# Version 2.133.0
+
+Title: Package versions, Level 1 ranges, meal photos and alternatives, livelier private areas
+
+Date: 2026-11-28
+
+Summary:
+
+- Fixed a serious error: the featured programmes of the free marketplace
+  listed Premium Level 1 packages; they now list free plans only (regression
+  test with a real database).
+- Buyers keep what they bought (owner decision): a sold package cannot change
+  in place (route guard + checks inside the structure and meal-plan
+  transactions, `409 PROGRAM_SOLD`). "Edit" on a sold package creates a new
+  version; publishing it replaces the old one on the market, which stays for
+  its buyers (migration 000073). A sold package cannot be deleted.
+- Level 1 packages (trainer and RYZE) can say who they are for: height,
+  weight and age ranges, each "Any" by default, applied by the Level 1
+  questionnaire (migration 000074).
+- Trainers' older Premium plans converted into Level 1 drafts (migration
+  000075).
+- Meal plans: a photo per meal and a line of alternatives with an optional
+  photo (migration 000076), shown to buyers. Fixed: the trainer's meal photo
+  upload needed the clients permission.
+- Plan covers use the store card format (4:5) everywhere, previews included;
+  the free plan panels show the plan's picture; "Created by" shows the
+  coach's photo (initials without one).
+- Private areas (member, trainer, admin) use the public site's field of blues
+  and light glass (the Contact page model); the programme screen was redone
+  (light-blue panel with the cover, glass panel with the actions).
+- RYZE Personalised page: the payment section no longer repeats what the
+  service includes.
+
+Verification: Go build/vet and the full suite on `ryze_test` three times
+(69 packages), new real-DB tests (versions end to end, ranges and versions in
+matching, featured programmes) and unit tests (ranges, sold guard);
+frontend typecheck, unit tests and build; migrations 000073–000076 applied to
+`ryze_test` and the dev database. Not verified in the browser: the signed-in
+trainer and admin screens.
+
+---
+
 # Version 2.132.0
 
 Title: Programme archive, trainer Premium = Level 1 package, clearer trainer/admin UI

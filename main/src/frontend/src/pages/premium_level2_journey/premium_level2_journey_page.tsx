@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useHistory, useLocation } from "react-router-dom";
 
@@ -6,6 +6,7 @@ import { CheckoutPanel } from "@/components/checkout_panel/checkout_panel";
 import j from "@/components/journey/journey.module.css";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import ui from "@/components/public_ui/public_ui.module.css";
+
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { formatMarketplacePrice, type MarketplaceProgram } from "@/services/marketplace_api";
 import { fetchPremiumLevel2Programs } from "@/services/premium_level_2_api";
@@ -23,9 +24,7 @@ const COPY: Copy<{
   how: { title: string; text: string }[];
   unavailable: string;
   unavailableText: string;
-  continue: string;
   category: string;
-  checkoutIncludes: string[];
   done: string;
   successNote: string;
 }> = {
@@ -52,9 +51,7 @@ const COPY: Copy<{
     ],
     unavailable: "Personalised is not open yet",
     unavailableText: "No Personalised offer is available right now. Please come back soon.",
-    continue: "Continue to payment",
     category: "Personalised · training + nutrition",
-    checkoutIncludes: ["Full questionnaire", "Personalised training plan", "Personalised nutrition plan"],
     done: "Start my experience",
     successNote: "Payment confirmed. Your questionnaire is ready."
   },
@@ -81,9 +78,7 @@ const COPY: Copy<{
     ],
     unavailable: "O Personalizado ainda não está disponível",
     unavailableText: "De momento não há nenhuma oferta Personalizado disponível. Volta em breve.",
-    continue: "Continuar para o pagamento",
     category: "Personalizado · treino + nutrição",
-    checkoutIncludes: ["Questionário completo", "Plano de treino personalizado", "Plano de nutrição personalizado"],
     done: "Começar a minha experiência",
     successNote: "Pagamento confirmado. O teu questionário está pronto."
   }
@@ -155,13 +150,7 @@ export const PremiumLevel2JourneyPage = () => {
                 <strong>{text.unavailable}</strong>
                 <p>{text.unavailableText}</p>
               </div>
-            ) : (
-              <div className={j.actions}>
-                <a className={j.primary} href="#premium-level-2-payment">
-                  {text.continue} <ArrowRight aria-hidden="true" />
-                </a>
-              </div>
-            )}
+            ) : null}
           </div>
           <aside className={j.heroPanel} aria-label={text.panelTitle}>
             <h2>{text.panelTitle}</h2>
@@ -177,6 +166,22 @@ export const PremiumLevel2JourneyPage = () => {
                 </li>
               ))}
             </ul>
+            {/* The pay button lives in this block (owner request, 2026-11-28):
+                it already says what is bought and the price. */}
+            {offer && load.status === "ready" ? (
+              <CheckoutPanel
+                actionOnly
+                programId={offer.id}
+                itemTitle={offer.name}
+                itemCategory={text.category}
+                priceMinor={offer.price_minor_units}
+                includes={[]}
+                done={{ to: "/services/premium-level-2/experience", label: text.done }}
+                successNote={<p>{text.successNote}</p>}
+                loginReturn={`/services/premium-level-2?offer=${encodeURIComponent(offer.id)}`}
+                onSuccess={() => history.replace("/services/premium-level-2/experience?preparing=1")}
+              />
+            ) : null}
           </aside>
         </div>
 
@@ -191,40 +196,6 @@ export const PremiumLevel2JourneyPage = () => {
           ))}
         </ol>
 
-        {offer && load.status === "ready" ? (
-          <section id="premium-level-2-payment" aria-labelledby="pay-title">
-            <p className={j.kicker}>
-              <CheckCircle2 aria-hidden="true" /> {text.kicker}
-            </p>
-            <h2 id="pay-title" className={j.title}>
-              {offer.name}
-            </h2>
-            {offer.description ? <p className={j.lead}>{offer.description}</p> : null}
-            <div className={j.result}>
-              <article className={j.planCard}>
-                <div className={j.planBody}>
-                  <h3>{text.panelTitle}</h3>
-                  <ul className={j.chips}>
-                    {text.includes.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                </div>
-              </article>
-              <CheckoutPanel
-                programId={offer.id}
-                itemTitle={offer.name}
-                itemCategory={text.category}
-                priceMinor={offer.price_minor_units}
-                includes={text.checkoutIncludes}
-                done={{ to: "/services/premium-level-2/experience", label: text.done }}
-                successNote={<p>{text.successNote}</p>}
-                loginReturn={`/services/premium-level-2?offer=${encodeURIComponent(offer.id)}`}
-                onSuccess={() => history.replace("/services/premium-level-2/experience?preparing=1")}
-              />
-            </div>
-          </section>
-        ) : null}
       </div>
     </PageWrapper>
   );

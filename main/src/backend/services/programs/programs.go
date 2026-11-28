@@ -33,6 +33,9 @@ var (
 	// price was requested. Prices follow the catalogue category only (owner
 	// decision, 2026-11-14).
 	ErrPriceFixed = errors.New("program price is fixed by its catalogue category")
+	// ErrProgramSold indicates a sold package cannot change in place: it is
+	// edited through a new version (v2.133.0).
+	ErrProgramSold = errors.New("program has been sold: edit it through a new version")
 )
 
 const (
@@ -83,8 +86,38 @@ type Program struct {
 	Objective     *string
 	NutritionMode *string
 	ArchivedAt    *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	// Criteria: who a Premium package is for (v2.133.0).
+	Criteria program_details.Criteria
+	// PreviousVersionID is set on a new version of a sold package.
+	PreviousVersionID *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+// VersionInfo tells the trainer how a programme can be edited: a sold one is
+// edited through a new version, possibly already open as a draft.
+type VersionInfo struct {
+	Sold           bool
+	DraftVersionID string
+}
+
+// VersionRepository keeps what buyers bought unchanged (v2.133.0).
+type VersionRepository interface {
+	IsSold(ctx context.Context, programID string) (bool, error)
+	OpenDraftVersion(ctx context.Context, trainerID, programID string) (*models.Program, error)
+	CreateVersion(ctx context.Context, trainerID, programID string) (*models.Program, error)
+	PublishVersion(ctx context.Context, trainerID, programID string, at time.Time) error
+}
+
+// VersionService edits a sold package through a new version.
+type VersionService interface {
+	VersionInfo(ctx context.Context, trainerID, programID string) (*VersionInfo, error)
+	CreateVersion(ctx context.Context, trainerID, programID string) (*Program, error)
+}
+
+// WithVersions enables programme versions (v2.133.0).
+func WithVersions(versions VersionRepository) Option {
+	return func(s *service) { s.versions = versions }
 }
 
 // productTypeFor maps a trainer plan type to its catalogue family.
@@ -124,6 +157,8 @@ type CreateProgramInput struct {
 	Audience         string
 	// Objective is required for a Premium package (Level 1).
 	Objective string
+	// Criteria: optional height, weight and age ranges of a Premium package.
+	Criteria program_details.Criteria
 }
 
 // UpdateProgramInput carries the optional whitelisted fields accepted when
@@ -145,6 +180,8 @@ type UpdateProgramInput struct {
 	CoverImage       *string
 	Audience         *string
 	Objective        *string
+	// Criteria replaces the ranges when set (nil: unchanged).
+	Criteria *program_details.Criteria
 }
 
 // UpdatePricingInput carries the pricing fields accepted when updating a
@@ -198,6 +235,8 @@ type service struct {
 	pricing  config.PricingConfig
 	// nutrition holds the meal plans of the trainers' Premium packages.
 	nutrition NutritionRepository
+	// versions keeps sold packages unchanged for their buyers.
+	versions VersionRepository
 }
 
 // NutritionRepository reads and replaces a trainer package's meal plan.
@@ -273,6 +312,9 @@ func (s *service) SaveNutrition(ctx context.Context, trainerID, programID string
 		if errors.Is(err, repositories.ErrProgramNotFound) {
 			return nil, ErrProgramNotFound
 		}
+		if errors.Is(err, repositories.ErrProgramContentLocked) {
+			return nil, ErrProgramSold
+		}
 		return nil, fmt.Errorf("failed to save the meal plan: %w", err)
 	}
 	return s.GetNutrition(ctx, trainerID, programID)
@@ -340,6 +382,9 @@ func (s *service) CreateProgram(ctx context.Context, trainerID string, input Cre
 	if err := program_details.ValidateAudience(productType, input.Audience); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
+	if err := program_details.ValidateCriteria(productType, input.Criteria); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+	}
 
 	program := &models.Program{
 		TrainerID:        trainerID,
@@ -359,6 +404,7 @@ func (s *service) CreateProgram(ctx context.Context, trainerID string, input Cre
 		Objective:        objective,
 		NutritionMode:    nutritionMode,
 	}
+	input.Criteria.Apply(program)
 	if err := s.programs.Create(ctx, program); err != nil {
 		return nil, fmt.Errorf("failed to create program: %w", err)
 	}
@@ -513,6 +559,10 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 		updates["product_type"] = productType
 		updates["objective"] = nil
 		updates["nutrition_mode"] = nil
+		// Only a Premium package has ranges.
+		for column, value := range (program_details.Criteria{}).Updates() {
+			updates[column] = value
+		}
 	}
 
 	level, trainingType := "", ""
@@ -560,6 +610,16 @@ func (s *service) UpdateProgram(ctx context.Context, trainerID, programID string
 		}
 		updates["audience"] = program_details.OptionalAudience(*input.Audience)
 	}
+	if input.Criteria != nil && productType == models.ProgramProductTypePremiumLevel1 {
+		if err := program_details.ValidateCriteria(productType, *input.Criteria); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidInput, err)
+		}
+		for column, value := range input.Criteria.Updates() {
+			updates[column] = value
+		}
+	} else if input.Criteria != nil && !input.Criteria.IsEmpty() {
+		return nil, fmt.Errorf("%w: only a Premium package has height, weight and age ranges", ErrInvalidInput)
+	}
 
 	if len(updates) == 0 {
 		return nil, fmt.Errorf("%w: at least one field must be provided", ErrInvalidInput)
@@ -603,7 +663,9 @@ func (s *service) PublishProgram(ctx context.Context, trainerID, programID strin
 
 	// A plan saved before the catalogue prices existed is aligned with its
 	// type's catalogue price before it becomes purchasable.
+	isVersion := false
 	if existing, findErr := s.programs.FindByIDAndTrainer(ctx, trainerID, programID); findErr == nil {
+		isVersion = existing.PreviousVersionID != nil && existing.Status == models.ProgramStatusDraft
 		// A Premium package (Level 1) is sold with its meal plan.
 		if existing.ProductType == models.ProgramProductTypePremiumLevel1 {
 			if existing.Objective == nil {
@@ -631,6 +693,21 @@ func (s *service) PublishProgram(ctx context.Context, trainerID, programID strin
 				return nil, fmt.Errorf("failed to apply catalogue price: %w", err)
 			}
 		}
+	}
+
+	if isVersion && s.versions != nil {
+		// A new version replaces the one its buyers keep (v2.133.0).
+		if err := s.versions.PublishVersion(ctx, trainerID, programID, time.Now().UTC()); err != nil {
+			switch {
+			case errors.Is(err, repositories.ErrProgramNotFound):
+				return nil, ErrProgramNotFound
+			case errors.Is(err, repositories.ErrVersionState):
+				return nil, ErrProgramAlreadyPublished
+			default:
+				return nil, fmt.Errorf("failed to publish the new version: %w", err)
+			}
+		}
+		return s.GetProgram(ctx, trainerID, programID)
 	}
 
 	err = s.programs.Publish(ctx, trainerID, programID)
@@ -765,26 +842,28 @@ func (s *service) premiumLevel2Link(ctx context.Context, programID string) (bool
 
 func newProgram(model *models.Program) *Program {
 	return &Program{
-		ID:               model.ID,
-		TrainerID:        model.TrainerID,
-		Name:             model.Name,
-		Description:      model.Description,
-		Type:             model.Type,
-		Status:           model.Status,
-		PriceMinorUnits:  model.PriceMinorUnits,
-		Currency:         model.Currency,
-		Level:            model.Level,
-		DurationWeeks:    model.DurationWeeks,
-		FrequencyPerWeek: model.FrequencyPerWeek,
-		TrainingType:     model.TrainingType,
-		CoverImage:       model.CoverImage,
-		Audience:         model.Audience,
-		ProductType:      model.ProductType,
-		Objective:        model.Objective,
-		NutritionMode:    model.NutritionMode,
-		ArchivedAt:       model.ArchivedAt,
-		CreatedAt:        model.CreatedAt,
-		UpdatedAt:        model.UpdatedAt,
+		ID:                model.ID,
+		TrainerID:         model.TrainerID,
+		Name:              model.Name,
+		Description:       model.Description,
+		Type:              model.Type,
+		Status:            model.Status,
+		PriceMinorUnits:   model.PriceMinorUnits,
+		Currency:          model.Currency,
+		Level:             model.Level,
+		DurationWeeks:     model.DurationWeeks,
+		FrequencyPerWeek:  model.FrequencyPerWeek,
+		TrainingType:      model.TrainingType,
+		CoverImage:        model.CoverImage,
+		Audience:          model.Audience,
+		ProductType:       model.ProductType,
+		Objective:         model.Objective,
+		NutritionMode:     model.NutritionMode,
+		ArchivedAt:        model.ArchivedAt,
+		Criteria:          program_details.CriteriaOf(model),
+		PreviousVersionID: model.PreviousVersionID,
+		CreatedAt:         model.CreatedAt,
+		UpdatedAt:         model.UpdatedAt,
 	}
 }
 
@@ -899,4 +978,64 @@ func validatePriceForType(programType string, priceMinorUnits int64, currency st
 		}
 	}
 	return nil
+}
+
+// VersionInfo reports whether the trainer's programme was sold and which new
+// version is open for editing (v2.133.0).
+func (s *service) VersionInfo(ctx context.Context, trainerID, programID string) (*VersionInfo, error) {
+	if _, err := s.programs.FindByIDAndTrainer(ctx, trainerID, programID); err != nil {
+		if errors.Is(err, repositories.ErrProgramNotFound) {
+			return nil, ErrProgramNotFound
+		}
+		return nil, fmt.Errorf("failed to verify program ownership: %w", err)
+	}
+	info := &VersionInfo{}
+	if s.versions == nil {
+		return info, nil
+	}
+	sold, err := s.versions.IsSold(ctx, programID)
+	if err != nil {
+		return nil, err
+	}
+	info.Sold = sold
+	draft, err := s.versions.OpenDraftVersion(ctx, trainerID, programID)
+	if err == nil {
+		info.DraftVersionID = draft.ID
+	} else if !errors.Is(err, repositories.ErrProgramNotFound) {
+		return nil, err
+	}
+	return info, nil
+}
+
+// CreateVersion opens a new version of a sold package for editing (or returns
+// the one already open). The buyers keep the version they bought.
+func (s *service) CreateVersion(ctx context.Context, trainerID, programID string) (*Program, error) {
+	if err := validateTrainerID(trainerID); err != nil {
+		return nil, err
+	}
+	if err := validateProgramID(programID); err != nil {
+		return nil, err
+	}
+	if s.versions == nil {
+		return nil, ErrProgramNotFound
+	}
+	linked, _, err := s.premiumLevel2Link(ctx, programID)
+	if err != nil {
+		return nil, err
+	}
+	if linked {
+		return nil, ErrProgramLocked
+	}
+	created, err := s.versions.CreateVersion(ctx, trainerID, programID)
+	if err != nil {
+		switch {
+		case errors.Is(err, repositories.ErrProgramNotFound):
+			return nil, ErrProgramNotFound
+		case errors.Is(err, repositories.ErrVersionState):
+			return nil, fmt.Errorf("%w: this is an old version; edit the current one", ErrInvalidInput)
+		default:
+			return nil, fmt.Errorf("failed to create the new version: %w", err)
+		}
+	}
+	return newProgram(created), nil
 }

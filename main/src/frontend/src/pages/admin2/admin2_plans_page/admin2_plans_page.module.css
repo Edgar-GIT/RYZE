@@ -107,7 +107,8 @@
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 16 / 9;
+  /* The store card format everywhere (owner rule, 2026-11-27). */
+  aspect-ratio: 4 / 5;
   overflow: hidden;
   color: #00cbff;
   background: linear-gradient(135deg, #0b2a7a 0%, #02041f 100%);

@@ -5,16 +5,14 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { joinClassNames } from "@utils/class_names";
 import earthLandMask from "@resources/img/globe/earth_land_mask.webp";
-import heroPicture from "@resources/img/hero/main_hero_replace.png";
 
 import { CALLOUTS, SCREENS, STORY_CHAPTER_IDS, type StoryChapterId, useStory } from "./story_content";
 import { ChapterCopy, StartActions, TONE_CLASS } from "./story_parts";
 import type { StoryScene } from "./story_scene";
 import styles from "./story_immersive.module.css";
 
-// Owner test (2026-11-21): the hero shows the picture instead of the 3D
-// composition; open /?hero=3d to compare with the 3D.
-const HERO_IMAGE = typeof window === "undefined" || new URLSearchParams(window.location.search).get("hero") !== "3d";
+// The hero is the 3D composition again (owner request, 2026-11-28): the
+// picture test of 2026-11-21 is over.
 
 /*
  * Desktop Home: one 3D stage stays pinned behind the hero, the programs and
@@ -210,11 +208,6 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
         const away = progress / HERO_END;
         heroCopyRef.current.style.opacity = (1 - smoothstep(0.2, 0.8, away)).toFixed(3);
       }
-      // Hero picture test: no 3D in the hero; the 3D (the same as the 3D hero)
-      // fades in as the hero scrolls away.
-      if (HERO_IMAGE && canvasHostRef.current) {
-        canvasHostRef.current.style.opacity = smoothstep(0.3, 0.85, progress / HERO_END).toFixed(3);
-      }
 
       const [a, b, glow] = paletteAt(progress);
       if (backdropRef.current) {
@@ -327,8 +320,7 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
             platform: SCREENS.platform
           },
           callouts: CALLOUTS,
-          landMask: earthLandMask,
-          heroImage: HERO_IMAGE
+          landMask: earthLandMask
         });
       })
       .then((created) => {
@@ -449,7 +441,6 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
             <StartActions withEntryPoints />
           </div>
         </div>
-        {HERO_IMAGE ? <img className={styles.heroPicture} src={heroPicture} alt="" aria-hidden="true" decoding="async" /> : null}
         <p className={styles.scrollCue} aria-hidden="true">
           <ChevronsDown />
           {text.scrollCue}

@@ -9,7 +9,8 @@ import ui from "@/components/public_ui/public_ui.module.css";
 import { ProgramCard } from "@/components/program_card/program_card";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { type Copy, useI18n } from "@/i18n/i18n";
-import { coachInitials, fetchCoachProfile, type CoachProfile } from "@/services/coaches_api";
+import { CoachAvatar } from "@/components/coach_avatar/coach_avatar";
+import { fetchCoachProfile, type CoachProfile } from "@/services/coaches_api";
 import { fetchTrainerProfile } from "@/services/trainer_api";
 import { ApiError } from "@utils/http_client";
 
@@ -141,9 +142,7 @@ export const CoachProfilePage = () => {
         ) : (
           <>
             <header className={styles.hero}>
-              <span className={styles.avatar} aria-hidden="true">
-                {coachInitials(profile.coach.name)}
-              </span>
+              <CoachAvatar className={styles.avatar} name={profile.coach.name} avatarUrl={profile.coach.avatar_url} />
               <div className={styles.identity}>
                 <span className={styles.verified}>
                   <BadgeCheck aria-hidden="true" /> {text.verified}

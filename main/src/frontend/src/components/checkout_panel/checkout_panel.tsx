@@ -40,11 +40,16 @@ interface CheckoutPanelProps {
   // Optional: run once when the purchase is confirmed (for an immediate
   // hand-off to the product's post-purchase experience).
   onSuccess?: () => void;
+  // Only the pay button (and its states), for a page that already shows what
+  // is bought and its price (v2.133.0); "ink" is the dark button for a light
+  // panel.
+  actionOnly?: boolean;
 }
 
 const COPY: Copy<{
   title: string;
   youGet: string;
+  yourOrder: string;
   back: string;
   finish: string;
   secureVia: string;
@@ -91,6 +96,7 @@ const COPY: Copy<{
   en: {
     title: "Payment",
     youGet: "What you get",
+    yourOrder: "Your order",
     back: "Back",
     finish: "Checkout",
     secureVia: "Secure payment via",
@@ -141,6 +147,7 @@ const COPY: Copy<{
   pt: {
     title: "Pagamento",
     youGet: "O que recebes",
+    yourOrder: "O teu pedido",
     back: "Voltar",
     finish: "Finalizar compra",
     secureVia: "Pagamento seguro via",
@@ -215,7 +222,7 @@ const CARD_BRANDS = ["VISA", "Mastercard", "AMEX", "Maestro"];
 // (never hard-coded), the Test Mode shortcut and honest states when nothing
 // can be charged. The purchase lifecycle is the shared useProgramCheckout
 // hook; the backend stays authoritative for every outcome.
-export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, includes, done, successNote, loginReturn, onSuccess, cover }: CheckoutPanelProps) => {
+export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, includes, done, successNote, loginReturn, onSuccess, cover, actionOnly = false }: CheckoutPanelProps) => {
   const { locale } = useI18n();
   const text = COPY[locale];
   const { isActive: testModeActive } = useTestMode();
@@ -315,7 +322,9 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
   const summary = (
     <section className={styles.summary} aria-labelledby="checkout-title">
       <h2 id="checkout-title" className={styles.summaryTitle}>
-        {text.youGet}
+        {/* Without its own list (the page already shows what is included) the
+            block is the order, not "what you get" again. */}
+        {includes.length > 0 ? text.youGet : text.yourOrder}
       </h2>
       <p className={styles.summaryItem}>
         <strong>{itemTitle}</strong>
@@ -563,9 +572,30 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
       </>
     );
 
+  const action = (
+    <div className={styles.actionOnly}>
+      {state.status === "checking" ? (
+        <p className={styles.status}>
+          <Loader2 className={styles.spin} aria-hidden="true" /> {text.checking}
+        </p>
+      ) : state.status === "guest" ? (
+        <>
+          <Link className={joinClassNames(styles.payButton, styles.payButtonInk)} to="/login" onClick={() => rememberAfterLogin(loginReturn)}>
+            {text.login}
+          </Link>
+          <p className={styles.actionNote}>{text.guestText}</p>
+        </>
+      ) : (
+        <button type="button" className={joinClassNames(styles.payButton, styles.payButtonInk)} onClick={openPay}>
+          <Lock aria-hidden="true" /> {text.pay(price)}
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <>
-      {summary}
+      {actionOnly ? action : summary}
       {payOpen
         ? createPortal(
             <div className={styles.screen} role="dialog" aria-modal="true" aria-labelledby="checkout-finish">

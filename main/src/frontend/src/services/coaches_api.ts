@@ -12,6 +12,8 @@ import type { MarketplaceProgram } from "@/services/marketplace_api";
 export interface PublicCoach {
   id: string;
   name: string;
+  // The coach's profile photo (null without one; v2.133.0).
+  avatar_url?: string | null;
 }
 
 export interface CoachProgram extends MarketplaceProgram {
@@ -22,7 +24,15 @@ export interface CoachProgram extends MarketplaceProgram {
 export interface CoachProfile {
   // username: the coach's public member profile (/u/<username>), which is the
   // coach's public page since v2.132.0.
-  coach: PublicCoach & { coach_since: string; total_views: number; username?: string };
+  coach: PublicCoach & {
+    coach_since: string;
+    total_views: number;
+    username?: string;
+    // Public counters (v2.133.0): plans on the market, and how many times
+    // people bought one of the coach's plans.
+    plans_count?: number;
+    subscriptions?: number;
+  };
   programs: CoachProgram[];
 }
 

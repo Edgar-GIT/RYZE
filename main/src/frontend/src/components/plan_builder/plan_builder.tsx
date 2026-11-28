@@ -51,7 +51,10 @@ import {
   updateExerciseAssignment,
   updateSetInExercise,
   validatePlan,
+  criteriaProblems,
+  CRITERIA_LIMITS,
   type PlanDraft,
+  type PlanDraftCriteria,
   type PlanDraftExercise,
   type PlanDraftWorkout
 } from "@/pages/admin2/admin2_plan_create_page/plan_builder_model";
@@ -83,6 +86,8 @@ type StepId = "basics" | "structure" | "nutrition" | "review";
 
 interface PlanBuilderProps {
   heading: { kicker: string; title: string; backTo: string; backLabel: string };
+  // A callout under the title (e.g. "you are editing a new version").
+  notice?: string;
   draft: PlanDraft;
   onChange: (producer: (current: PlanDraft) => PlanDraft) => void;
   categories: BuilderCategory[];
@@ -97,6 +102,8 @@ interface PlanBuilderProps {
   exercises: Record<string, BuilderExercise>;
   rememberExercises: (list: BuilderExercise[]) => void;
   uploadCover: (file: File) => Promise<UploadedImage>;
+  // Pictures of the meals and their alternatives (Premium Level 1, v2.133.0).
+  uploadMealImage?: (file: File) => Promise<{ key: string; url: string }>;
   // ADMIN_2, free plans: the plan can be marked as an official RYZE plan.
   officialOption?: boolean;
   status: "draft" | "published";
@@ -152,6 +159,7 @@ const Stepper = ({
 // shown, never typed.
 export const PlanBuilder = ({
   heading,
+  notice,
   draft,
   onChange,
   categories,
@@ -164,6 +172,7 @@ export const PlanBuilder = ({
   exercises,
   rememberExercises,
   uploadCover,
+  uploadMealImage,
   officialOption = false,
   draftOnlyLabel,
   curatedOnly = false,
@@ -207,6 +216,7 @@ export const PlanBuilder = ({
       if (!draft.name.trim()) problems.push(copy.required.name);
       if (!draft.description.trim()) problems.push(copy.required.description);
       if (showPackageOptions && draft.nutrition_mode === "curated" && !draft.objective) problems.push(copy.required.objective);
+      if (showPackageOptions && criteriaProblems(draft.criteria).length > 0) problems.push(copy.required.criteria);
       // Duration and frequency are steppers that always hold a valid value.
     }
     if (id === "structure" && countExercises(draft) === 0) problems.push(copy.required.exercises);
@@ -888,6 +898,87 @@ export const PlanBuilder = ({
               <Lock aria-hidden="true" /> {copy.metadataLocked}
             </p>
           ) : null}
+
+          {/* Who the package is for (v2.133.0): each range is optional. */}
+          <div className={styles.criteria}>
+            <span className={styles.label}>{copy.criteria.title}</span>
+            <p className={styles.hint}>{copy.criteria.hint}</p>
+            {(
+              [
+                ["height", "min_height_cm", "max_height_cm"],
+                ["weight", "min_weight_kg", "max_weight_kg"],
+                ["age", "min_age", "max_age"]
+              ] as const
+            ).map(([key, minKey, maxKey]) => {
+              const set = draft.criteria[minKey] !== "" || draft.criteria[maxKey] !== "";
+              const invalid = criteriaProblems(draft.criteria).includes(key);
+              const limits = CRITERIA_LIMITS[key];
+              const update = (patch: Partial<PlanDraftCriteria>) =>
+                onChange((current) => ({ ...current, criteria: { ...current.criteria, ...patch } }));
+              return (
+                <div key={key} className={styles.criteriaRow}>
+                  <div className={styles.criteriaHead}>
+                    <strong>{copy.criteria[key]}</strong>
+                    <div className={styles.choiceRow} role="radiogroup" aria-label={copy.criteria[key]}>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={!set}
+                        className={styles.choice}
+                        onClick={() => update({ [minKey]: "", [maxKey]: "" })}
+                      >
+                        {copy.criteria.any}
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={set}
+                        className={styles.choice}
+                        onClick={() =>
+                          set ? undefined : update({ [minKey]: String(limits.min), [maxKey]: String(limits.max) })
+                        }
+                      >
+                        {copy.criteria.range}
+                      </button>
+                    </div>
+                  </div>
+                  {set ? (
+                    <div className={styles.criteriaInputs}>
+                      <label>
+                        <span>{copy.criteria.from}</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={limits.min}
+                          max={limits.max}
+                          aria-invalid={invalid}
+                          aria-label={`${copy.criteria[key]} · ${copy.criteria.from}`}
+                          placeholder={copy.criteria.anyText}
+                          value={draft.criteria[minKey]}
+                          onChange={(event) => update({ [minKey]: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        <span>{copy.criteria.to}</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={limits.min}
+                          max={limits.max}
+                          aria-invalid={invalid}
+                          aria-label={`${copy.criteria[key]} · ${copy.criteria.to}`}
+                          placeholder={copy.criteria.anyText}
+                          value={draft.criteria[maxKey]}
+                          onChange={(event) => update({ [maxKey]: event.target.value })}
+                        />
+                      </label>
+                      <em>{copy.criteria.units[key]}</em>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </section>
       ) : null}
     </div>
@@ -1004,6 +1095,8 @@ export const PlanBuilder = ({
           <CuratedNutritionEditor
             nutrition={draft.curated_nutrition}
             onChange={(next) => onChange((current) => ({ ...current, curated_nutrition: next }))}
+            uploadMealImage={uploadMealImage}
+            showAlternatives
           />
         </section>
       </div>
@@ -1129,6 +1222,11 @@ export const PlanBuilder = ({
         <p className={styles.kicker}>{heading.kicker}</p>
         <h1 className={styles.title}>{heading.title}</h1>
       </header>
+      {notice ? (
+        <p className={styles.notice} role="note">
+          {notice}
+        </p>
+      ) : null}
 
       <nav className={styles.steps} aria-label={copy.stepOf(stepIndex + 1, steps.length)}>
         <ol>

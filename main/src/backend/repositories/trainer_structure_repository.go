@@ -66,6 +66,13 @@ func (r *trainerStructureRepository) ReplaceTrainerStructure(ctx context.Context
 			}
 			return fmt.Errorf("failed to verify trainer program ownership: %w", err)
 		}
+		// A sold package is never changed in place (v2.133.0): its buyers keep
+		// the version they bought.
+		if sold, err := hasCompletedPurchase(tx, programID); err != nil {
+			return err
+		} else if sold {
+			return ErrProgramContentLocked
+		}
 		if err := verifyCatalogExercises(tx, catalogExerciseIDs(weeks)); err != nil {
 			return err
 		}

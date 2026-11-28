@@ -7,7 +7,7 @@ import { fetchProgramOutline, type ProgramOutline } from "@/services/marketplace
 import styles from "./free_plan_outline.module.css";
 
 const OUTLINE_PT: Catalog = {
-  "Plan overview": "Visão geral do plano",
+  "The plan, week by week": "O plano, semana a semana",
   "Every week and training day of this plan. The exercises open once you get it.":
     "Todas as semanas e dias de treino deste plano. Os exercícios ficam disponíveis quando o obtiveres.",
   "Week {number}": "Semana {number}",
@@ -71,7 +71,7 @@ export const FreePlanOutline = ({ programId }: { programId: string }) => {
     <section className={styles.outline} aria-labelledby="plan-overview">
       <header className={styles.head}>
         <h2 id="plan-overview" className={styles.title}>
-          {tr("Plan overview")}
+          {tr("The plan, week by week")}
         </h2>
         <p className={styles.lead}>{tr("Every week and training day of this plan. The exercises open once you get it.")}</p>
         {outline && outline.total_days > 0 ? (
@@ -99,11 +99,12 @@ export const FreePlanOutline = ({ programId }: { programId: string }) => {
         <ol className={styles.weeks}>
           {outline.weeks.map((week, weekIndex) => (
             <li key={week.week_number} className={styles.week}>
-              <details open={weekIndex === 0}>
+              {/* Short plans open in full; longer ones open their first weeks. */}
+              <details open={outline.weeks.length <= 6 || weekIndex < 2}>
                 <summary className={styles.weekSummary}>
-                  <span>{tr("Week {number}", { number: week.week_number })}</span>
+                  <span className={styles.weekName}>{tr("Week {number}", { number: week.week_number })}</span>
                   <span className={styles.weekMeta}>
-                    {tr("{count} training days", { count: week.days.length })} ·{" "}
+                    {tr("{count} training days", { count: week.days.length })},{" "}
                     {exercises(week.days.reduce((sum, day) => sum + day.exercise_count, 0))}
                   </span>
                 </summary>
@@ -111,11 +112,11 @@ export const FreePlanOutline = ({ programId }: { programId: string }) => {
                   {week.days.map((day, dayIndex) => (
                     <li key={`${week.week_number}-${day.position}`} className={styles.day}>
                       <span className={styles.dayNumber}>{tr("Day {number}", { number: dayIndex + 1 })}</span>
-                      <span className={styles.dayTitle}>
-                        {day.title || tr("Day {number}", { number: dayIndex + 1 })}
-                        {day.focus && FOCUS[day.focus] ? <em className={styles.focus}>{FOCUS[day.focus][locale]}</em> : null}
+                      <span className={styles.dayTitle}>{day.title || tr("Day {number}", { number: dayIndex + 1 })}</span>
+                      {day.focus && FOCUS[day.focus] ? <span className={styles.focus}>{FOCUS[day.focus][locale]}</span> : null}
+                      <span className={styles.dayCount}>
+                        <Dumbbell aria-hidden="true" /> {exercises(day.exercise_count)}
                       </span>
-                      <span className={styles.dayCount}>{exercises(day.exercise_count)}</span>
                     </li>
                   ))}
                 </ol>

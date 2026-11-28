@@ -2107,6 +2107,30 @@ a complete meal plan returns `409 NUTRITION_REQUIRED`.
   with the reason) for an incomplete plan or a programme that is not a
   Premium package. Saving replaces the plan and raises its version.
 
+#### Versions, ranges and meal media (v2.133.0)
+
+- Every trainer route that changes a programme (`PATCH`/`DELETE
+  /programs/:programID`, `PUT .../structure`, `PUT .../nutrition`, the
+  week/day/exercise routes) answers `409 PROGRAM_SOLD` for a sold programme of
+  the trainer.
+- `POST /api/v1/trainer/programs/:programID/versions` — `201` with the new
+  draft version (or the one already open). Publishing it (`POST
+  .../publish`) replaces the old version on the market.
+- `GET /api/v1/trainer/programs/:programID` adds `sold` and
+  `draft_version_id`; programme responses carry `previous_version_id` and
+  `criteria` (`min_height_cm`, `max_height_cm`, `min_weight_kg`,
+  `max_weight_kg`, `min_age`, `max_age`, null = any). Create/update accept
+  `criteria` (Premium only); the platform Level 1 API accepts it too.
+- Curated meal plans: each meal accepts `image_key`, `alternatives` and
+  `alternatives_image_key`; buyers receive them in
+  `GET /me/programs/:programID/nutrition`.
+- `POST /api/v1/trainer/uploads/program-meal-image` (permission
+  `trainer.programs`) uploads a meal or alternatives picture.
+- Coach payloads (`/coaches/...`, the programme detail `coach`) include
+  `avatar_url`; the coach profile also returns `plans_count` and
+  `subscriptions` (v2.133.1). The featured programmes of the free marketplace list free
+  plans only; a Level 1 package never appears there.
+
 #### Archive (v2.132.0)
 
 - `POST /api/v1/trainer/programs/:programID/archive` — takes a published

@@ -12,7 +12,8 @@ import {
   type ProgramStatusValue,
   type ProgramTypeValue,
   type GenericCuratedNutritionItemInput,
-  type GenericCuratedNutritionMealInput
+  type GenericCuratedNutritionMealInput,
+  type ProgramCriteria
 } from "@/services/admin2_api";
 import type { SetType } from "@/services/exercise_library";
 
@@ -74,10 +75,36 @@ export interface PlanDraftCuratedMeal {
   kind: "meal" | "snack";
   notes: string;
   items: PlanDraftCuratedItem[];
-  // Premium Level 2: an optional picture of the meal (uploads key and URL).
+  // An optional picture of the meal (uploads key and URL); Premium Level 2
+  // and, since v2.133.0, Premium Level 1 packages.
   image_key?: string;
   image_url?: string;
+  // Food alternatives for this meal, with an optional picture (v2.133.0).
+  alternatives?: string;
+  alternatives_image_key?: string;
+  alternatives_image_url?: string;
 }
+
+// Who a Premium Level 1 package is for (v2.133.0): "" = any (as typed).
+export interface PlanDraftCriteria {
+  min_height_cm: string;
+  max_height_cm: string;
+  min_weight_kg: string;
+  max_weight_kg: string;
+  min_age: string;
+  max_age: string;
+}
+
+export const EMPTY_CRITERIA: PlanDraftCriteria = {
+  min_height_cm: "",
+  max_height_cm: "",
+  min_weight_kg: "",
+  max_weight_kg: "",
+  min_age: "",
+  max_age: ""
+};
+
+const uploadUrl = (key: string | null | undefined): string => (key ? `/uploads/${key}` : "");
 
 export interface PlanDraftCuratedNutrition {
   dietary_pattern: string;
@@ -111,6 +138,8 @@ export interface PlanDraft {
   official: boolean;
   // Who the plan is designed for: "" everyone, "female" or "male".
   audience: "" | "female" | "male";
+  // Premium Level 1: height, weight and age ranges (v2.133.0).
+  criteria: PlanDraftCriteria;
   weeks: PlanDraftWeek[];
 }
 
@@ -195,6 +224,7 @@ export const createPlanDraft = (
 ): PlanDraft => ({
   name: "",
   description: "",
+  criteria: { ...EMPTY_CRITERIA },
   type:
     productType === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_2
       ? ProgramType.PREMIUM
@@ -732,6 +762,7 @@ export const toGenericProgramInput = (draft: PlanDraft): GenericProgramInput => 
   cover_image: draft.official ? "" : draft.cover_image,
   official: draft.official,
   audience: isLevel2 ? "" : draft.audience,
+  criteria: draft.product_type === PROGRAM_PRODUCT_TYPE.PREMIUM_LEVEL_1 ? criteriaToInput(draft.criteria) : undefined,
   weeks: isLevel2
     ? []
     : draft.weeks.map((week) => ({
@@ -772,6 +803,9 @@ export const toCuratedNutritionInput = (nutrition: PlanDraftCuratedNutrition) =>
     label: meal.label.trim(),
     kind: meal.kind,
     notes: meal.notes.trim(),
+    image_key: meal.image_key ?? "",
+    alternatives: (meal.alternatives ?? "").trim(),
+    alternatives_image_key: meal.alternatives_image_key ?? "",
     items: meal.items.map<GenericCuratedNutritionItemInput>((item) => ({
       food_name: item.food_name.trim(),
       category: item.category.trim(),
@@ -812,6 +846,11 @@ export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
           label: meal.label,
           kind: meal.kind,
           notes: meal.notes ?? "",
+          image_key: meal.image_key ?? "",
+          image_url: uploadUrl(meal.image_key),
+          alternatives: meal.alternatives ?? "",
+          alternatives_image_key: meal.alternatives_image_key ?? "",
+          alternatives_image_url: uploadUrl(meal.alternatives_image_key),
           items: meal.items.map((item) => ({
             id: uid(),
             food_name: item.food_name,
@@ -839,6 +878,7 @@ export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
   cover_url: detail.cover_image_url ?? "",
   official: detail.official ?? false,
   audience: detail.audience ?? "",
+  criteria: criteriaToDraft(detail.criteria),
   weeks: detail.weeks.map((week) => ({
     id: uid(),
     week_number: week.week_number,
@@ -869,3 +909,51 @@ export const detailToPlanDraft = (detail: GenericProgramDetail): PlanDraft => ({
     }))
   }))
 });
+
+// --- Package criteria (v2.133.0) -------------------------------------------
+const boundOf = (value: string): number | null => {
+  const parsed = Number(String(value).replace(",", ".").trim());
+  return value.trim() === "" || !Number.isFinite(parsed) ? null : Math.round(parsed);
+};
+
+export const criteriaToInput = (criteria: PlanDraftCriteria): ProgramCriteria => ({
+  min_height_cm: boundOf(criteria.min_height_cm),
+  max_height_cm: boundOf(criteria.max_height_cm),
+  min_weight_kg: boundOf(criteria.min_weight_kg),
+  max_weight_kg: boundOf(criteria.max_weight_kg),
+  min_age: boundOf(criteria.min_age),
+  max_age: boundOf(criteria.max_age)
+});
+
+export const criteriaToDraft = (criteria: ProgramCriteria | null | undefined): PlanDraftCriteria => ({
+  min_height_cm: criteria?.min_height_cm != null ? String(criteria.min_height_cm) : "",
+  max_height_cm: criteria?.max_height_cm != null ? String(criteria.max_height_cm) : "",
+  min_weight_kg: criteria?.min_weight_kg != null ? String(criteria.min_weight_kg) : "",
+  max_weight_kg: criteria?.max_weight_kg != null ? String(criteria.max_weight_kg) : "",
+  min_age: criteria?.min_age != null ? String(criteria.min_age) : "",
+  max_age: criteria?.max_age != null ? String(criteria.max_age) : ""
+});
+
+// The bounds the Level 1 questionnaire accepts.
+export const CRITERIA_LIMITS = {
+  height: { min: 120, max: 230 },
+  weight: { min: 30, max: 300 },
+  age: { min: 14, max: 100 }
+} as const;
+
+// criteriaProblems lists what is wrong with the ranges (as keys the builder
+// turns into messages): out of bounds, or minimum above maximum.
+export const criteriaProblems = (criteria: PlanDraftCriteria): ("height" | "weight" | "age")[] => {
+  const input = criteriaToInput(criteria);
+  const problems: ("height" | "weight" | "age")[] = [];
+  const check = (key: "height" | "weight" | "age", min: number | null, max: number | null) => {
+    const limits = CRITERIA_LIMITS[key];
+    const outside = [min, max].some((bound) => bound !== null && (bound < limits.min || bound > limits.max));
+    if (outside || (min !== null && max !== null && min > max)) problems.push(key);
+  };
+  check("height", input.min_height_cm, input.max_height_cm);
+  check("weight", input.min_weight_kg, input.max_weight_kg);
+  check("age", input.min_age, input.max_age);
+  return problems;
+};
+

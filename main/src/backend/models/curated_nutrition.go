@@ -52,6 +52,11 @@ type CuratedNutritionPlanMeal struct {
 	Kind      string    `gorm:"column:kind;type:varchar(16);not null;default:meal" json:"kind"`
 	Notes     *string   `gorm:"column:notes;type:varchar(255)" json:"notes"`
 	CreatedAt time.Time `gorm:"column:created_at;type:datetime(6);not null" json:"-"`
+	// A picture of the meal, and a line of food alternatives with an optional
+	// picture (v2.133.0). Keys of public uploads under programs/meals/.
+	ImageKey             *string `gorm:"column:image_key;type:varchar(255)" json:"image_key"`
+	Alternatives         *string `gorm:"column:alternatives;type:varchar(500)" json:"alternatives"`
+	AlternativesImageKey *string `gorm:"column:alternatives_image_key;type:varchar(255)" json:"alternatives_image_key"`
 
 	Items []CuratedNutritionPlanMealItem `gorm:"foreignKey:MealID" json:"-"`
 }

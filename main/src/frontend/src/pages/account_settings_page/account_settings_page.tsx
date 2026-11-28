@@ -430,25 +430,6 @@ export const AccountSettingsPage = () => {
 
             <PublicProfileCard user={user} onChanged={reload} />
             <ProfileDetailsCard />
-
-            <section className={styles.card} aria-labelledby="account-preferences">
-              <h2 id="account-preferences" className={styles.cardTitle}>
-                <Languages aria-hidden="true" /> {text.preferences}
-              </h2>
-              <div className={styles.row}>
-                <div>
-                  <strong>{t("language.label")}</strong>
-                  <p>{text.languageText}</p>
-                </div>
-                <LanguageSwitcher variant="compact" />
-              </div>
-            </section>
-
-            <section className={styles.card} aria-label={text.access}>
-              <SignInMethods />
-            </section>
-
-            <PrivacyCookiesCard />
           </div>
 
           <div className={styles.column}>
@@ -536,6 +517,27 @@ export const AccountSettingsPage = () => {
                 ) : null}
               </AnimatePresence>
             </section>
+
+            {/* Preferences, sign-in methods and privacy sit under the
+                account actions (owner request, 2026-11-28). */}
+            <section className={styles.card} aria-labelledby="account-preferences">
+              <h2 id="account-preferences" className={styles.cardTitle}>
+                <Languages aria-hidden="true" /> {text.preferences}
+              </h2>
+              <div className={styles.row}>
+                <div>
+                  <strong>{t("language.label")}</strong>
+                  <p>{text.languageText}</p>
+                </div>
+                <LanguageSwitcher variant="compact" />
+              </div>
+            </section>
+
+            <section className={styles.card} aria-label={text.access}>
+              <SignInMethods />
+            </section>
+
+            <PrivacyCookiesCard />
           </div>
         </div>
       ) : (

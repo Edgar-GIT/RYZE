@@ -14,6 +14,10 @@ import (
 // Premium Level 2 request and its content can no longer change.
 var ErrTrainerProgramLocked = errors.New("trainer program locked by premium level 2 delivery")
 
+// ErrTrainerProgramSold indicates a sold package cannot change in place: it is
+// edited through a new version (v2.133.0).
+var ErrTrainerProgramSold = errors.New("trainer program has been sold: edit it through a new version")
+
 // PremiumLevel2LinkReader reports whether a plan is attached to a Premium
 // Level 2 request and whether that request was delivered.
 type PremiumLevel2LinkReader interface {
@@ -89,6 +93,8 @@ func (s *trainerStructureService) ReplaceStructure(ctx context.Context, trainerI
 			return nil, ErrProgramNotFound
 		case errors.Is(err, repositories.ErrExerciseNotFound):
 			return nil, ErrExerciseNotFound
+		case errors.Is(err, repositories.ErrProgramContentLocked):
+			return nil, ErrTrainerProgramSold
 		default:
 			return nil, fmt.Errorf("failed to save trainer program structure: %w", err)
 		}

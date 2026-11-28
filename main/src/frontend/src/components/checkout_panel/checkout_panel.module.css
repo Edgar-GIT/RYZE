@@ -1531,3 +1531,28 @@
   font-size: 0.8em;
   font-weight: 500;
 }
+
+/* Only the pay button, inside a page's own summary block (v2.133.0). */
+.actionOnly {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.payButtonInk {
+  color: #ffffff;
+  background: #02041f;
+  box-shadow: 0 14px 30px -14px rgba(2, 4, 31, 0.8);
+  text-decoration: none;
+}
+
+.payButtonInk:hover {
+  background: #0a1a5c;
+}
+
+.actionNote {
+  margin: 0;
+  color: #02041f;
+  font-size: 0.85rem;
+  font-weight: 600;
+}

@@ -13,6 +13,21 @@ export interface BuilderCopy {
     objective: string;
     exercises: string;
     nutrition: string;
+    criteria: string;
+  };
+  // Who a Premium package is for (v2.133.0).
+  criteria: {
+    title: string;
+    hint: string;
+    any: string;
+    range: string;
+    from: string;
+    to: string;
+    height: string;
+    weight: string;
+    age: string;
+    units: { height: string; weight: string; age: string };
+    anyText: string;
   };
   // Basics
   categoryTitle: string;
@@ -189,12 +204,26 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     back: "Back",
     next: "Next step",
     requiredTitle: "Fill in what is missing to continue:",
+    criteria: {
+      title: "Who is this package for?",
+      hint: "The Level 1 questionnaire only recommends the package to people inside these ranges. Leave \"Any\" when it suits everyone.",
+      any: "Any",
+      range: "Set a range",
+      from: "From",
+      to: "to",
+      height: "Height",
+      weight: "Weight",
+      age: "Age",
+      units: { height: "cm (e.g. 150 to 180)", weight: "kg (e.g. 50 to 55)", age: "years (e.g. 18 to 35)" },
+      anyText: "any"
+    },
     required: {
       name: "Give the plan a name.",
       description: "Write a short description of the plan (what it is for and who it suits).",
       objective: "Choose the package objective (it decides who it is recommended to).",
       exercises: "Add at least one exercise to the training days.",
-      nutrition: "Complete the meal plan:"
+      nutrition: "Complete the meal plan:",
+      criteria: "Check the height, weight and age ranges (within the allowed values, minimum not above maximum)."
     },
     categoryTitle: "Category",
     categoryLocked: "The category is fixed once the plan exists.",
@@ -202,7 +231,7 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     officialTitle: "Official RYZE plan",
     officialText: "A plan of the platform itself, not a custom one. It always uses the RYZE picture.",
     officialHint: "Official RYZE plans always use this picture; it cannot be changed.",
-    coverHint: "Shown on the plan card and page. A wide picture works best (16:9).",
+    coverHint: "Shown exactly like this on the store card (upright 4:5 format). Keep the important part in the middle; a portrait picture works best.",
     coverChoose: "Choose image",
     coverReplace: "Replace",
     coverRemove: "Remove",
@@ -337,12 +366,26 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     back: "Voltar",
     next: "Passo seguinte",
     requiredTitle: "Preenche o que falta para continuar:",
+    criteria: {
+      title: "Para quem é este pacote?",
+      hint: "O questionário do Nível 1 só recomenda o pacote a quem estiver dentro destes intervalos. Deixa \"Qualquer\" quando serve a todos.",
+      any: "Qualquer",
+      range: "Definir intervalo",
+      from: "De",
+      to: "a",
+      height: "Altura",
+      weight: "Peso",
+      age: "Idade",
+      units: { height: "cm (ex.: 150 a 180)", weight: "kg (ex.: 50 a 55)", age: "anos (ex.: 18 a 35)" },
+      anyText: "qualquer"
+    },
     required: {
       name: "Dá um nome ao plano.",
       description: "Escreve uma descrição curta do plano (para que serve e para quem é).",
       objective: "Escolhe o objetivo do pacote (decide a quem é recomendado).",
       exercises: "Adiciona pelo menos um exercício aos dias de treino.",
-      nutrition: "Completa o plano de refeições:"
+      nutrition: "Completa o plano de refeições:",
+      criteria: "Revê os intervalos de altura, peso e idade (dentro dos valores permitidos e o mínimo não acima do máximo)."
     },
     categoryTitle: "Categoria",
     categoryLocked: "A categoria fica fixa depois de o plano existir.",
@@ -350,7 +393,7 @@ export const BUILDER_COPY: Copy<BuilderCopy> = {
     officialTitle: "Plano oficial RYZE",
     officialText: "Um plano da própria plataforma, não um plano customizado. Usa sempre a imagem RYZE.",
     officialHint: "Os planos oficiais RYZE usam sempre esta imagem; não pode ser alterada.",
-    coverHint: "Aparece no cartão e na página do plano. Uma imagem larga resulta melhor (16:9).",
+    coverHint: "Aparece exatamente assim no cartão da loja (formato vertical 4:5). Mantém o importante ao centro; uma foto ao alto resulta melhor.",
     coverChoose: "Escolher imagem",
     coverReplace: "Trocar",
     coverRemove: "Remover",

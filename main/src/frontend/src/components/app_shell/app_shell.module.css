@@ -7,19 +7,21 @@
  */
 .shell {
   /* Panels and text (newer --app-* and legacy names used by older pages). */
-  --app-bg: #02041f;
-  --app-surface: linear-gradient(180deg, rgba(17, 36, 104, 0.78) 0%, rgba(8, 19, 66, 0.82) 100%);
-  --app-surface-solid: #0b1a52;
-  --app-surface-2: rgba(18, 38, 108, 0.9);
-  --app-inset: rgba(2, 8, 38, 0.6);
-  --app-line: rgba(124, 200, 255, 0.16);
-  --app-line-strong: rgba(0, 203, 255, 0.5);
+  --app-bg: #0a2a86;
+  /* The fixed bars (sidebar, top bar, sticky footers): opaque (owner request). */
+  --app-bar: #0a2370;
+  --app-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.05) 100%);
+  --app-surface-solid: #10348f;
+  --app-surface-2: rgba(255, 255, 255, 0.12);
+  --app-inset: rgba(4, 14, 66, 0.62);
+  --app-line: rgba(255, 255, 255, 0.14);
+  --app-line-strong: rgba(124, 235, 255, 0.55);
   --app-text: #ffffff;
-  --app-text-2: #c9d5ec;
-  --app-text-3: #93a4c8;
+  --app-text-2: #d6e1f7;
+  --app-text-3: #a9bce3;
   --app-accent: #00cbff;
   --app-accent-2: #0481dc;
-  --app-accent-soft: rgba(0, 203, 255, 0.13);
+  --app-accent-soft: rgba(124, 235, 255, 0.15);
   --app-success: #5ee6a8;
   --app-success-soft: rgba(94, 230, 168, 0.13);
   --app-warning: #ffcf7a;
@@ -31,19 +33,19 @@
   --app-ink: #02041f;
   --app-font-display: "RYZE Archivo", "Google Sans", Inter, Roboto, Arial, sans-serif;
 
-  --bg-primary: #02041f;
-  --bg-secondary: #071245;
-  --surface: rgba(12, 27, 82, 0.82);
-  --surface-elevated: rgba(17, 36, 104, 0.85);
-  --surface-hover: rgba(22, 46, 124, 0.85);
-  --card: rgba(12, 27, 82, 0.82);
-  --card-hover: rgba(18, 38, 108, 0.9);
-  --border: 1px solid rgba(124, 200, 255, 0.16);
-  --border-color: rgba(124, 200, 255, 0.16);
-  --border-hover: rgba(0, 203, 255, 0.5);
+  --bg-primary: #0b2c96;
+  --bg-secondary: #123aa6;
+  --surface: rgba(255, 255, 255, 0.09);
+  --surface-elevated: rgba(255, 255, 255, 0.12);
+  --surface-hover: rgba(255, 255, 255, 0.16);
+  --card: rgba(255, 255, 255, 0.09);
+  --card-hover: rgba(255, 255, 255, 0.13);
+  --border: 1px solid rgba(255, 255, 255, 0.14);
+  --border-color: rgba(255, 255, 255, 0.14);
+  --border-hover: rgba(124, 235, 255, 0.55);
   --text-primary: #ffffff;
-  --text-secondary: #c9d5ec;
-  --text-muted: #93a4c8;
+  --text-secondary: #d6e1f7;
+  --text-muted: #a9bce3;
   --accent: #00cbff;
   --accent-secondary: #0481dc;
   --accent-glow-soft: rgba(0, 203, 255, 0.14);
@@ -56,11 +58,13 @@
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100svh;
   color: var(--app-text);
+  /* The public site's field of blues (owner request, 2026-11-27: the
+     private areas as alive as the Contact page), brighter at the top. */
   background:
-    radial-gradient(70rem 42rem at 92% -8%, rgba(4, 129, 220, 0.3), transparent 62%),
-    radial-gradient(52rem 40rem at 22% 108%, rgba(0, 203, 255, 0.12), transparent 64%),
-    radial-gradient(40rem 30rem at 50% 40%, rgba(7, 42, 119, 0.25), transparent 70%),
-    #02041f;
+    radial-gradient(60rem 38rem at 88% -12%, rgba(80, 226, 254, 0.16), transparent 62%),
+    radial-gradient(50rem 40rem at 8% 112%, rgba(0, 203, 255, 0.1), transparent 66%),
+    linear-gradient(180deg, #123fb0 0%, #0a2a86 45%, #071f66 100%);
+  background-attachment: fixed;
 }
 
 /* The sidebar column's surface runs the full height of the page; the
@@ -70,8 +74,8 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--sidebar-width);
-  border-right: 1px solid rgba(124, 200, 255, 0.14);
-  background: linear-gradient(180deg, rgba(11, 26, 82, 0.86) 0%, rgba(4, 11, 46, 0.9) 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--app-bar);
   pointer-events: none;
 }
 
@@ -384,8 +388,8 @@
   gap: 1rem;
   min-height: 4.25rem;
   padding: 0 clamp(1.25rem, 3vw, 2.5rem);
-  border-bottom: 1px solid rgba(124, 200, 255, 0.1);
-  background: rgba(2, 4, 31, 0.72);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--app-bar);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }

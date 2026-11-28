@@ -224,3 +224,20 @@
     animation: none;
   }
 }
+
+/* The plan's picture, in the store's card format (owner request). */
+.itemPlan {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.itemCover {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  aspect-ratio: 4 / 5;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  object-fit: cover;
+}

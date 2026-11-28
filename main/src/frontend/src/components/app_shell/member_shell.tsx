@@ -1,7 +1,6 @@
 import {
   BarChart3,
   HeartPulse,
-  BookOpen,
   Dumbbell,
   History,
   Globe2,
@@ -10,7 +9,6 @@ import {
   Play,
   ReceiptText,
   Settings,
-  ShoppingBag,
   Trophy,
   UserRound,
   Users
@@ -86,8 +84,6 @@ const COPY: Copy<{
   recoveryLong: string;
   historyLong: string;
   achievementsLong: string;
-  plansLong: string;
-  libraryLong: string;
   purchasesLong: string;
   accountLong: string;
   menu: string;
@@ -118,7 +114,7 @@ const COPY: Copy<{
     publicProfile: "My public profile",
     more: "More",
     groupTraining: "My training",
-    groupDiscover: "Plans and exercises",
+    groupDiscover: "Achievements",
     groupAccount: "Account",
     homeLong: "My summary",
     trainLong: "My plans and workouts",
@@ -126,8 +122,6 @@ const COPY: Copy<{
     recoveryLong: "Muscle recovery",
     historyLong: "Workout history",
     achievementsLong: "Achievements and medals",
-    plansLong: "Training plan store",
-    libraryLong: "Exercise library",
     purchasesLong: "Purchases and invoices",
     accountLong: "Account settings",
     menu: "Account menu",
@@ -158,7 +152,7 @@ const COPY: Copy<{
     publicProfile: "O meu perfil público",
     more: "Mais",
     groupTraining: "O meu treino",
-    groupDiscover: "Planos e exercícios",
+    groupDiscover: "Conquistas",
     groupAccount: "Conta",
     homeLong: "O meu resumo",
     trainLong: "Os meus planos e treinos",
@@ -166,8 +160,6 @@ const COPY: Copy<{
     recoveryLong: "Recuperação muscular",
     historyLong: "Histórico de treinos",
     achievementsLong: "Conquistas e medalhas",
-    plansLong: "Loja de planos de treino",
-    libraryLong: "Biblioteca de exercícios",
     purchasesLong: "Compras e faturas",
     accountLong: "Definições da conta",
     menu: "Menu da conta",
@@ -235,8 +227,8 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
   ];
   const secondaryItems: ShellNavItem[] = [
     { to: "/achievements", label: text.achievements, icon: Trophy },
-    { to: "/services/generic-program", label: text.plans, icon: ShoppingBag },
-    { to: "/exercises", label: text.library, icon: BookOpen },
+    // The training plan store and the Exercise Library are site pages (the top
+    // navigation), not part of the member area (owner request, 2026-11-28).
     ...(hasPremiumLevel2Academy ? [{ to: "/services/premium-level-2/academy", label: text.academy, icon: GraduationCap }] : []),
     { to: "/account/purchases", label: text.purchases, icon: ReceiptText },
     { to: "/account/settings", label: text.account, icon: Settings }
@@ -250,8 +242,6 @@ export const MemberShell = ({ children }: { children: ReactNode }) => {
     "/services/recovery": text.recoveryLong,
     "/services/workout-history": text.historyLong,
     "/achievements": text.achievementsLong,
-    "/services/generic-program": text.plansLong,
-    "/exercises": text.libraryLong,
     "/account/purchases": text.purchasesLong,
     "/account/settings": text.accountLong
   };

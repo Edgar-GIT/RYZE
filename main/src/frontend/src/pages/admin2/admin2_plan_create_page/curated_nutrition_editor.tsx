@@ -126,11 +126,15 @@ const MEAL_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const MealImageField = ({
   imageUrl,
   upload,
-  onChange
+  onChange,
+  prompt = "Add a photo of the meal",
+  label = "Meal photo"
 }: {
   imageUrl: string;
   upload: (file: File) => Promise<{ key: string; url: string }>;
   onChange: (image: { key: string; url: string } | null) => void;
+  prompt?: string;
+  label?: string;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<"idle" | "uploading" | "error">("idle");
@@ -155,7 +159,7 @@ const MealImageField = ({
       ) : (
         <button type="button" className={styles.mealImageEmpty} onClick={() => inputRef.current?.click()}>
           <ImagePlus size={18} aria-hidden="true" />
-          <span>Add a photo of the meal</span>
+          <span>{prompt}</span>
         </button>
       )}
       <input
@@ -164,7 +168,7 @@ const MealImageField = ({
         accept={MEAL_IMAGE_TYPES.join(",")}
         className={styles.srOnly}
         tabIndex={-1}
-        aria-label="Meal photo"
+        aria-label={label}
         onChange={(event) => {
           void choose(event.target.files?.[0]);
           event.target.value = "";
@@ -192,11 +196,14 @@ export const CuratedNutritionEditor = ({
   nutrition,
   onChange,
   intro,
-  uploadMealImage
+  uploadMealImage,
+  showAlternatives = false
 }: {
   nutrition: PlanDraftCuratedNutrition;
   onChange: (next: PlanDraftCuratedNutrition) => void;
   intro?: string;
+  // Premium Level 1: a line of food alternatives per meal (v2.133.0).
+  showAlternatives?: boolean;
   // Premium Level 2: each meal can carry a picture.
   uploadMealImage?: (file: File) => Promise<{ key: string; url: string }>;
 }) => {
@@ -381,6 +388,41 @@ export const CuratedNutritionEditor = ({
               </Button>
             </div>
             {meal.items.length === 0 ? <p className={styles.formHint}>Add at least one food.</p> : null}
+
+            {/* Food alternatives for the whole meal, with an optional picture
+                (v2.133.0, owner request 2026-11-27). */}
+            {showAlternatives ? (
+            <div className={styles.alternatives}>
+              <label className={styles.nutritionField}>
+                <span>Alternatives (optional) — what the person can eat instead</span>
+                <textarea
+                  className={styles.formInput}
+                  rows={2}
+                  maxLength={500}
+                  placeholder="e.g. Rice or potatoes instead of oats; tofu instead of chicken"
+                  value={meal.alternatives ?? ""}
+                  onChange={(event) =>
+                    updateMeal(meal.id, (current) => ({ ...current, alternatives: event.target.value }))
+                  }
+                />
+              </label>
+              {uploadMealImage ? (
+                <MealImageField
+                  imageUrl={meal.alternatives_image_url ?? ""}
+                  upload={uploadMealImage}
+                  prompt="Add a photo of the alternatives"
+                  label="Alternatives photo"
+                  onChange={(image) =>
+                    updateMeal(meal.id, (current) => ({
+                      ...current,
+                      alternatives_image_key: image?.key ?? "",
+                      alternatives_image_url: image?.url ?? ""
+                    }))
+                  }
+                />
+              ) : null}
+            </div>
+            ) : null}
           </div>
         ))}
       </div>

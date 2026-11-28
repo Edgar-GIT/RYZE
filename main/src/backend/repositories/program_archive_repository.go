@@ -56,7 +56,9 @@ func NewProgramArchiveRepository(db *gorm.DB) ProgramArchiveRepository {
 }
 
 func countArchived(tx *gorm.DB, trainerID string) (int64, error) {
-	query := tx.Model(&models.Program{}).Where("archived_at IS NOT NULL")
+	// A superseded old version is off the market too, but it is not one of the
+	// owner's archived programmes (v2.133.0).
+	query := tx.Model(&models.Program{}).Where("archived_at IS NOT NULL AND superseded_at IS NULL")
 	if trainerID != "" {
 		query = query.Where("trainer_id = ?", trainerID)
 	} else {
@@ -91,7 +93,7 @@ func (r *programArchiveRepository) Archive(ctx context.Context, owner ProgramOwn
 			}
 			return fmt.Errorf("failed to load programme: %w", err)
 		}
-		if program.Status != models.ProgramStatusPublished || program.ArchivedAt != nil {
+		if program.Status != models.ProgramStatusPublished || program.ArchivedAt != nil || program.SupersededAt != nil {
 			return ErrArchiveState
 		}
 		count, err := countArchived(tx, owner.TrainerID)
@@ -119,7 +121,8 @@ func (r *programArchiveRepository) Restore(ctx context.Context, owner ProgramOwn
 			}
 			return fmt.Errorf("failed to load programme: %w", err)
 		}
-		if program.ArchivedAt == nil {
+		// An old version replaced by a newer one never returns to the market.
+		if program.ArchivedAt == nil || program.SupersededAt != nil {
 			return ErrArchiveState
 		}
 		program.ArchivedAt = nil

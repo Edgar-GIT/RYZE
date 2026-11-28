@@ -249,3 +249,27 @@
     padding: 1.2rem;
   }
 }
+/* Curated packages (v2.133.0): meal photo and food alternatives. */
+.mealPhoto {
+  width: 100%;
+  max-height: 14rem;
+  border-radius: 14px;
+  object-fit: cover;
+}
+
+.alternatives {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px dashed rgba(124, 235, 255, 0.55);
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+.alternativesPhoto {
+  width: 100%;
+  max-height: 10rem;
+  border-radius: 10px;
+  object-fit: cover;
+}

@@ -1,4 +1,4 @@
-import { ArrowLeft, BadgeCheck, CalendarDays, Dumbbell, Eye, Medal, Pencil, RefreshCw, UserCheck, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ClipboardList, CalendarDays, Dumbbell, Eye, Medal, Pencil, RefreshCw, UserCheck, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -7,8 +7,6 @@ import { Container } from "@/components/container/container";
 import { LEVEL_NAMES, LevelBadge } from "@/components/lifter/lifter";
 import { SOCIAL_NAMES, SocialIcon } from "@/components/social_icons/social_icons";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
-import { ProgramCard } from "@/components/program_card/program_card";
-import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { fetchCoachProfile, type CoachProfile } from "@/services/coaches_api";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { useBackTarget } from "@/hooks/use_back_target";
@@ -48,11 +46,9 @@ const COPY = {
     edit: "Edit my profile",
     coach: "Coach profile",
     coachBadge: "RYZE coach",
-    coachText: "Certified RYZE coach: creates the training plans below.",
-    plansTitle: (name: string) => `Plans created by ${name}`,
-    plansLead: "Every plan this coach has published on RYZE. Open one to see what it includes and its price.",
-    plansEmpty: "This coach has not published any plans yet.",
-    planViews: (formatted: string) => `${formatted} plan views`,
+    coachText: "Certified RYZE coach: creates training plans for RYZE members.",
+    plansCount: "Plans created",
+    subscriptions: "Subscriptions",
     age: (years: number) => `${years} years old`,
     training: (years: number) => (years < 1 ? "Started training this year" : years === 1 ? "1 year of training" : `${years} years of training`),
     socials: "Social networks",
@@ -77,11 +73,9 @@ const COPY = {
     edit: "Editar o meu perfil",
     coach: "Perfil de treinador",
     coachBadge: "Treinador RYZE",
-    coachText: "Treinador certificado RYZE: cria os planos de treino abaixo.",
-    plansTitle: (name: string) => `Planos criados por ${name}`,
-    plansLead: "Todos os planos que este treinador publicou na RYZE. Abre um para ver o que inclui e o preço.",
-    plansEmpty: "Este treinador ainda não publicou planos.",
-    planViews: (formatted: string) => `${formatted} visualizações dos planos`,
+    coachText: "Treinador certificado RYZE: cria planos de treino para os membros da RYZE.",
+    plansCount: "Planos criados",
+    subscriptions: "Assinaturas",
     age: (years: number) => `${years} anos`,
     training: (years: number) => (years < 1 ? "Começou a treinar este ano" : years === 1 ? "1 ano de treino" : `${years} anos de treino`),
     socials: "Redes sociais",
@@ -119,7 +113,6 @@ export const PublicProfilePage = () => {
   // A coach's profile is the member profile plus the coach badge and the
   // plans they created (owner request, 2026-11-27).
   const [coach, setCoach] = useState<CoachProfile | null>(null);
-  const { isActive: testModeActive } = useTestMode();
 
   const load = useCallback(async () => {
     setState("loading");
@@ -320,6 +313,24 @@ export const PublicProfilePage = () => {
                 </dt>
                 <dd>{formatNumber(profile.stats.medals)}</dd>
               </div>
+              {/* A coach's counters (owner request, 2026-11-28): plans created
+                  and subscriptions, instead of a list of plans. */}
+              {profile.coach_id ? (
+                <>
+                  <div className={joinClassNames(styles.stat, styles.statCoach)}>
+                    <dt>
+                      <ClipboardList aria-hidden="true" /> {text.plansCount}
+                    </dt>
+                    <dd>{formatNumber(coach?.coach.plans_count ?? 0)}</dd>
+                  </div>
+                  <div className={joinClassNames(styles.stat, styles.statCoach)}>
+                    <dt>
+                      <BadgeCheck aria-hidden="true" /> {text.subscriptions}
+                    </dt>
+                    <dd>{formatNumber(coach?.coach.subscriptions ?? 0)}</dd>
+                  </div>
+                </>
+              ) : null}
               {typeof profile.stats.views === "number" ? (
                 <div className={joinClassNames(styles.stat, styles.statCoach)}>
                   <dt>
@@ -329,29 +340,6 @@ export const PublicProfilePage = () => {
                 </div>
               ) : null}
             </dl>
-
-            {profile.coach_id ? (
-              <section className={styles.plans} aria-labelledby="coach-plans-title">
-                <div className={styles.plansHead}>
-                  <h2 id="coach-plans-title" className={styles.peopleTitle}>
-                    {text.plansTitle(name)}
-                  </h2>
-                  <p className={styles.muted}>
-                    {coach && coach.programs.length > 0 ? text.plansLead : text.plansEmpty}
-                    {coach && coach.coach.total_views > 0 ? ` · ${text.planViews(formatNumber(coach.coach.total_views))}` : ""}
-                  </p>
-                </div>
-                {coach && coach.programs.length > 0 ? (
-                  <ul className={styles.planGrid}>
-                    {coach.programs.map((program) => (
-                      <li key={program.id}>
-                        <ProgramCard program={program} forceFree={testModeActive} />
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </section>
-            ) : null}
 
             {list ? (
               <section className={styles.people} aria-label={text[list.kind]}>

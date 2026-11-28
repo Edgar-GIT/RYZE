@@ -162,15 +162,17 @@ func (r *programRepository) ListByTrainer(ctx context.Context, trainerID string,
 	var programs []models.Program
 	var total int64
 
+	// Old versions replaced by a newer one are not listed (v2.133.0): they
+	// remain only for the people who bought them.
 	if err := r.db.WithContext(ctx).
 		Model(&models.Program{}).
-		Where("trainer_id = ?", trainerID).
+		Where("trainer_id = ? AND superseded_at IS NULL", trainerID).
 		Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to count programs: %w", err)
 	}
 
 	if err := r.db.WithContext(ctx).
-		Where("trainer_id = ?", trainerID).
+		Where("trainer_id = ? AND superseded_at IS NULL", trainerID).
 		Order("created_at DESC, id ASC").
 		Limit(limit).
 		Offset((page - 1) * limit).

@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { useMarketplaceCopy } from "@/constants/marketplace_copy";
-import { coachInitials, type PublicCoach } from "@/services/coaches_api";
+import { CoachAvatar } from "@/components/coach_avatar/coach_avatar";
+import type { PublicCoach } from "@/services/coaches_api";
 import {
   formatMarketplacePrice,
   FREE_PROGRAM_TYPE,
@@ -80,9 +81,7 @@ export const ProgramCard = ({ program, forceFree = false, owned = false, coach =
       </Link>
       {coach ? (
         <Link to={`/coaches/${encodeURIComponent(coach.id)}`} className={styles.coach} aria-label={text.coachLink(coach.name)}>
-          <span className={styles.coachAvatar} aria-hidden="true">
-            {coachInitials(coach.name)}
-          </span>
+          <CoachAvatar className={styles.coachAvatar} name={coach.name} avatarUrl={coach.avatar_url} />
           <span className={styles.coachName}>{coach.name}</span>
         </Link>
       ) : null}

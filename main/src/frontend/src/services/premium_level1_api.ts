@@ -108,6 +108,11 @@ export interface NutritionMeal {
   percent_of_daily: number;
   macros: NutritionMacros;
   notes?: string;
+  // Curated packages (v2.133.0): picture of the meal, and food alternatives
+  // with an optional picture (public upload keys).
+  image_key?: string;
+  alternatives?: string;
+  alternatives_image_key?: string;
   items: NutritionMealItem[];
 }
 

@@ -64,7 +64,7 @@ export interface MarketplaceProgram extends MarketplaceProgramProduct {
  *  available through an authenticated access grant. A trainer-owned program
  *  names its public coach (id and registered name) for the coach profile. */
 export type MarketplaceProgramDetail = MarketplaceProgram & {
-  coach?: { id: string; name: string };
+  coach?: { id: string; name: string; avatar_url?: string | null };
 };
 
 export interface MarketplaceListResult {

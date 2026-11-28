@@ -39,9 +39,11 @@ type genericProgramResponse struct {
 	Official         bool    `json:"official"`
 	// ArchivedAt: off the market (v2.132.0).
 	ArchivedAt *time.Time `json:"archived_at"`
-	Audience   *string    `json:"audience"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	// Criteria: who a Premium Level 1 package is for (v2.133.0).
+	Criteria  program_details.Criteria `json:"criteria"`
+	Audience  *string                  `json:"audience"`
+	CreatedAt time.Time                `json:"created_at"`
+	UpdatedAt time.Time                `json:"updated_at"`
 }
 
 func newGenericProgramResponse(program generic_programs.Program) genericProgramResponse {
@@ -65,6 +67,7 @@ func newGenericProgramResponse(program generic_programs.Program) genericProgramR
 		CoverImageURL:    program_details.CoverURL(program.CoverImage),
 		Official:         program.Official,
 		ArchivedAt:       program.ArchivedAt,
+		Criteria:         program.Criteria,
 		Audience:         program.Audience,
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.UpdatedAt,
@@ -245,6 +248,7 @@ type genericProgramRequest struct {
 	Status           string                   `json:"status"`
 	Objective        string                   `json:"objective"`
 	NutritionMode    string                   `json:"nutrition_mode"`
+	Criteria         program_details.Criteria `json:"criteria"`
 	CuratedNutrition *curatedNutritionRequest `json:"curated_nutrition"`
 	Level            string                   `json:"level"`
 	DurationWeeks    int                      `json:"duration_weeks"`
@@ -269,10 +273,14 @@ type curatedNutritionRequest struct {
 }
 
 type curatedMealRequest struct {
-	Label string               `json:"label"`
-	Kind  string               `json:"kind"`
-	Notes string               `json:"notes"`
-	Items []curatedItemRequest `json:"items"`
+	Label string `json:"label"`
+	Kind  string `json:"kind"`
+	Notes string `json:"notes"`
+	// Picture of the meal and food alternatives (v2.133.0); optional.
+	ImageKey             string               `json:"image_key"`
+	Alternatives         string               `json:"alternatives"`
+	AlternativesImageKey string               `json:"alternatives_image_key"`
+	Items                []curatedItemRequest `json:"items"`
 }
 
 type curatedItemRequest struct {
@@ -305,6 +313,7 @@ func toGenericProgramInput(req *genericProgramRequest) generic_programs.ProgramI
 		CoverImage:       req.CoverImage,
 		Official:         req.Official,
 		Audience:         req.Audience,
+		Criteria:         req.Criteria,
 		Weeks:            make([]generic_programs.WeekInput, 0, len(req.Weeks)),
 	}
 	if req.CuratedNutrition != nil {
@@ -569,10 +578,13 @@ func toCuratedNutritionInput(req *curatedNutritionRequest) curated_nutrition.Pla
 	for i := range req.Meals {
 		meal := &req.Meals[i]
 		mealInput := curated_nutrition.MealInput{
-			Label: meal.Label,
-			Kind:  meal.Kind,
-			Notes: meal.Notes,
-			Items: make([]curated_nutrition.ItemInput, 0, len(meal.Items)),
+			Label:                meal.Label,
+			Kind:                 meal.Kind,
+			Notes:                meal.Notes,
+			ImageKey:             meal.ImageKey,
+			Alternatives:         meal.Alternatives,
+			AlternativesImageKey: meal.AlternativesImageKey,
+			Items:                make([]curated_nutrition.ItemInput, 0, len(meal.Items)),
 		}
 		for j := range meal.Items {
 			item := &meal.Items[j]

@@ -22,10 +22,6 @@ export interface StorySceneAssets {
   screens: { training: string; nutrition: string; synced: string; platform: string };
   callouts: { train: readonly string[]; fuel: readonly string[]; sync: string };
   landMask: string; // Natural Earth land mask for planet RYZE
-  // Owner test (2026-11-21): a picture replaces the 3D composition in the
-  // hero, so the opening's table and drone are hidden. Everything else plays
-  // as in the 3D hero; the page fades the canvas in as the hero scrolls away.
-  heroImage?: boolean;
 }
 
 export interface StoryScene {
@@ -46,11 +42,11 @@ const COLORS = {
   cyan: 0x00cbff,
   cyanBright: 0x50e2fe,
   ice: 0x7cebff,
-  // Light device metals (2026-11-15): natural titanium and silver-blue
-  // aluminium read as objects on the vivid blue field, where the former dark
-  // slate looked like holes in it.
-  titanium: 0xdbe3ee,
-  shell: 0x9aa9c2
+  // Device metals since 2026-11-28 (owner request): black, silver and chrome
+  // — a polished chrome phone frame on black glass, a space-black laptop with
+  // chrome accents: mirror-like, absorbing, less contrasting on the blue.
+  titanium: 0xd9dde3,
+  shell: 0x2a2d33
 } as const;
 
 // --- Scroll keyframes ----------------------------------------------------------
@@ -92,7 +88,7 @@ const LID_OPEN = -0.3;
 // The hero: the phone stands at the centre of its composition, turned towards
 // the copy, with the dumbbell in front and the meal beside it.
 const base: SceneState = {
-  heroX: 0.38,
+  heroX: 0.39,
   heroY: -1.32,
   heroZ: 0,
   heroScale: 1,
@@ -668,15 +664,14 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const phoneHeight = screenHeight + bezel * 2 + 0.03;
     const phoneDepth = 0.085;
     const titanium = track(
-      // White polished metal: part of its whiteness is its own colour, so the
-      // edge stays white whatever light falls on it.
+      // Polished chrome (owner, 2026-11-28): a mirror of the studio light.
       new THREE.MeshPhysicalMaterial({
-        color: 0xf2f5fa,
-        metalness: 0.45,
-        roughness: 0.2,
+        color: COLORS.titanium,
+        metalness: 1,
+        roughness: 0.1,
         clearcoat: 1,
-        clearcoatRoughness: 0.12,
-        envMapIntensity: 1.25
+        clearcoatRoughness: 0.05,
+        envMapIntensity: 1.5
       })
     );
     const phoneBody = new THREE.Mesh(track(slabGeometry(phoneWidth, phoneHeight, 0.16, phoneDepth, 0.022)), titanium);
@@ -741,7 +736,8 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const backGlass = new THREE.Mesh(
       track(panelGeometry(phoneWidth - 0.028, phoneHeight - 0.028, 0.145)),
       track(
-        new THREE.MeshPhysicalMaterial({ color: 0x86a9dc, roughness: 0.5, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.4 })
+        // Black glass back, deep and glossy.
+        new THREE.MeshPhysicalMaterial({ color: 0x0b0c0f, roughness: 0.18, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1.2 })
       )
     );
     backGlass.position.z = -phoneDepth / 2 - 0.0006;
@@ -758,7 +754,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     cameraModule.position.set(phoneWidth / 2 - 0.25, phoneHeight / 2 - 0.25, -phoneDepth / 2);
     const plateau = new THREE.Mesh(
       track(slabGeometry(0.4, 0.4, 0.1, 0.024, 0.008)),
-      track(new THREE.MeshPhysicalMaterial({ color: 0x9fbbe2, roughness: 0.22, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08 }))
+      track(new THREE.MeshPhysicalMaterial({ color: 0x1c1e22, roughness: 0.16, metalness: 0.7, clearcoat: 1, clearcoatRoughness: 0.05 }))
     );
     plateau.position.z = -0.006;
     const lensGlass = track(new THREE.MeshPhysicalMaterial({ color: 0x03050c, roughness: 0.04, metalness: 0.4, clearcoat: 1, clearcoatRoughness: 0.02 }));
@@ -851,17 +847,20 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     );
     // The phone's shadow appears with the solid phone (same clipping plane).
     phoneShadow.material.clippingPlanes = titanium.clippingPlanes;
-    // The surface tipped towards the viewer: a three-quarter view of the plate.
-    const heroTilt = 0.36;
-    // Turned slightly to the left, towards the copy.
-    const heroYaw = -0.25;
+    // A near-frontal view, slightly from above, as in the owner's reference
+    // (2026-11-28).
+    const heroTilt = 0.16;
+    // Turned a touch to the left, towards the copy.
+    const heroYaw = -0.12;
     const seatMatrix = new THREE.Matrix4();
     const seatPosition = new THREE.Vector3();
     const seatQuaternion = new THREE.Quaternion();
     const seatScale = new THREE.Vector3();
     const phoneShadowMaterial = phoneShadow.material;
     scene.add(intro.group);
-    let introTime = 0;
+    // The composition is there from the start (owner's reference,
+    // 2026-11-28): the drone's projection no longer plays.
+    let introTime = INTRO_END;
     let shadowFrame = 0;
     let introSettled = false;
 
@@ -1074,10 +1073,10 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       new THREE.MeshPhysicalMaterial({
         color: COLORS.shell,
         metalness: 1,
-        roughness: 0.32,
-        clearcoat: 0.2,
-        clearcoatRoughness: 0.3,
-        envMapIntensity: 0.75
+        roughness: 0.24,
+        clearcoat: 0.6,
+        clearcoatRoughness: 0.12,
+        envMapIntensity: 1.1
       })
     );
     // The screen is what people read: sample it with the GPU's best filtering.
@@ -1086,14 +1085,14 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const deckDepth = 2.25;
     const deckThickness = 0.09;
     const deckMaterial = track(shell.clone());
-    deckMaterial.envMapIntensity = 0.42;
-    deckMaterial.roughness = 0.38;
+    deckMaterial.envMapIntensity = 0.7;
+    deckMaterial.roughness = 0.3;
     const deck = new THREE.Mesh(track(slabGeometry(deckWidth, deckDepth, 0.13, deckThickness, 0.028)), deckMaterial);
     deck.rotation.x = -Math.PI / 2;
     const top = deckThickness / 2;
     const well = new THREE.Mesh(
       track(panelGeometry(KEYBOARD.width, KEYBOARD.depth, 0.05)),
-      track(new THREE.MeshStandardMaterial({ color: 0x070a14, roughness: 0.85, metalness: 0.3 }))
+      track(new THREE.MeshStandardMaterial({ color: 0x07080a, roughness: 0.85, metalness: 0.3 }))
     );
     well.rotation.x = -Math.PI / 2;
     well.position.set(0, top + 0.0008, KEYBOARD.centerZ);
@@ -1105,7 +1104,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     // key size gets its own rounded geometry, so the bevels stay round instead
     // of being stretched with the key.
     const keyMaterial = track(
-      new THREE.MeshStandardMaterial({ color: 0x0a0d18, roughness: 0.58, metalness: 0.08, envMapIntensity: 0.08 })
+      new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.58, metalness: 0.08, envMapIntensity: 0.08 })
     );
     const keys = new THREE.Group();
     {
@@ -1177,7 +1176,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     // Glass trackpad with a chamfered edge, and the opening scoop on the front.
     const trackpadEdge = new THREE.Mesh(
       track(panelGeometry(1.33, 0.83, 0.075)),
-      track(new THREE.MeshStandardMaterial({ color: 0x121829, roughness: 0.5, metalness: 0.6, envMapIntensity: 0.5 }))
+      track(new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.12, metalness: 1, envMapIntensity: 1.2 }))
     );
     trackpadEdge.rotation.x = -Math.PI / 2;
     trackpadEdge.position.set(0, top + 0.0005, 0.6);
@@ -1185,9 +1184,9 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       track(panelGeometry(1.3, 0.8, 0.065)),
       track(
         new THREE.MeshPhysicalMaterial({
-          color: 0x2b3550,
-          roughness: 0.3,
-          metalness: 0.6,
+          color: 0x24262b,
+          roughness: 0.24,
+          metalness: 0.7,
           clearcoat: 0.3,
           clearcoatRoughness: 0.2,
           envMapIntensity: 0.22
@@ -1198,10 +1197,11 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     trackpad.position.set(0, top + 0.001, 0.6);
     const scoop = new THREE.Mesh(
       track(panelGeometry(0.52, 0.034, 0.017)),
-      track(new THREE.MeshStandardMaterial({ color: 0x141a2a, roughness: 0.6, metalness: 0.5 }))
+      track(new THREE.MeshStandardMaterial({ color: 0x141518, roughness: 0.5, metalness: 0.6 }))
     );
     scoop.position.set(0, top - 0.004, deckDepth / 2 + 0.0015);
-    const hinge = new THREE.Mesh(track(new THREE.CylinderGeometry(0.045, 0.045, 2.7, 24)), shell);
+    const chrome = track(new THREE.MeshStandardMaterial({ color: 0xd9dde3, roughness: 0.1, metalness: 1, envMapIntensity: 1.4 }));
+    const hinge = new THREE.Mesh(track(new THREE.CylinderGeometry(0.045, 0.045, 2.7, 24)), chrome);
     hinge.rotation.z = Math.PI / 2;
     hinge.position.set(0, top, -deckDepth / 2 + 0.05);
 
@@ -1309,7 +1309,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       intro.group.position.set(state.heroX * halfWidth, state.heroY, state.heroZ);
       intro.group.scale.setScalar(state.heroScale * fit);
       intro.group.rotation.set(heroTilt, heroYaw + state.heroSpin * 0.35, 0);
-      intro.group.visible = !assets.heroImage && state.heroY < 4;
+      intro.group.visible = state.heroY < 4;
       intro.group.updateMatrixWorld(true);
       // The composition's shadows: redrawn every other frame while the opening
       // plays or the story scrolls; the still scene keeps its shadow map.

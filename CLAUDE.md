@@ -44,8 +44,8 @@ the pgx driver (migrated from MariaDB on 2026-11-11; conventions in
 
 - `main/src/frontend/src/` — pages, components, stores, API clients and styles.
 - `main/src/backend/` — Go API, services, repositories, models and database.
-- `main/src/backend/database/migrations/` — embedded SQL migrations (000072,
-  programme archive `programs.archived_at`, is the latest file; never run `migrate down`, it
+- `main/src/backend/database/migrations/` — embedded SQL migrations (000076,
+  curated meal photos and alternatives, is the latest file; never run `migrate down`, it
   reverts every migration; apply pending
   migrations with `go run . migrate up` from `main/src/backend/`).
 - `main/src/backend/uploads/` — public uploads (`UPLOADS_DIR`): plan covers in
@@ -89,7 +89,7 @@ unrelated.
 Static background images are forbidden everywhere except login and registration.
 Functional imagery (exercise media, avatars and useful product imagery) is
 allowed. Three.js serves useful demonstrations and the owner-approved desktop
-Home scroll story (the drone's projected opening — phone, dumbbell and meal — the devices and planet RYZE;
+Home scroll story (since 2026-11-28 the hero is the owner's reference composition — plate dumbbell, a black-and-grey RYZE shaker, a chrome-and-black phone and a smoked-glass progress chart whose arrow rises, set right of the copy, no floor, no drone opening — then the devices and planet RYZE;
 desktop only; since 2026-11-20 phones and tablets get no 3D and no SVG/CSS
 stand-ins for it — copy and real app screens only). Load it lazily with WebGL fallback and reduced motion, and
 consider GPU/battery cost. Do not add R3F or other dependencies merely because

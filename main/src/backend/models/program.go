@@ -112,7 +112,19 @@ type Program struct {
 	Audience         *string `gorm:"column:audience;type:varchar(10)" json:"audience"`
 	// ArchivedAt: the owner took the programme off the market (migration
 	// 000072). It stays available to the people who already have it.
-	ArchivedAt       *time.Time            `gorm:"column:archived_at" json:"archived_at"`
+	ArchivedAt *time.Time `gorm:"column:archived_at" json:"archived_at"`
+	// Programme versions (v2.133.0): a sold package is edited through a new
+	// version; the old one is superseded (off the market, kept for its buyers).
+	PreviousVersionID *string    `gorm:"column:previous_version_id" json:"previous_version_id"`
+	VersionRootID     *string    `gorm:"column:version_root_id" json:"version_root_id"`
+	SupersededAt      *time.Time `gorm:"column:superseded_at" json:"superseded_at"`
+	// Who a Premium Level 1 package is for (v2.133.0); nil = any.
+	MinHeightCm      *int                  `gorm:"column:min_height_cm" json:"min_height_cm"`
+	MaxHeightCm      *int                  `gorm:"column:max_height_cm" json:"max_height_cm"`
+	MinWeightKg      *int                  `gorm:"column:min_weight_kg" json:"min_weight_kg"`
+	MaxWeightKg      *int                  `gorm:"column:max_weight_kg" json:"max_weight_kg"`
+	MinAge           *int                  `gorm:"column:min_age" json:"min_age"`
+	MaxAge           *int                  `gorm:"column:max_age" json:"max_age"`
 	Weeks            []ProgramWeek         `gorm:"foreignKey:ProgramID" json:"-"`
 	CuratedNutrition *CuratedNutritionPlan `gorm:"foreignKey:ProgramID" json:"-"`
 	CreatedAt        time.Time             `gorm:"column:created_at;type:datetime(6)" json:"created_at"`

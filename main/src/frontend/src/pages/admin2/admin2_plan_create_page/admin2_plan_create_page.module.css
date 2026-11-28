@@ -959,3 +959,13 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* Food alternatives of a meal (v2.133.0). */
+.alternatives {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding: 0.8rem;
+  border: 1px dashed rgba(124, 200, 255, 0.4);
+  border-radius: 14px;
+}

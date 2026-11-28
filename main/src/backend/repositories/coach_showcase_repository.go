@@ -39,6 +39,8 @@ type CoachProgramRow struct {
 	CoachID          string
 	CoachFirstName   string
 	CoachLastName    string
+	// CoachAvatarKey: the coach's profile photo (public uploads), if any.
+	CoachAvatarKey *string
 }
 
 // PublicCoachRow is the public identity of one coach.
@@ -49,6 +51,7 @@ type PublicCoachRow struct {
 	// Username: the coach's public member profile (/u/<username>), which is
 	// the coach's public page since v2.132.0.
 	Username  string
+	AvatarKey *string
 	CreatedAt time.Time
 }
 
@@ -93,16 +96,24 @@ SELECT p.id, p.name, COALESCE(p.description, '') AS description, p.type, p.statu
        -- The nickname people see, else the @username (owner decision,
        -- 2026-11-21: never the registered first and last name).
        COALESCE(NULLIF(btrim(u.display_name), ''), u.username) AS coach_first_name,
-       '' AS coach_last_name
+       '' AS coach_last_name,
+       u.avatar_key AS coach_avatar_key
 FROM programs p` + publicCoachJoin + `
 LEFT JOIN program_view_stats v ON v.program_id = p.id`
 
-// publishedGenericProgram is the predicate shared by every showcase listing:
-// published, not deleted, and a generic program (Premium families have their
-// own pages and gates).
-const publishedGenericProgram = `
+// publishedCoachProgram is the predicate of a coach's own page: published, not
+// deleted, not archived, and a free plan or a Premium Level 1 package (since
+// v2.132.0 a trainer's Premium plan is a Level 1 package).
+const publishedCoachProgram = `
 p.deleted_at IS NULL AND p.status = '` + models.ProgramStatusPublished + `' AND p.archived_at IS NULL
 AND p.product_type IN ('` + models.ProgramProductTypeGeneric + `', '` + models.ProgramProductTypePremiumLevel1 + `')`
+
+// publishedFreeCoachProgram is the predicate of the featured programmes on the
+// free marketplace: free generic plans only. A Premium Level 1 package must
+// never appear there (owner, 2026-11-27: a serious error if it does).
+const publishedFreeCoachProgram = `
+p.deleted_at IS NULL AND p.status = '` + models.ProgramStatusPublished + `' AND p.archived_at IS NULL
+AND p.product_type = '` + models.ProgramProductTypeGeneric + `' AND p.type = '` + models.ProgramTypeFree + `'`
 
 func (r *coachShowcaseRepository) FindProgramViewTarget(ctx context.Context, programID string) (*ProgramViewTarget, error) {
 	var rows []struct {
@@ -148,7 +159,7 @@ SET view_count = program_view_stats.view_count + 1,
 func (r *coachShowcaseRepository) ListFeaturedCoachPrograms(ctx context.Context, limit int) ([]CoachProgramRow, error) {
 	var rows []CoachProgramRow
 	err := r.db.WithContext(ctx).Raw(coachProgramColumns+`
-WHERE`+publishedGenericProgram+`
+WHERE`+publishedFreeCoachProgram+`
 ORDER BY view_count DESC, p.created_at DESC, p.id ASC
 LIMIT ?`, limit).Scan(&rows).Error
 	if err != nil {
@@ -161,11 +172,11 @@ func (r *coachShowcaseRepository) FindPublicCoach(ctx context.Context, trainerID
 	var rows []PublicCoachRow
 	err := r.db.WithContext(ctx).Raw(`
 SELECT t.id, COALESCE(NULLIF(btrim(u.display_name), ''), u.username) AS first_name,
-       '' AS last_name, u.username, t.created_at
+       '' AS last_name, u.username, u.avatar_key, t.created_at
 FROM trainers t
 JOIN users u ON u.id = t.user_id AND u.deleted_at IS NULL AND u.test_persona IS NULL
 WHERE t.id = ? AND t.deleted_at IS NULL
-  AND EXISTS (SELECT 1 FROM programs p WHERE p.trainer_id = t.id AND`+publishedGenericProgram+`)`, trainerID).
+  AND EXISTS (SELECT 1 FROM programs p WHERE p.trainer_id = t.id AND`+publishedCoachProgram+`)`, trainerID).
 		Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to find public coach: %w", err)
@@ -181,11 +192,36 @@ WHERE t.id = ? AND t.deleted_at IS NULL
 func (r *coachShowcaseRepository) ListCoachPrograms(ctx context.Context, trainerID string, limit int) ([]CoachProgramRow, error) {
 	var rows []CoachProgramRow
 	err := r.db.WithContext(ctx).Raw(coachProgramColumns+`
-WHERE t.id = ? AND`+publishedGenericProgram+`
+WHERE t.id = ? AND`+publishedCoachProgram+`
 ORDER BY view_count DESC, p.created_at DESC, p.id ASC
 LIMIT ?`, trainerID, limit).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list coach programs: %w", err)
 	}
 	return rows, nil
+}
+
+// CoachCounts returns the coach's public counters (v2.133.0, owner request
+// 2026-11-28): the plans they have on the market (published, current
+// versions, not archived) and their subscriptions — how many times people
+// bought one of their plans (completed, real purchases; Test Mode excluded).
+func (r *coachShowcaseRepository) CoachCounts(ctx context.Context, trainerID string) (int64, int64, error) {
+	var counts struct {
+		Plans         int64
+		Subscriptions int64
+	}
+	err := r.db.WithContext(ctx).Raw(`
+SELECT
+  (SELECT COUNT(*) FROM programs p
+    WHERE p.trainer_id = ? AND p.deleted_at IS NULL AND p.status = ?
+      AND p.archived_at IS NULL AND p.superseded_at IS NULL
+      AND p.product_type IN (?, ?)) AS plans,
+  (SELECT COUNT(*) FROM purchases pu JOIN programs p ON p.id = pu.program_id
+    WHERE p.trainer_id = ? AND pu.status = ? AND pu.deleted_at IS NULL AND NOT pu.test) AS subscriptions`,
+		trainerID, models.ProgramStatusPublished, models.ProgramProductTypeGeneric, models.ProgramProductTypePremiumLevel1,
+		trainerID, models.PurchaseStatusCompleted).Scan(&counts).Error
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to count coach plans and subscriptions: %w", err)
+	}
+	return counts.Plans, counts.Subscriptions, nil
 }

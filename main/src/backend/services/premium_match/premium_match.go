@@ -43,8 +43,8 @@ type Result struct {
 }
 
 type Repository interface {
-	CountPublishedPackages(ctx context.Context, objective, sex string) (int64, error)
-	ListMatchCandidates(ctx context.Context, userID, objective, sex string) ([]models.Program, error)
+	CountPublishedPackages(ctx context.Context, profile repositories.MatchProfile) (int64, error)
+	ListMatchCandidates(ctx context.Context, userID string, profile repositories.MatchProfile) ([]models.Program, error)
 	CreateMatch(ctx context.Context, match *models.PremiumLevel1Match) error
 }
 
@@ -107,12 +107,16 @@ func (s *service) Match(ctx context.Context, userID string, input Input) (*Resul
 		return nil, err
 	}
 
-	candidates, err := s.repo.ListMatchCandidates(ctx, userID, input.Objective, input.Sex)
+	profile := repositories.MatchProfile{
+		Objective: input.Objective, Sex: input.Sex,
+		HeightCm: input.HeightCm, WeightKg: input.WeightKg, Age: input.Age,
+	}
+	candidates, err := s.repo.ListMatchCandidates(ctx, userID, profile)
 	if err != nil {
 		return nil, err
 	}
 	if len(candidates) == 0 {
-		total, err := s.repo.CountPublishedPackages(ctx, input.Objective, input.Sex)
+		total, err := s.repo.CountPublishedPackages(ctx, profile)
 		if err != nil {
 			return nil, err
 		}

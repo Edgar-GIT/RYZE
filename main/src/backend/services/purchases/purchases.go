@@ -410,6 +410,29 @@ type premiumEntitlementLister interface {
 	ListByUser(ctx context.Context, userID string) ([]models.Entitlement, error)
 }
 
+// otherVersionOwner is the optional lineage check of an entitlement repository
+// (optional, so test fakes keep compiling).
+type otherVersionOwner interface {
+	OwnsOtherVersion(ctx context.Context, userID, programID string) (bool, error)
+}
+
+// checkOwnsOtherVersion refuses selling a new version of a package the buyer
+// already owns through an earlier version (v2.133.0).
+func (s *service) checkOwnsOtherVersion(ctx context.Context, userID, programID string) error {
+	checker, ok := s.entitlements.(otherVersionOwner)
+	if !ok {
+		return nil
+	}
+	owns, err := checker.OwnsOtherVersion(ctx, userID, programID)
+	if err != nil {
+		return err
+	}
+	if owns {
+		return ErrDuplicateEntitlement
+	}
+	return nil
+}
+
 // checkPremiumExclusive refuses a Premium Level 1 purchase while a Premium
 // Level 2 entitlement is active, and the other way round.
 func (s *service) checkPremiumExclusive(ctx context.Context, userID, productType string) error {
@@ -547,6 +570,9 @@ func (s *service) CreatePurchaseIntent(ctx context.Context, userID, programID st
 		return nil, ErrDuplicateEntitlement
 	} else if !errors.Is(err, repositories.ErrEntitlementNotFound) {
 		return nil, fmt.Errorf("failed to check entitlement: %w", err)
+	}
+	if err := s.checkOwnsOtherVersion(ctx, userID, programID); err != nil {
+		return nil, err
 	}
 
 	resolution := CommissionResolution{CommissionBPS: 0, IsOverride: false}
@@ -935,6 +961,9 @@ func (s *service) CompleteTestPurchase(ctx context.Context, userID, programID st
 		return nil, ErrDuplicateEntitlement
 	} else if !errors.Is(err, repositories.ErrEntitlementNotFound) {
 		return nil, fmt.Errorf("failed to check entitlement: %w", err)
+	}
+	if err := s.checkOwnsOtherVersion(ctx, userID, programID); err != nil {
+		return nil, err
 	}
 
 	purchase := &models.Purchase{

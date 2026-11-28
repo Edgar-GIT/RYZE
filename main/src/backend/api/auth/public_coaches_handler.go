@@ -29,6 +29,8 @@ func NewPublicCoachesHandler(service coach_showcase.Service, tokens token.Servic
 type publicCoachResponse struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// AvatarURL is the coach's profile photo (null without one).
+	AvatarURL *string `json:"avatar_url"`
 }
 
 // coachProgramResponse keeps the public program card fields (the same names
@@ -74,7 +76,7 @@ func newCoachProgramResponse(program coach_showcase.Program) coachProgramRespons
 		CreatedAt:        program.CreatedAt,
 		UpdatedAt:        program.CreatedAt,
 		Views:            program.Views,
-		Coach:            publicCoachResponse{ID: program.Coach.ID, Name: program.Coach.Name},
+		Coach:            publicCoachResponse{ID: program.Coach.ID, Name: program.Coach.Name, AvatarURL: AvatarURL(program.Coach.AvatarKey)},
 	}
 }
 
@@ -136,9 +138,13 @@ func (h *PublicCoachesHandler) GetCoach(c *gin.Context) {
 			"coach": gin.H{
 				"id":          profile.Coach.ID,
 				"name":        profile.Coach.Name,
+				"avatar_url":  AvatarURL(profile.Coach.AvatarKey),
 				"username":    profile.Username,
 				"coach_since": profile.CoachSince,
 				"total_views": profile.TotalViews,
+				// Public counters (v2.133.0).
+				"plans_count":   profile.PlansCount,
+				"subscriptions": profile.Subscriptions,
 			},
 			"programs": items,
 		},
