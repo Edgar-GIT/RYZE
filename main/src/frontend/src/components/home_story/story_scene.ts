@@ -100,7 +100,9 @@ const base: SceneState = {
   planetY: 6.5,
   planetZ: -7,
   planetScale: 0.62,
-  planetSpin: 0,
+  // The globe turns as it comes down and stops with RYZE (Lisbon) facing the
+  // viewer (owner request, 2026-11-28).
+  planetSpin: -0.5,
   stars: 1,
   // Close to its seat on the hero's surface (the scene locks it there at the top).
   phoneX: 0.38,
@@ -137,7 +139,7 @@ const phoneBesideLaptop = {
   laptopX: 0.27
 };
 // Planet RYZE comes down for the last chapter ("join planet RYZE").
-const planetHere = { planetX: 0.37, planetY: -0.02, planetZ: 0, planetScale: 0.88, planetSpin: 0.5, stars: 1 };
+const planetHere = { planetX: 0.35, planetY: -0.02, planetZ: 0, planetScale: 1.0, planetSpin: 0, stars: 1 };
 
 // While the hero scrolls away (0 → 0.1) the phone rises out to the upper
 // right, away while the programs pass (0.1 → 0.14); the chapters then bring it

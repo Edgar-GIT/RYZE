@@ -1,3 +1,29 @@
+# Version 2.136.2
+
+Title: Hero video loop and screen fit, planet RYZE facing the viewer
+
+Date: 2026-11-28
+
+Summary:
+
+- Hero video: the real training screen now sits 3 px inside the phone's rim
+  on every side, with rounder corners, so it no longer spills over the
+  frame. The video is now a 3 s seamless loop: its last second is cross-faded
+  into its first, and the step from the last frame to the first is no larger
+  than between any two frames. A circular temporal median removes the
+  sparks near the food (about 96% fewer bright specks); the steam keeps
+  rising and the food stays still.
+- Planet RYZE (last chapter): it now turns as it comes down and stops with
+  the RYZE marker (Lisbon) and its Atlantic routes facing the viewer
+  (centred at 32°N, 11°W; extra spin 0 at rest; a gentler sway), and it is a
+  little larger (scale 1.0, was 0.88).
+
+Verification: typecheck, unit tests and build; frame measurements of the
+video (seam, sparks), zoomed checks of the screen's rim, and browser
+screenshots of the planet chapter.
+
+---
+
 # Version 2.136.1
 
 Title: Homepage keeps the hero's deep blues to the end

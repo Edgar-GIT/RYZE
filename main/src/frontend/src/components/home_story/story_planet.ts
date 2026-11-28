@@ -496,8 +496,10 @@ export const createPlanet = (track: Track, options: PlanetOptions): Planet => {
 
   earth.add(surface, clouds, routes, cities, marker);
   globe.add(atmosphere, earth);
-  // Start over the Atlantic so Lisbon and the routes face the viewer.
-  const view = latLonToVector(24, -16, 1);
+  // Centred just west of Lisbon, so the RYZE marker faces the viewer with its
+  // routes over the Atlantic beside it (owner request, 2026-11-28: it sat on
+  // the edge of the globe).
+  const view = latLonToVector(32, -11, 1);
   const baseYaw = Math.atan2(-view.x, view.z);
   const baseTilt = THREE.MathUtils.degToRad(24);
   globe.visible = false;
@@ -505,7 +507,7 @@ export const createPlanet = (track: Track, options: PlanetOptions): Planet => {
   const update = (elapsed: number, spin: number, scale: number, pointer: THREE.Vector2) => {
     globe.rotation.set(baseTilt + pointer.y * 0.08, pointer.x * 0.12, 0);
     // A slow sway keeps the Atlantic routes in view instead of a full spin.
-    earth.rotation.set(0, baseYaw + spin + Math.sin(elapsed * 0.05) * 0.35, 0);
+    earth.rotation.set(0, baseYaw + spin + Math.sin(elapsed * 0.05) * 0.12, 0);
     routeMaterial.uniforms.uTime.value = elapsed;
     (surface.material as THREE.ShaderMaterial).uniforms.uTime.value = elapsed;
     cloudMaterial.uniforms.uTime.value = elapsed;
