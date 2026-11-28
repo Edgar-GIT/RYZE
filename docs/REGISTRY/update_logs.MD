@@ -1,3 +1,66 @@
+# Version 2.136.1
+
+Title: Homepage keeps the hero's deep blues to the end
+
+Date: 2026-11-28
+
+Summary:
+
+- Owner request: the homepage's background keeps the hero video's deep navy
+  blues down to the footer (`pages/home_page/home_page.module.css`, the same
+  sparkle and rhythm of light as the public field, in darker blues); the
+  story backdrop keeps them in every chapter, each chapter only moving a
+  softer light. Other public pages keep the bright royal field; the footer is
+  unchanged (protected).
+- Follow-up (owner: "exactly like the hero"): every story chapter now uses
+  exactly the hero's colours and light (`HERO_FIELD`), and the backdrop's CSS
+  default is the same field, so the old bright blue never shows, not even
+  before the script runs.
+
+Verification: build and unit tests; browser screenshots of the homepage at
+1376×768 (hero, programs, chapters, how it works, contact, footer) and
+390 px, and of Services (unchanged).
+
+---
+
+# Version 2.136.0
+
+Title: Home hero video test
+
+Date: 2026-11-28
+
+Summary:
+
+- Owner test: the desktop hero plays a looping 4 s video of the owner's
+  product shot (RYZE phone, shaker, salmon bowl, hexagonal dumbbell, glowing
+  R), generated with Krea (Veo 3.1 Lite, start and end frame = the owner's
+  picture, so the loop has no jump) and re-encoded to H.264 without audio
+  (`resources/vid/hero_loop.mp4`, 1.2 MB, plus a WebP poster). Only steam, a
+  light sweep and the R's glow move; the phone screen stays still.
+- The video sits in the hero's lower right corner at 16:9, sized so its
+  subject never reaches the copy, with its top, left and bottom edges fading
+  into the story backdrop, which starts in the video's own blues.
+- The 3D hero composition and the seated phone are kept but not drawn
+  (`HERO_3D_HIDDEN` in `story_scene.ts`); the later chapters keep their 3D.
+  Phones and tablets are unchanged (no 3D, no video).
+- Video edited locally (owner request): the floating sparks and the
+  flickering fire-like glow of the R are gone (the clean first frame is held
+  as a still plate and only the bowl's steam stays animated, through a soft
+  mask), and the real RYZE training screen (`phone_training.webp`, with a
+  Dynamic Island and a faint glass reflection) is warped onto the phone in
+  perspective, replacing the blurred generated text. 400 KB; the loop still
+  has no jump.
+- Fix: the story's phone had vanished from the later chapters (the hero
+  entrance hides it until its fall and was no longer updated once the hero
+  composition was hidden); the scene now runs the entrance to its end.
+
+Verification: typecheck, unit tests and build; browser screenshots at
+1376×768 (PT and EN), 1440×900, 1920×1080, 1280×1000, 1024×768 and
+2560×1080, and while scrolling away from the hero; frame checks of the
+video (phone screen unchanged, first and last frames match).
+
+---
+
 # Version 2.135.1
 
 Title: Level 1 cover unframed, sidebar spacing restored

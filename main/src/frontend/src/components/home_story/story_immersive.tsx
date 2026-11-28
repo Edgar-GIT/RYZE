@@ -5,6 +5,8 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { BRAND_ASSETS } from "@/constants/brand_assets";
 import { joinClassNames } from "@utils/class_names";
 import earthLandMask from "@resources/img/globe/earth_land_mask.webp";
+import heroLoop from "@resources/vid/hero_loop.mp4";
+import heroLoopPoster from "@resources/vid/hero_loop_poster.webp";
 
 import { CALLOUTS, SCREENS, STORY_CHAPTER_IDS, type StoryChapterId, useStory } from "./story_content";
 import { ChapterCopy, StartActions, TONE_CLASS } from "./story_parts";
@@ -13,6 +15,9 @@ import styles from "./story_immersive.module.css";
 
 // The hero is the 3D composition again (owner request, 2026-11-28): the
 // picture test of 2026-11-21 is over.
+// Owner test, 2026-11-28: the hero now plays a generated looping video (the
+// phone, shaker, bowl and dumbbell) as its background; the 3D composition is
+// kept but not drawn (HERO_3D_HIDDEN in story_scene.ts).
 
 /*
  * Desktop Home: one 3D stage stays pinned behind the hero, the programs and
@@ -63,16 +68,21 @@ type Rgba = [number, number, number, number];
 // The backdrop stays in the page's field of blues (v2.117.0, 60-30-10): each
 // chapter only shifts where the light sits and how strong it is, so the story
 // reads as one place and joins the page without an edge.
-type Light = "hero" | "train" | "fuel" | "platform";
+type Light = "video" | "hero" | "train" | "fuel" | "platform";
+const HERO_FIELD: [Rgba, Rgba, Rgba] = [[0, 24, 66, 1], [0, 46, 112, 1], [20, 90, 200, 0.22]];
 const PALETTES: Record<Light, [Rgba, Rgba, Rgba]> = {
-  hero: [[10, 40, 150, 1], [22, 86, 232, 1], [110, 196, 255, 0.55]],
-  train: [[9, 36, 140, 1], [16, 80, 220, 1], [0, 203, 255, 0.42]],
-  fuel: [[9, 38, 144, 1], [20, 92, 230, 1], [80, 226, 254, 0.4]],
-  platform: [[10, 40, 150, 1], [24, 90, 236, 1], [124, 235, 255, 0.46]]
+  // The hero video's own deep blues, so its faded lower edge has no seam.
+  // Since 2026-11-28 (owner request: "exactly like the hero") every chapter
+  // keeps exactly the same colours and light.
+  video: HERO_FIELD,
+  hero: HERO_FIELD,
+  train: HERO_FIELD,
+  fuel: HERO_FIELD,
+  platform: HERO_FIELD
 };
 
 const STOPS: Array<[number, Light]> = [
-  [0.14, "hero"],
+  [0.14, "video"],
   [0.24, "train"],
   [0.44, "train"],
   [0.52, "fuel"],
@@ -435,6 +445,19 @@ export const StoryImmersive = ({ onFailure, programs }: StoryImmersiveProps) => 
       </section>
 
       <section ref={heroRef} className={joinClassNames(styles.hero, TONE_CLASS[identity.tone])} aria-labelledby="story-identity">
+        {/* Decorative: the copy says what RYZE is. */}
+        <video
+          className={styles.heroVideo}
+          src={heroLoop}
+          poster={heroLoopPoster}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
         <div className={styles.heroInner}>
           <div ref={heroCopyRef} className={styles.heroCopy}>
             <ChapterCopy chapter={identity} headingId="story-identity" as="h1" />

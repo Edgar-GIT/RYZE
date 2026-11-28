@@ -285,7 +285,24 @@ Archivo (variable, SIL Open Font License, self-hosted in
   shaker and the phone fall into place one after the other with a small
   bounce (each shade darkening as it lands), then the line rises once with the
   arrow on its tip and stays (`services/app_ready.ts` tells the scene when
-  the loading screen is gone). This
+  the loading screen is gone).
+  Owner test since v2.136.0 (2026-11-28): the desktop hero plays a looping
+  4 s video instead (`resources/vid/hero_loop.mp4`, poster
+  `hero_loop_poster.webp`): the owner's product shot (the RYZE phone on a
+  glass stand, the black RYZE shaker, a bowl of salmon and vegetables, a
+  black hexagonal dumbbell, a large glowing R behind) with only the bowl's
+  steam moving (the rest is held still, without the generated sparks), and
+  the real RYZE training screen warped onto the phone; its first and last frames match, so the
+  loop has no jump. Generated with Krea (Veo 3.1 Lite, start and end frame =
+  the owner's picture), re-encoded locally to H.264 without audio. It sits in
+  the lower right corner at 16:9 (at most 94% of the width and no wider than
+  the hero's height allows), its top, left and bottom edges fading into the
+  story backdrop, whose first palette ("video") takes the video's own blues.
+  Since v2.136.1 (owner request) the homepage's whole background keeps the
+  video's deep navy blues to the footer (`home_page.module.css`), and so does
+  the story backdrop; the other public pages keep the bright royal field.
+  The 3D composition and the seated phone are not drawn
+  (`HERO_3D_HIDDEN` in `story_scene.ts`); the later chapters keep their 3D. This
   replaces the light metals of 2026-11-15 described below.
 - Former scene content: the hero's opening (owner request, 2026-11-15, which replaced the earlier
   hologram athlete and its readout): when the page opens, a scanning drone

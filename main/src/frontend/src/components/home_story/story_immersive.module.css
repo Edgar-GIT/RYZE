@@ -30,6 +30,32 @@
   pointer-events: none;
 }
 
+/* The hero's looping video (owner test, 2026-11-28): 16:9, in the lower
+   right corner, as wide as the screen allows without its subject (it starts
+   at about 40% of its width) reaching the copy: at most 94% of the width and
+   never wider than the hero's height in 16:9. Its top, left and bottom edges
+   fade into the story's backdrop, which carries the video's own blues at the
+   top of the page, so no edge shows. */
+.heroVideo {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  width: min(94%, calc(100svh * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  pointer-events: none;
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, #000 16%, #000 80%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 24%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, #000 16%, #000 80%, transparent 100%),
+    linear-gradient(90deg, transparent 0%, #000 24%);
+  mask-composite: intersect;
+}
+
 .heroInner {
   width: min(100% - (var(--r-gutter) * 2), var(--r-max));
   margin-inline: auto;
@@ -71,7 +97,10 @@
   position: absolute;
   inset: 0;
   z-index: -2;
-  background: linear-gradient(160deg, #0a2896 0%, #1656e8 100%);
+  /* The hero field (owner request, 2026-11-28), also before the script runs. */
+  background:
+    radial-gradient(70rem 46rem at 78% 30%, rgba(20, 90, 200, 0.22), transparent 66%),
+    linear-gradient(160deg, rgb(0, 24, 66) 0%, rgb(0, 46, 112) 100%);
   mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
 }
 

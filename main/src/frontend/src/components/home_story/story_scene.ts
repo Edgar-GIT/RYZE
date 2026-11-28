@@ -562,6 +562,11 @@ const keyLegendTexture = (caps: KeyCap[], anisotropy: number) => {
   return colorTexture(element, anisotropy);
 };
 
+// Owner test, 2026-11-28: the hero plays a generated video (story_immersive)
+// instead of the 3D composition. The composition and the seated phone stay in
+// the code but are not drawn; the later chapters keep their 3D.
+const HERO_3D_HIDDEN = true;
+
 export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StorySceneAssets): Promise<StoryScene> => {
   // The key legends are drawn with the site's typeface once it is available.
   await document.fonts.load('600 48px "RYZE Archivo"').catch(() => undefined);
@@ -1308,7 +1313,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       intro.group.position.set(state.heroX * halfWidth, state.heroY, state.heroZ);
       intro.group.scale.setScalar(state.heroScale * fit);
       intro.group.rotation.set(heroTilt, heroYaw + state.heroSpin * 0.35, 0);
-      intro.group.visible = state.heroY < 4;
+      intro.group.visible = !HERO_3D_HIDDEN && state.heroY < 4;
       intro.group.updateMatrixWorld(true);
       // The composition's shadows: redrawn every other frame while the opening
       // plays or the story scrolls; the still scene keeps its shadow map.
@@ -1319,7 +1324,9 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       renderer.shadowMap.needsUpdate = shadowFrame === 1 || (intro.group.visible && (heroMoving ? shadowFrame % 2 === 0 : shadowFrame === 1));
       // The opening drives the phone's hologram too, so it runs to its end even
       // if the hero has already scrolled away; after that only the idle motion.
-      if (!introSettled || intro.group.visible) {
+      // It also runs until the entrance is over: the entrance shows the phone
+      // (hidden until its fall), even when the hero composition is not drawn.
+      if (!introSettled || intro.group.visible || intro.animating(elapsed)) {
         intro.update(introTime, elapsed);
         introSettled = introTime >= INTRO_END;
       }
@@ -1345,7 +1352,8 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
         phonePivot.quaternion.slerp(seatQuaternion, seated);
       }
       phoneShadowMaterial.opacity = 1 - seated;
-      phone.visible = state.phoneY > -6;
+      // With the hero video, the phone shows only once it has left its seat.
+      phone.visible = state.phoneY > -6 && !(HERO_3D_HIDDEN && seated > 0.02);
 
       const wanted = screenFor(currentProgress);
       if (wanted !== activeScreen) {

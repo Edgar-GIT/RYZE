@@ -1,0 +1,19 @@
+/*
+ * The homepage's field (owner request, 2026-11-28): the deep navy blues of the
+ * hero video carry on to the end of the page, instead of the bright royal field
+ * of the other public pages. Same structure as `public_ui` `.page` (a fine
+ * sparkle, a rhythm of light and deep pools), in darker blues. Doubled class:
+ * it must win over `.page` whatever the stylesheet order.
+ */
+.home.home {
+  background:
+    radial-gradient(1.4px 1.4px at 22px 34px, rgba(255, 255, 255, 0.7), transparent 70%) 0 0 / 230px 230px,
+    radial-gradient(1px 1px at 141px 117px, rgba(200, 240, 255, 0.6), transparent 70%) 0 0 / 230px 230px,
+    radial-gradient(1px 1px at 87px 302px, rgba(255, 255, 255, 0.5), transparent 70%) 0 0 / 370px 370px,
+    radial-gradient(1.6px 1.6px at 291px 188px, rgba(160, 232, 255, 0.65), transparent 70%) 0 0 / 370px 370px,
+    radial-gradient(1.2px 1.2px at 412px 61px, rgba(255, 255, 255, 0.55), transparent 70%) 0 0 / 530px 530px,
+    radial-gradient(56rem 32rem at 94% 44rem, rgba(20, 96, 220, 0.28), transparent 70%) 0 0 / 100% 125rem repeat-y,
+    radial-gradient(52rem 30rem at 3% 86rem, rgba(0, 170, 255, 0.12), transparent 70%) 0 0 / 100% 125rem repeat-y,
+    radial-gradient(64rem 26rem at 42% 104rem, rgba(0, 6, 30, 0.45), transparent 70%) 0 0 / 100% 125rem repeat-y,
+    linear-gradient(180deg, #00183f 0, #002a68 46rem, #00245c 100%);
+}
