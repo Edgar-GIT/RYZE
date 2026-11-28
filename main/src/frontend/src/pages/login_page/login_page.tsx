@@ -485,11 +485,12 @@ const RegisterForm = ({ onSwitch, headingRef }: AuthFormProps) => {
           />
           <span>
             {tr("I agree to the")}{" "}
-            <a href="#" onClick={(event) => event.preventDefault()}>
+            {/* A new tab, so the half-filled form is kept. */}
+            <a href="/legal/termos" target="_blank" rel="noopener">
               {tr("Terms of Service")}
             </a>{" "}
             {tr("and the")}{" "}
-            <a href="#" onClick={(event) => event.preventDefault()}>
+            <a href="/legal/privacidade" target="_blank" rel="noopener">
               {tr("Privacy Policy")}
             </a>
           </span>
@@ -650,13 +651,8 @@ export const LoginPage = ({ initialMode = "login" }: LoginPageProps) => {
 
         <p className={styles.legal}>
           © 2026 RYZE ·{" "}
-          <a href="#" onClick={(event) => event.preventDefault()}>
-            {tr("Privacy Policy")}
-          </a>{" "}
-          ·{" "}
-          <a href="#" onClick={(event) => event.preventDefault()}>
-            {tr("Terms of Service")}
-          </a>
+          <Link to="/legal/privacidade">{tr("Privacy Policy")}</Link> ·{" "}
+          <Link to="/legal/termos">{tr("Terms of Service")}</Link>
         </p>
       </section>
     </PageWrapper>

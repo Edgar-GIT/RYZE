@@ -271,10 +271,21 @@ Archivo (variable, SIL Open Font License, self-hosted in
   little of it; the phone stands further right and forward, turned more to
   the side; the chart is smoked black glass with a fine silver edge and a
   silver-white line that draws itself from the left with the arrow on its
-  tip, holds, fades and rises again (an 8 s loop). The devices are black,
-  silver and chrome: a polished chrome phone frame with a black glass back
-  and camera plateau, a dark metal laptop (it reads silver in the studio
-  light) with black keys and well, a chrome trackpad edge and hinge. This
+  tip, holds, fades and rises again (an 8 s loop). The devices are black
+  and dark graphite chrome (v2.134.1: no clear coat, so they no longer turn
+  white when the phone turns): a graphite chrome phone frame with a black
+  glass back and camera plateau, a dark graphite laptop with black keys and
+  well, a graphite chrome trackpad edge and hinge.
+  Since v2.135.0 (owner's second reference picture, 2026-11-28): a deep
+  teal-navy metallic shaker with a teal lid and flip cap, standing in front of
+  the far end of a black rubber plate dumbbell; the phone (near-black frame)
+  stands just right of the shaker on its clear stand; the chart is a light
+  frosted pane with a bright edge and a glowing cyan line. The entrance: once
+  the loading screen has gone, the pane fades up, then the dumbbell, the
+  shaker and the phone fall into place one after the other with a small
+  bounce (each shade darkening as it lands), then the line rises once with the
+  arrow on its tip and stays (`services/app_ready.ts` tells the scene when
+  the loading screen is gone). This
   replaces the light metals of 2026-11-15 described below.
 - Former scene content: the hero's opening (owner request, 2026-11-15, which replaced the earlier
   hologram athlete and its readout): when the page opens, a scanning drone

@@ -45,8 +45,11 @@ const COLORS = {
   // Device metals since 2026-11-28 (owner request): black, silver and chrome
   // — a polished chrome phone frame on black glass, a space-black laptop with
   // chrome accents: mirror-like, absorbing, less contrasting on the blue.
-  titanium: 0xd9dde3,
-  shell: 0x2a2d33
+  // Owner report, 2026-11-28: the first chrome still read white once the
+  // phone turned (the clear coat mirrored the studio's white walls at grazing
+  // angles), so the metals are now a dark graphite chrome with no clear coat.
+  titanium: 0x3d4046,
+  shell: 0x1e2024
 } as const;
 
 // --- Scroll keyframes ----------------------------------------------------------
@@ -88,7 +91,7 @@ const LID_OPEN = -0.3;
 // The hero: the phone stands at the centre of its composition, turned towards
 // the copy, with the dumbbell in front and the meal beside it.
 const base: SceneState = {
-  heroX: 0.39,
+  heroX: 0.34,
   heroY: -1.32,
   heroZ: 0,
   heroScale: 1,
@@ -668,10 +671,8 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       new THREE.MeshPhysicalMaterial({
         color: COLORS.titanium,
         metalness: 1,
-        roughness: 0.1,
-        clearcoat: 1,
-        clearcoatRoughness: 0.05,
-        envMapIntensity: 1.5
+        roughness: 0.16,
+        envMapIntensity: 0.9
       })
     );
     const phoneBody = new THREE.Mesh(track(slabGeometry(phoneWidth, phoneHeight, 0.16, phoneDepth, 0.022)), titanium);
@@ -737,7 +738,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       track(panelGeometry(phoneWidth - 0.028, phoneHeight - 0.028, 0.145)),
       track(
         // Black glass back, deep and glossy.
-        new THREE.MeshPhysicalMaterial({ color: 0x0b0c0f, roughness: 0.18, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1.2 })
+        new THREE.MeshPhysicalMaterial({ color: 0x0b0c0f, roughness: 0.26, metalness: 0.2, clearcoat: 0.4, clearcoatRoughness: 0.2, envMapIntensity: 0.55 })
       )
     );
     backGlass.position.z = -phoneDepth / 2 - 0.0006;
@@ -754,7 +755,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     cameraModule.position.set(phoneWidth / 2 - 0.25, phoneHeight / 2 - 0.25, -phoneDepth / 2);
     const plateau = new THREE.Mesh(
       track(slabGeometry(0.4, 0.4, 0.1, 0.024, 0.008)),
-      track(new THREE.MeshPhysicalMaterial({ color: 0x1c1e22, roughness: 0.16, metalness: 0.7, clearcoat: 1, clearcoatRoughness: 0.05 }))
+      track(new THREE.MeshPhysicalMaterial({ color: 0x1c1e22, roughness: 0.22, metalness: 0.7, clearcoat: 0.4, clearcoatRoughness: 0.15, envMapIntensity: 0.6 }))
     );
     plateau.position.z = -0.006;
     const lensGlass = track(new THREE.MeshPhysicalMaterial({ color: 0x03050c, roughness: 0.04, metalness: 0.4, clearcoat: 1, clearcoatRoughness: 0.02 }));
@@ -1073,10 +1074,8 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       new THREE.MeshPhysicalMaterial({
         color: COLORS.shell,
         metalness: 1,
-        roughness: 0.24,
-        clearcoat: 0.6,
-        clearcoatRoughness: 0.12,
-        envMapIntensity: 1.1
+        roughness: 0.34,
+        envMapIntensity: 0.55
       })
     );
     // The screen is what people read: sample it with the GPU's best filtering.
@@ -1085,8 +1084,8 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     const deckDepth = 2.25;
     const deckThickness = 0.09;
     const deckMaterial = track(shell.clone());
-    deckMaterial.envMapIntensity = 0.7;
-    deckMaterial.roughness = 0.3;
+    deckMaterial.envMapIntensity = 0.4;
+    deckMaterial.roughness = 0.4;
     const deck = new THREE.Mesh(track(slabGeometry(deckWidth, deckDepth, 0.13, deckThickness, 0.028)), deckMaterial);
     deck.rotation.x = -Math.PI / 2;
     const top = deckThickness / 2;
@@ -1176,7 +1175,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
     // Glass trackpad with a chamfered edge, and the opening scoop on the front.
     const trackpadEdge = new THREE.Mesh(
       track(panelGeometry(1.33, 0.83, 0.075)),
-      track(new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.12, metalness: 1, envMapIntensity: 1.2 }))
+      track(new THREE.MeshStandardMaterial({ color: COLORS.titanium, roughness: 0.16, metalness: 1, envMapIntensity: 0.8 }))
     );
     trackpadEdge.rotation.x = -Math.PI / 2;
     trackpadEdge.position.set(0, top + 0.0005, 0.6);
@@ -1184,10 +1183,10 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       track(panelGeometry(1.3, 0.8, 0.065)),
       track(
         new THREE.MeshPhysicalMaterial({
-          color: 0x24262b,
-          roughness: 0.24,
-          metalness: 0.7,
-          clearcoat: 0.3,
+          color: 0x1a1c20,
+          roughness: 0.45,
+          metalness: 0.4,
+          clearcoat: 0,
           clearcoatRoughness: 0.2,
           envMapIntensity: 0.22
         })
@@ -1200,7 +1199,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       track(new THREE.MeshStandardMaterial({ color: 0x141518, roughness: 0.5, metalness: 0.6 }))
     );
     scoop.position.set(0, top - 0.004, deckDepth / 2 + 0.0015);
-    const chrome = track(new THREE.MeshStandardMaterial({ color: 0xd9dde3, roughness: 0.1, metalness: 1, envMapIntensity: 1.4 }));
+    const chrome = track(new THREE.MeshStandardMaterial({ color: COLORS.titanium, roughness: 0.16, metalness: 1, envMapIntensity: 0.9 }));
     const hinge = new THREE.Mesh(track(new THREE.CylinderGeometry(0.045, 0.045, 2.7, 24)), chrome);
     hinge.rotation.z = Math.PI / 2;
     hinge.position.set(0, top, -deckDepth / 2 + 0.05);
@@ -1314,7 +1313,7 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       // The composition's shadows: redrawn every other frame while the opening
       // plays or the story scrolls; the still scene keeps its shadow map.
       shadowFrame += 1;
-      const heroMoving = Math.abs(targetProgress - currentProgress) > 1e-4 || introTime < INTRO_END;
+      const heroMoving = Math.abs(targetProgress - currentProgress) > 1e-4 || introTime < INTRO_END || intro.animating(elapsed);
       // The first frame always draws it: with the hero picture the table is
       // never shown, and a shadow map never drawn darkens the phone's frame.
       renderer.shadowMap.needsUpdate = shadowFrame === 1 || (intro.group.visible && (heroMoving ? shadowFrame % 2 === 0 : shadowFrame === 1));
@@ -1402,7 +1401,10 @@ export const createStoryScene = async (canvas: HTMLCanvasElement, assets: StoryS
       // scroll jumps to its final composition, so it never holds anything up.
       introTime = currentProgress > 0.012 ? Math.max(introTime, INTRO_END) : introTime + delta;
       const settled =
-        introTime >= INTRO_END && Math.abs(targetProgress - currentProgress) < 1e-4 && pointer.distanceToSquared(pointerTarget) < 1e-6;
+        introTime >= INTRO_END &&
+        !intro.animating(timer.getElapsed()) &&
+        Math.abs(targetProgress - currentProgress) < 1e-4 &&
+        pointer.distanceToSquared(pointerTarget) < 1e-6;
       sinceRender += delta;
       if (settled && sinceRender < IDLE_FRAME) {
         return;

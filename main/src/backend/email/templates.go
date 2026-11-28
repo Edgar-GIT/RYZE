@@ -170,13 +170,13 @@ var copies = map[string]map[string]copyText{
 		LocaleEnglish: {
 			Subject: "Your next workout is waiting", Heading: "Time to get back to it",
 			Body:   "Hi{{if .Name}} {{.Name}}{{end}}, it has been a few days since your last workout. Your next session is ready: even a short one keeps your progress going.",
-			Action: "Start my next workout", NeedsLink: true,
+			Action: "Open my RYZE", NeedsLink: true,
 			Footnote: "You can turn these reminders off in Account → Privacy and notifications.",
 		},
 		LocalePortuguese: {
 			Subject: "O teu próximo treino está à tua espera", Heading: "Está na hora de voltar",
 			Body:   "Olá{{if .Name}} {{.Name}}{{end}}, já passaram uns dias desde o teu último treino. O próximo está pronto: mesmo um treino curto mantém o teu progresso.",
-			Action: "Começar o próximo treino", NeedsLink: true,
+			Action: "Abrir a minha RYZE", NeedsLink: true,
 			Footnote: "Podes desligar estes lembretes em Conta → Privacidade e notificações.",
 		},
 	},

@@ -27,7 +27,6 @@ import { joinClassNames } from "@utils/class_names";
 import { ApiError } from "@utils/http_client";
 
 import { ExerciseInfoSheet } from "./exercise_info_sheet";
-import { RestBar } from "./rest_bar";
 import { SetRow } from "./set_row";
 import styles from "./workout_session_page.module.css";
 
@@ -87,21 +86,11 @@ const usePrescription = () => {
   };
 };
 
-// The set whose rest timer should show: the latest completed set whose rest
-// has not ended more than a few seconds ago.
-const activeRestSet = (session: WorkoutSession, now: number, dismissed: string | null): WorkoutSessionSet | null => {
-  let latest: WorkoutSessionSet | null = null;
-  for (const set of session.exercises.flatMap((exercise) => exercise.sets)) {
-    if (set.status !== "completed" || !set.rest_ends_at || !set.completed_at || set.id === dismissed) continue;
-    if (new Date(set.rest_ends_at).getTime() < now - 5000) continue;
-    if (!latest || (latest.completed_at && set.completed_at > latest.completed_at)) latest = set;
-  }
-  return latest;
-};
-
 // WorkoutSessionPage is the workout player: a full-screen view of today's
 // exercises where every set is logged as it is done, with a running clock,
-// rest timers, the previous performance and an end-of-workout summary.
+// the previous performance and an end-of-workout summary. The rest countdown
+// bar was removed (owner request, 2026-11-28); the planned rest stays as a
+// label on each exercise.
 export const WorkoutSessionPage = () => {
   const { t, locale } = useI18n();
   const focusText = FOCUS_COPY[locale];
@@ -116,7 +105,6 @@ export const WorkoutSessionPage = () => {
   const [actionError, setActionError] = useState("");
   const [clockBase, setClockBase] = useState({ elapsed: 0, at: Date.now() });
   const [now, setNow] = useState(() => Date.now());
-  const [dismissedRest, setDismissedRest] = useState<string | null>(null);
   const [infoFor, setInfoFor] = useState<WorkoutSessionExercise | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const [media, setMedia] = useState<Record<string, BuilderExercise>>({});
@@ -217,13 +205,11 @@ export const WorkoutSessionPage = () => {
 
   const clock = clockBase.elapsed + (running ? Math.max(0, (now - clockBase.at) / 1000) : 0);
   const previous = useMemo(() => (session ? previousSets(past, session) : new Map<string, WorkoutSessionSet[]>()), [past, session]);
-  const restSet = session && running ? activeRestSet(session, now, dismissedRest) : null;
 
   const saveSet = useCallback(
     async (setId: string, input: WorkoutSetInput) => {
       const next = await submitWorkoutSet(sessionId, setId, input);
       apply(next);
-      if (input.status === "completed") setDismissedRest(null);
     },
     [apply, sessionId]
   );
@@ -576,15 +562,6 @@ export const WorkoutSessionPage = () => {
         </button>
       </aside>
       </div>
-
-      {restSet?.rest_ends_at ? (
-        <RestBar
-          key={restSet.id}
-          endsAt={restSet.rest_ends_at}
-          plannedSeconds={restSet.prescribed_rest_seconds ?? 60}
-          onDismiss={() => setDismissedRest(restSet.id)}
-        />
-      ) : null}
 
       {infoFor ? (
         <ExerciseInfoSheet

@@ -7963,5 +7963,7 @@ provider's dashboard, then send `already_refunded: true`),
 
 ### Training reminders
 `GET /me/training-reminders` → `{enabled}`; `PUT {enabled}`. Notification
-kind `training_reminder` (email template `training_reminder`).
+kind `training_reminder` (email template `training_reminder`). Since
+v2.134.1 the reminder links to the member's home (`/profile`), not to the
+next workout; the bell also opens `/profile` for older reminders.
 

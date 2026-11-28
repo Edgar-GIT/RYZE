@@ -31,11 +31,11 @@
 
 .showcase {
   justify-items: center;
-  padding-top: clamp(2rem, 6vw, 3.5rem);
+  align-content: center;
 }
 
-/* The cover, as it appears in the store, shown like a card held up to the
-   light: a slight tilt and a deep shadow on the bright half. */
+/* The cover, as it appears in the store, upright on the bright half (owner,
+   2026-11-28: no tilt, no waves). */
 .cover {
   position: relative;
   display: grid;
@@ -50,7 +50,6 @@
     0 2px 0 rgba(255, 255, 255, 0.5) inset,
     0 34px 60px -26px rgba(2, 4, 31, 0.75),
     0 12px 24px -12px rgba(2, 4, 31, 0.45);
-  transform: rotate(-2.5deg);
 }
 
 .cover img {
@@ -79,7 +78,6 @@
   font-size: 0.95rem;
   font-stretch: 112%;
   font-weight: 800;
-  transform: rotate(4deg);
 }
 
 .priceTagFree {

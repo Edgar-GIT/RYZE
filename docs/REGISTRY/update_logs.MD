@@ -1,3 +1,91 @@
+# Version 2.135.1
+
+Title: Level 1 cover unframed, sidebar spacing restored
+
+Date: 2026-11-28
+
+Summary:
+
+- Premium Level 1 plan step: the cover is shown without its white frame and
+  a little larger (up to 19rem wide); the text and chips below are unchanged.
+- App sidebar: most of the spacing is back as before v2.135.0; it is
+  compacted only slightly (about 40px), enough for the profile card to show
+  without scrolling.
+
+Verification: build. Both screens need a signed-in account and were not
+opened in a browser.
+
+---
+
+# Version 2.135.0
+
+Title: Sign-in returns to the plan, straight to the plan after buying, hero after the reference, L1 plan page
+
+Date: 2026-11-28
+
+Summary:
+
+- Signing in from a plan's page (free or paid) brings the visitor back to
+  that plan (`rememberAfterLogin`), not to their home.
+- After activating a free plan or buying one, the member goes straight to
+  the plan in their area (`/services/my-programs/:id`): the free plan
+  checkout, the plan page's purchase and `CheckoutPanel` (which follows its
+  `done.to` when the page gives no `onSuccess`).
+- Home hero after the owner's second reference picture: teal-navy shaker with
+  a teal flip cap in front of a black rubber plate dumbbell, a near-black
+  phone, a light glass chart with a glowing cyan line. The objects fall into
+  place once the loading screen has gone and the arrow rises only once
+  (`intro.animating` keeps the full frame rate meanwhile).
+- Premium Level 1: the plan RYZE found is shown in the store's split panel
+  (cover and facts on the light half; description, what you get, price and
+  the pay button on the navy half). `CheckoutPanel` gained
+  `actionTone="bright"` for its action-only mode on dark surfaces.
+- App sidebar compacted a little so the profile card shows without scrolling.
+- Terms of Service and Privacy Policy links on the login, registration and
+  admin login pages open `/legal/termos` and `/legal/privacidade` (the
+  registration checkbox opens them in a new tab); the footer already linked
+  them.
+
+Verification: typecheck, unit tests and build; browser screencast of the
+hero's entrance and a final screenshot. The Level 1 plan step, the sidebar
+and the post-login and post-purchase redirects need a signed-in account and
+were not opened in a browser.
+
+---
+
+# Version 2.134.1
+
+Title: Darker device metals, plan checkout redesign, no rest timer, reminder link, rank-up without bands
+
+Date: 2026-11-28
+
+Summary:
+
+- Home story: the phone and laptop still read white once the phone turned
+  (the clear coat mirrored the studio's white walls). The metals are now a
+  dark graphite chrome without clear coat; the phone's black back and camera
+  plateau and the laptop's trackpad reflect less.
+- Plan page: the cover stands upright, with no waves under it.
+- Free plan checkout (`free_plan_get_page`) redesigned as a real checkout in
+  the split panel: the plan (cover, name, facts) on the light-blue half; the
+  order summary (line, subtotal, total 0,00 € with a "Free" badge), what you
+  get, the one action and trust notes on the navy half.
+- Workout player: the rest countdown bar was removed (`rest_bar.tsx` and its
+  styles deleted); copy that promised a rest timer was updated.
+- Training reminders link to the member's home (`/profile`) instead of
+  starting the next workout; the email button reads "Open my RYZE" /
+  "Abrir a minha RYZE", and the bell sends older reminders home too.
+- Rank-up celebration: the crossed bands of light ("chains") were removed;
+  the seal still cracks and bursts.
+
+Verification: typecheck, unit tests, build and the full Go suite
+(`DB_NAME=ryze_test go test ./...`); browser screenshots of the hero and the
+later chapters, the plan page and the checkout at 1440 and 390 px. The rank-up
+dialog and the workout player were not opened in a browser (they need a
+signed-in account).
+
+---
+
 # Version 2.134.0
 
 Title: Plan page redesign, trainer profile trimmed, hero in black, silver and chrome

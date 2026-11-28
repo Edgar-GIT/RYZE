@@ -44,6 +44,8 @@ interface CheckoutPanelProps {
   // is bought and its price (v2.133.0); "ink" is the dark button for a light
   // panel.
   actionOnly?: boolean;
+  // actionOnly on a dark surface: the bright cyan button instead of the ink one.
+  actionTone?: "ink" | "bright";
 }
 
 const COPY: Copy<{
@@ -222,7 +224,7 @@ const CARD_BRANDS = ["VISA", "Mastercard", "AMEX", "Maestro"];
 // (never hard-coded), the Test Mode shortcut and honest states when nothing
 // can be charged. The purchase lifecycle is the shared useProgramCheckout
 // hook; the backend stays authoritative for every outcome.
-export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, includes, done, successNote, loginReturn, onSuccess, cover, actionOnly = false }: CheckoutPanelProps) => {
+export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, includes, done, successNote, loginReturn, onSuccess, cover, actionOnly = false, actionTone = "ink" }: CheckoutPanelProps) => {
   const { locale } = useI18n();
   const text = COPY[locale];
   const { isActive: testModeActive } = useTestMode();
@@ -263,18 +265,22 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
   };
   const translate = (message: string) => text.errors[message] ?? message;
   const successHandled = useRef(false);
+  const history = useHistory();
+  const doneTo = done?.to;
 
+  // After the purchase the buyer goes straight to what they bought in their
+  // area (owner request, 2026-11-28), unless the page decides otherwise.
   useEffect(() => {
     if (state.status === "success" && !successHandled.current) {
       successHandled.current = true;
-      onSuccess?.();
+      if (onSuccess) onSuccess();
+      else if (doneTo) history.replace(doneTo);
     }
-  }, [onSuccess, state.status]);
+  }, [onSuccess, doneTo, history, state.status]);
 
   // The payment happens on its own screen (owner request, 2026-11-23): the
   // page shows a simple summary and one Pay button; the screen ("?pagamento=1",
   // so the browser's back closes it) holds only the payment.
-  const history = useHistory();
   const location = useLocation();
   const payOpen = new URLSearchParams(location.search).get("pagamento") === "1";
   const openPay = () => {
@@ -580,13 +586,13 @@ export const CheckoutPanel = ({ programId, itemTitle, itemCategory, priceMinor, 
         </p>
       ) : state.status === "guest" ? (
         <>
-          <Link className={joinClassNames(styles.payButton, styles.payButtonInk)} to="/login" onClick={() => rememberAfterLogin(loginReturn)}>
+          <Link className={joinClassNames(styles.payButton, actionTone === "ink" && styles.payButtonInk)} to="/login" onClick={() => rememberAfterLogin(loginReturn)}>
             {text.login}
           </Link>
-          <p className={styles.actionNote}>{text.guestText}</p>
+          <p className={joinClassNames(styles.actionNote, actionTone === "bright" && styles.actionNoteOnDark)}>{text.guestText}</p>
         </>
       ) : (
-        <button type="button" className={joinClassNames(styles.payButton, styles.payButtonInk)} onClick={openPay}>
+        <button type="button" className={joinClassNames(styles.payButton, actionTone === "ink" && styles.payButtonInk)} onClick={openPay}>
           <Lock aria-hidden="true" /> {text.pay(price)}
         </button>
       )}

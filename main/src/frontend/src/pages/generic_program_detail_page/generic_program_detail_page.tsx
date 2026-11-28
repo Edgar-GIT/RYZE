@@ -1,11 +1,11 @@
 import { ArrowLeft, ArrowRight, BarChart3, CheckCircle2, CreditCard, Dumbbell, FileText, FlaskConical, Gift, Lock, LogIn, RefreshCw, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useHistory, useParams } from "react-router-dom";
 
 import { Button } from "@/components/button/button";
 import { Container } from "@/components/container/container";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
-import { PublicAction, Waves } from "@/components/public_ui/public_ui";
+import { PublicAction } from "@/components/public_ui/public_ui";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { useTestMode } from "@/components/test_mode/test_mode_context";
 import { CheckoutTaxIdField } from "@/components/checkout_tax_id/checkout_tax_id_field";
@@ -23,6 +23,7 @@ import {
 import type { PaymentMethodInfo } from "@/services/purchases_api";
 import { CoachAvatar } from "@/components/coach_avatar/coach_avatar";
 import { recordProgramView } from "@/services/coaches_api";
+import { rememberAfterLogin } from "@/services/after_login";
 import {
   fetchFreeActivations,
   type FreeProgramActivation
@@ -59,8 +60,8 @@ const PAGE_PT: Catalog = {
   "This training plan is not available through the marketplace.": "Este plano de treino não está disponível no catálogo.",
   "Loading training plan…": "A carregar o plano de treino…",
   "Full training structure": "Estrutura de treino completa",
-  "Weeks, training days, exercises and prescriptions unlock after activation or purchase. You will then be able to log every set, follow rest timers and track progress.":
-    "Semanas, dias de treino, exercícios e prescrições ficam disponíveis depois da ativação ou da compra. Depois podes registar cada série, seguir os tempos de descanso e acompanhar o progresso.",
+  "Weeks, training days, exercises and prescriptions unlock after activation or purchase. You will then be able to log every set and track progress.":
+    "Semanas, dias de treino, exercícios e prescrições ficam disponíveis depois da ativação ou da compra. Depois podes registar cada série e acompanhar o progresso.",
   "Guided workout sessions": "Treinos guiados",
   "Real progress statistics": "Estatísticas reais de progresso",
   Length: "Duração",
@@ -160,15 +161,14 @@ const PurchasePanel = ({ isFree, minorUnits, currency, programId, state, payment
             </p>
             <p className={styles.purchaseText}>{tr("Sign in to purchase this training plan.")}</p>
             <div className={styles.purchaseActions}>
-              <Button
+              <Link
+                className={joinClassNames(ui.action, ui.primary)}
                 to="/login"
-                variant="primary"
-                size="small"
-                icon={<LogIn size={15} />}
-                iconPosition="left"
+                onClick={() => rememberAfterLogin(`/services/generic-program/${encodeURIComponent(programId)}`)}
               >
-                {tr("Sign in")}
-              </Button>
+                <span>{tr("Sign in")}</span>
+                <LogIn aria-hidden="true" />
+              </Link>
             </div>
           </div>
         </aside>
@@ -446,9 +446,16 @@ const FreeAccessPanel = ({ programId, programName, archived = false }: FreeAcces
         </p>
         <div className={styles.purchaseActions}>
           {guest ? (
-            <PublicAction to="/login" icon={<LogIn />}>
-              {tr("Sign in")}
-            </PublicAction>
+            // After signing in the visitor comes back to this plan (owner
+            // request, 2026-11-28), not to their home.
+            <Link
+              className={joinClassNames(ui.action, ui.primary)}
+              to="/login"
+              onClick={() => rememberAfterLogin(`/services/generic-program/${encodeURIComponent(programId)}`)}
+            >
+              <span>{tr("Sign in")}</span>
+              <LogIn aria-hidden="true" />
+            </Link>
           ) : activation ? (
             <PublicAction to={`/services/my-programs/${programId}`} icon={<ArrowRight />}>
               {tr("Open program")}
@@ -515,6 +522,14 @@ export const GenericProgramDetailPage = () => {
     testModeActive,
     enabled: Boolean(detail) && !loading
   });
+  // After buying, straight to the plan in the member's area (owner request,
+  // 2026-11-28).
+  const history = useHistory();
+  const purchased = checkout.state.status === "success";
+  useEffect(() => {
+    if (purchased) history.replace(`/services/my-programs/${encodeURIComponent(programId)}`);
+  }, [purchased, history, programId]);
+
   const priceLabel = detail
     ? isTestModePurchase
       ? formatMarketplacePrice(0, detail.currency, detail.type, locale)
@@ -555,8 +570,7 @@ export const GenericProgramDetailPage = () => {
                   panel — the cover on the light-blue wave half, the plan and
                   how to get it on the navy half — then the plan week by week. */}
               <article className={joinClassNames(ui.split, styles.hero)} aria-labelledby="plan-title">
-                <div className={joinClassNames(ui.splitPane, ui.splitLight, ui.toneLight, styles.showcase)}>
-                  <Waves />
+                <div className={joinClassNames(ui.splitPane, ui.toneLight, styles.showcase)}>
                   <figure className={styles.cover}>
                     {detail.cover_image_url ? (
                       <img src={publicFileUrl(detail.cover_image_url)} alt="" />
@@ -673,7 +687,7 @@ export const GenericProgramDetailPage = () => {
                       {tr("Full training structure")}
                     </h2>
                     <p className={styles.lockedText}>
-                      {tr("Weeks, training days, exercises and prescriptions unlock after activation or purchase. You will then be able to log every set, follow rest timers and track progress.")}
+                      {tr("Weeks, training days, exercises and prescriptions unlock after activation or purchase. You will then be able to log every set and track progress.")}
                     </p>
                     <ul className={styles.lockedList}>
                       <li>

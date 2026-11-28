@@ -17,11 +17,13 @@ import { Link, useHistory, useLocation } from "react-router-dom";
 
 import { CheckoutPanel } from "@/components/checkout_panel/checkout_panel";
 import j from "@/components/journey/journey.module.css";
+import { joinClassNames } from "@utils/class_names";
+import planStyles from "./premium_level1_plan.module.css";
 import { PageWrapper } from "@/components/page_wrapper/page_wrapper";
 import ui from "@/components/public_ui/public_ui.module.css";
 import { type Copy, useI18n } from "@/i18n/i18n";
 import { rememberAfterLogin } from "@/services/after_login";
-import { fetchAllPremiumLevel1Programs } from "@/services/marketplace_api";
+import { fetchAllPremiumLevel1Programs, formatMarketplacePrice } from "@/services/marketplace_api";
 import { fetchAccountPlanPreferences, readLocalPlanPreferences, type Sex } from "@/services/plan_preferences_api";
 import { matchPremiumLevel1, type PremiumMatch, type PremiumObjective } from "@/services/premium_journeys_api";
 import { ApiError, publicFileUrl } from "@utils/http_client";
@@ -88,6 +90,8 @@ const COPY: Copy<{
   weeks: (n: number) => string;
   perWeek: (n: number) => string;
   nutrition: string;
+  youGet: string;
+  oneTime: string;
   another: string;
   signInTitle: string;
   signInText: string;
@@ -155,6 +159,8 @@ const COPY: Copy<{
     weeks: (n) => `${n} ${n === 1 ? "week" : "weeks"}`,
     perWeek: (n) => `${n}×/week`,
     nutrition: "Nutrition included",
+    youGet: "What you get",
+    oneTime: "One payment, no subscription",
     another: "Choose another goal",
     signInTitle: "Sign in to get your plan",
     signInText: "Your plan is tied to your RYZE account. You come straight back here after signing in.",
@@ -222,6 +228,8 @@ const COPY: Copy<{
     weeks: (n) => `${n} ${n === 1 ? "semana" : "semanas"}`,
     perWeek: (n) => `${n}×/semana`,
     nutrition: "Nutrição incluída",
+    youGet: "O que recebes",
+    oneTime: "Pagamento único, sem subscrição",
     another: "Escolher outro objetivo",
     signInTitle: "Inicia sessão para receberes o teu plano",
     signInText: "O plano fica associado à tua conta RYZE. Voltas logo a esta página depois de iniciares sessão.",
@@ -574,37 +582,56 @@ export const PremiumLevel1JourneyPage = () => {
               {text.planTitle}
             </h1>
             <p className={j.lead}>{text.planLead}</p>
-            <div className={j.result}>
-              <article className={j.planCard}>
-                <div className={j.planCover}>
-                  {cover ? <img src={cover} alt="" /> : <Dumbbell aria-hidden="true" />}
-                  {goal ? <span className={j.planTag}>{text.objectives[goal].title}</span> : null}
-                </div>
-                <div className={j.planBody}>
-                  <h2>{program.name}</h2>
-                  {program.description ? <p>{program.description}</p> : null}
-                  <ul className={j.chips}>
-                    {program.duration_weeks ? <li>{text.weeks(program.duration_weeks)}</li> : null}
-                    {program.frequency_per_week ? <li>{text.perWeek(program.frequency_per_week)}</li> : null}
-                    {program.level ? <li>{program.level}</li> : null}
-                    <li>{text.nutrition}</li>
+            {/* Redesign (owner request, 2026-11-28): the store's split panel —
+                the plan on the light-blue half, what you get, the price and
+                the one action on the navy half. */}
+            <div className={joinClassNames(ui.split, planStyles.result)}>
+              <div className={joinClassNames(ui.splitPane, ui.toneLight, planStyles.product)}>
+                {goal ? <span className={planStyles.goal}>{text.objectives[goal].title}</span> : null}
+                <div className={planStyles.cover}>{cover ? <img src={cover} alt="" /> : <Dumbbell aria-hidden="true" />}</div>
+                <p className={planStyles.kind}>{text.category}</p>
+                <h2 className={planStyles.name}>{program.name}</h2>
+                <ul className={planStyles.facts}>
+                  {program.duration_weeks ? <li>{text.weeks(program.duration_weeks)}</li> : null}
+                  {program.frequency_per_week ? <li>{text.perWeek(program.frequency_per_week)}</li> : null}
+                  {program.level ? <li>{program.level}</li> : null}
+                  <li>{text.nutrition}</li>
+                </ul>
+              </div>
+
+              <div className={joinClassNames(ui.splitPane, planStyles.order)}>
+                {program.description ? <p className={planStyles.description}>{program.description}</p> : null}
+                <div className={planStyles.included}>
+                  <p className={planStyles.includedTitle}>{text.youGet}</p>
+                  <ul>
+                    {text.checkoutIncludes(program.duration_weeks).map((line) => (
+                      <li key={line}>
+                        <CheckCircle2 aria-hidden="true" /> {line}
+                      </li>
+                    ))}
                   </ul>
-                  <button type="button" className={j.back} onClick={() => setStep("goal")}>
-                    <ArrowLeft aria-hidden="true" /> {text.another}
-                  </button>
                 </div>
-              </article>
-              <CheckoutPanel
-                programId={program.id}
-                itemTitle={program.name}
-                itemCategory={text.category}
-                priceMinor={program.price_minor_units}
-                includes={text.checkoutIncludes(program.duration_weeks)}
-                done={{ to: `/services/my-programs/${program.id}`, label: text.open }}
-                successNote={<p>{text.successNote}</p>}
-                loginReturn={`/services/premium-level-1?goal=${goal ?? ""}`}
-                cover={cover || undefined}
-              />
+                <div className={planStyles.price}>
+                  <strong>{formatMarketplacePrice(program.price_minor_units, program.currency || "EUR", "premium", locale)}</strong>
+                  <span>{text.oneTime}</span>
+                </div>
+                <CheckoutPanel
+                  programId={program.id}
+                  itemTitle={program.name}
+                  itemCategory={text.category}
+                  priceMinor={program.price_minor_units}
+                  includes={text.checkoutIncludes(program.duration_weeks)}
+                  done={{ to: `/services/my-programs/${program.id}`, label: text.open }}
+                  successNote={<p>{text.successNote}</p>}
+                  loginReturn={`/services/premium-level-1?goal=${goal ?? ""}`}
+                  cover={cover || undefined}
+                  actionOnly
+                  actionTone="bright"
+                />
+                <button type="button" className={planStyles.another} onClick={() => setStep("goal")}>
+                  <ArrowLeft aria-hidden="true" /> {text.another}
+                </button>
+              </div>
             </div>
           </section>
         ) : null}

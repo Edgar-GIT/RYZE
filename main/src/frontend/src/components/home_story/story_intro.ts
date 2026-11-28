@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
+import { isAppReady } from "@/services/app_ready";
+
 /*
  * The Home hero's composition (owner's reference picture, 2026-11-28): on the
  * page's blue, with no floor, a RYZE round-plate dumbbell lies diagonally in
@@ -34,6 +36,9 @@ export interface HeroIntro {
   seat: THREE.Matrix4; // where the phone stands, in the group's frame
   // time: seconds into the opening (INTRO_END or more: the final composition).
   update: (time: number, elapsed: number) => void;
+  // True while the entrance (objects falling into place, the chart rising)
+  // plays, so the scene keeps its full frame rate.
+  animating: (elapsed: number) => boolean;
 }
 
 // When the opening is over, the drone gone (the scene jumps here when the
@@ -378,18 +383,19 @@ const buildShaker = (track: Track, logo: THREE.Texture, logoAspect: number) => {
     [0.338, 1.27],
     [0, 1.27]
   ].map(([r, y]) => new THREE.Vector2(r, y));
-  // Black and grey since 2026-11-28 (owner request): a satin black body and
-  // a graphite-grey lid, a calm contrast on the blue.
+  // After the owner's second reference (2026-11-28): a deep teal-navy
+  // metallic body with a soft sheen, and a teal lid with a flip cap.
   const navy = track(
     new THREE.MeshPhysicalMaterial({
-      color: 0x141519,
-      roughness: 0.38,
-      metalness: 0.1,
-      clearcoat: 0.7,
-      clearcoatRoughness: 0.2,
-      sheen: 0.45,
-      sheenRoughness: 0.55,
-      sheenColor: new THREE.Color(0x8a9099)
+      color: 0x0c2335,
+      roughness: 0.32,
+      metalness: 0.45,
+      envMapIntensity: 0.55,
+      clearcoat: 1,
+      clearcoatRoughness: 0.16,
+      sheen: 0.4,
+      sheenRoughness: 0.5,
+      sheenColor: new THREE.Color(0x5fc4e0)
     })
   );
   group.add(new THREE.Mesh(track(new THREE.LatheGeometry(body, 72)), navy));
@@ -398,9 +404,9 @@ const buildShaker = (track: Track, logo: THREE.Texture, logoAspect: number) => {
   foot.rotation.x = Math.PI / 2;
   foot.position.y = 0.014;
   group.add(foot);
-  // The grey lid: a band, a softly domed top, the flip spout and the loop.
-  const teal = track(new THREE.MeshPhysicalMaterial({ color: 0x80858d, roughness: 0.3, metalness: 0.45, clearcoat: 0.9, clearcoatRoughness: 0.14 }));
-  const tealDark = track(new THREE.MeshPhysicalMaterial({ color: 0x45484e, roughness: 0.36, metalness: 0.4, clearcoat: 0.7 }));
+  // The teal lid: a band, a softly domed top and a flip cap with its spout.
+  const teal = track(new THREE.MeshPhysicalMaterial({ color: 0x2b93b3, roughness: 0.28, metalness: 0.35, clearcoat: 1, clearcoatRoughness: 0.12 }));
+  const tealDark = track(new THREE.MeshPhysicalMaterial({ color: 0x1f6f8a, roughness: 0.32, metalness: 0.3, clearcoat: 0.8 }));
   const lid = new THREE.Mesh(track(new THREE.CylinderGeometry(0.35, 0.345, 0.24, 72)), teal);
   lid.position.y = 1.39;
   const lip = new THREE.Mesh(track(new THREE.TorusGeometry(0.343, 0.012, 10, 72)), tealDark);
@@ -409,14 +415,16 @@ const buildShaker = (track: Track, logo: THREE.Texture, logoAspect: number) => {
   const top = new THREE.Mesh(track(new THREE.SphereGeometry(0.33, 56, 16, 0, Math.PI * 2, 0, Math.PI / 2)), teal);
   top.scale.y = 0.24;
   top.position.y = 1.51;
-  const spout = new THREE.Mesh(track(new RoundedBoxGeometry(0.2, 0.11, 0.22, 4, 0.045)), tealDark);
-  spout.position.set(0.02, 1.6, 0.1);
-  spout.rotation.y = -0.2;
-  // The carry loop, standing up at the back.
-  const loop = new THREE.Mesh(track(new THREE.TorusGeometry(0.13, 0.034, 14, 48, Math.PI)), teal);
-  loop.position.set(-0.06, 1.56, -0.12);
-  loop.rotation.y = 0.35;
-  group.add(lid, lip, top, spout, loop);
+  // The flip cap: a raised round cap, its spout angled up to the right.
+  const cap = new THREE.Mesh(track(new THREE.CylinderGeometry(0.2, 0.22, 0.12, 56)), teal);
+  cap.position.set(-0.04, 1.6, 0);
+  const capTop = new THREE.Mesh(track(new THREE.SphereGeometry(0.2, 48, 12, 0, Math.PI * 2, 0, Math.PI / 2)), teal);
+  capTop.scale.y = 0.22;
+  capTop.position.set(-0.04, 1.66, 0);
+  const spout = new THREE.Mesh(track(new THREE.CylinderGeometry(0.055, 0.075, 0.13, 32)), tealDark);
+  spout.position.set(0.15, 1.67, 0.02);
+  spout.rotation.z = -0.95;
+  group.add(lid, lip, top, cap, capTop, spout);
   // The mark on a curved label facing the visitor.
   const labelHeight = 0.34;
   const labelArc = Math.min(1.25, (labelHeight * logoAspect) / 0.336);
@@ -436,7 +444,8 @@ const buildShaker = (track: Track, logo: THREE.Texture, logoAspect: number) => {
 const buildPlateDumbbell = (track: Track) => {
   const group = new THREE.Group();
   const plateMaterial = track(
-    new THREE.MeshPhysicalMaterial({ color: 0x141c30, roughness: 0.38, metalness: 0.45, clearcoat: 0.6, clearcoatRoughness: 0.25 })
+    // Black rubber, after the owner's reference (2026-11-28).
+    new THREE.MeshPhysicalMaterial({ color: 0x111215, roughness: 0.5, metalness: 0.15, clearcoat: 0.35, clearcoatRoughness: 0.4 })
   );
   const chrome = track(new THREE.MeshStandardMaterial({ color: 0xe3eaf3, metalness: 1, roughness: 0.16 }));
   const knurl = track(knurlTexture());
@@ -528,19 +537,19 @@ const buildChartPanel = (track: Track, glow: THREE.Texture) => {
   shape.quadraticCurveTo(-w, -h, -w + radius, -h);
   const additive = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false } as const;
 
-  // Black and grey since 2026-11-28 (owner request): a pane of smoked black
-  // glass with a fine silver edge, and a silver-white line.
+  // After the owner's second reference (2026-11-28): a light frosted pane with
+  // a bright edge and a glowing cyan line.
   const pane = new THREE.Mesh(
     track(new THREE.ExtrudeGeometry(shape, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 3, curveSegments: 12 })),
     track(
       new THREE.MeshPhysicalMaterial({
-        color: 0x0c0d10,
+        color: 0xc4e2ff,
         roughness: 0.2,
-        metalness: 0.2,
+        metalness: 0,
         clearcoat: 1,
-        clearcoatRoughness: 0.06,
+        clearcoatRoughness: 0.08,
         transparent: true,
-        opacity: 0.52,
+        opacity: 0.22,
         depthWrite: false,
         side: THREE.DoubleSide
       })
@@ -552,7 +561,7 @@ const buildChartPanel = (track: Track, glow: THREE.Texture) => {
   const edgePoints = shape.getSpacedPoints(160).map((p) => new THREE.Vector3(p.x, p.y, 0.03));
   const edge = new THREE.Mesh(
     track(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edgePoints, true), 320, 0.01, 6, true)),
-    track(new THREE.MeshBasicMaterial({ color: 0xc9ced6, transparent: true, opacity: 0.5, toneMapped: false }))
+    track(new THREE.MeshBasicMaterial({ color: 0xc8f6ff, transparent: true, opacity: 0.7, toneMapped: false }))
   );
   edge.renderOrder = 2;
   group.add(edge);
@@ -565,7 +574,7 @@ const buildChartPanel = (track: Track, glow: THREE.Texture) => {
   }
   const gridGeometry = track(new THREE.BufferGeometry());
   gridGeometry.setAttribute("position", new THREE.Float32BufferAttribute(gridPoints, 3));
-  const grid = new THREE.LineSegments(gridGeometry, track(new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1, depthWrite: false })));
+  const grid = new THREE.LineSegments(gridGeometry, track(new THREE.LineBasicMaterial({ color: 0xbff3ff, transparent: true, opacity: 0.14, depthWrite: false })));
   grid.renderOrder = 2;
   group.add(grid);
 
@@ -581,10 +590,10 @@ const buildChartPanel = (track: Track, glow: THREE.Texture) => {
   const curve = path as unknown as THREE.Curve<THREE.Vector3>;
   const TUBE_SEGMENTS = 240;
   const RADIAL = 10;
-  const lineMaterial = track(new THREE.MeshBasicMaterial({ color: 0xf1f3f6, transparent: true, toneMapped: false }));
+  const lineMaterial = track(new THREE.MeshBasicMaterial({ color: 0x9ff7ff, transparent: true, toneMapped: false }));
   const line = new THREE.Mesh(track(new THREE.TubeGeometry(curve, TUBE_SEGMENTS, 0.03, RADIAL, false)), lineMaterial);
   line.renderOrder = 4;
-  const haloMaterial = track(new THREE.MeshBasicMaterial({ color: 0xb9bfc9, opacity: 0.12, ...additive }));
+  const haloMaterial = track(new THREE.MeshBasicMaterial({ color: 0x00cbff, opacity: 0.3, ...additive }));
   const halo = new THREE.Mesh(track(new THREE.TubeGeometry(curve, TUBE_SEGMENTS, 0.1, RADIAL, false)), haloMaterial);
   halo.renderOrder = 3;
   group.add(halo, line);
@@ -603,7 +612,7 @@ const buildChartPanel = (track: Track, glow: THREE.Texture) => {
   const arrow = new THREE.Mesh(track(new THREE.ConeGeometry(0.1, 0.22, 24)), lineMaterial);
   arrow.renderOrder = 4;
   group.add(arrow);
-  const tipGlowMaterial = track(new THREE.SpriteMaterial({ map: glow, color: 0xffffff, opacity: 0.35, ...additive }));
+  const tipGlowMaterial = track(new THREE.SpriteMaterial({ map: glow, color: 0x7cebff, opacity: 0.8, ...additive }));
   const tipGlow = new THREE.Sprite(tipGlowMaterial);
   tipGlow.scale.setScalar(0.8);
   tipGlow.renderOrder = 5;
@@ -617,7 +626,7 @@ const buildChartPanel = (track: Track, glow: THREE.Texture) => {
   for (let index = 0; index <= steps; index += 1) {
     path.getPointAt(index / steps, sample);
     fillPositions.push(sample.x, sample.y, 0.04, sample.x, bottom - 0.15, 0.04);
-    fillColors.push(0.82, 0.85, 0.9, 0.22, 0.82, 0.85, 0.9, 0);
+    fillColors.push(0.31, 0.89, 1, 0.3, 0.31, 0.89, 1, 0);
   }
   const fillIndex: number[] = [];
   for (let index = 0; index < steps; index += 1) {
@@ -633,35 +642,36 @@ const buildChartPanel = (track: Track, glow: THREE.Texture) => {
   fill.renderOrder = 2;
   group.add(fill);
 
-  // The rise (owner request, 2026-11-28): the line draws itself from the left
-  // with the arrow on its tip, holds at the top, fades, and rises again.
-  const CYCLE = 8;
-  const RISE = 3.6;
-  const HOLD_END = 7.2;
+  // The rise (owner requests, 2026-11-28): the pane fades in, then the line
+  // draws itself once from the left with the arrow on its tip and stays.
+  const paneMaterials = [pane.material, edge.material, grid.material] as THREE.Material[];
+  const paneBase = paneMaterials.map((material) => material.opacity);
   const tip = new THREE.Vector3();
   const tangent = new THREE.Vector3();
   const up = new THREE.Vector3(0, 1, 0);
-  const update = (elapsed: number) => {
-    const t = elapsed % CYCLE;
-    const raw = Math.min(t / RISE, 1);
-    const progress = Math.max(0.002, 1 - Math.pow(1 - raw, 3));
-    const fade = t > HOLD_END ? 1 - (t - HOLD_END) / (CYCLE - HOLD_END) : 1;
+  // appear: 0..1, the pane's fade; rise: 0..1, how far the line has drawn.
+  const update = (appear: number, rise: number) => {
+    paneMaterials.forEach((material, index) => {
+      material.opacity = paneBase[index] * appear;
+    });
+    const progress = Math.max(0.002, 1 - Math.pow(1 - rise, 3));
+    const shown = rise > 0 ? appear : 0;
     line.geometry.setDrawRange(0, Math.floor(progress * TUBE_SEGMENTS) * RADIAL * 6);
     halo.geometry.setDrawRange(0, Math.floor(progress * TUBE_SEGMENTS) * RADIAL * 6);
     fill.geometry.setDrawRange(0, Math.floor(progress * steps) * 6);
-    // While fading, the see-through joints would show as dots: hide them.
-    for (const { joint, at } of joints) joint.visible = fade >= 1 && progress >= at;
+    for (const { joint, at } of joints) joint.visible = shown > 0 && progress >= at;
     path.getPointAt(progress, tip);
     path.getTangentAt(progress, tangent);
     arrow.position.copy(tip).addScaledVector(tangent, 0.09);
     arrow.quaternion.setFromUnitVectors(up, tangent);
+    arrow.visible = shown > 0;
     tipGlow.position.copy(tip);
-    lineMaterial.opacity = fade;
-    haloMaterial.opacity = 0.12 * fade;
-    fillMaterial.opacity = fade;
-    tipGlowMaterial.opacity = 0.35 * fade;
+    lineMaterial.opacity = shown;
+    haloMaterial.opacity = 0.3 * shown;
+    fillMaterial.opacity = shown;
+    tipGlowMaterial.opacity = 0.8 * shown;
   };
-  update(RISE);
+  update(1, 1);
   return { group, update };
 };
 
@@ -783,10 +793,10 @@ const makeGhost = (
 // chart behind them all (the food plate was removed on the owner's request). No floor: the objects
 // rest at the bottom of the hero, with a soft shade under each.
 const LAYOUT = {
-  phone: { x: 1.2, z: 0.95, scale: 1.04, lean: 0.14, yaw: -0.38 },
-  dumbbell: { x: -0.85, z: 0.5, yaw: 0.6, scale: 1.05 },
-  shaker: { x: 0.22, z: 0.88, yaw: 0.14, scale: 1.36 },
-  chart: { x: 0.12, y: 2.2, z: -1.75, tilt: -0.06, yaw: -0.14, scale: 1 }
+  phone: { x: 1.32, z: 0.85, scale: 1.04, lean: 0.12, yaw: -0.2 },
+  dumbbell: { x: -0.95, z: 0.0, yaw: 0.2, scale: 1.32 },
+  shaker: { x: 0.18, z: 0.92, yaw: 0.14, scale: 1.36 },
+  chart: { x: -0.05, y: 2.25, z: -1.7, tilt: -0.04, yaw: -0.1, scale: 1.08 }
 } as const;
 
 // Sets an object on the table: its lowest point at y = base.
@@ -844,7 +854,9 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
   const strut = new THREE.Mesh(track(new RoundedBoxGeometry(phone.size.width * phoneScale * 0.4, strutTop.distanceTo(strutFoot), 0.014, 2, 0.006)), acrylic);
   strut.position.copy(strutTop).add(strutFoot).multiplyScalar(0.5);
   strut.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), strutTop.clone().sub(strutFoot).normalize());
-  group.add(lip, standBase, strut);
+  const stand = new THREE.Group();
+  stand.add(lip, standBase, strut);
+  group.add(stand);
 
   // --- Dumbbell, shaker, chart -------------------------------------------------------------
   const dumbbells = new THREE.Group();
@@ -1126,10 +1138,9 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
     sprite.material.opacity = amount;
   };
 
-  const update = (time: number, elapsed: number) => {
+  const play = (time: number, elapsed: number) => {
     const done = time >= INTRO_END;
-    // Life once the composition is there: the chart's rise and drifting motes.
-    updateChart(elapsed);
+    // Life once the composition is there: drifting motes.
     moteMaterial.uniforms.uTime.value = elapsed;
     moteMaterial.uniforms.uOpacity.value = 0.55 * smooth(span(time, [T.droneIn[1], T.droneIn[1] + 1.5]));
     if (done && settled) return;
@@ -1214,6 +1225,68 @@ export const createIntro = (track: Track, pixelRatio: number, phone: IntroPhone,
     settled = done;
   };
 
-  update(0, 0);
-  return { group, seat, update };
+  play(0, 0);
+
+  // --- The entrance (owner request, 2026-11-28): nothing simply appears. The
+  // pane fades up, then the dumbbell, the shaker and the phone on its stand
+  // fall into place one after the other with a small bounce, each shade
+  // darkening as it lands; then the chart's line rises once and stays.
+  const ENTRANCE = {
+    chart: [0.1, 0.9],
+    dumbbell: [0.35, 1.2],
+    shaker: [0.6, 1.45],
+    phone: [0.85, 1.7],
+    rise: [1.8, 4]
+  } as const;
+  const ENTRANCE_END = ENTRANCE.rise[1];
+  const FALL = 5;
+  // Height above the resting place, 1 at the start: an accelerating fall, then
+  // one small bounce.
+  const fall = (p: number) => {
+    if (p <= 0) return 1;
+    if (p < 0.72) return 1 - (p / 0.72) ** 2;
+    if (p < 1) {
+      const b = (p - 0.72) / 0.28;
+      return 0.32 * b * (1 - b);
+    }
+    return 0;
+  };
+  const landed = (range: readonly [number, number], t: number) => smooth(span(t, [range[0] + (range[1] - range[0]) * 0.55, range[1]]));
+  const restY = { dumbbells: dumbbells.position.y, shaker: shaker.position.y, chart: chart.position.y };
+  const seatRest = seat.clone();
+  let start: number | null = null;
+
+  const entrance = (elapsed: number) => {
+    // It starts once the loading screen has gone (and has faded), so it plays
+    // in view; until then everything waits above, out of sight.
+    if (start === null && isAppReady()) start = elapsed + 0.35;
+    const t = start === null ? 0 : Math.max(0, elapsed - start);
+    dumbbells.position.y = restY.dumbbells + FALL * fall(span(t, ENTRANCE.dumbbell));
+    shaker.position.y = restY.shaker + FALL * fall(span(t, ENTRANCE.shaker));
+    const phoneDrop = FALL * fall(span(t, ENTRANCE.phone));
+    stand.position.y = phoneDrop;
+    // Each object shows only from the moment it starts to fall.
+    dumbbells.visible = t > ENTRANCE.dumbbell[0];
+    shaker.visible = t > ENTRANCE.shaker[0];
+    stand.visible = t > ENTRANCE.phone[0];
+    phone.pivot.visible = t > ENTRANCE.phone[0];
+    seat.copy(seatRest);
+    seat.elements[13] += phoneDrop;
+    shades.dumbbells.forEach((shade) => {
+      shade.opacity = 0.9 * landed(ENTRANCE.dumbbell, t);
+    });
+    shades.shaker.opacity = 0.9 * landed(ENTRANCE.shaker, t);
+    shades.phone.opacity = 0.9 * landed(ENTRANCE.phone, t);
+    const appear = smooth(span(t, ENTRANCE.chart));
+    chart.position.y = restY.chart - 0.35 * (1 - appear);
+    updateChart(appear, span(t, ENTRANCE.rise));
+  };
+
+  const update = (time: number, elapsed: number) => {
+    play(time, elapsed);
+    entrance(elapsed);
+  };
+  const animating = (elapsed: number) => start === null || elapsed - start < ENTRANCE_END;
+
+  return { group, seat, update, animating };
 };

@@ -1053,11 +1053,9 @@ The interactive execution surface for one prescribed workout.
   achievements". From `GET /me/achievements/sessions/:id`; nothing is shown if
   it cannot load. The existing personal-records block of the summary is
   unchanged.
-- **Rest timer** — when a completed set returns `rest_ends_at`, the UI computes
-  the remaining duration from that absolute server timestamp. It never
-  decrements a local countdown, so backgrounding the tab cannot drift. Since
-  v2.115.0 the rest bar shows a countdown ring with the big remaining time and
-  −15 s, +15 s and Skip; these only change the screen, never the session.
+- **Rest timer** — removed from the player in v2.134.1 (owner request,
+  2026-11-28): no countdown bar appears after a set. The planned rest stays
+  as a label on each exercise; the server still records `rest_ends_at`.
 - **Exercise blocks (v2.115.0, Lyfta-style)** — the title is the training
   day's name (from the programme access response, falling back to the week
   day); a stats strip shows duration, volume (kg) and completed sets. Each
@@ -2820,10 +2818,10 @@ visually only.
   The drawing has more detail lines and a soft volume light; colours keep
   their text legend.
 - Level up (`components/lifter/rank_up_celebration.tsx`): a full-screen
-  dialog — darkness, the new badge blurred under two crossed bands of light
-  and a hexagonal seal with a line lock (v2.130.1; realistic chains and a
-  padlock were rejected as emoji-like), shaking that grows, the seal cracks,
-  the bands snap one after the other, the seal bursts (flash, shock wave,
+  dialog — darkness, the new badge blurred under a hexagonal seal with a line
+  lock (the crossed bands of light were removed in v2.134.1, owner request,
+  2026-11-28; realistic chains and a padlock had been rejected before),
+  shaking that grows, the seal cracks, the seal bursts (flash, shock wave,
   slivers, sparks), then the badge, rays and name are revealed in the level's
   own colour with "Continuar". It plays once after the workout that reaches a
   new level. "Saltar" jumps to the reveal; Escape closes; reduced motion shows

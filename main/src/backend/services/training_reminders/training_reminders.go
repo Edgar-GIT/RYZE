@@ -52,10 +52,12 @@ func (s *Service) Sweep(ctx context.Context) (int, error) {
 	sent := 0
 	for _, member := range due {
 		if s.notifier != nil {
+			// The link opens the member's home, not straight into a workout
+			// (owner request, 2026-11-28).
 			s.notifier.Notify(ctx, notifications.Event{
 				UserID:        member.UserID,
 				Kind:          models.NotificationTrainingReminder,
-				Link:          "/services/next-workout",
+				Link:          "/profile",
 				DedupeKey:     fmt.Sprintf("training_reminder:%s:%s", member.UserID, now.In(s.zone).Format("2006-01-02")),
 				EmailTemplate: email.TemplateTrainingReminder,
 			})

@@ -257,13 +257,7 @@ const AdminLoginPage = () => {
 
         <p className={loginStyles.legal}>
           © 2026 RYZE ·{" "}
-          <a href="#" onClick={(event) => event.preventDefault()}>
-            Privacy Policy
-          </a>{" "}
-          ·{" "}
-          <a href="#" onClick={(event) => event.preventDefault()}>
-            Terms of Service
-          </a>
+          <Link to="/legal/privacidade">Privacy Policy</Link> · <Link to="/legal/termos">Terms of Service</Link>
         </p>
       </section>
     </PageWrapper>

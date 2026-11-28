@@ -1,0 +1,192 @@
+/*
+ * Premium Level 1: the plan RYZE found (redesign, owner request 2026-11-28),
+ * in the store's split panel — the plan on the light-blue half, what you get,
+ * the price and the one action on the navy half. Phone first.
+ */
+.result {
+  margin-top: 0.5rem;
+}
+
+.product {
+  justify-items: center;
+  align-content: center;
+  gap: 0.9rem;
+  text-align: center;
+}
+
+.goal {
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #02041f;
+  font-size: 0.85rem;
+  font-weight: 750;
+}
+
+/* The picture itself, a little larger and without a frame (owner request,
+   2026-11-28). */
+.cover {
+  display: grid;
+  overflow: hidden;
+  width: min(80%, 19rem);
+  aspect-ratio: 4 / 5;
+  place-items: center;
+  border-radius: 1.25rem;
+  background: linear-gradient(160deg, #1958ec, #0b2c96);
+  box-shadow: 0 30px 56px -28px rgba(2, 4, 31, 0.7);
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover > svg {
+  width: 3.5rem;
+  height: 3.5rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.kind {
+  margin: 0.3rem 0 0;
+  color: #12305f;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.name {
+  margin: 0;
+  color: #02041f;
+  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  font-stretch: 115%;
+  font-weight: 820;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.facts li {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.2rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(2, 4, 31, 0.16);
+  border-radius: 999px;
+  color: #02041f;
+  background: rgba(255, 255, 255, 0.5);
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.order {
+  align-content: center;
+  gap: 1.2rem;
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(6, 20, 71, 0.72) 0%, rgba(2, 4, 31, 0.58) 100%);
+}
+
+.description {
+  max-width: 52ch;
+  margin: 0;
+  color: #e2ebff;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.included {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.includedTitle {
+  margin: 0;
+  font-weight: 800;
+}
+
+.included ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.included li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #e2ebff;
+  font-size: 0.95rem;
+}
+
+.included svg {
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  color: #7cebff;
+}
+
+.price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.9rem;
+}
+
+.price strong {
+  font-size: clamp(2rem, 5vw, 2.6rem);
+  font-stretch: 112%;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.price span {
+  color: #bccdf0;
+  font-size: 0.92rem;
+}
+
+.another {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  color: #7cebff;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.another svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.another:focus-visible {
+  outline: 2.5px solid #7cebff;
+  outline-offset: 3px;
+  border-radius: 0.4rem;
+}
+
+@media (min-width: 900px) {
+  .result {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+}

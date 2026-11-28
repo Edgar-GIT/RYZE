@@ -552,101 +552,6 @@
   cursor: pointer;
 }
 
-/* Rest bar */
-.restBar {
-  position: fixed;
-  z-index: 30;
-  right: 0.75rem;
-  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
-  left: 0.75rem;
-  max-width: 40rem;
-  margin: 0 auto;
-  overflow: hidden;
-  border: 1px solid var(--app-line-strong, rgba(0, 203, 255, 0.45));
-  border-radius: var(--app-radius, 16px);
-  background: rgba(10, 22, 69, 0.97);
-  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.8);
-}
-
-.restTrack {
-  height: 0.25rem;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.restTrack span {
-  display: block;
-  height: 100%;
-  background: var(--app-accent, #00cbff);
-  transform-origin: left center;
-  transition: transform 250ms linear;
-}
-
-.restContent {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.75rem;
-}
-
-.restIcon {
-  flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
-  color: var(--app-accent, #00cbff);
-}
-
-.restTime {
-  display: grid;
-  flex: 1;
-  margin: 0;
-  line-height: 1.1;
-}
-
-.restTime span {
-  color: var(--app-text-3, #93a4c8);
-  font-size: 0.72rem;
-}
-
-.restTime strong {
-  font-size: 1.35rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.restActions {
-  display: flex;
-  gap: 0.3rem;
-}
-
-.restActions button,
-.restClose {
-  min-width: 2.75rem;
-  min-height: 2.5rem;
-  padding: 0 0.55rem;
-  border: 1px solid var(--app-line, rgba(124, 200, 255, 0.14));
-  border-radius: 999px;
-  color: var(--app-text, #fff);
-  background: rgba(255, 255, 255, 0.05);
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.restSkip {
-  color: #02041f !important;
-  background: var(--app-accent, #00cbff) !important;
-}
-
-.restClose {
-  display: grid;
-  place-items: center;
-}
-
-.restClose svg {
-  width: 1rem;
-  height: 1rem;
-}
-
 /* Exercise info sheet */
 .sheetBackdrop {
   position: fixed;
@@ -749,8 +654,6 @@
 .setNumber:focus-visible,
 .previousCell:focus-visible,
 .checkButton:focus-visible,
-.restActions button:focus-visible,
-.restClose:focus-visible,
 .sheetLink:focus-visible,
 .secondaryButton:focus-visible,
 .exerciseTitle h2 button:focus-visible,
@@ -792,7 +695,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .progressTrack span,
-  .restTrack span,
   .setRow,
   .checkButton {
     transition: none;
@@ -991,7 +893,6 @@
   }
 }
 
-
 /* --- Lyfta-style touches (v2.115.0) --------------------------------------- */
 
 .stats {
@@ -1113,71 +1014,6 @@
 
 .setDone .checkButtonDone {
   box-shadow: 0 0 14px rgba(94, 230, 168, 0.55);
-}
-
-/* The rest timer: a floating card with a countdown ring. */
-.restBar {
-  border-color: rgba(0, 203, 255, 0.55);
-  background: linear-gradient(180deg, rgba(17, 40, 116, 0.98), rgba(6, 15, 58, 0.98));
-  box-shadow: 0 0 40px -10px rgba(0, 203, 255, 0.55), 0 24px 50px -14px rgba(0, 0, 0, 0.85);
-}
-
-.restContent {
-  gap: 0.85rem;
-  padding: 0.75rem 0.9rem;
-}
-
-.restRing {
-  position: relative;
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 3.6rem;
-  height: 3.6rem;
-}
-
-.restRing svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-
-.restRingTrack {
-  fill: none;
-  stroke: rgba(124, 200, 255, 0.18);
-  stroke-width: 5;
-}
-
-.restRingFill {
-  fill: none;
-  stroke: var(--app-accent, #00cbff);
-  stroke-width: 5;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 250ms linear;
-}
-
-.restTime strong {
-  font-size: 1.9rem;
-}
-
-.restOver {
-  font-size: 1rem !important;
-  color: var(--app-success, #5ee6a8);
-}
-
-@media (min-width: 640px) {
-  .restBar {
-    bottom: 1.25rem;
-    max-width: 30rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .restRingFill {
-    transition: none;
-  }
 }
 
 /* v2.130.2 (owner request, 2026-11-21): the current exercise plays its

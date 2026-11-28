@@ -8,6 +8,7 @@ import { LoadingScreen } from "@/components/loading_screen/loading_screen";
 import { PwaUpdatePrompt } from "@/components/pwa_update_prompt/pwa_update_prompt";
 import { CookieConsent } from "@/components/cookie_consent/cookie_consent";
 import { useInitialLoading } from "@/hooks/use_initial_loading";
+import { markAppReady } from "@/services/app_ready";
 import { AppRoutes } from "@/routes/app_routes";
 import { NavigationTracker, ScrollToTop } from "@/routes/scroll_to_top";
 
@@ -53,6 +54,10 @@ export const App = () => {
   useEffect(() => {
     document.body.classList.toggle("ryze-app", isPrivateApp);
   }, [isPrivateApp]);
+
+  useEffect(() => {
+    if (!isInitialLoading) markAppReady();
+  }, [isInitialLoading]);
 
   return (
     <>

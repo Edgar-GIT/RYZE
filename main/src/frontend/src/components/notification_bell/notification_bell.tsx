@@ -158,8 +158,11 @@ export const NotificationBell = () => {
       apiPost(`/me/notifications/${encodePathSegment(item.id)}/read`, {}).catch(() => undefined);
     }
     setOpen(false);
-    if (item.link && item.link.startsWith("/") && !item.link.startsWith("//")) {
-      history.push(item.link);
+    // A training reminder opens the member's home, never the workout itself
+    // (owner request, 2026-11-28); older reminders still carry the workout link.
+    const link = item.kind === "training_reminder" ? "/profile" : item.link;
+    if (link && link.startsWith("/") && !link.startsWith("//")) {
+      history.push(link);
     }
   };
 

@@ -39,7 +39,7 @@ const COPY: Copy<{ kicker: string; levelOf: (rank: number) => string; next: stri
   }
 };
 
-// Deterministic spreads for the sparks and the padlock shards.
+// Deterministic spreads for the sparks and the seal's shards.
 const SPARKS = Array.from({ length: 28 }, (_, index) => ({
   angle: (index * 360) / 28 + (index % 3) * 7,
   distance: 150 + ((index * 37) % 5) * 38,
@@ -51,37 +51,6 @@ const SHARDS = Array.from({ length: 12 }, (_, index) => ({
   distance: 170 + (index % 3) * 60,
   spin: (index % 2 ? 1 : -1) * (220 + index * 25)
 }));
-
-const BAND = 520;
-const NOTCH = 26;
-
-// A restraint of light: a segmented energy band with bracket caps. It looks
-// whole until it snaps at `breakAt` (a share of its length): the two parts
-// retract and fade, and a spark marks the break.
-const Band = ({ className, breakAt }: { className: string; breakAt: number }) => {
-  const cut = Math.round(BAND * breakAt);
-  const part = (from: number, to: number) => (
-    <>
-      <rect x={from} y="13" width={to - from} height="10" rx="5" fill="url(#rank-band)" />
-      {Array.from({ length: Math.floor((to - from) / NOTCH) }, (_, index) => (
-        <rect key={index} x={from + 12 + index * NOTCH} y="13" width="3" height="10" fill="#02041f" opacity="0.55" />
-      ))}
-    </>
-  );
-  return (
-    <svg className={className} viewBox={`0 0 ${BAND} 36`} aria-hidden="true">
-      <g className={styles.chainLeft}>
-        <rect x="1" y="6" width="14" height="24" rx="4" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.85" />
-        {part(8, cut - 3)}
-      </g>
-      <g className={styles.chainRight}>
-        <rect x={BAND - 15} y="6" width="14" height="24" rx="4" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.85" />
-        {part(cut + 3, BAND - 8)}
-      </g>
-      <circle className={styles.snap} cx={cut} cy="18" r="16" />
-    </svg>
-  );
-};
 
 const hexagon = (radius: number) =>
   Array.from({ length: 6 }, (_, index) => {
@@ -112,12 +81,12 @@ const Seal = () => (
 
 /**
  * RankUpCelebration plays the level-up moment (owner request, 2026-11-21):
- * the screen darkens, the new badge appears blurred and locked under two
- * crossed bands of light and a hexagonal seal, everything shakes harder and
- * harder, the bands snap one after the other, the seal cracks and bursts and
- * the new level is revealed, glowing (v2.130.1: light restraints instead of
- * realistic chains and a padlock, owner feedback). Reduced motion shows the reveal directly. "Skip" jumps
- * to the reveal; Escape or "Continue" closes it.
+ * the screen darkens, the new badge appears blurred and locked under a
+ * hexagonal seal, everything shakes harder and harder, the seal cracks and
+ * bursts and the new level is revealed, glowing (2026-11-28: the crossed
+ * bands of light, the former "chains", were removed on the owner's request).
+ * Reduced motion shows the reveal directly. "Skip" jumps to the reveal;
+ * Escape or "Continue" closes it.
  */
 export const RankUpCelebration = ({ level, onClose }: { level: Pick<LifterLevel, "rank" | "key">; onClose: () => void }) => {
   const { locale } = useI18n();
@@ -151,18 +120,6 @@ export const RankUpCelebration = ({ level, onClose }: { level: Pick<LifterLevel,
       tabIndex={-1}
       style={{ "--rank": primary, "--rank-2": secondary } as CSSProperties}
     >
-      <svg width="0" height="0" aria-hidden="true" className={styles.defs}>
-        <defs>
-          <linearGradient id="rank-band" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" style={{ stopColor: "var(--rank-2)" }} />
-            <stop offset="0.38" style={{ stopColor: "var(--rank)" }} />
-            <stop offset="0.5" stopColor="#ffffff" />
-            <stop offset="0.62" style={{ stopColor: "var(--rank)" }} />
-            <stop offset="1" style={{ stopColor: "var(--rank-2)" }} />
-          </linearGradient>
-        </defs>
-      </svg>
-
       {skipped ? null : (
         <button type="button" className={styles.skip} onClick={() => setSkipped(true)}>
           {text.skip}
@@ -177,8 +134,6 @@ export const RankUpCelebration = ({ level, onClose }: { level: Pick<LifterLevel,
           <div className={styles.float}>
             <img className={styles.badge} src={BADGE_ART[level.key]} alt="" draggable={false} />
           </div>
-          <Band className={joinClassNames(styles.chain, styles.chainA)} breakAt={0.3} />
-          <Band className={joinClassNames(styles.chain, styles.chainB)} breakAt={0.7} />
           <Seal />
         </div>
         <div className={styles.shards}>

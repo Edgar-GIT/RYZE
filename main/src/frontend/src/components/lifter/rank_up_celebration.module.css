@@ -1,9 +1,9 @@
 /* Level-up celebration (v2.130.0). One CSS timeline, in milliseconds:
      0     the screen darkens
      500   the new badge appears, blurred and dark
-     1100  two bands of light cross over it; 1700 the seal drops in
+     1700  the seal drops in
      2300  everything shakes, harder and harder, while the light builds
-     3100  the seal cracks; 3900 the first band snaps; 4300 the second
+     3100  the seal cracks
      4750  the seal bursts: flash, shock wave, shards and sparks
      4800  the badge is revealed, then floats and glows
      5100  the name and the level appear; 5900 "Continue" */
@@ -33,10 +33,6 @@
     rgba(2, 4, 31, 0.96);
   content: "";
   animation: fadeIn 700ms ease-out both;
-}
-
-.defs {
-  position: absolute;
 }
 
 .skip {
@@ -137,54 +133,6 @@
   animation:
     badgeIn 1300ms 500ms ease-out both,
     badgeReveal 1000ms 4800ms cubic-bezier(0.2, 1.6, 0.4, 1) forwards;
-}
-
-/* Bands of light, crossed over the badge. */
-.chain {
-  --rot: 32deg;
-  --from: -130%;
-  width: 135%;
-  height: auto;
-  overflow: visible;
-  filter: drop-shadow(0 0 6px var(--rank)) drop-shadow(0 0 18px var(--rank-2));
-  animation: chainIn 550ms 1100ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
-}
-
-.chainB {
-  --rot: -32deg;
-  --from: 130%;
-  animation-delay: 1350ms;
-}
-
-.chainLeft,
-.chainRight {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: breakLeft 850ms 3900ms cubic-bezier(0.3, 0.6, 0.4, 1) forwards;
-}
-
-.chainRight {
-  animation-name: breakRight;
-}
-
-.chainB .chainLeft,
-.chainB .chainRight {
-  animation-delay: 4300ms;
-}
-
-.snap {
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 3;
-  filter: drop-shadow(0 0 6px var(--rank)) drop-shadow(0 0 14px var(--rank-2));
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: snap 480ms 3900ms ease-out forwards;
-}
-
-.chainB .snap {
-  animation-delay: 4300ms;
 }
 
 /* The seal. */
@@ -500,46 +448,6 @@
     opacity: 1;
     transform: scale(1);
     filter: blur(0) brightness(1.08) saturate(1.15) drop-shadow(0 0 26px var(--rank));
-  }
-}
-
-@keyframes chainIn {
-  from {
-    opacity: 0;
-    transform: rotate(var(--rot)) translateX(var(--from));
-  }
-  to {
-    opacity: 1;
-    transform: rotate(var(--rot)) translateX(0);
-  }
-}
-
-@keyframes breakLeft {
-  to {
-    opacity: 0;
-    transform: translate(-190px, 70px) rotate(-38deg);
-  }
-}
-
-@keyframes breakRight {
-  to {
-    opacity: 0;
-    transform: translate(190px, 70px) rotate(38deg);
-  }
-}
-
-@keyframes snap {
-  0% {
-    opacity: 0;
-    transform: scale(0.2);
-  }
-  25% {
-    opacity: 1;
-    transform: scale(1.4);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(2.6);
   }
 }
 
